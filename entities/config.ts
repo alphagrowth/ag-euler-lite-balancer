@@ -1,0 +1,52 @@
+import { Network } from '@tonappchain/sdk'
+
+export const TVM_MANIFEST_URL = 'https://euler-app.fanz.ee/tonconnect-manifest.json'
+
+export default {
+  testnet: {
+    NETWORK: Network.TESTNET,
+    GOLDSKY_API_URL: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-tacturin/latest/gn',
+    TVM_TONCENTER_URL: 'https://rp-testnet.turin.tac.build',
+    TAC_FACTORY_ADDRESS: '0x95e23BBa93b6c9Ef89A1bFB2659B020e9382C060',
+    EVM_PROVIDER_URL: 'https://rpc.ankr.com/tac_turin',
+    ETH_VAULT_CONNECTOR: '0x272911fC4a3Cae478F29d13df85127f9a556B36D',
+    EULER_PROXY: '0xDD9722bd6874167Ee2b5b4062cf65d0C5Cdb2280',
+    EULER_LABELS_VAULTS_URL: 'https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/2390/vaults.json',
+    EULER_LABELS_ENTITIES_URL: 'https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/2390/entities.json',
+    EULER_LABELS_PRODUCTS_URL: 'https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/2390/products.json',
+    EULER_LABELS_LOGO_URL: 'https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/logo',
+    MERKL_PROXY: '0x0e3e052022B502ef48709c0AF9C38C48a7cd62D2',
+    MERKL_API_BASE_URL: 'https://api.merkl.xyz/v4',
+    MERKL_EULER_CHAIN_ID: 239,
+    MERKL_TAC_SA_FACTORY: '0xa0bC98B4C531bD4Be025Ee4809B74696f836e0Ad',
+    REUL_TOKEN_CONTRACT_ADDRESS: '0xCf623E50430CCb55214985F9C986a5Fa50aD7686',
+    EUL_TOKEN_CONTRACT_ADDRESS: '0x38C043856A109066d64a60c82e07848a1C58e7Dc',
+    SIGN_CONTRACT_ADDRESS: '0x03C4A1b8b860Dd98fB3fc03c8D693EAbABC667c5',
+    // BLOCKSCOUT_API_URL: 'https://turin.explorer.tac.build',
+    // EVM_CROSS_CHAIN_LAYER_ADDRESS: '0x20B33b63fADd3cf09943b493ef79FC8C0845d577',
+  },
+  mainnet: {
+    NETWORK: Network.MAINNET,
+    GOLDSKY_API_URL: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-tac/latest/gn',
+    TVM_TONCENTER_URL: 'https://rp.mainnet.tac.build',
+    EULER_PROXY: '0x7Ac31050012fA8874cdD9215da7199777492B29e',
+    EVM_PROVIDER_URL: 'https://rpc.ankr.com/tac',
+    TAC_FACTORY_ADDRESS: '0x070820Ed658860f77138d71f74EfbE173775895b',
+    ETH_VAULT_CONNECTOR: '0x01F594c66A5561b90Bc782dD0297f294cD668b64',
+    EULER_LABELS_VAULTS_URL: 'https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/master/239/vaults.json',
+    EULER_LABELS_ENTITIES_URL: 'https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/master/239/entities.json',
+    EULER_LABELS_PRODUCTS_URL: 'https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/master/239/products.json',
+    EULER_LABELS_LOGO_URL: 'https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/master/logo',
+    MERKL_PROXY: '0x74e6b5e701bA5de3245653d72A075c7709EeFDC4',
+    MERKL_TAC_SA_FACTORY: '0x070820Ed658860f77138d71f74EfbE173775895b',
+    REUL_TOKEN_CONTRACT_ADDRESS: '0xCf623E50430CCb55214985F9C986a5Fa50aD7686',
+    EUL_TOKEN_CONTRACT_ADDRESS: '0x38C043856A109066d64a60c82e07848a1C58e7Dc',
+
+    // Copied from testnet - may change
+    MERKL_API_BASE_URL: 'https://api.merkl.xyz/v4',
+    MERKL_EULER_CHAIN_ID: 239,
+    SIGN_CONTRACT_ADDRESS: '0x03C4A1b8b860Dd98fB3fc03c8D693EAbABC667c5',
+    // BLOCKSCOUT_API_URL: 'https://turin.explorer.tac.build',
+    // EVM_CROSS_CHAIN_LAYER_ADDRESS: '0x20B33b63fADd3cf09943b493ef79FC8C0845d577',
+  },
+}

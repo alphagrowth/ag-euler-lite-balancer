@@ -1,0 +1,411 @@
+<script setup lang="ts">
+import { NuxtLink } from '#components'
+
+const emits = defineEmits<{
+  (e: 'click', event: Event): void
+}>()
+const props = withDefaults(defineProps<{
+  size?: 'small' | 'medium' | 'large' | 'xlarge'
+  variant?: 'primary' | 'primary-stroke' | 'secondary' | 'secondary-ghost' | 'red' | 'red-destructive'
+  type?: HTMLButtonElement['type']
+  icon?: string
+  to?: string
+  href?: string
+  target?: string
+  disabled?: boolean
+  loading?: boolean
+  iconRight?: boolean
+  iconOnly?: boolean
+  rounded?: boolean
+}>(), {
+  size: 'medium',
+  variant: 'primary',
+  type: 'button',
+})
+
+const bindedAttrs = computed(() => {
+  if (props.href) {
+    return {
+      href: props.href,
+    }
+  }
+
+  if (props.to) {
+    return {
+      to: props.to,
+    }
+  }
+
+  return {}
+})
+const tag = computed(() => {
+  return props.href ? 'a' : props.to ? NuxtLink : 'button'
+})
+const classes = computed(() => {
+  return {
+    [`ui-button--${props.size}`]: props.size,
+    [`ui-button--${props.variant}`]: props.variant,
+    'is-disabled': props.disabled,
+    'is-loading': props.loading,
+    'is-icon-only': props.iconOnly,
+    'is-rounded': props.rounded,
+  }
+})
+
+const onClick = (e: Event) => {
+  if (props.loading || props.disabled) {
+    return
+  }
+
+  emits('click', e)
+}
+</script>
+
+<template>
+  <component
+    :is="tag"
+    :disabled="disabled"
+    :class="classes"
+    class="ui-button"
+    :target="target"
+    :type="type"
+    v-bind="bindedAttrs"
+    @click="onClick"
+  >
+    <div
+      v-show="!loading"
+      class="ui-button__wrap"
+    >
+      <div
+        v-if="((icon && !iconRight) || $slots.icon)"
+        class="ui-button__icon"
+        aria-hidden="true"
+      >
+        <slot name="icon">
+          <SvgIcon
+            class="ui-button__icon-svg"
+            :name="icon!"
+          />
+        </slot>
+      </div>
+
+      <div
+        v-if="!iconOnly && $slots.default"
+        class="ui-button__text"
+      >
+        <slot />
+      </div>
+
+      <div
+        v-if="((icon && iconRight) || $slots.iconRight)"
+        class="ui-button__icon"
+        aria-hidden="true"
+      >
+        <slot name="iconRight">
+          <SvgIcon
+            class="ui-button__icon-svg"
+            :name="icon!"
+          />
+        </slot>
+      </div>
+    </div>
+
+    <div
+      v-if="loading"
+      class="ui-button__wrap"
+    >
+      <div class="ui-button__loading">
+        <SvgIcon
+          class="ui-button__icon-svg"
+          name="loading"
+        />
+      </div>
+    </div>
+  </component>
+</template>
+
+<style lang="scss">
+.ui-button {
+  $block: &;
+
+  position: relative;
+  display: inline-flex;
+  overflow: hidden;
+  padding: 10px 14px;
+  font-weight: 600;
+  text-align: center;
+  border-radius: 32px;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  text-decoration: none;
+
+  &.is-disabled, &.is-loading {
+    pointer-events: none;
+  }
+
+  &.is-rounded {
+    width: 100%;
+  }
+
+  &__wrap {
+    display: flex;
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    gap: 8px;
+  }
+
+  &__text {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  &__icon {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+  }
+
+  &__icon-svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &__loading {
+    width: 100%;
+    height: 20px;
+    animation: rotate 0.6s infinite linear;
+  }
+
+  &--small {
+    font-size: 12px;
+    line-height: 16px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 8px 12px;
+
+    &.is-icon-only {
+      padding: 8px;
+    }
+  }
+
+  &--medium {
+    font-size: 14px;
+    line-height: 20px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 8px 14px;
+
+    &.is-icon-only {
+      padding: 10px;
+    }
+  }
+
+  &--large {
+    font-size: 16px;
+    line-height: 20px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 12px 20px;
+
+    #{$block}__icon {
+      width: 20px;
+      height: 20px;
+    }
+
+    &.is-icon-only {
+      padding: 16px;
+    }
+  }
+
+  &--xlarge {
+    font-size: 16px;
+    line-height: 20px;
+    min-width: 52px;
+    min-height: 52px;
+    padding: 16px 20px;
+
+    #{$block}__icon {
+      width: 24px;
+      height: 24px;
+    }
+
+    &.is-icon-only {
+      padding: 20px;
+    }
+  }
+
+  &--primary {
+    background-color: var(--ui-button-primary-background-color);
+    color: var(--ui-button-primary-color);
+
+    &:hover, &:active {
+      background-color: var(--ui-button-primary-active-background-color);
+    }
+
+    &:active {
+      outline: 2px solid var(--ui-button-primary-active-outline-color);
+    }
+
+    &:focus-visible {
+      background-color: var(--ui-button-primary-focus-background-color);
+      outline: 2px solid var(--ui-button-primary-focus-outline-color);
+      outline-offset: 2px;
+
+      &:active {
+        background-color: var(--ui-button-primary-focus-active-background-color);
+      }
+    }
+
+    &.is-disabled {
+      background-color: var(--ui-button-primary-disabled-background-color);
+      color: var(--ui-button-primary-disabled-color);
+    }
+  }
+
+  &--primary-stroke {
+    background-color: transparent;
+    color: var(--ui-button-primary-stroke-color);
+    box-shadow: inset 0 0 0 1px var(--ui-button-primary-stroke-border-color);
+
+    &:hover, &:active {
+      background-color: var(--ui-button-primary-stroke-hover-background-color);
+      box-shadow: inset 0 0 0 1px var(--ui-button-primary-stroke-border-color);
+    }
+
+    &:active {
+      box-shadow: inset 0 0 0 2px var(--ui-button-primary-stroke-border-color);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-button-primary-stroke-focus-outline-color);
+      outline-offset: 2px;
+    }
+
+    &.is-disabled {
+      box-shadow: inset 0 0 0 1px var(--ui-button-primary-stroke-disabled-border-color);
+      color: var(--ui-button-primary-stroke-disabled-color);
+    }
+  }
+
+  &--secondary {
+    background-color: var(--ui-button-secondary-background-color);
+    color: var(--ui-button-secondary-color);
+    box-shadow: inset 0 0 0 1px var(--ui-button-secondary-border-color);
+
+    &:hover, &:active {
+      background-color: var(--ui-button-secondary-hover-background-color);
+      box-shadow: inset 0 0 0 1px var(--ui-button-secondary-hover-border-color);
+    }
+
+    &:active {
+      box-shadow: inset 0 0 0 1px var(--ui-button-secondary-hover-border-color);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-button-secondary-focus-outline-color);
+      outline-offset: 2px;
+    }
+
+    &.is-disabled {
+      background-color: var(--ui-button-secondary-disabled-background-color);
+      color: var(--ui-button-secondary-disabled-color);
+      box-shadow: none;
+    }
+  }
+
+  &--secondary-ghost {
+    background-color: transparent;
+    color: var(--ui-button-secondary-ghost-color);
+
+    &:hover, &:active {
+      background-color: var(--ui-button-secondary-ghost-hover-background-color);
+    }
+
+    &:active {
+      outline: 1px solid var(--ui-button-secondary-ghost-active-outline-color);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-button-secondary-ghost-focus-outline-color);
+      outline-offset: 2px;
+    }
+
+    &.is-disabled {
+      color: var(--ui-button-secondary-ghost-disabled-color);
+    }
+  }
+
+  &--red {
+    background-color: var(--ui-button-red-background-color);
+    color: var(--ui-button-red-color);
+    box-shadow: inset 0 0 0 1px var(--ui-button-red-border-color);
+
+    &:hover, &:active {
+      background-color: var(--ui-button-red-hover-background-color);
+    }
+
+    &:active {
+      box-shadow: inset 0 0 0 1px var(--ui-button-red-border-color);
+    }
+
+    &:focus-visible {
+      background-color: var(--ui-button-red-hover-background-color);
+      outline: 2px solid var(--ui-button-red-focus-outline-color);
+      outline-offset: 1px;
+
+      &:active {
+        background-color: var(--ui-button-red-focus-active-background-color);
+      }
+    }
+
+    &.is-disabled {
+      box-shadow: none;
+      background-color: var(--ui-button-red-disabled-background-color);
+      color: var(--ui-button-red-disabled-color);
+    }
+  }
+
+  &--red-destructive {
+    background-color: transparent;
+    color: var(--ui-button-red-destructive-color);
+
+    &:hover, &:active {
+      box-shadow: inset 0 0 0 1px var(--ui-button-red-destructive-hover-border-color);
+      background-color: var(--ui-button-red-destructive-hover-background-color);
+    }
+
+    &:active {
+      box-shadow: inset 0 0 0 2px var(--ui-button-red-destructive-hover-border-color);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-button-red-destructive-focus-outline-color);
+      outline-offset: 2px;
+    }
+
+    &.is-disabled {
+      color: var(--ui-button-red-destructive-disabled-color);
+    }
+  }
+
+  @keyframes rotate {
+    0% {
+      transform: rotate(0);
+    }
+
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+}
+</style>

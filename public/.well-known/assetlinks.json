@@ -1,0 +1,11 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.fanz.ee",
+      "sha256_cert_fingerprints":
+      ["EF:D0:91:1C:AE:12:5C:4E:D6:F8:C7:87:CD:7A:C5:3C:10:EB:11:A8:BB:E8:50:11:01:47:DC:A3:07:54:B5:27"]
+    }
+  }
+]

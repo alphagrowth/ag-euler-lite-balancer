@@ -1,0 +1,141 @@
+@use 'animations';
+@use 'transitions';
+
+:root {
+  --ui-modal-max-width: var(--container-w);
+
+  --ui-loader-width: 22px;
+  --ui-loader-animation: ui-animation-spin 1s infinite linear;
+
+  --ui-radial-progress-active-color: var(--c-aquamarine-700);
+  --ui-radial-progress-background-color: var(--c-euler-dark-900);
+
+  --ui-button-primary-background-color: var(--c-aquamarine-700);
+  --ui-button-primary-color: var(--c-euler-dark-100);
+  --ui-button-primary-active-background-color: var(--c-aquamarine-1000);
+  --ui-button-primary-active-outline-color: var(--c-aquamarine-1000);
+  --ui-button-primary-focus-background-color: var(--c-aquamarine-500);
+  --ui-button-primary-focus-outline-color: var(--c-yellow-600);
+  --ui-button-primary-focus-active-background-color: var(--c-aquamarine-1000);
+  --ui-button-primary-disabled-background-color: var(--c-euler-dark-400);
+  --ui-button-primary-disabled-color: var(--c-euler-dark-800);
+
+  --ui-button-primary-stroke-color: var(--c-aquamarine-1000);
+  --ui-button-primary-stroke-border-color: var(--c-aquamarine-opaque-300);
+  --ui-button-primary-stroke-hover-background-color: var(--c-aquamarine-opaque-200);
+  --ui-button-primary-stroke-focus-outline-color: var(--c-yellow-600);
+  --ui-button-primary-stroke-disabled-border-color: var(--c-euler-dark-500);
+  --ui-button-primary-stroke-disabled-color: var(--c-euler-dark-800);
+
+  --ui-button-secondary-background-color: var(--c-euler-dark-500);
+  --ui-button-secondary-color: var(--c-aquamarine-1000);
+  --ui-button-secondary-border-color: var(--c-euler-dark-600);
+  --ui-button-secondary-hover-background-color: var(--c-euler-dark-600);
+  --ui-button-secondary-hover-border-color: var(--c-euler-dark-700);
+  --ui-button-secondary-focus-outline-color: var(--c-yellow-600);
+  --ui-button-secondary-disabled-background-color: var(--c-euler-dark-400);
+  --ui-button-secondary-disabled-color: var(--c-euler-dark-800);
+
+  --ui-button-secondary-ghost-color: var(--c-aquamarine-1000);
+  --ui-button-secondary-ghost-hover-background-color: var(--c-euler-dark-600);
+  --ui-button-secondary-ghost-active-outline-color: var(--c-euler-dark-600);
+  --ui-button-secondary-ghost-focus-outline-color: var(--c-yellow-600);
+  --ui-button-secondary-ghost-disabled-color: var(--c-euler-dark-800);
+
+  --ui-button-red-background-color: var(--c-red-opaque-300);
+  --ui-button-red-color: var(--c-red-800);
+  --ui-button-red-border-color: var(--c-red-opaque-500);
+  --ui-button-red-hover-background-color: var(--c-red-opaque-400);
+  --ui-button-red-focus-outline-color: var(--c-yellow-600);
+  --ui-button-red-focus-active-background-color: var(--c-red-opaque-500);
+  --ui-button-red-disabled-background-color: var(--c-euler-dark-400);
+  --ui-button-red-disabled-color: var(--c-euler-dark-800);
+
+  --ui-button-red-destructive-color: var(--c-red-800);
+  --ui-button-red-destructive-hover-background-color: var(--c-red-opaque-400);
+  --ui-button-red-destructive-hover-border-color: var(--c-red-opaque-500);
+  --ui-button-red-destructive-focus-outline-color: var(--c-yellow-600);
+  --ui-button-red-destructive-disabled-color: var(--c-euler-dark-800);
+
+  --ui-checkbox-disabled-icon-color: var(--c-aquamarine-opaque-300);
+  --ui-checkbox-hover-background-color: var(--c-euler-dark-100);
+  --ui-checkbox-hover-checked-background-color: var(--c-aquamarine-900);
+  --ui-checkbox-checked-background-color: var(--c-aquamarine-700);
+  --ui-checkbox-checked-box-shadow-color: var(--c-aquamarine-300);
+  --ui-checkbox-background-color: var(--c-euler-dark-200);
+  --ui-checkbox-color: var(--c-euler-dark-100);
+  --ui-checkbox-box-shadow-color: var(--c-euler-dark-600);
+  --ui-checkbox-label-color: var(--c-euler-dark-1000);
+  --ui-checkbox-focus-outline-color: var(--c-yellow-warning-700);
+
+  --ui-footnote-icon-color: var(--c-aquamarine-700);
+  --ui-footnote-floating-background-color: var(--c-euler-dark-500);
+  --ui-footnote-floating-box-shadow-color: var(--c-euler-dark-100);
+  --ui-footnote-arrow-background-color: var(--c-euler-dark-500);
+
+  --ui-progress-background-color: var(--c-euler-dark-600);
+  --ui-progress-primary-bar-color: var(--c-aquamarine-700);
+  --ui-progress-danger-bar-color: var(--c-red-700);
+
+  --ui-radio-hover-background-color: var(--c-euler-dark-100);
+  --ui-radio-hover-checked-background-color: var(--c-aquamarine-900);
+  --ui-radio-focus-outline-color: var(--c-yellow-warning-700);
+  --ui-radio-disabled-checked-background-color: var(--c-aquamarine-opaque-300);
+  --ui-radio-field-background-color: var(--c-euler-dark-200);
+  --ui-radio-field-border-color: var(--c-euler-dark-600);
+  --ui-radio-checked-background-color: var(--c-aquamarine-700);
+
+  --ui-range-value-background-color: var(--c-euler-dark-100);
+  --ui-range-track-background-color: var(--c-aquamarine-opaque-300);
+  --ui-range-track-active-background-color: var(--c-aquamarine-700);
+  --ui-range-thumb-background-color: var(--c-euler-dark-300);
+  --ui-range-thumb-box-shadow-color: var(--c-aquamarine-700);
+  --ui-range-step-color: var(--c-euler-dark-800);
+  --ui-range-step-even-color: var(--c-euler-dark-700);
+
+  --ui-select-field-color: var(--c-white);
+  --ui-select-field-background-color: var(--c-euler-dark-500);
+  --ui-select-plus-color: var(--c-aquamarine-700);
+  --ui-select-plus-background-color: var(--c-aquamarine-opaque-300);
+  --ui-select-chip-background-color: var(--c-euler-dark-500);
+  --ui-select-chip-active-background-color: var(--c-aquamarine-700);
+  --ui-select-chip-active-color: var(--c-euler-dark-100);
+
+  --ui-tabs-pills-background-color: var(--c-euler-dark-100);
+  --ui-tabs-block-background-color: var(--c-euler-dark-400);
+  
+  --ui-tab-badge-background-color: var(--c-euler-dark-600);
+  --ui-tab-active-box-shadow-color: var(--c-aquamarine-700);
+
+  --ui-toast-background-color: var(--c-euler-dark-100);
+  --ui-toast-box-shadow: 0px 2px 4px -2px rgba(27, 27, 27, 0.06), 0px 4px -2px rgba(27, 27, 27, 0.1);
+  --ui-toast-info-border-color: var(--c-aquamarine-opaque-300);
+  --ui-toast-info-background-color: var(--c-aquamarine-opaque-200);
+  --ui-toast-info-text-color: var(--c-aquamarine-1000);
+  --ui-toast-info-splitter-color: var(--c-aquamarine-opaque-300);
+  --ui-toast-info-action-background-color: var(--c-aquamarine-opaque-100);
+
+  --ui-toast-success-border-color: var(--c-green-opaque-300);
+  --ui-toast-success-background-color: var(--c-green-opaque-200);
+  --ui-toast-success-text-color: var(--c-green-1000);
+  --ui-toast-success-splitter-color: var(--c-green-opaque-300);
+  --ui-toast-success-action-background-color: var(--c-green-opaque-100);
+
+  --ui-toast-warning-border-color: var(--c-yellow-opaque-300);
+  --ui-toast-warning-background-color: var(--c-yellow-opaque-200);
+  --ui-toast-warning-text-color: var(--c-yellow-1000);
+  --ui-toast-warning-splitter-color: var(--c-yellow-opaque-300);
+  --ui-toast-warning-action-background-color: var(--c-yellow-opaque-100);
+
+  --ui-toast-error-border-color: var(--c-red-opaque-400);
+  --ui-toast-error-background-color: var(--c-red-opaque-200);
+  --ui-toast-error-text-color: var(--c-red-1000);
+  --ui-toast-error-splitter-color: var(--c-red-opaque-400);
+  --ui-toast-error-action-background-color: var(--c-red-opaque-100);
+
+  --ui-toast-neutral-border-color: var(--c-euler-dark-500);
+  --ui-toast-neutral-background-color: var(--c-euler-dark-200);
+  --ui-toast-neutral-text-color: var(--c-euler-dark-1000);
+  --ui-toast-neutral-splitter-color: var(--c-euler-dark-500);
+  --ui-toast-neutral-action-background-color: var(--c-euler-dark-300);
+}

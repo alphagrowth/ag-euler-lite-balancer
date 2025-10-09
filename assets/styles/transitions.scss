@@ -1,0 +1,63 @@
+.page-enter-active {
+  transition: opacity 0.2s;
+}
+
+.page-leave-active {
+  transition: opacity 0.00001s; // keep-alive fix
+}
+
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}
+
+.instant-fade-enter-active {
+  transition: opacity 0.2s;
+
+}
+
+.instant-fade-leave-active {
+  transition: opacity 0s;
+}
+
+.instant-fade-enter-from,
+.instant-fade-leave-to {
+  opacity: 0;
+}
+
+.trs-color {
+  transition: color 0.2s ease-in-out;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: transform 0.3s ease-in-out;
+}
+
+.modal-enter-from,
+.modal-leave-active {
+  transform: translateY(100%);
+}
+
+.layout-enter-active,
+.layout-leave-active {
+  transition: opacity 0.2s;
+}
+
+.tooltip-enter-active,
+.tooltip-leave-active {
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tooltip-enter-from {
+  opacity: 0;
+}
+
+.tooltip-leave-to {
+  opacity: 0;
+}
+
+.tooltip-enter-to,
+.tooltip-leave-from {
+  opacity: 1;
+}

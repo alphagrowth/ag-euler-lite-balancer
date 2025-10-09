@@ -1,0 +1,4 @@
+include:
+  - project: 'Yobalabs/CICD_template'
+    ref: main
+    file: '.front_ssh_cicd.yml'
