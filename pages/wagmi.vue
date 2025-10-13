@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAppKit } from '@reown/appkit/vue'
-import { useAccount, useDisconnect } from '@wagmi/vue'
+import { useAccount, useDisconnect, useBalance } from '@wagmi/vue'
+import { formatUnits } from 'viem'
 
 // AppKit modal controls
 const { open } = useAppKit()
@@ -8,6 +9,30 @@ const { open } = useAppKit()
 // Wagmi account info
 const { address, isConnected, connector, chain } = useAccount()
 const { disconnect } = useDisconnect()
+
+// Get ETH balance - this is how DeFi apps retrieve user balances
+const { data: balance, isLoading: isLoadingBalance } = useBalance({
+  address: address,
+})
+
+// Get USDT balance on Arbitrum - this is how DeFi apps retrieve ERC-20 token balances
+// USDT contract address on Arbitrum
+const USDT_ARBITRUM = '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'
+const { data: usdtBalance, isLoading: isLoadingUsdt } = useBalance({
+  address: address,
+  token: USDT_ARBITRUM, // Pass the token contract address to get ERC-20 balance
+})
+
+// Format balance helper
+const formattedBalance = computed(() => {
+  if (!balance.value) return null
+  return formatUnits(balance.value.value, balance.value.decimals)
+})
+
+const formattedUsdtBalance = computed(() => {
+  if (!usdtBalance.value) return null
+  return formatUnits(usdtBalance.value.value, usdtBalance.value.decimals)
+})
 
 // Wallet connection handlers
 const handleConnect = () => {
@@ -103,6 +128,45 @@ watch(isConnected, (connected) => {
               <span class="p3 text-euler-dark-900">Connector:</span>
               <span class="p3 text-white">{{ connector.name }}</span>
             </div>
+
+            <div :class="$style.balanceItem">
+              <span class="p3 text-euler-dark-900">ETH Balance:</span>
+              <div v-if="isLoadingBalance">
+                <span class="p3 text-euler-dark-700">Loading...</span>
+              </div>
+              <div v-else-if="balance && formattedBalance">
+                <span class="h5 text-white tabular-nums">
+                  {{ parseFloat(formattedBalance).toFixed(6) }} {{ balance.symbol }}
+                </span>
+                <span class="p4 text-euler-dark-800 ml-8">
+                  ({{ balance.value.toString() }} wei)
+                </span>
+              </div>
+              <div v-else>
+                <span class="p3 text-euler-dark-700">No balance</span>
+              </div>
+            </div>
+
+            <div :class="$style.tokenBalanceItem">
+              <div :class="$style.tokenHeader">
+                <span class="p3 text-euler-dark-900">USDT Balance (Arbitrum):</span>
+                <span class="p4 text-euler-dark-800">{{ USDT_ARBITRUM }}</span>
+              </div>
+              <div v-if="isLoadingUsdt">
+                <span class="p3 text-euler-dark-700">Loading...</span>
+              </div>
+              <div v-else-if="usdtBalance && formattedUsdtBalance">
+                <span class="h5 text-white tabular-nums">
+                  {{ parseFloat(formattedUsdtBalance).toFixed(2) }} {{ usdtBalance.symbol }}
+                </span>
+                <span class="p4 text-euler-dark-800 ml-8">
+                  (Decimals: {{ usdtBalance.decimals }})
+                </span>
+              </div>
+              <div v-else>
+                <span class="p3 text-euler-dark-700">No balance</span>
+              </div>
+            </div>
           </div>
 
           <div class="flex gap-12 justify-center flex-wrap">
@@ -197,6 +261,44 @@ watch(isConnected, (connected) => {
     grid-template-columns: 1fr;
     gap: 8px;
   }
+}
+
+.balanceItem {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--c-euler-dark-400) 0%, var(--c-euler-dark-500) 100%);
+  border-radius: 8px;
+  border: 1px solid var(--c-green-600);
+  align-items: center;
+
+  @include mixins.respond-to(mobile) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+.tokenBalanceItem {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--c-euler-dark-400) 0%, var(--c-euler-dark-500) 100%);
+  border-radius: 8px;
+  border: 1px solid #26A17B;
+
+  @include mixins.respond-to(mobile) {
+    padding: 12px;
+  }
+}
+
+.tokenHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--c-euler-dark-600);
 }
 
 .fullAddress {
