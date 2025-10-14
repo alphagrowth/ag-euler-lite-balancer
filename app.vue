@@ -6,6 +6,7 @@ import { useEulerLabels } from '~/composables/useEulerLabels'
 const route = useRoute()
 const router = useRouter()
 const { init } = useTacSdk()
+const { loadEulerConfig } = useEulerAddresses()
 const { loadVaults } = useVaults()
 const { loadLabels } = useEulerLabels()
 const { updateBalances } = useWallets()
@@ -42,7 +43,8 @@ watch(route, () => {
   })
 }, { immediate: true })
 
-init()
+await loadEulerConfig()
+// init()
 checkOnboarding()
 loadVaults()
 loadLabels()

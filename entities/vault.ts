@@ -1,9 +1,4 @@
 import { ethers } from 'ethers'
-// import axios from 'axios'
-import {
-  eulerLensAddresses,
-  eulerPeripheryAddresses,
-} from '~/entities/euler/addresses'
 import {
   // eulerAccountLensABI,
   eulerPerspectiveABI,
@@ -87,9 +82,10 @@ export interface CollateralOption {
 
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const { NETWORK, EVM_PROVIDER_URL } = useConfig()
+  const { eulerLensAddresses } = useEulerAddresses()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const vaultLensContract = new ethers.Contract(
-    eulerLensAddresses[NETWORK].vaultLens,
+    eulerLensAddresses.value?.vaultLens || '',
     eulerVaultLensABI,
     provider,
   )
@@ -132,21 +128,25 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   } as Vault
 }
 export const fetchVaults = async (): Promise<Vault[]> => {
-  const { NETWORK, EVM_PROVIDER_URL } = useConfig()
+  const { EVM_PROVIDER_URL } = useConfig()
+  const { eulerLensAddresses, eulerPeripheryAddresses } = useEulerAddresses()
   const arr: Vault[] = []
-  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const provider = new ethers.JsonRpcProvider('https://rpc.ankr.com/eth/349572154c1876f50af09eaa5b19b458c3f5d65e7f95d60bf9e798a495b096ae')
+
   const governedPerspectiveContract = new ethers.Contract(
-    eulerPeripheryAddresses[NETWORK].governedPerspective,
+    eulerPeripheryAddresses.value?.governedPerspective || '',
     eulerPerspectiveABI,
     provider,
   )
+  console.log('eulerPeripheryAddresses', governedPerspectiveContract)
   const vaultLensContract = new ethers.Contract(
-    eulerLensAddresses[NETWORK].vaultLens,
+    eulerLensAddresses.value?.vaultLens || '',
     eulerVaultLensABI,
     provider,
   )
   const verifiedVaults = await governedPerspectiveContract.verifiedArray() as string[]
   const batchSize = 5
+
   for (let i = 0; i < verifiedVaults.length; i += batchSize) {
     const batch = verifiedVaults.slice(i, i + batchSize)
     const batchPromises = batch.map(async (vaultAddress) => {
@@ -255,8 +255,9 @@ export const getVaultPrice = (amount: number | bigint, vault: Vault) => {
 }
 export const computeAPYs = (borrowSPY: bigint, cash: bigint, borrows: bigint, interestFee: bigint) => {
   const { NETWORK, EVM_PROVIDER_URL } = useConfig()
+  const { eulerLensAddresses } = useEulerAddresses()
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-  const utilsLensContract = new ethers.Contract(eulerLensAddresses[NETWORK].utilsLens, eulerUtilsLensABI, provider)
+  const utilsLensContract = new ethers.Contract(eulerLensAddresses.value?.utilsLens || '', eulerUtilsLensABI, provider)
   return utilsLensContract.computeAPYs(borrowSPY, cash, borrows, interestFee)
 }
 export const getNetAPY = (supplyUSD: number, supplyAPY: number, borrowUSD: number, borrowAPY: number, supplyRewardAPY?: number | null, borrowRewardAPY?: number | null) => {
