@@ -1,10 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
-const scripts = [
-  { src: 'https://telegram.org/js/telegram-web-app.js' },
-  { src: 'https://tganalytics.xyz/index.js', async: true },
-]
-
 export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@gvade/nuxt3-svg-sprite', '@vueuse/nuxt'],
   ssr: false,
@@ -58,7 +53,6 @@ export default defineNuxtConfig({
           href: '/favicons/favicon.ico',
         },
       ],
-      script: scripts,
     },
   },
 
@@ -67,8 +61,6 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       network: process.env.NETWORK,
-      tgaToken: process.env.TGA_TOKEN,
-      tgaName: process.env.TGA_NAME,
     },
   },
 

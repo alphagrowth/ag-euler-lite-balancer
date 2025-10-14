@@ -1,14 +1,13 @@
 <script setup lang="ts">
+import { useAccount, useDisconnect } from '@wagmi/vue'
+
 const emits = defineEmits(['close'])
 
-const {
-  shorterAddress,
-  friendlyAddress,
-  disconnect,
-} = useTonConnect()
+const { address } = useAccount()
+const { disconnect } = useDisconnect()
 
 const onCopyAddressClick = () => {
-  navigator.clipboard.writeText(friendlyAddress.value)
+  navigator.clipboard.writeText(address.value || '')
 }
 
 const onDisconnectClick = () => {
@@ -28,7 +27,7 @@ const onDisconnectClick = () => {
     >
       <div class="flex justify-center align-center gap-16">
         <div class="h3 center">
-          {{ shorterAddress }}
+          {{ `${address?.slice(0, 6)}...${address?.slice(-4)}` }}
         </div>
         <UiButton
           variant="primary-stroke"

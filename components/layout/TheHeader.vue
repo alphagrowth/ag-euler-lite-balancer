@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { onClickOutside } from '@vueuse/core'
 import { offset, useFloating } from '@floating-ui/vue'
-import { useModal } from '~/components/ui/composables/useModal'
+import { useAppKit } from '@reown/appkit/vue'
+import { useAccount } from '@wagmi/vue'
 import { WalletDisconnectModal } from '#components'
-import { useTonConnect } from '~/composables/useTonConnect'
+import { useModal } from '~/components/ui/composables/useModal'
 
-const {
-  isLoaded,
-  isConnected,
-  shorterAddress,
-  tonConnectUI,
-} = useTonConnect()
+// AppKit modal controls
+const { open } = useAppKit()
+
+// Wagmi account info
+const { address, isConnected } = useAccount()
 
 const modal = useModal()
 
@@ -25,12 +25,12 @@ const { floatingStyles, update } = useFloating(reference, floating, {
   ],
 })
 
-const onTonConnectButtonClick = () => {
+const onWalletButtonClick = () => {
   if (isConnected.value) {
     modal.open(WalletDisconnectModal)
   }
   else {
-    tonConnectUI.openModal()
+    open()
   }
 }
 const onLogoClick = () => {
@@ -160,14 +160,13 @@ onClickOutside(reference, () => {
         </Transition>
       </button>
       <UiButton
-        v-if="isLoaded"
         :icon="isConnected ? 'arrow-down' : 'plus'"
         :variant="isConnected ? 'primary-stroke' : 'primary'"
         size="medium"
         :icon-right="isConnected"
-        @click="onTonConnectButtonClick"
+        @click="onWalletButtonClick"
       >
-        {{ isConnected ? shorterAddress : 'Connect wallet' }}
+        {{ isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : 'Connect wallet' }}
       </UiButton>
     </div>
   </header>
