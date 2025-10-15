@@ -1,9 +1,7 @@
 <script setup lang="ts">
+import { useAccount, useBalance } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
-import { Address, TonClient } from '@ton/ton'
 import { useModal } from '~/components/ui/composables/useModal'
-// import OperationTrackerTransactionModal
-//   from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, getVaultPrice, type VaultAsset, type CollateralOption, convertAssetsToShares } from '~/entities/vault'
@@ -11,20 +9,16 @@ import OperationTrackerTransactionModal
   from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 
-let tvmAssetAddress: string
-let tvmVaultAddress: string
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
 const { borrowBySaving, borrow } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
-const { isLoaded: isSdkLoaded } = useTacSdk()
-const { isConnected, address, tonConnectUI, friendlyAddress } = useTonConnect()
+const { address, isConnected } = useAccount()
 const { updateBorrowPositions, depositPositions } = useEulerAccount()
 const { walletState } = useWallets()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { TVM_TONCENTER_URL } = useConfig()
 
 const ltv = ref(0)
 const borrowAmount = ref('')
@@ -32,11 +26,9 @@ const collateralAmount = ref('')
 const balance = ref(0n)
 const savingBalance = ref(0n)
 const savingAssets = ref(0n)
-const isLoading = ref(false)
 const isSubmitting = ref(false)
-const isBalanceLoading = ref(false)
 const isEstimatesLoading = ref(false)
-const pair: Ref<BorrowVaultPair | undefined> = ref()
+const pair: Ref<BorrowVaultPair | undefined> = ref(await getBorrowVaultPair(route.params.collateral as string, route.params.borrow as string))
 const health = ref()
 const netAPY = ref()
 const liquidationPrice = ref()
@@ -55,7 +47,7 @@ const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   if (walletState.value !== 'active') return true
   return computedBalance.value < valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)
-    || isLoading.value || !isSdkLoaded.value || !(+collateralAmount.value)
+    || !(+collateralAmount.value)
     || ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals))
     || !valueToNano(borrowAmount.value, borrowVault.value?.decimals)
 })
@@ -80,6 +72,12 @@ const ltvFixed = computed(() => {
   }
   return fn
 })
+const {
+  data: vaultTokenBalance, isLoading: isVaultTokenBalanceLoading,
+} = useBalance({ address: address, token: collateralVault.value?.address as `0x${string}` })
+const {
+  data: assetTokenBalance, isLoading: isAssetTokenBalanceLoading,
+} = useBalance({ address: address, token: collateralVault.value?.asset.address as `0x${string}` })
 
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
 const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
@@ -112,56 +110,17 @@ const computedBalance = computed(() => {
   if (isSavingCollateral.value) return savingAssets.value || 0n
   return balance.value
 })
-
-const load = async () => {
-  isLoading.value = true
-  try {
-    const { tacSdk } = useTacSdk()
-    pair.value = await getBorrowVaultPair(route.params.collateral as string, route.params.borrow as string)
-    tvmAssetAddress = await tacSdk.getTVMTokenAddress(collateralVault.value!.asset.address)
-    tvmVaultAddress = await tacSdk.getTVMTokenAddress(collateralVault.value!.address)
-    updateBalance()
-  }
-  catch (e) {
-    showError('Unable to load Vault')
-    console.warn(e)
-  }
-  finally {
-    isLoading.value = false
-  }
-}
-const updateBalance = async (isInitialLoading = true) => {
-  const { tacSdk } = useTacSdk()
+const updateBalance = async () => {
   if (!isConnected.value) {
     balance.value = 0n
     return
   }
-  if (isInitialLoading) {
-    isBalanceLoading.value = true
-  }
-
-  if (collateralVault.value?.asset.symbol === 'TON') {
-    const client = new TonClient({
-      endpoint: `${TVM_TONCENTER_URL}/api/v2/jsonRPC`,
-    })
-    balance.value = await client.getBalance(Address.parse(friendlyAddress.value))
-  }
-  else {
-    balance.value = await tacSdk.getUserJettonBalance(address.value, tvmAssetAddress).catch((e) => {
-      console.warn(e)
-      return 0n
-    })
-    savingBalance.value = await tacSdk.getUserJettonBalance(address.value, tvmVaultAddress).catch((e) => {
-      console.warn(e)
-      return 0n
-    })
-  }
-  isBalanceLoading.value = false
+  balance.value = vaultTokenBalance.value?.value || 0n
+  savingBalance.value = assetTokenBalance.value?.value || 0n
 }
 const submit = async () => {
   // TODO: Validate
   if (!isConnected.value) {
-    tonConnectUI.openModal()
     isSubmitting.value = false
     return
   }
@@ -286,13 +245,10 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 1000)
 
-watch(isSdkLoaded, (val) => {
-  if (val) {
-    load()
+watch([assetTokenBalance, vaultTokenBalance], () => {
+  if (!isVaultTokenBalanceLoading.value || !isAssetTokenBalanceLoading.value) {
+    updateBalance()
   }
-}, { immediate: true })
-watch(isConnected, () => {
-  updateBalance()
 })
 watch([collateralAmount, borrowAmount], async () => {
   if (!pair.value) {
@@ -308,20 +264,12 @@ watch(savingCollateral, (val) => {
     savingAssets.value = val.assets
   }
 })
-
-const interval = setInterval(() => {
-  updateBalance(false)
-}, 5000)
-
-onUnmounted(() => {
-  clearInterval(interval)
-})
 </script>
 
 <template>
   <VaultForm
     title="Open borrow position"
-    :loading="isLoading || !isSdkLoaded"
+    :loading="isVaultTokenBalanceLoading || isAssetTokenBalanceLoading"
     class="column gap-16"
     @submit.prevent="submit"
   >
@@ -341,7 +289,7 @@ onUnmounted(() => {
         :asset="collateralVault.asset"
         :vault="collateralVault"
         :balance="computedBalance"
-        :balance-loading="isBalanceLoading"
+        :balance-loading="isVaultTokenBalanceLoading || isAssetTokenBalanceLoading"
         :collateral-options="collateralOptions as CollateralOption[]"
         maxable
         @input="onCollateralInput"
@@ -428,7 +376,7 @@ onUnmounted(() => {
     <template #buttons>
       <VaultFormInfoButton
         :pair="pair"
-        :disabled="isLoading || !isSdkLoaded || isSubmitting"
+        :disabled="isVaultTokenBalanceLoading || isAssetTokenBalanceLoading || isSubmitting"
       />
       <VaultFormSubmit
         :disabled="isSubmitDisabled"
