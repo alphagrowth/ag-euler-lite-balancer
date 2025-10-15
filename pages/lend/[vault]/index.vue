@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Address, fromNano, TonClient } from '@ton/ton'
+import { useAccount, useBalance } from '@wagmi/vue'
 import { useModal } from '~/components/ui/composables/useModal'
 import OperationTrackerTransactionModal
   from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
@@ -10,32 +10,31 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
 
-let tvmAssetAddress: string
-
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
 const { supply } = useEulerOperations()
 const { getVault, updateVault } = useVaults()
-const { isLoaded: isSdkLoaded } = useTacSdk()
-const { isConnected, address, friendlyAddress } = useTonConnect()
+const { address, isConnected } = useAccount()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { walletState } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
-const { TVM_TONCENTER_URL } = useConfig()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
-const isBalanceLoading = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
-const vault: Ref<Vault | undefined> = ref()
-const asset: Ref<VaultAsset | undefined> = ref()
+const vault: Ref<Vault | undefined> = ref(await getVault(vaultAddress))
+const asset: Ref<VaultAsset | undefined> = ref(vault.value?.asset)
 const balance = ref(0n)
 const estimateSupplyAPY = ref(0n)
 const monthlyEarnings = ref(0)
+
+const {
+  data: tokenBalance, isLoading: isTokenBalanceLoading,
+} = useBalance({ address: address, token: asset.value?.address as `0x${string}` })
 
 const errorText = computed(() => {
   if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
@@ -48,7 +47,7 @@ const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   if (walletState.value !== 'active') return true
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
-    || isLoading.value || !isSdkLoaded.value || !(+amount.value)
+    || isLoading.value || !(+amount.value)
 })
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vaultAddress))
 const supplyAPYDisplay = computed(() => {
@@ -62,12 +61,7 @@ const estimateSupplyAPYDisplay = computed(() => {
 const load = async () => {
   isLoading.value = true
   try {
-    const { tacSdk } = useTacSdk()
-    vault.value = await getVault(vaultAddress)
-    asset.value = vault.value?.asset
-    estimateSupplyAPY.value = vault.value.interestRateInfo.supplyAPY + valueToNano(opportunityInfo.value?.apr || 0, 25)
-    tvmAssetAddress = await tacSdk.getTVMTokenAddress(asset.value?.address)
-    updateBalance()
+    estimateSupplyAPY.value = vault.value!.interestRateInfo.supplyAPY + valueToNano(opportunityInfo.value?.apr || 0, 25)
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -77,29 +71,12 @@ const load = async () => {
     isLoading.value = false
   }
 }
-const updateBalance = async (isInitialLoading = true) => {
-  const { tacSdk } = useTacSdk()
+const updateBalance = async () => {
   if (!isConnected.value) {
     balance.value = 0n
     return
   }
-  if (isInitialLoading) {
-    isBalanceLoading.value = true
-  }
-
-  if (asset.value!.symbol === 'TON') {
-    const client = new TonClient({
-      endpoint: `${TVM_TONCENTER_URL}/api/v2/jsonRPC`,
-    })
-    balance.value = await client.getBalance(Address.parse(friendlyAddress.value))
-  }
-  else {
-    balance.value = await tacSdk.getUserJettonBalance(address.value, tvmAssetAddress).catch((e) => {
-      console.warn(e)
-      return 0n
-    })
-  }
-  isBalanceLoading.value = false
+  balance.value = tokenBalance.value?.value || 0n
 }
 const submit = async () => {
   modal.open(OperationReviewModal, {
@@ -126,7 +103,6 @@ const send = async () => {
       props: { transactionLinker: tl },
       onClose: () => {
         updateEstimates()
-        updateBalance()
         setTimeout(() => {
           router.replace('/portfolio/saving')
         }, 400)
@@ -174,13 +150,12 @@ const onSupplyInfoIconClick = () => {
   })
 }
 
-watch(isSdkLoaded, (val) => {
-  if (val) {
-    load()
+load()
+
+watch(tokenBalance, () => {
+  if (!isLoading.value) {
+    updateBalance()
   }
-}, { immediate: true })
-watch(isConnected, () => {
-  updateBalance()
 })
 watch(amount, async () => {
   if (!vault.value) {
@@ -191,20 +166,11 @@ watch(amount, async () => {
   }
   updateEstimates()
 })
-
-const interval = setInterval(() => {
-  updateBalance(false)
-}, 5000)
-
-onUnmounted(() => {
-  clearInterval(interval)
-})
 </script>
 
 <template>
   <VaultForm
     title="Open lend position"
-    :loading="isLoading || !isSdkLoaded"
     @submit.prevent="submit"
   >
     <div
@@ -249,7 +215,7 @@ onUnmounted(() => {
       :asset="asset"
       :vault="vault"
       :balance="balance"
-      :balance-loading="isBalanceLoading"
+      :balance-loading="isTokenBalanceLoading"
       maxable
     />
 
@@ -309,7 +275,7 @@ onUnmounted(() => {
     <template #buttons>
       <VaultFormInfoButton
         :vault="vault"
-        :disabled="isLoading || !isSdkLoaded || isSubmitting"
+        :disabled="isLoading || isSubmitting"
       />
       <VaultFormSubmit
         :disabled="isSubmitDisabled"

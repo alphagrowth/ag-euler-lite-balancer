@@ -1,11 +1,6 @@
 <script setup lang="ts">
-import { useTacSdk } from '~/composables/useTacSdk'
-import { useVaults } from '~/composables/useVaults'
-import { useEulerLabels } from '~/composables/useEulerLabels'
-
 const route = useRoute()
 const router = useRouter()
-const { init } = useTacSdk()
 const { loadEulerConfig } = useEulerAddresses()
 const { loadVaults } = useVaults()
 const { loadLabels } = useEulerLabels()
@@ -44,7 +39,6 @@ watch(route, () => {
 }, { immediate: true })
 
 await loadEulerConfig()
-// init()
 checkOnboarding()
 loadVaults()
 loadLabels()
