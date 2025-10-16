@@ -17,8 +17,25 @@ const borrowList = computed(() => getBorrowVaultsByMap(map.value).filter(pair =>
 const updateVaults = async () => {
   try {
     isUpdating.value = true
-    const res = await fetchVaults()
-    map.value = new Map(res.map(i => [i.address, i]))
+    isLoading.value = true
+    const currentMap = new Map(map.value)
+
+    for await (const result of fetchVaults()) {
+      // Add new vaults to the current map
+      result.vaults.forEach((vault) => {
+        currentMap.set(vault.address, vault)
+      })
+
+      // Update the reactive map with the new data
+      map.value = new Map(currentMap)
+
+      isLoading.value = false
+
+      // Break if this was the last batch
+      if (result.isFinished) {
+        break
+      }
+    }
   }
   finally {
     isUpdating.value = false
@@ -26,17 +43,16 @@ const updateVaults = async () => {
 }
 const loadVaults = async () => {
   try {
-    isReady.value = false
-    isLoading.value = true
     await updateVaults()
   }
   finally {
     isReady.value = true
-    isLoading.value = false
   }
 }
 const getVault = async (address: string): Promise<Vault> => {
-  await until(isReady).toBe(true)
+  if (!map.value.get(ethers.getAddress(address))) {
+    await until(isReady).toBe(true)
+  }
   return map.value.get(ethers.getAddress(address))!
 }
 const updateVault = async (vaultAddress: string): Promise<Vault> => {
@@ -46,7 +62,9 @@ const updateVault = async (vaultAddress: string): Promise<Vault> => {
   return vault
 }
 const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: string): Promise<BorrowVaultPair> => {
-  await until(isReady).toBe(true)
+  if (!getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)) {
+    await until(isReady).toBe(true)
+  }
   return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)
 }
 
