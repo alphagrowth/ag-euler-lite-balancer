@@ -12,15 +12,16 @@ const products: Record<string, EulerLabelProduct> = shallowReactive({})
 const entities: Record<string, EulerLabelEntity> = shallowReactive({})
 
 export const useEulerLabels = () => {
-  const { EULER_LABELS_VAULTS_URL, EULER_LABELS_PRODUCTS_URL, EULER_LABELS_ENTITIES_URL } = useConfig()
+  const { getEulerLabelsVaultsUrl, getEulerLabelsProductsUrl, getEulerLabelsEntitiesUrl } = useConfig()
+  const { getCurrentChainConfig } = useEulerAddresses()
 
   const loadLabels = async () => {
     try {
       isLoading.value = true
       const [vaultsRes, productRes, entitiesRes] = await Promise.all([
-        axios.get(EULER_LABELS_VAULTS_URL),
-        axios.get(EULER_LABELS_PRODUCTS_URL),
-        axios.get(EULER_LABELS_ENTITIES_URL),
+        axios.get(getEulerLabelsVaultsUrl(getCurrentChainConfig.value?.chainId || 1)),
+        axios.get(getEulerLabelsProductsUrl(getCurrentChainConfig.value?.chainId || 1)),
+        axios.get(getEulerLabelsEntitiesUrl(getCurrentChainConfig.value?.chainId || 1)),
       ])
 
       Object.assign(vaults, vaultsRes.data)

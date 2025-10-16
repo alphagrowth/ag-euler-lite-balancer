@@ -73,10 +73,12 @@ export const useEulerAddresses = () => {
       const data = await response.json()
       console.log('dfasdsdfsd', data)
       eulerChainsConfig.value = data
-    } catch (err) {
+    }
+    catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
       console.error('Failed to load Euler addresses:', err)
-    } finally {
+    }
+    finally {
       isLoading.value = false
     }
   }
@@ -151,8 +153,9 @@ export const useEulerAddresses = () => {
     eulerLensAddresses,
     eulerCoreAddresses,
     eulerPeripheryAddresses,
+    getCurrentChainConfig,
     isLoading,
     error,
-    isReady: computed(() => eulerChainsConfig.value.length > 0 && !error.value)
+    isReady: computed(() => eulerChainsConfig.value.length > 0 && !error.value),
   }
 }
