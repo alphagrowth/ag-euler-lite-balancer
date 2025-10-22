@@ -48,11 +48,8 @@ loadLabels()
 
 watch(isConnected, (val) => {
   if (val) {
-    updateBalances()
-    setTimeout(() => {
-      interval = setInterval(async () => {
-        updateBalances()
-      }, 10000)
+    interval = setInterval(async () => {
+      updateBalances()
     }, 10000)
   }
 }, { immediate: true })

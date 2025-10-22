@@ -7,7 +7,7 @@ const isLoading = ref(true)
 const balances = ref(new Map<string, bigint>())
 
 export const useWallets = () => {
-  const { isReady, map } = useVaults()
+  const { map } = useVaults()
   const { address, isConnected, chain } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
 
@@ -16,8 +16,6 @@ export const useWallets = () => {
       if (!isConnected.value || !address.value || !chain.value) {
         return
       }
-
-      await until(isReady).toBe(true)
 
       const tokenAddresses: Address[] = []
       map.value.forEach((vault) => {
