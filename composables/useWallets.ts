@@ -16,7 +16,7 @@ export const updateBalances = async (isInitialLoading = true) => {
       return
     }
 
-    const { TVM_TONCENTER_URL } = useConfig()
+    const { TVM_TONCENTER_URL } = useAppConfig()
     if (isInitialLoading) {
       isLoaded.value = false
       isLoading.value = true
@@ -88,7 +88,7 @@ export const updateBalances = async (isInitialLoading = true) => {
 
 const getWalletState = async () => {
   try {
-    const { TVM_TONCENTER_URL } = useConfig()
+    const { TVM_TONCENTER_URL } = useAppConfig()
     const { data } = await axios.get(`${TVM_TONCENTER_URL}/api/v2/getAddressInformation?address=${address.value}`)
     walletState.value = data?.result?.state || null
   }

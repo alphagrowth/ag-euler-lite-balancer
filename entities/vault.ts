@@ -86,7 +86,7 @@ export interface CollateralOption {
 }
 
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
-  const { EVM_PROVIDER_URL } = useConfig()
+  const { EVM_PROVIDER_URL } = useAppConfig()
   const { eulerLensAddresses } = useEulerAddresses()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const vaultLensContract = new ethers.Contract(
@@ -133,7 +133,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   } as Vault
 }
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult, void, unknown> {
-  const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useConfig()
+  const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useAppConfig()
   const { eulerLensAddresses, eulerPeripheryAddresses } = useEulerAddresses()
   const provider = new ethers.JsonRpcProvider('https://rpc.ankr.com/eth/349572154c1876f50af09eaa5b19b458c3f5d65e7f95d60bf9e798a495b096ae')
 
@@ -262,7 +262,7 @@ export const getVaultPrice = (amount: number | bigint, vault: Vault) => {
   return actualAmount * nanoToValue(vault.liabilityPriceInfo.amountOutMid, 18)
 }
 export const computeAPYs = (borrowSPY: bigint, cash: bigint, borrows: bigint, interestFee: bigint) => {
-  const { EVM_PROVIDER_URL } = useConfig()
+  const { EVM_PROVIDER_URL } = useAppConfig()
   const { eulerLensAddresses } = useEulerAddresses()
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const utilsLensContract = new ethers.Contract(eulerLensAddresses.value?.utilsLens || '', eulerUtilsLensABI, provider)
@@ -276,7 +276,7 @@ export const getNetAPY = (supplyUSD: number, supplyAPY: number, borrowUSD: numbe
   return sum / (sum < 0 ? borrowUSD : supplyUSD)
 }
 export const convertSharesToAssets = (vaultAddress: string, sharesAmount: bigint): Promise<bigint> => {
-  const { EVM_PROVIDER_URL } = useConfig()
+  const { EVM_PROVIDER_URL } = useAppConfig()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const contract = new ethers.Contract(vaultAddress, [{
     inputs: [
@@ -300,7 +300,7 @@ export const convertSharesToAssets = (vaultAddress: string, sharesAmount: bigint
   return contract.convertToAssets(sharesAmount).catch(_ => 0n)
 }
 export const convertAssetsToShares = (vaultAddress: string, assetsAmount: bigint): Promise<bigint> => {
-  const { EVM_PROVIDER_URL } = useConfig()
+  const { EVM_PROVIDER_URL } = useAppConfig()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const contract = new ethers.Contract(vaultAddress, [{
     inputs: [
@@ -324,7 +324,7 @@ export const convertAssetsToShares = (vaultAddress: string, assetsAmount: bigint
   return contract.convertToShares(assetsAmount).catch(_ => 0n)
 }
 export const previewWithdraw = (vaultAddress: string, assetsAmount: bigint): Promise<bigint> => {
-  const { EVM_PROVIDER_URL } = useConfig()
+  const { EVM_PROVIDER_URL } = useAppConfig()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const contract = new ethers.Contract(vaultAddress, [{
     inputs: [
@@ -348,7 +348,7 @@ export const previewWithdraw = (vaultAddress: string, assetsAmount: bigint): Pro
   return contract.previewWithdraw(assetsAmount).catch(_ => 0n)
 }
 export const getMaxWithdraw = (vaultAddress: string, account: string): Promise<bigint> => {
-  const { EVM_PROVIDER_URL } = useConfig()
+  const { EVM_PROVIDER_URL } = useAppConfig()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const contract = new ethers.Contract(vaultAddress, [{
     inputs: [

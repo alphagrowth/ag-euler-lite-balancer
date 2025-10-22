@@ -56,7 +56,7 @@ const isLoading = ref(false)
 const error = ref<string | null>(null)
 
 export const useEulerAddresses = () => {
-  const { NETWORK } = useConfig()
+  const { NETWORK } = useAppConfig()
 
   const loadEulerConfig = async () => {
     if (eulerChainsConfig.value.length > 0) return // Уже загружено

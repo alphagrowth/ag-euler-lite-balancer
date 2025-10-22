@@ -24,7 +24,7 @@ const { isLoaded: isSdkLoaded } = useTacSdk()
 const { updateBalances } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { isConnected, address, tonConnectUI, friendlyAddress } = useTonConnect()
-const { TVM_TONCENTER_URL } = useConfig()
+const { TVM_TONCENTER_URL } = useAppConfig()
 const vaultAddress = route.params.vault as string
 let tvmAssetAddress: string
 

@@ -28,7 +28,7 @@ const totalSuppliedValue = computed(() =>
 const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0))
 
 const updateCollateralPositions = async () => {
-  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useConfig()
+  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useAppConfig()
   const { isReady, map } = useVaults()
   await until(isReady).toBe(true)
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
@@ -116,7 +116,7 @@ const updateCollateralPositions = async () => {
         const borrowed = res.vaultAccountInfo.borrowed
 
         return {
-          borrowed
+          borrowed,
         }
       })
 
@@ -124,13 +124,13 @@ const updateCollateralPositions = async () => {
   }
   return deposits
     .filter((deposit, idx) => borrows[idx].borrowed === 0n)
-    .map(deposit => {
+    .map((deposit) => {
       return {
         ...deposit,
         borrow: {
           ...deposit.borrow,
           borrow: 0n,
-        }
+        },
       }
     })
 }
@@ -139,7 +139,7 @@ const updateBorrowPositions = async (isInitialLoading = true) => {
     isPositionsLoading.value = true
   }
 
-  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useConfig()
+  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useAppConfig()
   const { isReady, map } = useVaults()
   await until(isReady).toBe(true)
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
@@ -253,7 +253,7 @@ const updateAccount = async (tvmAddress: string | undefined) => {
   }
 
   try {
-    const { NETWORK, TAC_FACTORY_ADDRESS, EULER_PROXY, EVM_PROVIDER_URL } = useConfig()
+    const { NETWORK, TAC_FACTORY_ADDRESS, EULER_PROXY, EVM_PROVIDER_URL } = useAppConfig()
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const tacFactoryAbi = ['function predictSmartAccountAddress(string,address) external view returns(address)']
     const addressContract = new ethers.Contract(TAC_FACTORY_ADDRESS, tacFactoryAbi, provider)

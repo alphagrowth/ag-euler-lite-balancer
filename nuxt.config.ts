@@ -1,7 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@gvade/nuxt3-svg-sprite', '@vueuse/nuxt'],
+  modules: ['@nuxt/eslint', '@gvade/nuxt3-svg-sprite', '@vueuse/nuxt', '@wagmi/vue/nuxt'],
   ssr: false,
 
   components: [

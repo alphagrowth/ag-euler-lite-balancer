@@ -12,7 +12,7 @@ import { previewWithdraw } from '~/entities/vault'
 
 const FINAL_MESSAGE = 'By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: https://www.euler.finance/terms  hash:0x1a7aa1916b6c56272b62be027108c06d9af95eef4dac46acbc80267b3919e07e'
 const FINAL_HASH = '0xb0d552b4ebe441d9582f5fc732fd6026b09bec13e7f3c1e21c0ecaa3801df595'
-const { EVM_PROVIDER_URL, SIGN_CONTRACT_ADDRESS } = useConfig()
+const { EVM_PROVIDER_URL, SIGN_CONTRACT_ADDRESS } = useAppConfig()
 
 const hasSignature = async (userAddress: string) => {
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
@@ -34,7 +34,7 @@ export const useEulerOperations = () => {
   const { tonConnectUI } = useTonConnect()
 
   const supply = async (vaultAddress: string, assetAddress: string, amount: bigint, symbol: string, subAccount?: string) => {
-    const { EULER_PROXY } = useConfig()
+    const { EULER_PROXY } = useAppConfig()
     const { tacSdk } = useTacSdk()
     const { address: eulerAccountAddress } = useEulerAccount()
     const hooks = new SaHooksBuilder()
@@ -120,7 +120,7 @@ export const useEulerOperations = () => {
     maxSharesAmount?: bigint,
     isMax?: boolean,
   ) => {
-    const { EULER_PROXY } = useConfig()
+    const { EULER_PROXY } = useAppConfig()
     const { tacSdk } = useTacSdk()
     const { address: eulerAccountAddress } = useEulerAccount()
     const hooks = new SaHooksBuilder()
@@ -229,7 +229,7 @@ export const useEulerOperations = () => {
     maxSharesAmount?: bigint,
     isMax?: boolean,
   ) => {
-    const { EULER_PROXY } = useConfig()
+    const { EULER_PROXY } = useAppConfig()
     const { tacSdk } = useTacSdk()
     const { address: eulerAccountAddress } = useEulerAccount()
     const hooks = new SaHooksBuilder()
@@ -337,7 +337,7 @@ export const useEulerOperations = () => {
     assetSymbol: string,
     subAcc?: string,
   ) => {
-    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useConfig()
+    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useAppConfig()
     const { tacSdk } = useTacSdk()
     const { address: eulerAccountAddress } = useEulerAccount()
     const hooks = new SaHooksBuilder()
@@ -434,7 +434,7 @@ export const useEulerOperations = () => {
     assetSymbol: string,
     subAcc?: string,
   ) => {
-    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useConfig()
+    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useAppConfig()
     const { tacSdk } = useTacSdk()
     const { address: eulerAccountAddress } = useEulerAccount()
     const hooks = new SaHooksBuilder()
@@ -527,7 +527,7 @@ export const useEulerOperations = () => {
     borrowAssetAddress: string,
     borrowAssetSymbol: string,
   ) => {
-    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useConfig()
+    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useAppConfig()
     const { tacSdk } = useTacSdk()
     const { address: eulerAccountAddress } = useEulerAccount()
     const hooks = new SaHooksBuilder()
@@ -597,7 +597,7 @@ export const useEulerOperations = () => {
     borrowAssetAddress: string,
     borrowAssetSymbol: string,
   ) => {
-    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useConfig()
+    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useAppConfig()
     const { tacSdk } = useTacSdk()
     const { address: eulerAccountAddress } = useEulerAccount()
     const hooks = new SaHooksBuilder()
@@ -680,7 +680,7 @@ export const useEulerOperations = () => {
     borrowVaultAddress: string,
     borrowAssetAddress: string,
   ) => {
-    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useConfig()
+    const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useAppConfig()
     const { tacSdk } = useTacSdk()
     const { address: eulerAccountAddress } = useEulerAccount()
     const hooks = new SaHooksBuilder()
@@ -754,6 +754,6 @@ export const useEulerOperations = () => {
     borrowBySaving,
     repay,
     fullRepay,
-    disableCollateral
+    disableCollateral,
   }
 }
