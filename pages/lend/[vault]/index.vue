@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { useAccount, useBalance } from '@wagmi/vue'
+import { useAccount } from '@wagmi/vue'
 import { useModal } from '~/components/ui/composables/useModal'
-import OperationTrackerTransactionModal
-  from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { OperationReviewModal, VaultSupplyApyModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { computeAPYs, getVaultPrice, type Vault, type VaultAsset } from '~/entities/vault'
@@ -16,7 +14,8 @@ const modal = useModal()
 const { error } = useToast()
 const { supply } = useEulerOperations()
 const { getVault, updateVault } = useVaults()
-const { address, isConnected } = useAccount()
+const { isConnected } = useAccount()
+const { getBalance } = useWallets()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getOpportunityOfLendVault } = useMerkl()
@@ -27,14 +26,10 @@ const isEstimatesLoading = ref(false)
 const amount = ref('')
 const vault: Ref<Vault | undefined> = ref(await getVault(vaultAddress))
 const asset: Ref<VaultAsset | undefined> = ref(vault.value?.asset)
-const balance = ref(0n)
 const estimateSupplyAPY = ref(0n)
 const monthlyEarnings = ref(0)
 
-const {
-  data: tokenBalance, isLoading: isTokenBalanceLoading,
-} = useBalance({ address: address, token: asset.value?.address as `0x${string}` })
-
+const balance = computed(() => getBalance(asset.value?.address as `0x${string}`) || 0n)
 const errorText = computed(() => {
   if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
     return 'Not enough balance'
@@ -69,13 +64,6 @@ const load = async () => {
     isLoading.value = false
   }
 }
-const updateBalance = async () => {
-  if (!isConnected.value) {
-    balance.value = 0n
-    return
-  }
-  balance.value = tokenBalance.value?.value || 0n
-}
 const submit = async () => {
   modal.open(OperationReviewModal, {
     props: {
@@ -96,16 +84,13 @@ const send = async () => {
     if (!asset.value?.address) {
       return
     }
-    const tl = await supply(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol)
-    modal.open(OperationTrackerTransactionModal, {
-      props: { transactionLinker: tl },
-      onClose: () => {
-        updateEstimates()
-        setTimeout(() => {
-          router.replace('/portfolio/saving')
-        }, 400)
-      },
-    })
+    const txHash = await supply(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol)
+
+    modal.close()
+    await updateEstimates()
+    setTimeout(() => {
+      router.replace('/portfolio/saving')
+    }, 400)
   }
   catch (e) {
     error('Transaction failed')
@@ -150,11 +135,6 @@ const onSupplyInfoIconClick = () => {
 
 load()
 
-watch(tokenBalance, () => {
-  if (!isLoading.value) {
-    updateBalance()
-  }
-})
 watch(amount, async () => {
   if (!vault.value) {
     return
@@ -213,7 +193,6 @@ watch(amount, async () => {
       :asset="asset"
       :vault="vault"
       :balance="balance"
-      :balance-loading="isTokenBalanceLoading"
       maxable
     />
 
