@@ -2,15 +2,11 @@ import { ethers, FixedNumber } from 'ethers'
 import { Address } from '@ton/core'
 import axios from 'axios'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { eulerCoreAddresses } from '~/entities/euler/addresses'
+import { eulerCoreAddresses, type EulerLensAddresses } from '~/entities/euler/addresses'
 import type {
   Account, AccountBorrowPosition, AccountDepositPosition,
 } from '~/entities/account'
 import { convertSharesToAssets, getVaultPrice } from '~/entities/vault'
-
-const { isLoaded: isBalancesLoaded, balances } = useWallets()
-const { friendlyAddress } = useTonConnect()
-const { eulerLensAddresses } = useEulerAddresses()
 
 const address: Ref<string> = ref('')
 const account: Ref<Account | undefined> = ref(undefined)
@@ -27,12 +23,12 @@ const totalSuppliedValue = computed(() =>
 )
 const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0))
 
-const updateCollateralPositions = async () => {
-  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useEulerConfig()
+const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses) => {
+  const { EVM_PROVIDER_URL, GOLDSKY_API_URL } = useEulerConfig()
   const { isReady, map } = useVaults()
   await until(isReady).toBe(true)
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-  const accountLensContract = new ethers.Contract(eulerLensAddresses.value?.accountLens || '', eulerAccountLensABI, provider)
+  const accountLensContract = new ethers.Contract(eulerLensAddresses?.accountLens || '', eulerAccountLensABI, provider)
   const { data } = await axios.post(GOLDSKY_API_URL, {
     query: `query AccountDeposits {
       trackingActiveAccount(id: "${address.value}") {
@@ -44,7 +40,7 @@ const updateCollateralPositions = async () => {
   const depositEntries = data.data.trackingActiveAccount?.deposits || []
 
   let deposits: AccountBorrowPosition[] = []
-  let borrows: any[] = []
+  const borrows: any[] = []
   const batchSize = 5
 
   for (let i = 0; i < depositEntries.length; i += batchSize) {
@@ -78,13 +74,8 @@ const updateCollateralPositions = async () => {
           ? FixedNumber.fromValue(0n, 2)
           : FixedNumber.fromValue(liquidationLTV, 2).div(healthFixed)
         const userLTV = userLTVFixed.value
-        const priceFixed
-          = FixedNumber.fromValue(1 || 0n, 18)
+        const priceFixed = FixedNumber.fromValue(1n, 18)
         const price = priceFixed.value
-        const borrowedFixed = FixedNumber.fromValue(
-          res.vaultAccountInfo.borrowed,
-          borrow.decimals,
-        )
         const supplied = res.vaultAccountInfo.assets
 
         return {
@@ -120,7 +111,7 @@ const updateCollateralPositions = async () => {
         }
       })
 
-    borrows = [...borrows, ...(await Promise.all(batch)).filter(o => !!o)]
+    borrows.push(...(await Promise.all(batch)).filter(o => !!o))
   }
   return deposits
     .filter((deposit, idx) => borrows[idx].borrowed === 0n)
@@ -134,16 +125,16 @@ const updateCollateralPositions = async () => {
       }
     })
 }
-const updateBorrowPositions = async (isInitialLoading = true) => {
+const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, isInitialLoading = true) => {
   if (isInitialLoading) {
     isPositionsLoading.value = true
   }
 
-  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, GOLDSKY_API_URL } = useEulerConfig()
   const { isReady, map } = useVaults()
   await until(isReady).toBe(true)
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-  const accountLensContract = new ethers.Contract(eulerLensAddresses.value?.accountLens || '', eulerAccountLensABI, provider)
+  const accountLensContract = new ethers.Contract(eulerLensAddresses?.accountLens || '', eulerAccountLensABI, provider)
   const { data } = await axios.post(GOLDSKY_API_URL, {
     query: `query AccountBorrows {
       trackingActiveAccount(id: "${address.value}") {
@@ -213,12 +204,12 @@ const updateBorrowPositions = async (isInitialLoading = true) => {
 
     borrows = [...borrows, ...(await Promise.all(batch)).filter(o => !!o)] as AccountBorrowPosition[]
   }
-  const collateralPositions = await updateCollateralPositions() || []
+  const collateralPositions = await updateCollateralPositions(eulerLensAddresses) || []
   borrowPositions.value = [...borrows, ...collateralPositions]
   isPositionsLoading.value = false
   isPositionsLoaded.value = true
 }
-const updateDepositPositions = async () => {
+const updateDepositPositions = async (balances: Map<string, bigint>) => {
   isDepositsLoading.value = true
 
   const { isReady, list } = useVaults()
@@ -231,7 +222,7 @@ const updateDepositPositions = async () => {
     const batch = list.value
       .slice(i, i + batchSize)
       .map(async (vault) => {
-        const balance = balances.value.get(ethers.getAddress(vault.address))
+        const balance = balances.get(ethers.getAddress(vault.address))
         return {
           vault,
           shares: balance,
@@ -245,7 +236,7 @@ const updateDepositPositions = async () => {
   depositPositions.value = deposits
   isDepositsLoading.value = false
 }
-const updateAccount = async (tvmAddress: string | undefined) => {
+const updateAccount = async (tvmAddress: string | undefined, eulerLensAddresses: EulerLensAddresses) => {
   address.value = ''
   if (!tvmAddress) {
     borrowPositions.value = []
@@ -257,11 +248,9 @@ const updateAccount = async (tvmAddress: string | undefined) => {
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const tacFactoryAbi = ['function predictSmartAccountAddress(string,address) external view returns(address)']
     const addressContract = new ethers.Contract(TAC_FACTORY_ADDRESS, tacFactoryAbi, provider)
-    const accountLensContract = new ethers.Contract(eulerLensAddresses.value?.accountLens || '', eulerAccountLensABI, provider)
+    const accountLensContract = new ethers.Contract(eulerLensAddresses?.accountLens || '', eulerAccountLensABI, provider)
     address.value = await addressContract.predictSmartAccountAddress(Address.parse(tvmAddress).toString({ bounceable: true }), EULER_PROXY)
     account.value = (await accountLensContract.getAccountEnabledVaultsInfo(eulerCoreAddresses[NETWORK].evc, address.value)).toObject({ deep: true })
-    updateBorrowPositions()
-    updateDepositPositions()
   }
 
   catch (e) {
@@ -270,16 +259,24 @@ const updateAccount = async (tvmAddress: string | undefined) => {
   }
 }
 
-watch(friendlyAddress, (val) => {
-  updateAccount(val)
-}, { immediate: true })
-watch(isBalancesLoaded, (val) => {
-  if (val) {
-    updateDepositPositions()
-  }
-})
-
 export const useEulerAccount = () => {
+  const { isLoaded: isBalancesLoaded, balances } = useWallets()
+  const { friendlyAddress } = useTonConnect()
+  const { eulerLensAddresses } = useEulerAddresses()
+
+  watch(friendlyAddress, async (val) => {
+    if (val) {
+      await updateAccount(val, eulerLensAddresses.value)
+      updateBorrowPositions(eulerLensAddresses.value)
+      updateDepositPositions(balances.value)
+    }
+  }, { immediate: true })
+
+  watch(isBalancesLoaded, (val) => {
+    if (val) {
+      updateDepositPositions(balances.value)
+    }
+  })
   return {
     address,
     borrowPositions,

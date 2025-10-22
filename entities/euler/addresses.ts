@@ -1,3 +1,12 @@
+export type EulerLensAddresses = {
+  accountLens: string
+  eulerEarnVaultLens: string
+  irmLens: string
+  oracleLens: string
+  utilsLens: string
+  vaultLens: string
+} | null
+
 export const eulerLensAddresses = {
   testnet: {
     accountLens: '0xC477C2D033A43d5fDE3DB0c948bf7170b72F29B0',

@@ -19,7 +19,6 @@ const { getVault, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
-const { walletState } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 
 const isLoading = ref(false)
@@ -45,7 +44,6 @@ const errorText = computed(() => {
 const assets = computed(() => [asset.value!])
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  if (walletState.value !== 'active') return true
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value)
 })
@@ -267,10 +265,6 @@ watch(amount, async () => {
         </div>
       </div>
     </VaultFormInfoBlock>
-
-    <WalletInactiveDisclaimer
-      v-if="walletState && walletState !== 'active'"
-    />
 
     <template #buttons>
       <VaultFormInfoButton
