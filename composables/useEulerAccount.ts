@@ -28,7 +28,7 @@ const totalSuppliedValue = computed(() =>
 const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0))
 
 const updateCollateralPositions = async () => {
-  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useAppConfig()
+  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useEulerConfig()
   const { isReady, map } = useVaults()
   await until(isReady).toBe(true)
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
@@ -139,7 +139,7 @@ const updateBorrowPositions = async (isInitialLoading = true) => {
     isPositionsLoading.value = true
   }
 
-  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useAppConfig()
+  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useEulerConfig()
   const { isReady, map } = useVaults()
   await until(isReady).toBe(true)
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
@@ -253,7 +253,7 @@ const updateAccount = async (tvmAddress: string | undefined) => {
   }
 
   try {
-    const { NETWORK, TAC_FACTORY_ADDRESS, EULER_PROXY, EVM_PROVIDER_URL } = useAppConfig()
+    const { NETWORK, TAC_FACTORY_ADDRESS, EULER_PROXY, EVM_PROVIDER_URL } = useEulerConfig()
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const tacFactoryAbi = ['function predictSmartAccountAddress(string,address) external view returns(address)']
     const addressContract = new ethers.Contract(TAC_FACTORY_ADDRESS, tacFactoryAbi, provider)

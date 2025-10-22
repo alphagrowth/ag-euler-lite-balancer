@@ -5,7 +5,7 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/entities/assets'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 
-const { isConnected } = useTonConnect()
+const { isConnected } = useWagmi()
 const { vault } = defineProps<{ vault: Vault }>()
 const { name } = useEulerProductOfVault(vault.address)
 const entities = useEulerEntitiesOfVault(vault.address)

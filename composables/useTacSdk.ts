@@ -8,7 +8,7 @@ const isLoaded = ref(false)
 
 const init = async () => {
   try {
-    const { TVM_TONCENTER_URL, NETWORK, EVM_PROVIDER_URL } = useAppConfig()
+    const { TVM_TONCENTER_URL, NETWORK, EVM_PROVIDER_URL } = useEulerConfig()
 
     const TONParams = NETWORK === Network.MAINNET
       ? {

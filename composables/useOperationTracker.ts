@@ -8,7 +8,7 @@ const POOL_MS = 5000
 const MAX_RETRIES = 40
 export const useOperationTracker = (transactionLinker: TransactionLinker | undefined) => {
   let interval: ReturnType<typeof setInterval>
-  const { NETWORK } = useAppConfig()
+  const { NETWORK } = useEulerConfig()
   const tracker = new OperationTracker(NETWORK)
   const operationId = ref('')
   const status = ref('')

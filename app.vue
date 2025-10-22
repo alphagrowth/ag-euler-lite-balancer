@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
+
 const route = useRoute()
 const router = useRouter()
 const { loadEulerConfig } = useEulerAddresses()
 const { loadVaults } = useVaults()
 const { loadLabels } = useEulerLabels()
 const { updateBalances } = useWallets()
+const { isConnected } = useAccount()
 
 const isMenuVisible = ref(true)
 const isHeaderVisible = ref(true)
@@ -43,11 +46,16 @@ checkOnboarding()
 loadVaults()
 loadLabels()
 
-setTimeout(() => {
-  interval = setInterval(async () => {
-    await updateBalances(false)
-  }, 10000)
-}, 10000)
+watch(isConnected, (val) => {
+  if (val) {
+    updateBalances()
+    setTimeout(() => {
+      interval = setInterval(async () => {
+        updateBalances()
+      }, 10000)
+    }, 10000)
+  }
+}, { immediate: true })
 
 onUnmounted(() => {
   if (interval) {

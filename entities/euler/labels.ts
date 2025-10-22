@@ -48,6 +48,6 @@ export const eulerLabelProductEmpty = {
 } as EulerLabelProduct
 
 export const getEulerLabelEntityLogo = (fileName: string) => {
-  const { EULER_LABELS_LOGO_URL } = useAppConfig()
+  const { EULER_LABELS_LOGO_URL } = useEulerConfig()
   return `${EULER_LABELS_LOGO_URL}/${fileName}`
 }

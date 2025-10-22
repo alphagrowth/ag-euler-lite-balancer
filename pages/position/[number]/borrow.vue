@@ -25,7 +25,7 @@ const { updateBorrowPositions, borrowPositions, isPositionsLoading, isPositionsL
 const positionIndex = route.params.number as string
 const { walletState } = useWallets()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { TVM_TONCENTER_URL } = useAppConfig()
+const { TVM_TONCENTER_URL } = useEulerConfig()
 
 const ltv = ref(0)
 const borrowAmount = ref('')

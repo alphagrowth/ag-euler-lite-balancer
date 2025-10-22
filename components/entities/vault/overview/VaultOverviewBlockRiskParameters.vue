@@ -4,7 +4,7 @@ import { getVaultPrice, type Vault } from '~/entities/vault'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
-const { EVM_PROVIDER_URL } = useAppConfig()
+const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const shareTokenExchangeRate: Ref<bigint | undefined> = ref()
 

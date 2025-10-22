@@ -13,7 +13,7 @@ const {
   EVM_PROVIDER_URL,
   REUL_TOKEN_CONTRACT_ADDRESS,
   EUL_TOKEN_CONTRACT_ADDRESS,
-} = useAppConfig()
+} = useEulerConfig()
 
 const endpoints = {
   tokens: `${MERKL_API_BASE_URL}/tokens/reward`,

@@ -8,7 +8,7 @@ const emits = defineEmits(['close'])
 const { transactionLinker } = defineProps<{ transactionLinker: TransactionLinker }>()
 
 const { operationId, status, error, destroy } = useOperationTracker(transactionLinker)
-const { NETWORK } = useAppConfig()
+const { NETWORK } = useEulerConfig()
 
 const state: Ref<'pending' | 'success' | 'error'> = ref('pending')
 const hash = ref('')

@@ -437,7 +437,7 @@ export const updateBalances = async (isInitialLoading = true) => {
       return;
     }
 
-    const { TVM_TONCENTER_URL } = useAppConfig();
+    const { TVM_TONCENTER_URL } = useEulerConfig();
     if (isInitialLoading) {
       isLoaded.value = false;
       isLoading.value = true;
@@ -631,7 +631,7 @@ const updateAccount = async (tvmAddress: string | undefined) => {
 
   try {
     const { NETWORK, TAC_FACTORY_ADDRESS, EULER_PROXY, EVM_PROVIDER_URL } =
-      useAppConfig();
+      useEulerConfig();
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL);
     const tacFactoryAbi = [
       "function predictSmartAccountAddress(string,address) external view returns(address)",
@@ -707,7 +707,7 @@ const borrowList = computed(() =>
 
 ```typescript
 export const fetchVaults = async (): Promise<Vault[]> => {
-  const { NETWORK, EVM_PROVIDER_URL } = useAppConfig();
+  const { NETWORK, EVM_PROVIDER_URL } = useEulerConfig();
   const arr: Vault[] = [];
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL);
   const governedPerspectiveContract = new ethers.Contract(
@@ -831,7 +831,7 @@ const updateBorrowPositions = async (isInitialLoading = true) => {
     isPositionsLoading.value = true;
   }
 
-  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useAppConfig();
+  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useEulerConfig();
   const { isReady, map } = useVaults();
   await until(isReady).toBe(true);
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL);
@@ -979,7 +979,7 @@ export const computeAPYs = (
   borrows: bigint,
   interestFee: bigint
 ) => {
-  const { NETWORK, EVM_PROVIDER_URL } = useAppConfig();
+  const { NETWORK, EVM_PROVIDER_URL } = useEulerConfig();
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL);
   const utilsLensContract = new ethers.Contract(
     eulerLensAddresses[NETWORK].utilsLens,
@@ -1091,7 +1091,7 @@ const supply = async (
   symbol: string,
   subAccount?: string
 ) => {
-  const { EULER_PROXY } = useAppConfig();
+  const { EULER_PROXY } = useEulerConfig();
   const { tacSdk } = useTacSdk();
   const { address: eulerAccountAddress } = useEulerAccount();
   const hooks = new SaHooksBuilder();
@@ -1232,7 +1232,7 @@ const withdraw = async (
   maxSharesAmount?: bigint,
   isMax?: boolean
 ) => {
-  const { EULER_PROXY } = useAppConfig();
+  const { EULER_PROXY } = useEulerConfig();
   const { tacSdk } = useTacSdk();
   const { address: eulerAccountAddress } = useEulerAccount();
   const hooks = new SaHooksBuilder();
@@ -1404,7 +1404,7 @@ const borrow = async (
   assetSymbol: string,
   subAcc?: string
 ) => {
-  const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useAppConfig();
+  const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useEulerConfig();
   const { tacSdk } = useTacSdk();
   const { address: eulerAccountAddress } = useEulerAccount();
   const hooks = new SaHooksBuilder();
@@ -1577,7 +1577,7 @@ const repay = async (
   borrowAssetAddress: string,
   borrowAssetSymbol: string
 ) => {
-  const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useAppConfig();
+  const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useEulerConfig();
   const { tacSdk } = useTacSdk();
   const { address: eulerAccountAddress } = useEulerAccount();
   const hooks = new SaHooksBuilder();
@@ -1668,7 +1668,7 @@ const fullRepay = async (
   borrowAssetAddress: string,
   borrowAssetSymbol: string
 ) => {
-  const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useAppConfig();
+  const { EULER_PROXY, ETH_VAULT_CONNECTOR } = useEulerConfig();
   const { tacSdk } = useTacSdk();
   const { address: eulerAccountAddress } = useEulerAccount();
   const hooks = new SaHooksBuilder();
@@ -1909,7 +1909,7 @@ const send = async () => {
 ```typescript
 const init = async () => {
   try {
-    const { TVM_TONCENTER_URL, NETWORK, EVM_PROVIDER_URL } = useAppConfig();
+    const { TVM_TONCENTER_URL, NETWORK, EVM_PROVIDER_URL } = useEulerConfig();
 
     const TONParams =
       NETWORK === Network.MAINNET
@@ -2551,7 +2551,7 @@ const updateBorrowPositions = async (isInitialLoading = true) => {
     isPositionsLoading.value = true;
   }
 
-  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useAppConfig();
+  const { NETWORK, EVM_PROVIDER_URL, GOLDSKY_API_URL } = useEulerConfig();
   const { isReady, map } = useVaults();
   await until(isReady).toBe(true);
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL);

@@ -71,7 +71,7 @@ export interface AccountDepositPosition {
 }
 
 const checkGetController = async (subAccount: string) => {
-  const { EVM_PROVIDER_URL, ETH_VAULT_CONNECTOR } = useAppConfig()
+  const { EVM_PROVIDER_URL, ETH_VAULT_CONNECTOR } = useEulerConfig()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const contract = new ethers.Contract(ETH_VAULT_CONNECTOR, ['function getControllers(address) external view returns(address[])'], provider)
 
@@ -79,7 +79,7 @@ const checkGetController = async (subAccount: string) => {
 }
 
 export const getNewSubAccount = async (ownerAddress: string) => {
-  const { GOLDSKY_API_URL } = useAppConfig()
+  const { GOLDSKY_API_URL } = useEulerConfig()
   const address = ethers.getAddress(ownerAddress)
   const { data } = await axios.post(GOLDSKY_API_URL, {
     query: `query AccountBorrows {

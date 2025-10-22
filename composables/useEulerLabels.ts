@@ -12,7 +12,7 @@ const products: Record<string, EulerLabelProduct> = shallowReactive({})
 const entities: Record<string, EulerLabelEntity> = shallowReactive({})
 
 export const useEulerLabels = () => {
-  const { getEulerLabelsVaultsUrl, getEulerLabelsProductsUrl, getEulerLabelsEntitiesUrl } = useAppConfig()
+  const { getEulerLabelsVaultsUrl, getEulerLabelsProductsUrl, getEulerLabelsEntitiesUrl } = useEulerConfig()
   const { getCurrentChainConfig } = useEulerAddresses()
 
   const loadLabels = async () => {

@@ -73,7 +73,7 @@ components/
 
 ```
 composables/
-├── useAppConfig.ts          # Configuration management
+├── useEulerConfig.ts          # Configuration management
 ├── useEulerAccount.ts       # Euler account operations
 ├── useEulerLabels.ts        # Euler labels and metadata
 ├── useEulerOperations.ts    # Euler protocol operations

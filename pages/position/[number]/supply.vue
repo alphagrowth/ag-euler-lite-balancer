@@ -21,7 +21,7 @@ const { isConnected, address, tonConnectUI, friendlyAddress } = useTonConnect()
 const positionIndex = route.params.number as string
 const { borrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { TVM_TONCENTER_URL } = useAppConfig()
+const { TVM_TONCENTER_URL } = useEulerConfig()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)

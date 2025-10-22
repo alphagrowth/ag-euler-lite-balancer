@@ -56,7 +56,7 @@ const isLoading = ref(false)
 const error = ref<string | null>(null)
 
 export const useEulerAddresses = () => {
-  const { NETWORK } = useAppConfig()
+  const { chainId } = useWagmi()
 
   const loadEulerConfig = async () => {
     if (eulerChainsConfig.value.length > 0) return // Уже загружено
@@ -84,8 +84,7 @@ export const useEulerAddresses = () => {
   }
 
   const getCurrentChainConfig = computed(() => {
-    const chainId = 1
-    return eulerChainsConfig.value.find(chain => chain.chainId === chainId)
+    return eulerChainsConfig.value.find(chain => chain.chainId === chainId.value)
   })
 
   const eulerLensAddresses = computed(() => {
