@@ -71,7 +71,6 @@ export const useEulerAddresses = () => {
       }
 
       const data = await response.json()
-      console.log('dfasdsdfsd', data)
       eulerChainsConfig.value = data
     }
     catch (err) {
@@ -84,7 +83,13 @@ export const useEulerAddresses = () => {
   }
 
   const getCurrentChainConfig = computed(() => {
-    return eulerChainsConfig.value.find(chain => chain.chainId === chainId.value)
+    if (eulerChainsConfig.value.length === 0) return undefined
+
+    if (chainId.value) {
+      return eulerChainsConfig.value.find(chain => chain.chainId === chainId.value)
+    }
+
+    return eulerChainsConfig.value.find(chain => chain.chainId === 1)
   })
 
   const eulerLensAddresses = computed(() => {
