@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
+
 defineOptions({
   name: 'PortfolioPage',
 })
@@ -12,12 +14,13 @@ const {
   totalBorrowedValue,
   isPositionsLoading,
   isPositionsLoaded,
-  isDepositsLoading,
 } = useEulerAccount()
 const { updateBorrowPositions, updateDepositPositions } = useEulerAccount()
 const { isLoading: isBalancesLoading } = useWallets()
 const { rewards, locks } = useMerkl()
-const { isConnected } = useTonConnect()
+const { isConnected, address } = useAccount()
+const { isLoaded: isBalancesLoaded, balances } = useWallets()
+const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
 
 const interval: Ref<NodeJS.Timeout | null> = ref(null)
 
@@ -47,13 +50,10 @@ const checkTab = () => {
   }
 }
 
-const updatePositions = () => {
-  if (!isDepositsLoading.value) {
-    updateDepositPositions()
-  }
-  if (!isPositionsLoading.value && isPositionsLoaded.value) {
-    updateBorrowPositions(false)
-  }
+const updatePositions = async () => {
+  await until(isBalancesLoaded && isEulerLensAddressesReady).toBe(true)
+  updateDepositPositions(balances.value)
+  updateBorrowPositions(eulerLensAddresses.value, address.value || '', false)
 }
 
 watch(tabsModel, checkTab, { immediate: true })

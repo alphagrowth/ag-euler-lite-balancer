@@ -4,7 +4,7 @@ import { useAccount } from '@wagmi/vue'
 const route = useRoute()
 const router = useRouter()
 const { loadEulerConfig } = useEulerAddresses()
-const { loadVaults } = useVaults()
+const { loadVaults, isReady: isVaultsReady } = useVaults()
 const { loadLabels } = useEulerLabels()
 const { updateBalances } = useWallets()
 const { isConnected } = useAccount()
@@ -46,8 +46,8 @@ checkOnboarding()
 loadVaults()
 loadLabels()
 
-watch(isConnected, (val) => {
-  if (val) {
+watch([isConnected, isVaultsReady], ([val]) => {
+  if (val && isVaultsReady.value) {
     interval = setInterval(async () => {
       updateBalances()
     }, 10000)

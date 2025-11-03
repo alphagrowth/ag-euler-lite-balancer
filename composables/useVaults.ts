@@ -21,17 +21,13 @@ const updateVaults = async () => {
     const currentMap = new Map(map.value)
 
     for await (const result of fetchVaults()) {
-      // Add new vaults to the current map
       result.vaults.forEach((vault) => {
         currentMap.set(vault.address, vault)
       })
 
-      // Update the reactive map with the new data
       map.value = new Map(currentMap)
-
       isLoading.value = false
 
-      // Break if this was the last batch
       if (result.isFinished) {
         break
       }

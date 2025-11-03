@@ -88,9 +88,14 @@ export interface CollateralOption {
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses } = useEulerAddresses()
+
+  if (!eulerLensAddresses.value?.vaultLens) {
+    throw new Error('Euler addresses not loaded yet')
+  }
+
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const vaultLensContract = new ethers.Contract(
-    eulerLensAddresses.value?.vaultLens || '',
+    eulerLensAddresses.value.vaultLens,
     eulerVaultLensABI,
     provider,
   )
@@ -135,16 +140,21 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult, void, unknown> {
   const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses, eulerPeripheryAddresses } = useEulerAddresses()
+
+  if (!eulerLensAddresses.value?.vaultLens || !eulerPeripheryAddresses.value?.governedPerspective) {
+    throw new Error('Euler addresses not loaded yet')
+  }
+
   const provider = new ethers.JsonRpcProvider('https://rpc.ankr.com/eth/349572154c1876f50af09eaa5b19b458c3f5d65e7f95d60bf9e798a495b096ae')
 
   const governedPerspectiveContract = new ethers.Contract(
-    eulerPeripheryAddresses.value?.governedPerspective || '',
+    eulerPeripheryAddresses.value.governedPerspective,
     eulerPerspectiveABI,
     provider,
   )
   console.log('eulerPeripheryAddresses', governedPerspectiveContract)
   const vaultLensContract = new ethers.Contract(
-    eulerLensAddresses.value?.vaultLens || '',
+    eulerLensAddresses.value.vaultLens,
     eulerVaultLensABI,
     provider,
   )
@@ -264,8 +274,13 @@ export const getVaultPrice = (amount: number | bigint, vault: Vault) => {
 export const computeAPYs = (borrowSPY: bigint, cash: bigint, borrows: bigint, interestFee: bigint) => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses } = useEulerAddresses()
+
+  if (!eulerLensAddresses.value?.utilsLens) {
+    throw new Error('Euler addresses not loaded yet')
+  }
+
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-  const utilsLensContract = new ethers.Contract(eulerLensAddresses.value?.utilsLens || '', eulerUtilsLensABI, provider)
+  const utilsLensContract = new ethers.Contract(eulerLensAddresses.value.utilsLens, eulerUtilsLensABI, provider)
   return utilsLensContract.computeAPYs(borrowSPY, cash, borrows, interestFee)
 }
 export const getNetAPY = (supplyUSD: number, supplyAPY: number, borrowUSD: number, borrowAPY: number, supplyRewardAPY?: number | null, borrowRewardAPY?: number | null) => {

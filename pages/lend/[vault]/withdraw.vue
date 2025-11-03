@@ -1,36 +1,29 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
-import OperationTrackerTransactionModal
-  from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
-  computeAPYs,
   convertSharesToAssets,
   getVaultPrice,
   type Vault,
   type VaultAsset,
 } from '~/entities/vault'
-import { nanoToValue } from '~/utils/ton-utils'
 
-const { error } = useToast()
-const modal = useModal()
-
+const router = useRouter()
 const route = useRoute()
-const { getVault } = useVaults()
+const modal = useModal()
+const { error } = useToast()
 const { withdraw, redeem } = useEulerOperations()
-const { isLoaded: isSdkLoaded } = useTacSdk()
-const { updateBalances } = useWallets()
+const { getVault } = useVaults()
+const { isConnected } = useAccount()
+const { getBalance } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
-const { isConnected, address, tonConnectUI, friendlyAddress } = useTonConnect()
-const { TVM_TONCENTER_URL } = useEulerConfig()
 const vaultAddress = route.params.vault as string
-let tvmAssetAddress: string
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
-const isBalanceLoading = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
 const vault: Ref<Vault | undefined> = ref()
@@ -40,7 +33,6 @@ const sharesBalance = ref(0n)
 const delta = ref(0n)
 const estimateSupplyAPY = ref(0n)
 const estimatesError = ref('')
-const oldSharesBalance = ref(-1n)
 
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value?.address || ''))
 const amountFixed = computed(() => {
@@ -50,14 +42,14 @@ const amountFixed = computed(() => {
     { decimals: Number(asset.value?.decimals || 0) },
   )
 })
+const balance = computed(() => getBalance(vault.value?.address as `0x${string}`) || 0n)
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   return assetsBalance.value < amountFixed.value.value
-    || isLoading.value || !isSdkLoaded.value
+    || isLoading.value
     || amountFixed.value.isZero() || amountFixed.value.isNegative()
     || !!(estimatesError.value)
 })
-const friendlyBalance = computed(() => nanoToValue(assetsBalance.value, asset.value?.decimals || 18))
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
   return formatNumber(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))
@@ -69,11 +61,9 @@ const estimateSupplyAPYDisplay = computed(() => {
 const load = async () => {
   isLoading.value = true
   try {
-    const { tacSdk } = useTacSdk()
     vault.value = await getVault(vaultAddress)
     estimateSupplyAPY.value = vault.value.interestRateInfo.supplyAPY
     asset.value = vault.value?.asset
-    tvmAssetAddress = await tacSdk.getTVMTokenAddress(vault.value?.address)
     updateBalance()
   }
   catch (e) {
@@ -84,36 +74,22 @@ const load = async () => {
     isLoading.value = false
   }
 }
-const updateBalance = async (isInitialLoading = true) => {
-  const { tacSdk } = useTacSdk()
+const updateBalance = async () => {
   if (!isConnected.value) {
     assetsBalance.value = 0n
+    sharesBalance.value = 0n
     return
   }
-  if (isInitialLoading) {
-    isBalanceLoading.value = true
-  }
 
-  sharesBalance.value = await tacSdk.getUserJettonBalance(address.value, tvmAssetAddress).catch(_ => 0n)
-
-  if (oldSharesBalance.value === sharesBalance.value) return
-  oldSharesBalance.value = sharesBalance.value
+  sharesBalance.value = balance.value
 
   assetsBalance.value = await convertSharesToAssets(
     vaultAddress,
     sharesBalance.value,
   )
   delta.value = assetsBalance.value
-  isBalanceLoading.value = false
 }
 const submit = async () => {
-  // TODO: Validate
-  if (!isConnected.value) {
-    tonConnectUI.openModal()
-    isSubmitting.value = false
-    return
-  }
-
   modal.open(OperationReviewModal, {
     props: {
       type: 'withdraw',
@@ -131,10 +107,13 @@ const send = async () => {
   try {
     isSubmitting.value = true
     if (!asset.value?.address) {
+      console.error('No asset address')
       return
     }
+
     const method = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value) ? redeem : withdraw
-    const tl = await method(
+
+    const txHash = await method(
       vaultAddress,
       asset.value!.address,
       amountFixed.value.value,
@@ -143,17 +122,16 @@ const send = async () => {
       sharesBalance.value,
       FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value),
     )
-    modal.open(OperationTrackerTransactionModal, {
-      props: { transactionLinker: tl },
-      onClose: async () => {
-        await updateBalance()
-        await updateBalances()
-      },
-    })
+
+    console.log('Transaction hash:', txHash)
+    modal.close()
+    setTimeout(() => {
+      router.replace('/portfolio/saving')
+    }, 400)
   }
   catch (e) {
     error('Transaction failed')
-    console.warn(e)
+    console.error('Transaction error:', e)
   }
   finally {
     isSubmitting.value = false
@@ -174,13 +152,7 @@ const updateEstimates = useDebounceFn(async () => {
     }
 
     delta.value = assetsBalance.value - amountFixed.value.value
-    const { supplyAPY } = await computeAPYs(
-      vault.value.interestRateInfo.borrowSPY,
-      (vault.value.supply - vault.value.borrow) - valueToNano(amount.value, vault.value.decimals),
-      vault.value.interestRateInfo.borrows,
-      vault.value.interestFee,
-    )
-    estimateSupplyAPY.value = supplyAPY
+    estimateSupplyAPY.value = vault.value.interestRateInfo.supplyAPY
   }
   catch (e) {
     console.warn(e)
@@ -193,11 +165,8 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 500)
 
-watch(isSdkLoaded, (val) => {
-  if (val) {
-    load()
-  }
-}, { immediate: true })
+load()
+
 watch(isConnected, () => {
   updateBalance()
 })
@@ -210,14 +179,6 @@ watch(amount, async () => {
   }
   updateEstimates()
 })
-
-const interval = setInterval(() => {
-  updateBalance(false)
-}, 5000)
-
-onUnmounted(() => {
-  clearInterval(interval)
-})
 </script>
 
 <template>
@@ -225,7 +186,7 @@ onUnmounted(() => {
     title="Withdraw"
     :class="$style.LendVaultPage"
     class="column gap-16"
-    :loading="isLoading || !isSdkLoaded"
+    :loading="isLoading"
     @submit.prevent="submit"
   >
     <template v-if="vault && asset">
@@ -244,7 +205,6 @@ onUnmounted(() => {
         :asset="asset"
         :vault="vault"
         :balance="assetsBalance"
-        :balance-loading="isBalanceLoading"
         maxable
       />
 
@@ -257,7 +217,7 @@ onUnmounted(() => {
       />
 
       <VaultFormInfoBlock
-        :loading="isEstimatesLoading || isBalanceLoading"
+        :loading="isEstimatesLoading"
         class="column gap-16"
       >
         <div class="between align-center">
@@ -295,8 +255,8 @@ onUnmounted(() => {
             v-if="asset"
             class="p2 align-center gap-4"
           >
-            {{ formatNumber(friendlyBalance, 2) }} <span class="p3 text-euler-dark-900">{{ asset.symbol }}</span>
-            <span class="p3 text-euler-dark-900">≈ ${{ formatNumber(getVaultPrice(friendlyBalance, vault)) }}</span>
+            {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="p3 text-euler-dark-900">{{ asset.symbol }}</span>
+            <span class="p3 text-euler-dark-900">≈ ${{ formatNumber(getVaultPrice(assetsBalance, vault)) }}</span>
           </p>
         </div>
       </VaultFormInfoBlock>

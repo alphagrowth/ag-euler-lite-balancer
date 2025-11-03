@@ -55,7 +55,98 @@ export const useEulerOperations = () => {
     return depositHash
   }
 
+  const withdraw = async (
+    vaultAddress: string,
+    assetAddress: string,
+    assetsAmount: bigint,
+    _symbol: string,
+    _subAccount?: string,
+    maxSharesAmount?: bigint,
+    isMax?: boolean,
+  ) => {
+    if (!address.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    const vaultAddr = vaultAddress as Address
+    const userAddr = address.value as Address
+
+    const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+    const vaultContract = new ethers.Contract(vaultAddr, eVaultABI, provider)
+
+    let sharesAmount = isMax ? maxSharesAmount || 0n : await vaultContract.previewWithdraw(assetsAmount)
+
+    if (isMax === false && maxSharesAmount && sharesAmount > maxSharesAmount) {
+      sharesAmount = maxSharesAmount
+    }
+
+    const vaultAllowance = await checkAllowance(vaultAddr, vaultAddr)
+
+    if (vaultAllowance < sharesAmount) {
+      const approveHash = await writeContractAsync({
+        address: vaultAddr,
+        abi: erc20ABI,
+        functionName: 'approve',
+        args: [vaultAddr, maxUint256],
+      })
+
+      await waitForTransaction(approveHash)
+    }
+
+    const withdrawHash = await writeContractAsync({
+      address: vaultAddr,
+      abi: eVaultABI,
+      functionName: 'withdraw',
+      args: [assetsAmount, userAddr, userAddr],
+    })
+
+    return withdrawHash
+  }
+
+  const redeem = async (
+    vaultAddress: string,
+    assetAddress: string,
+    assetsAmount: bigint,
+    _symbol: string,
+    _subAccount?: string,
+    maxSharesAmount?: bigint,
+    _isMax?: boolean,
+  ) => {
+    if (!address.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    const vaultAddr = vaultAddress as Address
+    const userAddr = address.value as Address
+
+    const sharesAmount = maxSharesAmount || 0n
+
+    const vaultAllowance = await checkAllowance(vaultAddr, vaultAddr)
+
+    if (vaultAllowance < sharesAmount) {
+      const approveHash = await writeContractAsync({
+        address: vaultAddr,
+        abi: erc20ABI,
+        functionName: 'approve',
+        args: [vaultAddr, maxUint256],
+      })
+
+      await waitForTransaction(approveHash)
+    }
+
+    const redeemHash = await writeContractAsync({
+      address: vaultAddr,
+      abi: eVaultABI,
+      functionName: 'redeem',
+      args: [sharesAmount, userAddr, userAddr],
+    })
+
+    return redeemHash
+  }
+
   return {
     supply,
+    withdraw,
+    redeem,
   }
 }

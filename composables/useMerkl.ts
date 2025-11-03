@@ -22,7 +22,7 @@ const endpoints = {
   campaignById: (id: string) => `${MERKL_API_BASE_URL}/campaigns/${id}`,
 }
 
-const { friendlyAddress, tonConnectUI } = useTonConnect()
+const { tonConnectUI } = useTonConnect()
 
 const address = ref('')
 
@@ -36,7 +36,7 @@ const isRewardsLoading = ref(true)
 const isLocksLoading = ref(true)
 const locks: Ref<REULLock[]> = ref([])
 
-let interval: NodeJS.Timeout | null = null
+// let interval: NodeJS.Timeout | null = null
 
 const loadTokens = async (isInitialLoading = true) => {
   try {
@@ -292,29 +292,29 @@ const getOpportunityOfBorrowVault = (assetAddress: string) => {
   return borrowOpportunities.value.find(opportunity => !!(opportunity.tokens.find(tokenInfo => tokenInfo.address === assetAddress)))
 }
 
-watch(friendlyAddress, (val) => {
-  initMerkl(val)
-  loadOpportunities()
-  loadTokens()
-  loadRewards()
-  loadREULLocksInfo()
-  if (val) {
-    if (!interval) {
-      interval = setInterval(() => {
-        // loadRewards(false)
-        // loadOpportunities(false)
-        loadTokens(false)
-        // loadREULLocksInfo(false)
-      }, 10000)
-    }
-  }
-  else {
-    if (interval) {
-      clearInterval(interval)
-      interval = null
-    }
-  }
-}, { immediate: true })
+// watch(friendlyAddress, (val) => {
+//   initMerkl(val)
+//   loadOpportunities()
+//   loadTokens()
+//   loadRewards()
+//   loadREULLocksInfo()
+//   if (val) {
+//     if (!interval) {
+//       interval = setInterval(() => {
+//         // loadRewards(false)
+//         // loadOpportunities(false)
+//         loadTokens(false)
+//         // loadREULLocksInfo(false)
+//       }, 10000)
+//     }
+//   }
+//   else {
+//     if (interval) {
+//       clearInterval(interval)
+//       interval = null
+//     }
+//   }
+// }, { immediate: true })
 
 export const useMerkl = () => {
   return {
