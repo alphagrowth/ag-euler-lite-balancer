@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { useAccount, useBalance } from '@wagmi/vue'
+import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, getVaultPrice, type VaultAsset, type CollateralOption, convertAssetsToShares } from '~/entities/vault'
-import OperationTrackerTransactionModal
-  from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 
 const router = useRouter()
@@ -16,9 +14,10 @@ const { error } = useToast()
 const { borrowBySaving, borrow } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
-const { updateBorrowPositions, depositPositions } = useEulerAccount()
-const { walletState } = useWallets()
+const { updateBorrowPositions, depositPositions, isPositionsLoading } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { eulerLensAddresses } = useEulerAddresses()
+const { getBalance } = useWallets()
 
 const ltv = ref(0)
 const borrowAmount = ref('')
@@ -45,7 +44,6 @@ const errorText = computed(() => {
 })
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  if (walletState.value !== 'active') return true
   return computedBalance.value < valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)
     || !(+collateralAmount.value)
     || ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals))
@@ -72,12 +70,6 @@ const ltvFixed = computed(() => {
   }
   return fn
 })
-const {
-  data: vaultTokenBalance, isLoading: isVaultTokenBalanceLoading,
-} = useBalance({ address: address, token: collateralVault.value?.address as `0x${string}` })
-const {
-  data: assetTokenBalance, isLoading: isAssetTokenBalanceLoading,
-} = useBalance({ address: address, token: collateralVault.value?.asset.address as `0x${string}` })
 
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
 const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
@@ -115,8 +107,8 @@ const updateBalance = async () => {
     balance.value = 0n
     return
   }
-  balance.value = vaultTokenBalance.value?.value || 0n
-  savingBalance.value = assetTokenBalance.value?.value || 0n
+  balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
+  savingBalance.value = getBalance(collateralVault.value?.address as `0x${string}`) || 0n
 }
 const submit = async () => {
   // TODO: Validate
@@ -156,7 +148,7 @@ const send = async () => {
         amount = await convertAssetsToShares(collateralVault.value.address, amount)
       }
     }
-    const tl = await method(
+    await method(
       collateralVault.value.address,
       collateralVault.value.asset.address,
       amount,
@@ -165,17 +157,13 @@ const send = async () => {
       borrowAmountFixed.value.toFormat({ decimals: Number(borrowVault.value.decimals) }).value,
       collateralVault.value.asset.symbol,
     )
-    modal.open(OperationTrackerTransactionModal, {
-      props: { transactionLinker: tl },
-      onClose: () => {
-        updateEstimates()
-        updateBalance()
-        updateBorrowPositions()
-        setTimeout(() => {
-          router.replace('/portfolio')
-        }, 400)
-      },
-    })
+
+    modal.close()
+    updateBalance()
+    updateBorrowPositions(eulerLensAddresses.value, address.value || '', false)
+    setTimeout(() => {
+      router.replace('/portfolio')
+    }, 400)
   }
   catch (e) {
     console.warn(e)
@@ -245,11 +233,12 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 1000)
 
-watch([assetTokenBalance, vaultTokenBalance], () => {
-  if (!isVaultTokenBalanceLoading.value || !isAssetTokenBalanceLoading.value) {
-    updateBalance()
+watch(pair, (val) => {
+  if (!val) {
+    return
   }
-})
+  updateBalance()
+}, { immediate: true })
 watch([collateralAmount, borrowAmount], async () => {
   if (!pair.value) {
     return
@@ -269,7 +258,6 @@ watch(savingCollateral, (val) => {
 <template>
   <VaultForm
     title="Open borrow position"
-    :loading="isVaultTokenBalanceLoading || isAssetTokenBalanceLoading"
     class="column gap-16"
     @submit.prevent="submit"
   >
@@ -289,7 +277,6 @@ watch(savingCollateral, (val) => {
         :asset="collateralVault.asset"
         :vault="collateralVault"
         :balance="computedBalance"
-        :balance-loading="isVaultTokenBalanceLoading || isAssetTokenBalanceLoading"
         :collateral-options="collateralOptions as CollateralOption[]"
         maxable
         @input="onCollateralInput"
@@ -369,14 +356,10 @@ watch(savingCollateral, (val) => {
       </VaultFormInfoBlock>
     </template>
 
-    <WalletInactiveDisclaimer
-      v-if="walletState && walletState !== 'active'"
-    />
-
     <template #buttons>
       <VaultFormInfoButton
         :pair="pair"
-        :disabled="isVaultTokenBalanceLoading || isAssetTokenBalanceLoading || isSubmitting"
+        :disabled="isSubmitting || isPositionsLoading"
       />
       <VaultFormSubmit
         :disabled="isSubmitDisabled"

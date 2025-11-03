@@ -1,27 +1,22 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
-import { Address, TonClient } from '@ton/ton'
 import { useModal } from '~/components/ui/composables/useModal'
-import OperationTrackerTransactionModal
-  from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { nanoToValue } from '~/utils/ton-utils'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
 
-let tvmAssetAddress: string
-
+const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
 const { supply } = useEulerOperations()
-const { isLoaded: isSdkLoaded } = useTacSdk()
-const { isConnected, address, tonConnectUI, friendlyAddress } = useTonConnect()
+const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions } = useEulerAccount()
+const { borrowPositions, isPositionsLoaded } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { TVM_TONCENTER_URL } = useEulerConfig()
+const { getBalance } = useWallets()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -68,7 +63,7 @@ const assets = computed(() => [asset.value])
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
-    || isLoading.value || !isSdkLoaded.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
+    || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
 const { name } = useEulerProductOfVault(collateralVault.value?.address)
 
@@ -79,8 +74,6 @@ const load = async () => {
   isLoading.value = true
   await until(isPositionLoaded).toBe(true)
   try {
-    const { tacSdk } = useTacSdk()
-    tvmAssetAddress = await tacSdk.getTVMTokenAddress(collateralVault.value.asset.address)
     await updateBalance()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value.userLTV
@@ -95,32 +88,14 @@ const load = async () => {
   }
 }
 const updateBalance = async () => {
-  const { tacSdk } = useTacSdk()
   if (!isConnected.value) {
     balance.value = 0n
     return
   }
 
-  if (collateralVault.value?.asset.symbol === 'TON') {
-    const client = new TonClient({
-      endpoint: `${TVM_TONCENTER_URL}/api/v2/jsonRPC`,
-    })
-    balance.value = await client.getBalance(Address.parse(friendlyAddress.value))
-  }
-  else {
-    balance.value = await tacSdk.getUserJettonBalance(address.value, tvmAssetAddress).catch((e) => {
-      console.warn(e)
-      return 0n
-    })
-  }
+  balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
 }
 const submit = async () => {
-  if (!isConnected.value) {
-    tonConnectUI.openModal()
-    isSubmitting.value = false
-    return
-  }
-
   modal.open(OperationReviewModal, {
     props: {
       type: 'supply',
@@ -140,22 +115,18 @@ const send = async () => {
     if (!asset.value?.address) {
       return
     }
-    const tl = await supply(
+    await supply(
       collateralVault.value.address,
       asset.value.address,
       valueToNano(amount.value || '0', asset.value.decimals),
       asset.value.symbol,
-      position.value.subAccount,
     )
-    console.log(tl)
 
-    modal.open(OperationTrackerTransactionModal, {
-      props: { transactionLinker: tl },
-      onClose: async () => {
-        await updateBalance()
-        await updateEstimates()
-      },
-    })
+    modal.close()
+    await updateBalance()
+    setTimeout(() => {
+      router.replace('/portfolio')
+    }, 400)
   }
   catch (e) {
     console.warn(e)
@@ -206,7 +177,7 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 500)
 
-watch(isSdkLoaded, (val) => {
+watch(isPositionsLoaded, (val) => {
   if (val) {
     load()
   }
@@ -236,7 +207,7 @@ onUnmounted(() => {
 <template>
   <VaultForm
     title="Supply"
-    :loading="isLoading || !isSdkLoaded"
+    :loading="isLoading"
     @submit.prevent="submit"
   >
     <div v-if="!isConnected">
@@ -368,7 +339,7 @@ onUnmounted(() => {
 
     <template #buttons>
       <VaultFormInfoButton
-        :disabled="isLoading || !isSdkLoaded || isSubmitting"
+        :disabled="isLoading || isSubmitting"
         :vault="collateralVault"
       />
       <VaultFormSubmit

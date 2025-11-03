@@ -7,7 +7,6 @@ defineOptions({
 })
 
 const { list, isLoading } = useVaults()
-const { walletState } = useWallets()
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])
@@ -48,11 +47,6 @@ load()
     :class="$style.lendPage"
     class="column"
   >
-    <WalletInactiveDisclaimer
-      v-if="walletState && walletState !== 'active'"
-      class="mb-16"
-    />
-
     <BasePageHeader
       title="Lend"
       description="Earn yield on assets by lending them out."

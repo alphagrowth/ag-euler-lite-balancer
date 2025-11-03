@@ -1,17 +1,17 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { getRelativeTimeBetweenDates } from '~/utils/time-utils'
-import { VaultOverviewModal } from '#components'
+import { VaultOverviewModal, OperationReviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal, OperationTrackerTransactionModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
-const { isConnected, tonConnectUI } = useTonConnect()
+const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, borrowPositions, updateBorrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { disableCollateral: disableCollateralOperation } = useEulerOperations()
@@ -75,18 +75,11 @@ const netAPY = computed(() => {
 })
 
 const disableCollateral = async () => {
-  console.warn('disableCollateral')
-  if (!isConnected.value) {
-    tonConnectUI.openModal()
-    isSubmitting.value = false
-    return
-  }
-
   modal.open(OperationReviewModal, {
     props: {
       type: 'disableCollateral',
       asset: position.value!.borrow.asset,
-      amount: '99',
+      amount: '0',
       onConfirm: () => {
         setTimeout(() => {
           send()
@@ -98,16 +91,20 @@ const disableCollateral = async () => {
 const send = async () => {
   try {
     isSubmitting.value = true
-    const tl = await disableCollateralOperation(position.value!.subAccount, position.value!.collateral.address, position.value!.collateral.asset.address, 0n, position.value!.borrow.address, position.value!.borrow.asset.address)
-    modal.open(OperationTrackerTransactionModal, {
-      props: { transactionLinker: tl },
-      onClose: () => {
-        setTimeout(() => {
-          updateBorrowPositions()
-          router.replace('/portfolio')
-        }, 400)
-      },
-    })
+    await disableCollateralOperation(
+      position.value!.subAccount,
+      position.value!.collateral.address,
+      position.value!.collateral.asset.address,
+      0n,
+      position.value!.borrow.address,
+      position.value!.borrow.asset.address,
+    )
+
+    modal.close()
+    updateBorrowPositions()
+    setTimeout(() => {
+      router.replace('/portfolio')
+    }, 400)
   }
   catch (e) {
     error('Transaction failed')
@@ -185,7 +182,10 @@ watch(isConnected, () => {
           </div>
         </div>
       </div>
-      <div v-if="!hasNoBorrow" class="br-16 bg-euler-dark-500 p-16">
+      <div
+        v-if="!hasNoBorrow"
+        class="br-16 bg-euler-dark-500 p-16"
+      >
         <div class="h4 flex align-center flex-wrap gap-12 mb-16">
           Position risk
 
@@ -339,7 +339,10 @@ watch(isConnected, () => {
                 ${{ formatNumber(getVaultPrice(1, position.collateral)) }}
               </div>
             </div>
-            <div v-if="!hasNoBorrow" class="between gap-8 flex-wrap mb-16">
+            <div
+              v-if="!hasNoBorrow"
+              class="between gap-8 flex-wrap mb-16"
+            >
               <div class="text-euler-dark-900 p3">
                 Liquidation price
               </div>
@@ -347,7 +350,10 @@ watch(isConnected, () => {
                 ${{ liquidationPrice ? formatNumber(getVaultPrice(liquidationPrice, position.collateral)) : '-' }}
               </div>
             </div>
-            <div v-if="!hasNoBorrow" class="between gap-8 flex-wrap mb-16">
+            <div
+              v-if="!hasNoBorrow"
+              class="between gap-8 flex-wrap mb-16"
+            >
               <div class="text-euler-dark-900 p3">
                 LLTV
               </div>
@@ -355,7 +361,10 @@ watch(isConnected, () => {
                 {{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%
               </div>
             </div>
-            <div v-if="!hasNoBorrow" class="flex gap-8">
+            <div
+              v-if="!hasNoBorrow"
+              class="flex gap-8"
+            >
               <UiButton
                 size="medium"
                 variant="primary"

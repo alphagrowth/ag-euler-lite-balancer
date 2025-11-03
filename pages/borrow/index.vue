@@ -7,7 +7,6 @@ defineOptions({
 })
 
 const { borrowList, isLoading } = useVaults()
-const { walletState } = useWallets()
 
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
@@ -54,11 +53,6 @@ const filteredBorrowList = computed(() => {
     :class="$style.borrowPage"
     class="column"
   >
-    <WalletInactiveDisclaimer
-      v-if="walletState && walletState !== 'active'"
-      class="mb-16"
-    />
-
     <BasePageHeader
       title="Borrow"
       description="Borrow against your collateral"

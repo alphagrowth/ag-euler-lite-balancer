@@ -1,26 +1,23 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
-import OperationTrackerTransactionModal
-  from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, getVaultPrice, type VaultAsset } from '~/entities/vault'
-import { nanoToValue } from '~/utils/ton-utils'
 import type { AccountBorrowPosition } from '~/entities/account'
 
 const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
-const { repay, fullRepay } = useEulerOperations()
-const { isLoaded: isSdkLoaded } = useTacSdk()
-const { isConnected, tonConnectUI } = useTonConnect()
+const { repay } = useEulerOperations()
+const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
-const { updateBorrowPositions } = useEulerAccount()
+const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { getBalance } = useWallets()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -38,7 +35,7 @@ const collateralVault = computed(() => position.value?.collateral)
 const assets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  return isLoading.value || !isSdkLoaded.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
+  return isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
@@ -105,12 +102,6 @@ const updateBalance = async () => {
     .value
 }
 const submit = async () => {
-  if (!isConnected.value) {
-    tonConnectUI.openModal()
-    isSubmitting.value = false
-    return
-  }
-
   modal.open(OperationReviewModal, {
     props: {
       type: 'repay',
@@ -130,29 +121,18 @@ const send = async () => {
     if (!position.value || !borrowVault.value || !collateralVault.value) {
       return
     }
-    const method = balance.value <= valueToNano(amount.value, borrowVault.value.asset.decimals)
-      ? fullRepay
-      : repay
-    console.log(balance.value <= valueToNano(amount.value, borrowVault.value.asset.decimals))
-    const tl = await method(
-      position.value.subAccount,
-      collateralVault.value.address,
-      collateralVault.value.asset.address,
-      valueToNano(amount.value, borrowVault.value.asset.decimals),
+    await repay(
       borrowVault.value.address,
       borrowVault.value.asset.address,
+      valueToNano(amount.value, borrowVault.value.asset.decimals),
       borrowVault.value.asset.symbol,
     )
 
-    modal.open(OperationTrackerTransactionModal, {
-      props: { transactionLinker: tl },
-      onClose: () => {
-        setTimeout(() => {
-          updateBorrowPositions()
-          router.replace('/portfolio')
-        }, 400)
-      },
-    })
+    modal.close()
+    updateBorrowPositions()
+    setTimeout(() => {
+      router.replace('/portfolio')
+    }, 400)
   }
   catch (e) {
     error('Transaction failed')
@@ -203,7 +183,7 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 500)
 
-watch(isSdkLoaded, (val) => {
+watch(isPositionsLoaded, (val) => {
   if (val) {
     load()
   }
@@ -232,7 +212,7 @@ onUnmounted(() => {
 
 <template>
   <VaultForm
-    :loading="isLoading || !isSdkLoaded || isPositionsLoading"
+    :loading="isLoading || isPositionsLoading"
     title="Repay position"
     @submit.prevent="submit"
   >
@@ -370,7 +350,7 @@ onUnmounted(() => {
     <template #buttons>
       <VaultFormInfoButton
         :pair="position"
-        :disabled="isLoading || !isSdkLoaded || isSubmitting"
+        :disabled="isLoading || isSubmitting"
       >
         Pair information
       </VaultFormInfoButton>

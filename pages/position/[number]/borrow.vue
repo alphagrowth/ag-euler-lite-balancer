@@ -1,31 +1,24 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
-import { Address, TonClient } from '@ton/ton'
 import { useModal } from '~/components/ui/composables/useModal'
-// import OperationTrackerTransactionModal
-//   from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, getVaultPrice, type VaultAsset } from '~/entities/vault'
-import OperationTrackerTransactionModal
-  from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { AccountBorrowPosition } from '~/entities/account'
 
-let tvmAssetAddress: string
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
 const { borrow } = useEulerOperations()
-const { getBorrowVaultPair, updateVault } = useVaults()
-const { isLoaded: isSdkLoaded } = useTacSdk()
-const { isConnected, address, tonConnectUI, friendlyAddress } = useTonConnect()
+const { getBorrowVaultPair } = useVaults()
+const { isConnected, address } = useAccount()
 const { updateBorrowPositions, borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
 const positionIndex = route.params.number as string
-const { walletState } = useWallets()
+const { walletState, getBalance } = useWallets()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { TVM_TONCENTER_URL } = useEulerConfig()
 
 const ltv = ref(0)
 const borrowAmount = ref('')
@@ -59,7 +52,7 @@ const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   if (walletState.value !== 'active') return true
   return balance.value < valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)
-    || isLoading.value || !isSdkLoaded.value || !(+collateralAmount.value)
+    || isLoading.value || !(+collateralAmount.value)
     || ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals))
 })
 const borrowVault = computed(() => pair.value?.borrow)
@@ -100,9 +93,7 @@ const load = async () => {
   userLTV.value = Number(formatNumber(nanoToValue(position.value.userLTV, 18)))
   ltv.value = userLTV.value
   try {
-    const { tacSdk } = useTacSdk()
     pair.value = await getBorrowVaultPair(collateralAddress as string, borrowAddress as string)
-    tvmAssetAddress = await tacSdk.getTVMTokenAddress(collateralVault.value!.asset.address)
     updateBalance()
   }
   catch (e) {
@@ -113,38 +104,16 @@ const load = async () => {
     isLoading.value = false
   }
 }
-const updateBalance = async (isInitialLoading = true) => {
-  const { tacSdk } = useTacSdk()
+const updateBalance = async () => {
   if (!isConnected.value) {
     balance.value = 0n
     return
   }
-  if (isInitialLoading) {
-    isBalanceLoading.value = true
-  }
 
-  if (collateralVault.value?.asset.symbol === 'TON') {
-    const client = new TonClient({
-      endpoint: `${TVM_TONCENTER_URL}/api/v2/jsonRPC`,
-    })
-    balance.value = await client.getBalance(Address.parse(friendlyAddress.value))
-  }
-  else {
-    balance.value = await tacSdk.getUserJettonBalance(address.value, tvmAssetAddress).catch((e) => {
-      console.warn(e)
-      return 0n
-    })
-  }
+  balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
   isBalanceLoading.value = false
 }
 const submit = async () => {
-  // TODO: Validate
-  if (!isConnected.value) {
-    tonConnectUI.openModal()
-    isSubmitting.value = false
-    return
-  }
-
   modal.open(OperationReviewModal, {
     props: {
       type: 'borrow',
@@ -164,7 +133,7 @@ const send = async () => {
     if (!collateralVault.value || !borrowVault.value) {
       return
     }
-    const tl = await borrow(
+    await borrow(
       collateralVault.value.address,
       collateralVault.value.asset.address,
       0n,
@@ -172,19 +141,14 @@ const send = async () => {
       borrowVault.value.asset.address,
       borrowAmountFixed.value.toFormat({ decimals: Number(borrowVault.value.decimals) }).value,
       collateralVault.value.asset.symbol,
-      position.value?.subAccount,
     )
-    modal.open(OperationTrackerTransactionModal, {
-      props: { transactionLinker: tl },
-      onClose: () => {
-        updateEstimates()
-        updateBalance()
-        updateBorrowPositions()
-        setTimeout(() => {
-          router.replace('/portfolio')
-        }, 400)
-      },
-    })
+
+    modal.close()
+    updateBalance()
+    updateBorrowPositions()
+    setTimeout(() => {
+      router.replace('/portfolio')
+    }, 400)
   }
   catch (e) {
     console.warn(e)
@@ -248,7 +212,7 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 1000)
 
-watch(isSdkLoaded, (val) => {
+watch(isPositionsLoaded, (val) => {
   if (val) {
     load()
   }
@@ -278,7 +242,7 @@ onUnmounted(() => {
 <template>
   <VaultForm
     title="Borrow"
-    :loading="isLoading || !isSdkLoaded"
+    :loading="isLoading || isPositionsLoading"
     class="column gap-16"
     @submit.prevent="submit"
   >
