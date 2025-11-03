@@ -1,38 +1,59 @@
-import { useWriteContract } from '@wagmi/vue'
+import { useWriteContract, useConfig } from '@wagmi/vue'
 import type { Address, Hash } from 'viem'
 import { maxUint256 } from 'viem'
-import { ethers } from 'ethers'
+import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core'
 import { erc20ABI, eVaultABI } from '~/entities/euler/abis'
+import { SaHooksBuilder } from '~/entities/saHooksSDK'
+import { convertSaHooksToEVCCalls, EVC_ABI } from '~/utils/evc-converter'
+
+const TAC_CHAIN_ID = 239
 
 export const useEulerOperations = () => {
-  const { address } = useWagmi()
+  const { address, chainId } = useWagmi()
   const { writeContractAsync } = useWriteContract()
-  const { EVM_PROVIDER_URL, ETH_VAULT_CONNECTOR } = useEulerConfig()
+  const config = useConfig()
+  const { eulerCoreAddresses } = useEulerAddresses()
 
-  const checkAllowance = async (assetAddress: Address, vaultAddress: Address): Promise<bigint> => {
-    const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-    const contract = new ethers.Contract(assetAddress, erc20ABI, provider)
+  const isTacChain = computed(() => chainId.value === TAC_CHAIN_ID)
 
-    const allowance = await contract.allowance(address.value, vaultAddress)
+  const checkAllowance = async (assetAddress: Address, vaultAddress: Address, userAddress: Address): Promise<bigint> => {
+    if (!chainId.value) {
+      throw new Error('Chain ID not available')
+    }
+
+    const publicClient = getPublicClient(config, { chainId: chainId.value })
+    if (!publicClient) {
+      throw new Error('Public client not available')
+    }
+
+    const allowance = await publicClient.readContract({
+      address: assetAddress,
+      abi: erc20ABI,
+      functionName: 'allowance',
+      args: [userAddress, vaultAddress],
+    })
+
     return allowance as bigint
   }
 
-  const waitForTransaction = async (hash: Hash) => {
-    const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-    const receipt = await provider.waitForTransaction(hash)
+  const waitForTransactionConfirmation = async (hash: Hash) => {
+    if (!chainId.value) {
+      throw new Error('Chain ID not available')
+    }
+    const receipt = await waitForTransactionReceipt(config, {
+      hash,
+      chainId: chainId.value,
+    })
     return receipt
   }
 
-  const supply = async (vaultAddress: string, assetAddress: string, amount: bigint, _symbol: string) => {
-    if (!address.value) {
-      throw new Error('Wallet not connected')
-    }
-
-    const vaultAddr = vaultAddress as Address
-    const assetAddr = assetAddress as Address
-    const userAddr = address.value as Address
-
-    const allowance = await checkAllowance(assetAddr, vaultAddr)
+  const supplyWithClassicApproval = async (
+    vaultAddr: Address,
+    assetAddr: Address,
+    userAddr: Address,
+    amount: bigint,
+  ) => {
+    const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
 
     if (allowance < amount) {
       const approveHash = await writeContractAsync({
@@ -42,7 +63,7 @@ export const useEulerOperations = () => {
         args: [vaultAddr, maxUint256],
       })
 
-      await waitForTransaction(approveHash)
+      await waitForTransactionConfirmation(approveHash)
     }
 
     const depositHash = await writeContractAsync({
@@ -55,367 +76,69 @@ export const useEulerOperations = () => {
     return depositHash
   }
 
-  const withdraw = async (
-    vaultAddress: string,
-    assetAddress: string,
-    assetsAmount: bigint,
-    _symbol: string,
-    _subAccount?: string,
-    maxSharesAmount?: bigint,
-    isMax?: boolean,
+  const supplyWithEVCBatch = async (
+    vaultAddr: Address,
+    assetAddr: Address,
+    userAddr: Address,
+    amount: bigint,
   ) => {
-    if (!address.value) {
-      throw new Error('Wallet not connected')
+    if (!eulerCoreAddresses.value) {
+      throw new Error('Euler addresses not available')
     }
 
-    const vaultAddr = vaultAddress as Address
-    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
 
-    const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-    const vaultContract = new ethers.Contract(vaultAddr, eVaultABI, provider)
+    const hooks = new SaHooksBuilder()
 
-    let sharesAmount = isMax ? maxSharesAmount || 0n : await vaultContract.previewWithdraw(assetsAmount)
+    hooks.addContractInterface(assetAddr, [
+      'function approve(address,uint256) external',
+    ])
+    hooks.addContractInterface(vaultAddr, [
+      'function deposit(uint256,address) external',
+    ])
 
-    if (isMax === false && maxSharesAmount && sharesAmount > maxSharesAmount) {
-      sharesAmount = maxSharesAmount
-    }
+    hooks.addPreHookCallFromSelf(assetAddr, 'approve', [vaultAddr, amount])
+    hooks.setMainCallHookCallFromSelf(vaultAddr, 'deposit', [amount, userAddr])
 
-    const vaultAllowance = await checkAllowance(vaultAddr, vaultAddr)
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
 
-    if (vaultAllowance < sharesAmount) {
-      const approveHash = await writeContractAsync({
-        address: vaultAddr,
-        abi: erc20ABI,
-        functionName: 'approve',
-        args: [vaultAddr, maxUint256],
-      })
-
-      await waitForTransaction(approveHash)
-    }
-
-    const withdrawHash = await writeContractAsync({
-      address: vaultAddr,
-      abi: eVaultABI,
-      functionName: 'withdraw',
-      args: [assetsAmount, userAddr, userAddr],
-    })
-
-    return withdrawHash
-  }
-
-  const redeem = async (
-    vaultAddress: string,
-    assetAddress: string,
-    assetsAmount: bigint,
-    _symbol: string,
-    _subAccount?: string,
-    maxSharesAmount?: bigint,
-    _isMax?: boolean,
-  ) => {
-    if (!address.value) {
-      throw new Error('Wallet not connected')
-    }
-
-    const vaultAddr = vaultAddress as Address
-    const userAddr = address.value as Address
-
-    const sharesAmount = maxSharesAmount || 0n
-
-    const vaultAllowance = await checkAllowance(vaultAddr, vaultAddr)
-
-    if (vaultAllowance < sharesAmount) {
-      const approveHash = await writeContractAsync({
-        address: vaultAddr,
-        abi: erc20ABI,
-        functionName: 'approve',
-        args: [vaultAddr, maxUint256],
-      })
-
-      await waitForTransaction(approveHash)
-    }
-
-    const redeemHash = await writeContractAsync({
-      address: vaultAddr,
-      abi: eVaultABI,
-      functionName: 'redeem',
-      args: [sharesAmount, userAddr, userAddr],
-    })
-
-    return redeemHash
-  }
-
-  const borrow = async (
-    collateralVaultAddress: string,
-    collateralAssetAddress: string,
-    collateralAmount: bigint,
-    borrowVaultAddress: string,
-    _borrowAssetAddress: string,
-    borrowAmount: bigint,
-    _collateralSymbol: string,
-  ) => {
-    if (!address.value) {
-      throw new Error('Wallet not connected')
-    }
-
-    const collateralVaultAddr = collateralVaultAddress as Address
-    const collateralAssetAddr = collateralAssetAddress as Address
-    const borrowVaultAddr = borrowVaultAddress as Address
-    const userAddr = address.value as Address
-    const connectorAddr = ETH_VAULT_CONNECTOR as Address
-
-    const allowance = await checkAllowance(collateralAssetAddr, collateralVaultAddr)
-
-    if (allowance < collateralAmount) {
-      const approveHash = await writeContractAsync({
-        address: collateralAssetAddr,
-        abi: erc20ABI,
-        functionName: 'approve',
-        args: [collateralVaultAddr, maxUint256],
-      })
-
-      await waitForTransaction(approveHash)
-    }
+    console.log('[EVC Batch] Sending batch with', evcCalls.length, 'calls')
+    console.log('[EVC Batch] Calls:', evcCalls)
 
     const depositHash = await writeContractAsync({
-      address: collateralVaultAddr,
-      abi: eVaultABI,
-      functionName: 'deposit',
-      args: [collateralAmount, userAddr],
+      address: evcAddress,
+      abi: EVC_ABI,
+      functionName: 'batch',
+      args: [evcCalls as never],
+      value: 0n,
     })
 
-    await waitForTransaction(depositHash)
-
-    const vaultAllowance = await checkAllowance(collateralVaultAddr, connectorAddr)
-
-    if (vaultAllowance === 0n) {
-      const approveVaultHash = await writeContractAsync({
-        address: collateralVaultAddr,
-        abi: erc20ABI,
-        functionName: 'approve',
-        args: [connectorAddr, maxUint256],
-      })
-
-      await waitForTransaction(approveVaultHash)
-    }
-
-    const enableControllerHash = await writeContractAsync({
-      address: connectorAddr,
-      abi: [{
-        type: 'function',
-        name: 'enableController',
-        inputs: [
-          { name: 'account', type: 'address' },
-          { name: 'vault', type: 'address' },
-        ],
-        outputs: [],
-        stateMutability: 'payable',
-      }],
-      functionName: 'enableController',
-      args: [userAddr, borrowVaultAddr],
-    })
-
-    await waitForTransaction(enableControllerHash)
-
-    const enableCollateralHash = await writeContractAsync({
-      address: connectorAddr,
-      abi: [{
-        type: 'function',
-        name: 'enableCollateral',
-        inputs: [
-          { name: 'account', type: 'address' },
-          { name: 'vault', type: 'address' },
-        ],
-        outputs: [],
-        stateMutability: 'payable',
-      }],
-      functionName: 'enableCollateral',
-      args: [userAddr, collateralVaultAddr],
-    })
-
-    await waitForTransaction(enableCollateralHash)
-
-    const borrowHash = await writeContractAsync({
-      address: borrowVaultAddr,
-      abi: eVaultABI,
-      functionName: 'borrow',
-      args: [borrowAmount, userAddr],
-    })
-
-    return borrowHash
+    return depositHash
   }
 
-  const borrowBySaving = async (
-    collateralVaultAddress: string,
-    _collateralAssetAddress: string,
-    _collateralAmount: bigint,
-    borrowVaultAddress: string,
-    _borrowAssetAddress: string,
-    borrowAmount: bigint,
-    _collateralSymbol: string,
-  ) => {
+  const supply = async (vaultAddress: string, assetAddress: string, amount: bigint, _symbol: string) => {
     if (!address.value) {
       throw new Error('Wallet not connected')
     }
 
-    const collateralVaultAddr = collateralVaultAddress as Address
-    const borrowVaultAddr = borrowVaultAddress as Address
-    const userAddr = address.value as Address
-    const connectorAddr = ETH_VAULT_CONNECTOR as Address
-
-    const vaultAllowance = await checkAllowance(collateralVaultAddr, connectorAddr)
-
-    if (vaultAllowance === 0n) {
-      const approveVaultHash = await writeContractAsync({
-        address: collateralVaultAddr,
-        abi: erc20ABI,
-        functionName: 'approve',
-        args: [connectorAddr, maxUint256],
-      })
-
-      await waitForTransaction(approveVaultHash)
-    }
-
-    const enableControllerHash = await writeContractAsync({
-      address: connectorAddr,
-      abi: [{
-        type: 'function',
-        name: 'enableController',
-        inputs: [
-          { name: 'account', type: 'address' },
-          { name: 'vault', type: 'address' },
-        ],
-        outputs: [],
-        stateMutability: 'payable',
-      }],
-      functionName: 'enableController',
-      args: [userAddr, borrowVaultAddr],
-    })
-
-    await waitForTransaction(enableControllerHash)
-
-    const enableCollateralHash = await writeContractAsync({
-      address: connectorAddr,
-      abi: [{
-        type: 'function',
-        name: 'enableCollateral',
-        inputs: [
-          { name: 'account', type: 'address' },
-          { name: 'vault', type: 'address' },
-        ],
-        outputs: [],
-        stateMutability: 'payable',
-      }],
-      functionName: 'enableCollateral',
-      args: [userAddr, collateralVaultAddr],
-    })
-
-    await waitForTransaction(enableCollateralHash)
-
-    const borrowHash = await writeContractAsync({
-      address: borrowVaultAddr,
-      abi: eVaultABI,
-      functionName: 'borrow',
-      args: [borrowAmount, userAddr],
-    })
-
-    return borrowHash
-  }
-
-  const repay = async (
-    borrowVaultAddress: string,
-    borrowAssetAddress: string,
-    repayAmount: bigint,
-    _borrowSymbol: string,
-  ) => {
-    if (!address.value) {
-      throw new Error('Wallet not connected')
-    }
-
-    const borrowVaultAddr = borrowVaultAddress as Address
-    const borrowAssetAddr = borrowAssetAddress as Address
+    const vaultAddr = vaultAddress as Address
+    const assetAddr = assetAddress as Address
     const userAddr = address.value as Address
 
-    const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr)
+    console.log('[Supply] Chain ID:', chainId.value, 'Is TAC:', isTacChain.value)
 
-    if (allowance < repayAmount) {
-      const approveHash = await writeContractAsync({
-        address: borrowAssetAddr,
-        abi: erc20ABI,
-        functionName: 'approve',
-        args: [borrowVaultAddr, maxUint256],
-      })
-
-      await waitForTransaction(approveHash)
+    if (isTacChain.value) {
+      console.log('[Supply] Using classic approval flow (TAC chain)')
+      return supplyWithClassicApproval(vaultAddr, assetAddr, userAddr, amount)
     }
-
-    const repayHash = await writeContractAsync({
-      address: borrowVaultAddr,
-      abi: eVaultABI,
-      functionName: 'repay',
-      args: [repayAmount, userAddr],
-    })
-
-    return repayHash
-  }
-
-  const disableCollateral = async (
-    _subAccount: string,
-    collateralVaultAddress: string,
-    _collateralAssetAddress: string,
-    _amount: bigint,
-    borrowVaultAddress: string,
-    _borrowAssetAddress: string,
-  ) => {
-    if (!address.value) {
-      throw new Error('Wallet not connected')
+    else {
+      console.log('[Supply] Using EVC batch flow')
+      return supplyWithEVCBatch(vaultAddr, assetAddr, userAddr, amount)
     }
-
-    const collateralVaultAddr = collateralVaultAddress as Address
-    const borrowVaultAddr = borrowVaultAddress as Address
-    const userAddr = address.value as Address
-    const connectorAddr = ETH_VAULT_CONNECTOR as Address
-
-    const disableControllerHash = await writeContractAsync({
-      address: connectorAddr,
-      abi: [{
-        type: 'function',
-        name: 'disableController',
-        inputs: [{ name: 'account', type: 'address' }],
-        outputs: [],
-        stateMutability: 'payable',
-      }],
-      functionName: 'disableController',
-      args: [userAddr],
-    })
-
-    await waitForTransaction(disableControllerHash)
-
-    const disableCollateralHash = await writeContractAsync({
-      address: connectorAddr,
-      abi: [{
-        type: 'function',
-        name: 'disableCollateral',
-        inputs: [
-          { name: 'account', type: 'address' },
-          { name: 'vault', type: 'address' },
-        ],
-        outputs: [],
-        stateMutability: 'payable',
-      }],
-      functionName: 'disableCollateral',
-      args: [userAddr, collateralVaultAddr],
-    })
-
-    return disableCollateralHash
   }
 
   return {
     supply,
-    withdraw,
-    redeem,
-    borrow,
-    borrowBySaving,
-    repay,
-    disableCollateral,
   }
 }
