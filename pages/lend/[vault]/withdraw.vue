@@ -115,10 +115,9 @@ const send = async () => {
 
     const txHash = await method(
       vaultAddress,
-      asset.value!.address,
+      asset.value.address,
       amountFixed.value.value,
       asset.value.symbol,
-      undefined,
       sharesBalance.value,
       FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value),
     )
