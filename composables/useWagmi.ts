@@ -6,10 +6,56 @@ import { truncate } from '~/utils/string-utils'
 const isLoaded = ref(false)
 const walletName = ref('Wallet')
 
-export const useWagmi = () => {
+let cachedWagmiData: ReturnType<typeof initializeWagmi> | null = null
+
+function initializeWagmi() {
   const { address: wagmiAddress, isConnected: wagmiIsConnected, connector, chain: wagmiChain, status } = useAccount()
   const { disconnect: wagmiDisconnect } = useDisconnect()
   const { switchChain } = useSwitchChain()
+  const { data: ensName } = useEnsName({
+    address: wagmiAddress,
+    chainId: 1,
+  })
+  const { data: balanceData, isLoading: isLoadingBalance, refetch: refetchBalance } = useBalance({
+    address: wagmiAddress,
+  })
+  const { open: modal } = useAppKit()
+
+  return {
+    wagmiAddress,
+    wagmiIsConnected,
+    connector,
+    wagmiChain,
+    status,
+    wagmiDisconnect,
+    switchChain,
+    ensName,
+    balanceData,
+    isLoadingBalance,
+    refetchBalance,
+    modal,
+  }
+}
+
+export const useWagmi = () => {
+  if (!cachedWagmiData) {
+    cachedWagmiData = initializeWagmi()
+  }
+
+  const {
+    wagmiAddress,
+    wagmiIsConnected,
+    connector,
+    wagmiChain,
+    status,
+    wagmiDisconnect,
+    switchChain,
+    ensName,
+    balanceData,
+    isLoadingBalance,
+    refetchBalance,
+    modal,
+  } = cachedWagmiData
 
   const address: ComputedRef<Address | undefined> = computed(() => wagmiAddress.value || undefined)
   const isConnected = computed(() => Boolean(wagmiIsConnected.value))
@@ -29,16 +75,7 @@ export const useWagmi = () => {
   const shortAddress = computed(() => address.value ? truncate(address.value) : '')
   const shorterAddress = computed(() => address.value ? truncate(address.value, 3) : '')
 
-  const { data: ensName } = useEnsName({
-    address: wagmiAddress,
-    chainId: 1,
-  })
-
   const displayName = computed(() => ensName.value || walletName.value)
-
-  const { data: balanceData, isLoading: isLoadingBalance, refetch: refetchBalance } = useBalance({
-    address: wagmiAddress,
-  })
 
   const balance = computed(() => {
     if (!balanceData.value) return 0
@@ -49,8 +86,6 @@ export const useWagmi = () => {
     if (!balanceData.value) return '0'
     return formatUnits(balanceData.value.value, balanceData.value.decimals)
   })
-
-  const { open: modal } = useAppKit()
 
   const disconnect = async () => {
     await wagmiDisconnect()
