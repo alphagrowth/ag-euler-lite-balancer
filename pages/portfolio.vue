@@ -53,7 +53,7 @@ const checkTab = () => {
 const updatePositions = async () => {
   await until(isBalancesLoaded && isEulerLensAddressesReady).toBe(true)
   updateDepositPositions(balances.value)
-  updateBorrowPositions(eulerLensAddresses.value, address.value || '', false)
+  updateBorrowPositions(eulerLensAddresses.value, address.value, false)
 }
 
 watch(tabsModel, checkTab, { immediate: true })

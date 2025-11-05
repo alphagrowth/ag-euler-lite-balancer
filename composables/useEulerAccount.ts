@@ -250,9 +250,13 @@ export const useEulerAccount = () => {
   const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
   const { address } = useAccount()
 
+  if (!address.value) {
+    return
+  }
+
   watch([isBalancesLoaded, isEulerLensAddressesReady], () => {
     if (isBalancesLoaded.value && isEulerLensAddressesReady.value) {
-      updateBorrowPositions(eulerLensAddresses.value, address.value || '')
+      updateBorrowPositions(eulerLensAddresses.value, address.value as string)
       updateDepositPositions(balances.value)
     }
   }, { immediate: true })

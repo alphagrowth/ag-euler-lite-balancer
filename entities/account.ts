@@ -75,7 +75,13 @@ const checkGetController = async (subAccount: string) => {
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const contract = new ethers.Contract(ETH_VAULT_CONNECTOR, ['function getControllers(address) external view returns(address[])'], provider)
 
-  return (await contract.getControllers(subAccount)).length > 0 ? false : true
+  try {
+    const controllers = await contract.getControllers(subAccount)
+    return controllers.length > 0 ? false : true
+  }
+  catch {
+    return true
+  }
 }
 
 export const getNewSubAccount = async (ownerAddress: string) => {
