@@ -12,12 +12,13 @@ const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
-const { repay } = useEulerOperations()
+const { repay, fullRepay } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
 const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { getBalance } = useWallets()
+const { eulerLensAddresses } = useEulerAddresses()
+const { address } = useAccount()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -77,8 +78,8 @@ const load = async () => {
     position.value = borrowPositions.value[+positionIndex - 1]
     await updateBalance()
     estimateNetAPY.value = netAPY.value
-    estimateUserLTV.value = position.value.userLTV
-    estimateHealth.value = position.value.health
+    estimateUserLTV.value = position.value?.userLTV || 0n
+    estimateHealth.value = position.value?.health || 0n
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -121,15 +122,21 @@ const send = async () => {
     if (!position.value || !borrowVault.value || !collateralVault.value) {
       return
     }
-    await repay(
+
+    const method = balance.value <= valueToNano(amount.value, borrowVault.value.asset.decimals)
+      ? fullRepay
+      : repay
+
+    await method(
       borrowVault.value.address,
       borrowVault.value.asset.address,
       valueToNano(amount.value, borrowVault.value.asset.decimals),
-      borrowVault.value.asset.symbol,
+      position.value.subAccount,
+      collateralVault.value.address,
     )
 
     modal.close()
-    updateBorrowPositions()
+    updateBorrowPositions(eulerLensAddresses.value, address.value as string)
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)

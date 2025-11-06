@@ -469,7 +469,7 @@ export const useEulerOperations = () => {
     }
 
     if (needsApproval) {
-      hooks.addPreHookCallFromSelf(borrowAssetAddr, 'approve', [borrowVaultAddr, maxUint256])
+      hooks.addPreHookCallFromSelf(borrowAssetAddr, 'approve', [borrowVaultAddr, amount])
     }
 
     hooks.setMainCallHookCallFromSelf(borrowVaultAddr, 'repay', [amount, subAccountAddr])
@@ -499,11 +499,11 @@ export const useEulerOperations = () => {
   }
 
   const fullRepay = async (
-    subAccount: string,
-    vaultAddress: string,
     borrowVaultAddress: string,
     borrowAssetAddress: string,
     amount: bigint,
+    subAccount: string,
+    vaultAddress: string,
   ) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')

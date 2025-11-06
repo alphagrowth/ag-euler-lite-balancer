@@ -152,12 +152,18 @@ export const useEulerAddresses = () => {
     }
   })
 
+  const eulerGoldskyUrl = computed(() => {
+    // TODO: make chain dependent
+    return `https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-mainnet/latest/gn`
+  })
+
   return {
     loadEulerConfig,
     eulerLensAddresses,
     eulerCoreAddresses,
     eulerPeripheryAddresses,
     getCurrentChainConfig,
+    eulerGoldskyUrl,
     isLoading,
     error,
     isReady: computed(() => eulerChainsConfig.value.length > 0 && !error.value),
