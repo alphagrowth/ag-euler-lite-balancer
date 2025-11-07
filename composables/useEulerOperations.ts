@@ -5,6 +5,7 @@ import { ethers } from 'ethers'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { convertSaHooksToEVCCalls, EVC_ABI } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
+import { erc20ABI } from '~/entities/euler/abis'
 
 const FINAL_MESSAGE = 'By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: https://www.euler.finance/terms  hash:0x1a7aa1916b6c56272b62be027108c06d9af95eef4dac46acbc80267b3919e07e'
 const FINAL_HASH = '0xb0d552b4ebe441d9582f5fc732fd6026b09bec13e7f3c1e21c0ecaa3801df595'
@@ -17,9 +18,7 @@ export const useEulerOperations = () => {
 
   const checkAllowance = async (assetAddress: Address, spenderAddress: Address, userAddress: Address): Promise<bigint> => {
     const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-    const contract = new ethers.Contract(assetAddress, [
-      'function allowance(address owner, address spender) external view returns (uint256)',
-    ], provider)
+    const contract = new ethers.Contract(assetAddress, erc20ABI, provider)
 
     try {
       const allowance = await contract.allowance(userAddress, spenderAddress)
@@ -447,16 +446,23 @@ export const useEulerOperations = () => {
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
 
     const hasSigned = await hasSignature(userAddr)
+
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
     const needsApproval = allowance < amount
 
-    const hooks = new SaHooksBuilder()
-
     if (needsApproval) {
-      hooks.addContractInterface(borrowAssetAddr, [
-        'function approve(address,uint256) external',
-      ])
+      const approvalHash = await writeContractAsync({
+        address: borrowAssetAddr,
+        abi: erc20ABI,
+        functionName: 'approve',
+        args: [borrowVaultAddr, maxUint256],
+      })
+
+      const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+      await provider.waitForTransaction(approvalHash)
     }
+
+    const hooks = new SaHooksBuilder()
 
     hooks.addContractInterface(borrowVaultAddr, [
       'function repay(uint256,address) external',
@@ -468,14 +474,10 @@ export const useEulerOperations = () => {
       ])
     }
 
-    if (needsApproval) {
-      hooks.addPreHookCallFromSelf(borrowAssetAddr, 'approve', [borrowVaultAddr, amount])
-    }
-
     hooks.setMainCallHookCallFromSelf(borrowVaultAddr, 'repay', [amount, subAccountAddr])
 
     const saHooks = hooks.build()
-    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, subAccountAddr)
 
     if (!hasSigned) {
       const tosCall = {
