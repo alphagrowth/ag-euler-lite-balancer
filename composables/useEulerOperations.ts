@@ -523,19 +523,42 @@ export const useEulerOperations = () => {
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
     const needsApproval = allowance < amount
 
-    const hooks = new SaHooksBuilder()
+    const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
 
     if (needsApproval) {
-      hooks.addContractInterface(borrowAssetAddr, [
-        'function approve(address,uint256) external',
-      ])
+      const approvalHash = await writeContractAsync({
+        address: borrowAssetAddr,
+        abi: erc20ABI,
+        functionName: 'approve',
+        args: [borrowVaultAddr, maxUint256],
+      })
+
+      await provider.waitForTransaction(approvalHash)
     }
+
+    const vaultContract = new ethers.Contract(vaultAddr, [
+      'function balanceOf(address) external view returns (uint256)',
+      'function convertToAssets(uint256) external view returns (uint256)',
+    ], provider)
+
+    const subAccountShares = await vaultContract.balanceOf(subAccountAddr).catch(() => 0n)
+    const subAccountAssets = await vaultContract.convertToAssets(subAccountShares).catch(() => 0n)
+
+    console.log('subAccountShares', subAccountShares)
+    console.log('subAccountAssets', subAccountAssets)
+
+    const hooks = new SaHooksBuilder()
 
     hooks.addContractInterface(borrowVaultAddr, [
       'function repay(uint256,address) external',
+      'function disableController() external',
     ])
     hooks.addContractInterface(vaultAddr, [
       'function redeem(uint256,address,address) external',
+      'function deposit(uint256,address) external',
+    ])
+    hooks.addContractInterface(evcAddress, [
+      'function disableCollateral(address,address) external',
     ])
 
     if (!hasSigned) {
@@ -544,12 +567,7 @@ export const useEulerOperations = () => {
       ])
     }
 
-    if (needsApproval) {
-      hooks.addPreHookCallFromSelf(borrowAssetAddr, 'approve', [borrowVaultAddr, maxUint256])
-    }
-
-    const saHooks = hooks.build()
-    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
+    const evcCalls = []
 
     if (!hasSigned) {
       const tosCall = {
@@ -558,24 +576,45 @@ export const useEulerOperations = () => {
         value: 0n,
         data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
       }
-      evcCalls.unshift(tosCall)
+      evcCalls.push(tosCall)
     }
 
     const repayCall = {
       targetContract: borrowVaultAddr,
       onBehalfOfAccount: userAddr,
       value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'repay', [amount, subAccountAddr]) as Hash,
+      data: hooks.getDataForCall(borrowVaultAddr, 'repay', [maxUint256, subAccountAddr]) as Hash,
+    }
+
+    const disableControllerCall = {
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'disableController', []) as Hash,
+    }
+
+    const disableCollateralCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'disableCollateral', [subAccountAddr, vaultAddr]) as Hash,
     }
 
     const redeemCall = {
       targetContract: vaultAddr,
       onBehalfOfAccount: subAccountAddr,
       value: 0n,
-      data: hooks.getDataForCall(vaultAddr, 'redeem', [maxUint256, userAddr, subAccountAddr]) as Hash,
+      data: hooks.getDataForCall(vaultAddr, 'redeem', [subAccountShares, userAddr, subAccountAddr]) as Hash,
     }
 
-    evcCalls.push(repayCall, redeemCall)
+    const depositCall = {
+      targetContract: vaultAddr,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: hooks.getDataForCall(vaultAddr, 'deposit', [subAccountAssets, userAddr]) as Hash,
+    }
+
+    evcCalls.push(repayCall, disableControllerCall, disableCollateralCall, redeemCall, depositCall)
 
     const fullRepayHash = await writeContractAsync({
       address: evcAddress,
