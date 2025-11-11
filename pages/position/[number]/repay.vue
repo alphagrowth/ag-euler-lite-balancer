@@ -166,9 +166,12 @@ const updateEstimates = useDebounceFn(async () => {
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,
     )
-    const userLtvFixed = (borrowedFixed.value.sub(amountFixed.value))
-      .div((suppliedFixed.value).mul(priceFixed.value))
-      .mul(FixedNumber.fromValue(100n))
+    const collateralValue = (suppliedFixed.value).mul(priceFixed.value)
+    const userLtvFixed = collateralValue.isZero()
+      ? FixedNumber.fromValue(0n, 18)
+      : (borrowedFixed.value.sub(amountFixed.value))
+          .div(collateralValue)
+          .mul(FixedNumber.fromValue(100n))
     estimateUserLTV.value = userLtvFixed.value
     estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
       ? 0n

@@ -11,9 +11,10 @@ import { convertSharesToAssets, getVaultPrice } from '~/entities/vault'
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const borrowPositions: Ref<AccountBorrowPosition[]> = ref([])
 
+const isPositionsLoading = ref(true)
 const isPositionsLoaded = ref(false)
-const isPositionsLoading = ref(false)
 const isDepositsLoading = ref(true)
+const isDepositsLoaded = ref(false)
 
 const totalSuppliedValue = computed(() =>
   depositPositions.value.reduce((result, position) => result + getVaultPrice(position.assets, position.vault), 0)
@@ -24,8 +25,7 @@ const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, 
 const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses, address: string) => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerGoldskyUrl } = useEulerAddresses()
-  const { isReady, map } = useVaults()
-  await until(isReady).toBe(true)
+  const { map } = useVaults()
 
   if (!eulerLensAddresses?.accountLens) {
     throw new Error('Euler addresses not loaded yet')
@@ -135,10 +135,16 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
     isPositionsLoading.value = true
   }
 
+  if (!address) {
+    borrowPositions.value = []
+    isPositionsLoading.value = false
+    isPositionsLoaded.value = true
+    return
+  }
+
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerGoldskyUrl } = useEulerAddresses()
-  const { isReady, map } = useVaults()
-  await until(isReady).toBe(true)
+  const { map } = useVaults()
 
   if (!eulerLensAddresses?.accountLens) {
     throw new Error('Euler addresses not loaded yet')
@@ -217,7 +223,7 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
 
           liquidityInfo = {
             collateralValueLiquidation: BigInt(indexerPosition.debt.liquidityInfo.collateralValueLiquidation),
-            liabilityValue: BigInt(indexerPosition.debt.liquidityInfo.liabilityValue),
+            liabilityValue: BigInt(indexerPosition.debt.liquidityInfo.liabilityValue || 0),
             timeToLiquidation: BigInt(indexerPosition.debt.liquidityInfo.timeToLiquidation),
           }
         }
@@ -225,7 +231,9 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
         const collateralValueLiquidation = liquidityInfo.collateralValueLiquidation
         const liabilityValue = liquidityInfo.liabilityValue
         const liquidationLTV = cLTV?.liquidationLTV || 0n
-        const healthFixed = FixedNumber.fromValue(collateralValueLiquidation, 18).div(FixedNumber.fromValue(liabilityValue, 18))
+        const healthFixed = liabilityValue === 0n
+          ? FixedNumber.fromValue(0n, 18)
+          : FixedNumber.fromValue(collateralValueLiquidation, 18).div(FixedNumber.fromValue(liabilityValue, 18))
         const userLTVFixed = healthFixed.isZero()
           ? FixedNumber.fromValue(0n, 2)
           : FixedNumber.fromValue(liquidationLTV, 2).div(healthFixed)
@@ -238,10 +246,13 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
           res.vaultAccountInfo.borrowed,
           borrow.decimals,
         )
-        const supplied = borrowedFixed
-          .div(userLTVFixed.div(FixedNumber.fromValue(100n)))
-          .div(priceFixed).round(Number(collateral.decimals))
-          .toFormat({ decimals: Number(collateral.decimals) }).value
+        const userLTVPercent = userLTVFixed.div(FixedNumber.fromValue(100n))
+        const supplied = userLTVPercent.isZero()
+          ? 0n
+          : borrowedFixed
+            .div(userLTVPercent)
+            .div(priceFixed).round(Number(collateral.decimals))
+            .toFormat({ decimals: Number(collateral.decimals) }).value
 
         return {
           borrow,
@@ -272,8 +283,7 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
 const updateDepositPositions = async (balances: Map<string, bigint>) => {
   isDepositsLoading.value = true
 
-  const { isReady, list } = useVaults()
-  await until(isReady).toBe(true)
+  const { list } = useVaults()
 
   let deposits: AccountDepositPosition[] = []
   const batchSize = 5
@@ -295,6 +305,7 @@ const updateDepositPositions = async (balances: Map<string, bigint>) => {
 
   depositPositions.value = deposits
   isDepositsLoading.value = false
+  isDepositsLoaded.value = true
 }
 
 export const useEulerAccount = () => {
@@ -315,6 +326,7 @@ export const useEulerAccount = () => {
     isPositionsLoading,
     isPositionsLoaded,
     isDepositsLoading,
+    isDepositsLoaded,
     updateBorrowPositions,
     updateCollateralPositions,
     updateDepositPositions,

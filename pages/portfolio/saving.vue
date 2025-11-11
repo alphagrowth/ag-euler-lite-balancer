@@ -1,7 +1,9 @@
 <script setup lang="ts">
-const { isConnected } = useTonConnect()
-const { depositPositions } = useEulerAccount()
-const { isLoading: isBalancesLoading } = useWallets()
+import { useAccount } from '@wagmi/vue'
+
+const { isConnected } = useAccount()
+const { depositPositions, isDepositsLoaded } = useEulerAccount()
+const { isReady } = useVaults()
 </script>
 
 <template>
@@ -10,7 +12,7 @@ const { isLoading: isBalancesLoading } = useWallets()
     class="mx-16 flex p-8 br-16"
   >
     <div
-      v-if="isBalancesLoading"
+      v-if="isConnected && (!isDepositsLoaded || (!isReady && depositPositions.length === 0))"
       class="justify-center align-center"
       :class="$style.tabContent"
     >
@@ -44,6 +46,12 @@ const { isLoading: isBalancesLoading } = useWallets()
         :items="depositPositions"
         type="lend"
       />
+      <div
+        v-if="!isReady"
+        class="justify-center align-center mt-12"
+      >
+        <UiLoader class="text-euler-dark-900" />
+      </div>
     </div>
   </div>
 </template>

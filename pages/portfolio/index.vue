@@ -1,6 +1,9 @@
 <script setup lang="ts">
-const { isConnected } = useTonConnect()
-const { borrowPositions, isPositionsLoading } = useEulerAccount()
+import { useAccount } from '@wagmi/vue'
+
+const { isConnected } = useAccount()
+const { borrowPositions, isPositionsLoaded } = useEulerAccount()
+const { isReady } = useVaults()
 </script>
 
 <template>
@@ -9,7 +12,7 @@ const { borrowPositions, isPositionsLoading } = useEulerAccount()
     class="mx-16 flex p-8 br-16"
   >
     <div
-      v-if="isPositionsLoading"
+      v-if="isConnected && (!isPositionsLoaded || (!isReady && borrowPositions.length === 0))"
       class="justify-center align-center"
       :class="$style.tabContent"
     >
@@ -43,6 +46,12 @@ const { borrowPositions, isPositionsLoading } = useEulerAccount()
         :items="borrowPositions"
         type="borrow"
       />
+      <div
+        v-if="!isReady"
+        class="justify-center align-center mt-12"
+      >
+        <UiLoader class="text-euler-dark-900" />
+      </div>
     </div>
   </div>
 </template>

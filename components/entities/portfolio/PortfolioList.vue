@@ -15,30 +15,27 @@ defineProps<{
   >
     <template v-if="type === 'lend'">
       <PortfolioSavingItem
-        v-for="(position, idx) in items"
-        :key="`position-${idx}`"
+        v-for="(position) in items"
+        :key="(position as AccountDepositPosition).vault.address"
         :position="position as AccountDepositPosition"
       />
     </template>
     <template v-else-if="type === 'borrow'">
       <div
         v-for="(position, idx) in items"
-        :key="`position-${idx}`"
+        :key="`${(position as AccountBorrowPosition).collateral.address}-${(position as AccountBorrowPosition).borrow.address}`"
       >
-      <PortfolioBorrowCollateralItem
-        v-if="position.borrow.borrow === 0n"
-        :position="position as AccountBorrowPosition"
-        :index="idx"
-      />
-
-      <PortfolioBorrowItem
-        v-else
-        :position="position as AccountBorrowPosition"
-        :index="idx"
-       />
+        <PortfolioBorrowCollateralItem
+          v-if="(position as AccountBorrowPosition).borrow.borrow === 0n"
+          :position="position as AccountBorrowPosition"
+          :index="idx"
+        />
+        <PortfolioBorrowItem
+          v-else
+          :position="position as AccountBorrowPosition"
+          :index="idx"
+        />
       </div>
-
-
     </template>
     <template v-else-if="type === 'rewards'">
       <PortfolioRewardItem
