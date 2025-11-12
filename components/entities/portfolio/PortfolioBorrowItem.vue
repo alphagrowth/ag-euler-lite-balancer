@@ -23,10 +23,13 @@ const pairName = computed(() => {
   return `${collateralName}/${borrowName}`
 })
 const liquidationPrice = computed(() => {
-  if (nanoToValue(position.health || 0n, 18) < 0.1) {
-    return Infinity
+  const price = position.price || 0n
+
+  if (price <= 0n) {
+    return undefined
   }
-  return nanoToValue(position.price || 0n, 18) / nanoToValue(position.health || 1n, 18)
+
+  return price
 })
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
@@ -135,7 +138,7 @@ const netAPY = computed(() => {
           </div>
           <div class="between gap-8 right">
             <span class="text-white p3">
-              ${{ liquidationPrice ? formatNumber(getVaultPrice(liquidationPrice, position.collateral)) : '-' }}
+              ${{ liquidationPrice ? formatNumber(nanoToValue(liquidationPrice, 18)) : '-' }}
             </span>
             <span class="text-euler-dark-900 p3">
               {{ position.collateral.asset.symbol }}

@@ -1,23 +1,21 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
-import OperationTrackerTransactionModal
-  from '~/components/entities/operation/OperationTrackerTransactionModal.vue'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
-import { nanoToValue } from '~/utils/ton-utils'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
-import type { AccountBorrowPosition } from '~/entities/account'
 
+const router = useRouter()
 const { withdraw } = useEulerOperations()
 const { error } = useToast()
 const modal = useModal()
 
 const route = useRoute()
 const { isPositionsLoaded, borrowPositions, updateBorrowPositions } = useEulerAccount()
-const { isLoaded: isSdkLoaded } = useTacSdk()
-const { isConnected, tonConnectUI } = useTonConnect()
+const { isConnected, address } = useAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { eulerLensAddresses } = useEulerAddresses()
 
 const positionIndex = route.params.number as string
 
@@ -28,9 +26,10 @@ const amount = ref('')
 const estimateNetAPY = ref(0)
 const estimateUserLTV = ref(0n)
 const estimateHealth = ref(0n)
-const position: Ref<AccountBorrowPosition | undefined> = ref()
 const estimatesError = ref('')
 
+const position = computed(() => borrowPositions.value[+positionIndex - 1])
+const isPositionLoaded = computed(() => !!position.value)
 const collateralVault = computed(() => position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
 const asset = computed(() => collateralVault.value?.asset)
@@ -52,17 +51,23 @@ const amountFixed = computed(() => FixedNumber.fromValue(
 ))
 const borrowedFixed = computed(() => FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
 const suppliedFixed = computed(() => FixedNumber.fromValue(position.value?.supplied || 0n, position.value?.collateral.decimals || 18))
-const priceFixed = computed(() => FixedNumber.fromValue(position.value?.price || 0n, 18))
+// Use the correct collateral/borrow price ratio for LTV calculations (not the liquidation price)
+const priceFixed = computed(() =>
+  FixedNumber.fromValue(collateralVault.value?.liabilityPriceInfo?.amountOutAsk || 0n, 18)
+    .div(FixedNumber.fromValue(borrowVault.value?.liabilityPriceInfo?.amountOutBid || 1n, 18)),
+)
 const liquidationPrice = computed(() => {
-  if (nanoToValue(position.value?.health || 0n, 18) < 0.1) {
-    return Infinity
+  // position.value?.price is already the liquidation price
+  const price = position.value?.price || 0n
+  if (price <= 0n) {
+    return undefined
   }
-  return nanoToValue(position.value?.price || 0n, 18) / nanoToValue(position.value?.health || 1n, 18)
+  return nanoToValue(price, 18)
 })
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   return (position.value?.supplied || 0n) < valueToNano(amount.value, asset.value?.decimals)
-    || isLoading.value || !isSdkLoaded.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
+    || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
 
 const load = async () => {
@@ -70,13 +75,8 @@ const load = async () => {
     showError('Wallet is not connected.')
   }
   isLoading.value = true
-  await until(isPositionsLoaded).toBe(true)
+  await until(isPositionLoaded).toBe(true)
   try {
-    position.value = borrowPositions.value[+positionIndex - 1]
-    if (!position.value) {
-      showError('Position is not found.')
-    }
-    // updateEstimates()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value.userLTV
     estimateHealth.value = position.value.health
@@ -90,12 +90,6 @@ const load = async () => {
   }
 }
 const submit = async () => {
-  if (!isConnected.value) {
-    tonConnectUI.openModal()
-    isSubmitting.value = false
-    return
-  }
-
   modal.open(OperationReviewModal, {
     props: {
       type: 'withdraw',
@@ -115,24 +109,23 @@ const send = async () => {
     if (!asset.value?.address) {
       return
     }
-    const tl = await withdraw(
+    await withdraw(
       collateralVault.value!.address,
       asset.value!.address,
       valueToNano(amount.value || '0', asset.value.decimals),
       asset.value.symbol,
       position.value?.subAccount,
     )
-    modal.open(OperationTrackerTransactionModal, {
-      props: { transactionLinker: tl },
-      onClose: async () => {
-        await updateBorrowPositions()
-        await updateEstimates()
-      },
-    })
+
+    modal.close()
+    updateBorrowPositions(eulerLensAddresses.value, address.value as string)
+    setTimeout(() => {
+      router.replace('/portfolio')
+    }, 400)
   }
   catch (e) {
-    error('Transaction failed')
     console.warn(e)
+    error('Transaction failed')
   }
   finally {
     isSubmitting.value = false
@@ -156,11 +149,13 @@ const updateEstimates = useDebounceFn(async () => {
       opportunityInfoForBorrow.value?.apr || null,
     )
     const collateralValue = (suppliedFixed.value.sub(amountFixed.value)).mul(priceFixed.value)
+
     const userLtvFixed = collateralValue.isZero()
       ? FixedNumber.fromValue(0n, 18)
       : borrowedFixed.value
-        .div(collateralValue)
-        .mul(FixedNumber.fromValue(100n))
+          .div(collateralValue)
+          .mul(FixedNumber.fromValue(100n))
+
     estimateUserLTV.value = userLtvFixed.value
     estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
       ? 0n
@@ -182,7 +177,11 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 500)
 
-load()
+watch(isPositionsLoaded, (val) => {
+  if (val) {
+    load()
+  }
+}, { immediate: true })
 watch(amount, async () => {
   if (!collateralVault.value) {
     return
@@ -197,7 +196,7 @@ watch(amount, async () => {
 <template>
   <VaultForm
     title="Withdraw"
-    :loading="isLoading || !isSdkLoaded"
+    :loading="isLoading"
     @submit.prevent="submit"
   >
     <template v-if="collateralVault && asset">
@@ -324,11 +323,11 @@ watch(amount, async () => {
 
     <template #buttons>
       <VaultFormInfoButton
-        :disabled="isLoading || !isSdkLoaded || isSubmitting"
+        :disabled="isLoading || isSubmitting"
         :vault="collateralVault"
       />
       <VaultFormSubmit
-        :disabled="isSubmitDisabled"
+        :disabled="isLoading || isSubmitDisabled"
         :loading="isSubmitting"
       >
         Review Withdraw

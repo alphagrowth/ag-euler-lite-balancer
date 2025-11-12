@@ -55,7 +55,7 @@ export const useEulerOperations = () => {
     }
   }
 
-  const supply = async (vaultAddress: string, assetAddress: string, amount: bigint, _symbol: string) => {
+  const supply = async (vaultAddress: string, assetAddress: string, amount: bigint, _symbol: string, subAccount?: string) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
     }
@@ -65,6 +65,7 @@ export const useEulerOperations = () => {
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const depositToAddr = subAccount ? (subAccount as Address) : userAddr
 
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
@@ -92,10 +93,10 @@ export const useEulerOperations = () => {
       hooks.addPreHookCallFromSelf(assetAddr, 'approve', [vaultAddr, maxUint256])
     }
 
-    hooks.setMainCallHookCallFromSelf(vaultAddr, 'deposit', [amount, userAddr])
+    hooks.setMainCallHookCallFromSelf(vaultAddr, 'deposit', [amount, depositToAddr])
 
     const saHooks = hooks.build()
-    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, depositToAddr)
 
     if (!hasSigned) {
       const tosCall = {
@@ -123,6 +124,7 @@ export const useEulerOperations = () => {
     _assetAddress: string,
     assetsAmount: bigint,
     _symbol: string,
+    subAccount?: string,
     _maxSharesAmount?: bigint,
     _isMax?: boolean,
   ) => {
@@ -134,6 +136,7 @@ export const useEulerOperations = () => {
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const withdrawFromAddr = subAccount ? (subAccount as Address) : userAddr
 
     const hasSigned = await hasSignature(userAddr)
 
@@ -149,10 +152,16 @@ export const useEulerOperations = () => {
       ])
     }
 
-    hooks.setMainCallHookCallFromSelf(vaultAddr, 'withdraw', [assetsAmount, userAddr, userAddr])
+    // When withdrawing from a subaccount, the call must be from SA perspective (on behalf of subaccount)
+    if (subAccount) {
+      hooks.setMainCallHookCallFromSA(vaultAddr, 'withdraw', [assetsAmount, userAddr, withdrawFromAddr])
+    }
+    else {
+      hooks.setMainCallHookCallFromSelf(vaultAddr, 'withdraw', [assetsAmount, userAddr, withdrawFromAddr])
+    }
 
     const saHooks = hooks.build()
-    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, withdrawFromAddr)
 
     if (!hasSigned) {
       const tosCall = {
@@ -180,6 +189,7 @@ export const useEulerOperations = () => {
     _assetAddress: string,
     assetsAmount: bigint,
     _symbol: string,
+    subAccount?: string,
     maxSharesAmount?: bigint,
     isMax?: boolean,
   ) => {
@@ -207,16 +217,7 @@ export const useEulerOperations = () => {
       sharesAmount = maxSharesAmount
     }
 
-    const vaultAllowance = await checkAllowance(vaultAddr, vaultAddr, userAddr)
-    const needsVaultApproval = vaultAllowance < sharesAmount
-
     const hooks = new SaHooksBuilder()
-
-    if (needsVaultApproval) {
-      hooks.addContractInterface(vaultAddr, [
-        'function approve(address,uint256) external',
-      ])
-    }
 
     hooks.addContractInterface(vaultAddr, [
       'function redeem(uint256,address,address) external',
@@ -226,10 +227,6 @@ export const useEulerOperations = () => {
       hooks.addContractInterface(tosSignerAddress, [
         'function signTermsOfUse(string,bytes32) external',
       ])
-    }
-
-    if (needsVaultApproval) {
-      hooks.addPreHookCallFromSelf(vaultAddr, 'approve', [vaultAddr, maxUint256])
     }
 
     hooks.setMainCallHookCallFromSelf(vaultAddr, 'redeem', [sharesAmount, userAddr, userAddr])
@@ -371,7 +368,7 @@ export const useEulerOperations = () => {
   const borrowBySaving = async (
     vaultAddress: string,
     _assetAddress: string,
-    _amount: bigint,
+    amount: bigint,
     borrowVaultAddress: string,
     _borrowAssetAddress: string,
     borrowAmount: bigint,
@@ -382,6 +379,7 @@ export const useEulerOperations = () => {
       throw new Error('Wallet not connected or addresses not available')
     }
 
+    const vaultAddr = vaultAddress as Address
     const borrowVaultAddr = borrowVaultAddress as Address
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
@@ -393,8 +391,16 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
+    // Add interface for vault share transfer
+    hooks.addContractInterface(vaultAddr, [
+      'function transfer(address,uint256) external',
+    ])
     hooks.addContractInterface(borrowVaultAddr, [
       'function borrow(uint256,address) external',
+    ])
+    hooks.addContractInterface(evcAddress, [
+      'function enableCollateral(address,address) external',
+      'function enableController(address,address) external',
     ])
 
     if (!hasSigned) {
@@ -403,14 +409,12 @@ export const useEulerOperations = () => {
       ])
     }
 
-    const borrowCall = {
-      targetContract: borrowVaultAddr,
-      onBehalfOfAccount: subAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'borrow', [borrowAmount, userAddr]) as Hash,
-    }
+    // CRITICAL: Transfer vault shares from main account to subaccount
+    // This makes the shares available as collateral for the subaccount
+    hooks.addPreHookCallFromSelf(vaultAddr, 'transfer', [subAccountAddr, amount])
 
-    const evcCalls = [borrowCall]
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
 
     if (!hasSigned) {
       const tosCall = {
@@ -421,6 +425,32 @@ export const useEulerOperations = () => {
       }
       evcCalls.unshift(tosCall)
     }
+
+    // Enable the borrow vault as controller
+    const enableControllerCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableController', [subAccountAddr, borrowVaultAddr]) as Hash,
+    }
+
+    // Enable the savings vault as collateral
+    const enableCollateralCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableCollateral', [subAccountAddr, vaultAddr]) as Hash,
+    }
+
+    // Borrow from the borrow vault
+    const borrowCall = {
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'borrow', [borrowAmount, userAddr]) as Hash,
+    }
+
+    evcCalls.push(enableControllerCall as EVCCall, enableCollateralCall as EVCCall, borrowCall as EVCCall)
 
     const borrowHash = await writeContractAsync({
       address: evcAddress,

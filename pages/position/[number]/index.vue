@@ -37,10 +37,15 @@ const netAssetValueUsd = computed(() => {
   return getVaultPrice(position.value.supplied, position.value.collateral) - getVaultPrice(position.value.borrowed, borrowVault.value)
 })
 const liquidationPrice = computed(() => {
-  if (nanoToValue(position.value?.health || 0n, 18) < 0.1) {
-    return Infinity
+  if (!position.value) return undefined
+
+  const price = position.value.price || 0n
+
+  if (price <= 0n) {
+    return undefined
   }
-  return nanoToValue(position.value?.price || 0n, 18) / nanoToValue(position.value?.health || 1n, 18)
+
+  return nanoToValue(price, 18)
 })
 const timeToLiquidationDisplay = computed(() => {
   if (!position.value) {
@@ -101,7 +106,6 @@ const send = async () => {
     )
 
     modal.close()
-    updateBorrowPositions()
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)
@@ -347,7 +351,7 @@ watch(isConnected, () => {
                 Liquidation price
               </div>
               <div class="text-white p3">
-                ${{ liquidationPrice ? formatNumber(getVaultPrice(liquidationPrice, position.collateral)) : '-' }}
+                ${{ liquidationPrice ? formatNumber(liquidationPrice) : '-' }}
               </div>
             </div>
             <div
