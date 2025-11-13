@@ -15,7 +15,8 @@ const {
   isPositionsLoaded,
 } = useEulerAccount()
 const { updateBorrowPositions, updateDepositPositions } = useEulerAccount()
-const { rewards, locks } = useMerkl()
+const { rewards } = useMerkl()
+const { locks } = useREULLocks()
 const { isConnected, address } = useAccount()
 const { isLoaded: isBalancesLoaded, balances } = useWallets()
 const { eulerLensAddresses } = useEulerAddresses()

@@ -5,7 +5,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 import type { REULLock } from '~/entities/merkl'
 
 const modal = useModal()
-const { rewardTokens, unlockREUL } = useMerkl()
+const { rewardTokens } = useMerkl()
+const { unlockREUL } = useREULLocks()
 const { item } = defineProps<{ item: REULLock }>()
 
 const isUnlocking = ref(false)
