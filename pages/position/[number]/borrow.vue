@@ -4,7 +4,7 @@ import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY, getVaultPrice, type VaultAsset } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY, getVaultPrice } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { AccountBorrowPosition } from '~/entities/account'
 
@@ -13,11 +13,11 @@ const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
 const { borrow } = useEulerOperations()
-const { getBorrowVaultPair } = useVaults()
-const { isConnected, address } = useAccount()
-const { updateBorrowPositions, borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
+const { getBorrowVaultPair, updateVault } = useVaults()
+const { isConnected } = useAccount()
+const { borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
 const positionIndex = route.params.number as string
-const { walletState, getBalance } = useWallets()
+const { getBalance } = useWallets()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 
 const ltv = ref(0)
@@ -40,7 +40,13 @@ const errorText = computed(() => {
     return null
   }
 
-  if (balance.value < valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)) {
+  const currentSupplied = position.value?.supplied || 0n
+  const newCollateralAmount = valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)
+  const additionalCollateralNeeded = newCollateralAmount > currentSupplied
+    ? newCollateralAmount - currentSupplied
+    : 0n
+
+  if (additionalCollateralNeeded > 0n && balance.value < additionalCollateralNeeded) {
     return 'Not enough balance'
   }
   else if ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals)) {
@@ -50,8 +56,14 @@ const errorText = computed(() => {
 })
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  if (walletState.value !== 'active') return true
-  return balance.value < valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)
+
+  const currentSupplied = position.value?.supplied || 0n
+  const newCollateralAmount = valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)
+  const additionalCollateralNeeded = newCollateralAmount > currentSupplied
+    ? newCollateralAmount - currentSupplied
+    : 0n
+
+  return (additionalCollateralNeeded > 0n && balance.value < additionalCollateralNeeded)
     || isLoading.value || !(+collateralAmount.value)
     || ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals))
 })
@@ -84,9 +96,7 @@ const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(co
 
 const load = async () => {
   isLoading.value = true
-  console.warn('index', positionIndex)
   position.value = borrowPositions.value[+positionIndex - 1]
-  console.warn('pos', position.value)
   const collateralAddress = position.value.collateral.address
   const borrowAddress = position.value.borrow.address
   collateralAmount.value = `${nanoToValue(position.value.supplied, position.value.collateral.decimals)}`
@@ -130,7 +140,7 @@ const submit = async () => {
 const send = async () => {
   try {
     isSubmitting.value = true
-    if (!collateralVault.value || !borrowVault.value) {
+    if (!collateralVault.value || !borrowVault.value || !position.value) {
       return
     }
     await borrow(
@@ -141,11 +151,11 @@ const send = async () => {
       borrowVault.value.asset.address,
       borrowAmountFixed.value.toFormat({ decimals: Number(borrowVault.value.decimals) }).value,
       collateralVault.value.asset.symbol,
+      position.value.subAccount, // Pass the subaccount to borrow on the same position
     )
 
     modal.close()
     updateBalance()
-    updateBorrowPositions()
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)
@@ -164,7 +174,7 @@ const onCollateralInput = async () => {
     .mul(priceFixed.value)
     .mul(ltvFixed.value)
     .div(FixedNumber.fromValue(100n)).round(Number(borrowVault.value?.decimals || 18))
-    .subUnsafe(FixedNumber.fromValue(position.value?.borrowed, position.value?.borrow.decimals))
+    .subUnsafe(FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
     .toString()
 }
 const onBorrowInput = async () => {
@@ -173,7 +183,7 @@ const onBorrowInput = async () => {
     return
   }
   ltv.value = +borrowAmountFixed.value
-    .addUnsafe(FixedNumber.fromValue(position.value?.borrowed, position.value?.borrow.decimals))
+    .addUnsafe(FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
     .div(collateralAmountFixed.value.mul(priceFixed.value))
     .mul(FixedNumber.fromValue(100n))
     .toUnsafeFloat().toFixed(2)
@@ -231,7 +241,7 @@ watch([collateralAmount, borrowAmount], async () => {
 })
 
 const interval = setInterval(() => {
-  updateBalance(false)
+  updateBalance()
 }, 5000)
 
 onUnmounted(() => {
@@ -320,10 +330,6 @@ onUnmounted(() => {
         </div>
       </VaultFormInfoBlock>
     </template>
-
-    <WalletInactiveDisclaimer
-      v-if="walletState && walletState !== 'active'"
-    />
 
     <template #buttons>
       <VaultFormSubmit

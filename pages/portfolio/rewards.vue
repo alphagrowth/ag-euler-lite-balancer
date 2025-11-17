@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { isConnected } = useTonConnect()
-const { rewards, isRewardsLoading, locks, isLocksLoading } = useMerkl()
+const { rewards, isRewardsLoading } = useMerkl()
+const { locks, isLocksLoading } = useREULLocks()
 </script>
 
 <template>

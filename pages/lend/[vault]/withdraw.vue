@@ -113,16 +113,16 @@ const send = async () => {
 
     const method = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value) ? redeem : withdraw
 
-    const txHash = await method(
+    await method(
       vaultAddress,
       asset.value.address,
       amountFixed.value.value,
       asset.value.symbol,
+      undefined, // subAccount
       sharesBalance.value,
       FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value),
     )
 
-    console.log('Transaction hash:', txHash)
     modal.close()
     setTimeout(() => {
       router.replace('/portfolio/saving')

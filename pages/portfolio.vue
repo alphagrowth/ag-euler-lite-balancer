@@ -12,15 +12,14 @@ const {
   depositPositions,
   totalSuppliedValue,
   totalBorrowedValue,
-  isPositionsLoading,
   isPositionsLoaded,
 } = useEulerAccount()
 const { updateBorrowPositions, updateDepositPositions } = useEulerAccount()
-const { isLoading: isBalancesLoading } = useWallets()
-const { rewards, locks } = useMerkl()
+const { rewards } = useMerkl()
+const { locks } = useREULLocks()
 const { isConnected, address } = useAccount()
 const { isLoaded: isBalancesLoaded, balances } = useWallets()
-const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
+const { eulerLensAddresses } = useEulerAddresses()
 
 const interval: Ref<NodeJS.Timeout | null> = ref(null)
 
@@ -51,9 +50,8 @@ const checkTab = () => {
 }
 
 const updatePositions = async () => {
-  await until(isBalancesLoaded && isEulerLensAddressesReady).toBe(true)
   updateDepositPositions(balances.value)
-  updateBorrowPositions(eulerLensAddresses.value, address.value, false)
+  updateBorrowPositions(eulerLensAddresses.value, address.value as string, false)
 }
 
 watch(tabsModel, checkTab, { immediate: true })
@@ -88,7 +86,7 @@ onDeactivated(() => {
         >
           Net asset value
         </div>
-        <BaseLoadableContent :loading="isConnected && (isPositionsLoading || isBalancesLoading)">
+        <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
           <div class="h5 text-white">
             {{ `$${compactNumber(totalSuppliedValue - totalBorrowedValue)}` }}
           </div>
@@ -100,7 +98,7 @@ onDeactivated(() => {
         >
           Total supplied value
         </div>
-        <BaseLoadableContent :loading="isConnected && (isPositionsLoading || isBalancesLoading)">
+        <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
           <div class="h5 text-white">
             {{ `$${compactNumber(totalSuppliedValue)}` }}
           </div>
@@ -112,7 +110,7 @@ onDeactivated(() => {
         >
           Total borrowed value
         </div>
-        <BaseLoadableContent :loading="isConnected && (isPositionsLoading || !isPositionsLoaded || isBalancesLoading)">
+        <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
           <div class="h5 text-white">
             {{ `$${compactNumber(totalBorrowedValue)}` }}
           </div>

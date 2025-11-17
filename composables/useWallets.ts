@@ -5,9 +5,12 @@ import { eulerUtilsLensABI } from '~/entities/euler/abis'
 const isLoaded = ref(false)
 const isLoading = ref(true)
 const balances = ref(new Map<string, bigint>())
+const isVaultsUpdated = ref(false)
+
+let interval: NodeJS.Timeout
 
 export const useWallets = () => {
-  const { map } = useVaults()
+  const { map, isReady } = useVaults()
   const { address, isConnected, chain } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
 
@@ -49,6 +52,23 @@ export const useWallets = () => {
       isLoaded.value = true
       isLoading.value = false
     }
+  }
+
+  watch(map, () => {
+    isVaultsUpdated.value = true
+  })
+
+  if (!isReady.value && !interval) {
+    interval = setInterval(async () => {
+      if (isReady.value) {
+        clearInterval(interval)
+      }
+
+      if (isVaultsUpdated.value) {
+        await updateBalances()
+        isVaultsUpdated.value = false
+      }
+    }, 3000)
   }
 
   return {

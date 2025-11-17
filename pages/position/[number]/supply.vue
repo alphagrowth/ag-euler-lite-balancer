@@ -120,6 +120,7 @@ const send = async () => {
       asset.value.address,
       valueToNano(amount.value || '0', asset.value.decimals),
       asset.value.symbol,
+      position.value?.subAccount,
     )
 
     modal.close()
@@ -153,9 +154,12 @@ const updateEstimates = useDebounceFn(async () => {
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,
     )
-    const userLtvFixed = borrowedFixed.value
-      .div((suppliedFixed.value.add(amountFixed.value)).mul(priceFixed.value))
-      .mul(FixedNumber.fromValue(100n))
+    const collateralValue = (suppliedFixed.value.add(amountFixed.value)).mul(priceFixed.value)
+    const userLtvFixed = collateralValue.isZero()
+      ? FixedNumber.fromValue(0n, 18)
+      : borrowedFixed.value
+          .div(collateralValue)
+          .mul(FixedNumber.fromValue(100n))
     estimateUserLTV.value = userLtvFixed.value
     estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
       ? 0n

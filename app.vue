@@ -48,6 +48,7 @@ loadLabels()
 
 watch([isConnected, isVaultsReady], ([val]) => {
   if (val && isVaultsReady.value) {
+    updateBalances()
     interval = setInterval(async () => {
       updateBalances()
     }, 10000)
