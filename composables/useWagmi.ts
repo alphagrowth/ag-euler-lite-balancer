@@ -12,9 +12,11 @@ function initializeWagmi() {
   const { address: wagmiAddress, isConnected: wagmiIsConnected, connector, chain: wagmiChain, status } = useAccount()
   const { disconnect: wagmiDisconnect } = useDisconnect()
   const { switchChain } = useSwitchChain()
+  const chainId = computed(() => wagmiChain.value?.id)
+
   const { data: ensName } = useEnsName({
     address: wagmiAddress,
-    chainId: 1,
+    chainId: chainId.value,
   })
   const { data: balanceData, isLoading: isLoadingBalance, refetch: refetchBalance } = useBalance({
     address: wagmiAddress,
@@ -56,7 +58,6 @@ export const useWagmi = () => {
     refetchBalance,
     modal,
   } = cachedWagmiData
-
   const address: ComputedRef<Address | undefined> = computed(() => wagmiAddress.value || undefined)
   const isConnected = computed(() => Boolean(wagmiIsConnected.value))
   const chain = computed(() => wagmiChain.value)
