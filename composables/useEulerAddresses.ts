@@ -53,13 +53,16 @@ interface EulerChainConfig {
 
 const eulerChainsConfig = ref<EulerChainConfig[]>([])
 const isLoading = ref(false)
+const chainId = ref<number>(1);
 const error = ref<string | null>(null)
 
 export const useEulerAddresses = () => {
-  const { chainId } = useWagmi()
+  const changeCurrentChainId = (_chainId: number) => {
+    chainId.value = _chainId
+  }
 
   const loadEulerConfig = async () => {
-    if (eulerChainsConfig.value.length > 0) return // Уже загружено
+    if (eulerChainsConfig.value.length > 0) return
 
     isLoading.value = true
     error.value = null
@@ -163,6 +166,9 @@ export const useEulerAddresses = () => {
     eulerCoreAddresses,
     eulerPeripheryAddresses,
     getCurrentChainConfig,
+    eulerChainsConfig,
+    chainId,
+    changeCurrentChainId,
     eulerGoldskyUrl,
     isLoading,
     error,

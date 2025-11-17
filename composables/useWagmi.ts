@@ -5,6 +5,7 @@ import { truncate } from '~/utils/string-utils'
 
 const isLoaded = ref(false)
 const walletName = ref('Wallet')
+const { changeCurrentChainId } = useEulerAddresses()
 
 let cachedWagmiData: ReturnType<typeof initializeWagmi> | null = null
 
@@ -12,6 +13,7 @@ function initializeWagmi() {
   const { address: wagmiAddress, isConnected: wagmiIsConnected, connector, chain: wagmiChain, status } = useAccount()
   const { disconnect: wagmiDisconnect } = useDisconnect()
   const { switchChain } = useSwitchChain()
+
   const chainId = computed(() => wagmiChain.value?.id)
 
   const { data: ensName } = useEnsName({
@@ -98,7 +100,11 @@ export const useWagmi = () => {
 
   const changeChain = async (targetChainId: number) => {
     try {
+      localStorage.setItem('chainId', targetChainId)
       await switchChain({ chainId: targetChainId })
+      if (!isConnected.value) {
+        changeCurrentChainId(targetChainId)
+      }
     }
     catch (error) {
       console.error('Failed to switch chain:', error)
@@ -122,6 +128,15 @@ export const useWagmi = () => {
       setTimeout(() => {
         isLoaded.value = true
       }, 5000)
+    }
+  }, { immediate: true })
+
+  watch(chainId, (val, oldVal) => {
+    if (!val) {
+      changeCurrentChainId(localStorage.chainId)
+    }
+    if (val !== oldVal && val) {
+      changeCurrentChainId(val)
     }
   }, { immediate: true })
 

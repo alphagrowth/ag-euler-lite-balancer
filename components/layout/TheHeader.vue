@@ -3,7 +3,7 @@ import { onClickOutside } from '@vueuse/core'
 import { offset, useFloating } from '@floating-ui/vue'
 import { useAppKit } from '@reown/appkit/vue'
 import { useAccount } from '@wagmi/vue'
-import { WalletDisconnectModal } from '#components'
+import { WalletDisconnectModal, SelectChainModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
 // AppKit modal controls
@@ -11,7 +11,8 @@ const { open } = useAppKit()
 
 // Wagmi account info
 const { address, isConnected } = useAccount()
-
+const { chainId: _chainId } = useEulerAddresses()
+const { chainId } = useWagmi()
 const modal = useModal()
 
 const reference = ref(null)
@@ -32,6 +33,9 @@ const onWalletButtonClick = () => {
   else {
     open()
   }
+}
+const onChainButtonClick = () => {
+  modal.open(SelectChainModal)
 }
 const onLogoClick = () => {
   isSocialsTooltipVisible.value = !isSocialsTooltipVisible.value
@@ -159,15 +163,27 @@ onClickOutside(reference, () => {
           </div>
         </Transition>
       </button>
-      <UiButton
-        :icon="isConnected ? 'arrow-down' : 'plus'"
-        :variant="isConnected ? 'primary-stroke' : 'primary'"
-        size="medium"
-        :icon-right="isConnected"
-        @click="onWalletButtonClick"
-      >
-        {{ isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : 'Connect wallet' }}
-      </UiButton>
+      <div>
+        <UiButton
+          :class="$style.chain"
+          icon="arrow-down"
+          variant="primary-stroke"
+          size="medium"
+          icon-right
+          @click="onChainButtonClick"
+        >
+          <BaseAvatar :src="`/chains/${chainId || _chainId}.webp`" />
+        </UiButton>
+        <UiButton
+          :icon="isConnected ? 'arrow-down' : 'plus'"
+          :variant="isConnected ? 'primary-stroke' : 'primary'"
+          size="medium"
+          :icon-right="isConnected"
+          @click="onWalletButtonClick"
+        >
+          {{ isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : 'Connect wallet' }}
+        </UiButton>
+      </div>
     </div>
   </header>
 </template>
@@ -223,5 +239,10 @@ onClickOutside(reference, () => {
   height: 36px;
   border-radius: 32px;
   border: 1px solid var(--c-euler-dark-600);
+}
+
+.chain {
+  margin-right: 8px;
+  padding: 6px 8px;
 }
 </style>

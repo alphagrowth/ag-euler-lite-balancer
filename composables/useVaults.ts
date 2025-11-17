@@ -6,6 +6,7 @@ import {
   type Vault,
 } from '~/entities/vault'
 
+const { chainId } = useEulerAddresses()
 const isReady = ref(false)
 const isLoading = ref(false)
 const isUpdating = ref(false)
@@ -63,6 +64,10 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
   }
   return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)
 }
+
+watch(chainId, (val, oldVal) => {
+  updateVaults()
+}, { immediate: true })
 
 export const useVaults = () => {
   return {
