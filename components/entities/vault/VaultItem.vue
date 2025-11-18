@@ -11,12 +11,16 @@ const { name } = useEulerProductOfVault(vault.address)
 const entities = useEulerEntitiesOfVault(vault.address)
 const { balances, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
+const { getCampaignOfLendVault } = useBrevis()
 
 const entitiesLabels = computed(() => entities.map(e => e.name))
 const entitiesLogos = computed(() => entities.map(e => getEulerLabelEntityLogo(e.logo)))
 
 const balance = computed(() => balances.value.get(vault.asset.address) || 0n)
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
+const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
+const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
+const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
 </script>
 
 <template>
@@ -48,11 +52,11 @@ const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
           class="p2"
         >
           <SvgIcon
-            v-if="opportunityInfo"
+            v-if="hasRewards"
             class="icon--20 text-aquamarine-700 mr-4"
             name="sparks"
           />
-          {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + (opportunityInfo?.apr || 0)) }}%
+          {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + totalRewardsAPY) }}%
         </div>
       </div>
     </div>

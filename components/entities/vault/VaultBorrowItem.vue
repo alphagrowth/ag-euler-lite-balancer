@@ -8,6 +8,7 @@ const { pair } = defineProps<{ pair: BorrowVaultPair }>()
 const { name: collateralName } = useEulerProductOfVault(pair.collateral.address)
 const { name: borrowName } = useEulerProductOfVault(pair.borrow.address)
 const { getOpportunityOfBorrowVault } = useMerkl()
+const { getCampaignOfBorrowVault } = useBrevis()
 
 const pairName = computed(() => {
   if (!collateralName || !borrowName) {
@@ -19,6 +20,9 @@ const pairName = computed(() => {
   return `${collateralName}/${borrowName}`
 })
 const opportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address))
+const brevisInfo = computed(() => getCampaignOfBorrowVault(pair.borrow.address))
+const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
+const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
 </script>
 
 <template>
@@ -50,10 +54,10 @@ const opportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.a
           class="p2"
         >
           <SvgIcon
-            v-if="opportunityInfo"
+            v-if="hasRewards"
             class="icon--20 text-aquamarine-700 mr-4"
             name="sparks"
-          />{{ formatNumber(nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25) - (opportunityInfo?.apr || 0)) }}%
+          />{{ formatNumber(nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25) - totalRewardsAPY) }}%
         </div>
       </div>
     </div>

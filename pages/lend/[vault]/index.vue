@@ -19,6 +19,7 @@ const { getBalance } = useWallets()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getOpportunityOfLendVault } = useMerkl()
+const { getCampaignOfLendVault } = useBrevis()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -43,9 +44,12 @@ const isSubmitDisabled = computed(() => {
     || isLoading.value || !(+amount.value)
 })
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vaultAddress))
+const brevisInfo = computed(() => getCampaignOfLendVault(vaultAddress))
+const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
+const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
-  return formatNumber(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))
+  return formatNumber(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + totalRewardsAPY.value)
 })
 const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(nanoToValue(estimateSupplyAPY.value, 25))
@@ -54,7 +58,7 @@ const estimateSupplyAPYDisplay = computed(() => {
 const load = async () => {
   isLoading.value = true
   try {
-    estimateSupplyAPY.value = vault.value!.interestRateInfo.supplyAPY + valueToNano(opportunityInfo.value?.apr || 0, 25)
+    estimateSupplyAPY.value = vault.value!.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value, 25)
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -112,7 +116,7 @@ const updateEstimates = useDebounceFn(async () => {
       vault.value.interestRateInfo.borrows,
       vault.value.interestFee,
     )
-    estimateSupplyAPY.value = supplyAPY + valueToNano(opportunityInfo.value?.apr || 0, 25)
+    estimateSupplyAPY.value = supplyAPY + valueToNano(totalRewardsAPY.value, 25)
     monthlyEarnings.value = !amount.value
       ? 0
       : (+(amount.value || 0) * nanoToValue(estimateSupplyAPY.value, 27)) / 12
@@ -129,6 +133,7 @@ const onSupplyInfoIconClick = () => {
     props: {
       lendingAPY: nanoToValue(vault.value!.interestRateInfo.supplyAPY, 25),
       opportunityInfo: opportunityInfo.value,
+      brevisInfo: brevisInfo.value,
     },
   })
 }
@@ -168,7 +173,7 @@ watch(amount, async () => {
 
         <p class="flex justify-end gap-4 h3">
           <SvgIcon
-            v-if="opportunityInfo"
+            v-if="hasRewards"
             class="icon--24 text-aquamarine-700"
             name="sparks"
           />

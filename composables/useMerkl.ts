@@ -1,13 +1,11 @@
-import { SenderFactory, type EvmProxyMsg } from '@tonappchain/sdk'
-import { useAccount } from '@wagmi/vue'
+import { useAccount, useWriteContract } from '@wagmi/vue'
+import type { Address } from 'viem'
 import axios from 'axios'
-import { ethers } from 'ethers'
 
 import type { Opportunity, Reward, RewardsResponseItem, RewardToken } from '~/entities/merkl'
 
 const {
   MERKL_API_BASE_URL,
-  MERKL_PROXY,
 } = useEulerConfig()
 
 const endpoints = {
@@ -16,7 +14,38 @@ const endpoints = {
   rewards: (addr: string) => `${MERKL_API_BASE_URL}/users/${addr}/rewards`,
   campaignById: (id: string) => `${MERKL_API_BASE_URL}/campaigns/${id}`,
 }
-const { tonConnectUI } = useTonConnect()
+const DISTRIBUTOR_ADDRESS = '0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae'
+
+const merklDistributorABI = [
+  {
+    type: 'function',
+    name: 'claim',
+    inputs: [
+      {
+        name: 'users',
+        type: 'address[]',
+        internalType: 'address[]',
+      },
+      {
+        name: 'tokens',
+        type: 'address[]',
+        internalType: 'address[]',
+      },
+      {
+        name: 'amounts',
+        type: 'uint256[]',
+        internalType: 'uint256[]',
+      },
+      {
+        name: 'proofs',
+        type: 'bytes32[][]',
+        internalType: 'bytes32[][]',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+] as const
 
 const address = ref('')
 
@@ -128,43 +157,6 @@ const loadRewards = async (isInitialLoading = true) => {
     isRewardsLoading.value = false
   }
 }
-const claimReward = async (reward: Reward) => {
-  const { isLoaded } = useTacSdk()
-  await until(isLoaded).toBeTruthy()
-  const { tacSdk } = useTacSdk()
-
-  const encodedArguments = new ethers.AbiCoder().encode(
-    ['tuple(address[],uint256[],bytes32[][],bool)'],
-    [[
-      [reward.token.address],
-      [reward.amount],
-      [reward.proofs],
-      reward.token.symbol !== 'rEUL',
-    ]],
-  )
-  const evmProxyMsg: EvmProxyMsg = {
-    evmTargetAddress: MERKL_PROXY,
-    methodName: 'claim(bytes,bytes)',
-    encodedParameters: encodedArguments,
-  }
-  const sender = await SenderFactory.getSender({ tonConnect: tonConnectUI })
-
-  const res = await tacSdk.sendCrossChainTransaction(
-    evmProxyMsg,
-    sender,
-  )
-  tacSdk.closeConnections()
-
-  const tsResult = res?.sendTransactionResult as {
-    success: boolean
-    error: Record<string, unknown>
-  }
-  if (!tsResult?.success) {
-    throw tsResult?.error?.info || 'Unknown error'
-  }
-
-  return res
-}
 
 const getOpportunityOfLendVault = (vaultAddress: string) => {
   return lendOpportunities.value.find(opportunity => opportunity.identifier === vaultAddress)
@@ -176,6 +168,27 @@ const getOpportunityOfBorrowVault = (assetAddress: string) => {
 
 export const useMerkl = () => {
   const { isConnected, address: wagmiAddress } = useAccount()
+  const { writeContractAsync } = useWriteContract()
+
+  const claimReward = async (reward: Reward) => {
+    if (!wagmiAddress.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    const hash = await writeContractAsync({
+      address: DISTRIBUTOR_ADDRESS as Address,
+      abi: merklDistributorABI,
+      functionName: 'claim',
+      args: [
+        [wagmiAddress.value],
+        [reward.token.address as Address],
+        [BigInt(reward.amount)],
+        [reward.proofs as Address[]],
+      ],
+    })
+
+    return hash
+  }
 
   watch(isConnected, (val) => {
     if (!isLoaded.value) {
@@ -190,7 +203,7 @@ export const useMerkl = () => {
         loadRewards(false)
         loadOpportunities(false)
         loadTokens(false)
-      }, 10000)
+      }, 5000)
     }
     else {
       if (interval) {

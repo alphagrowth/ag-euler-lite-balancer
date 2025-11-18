@@ -1,26 +1,48 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
 import type { Opportunity } from '~/entities/merkl'
+import type { Campaign } from '~/entities/brevis'
 
 const emits = defineEmits(['close'])
-const { lendingAPY, opportunityInfo } = defineProps<{
+const { lendingAPY, opportunityInfo, brevisInfo } = defineProps<{
   lendingAPY: number
   opportunityInfo?: Opportunity
+  brevisInfo?: Campaign
 }>()
 
-const rewardsTotalAPY = computed(() => opportunityInfo ? opportunityInfo.apr : null)
+const rewardsTotalAPY = computed(() => {
+  const merklAPY = opportunityInfo ? opportunityInfo.apr : 0
+  const brevisAPY = brevisInfo ? brevisInfo.reward_info.apr * 100 : 0
+  return merklAPY + brevisAPY > 0 ? merklAPY + brevisAPY : null
+})
+
 const rewardsInfo = computed(() => {
-  return opportunityInfo?.campaigns
+  const rewards = opportunityInfo?.campaigns
     .map((campaign) => {
       return {
         id: campaign.id,
         apr: campaign.apr,
         endDate: DateTime.fromSeconds(campaign.endTimestamp),
         rewardToken: campaign.rewardToken,
+        source: 'merkl',
       }
     })
-    .filter(campaign => campaign.endDate > DateTime.now())
-    .sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
+    .filter(campaign => campaign.endDate > DateTime.now()) || []
+
+  if (brevisInfo) {
+    rewards.push({
+      id: brevisInfo.campaign_id,
+      apr: brevisInfo.reward_info.apr * 100,
+      endDate: DateTime.fromSeconds(brevisInfo.end_time),
+      rewardToken: {
+        symbol: brevisInfo.reward_info.token_symbol,
+        icon: '',
+      },
+      source: 'brevis',
+    })
+  }
+
+  return rewards.sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
 })
 
 const handleClose = () => {
@@ -77,15 +99,16 @@ const handleClose = () => {
       >
         <div class="flex">
           <img
+            v-if="reward.rewardToken.icon"
             :class="$style.rewardLogo"
             :src="reward.rewardToken.icon"
             alt="Reward token logo"
           >
           <p class="ml-12">
-            {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }} <!-- TODO wtac -> tac @ useMerkl -->
+            {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
           </p>
           <p class="ml-4 text-euler-dark-900">
-            (ends {{ reward.endDate.toFormat('MMMM dd, yyyy') }})
+            ({{ reward.source === 'brevis' ? 'Brevis, ' : '' }}ends {{ reward.endDate.toFormat('MMMM dd, yyyy') }})
           </p>
         </div>
         <div class="p2">

@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { OperationReviewModal, OperationTrackerTransactionModal } from '#components'
+import { OperationReviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
+import { useToast } from '~/components/ui/composables/useToast'
 import type { Reward } from '~/entities/merkl'
 
 const { reward } = defineProps<{ reward: Reward }>()
 
-const { isTokensLoading, rewardTokens, claimReward } = useMerkl()
+const { isTokensLoading, rewardTokens, claimReward, loadRewards } = useMerkl()
 const modal = useModal()
+const { error } = useToast()
 
 const isClaiming = ref(false)
 
@@ -23,13 +25,11 @@ const claim = async () => {
   try {
     isClaiming.value = true
 
-    const tl = await claimReward(reward)
-
-    modal.open(OperationTrackerTransactionModal, {
-      props: { transactionLinker: tl },
-    })
+    await claimReward(reward)
+    await loadRewards()
   }
   catch (e) {
+    error('Transaction failed')
     console.warn(e)
   }
   finally {

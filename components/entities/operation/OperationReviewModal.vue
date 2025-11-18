@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import type { Reward } from '~/entities/merkl'
+import type { Campaign } from '~/entities/brevis'
 import type { VaultAsset } from '~/entities/vault'
 
 defineEmits(['close', 'confirm'])
-const { type, asset, rewardInfo, amount, onConfirm } = defineProps<{
-  type?: 'supply' | 'withdraw' | 'borrow' | 'reward' | 'disableCollateral'
+const { type, asset, rewardInfo, campaignInfo, amount, onConfirm } = defineProps<{
+  type?: 'supply' | 'withdraw' | 'borrow' | 'reward' | 'brevis-reward' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
   supplyingAssetForBorrow?: VaultAsset
   supplyingAmount?: number | string
   rewardInfo?: Reward
+  campaignInfo?: Campaign
   onConfirm: () => void
 }>()
 
@@ -42,6 +44,7 @@ const assetLabel = computed(() => {
     case 'borrow':
       return 'Borrowing'
     case 'reward':
+    case 'brevis-reward':
       return 'Claiming'
     default:
       return 'Spending'
@@ -58,6 +61,9 @@ const eulerOnlyRewardsAmount = computed(() => {
     }, 0)
 })
 const disclaimerText = computed(() => {
+  if (type === 'brevis-reward') {
+    return `You're claiming ${formatNumber(amount)} tokens from Brevis Incentra campaign`
+  }
   if (type !== 'reward') return
 
   return `You're claiming ${formatNumber(amount)} tokens, ${formatNumber(eulerOnlyRewardsAmount.value || 0)} of them from Euler, ${formatNumber(Number(amount) - (eulerOnlyRewardsAmount.value || 0))} of them earned elsewhere`

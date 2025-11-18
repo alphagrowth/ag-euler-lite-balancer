@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { isConnected } = useTonConnect()
 const { rewards, isRewardsLoading } = useMerkl()
+const { userRewards: brevisRewards, isRewardsLoading: isBrevisRewardsLoading } = useBrevis()
 const { locks, isLocksLoading } = useREULLocks()
 </script>
 
@@ -16,11 +17,7 @@ const { locks, isLocksLoading } = useREULLocks()
         </h3>
       </div>
       <p class="p2 text-euler-dark-900 mb-16">
-        Rewards distributed via Merkl, with updates every 8-12 hours. <a
-          class="link"
-          href="https://t.me/unwrap_tac_bot"
-          target="_blank"
-        >Click here to unwrap WTAC</a>
+        Rewards distributed via Merkl, with updates every 8-12 hours
       </p>
       <div
         :class="$style.content"
@@ -60,6 +57,55 @@ const { locks, isLocksLoading } = useREULLocks()
           <PortfolioList
             :items="rewards"
             type="rewards"
+          />
+        </div>
+      </div>
+      <div class="between align-center mb-8">
+        <h3 class="h3 weight-400">
+          Rewards via Incentra
+        </h3>
+      </div>
+      <p class="p2 text-euler-dark-900 mb-16">
+        Rewards distributed via Incentra incentive campaigns
+      </p>
+      <div
+        :class="$style.content"
+        class="flex br-16 p-8 mb-16"
+      >
+        <div
+          v-if="isBrevisRewardsLoading"
+          class="justify-center align-center"
+          :class="$style.tabContent"
+        >
+          <UiLoader class="text-euler-dark-900" />
+        </div>
+        <div
+          v-else-if="brevisRewards.length === 0"
+          class="justify-center align-center py-32"
+          :class="$style.tabContent"
+        >
+          <div class="column gap-8 align-center text-euler-dark-900 p2">
+            <div
+              :class="$style.searchIcon"
+              class="justify-center align-center br-12 bg-euler-dark-500"
+            >
+              <SvgIcon name="search" />
+            </div>
+            <template v-if="isConnected">
+              You don't have rewards yet
+            </template>
+            <template v-else>
+              Connect your wallet to see your rewards
+            </template>
+          </div>
+        </div>
+        <div
+          v-else
+          :class="$style.tabContent"
+        >
+          <PortfolioList
+            :items="brevisRewards"
+            type="brevis-rewards"
           />
         </div>
       </div>
