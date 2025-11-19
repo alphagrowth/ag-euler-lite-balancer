@@ -190,6 +190,15 @@ export const useMerkl = () => {
     return hash
   }
 
+  watch(wagmiAddress, (val) => {
+    if (val) {
+      address.value = val
+    }
+    else {
+      address.value = ''
+    }
+  }, { immediate: true })
+
   watch(isConnected, (val) => {
     if (!isLoaded.value) {
       loadOpportunities()
@@ -210,15 +219,6 @@ export const useMerkl = () => {
         clearInterval(interval)
         interval = null
       }
-    }
-  }, { immediate: true })
-
-  watch(wagmiAddress, (val) => {
-    if (val) {
-      address.value = val
-    }
-    else {
-      address.value = ''
     }
   }, { immediate: true })
 

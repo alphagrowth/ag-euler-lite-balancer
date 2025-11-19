@@ -129,6 +129,15 @@ const unlockREUL = async (lockTimestamps: bigint[]) => {
 export const useREULLocks = () => {
   const { isConnected, address: wagmiAddress, chainId } = useAccount()
 
+  watch(wagmiAddress, (val) => {
+    if (val) {
+      address.value = val
+    }
+    else {
+      address.value = ''
+    }
+  }, { immediate: true })
+
   watch(isConnected, (val) => {
     if (!isLoaded.value) {
       loadREULLocksInfo()
@@ -146,15 +155,6 @@ export const useREULLocks = () => {
         clearInterval(interval)
         interval = null
       }
-    }
-  }, { immediate: true })
-
-  watch(wagmiAddress, (val) => {
-    if (val) {
-      address.value = val
-    }
-    else {
-      address.value = ''
     }
   }, { immediate: true })
 

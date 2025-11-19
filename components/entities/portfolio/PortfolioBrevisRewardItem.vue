@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { DateTime } from 'luxon'
 import { OperationReviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { Campaign } from '~/entities/brevis'
+import { getAssetLogoUrl } from '~/entities/assets'
 
 const { campaign } = defineProps<{ campaign: Campaign }>()
 
@@ -16,7 +16,6 @@ const vault = ref(await getVault(campaign.vault_address))
 const isClaiming = ref(false)
 const rewardAmount = computed(() => Number.parseFloat(campaign.reward_info.reward_amt))
 const rewardUsdValue = computed(() => rewardAmount.value * Number.parseFloat(campaign.reward_info.reward_usd_price))
-const endDate = computed(() => DateTime.fromSeconds(campaign.end_time))
 const actionLabel = computed(() => campaign.action === 2001 ? 'Borrow' : 'Lend')
 
 const claim = async () => {
@@ -24,9 +23,8 @@ const claim = async () => {
     isClaiming.value = true
 
     await claimReward(campaign)
-
     modal.close()
-    await loadRewards()
+    loadRewards()
   }
   catch (e) {
     error('Transaction failed')
@@ -76,7 +74,7 @@ const onClaimClick = async () => {
         <div class="flex align-center">
           <BaseAvatar
             v-if="vault"
-            :src="vault.asset.icon"
+            :src="getAssetLogoUrl(vault.asset.address)"
             class="icon--40"
           />
           <div class="ml-12">
@@ -97,10 +95,6 @@ const onClaimClick = async () => {
           </p>
         </div>
       </div>
-      <div class="between p3 text-euler-dark-900 mb-12">
-        <span>Campaign ends: {{ endDate.toFormat('MMM dd, yyyy') }}</span>
-        <span>APR: {{ formatNumber(campaign.reward_info.apr * 100) }}%</span>
-      </div>
       <UiButton
         rounded
         :loading="isClaiming"
@@ -116,4 +110,3 @@ const onClaimClick = async () => {
 .VaultItem {
 }
 </style>
-

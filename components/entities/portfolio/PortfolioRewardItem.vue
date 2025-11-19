@@ -26,7 +26,8 @@ const claim = async () => {
     isClaiming.value = true
 
     await claimReward(reward)
-    await loadRewards()
+    modal.close()
+    loadRewards()
   }
   catch (e) {
     error('Transaction failed')

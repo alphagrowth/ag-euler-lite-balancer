@@ -81,4 +81,3 @@ export interface MerkleProofResponse {
   }
   rewardsBatch: SingleCampaignMerkle[]
 }
-
