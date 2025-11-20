@@ -1,8 +1,19 @@
 import type { Network } from '@tonappchain/sdk'
 import config from '~/entities/config'
 
+const getRpcUrlByChainId = (chainId: number, config: object): string => {
+  const key = `NEXT_PUBLIC_RPC_HTTP_${chainId}`
+  return (config[key] as string) || ''
+}
+
 export const useEulerConfig = () => {
   const { network } = useRuntimeConfig().public
+  const { chainId } = useEulerAddresses()
 
-  return config[network as Network]
+  const baseConfig = config[network as Network]
+
+  return {
+    ...baseConfig,
+    EVM_PROVIDER_URL: computed(() => getRpcUrlByChainId(chainId.value, baseConfig)).value
+  }
 }

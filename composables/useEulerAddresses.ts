@@ -53,7 +53,7 @@ interface EulerChainConfig {
 
 const eulerChainsConfig = ref<EulerChainConfig[]>([])
 const isLoading = ref(false)
-const chainId = ref<number>(1);
+const chainId = ref<number>(0);
 const error = ref<string | null>(null)
 
 export const useEulerAddresses = () => {

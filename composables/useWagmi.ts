@@ -3,9 +3,10 @@ import { useAppKit } from '@reown/appkit/vue'
 import { formatUnits, getAddress, isAddress, type Address } from 'viem'
 import { truncate } from '~/utils/string-utils'
 
+let isChangingChain = false
 const isLoaded = ref(false)
 const walletName = ref('Wallet')
-const { changeCurrentChainId } = useEulerAddresses()
+const { changeCurrentChainId, chainId: currentChainId } = useEulerAddresses()
 
 let cachedWagmiData: ReturnType<typeof initializeWagmi> | null = null
 
@@ -100,15 +101,19 @@ export const useWagmi = () => {
 
   const changeChain = async (targetChainId: number) => {
     try {
-      localStorage.setItem('chainId', targetChainId)
-      await switchChain({ chainId: targetChainId })
-      if (!isConnected.value) {
-        changeCurrentChainId(targetChainId)
+      isChangingChain = true
+      localStorage.setItem('chainId', String(targetChainId))
+      changeCurrentChainId(targetChainId)
+      if (isConnected.value) {
+        await switchChain({ chainId: targetChainId })
       }
     }
     catch (error) {
       console.error('Failed to switch chain:', error)
       throw error
+    }
+    finally {
+      isChangingChain = false
     }
   }
 
@@ -131,12 +136,22 @@ export const useWagmi = () => {
     }
   }, { immediate: true })
 
-  watch(chainId, (val, oldVal) => {
-    if (!val) {
-      changeCurrentChainId(localStorage.chainId)
+  watch(currentChainId, (val) => {
+    if (isChangingChain) {
+      return
     }
-    if (val !== oldVal && val) {
-      changeCurrentChainId(val)
+
+    if (!val) {
+      const savedChainId = localStorage.getItem('chainId')
+      if (savedChainId) {
+        const chainIdNum = Number.parseInt(savedChainId, 10)
+        if (chainIdNum && chainIdNum !== val) {
+          isChangingChain = true
+          changeChain(chainIdNum).finally(() => {
+            isChangingChain = false
+          })
+        }
+      }
     }
   }, { immediate: true })
 

@@ -140,13 +140,12 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult, void, unknown> {
   const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses, eulerPeripheryAddresses } = useEulerAddresses()
-
+  await until(computed(() => eulerLensAddresses.value?.vaultLens && eulerPeripheryAddresses.value?.governedPerspective)).toBeTruthy()
   if (!eulerLensAddresses.value?.vaultLens || !eulerPeripheryAddresses.value?.governedPerspective) {
     throw new Error('Euler addresses not loaded yet')
   }
 
-  const provider = new ethers.JsonRpcProvider('https://rpc.ankr.com/eth/349572154c1876f50af09eaa5b19b458c3f5d65e7f95d60bf9e798a495b096ae')
-
+  const provider = new ethers.JsonRpcProvider(_EVM_PROVIDER_URL)
   const governedPerspectiveContract = new ethers.Contract(
     eulerPeripheryAddresses.value.governedPerspective,
     eulerPerspectiveABI,
