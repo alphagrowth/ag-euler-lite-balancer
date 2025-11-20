@@ -177,6 +177,15 @@ export const useBrevis = () => {
     return hash
   }
 
+  watch(wagmiAddress, (val) => {
+    if (val) {
+      address.value = val
+    }
+    else {
+      address.value = ''
+    }
+  }, { immediate: true })
+
   watch(isConnected, (val) => {
     if (!isLoaded.value) {
       loadCampaigns()
@@ -195,15 +204,6 @@ export const useBrevis = () => {
         clearInterval(interval)
         interval = null
       }
-    }
-  }, { immediate: true })
-
-  watch(wagmiAddress, (val) => {
-    if (val) {
-      address.value = val
-    }
-    else {
-      address.value = ''
     }
   }, { immediate: true })
 

@@ -61,9 +61,6 @@ const eulerOnlyRewardsAmount = computed(() => {
     }, 0)
 })
 const disclaimerText = computed(() => {
-  if (type === 'brevis-reward') {
-    return `You're claiming ${formatNumber(amount)} tokens from Brevis Incentra campaign`
-  }
   if (type !== 'reward') return
 
   return `You're claiming ${formatNumber(amount)} tokens, ${formatNumber(eulerOnlyRewardsAmount.value || 0)} of them from Euler, ${formatNumber(Number(amount) - (eulerOnlyRewardsAmount.value || 0))} of them earned elsewhere`
@@ -95,7 +92,10 @@ const disclaimerText = computed(() => {
             </p>
           </div>
         </div>
-        <div v-if="type !== 'disableCollateral'" class="flex-wrap gap-8 between">
+        <div
+          v-if="type !== 'disableCollateral'"
+          class="flex-wrap gap-8 between"
+        >
           <p class="p3 text-euler-dark-900 be">
             {{ assetLabel }}
           </p>
