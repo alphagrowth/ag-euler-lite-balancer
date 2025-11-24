@@ -71,21 +71,40 @@ export interface AccountDepositPosition {
 }
 
 const checkGetController = async (subAccount: string) => {
-  const { EVM_PROVIDER_URL, ETH_VAULT_CONNECTOR } = useEulerConfig()
+  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { eulerCoreAddresses } = useEulerAddresses()
+
+  if (!eulerCoreAddresses.value?.evc) {
+    console.warn('[checkGetController] EVC address not available')
+    return true
+  }
+
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const contract = new ethers.Contract(ETH_VAULT_CONNECTOR, ['function getControllers(address) external view returns(address[])'], provider)
+  const contract = new ethers.Contract(
+    eulerCoreAddresses.value.evc,
+    ['function getControllers(address) external view returns(address[])'],
+    provider,
+  )
 
   try {
     const controllers = await contract.getControllers(subAccount)
-    return controllers.length > 0 ? false : true
+    console.log('[checkGetController]', subAccount, 'has controllers:', controllers)
+    return controllers.length === 0 // Return true if NO controllers (account is free)
   }
-  catch {
+  catch (e) {
+    console.error('[checkGetController] Error:', e)
     return true
   }
 }
 
 export const getNewSubAccount = async (ownerAddress: string) => {
   const { GOLDSKY_API_URL } = useEulerConfig()
+  const { eulerCoreAddresses, loadEulerConfig } = useEulerAddresses()
+
+  if (!eulerCoreAddresses.value) {
+    await loadEulerConfig()
+  }
+
   const address = ethers.getAddress(ownerAddress)
   const { data } = await axios.post(GOLDSKY_API_URL, {
     query: `query AccountBorrows {
@@ -101,11 +120,15 @@ export const getNewSubAccount = async (ownerAddress: string) => {
   for (let index = 1; index <= 256; index++) {
     const hex = BigInt(address) ^ BigInt(index)
     const subAccountAddress = ethers.getAddress(ethers.zeroPadValue(ethers.toBeHex(hex, 20), 20))
-    if (!subAccounts.includes(subAccountAddress) && await checkGetController(subAccountAddress)) {
-      console.log('[getNewSubAccount] found free subaccount: ', subAccountAddress)
+
+    const isNotInBorrows = !subAccounts.includes(subAccountAddress)
+    const hasNoController = await checkGetController(subAccountAddress)
+
+    if (isNotInBorrows && hasNoController) {
+      console.log('[getNewSubAccount] found free subaccount:', subAccountAddress)
       return subAccountAddress
     }
   }
 
-  throw 'Free subaccount not found'
+  throw new Error('Free subaccount not found')
 }

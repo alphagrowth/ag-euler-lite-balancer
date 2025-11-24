@@ -71,19 +71,11 @@ export const useEulerOperations = () => {
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
     const needsApproval = allowance < amount
 
-    if (needsApproval) {
-      const approvalHash = await writeContractAsync({
-        address: assetAddr,
-        abi: erc20ABI,
-        functionName: 'approve',
-        args: [vaultAddr, maxUint256],
-      })
-
-      const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-      await provider.waitForTransaction(approvalHash)
-    }
-
     const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(assetAddr, [
+      'function approve(address,uint256) external',
+    ])
 
     hooks.addContractInterface(vaultAddr, [
       'function deposit(uint256,address) external',
@@ -108,6 +100,17 @@ export const useEulerOperations = () => {
         data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
       }
       evcCalls.unshift(tosCall)
+    }
+
+    if (needsApproval) {
+      const approveData = hooks.getDataForCall(assetAddr, 'approve', [vaultAddr, maxUint256]) as Hash
+      const approveCall: EVCCall = {
+        targetContract: assetAddr,
+        onBehalfOfAccount: depositToAddr,
+        value: 0n,
+        data: approveData,
+      }
+      evcCalls.unshift(approveCall)
     }
 
     const depositHash = await writeContractAsync({
@@ -281,16 +284,25 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
 
     const hasSigned = await hasSignature(userAddr)
-    const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
-    const needsApproval = allowance < amount
+
+    if (amount > 0n) {
+      const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
+      const needsApproval = allowance < amount
+
+      if (needsApproval) {
+        const approvalHash = await writeContractAsync({
+          address: assetAddr,
+          abi: erc20ABI,
+          functionName: 'approve',
+          args: [vaultAddr, maxUint256],
+        })
+
+        const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+        await provider.waitForTransaction(approvalHash)
+      }
+    }
 
     const hooks = new SaHooksBuilder()
-
-    if (needsApproval) {
-      hooks.addContractInterface(assetAddr, [
-        'function approve(address,uint256) external',
-      ])
-    }
 
     hooks.addContractInterface(vaultAddr, [
       'function deposit(uint256,address) external',
@@ -299,18 +311,14 @@ export const useEulerOperations = () => {
       'function borrow(uint256,address) external',
     ])
     hooks.addContractInterface(evcAddress, [
-      'function enableCollateral(address,address) external',
       'function enableController(address,address) external',
+      'function enableCollateral(address,address) external',
     ])
 
     if (!hasSigned) {
       hooks.addContractInterface(tosSignerAddress, [
         'function signTermsOfUse(string,bytes32) external',
       ])
-    }
-
-    if (needsApproval) {
-      hooks.addPreHookCallFromSelf(assetAddr, 'approve', [vaultAddr, maxUint256])
     }
 
     const saHooks = hooks.build()
