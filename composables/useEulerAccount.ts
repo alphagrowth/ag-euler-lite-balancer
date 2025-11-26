@@ -157,7 +157,6 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
 
-  console.log('POST!')
   const { data } = await axios.post(eulerGoldskyUrl.value as string, {
     query: `query AccountBorrows {
       trackingActiveAccount(id: "${address}") {
