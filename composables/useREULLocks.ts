@@ -1,15 +1,9 @@
-import { SenderFactory, type EvmProxyMsg } from '@tonappchain/sdk'
-import { useAccount } from '@wagmi/vue'
+import { useAccount, useWriteContract } from '@wagmi/vue'
 import { ethers } from 'ethers'
 
 import type { REULLock } from '~/entities/reul'
 
-const {
-  MERKL_PROXY,
-  EVM_PROVIDER_URL,
-} = useEulerConfig()
-
-const { tonConnectUI } = useTonConnect()
+const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const address = ref('')
 
@@ -84,50 +78,9 @@ const loadREULLocksInfo = async (isInitialLoading = true) => {
     isLocksLoading.value = false
   }
 }
-const unlockREUL = async (lockTimestamps: bigint[]) => {
-  const { isLoaded } = useTacSdk()
-  await until(isLoaded).toBeTruthy()
-  const { tacSdk } = useTacSdk()
-  // const oneTimestampFunctionSelector = '0xd47d9de6'
-  const manyTimestampsFunctionSelector = '0x4f570258'
-
-  const withdrawToByLockTimestampData = new ethers.AbiCoder().encode(
-    ['tuple(uint256[],bool)'],
-    [[lockTimestamps, true]],
-  )
-
-  const encodedArguments = new ethers.AbiCoder().encode(
-    ['tuple(address,bytes4[],bytes[],address[])'],
-    [[
-      reulTokenContractAddress.value,
-      [manyTimestampsFunctionSelector],
-      [withdrawToByLockTimestampData],
-      [eulTokenContractAddress.value],
-    ]],
-  )
-  const evmProxyMsg: EvmProxyMsg = {
-    evmTargetAddress: MERKL_PROXY,
-    methodName: 'customFunctionCall(bytes,bytes)',
-    encodedParameters: encodedArguments,
-  }
-
-  const sender = await SenderFactory.getSender({ tonConnect: tonConnectUI })
-  const res = await tacSdk.sendCrossChainTransaction(evmProxyMsg, sender)
-  tacSdk.closeConnections()
-
-  const tsResult = res?.sendTransactionResult as {
-    success: boolean
-    error: Record<string, unknown>
-  }
-  if (!tsResult?.success) {
-    throw tsResult?.error?.info || 'Unknown error'
-  }
-
-  return res
-}
-
 export const useREULLocks = () => {
   const { isConnected, address: wagmiAddress, chainId } = useAccount()
+  const { writeContractAsync } = useWriteContract()
 
   watch(wagmiAddress, (val) => {
     if (val) {
@@ -157,6 +110,23 @@ export const useREULLocks = () => {
       }
     }
   }, { immediate: true })
+
+  const unlockREUL = async (lockTimestamps: bigint[]) => {
+    if (!address.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    const hash = await writeContractAsync({
+      address: reulTokenContractAddress.value as `0x${string}`,
+      abi: [
+        'function withdrawToByLockTimestamp(address account, uint256 lockTimestamp, bool allowRemainderLoss) external',
+      ],
+      functionName: 'withdrawToByLockTimestamp',
+      args: [address.value, lockTimestamps[0], true],
+    })
+
+    return hash
+  }
 
   return {
     locks,
