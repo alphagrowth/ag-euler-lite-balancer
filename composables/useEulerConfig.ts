@@ -14,6 +14,6 @@ export const useEulerConfig = () => {
 
   return {
     ...baseConfig,
-    EVM_PROVIDER_URL: computed(() => getRpcUrlByChainId(chainId.value, baseConfig)).value
+    EVM_PROVIDER_URL: computed(() => getRpcUrlByChainId(chainId.value, baseConfig)).value,
   }
 }

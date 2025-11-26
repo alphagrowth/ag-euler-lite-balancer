@@ -73,12 +73,13 @@ export const useSwapPools = () => {
       )
 
       const pools = response.data
+
       swapPoolsCache.value.set(cacheKey, pools)
 
       return pools
     }
     catch (error) {
-      console.warn('Failed to fetch swap pools:', error)
+      console.warn('Failed to fetch swap pools from API, falling back to no operators:', error)
       return []
     }
     finally {
