@@ -1,12 +1,14 @@
 import { ethers, FixedNumber } from 'ethers'
 import axios from 'axios'
 import { useAccount } from '@wagmi/vue'
+import type { Address } from 'viem'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type { EulerLensAddresses } from '~/entities/euler/addresses'
 import type {
   AccountBorrowPosition, AccountDepositPosition,
 } from '~/entities/account'
 import { convertSharesToAssets, getVaultPrice } from '~/entities/vault'
+import { EVC_ABI } from '~/utils/evc-converter'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const borrowPositions: Ref<AccountBorrowPosition[]> = ref([])
@@ -15,6 +17,12 @@ const isPositionsLoading = ref(true)
 const isPositionsLoaded = ref(false)
 const isDepositsLoading = ref(true)
 const isDepositsLoaded = ref(false)
+
+const operatorsBySubAccount: Ref<Map<string, Address | null>> = ref(new Map())
+
+const KNOWN_OPERATORS: Address[] = [
+  '0x56b1E83Ee4031F44Ef4a74ec499260b1136c34C8', // EulerSwap operator (Base)
+] as const
 
 const totalSuppliedValue = computed(() =>
   depositPositions.value.reduce((result, position) => result + getVaultPrice(position.assets, position.vault), 0)
@@ -339,17 +347,98 @@ const updateDepositPositions = async (balances: Map<string, bigint>) => {
   isDepositsLoaded.value = true
 }
 
+const checkOperatorForSubAccount = async (
+  subAccount: string,
+  evcAddress: Address,
+  provider: ethers.Provider,
+): Promise<Address | null> => {
+  try {
+    const evcContract = new ethers.Contract(evcAddress, EVC_ABI, provider)
+
+    for (const operator of KNOWN_OPERATORS) {
+      try {
+        const isAuthorized = await evcContract.isAccountOperatorAuthorized(
+          subAccount,
+          operator,
+        ) as boolean
+
+        if (isAuthorized) {
+          return operator
+        }
+      }
+      catch (error) {
+        console.warn(`Failed to check operator ${operator} for account ${subAccount}:`, error)
+      }
+    }
+
+    return null
+  }
+  catch (error) {
+    console.error(`Failed to check operators for account ${subAccount}:`, error)
+    return null
+  }
+}
+
+const updateOperatorsForPositions = async (
+  evcAddress: Address,
+  address: string,
+) => {
+  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
+
+  const allSubAccounts = new Set<string>()
+
+  borrowPositions.value.forEach((position) => {
+    if (position.subAccount) {
+      allSubAccounts.add(ethers.getAddress(position.subAccount))
+    }
+  })
+
+  allSubAccounts.add(ethers.getAddress(address))
+
+  const operatorChecks = Array.from(allSubAccounts).map(async (subAccount) => {
+    const operator = await checkOperatorForSubAccount(subAccount, evcAddress, provider)
+    return { subAccount, operator }
+  })
+
+  const results = await Promise.all(operatorChecks)
+
+  const newOperatorsMap = new Map<string, Address | null>()
+  results.forEach(({ subAccount, operator }) => {
+    newOperatorsMap.set(subAccount, operator)
+  })
+
+  operatorsBySubAccount.value = newOperatorsMap
+}
+
 export const useEulerAccount = () => {
   const { isLoaded: isBalancesLoaded, balances } = useWallets()
-  const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
+  const { eulerLensAddresses, eulerCoreAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
   const { address } = useAccount()
 
-  watch([isBalancesLoaded, isEulerLensAddressesReady], () => {
+  watch([isBalancesLoaded, isEulerLensAddressesReady, borrowPositions], async () => {
     if (isBalancesLoaded.value && isEulerLensAddressesReady.value) {
       updateBorrowPositions(eulerLensAddresses.value, address.value as string)
       updateDepositPositions(balances.value)
+
+      if (eulerCoreAddresses.value?.evc && address.value) {
+        await updateOperatorsForPositions(
+          eulerCoreAddresses.value.evc as Address,
+          address.value,
+        )
+      }
     }
   }, { immediate: true })
+
+  const getOperatorForSubAccount = (subAccount: string | undefined): Address | null => {
+    if (!subAccount) return null
+    const checksummed = ethers.getAddress(subAccount)
+    return operatorsBySubAccount.value.get(checksummed) || null
+  }
+
+  const hasOperator = (subAccount: string | undefined): boolean => {
+    return getOperatorForSubAccount(subAccount) !== null
+  }
 
   return {
     borrowPositions,
@@ -363,5 +452,8 @@ export const useEulerAccount = () => {
     updateDepositPositions,
     totalSuppliedValue,
     totalBorrowedValue,
+    operatorsBySubAccount: computed(() => operatorsBySubAccount.value),
+    getOperatorForSubAccount,
+    hasOperator,
   }
 }

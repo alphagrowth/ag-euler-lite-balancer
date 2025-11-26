@@ -15,7 +15,7 @@ const { error } = useToast()
 const { repay, fullRepay } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
+const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { eulerLensAddresses } = useEulerAddresses()
 const { address } = useAccount()
@@ -108,21 +108,23 @@ const submit = async () => {
       type: 'repay',
       asset: position.value!.borrow.asset,
       amount: amount.value,
-      onConfirm: () => {
+      subAccount: position.value?.subAccount,
+      onConfirm: (disableOperator: boolean) => {
         setTimeout(() => {
-          send()
+          send(disableOperator)
         }, 400)
       },
     },
   })
 }
-const send = async () => {
+const send = async (disableOperator?: boolean) => {
   try {
     isSubmitting.value = true
     if (!position.value || !borrowVault.value || !collateralVault.value) {
       return
     }
 
+    const operator = disableOperator ? (getOperatorForSubAccount(position.value?.subAccount) ?? undefined) : undefined
     const method = balance.value <= valueToNano(amount.value, borrowVault.value.asset.decimals)
       ? fullRepay
       : repay
@@ -133,6 +135,7 @@ const send = async () => {
       valueToNano(amount.value, borrowVault.value.asset.decimals),
       position.value.subAccount,
       collateralVault.value.address,
+      operator,
     )
 
     modal.close()

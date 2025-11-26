@@ -14,7 +14,7 @@ const { error } = useToast()
 const { supply } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoaded } = useEulerAccount()
+const { borrowPositions, isPositionsLoaded, getOperatorForSubAccount } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { getBalance } = useWallets()
 
@@ -101,26 +101,29 @@ const submit = async () => {
       type: 'supply',
       asset: asset.value,
       amount: amount.value,
-      onConfirm: () => {
+      subAccount: position.value?.subAccount,
+      onConfirm: (disableOperator: boolean) => {
         setTimeout(() => {
-          send()
+          send(disableOperator)
         }, 400)
       },
     },
   })
 }
-const send = async () => {
+const send = async (disableOperator?: boolean) => {
   try {
     isSubmitting.value = true
     if (!asset.value?.address) {
       return
     }
+    const operator = disableOperator ? (getOperatorForSubAccount(position.value?.subAccount) ?? undefined) : undefined
     await supply(
       collateralVault.value.address,
       asset.value.address,
       valueToNano(amount.value || '0', asset.value.decimals),
       asset.value.symbol,
       position.value?.subAccount,
+      operator,
     )
 
     modal.close()

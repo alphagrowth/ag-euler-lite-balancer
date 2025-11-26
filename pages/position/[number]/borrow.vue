@@ -15,7 +15,7 @@ const { error } = useToast()
 const { borrow } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected } = useAccount()
-const { borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
+const { borrowPositions, isPositionsLoading, isPositionsLoaded, getOperatorForSubAccount } = useEulerAccount()
 const positionIndex = route.params.number as string
 const { getBalance } = useWallets()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
@@ -129,20 +129,22 @@ const submit = async () => {
       type: 'borrow',
       asset: borrowVault.value?.asset,
       amount: borrowAmount.value,
-      onConfirm: () => {
+      subAccount: position.value?.subAccount,
+      onConfirm: (disableOperator: boolean) => {
         setTimeout(() => {
-          send()
+          send(disableOperator)
         }, 400)
       },
     },
   })
 }
-const send = async () => {
+const send = async (disableOperator?: boolean) => {
   try {
     isSubmitting.value = true
     if (!collateralVault.value || !borrowVault.value || !position.value) {
       return
     }
+    // Note: borrow operation doesn't support operator parameter
     await borrow(
       collateralVault.value.address,
       collateralVault.value.asset.address,

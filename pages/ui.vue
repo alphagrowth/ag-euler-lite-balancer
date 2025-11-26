@@ -7,6 +7,7 @@ import { LegalTermsAcknowledgeModal } from '#components'
 const radioModel = ref('radio-test-1')
 const tabsModel = ref(0)
 const checkboxModel = ref(false)
+const switchModel = ref(false)
 const asset: VaultAsset = {
   name: 'Mock TON',
   decimals: 18n,
@@ -22,7 +23,7 @@ const openLegalModal = () => {
 
 <template>
   <section>
-    <div style="max-width: 380px;">
+    <div>
       <div class="p-16">
         <AssetInput
           :asset="asset"
@@ -36,7 +37,7 @@ const openLegalModal = () => {
         />
       </div>
 
-      <div class="flex align-center gap-8">
+      <div class="flex align-center gap-8 mb-16">
         <UiCheckbox
           v-model="checkboxModel"
           name="test"
@@ -52,6 +53,18 @@ const openLegalModal = () => {
           v-model="checkboxModel"
           name="test"
           self-value="radio-test-1"
+          disabled
+        />
+      </div>
+
+      <div class="flex align-center gap-8 mb-16">
+        <UiSwitch
+          v-model="switchModel"
+          name="switch"
+        />
+        <UiSwitch
+          v-model="switchModel"
+          name="switch"
           disabled
         />
       </div>

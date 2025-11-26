@@ -3,8 +3,9 @@ import type { Reward } from '~/entities/merkl'
 import type { Campaign } from '~/entities/brevis'
 import type { VaultAsset } from '~/entities/vault'
 
-defineEmits(['close', 'confirm'])
-const { type, asset, rewardInfo, campaignInfo, amount, onConfirm } = defineProps<{
+const emits = defineEmits(['close', 'confirm'])
+
+const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount } = defineProps<{
   type?: 'supply' | 'withdraw' | 'borrow' | 'reward' | 'brevis-reward' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
@@ -12,8 +13,23 @@ const { type, asset, rewardInfo, campaignInfo, amount, onConfirm } = defineProps
   supplyingAmount?: number | string
   rewardInfo?: Reward
   campaignInfo?: Campaign
-  onConfirm: () => void
+  onConfirm: (disable?: boolean) => void
+  subAccount?: string
 }>()
+
+const { hasOperator } = useEulerAccount()
+
+const hasOperatorForPosition = computed(() => {
+  if (!subAccount) return false
+  return hasOperator(subAccount)
+})
+
+const disableOperator = ref(false)
+
+const handleConfirm = () => {
+  emits('close')
+  onConfirm(disableOperator.value)
+}
 
 const btnLabel = computed(() => {
   switch (type) {
@@ -137,11 +153,25 @@ const disclaimerText = computed(() => {
         description="Disabling collateral will move this deposit to savings"
         size="compact"
       />
+      <div
+        v-if="hasOperatorForPosition"
+        class="flex-wrap gap-8 bg-euler-dark-600 p-16 br-12 between"
+      >
+        <div class="flex column gap-4">
+          <p class="p3 text-euler-dark-900 be">
+            Disable swap operator
+          </p>
+          <p class="p4 text-euler-dark-700">
+            Remove operator authorization to prevent automated position management
+          </p>
+        </div>
+        <UiSwitch v-model="disableOperator" />
+      </div>
       <UiButton
         variant="primary"
         size="xlarge"
         rounded
-        @click="$emit('close'); onConfirm()"
+        @click="handleConfirm"
       >
         {{ btnLabel }}
       </UiButton>

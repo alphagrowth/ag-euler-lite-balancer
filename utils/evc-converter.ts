@@ -28,6 +28,16 @@ export const EVC_ABI = [
     stateMutability: 'payable',
     type: 'function',
   },
+  {
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'operator', type: 'address' },
+    ],
+    name: 'isAccountOperatorAuthorized',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const
 
 export function convertSaHooksToEVCCalls(

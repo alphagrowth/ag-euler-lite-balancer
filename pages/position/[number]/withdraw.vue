@@ -7,12 +7,11 @@ import { useToast } from '~/components/ui/composables/useToast'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
 
 const router = useRouter()
+const route = useRoute()
 const { withdraw } = useEulerOperations()
 const { error } = useToast()
 const modal = useModal()
-
-const route = useRoute()
-const { isPositionsLoaded, borrowPositions, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoaded, borrowPositions, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
 const { isConnected, address } = useAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -95,26 +94,31 @@ const submit = async () => {
       type: 'withdraw',
       asset: asset.value,
       amount: amount.value,
-      onConfirm: () => {
+      subAccount: position.value?.subAccount,
+      onConfirm: (disableOperator: boolean) => {
         setTimeout(() => {
-          send()
+          send(disableOperator)
         }, 400)
       },
     },
   })
 }
-const send = async () => {
+const send = async (disableOperator?: boolean) => {
   try {
     isSubmitting.value = true
     if (!asset.value?.address) {
       return
     }
+    const operator = disableOperator ? (getOperatorForSubAccount(position.value?.subAccount) ?? undefined) : undefined
     await withdraw(
       collateralVault.value!.address,
       asset.value!.address,
       valueToNano(amount.value || '0', asset.value.decimals),
       asset.value.symbol,
       position.value?.subAccount,
+      undefined,
+      undefined,
+      operator,
     )
 
     modal.close()
