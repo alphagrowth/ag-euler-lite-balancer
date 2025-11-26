@@ -109,22 +109,22 @@ const submit = async () => {
       asset: position.value!.borrow.asset,
       amount: amount.value,
       subAccount: position.value?.subAccount,
-      onConfirm: (disableOperator: boolean) => {
+      hasBorrows: (position.value?.borrowed || 0n) > 0n,
+      onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {
         setTimeout(() => {
-          send(disableOperator)
+          send(disableOperator, transferAssets)
         }, 400)
       },
     },
   })
 }
-const send = async (disableOperator?: boolean) => {
+const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
   try {
     isSubmitting.value = true
     if (!position.value || !borrowVault.value || !collateralVault.value) {
       return
     }
 
-    const operator = disableOperator ? (getOperatorForSubAccount(position.value?.subAccount) ?? undefined) : undefined
     const method = balance.value <= valueToNano(amount.value, borrowVault.value.asset.decimals)
       ? fullRepay
       : repay
@@ -135,8 +135,30 @@ const send = async (disableOperator?: boolean) => {
       valueToNano(amount.value, borrowVault.value.asset.decimals),
       position.value.subAccount,
       collateralVault.value.address,
-      operator,
     )
+
+    if (disableOperator && position.value?.subAccount) {
+      const { getSwapPoolForSubAccount } = useSwapPools()
+      const { disableOperator: disableOperatorFn } = useEulerOperations()
+      const operator = getOperatorForSubAccount(position.value.subAccount)
+
+      if (operator) {
+        const swapPool = transferAssets ? await getSwapPoolForSubAccount(position.value.subAccount as Address) : null
+
+        await disableOperatorFn(
+          operator,
+          position.value.subAccount as Address,
+          true,
+          swapPool?.factory,
+          swapPool
+            ? {
+                vault0: swapPool.vault0.address,
+                vault1: swapPool.vault1.address,
+              }
+            : undefined,
+        )
+      }
+    }
 
     modal.close()
     updateBorrowPositions(eulerLensAddresses.value, address.value as string)

@@ -20,10 +20,6 @@ const isDepositsLoaded = ref(false)
 
 const operatorsBySubAccount: Ref<Map<string, Address | null>> = ref(new Map())
 
-const KNOWN_OPERATORS: Address[] = [
-  '0x56b1E83Ee4031F44Ef4a74ec499260b1136c34C8', // EulerSwap operator (Base)
-] as const
-
 const totalSuppliedValue = computed(() =>
   depositPositions.value.reduce((result, position) => result + getVaultPrice(position.assets, position.vault), 0)
   + borrowPositions.value.reduce((result, position) => result + getVaultPrice(position.supplied, position.collateral), 0),
@@ -160,6 +156,8 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
 
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+
+  console.log('POST!')
   const { data } = await axios.post(eulerGoldskyUrl.value as string, {
     query: `query AccountBorrows {
       trackingActiveAccount(id: "${address}") {
@@ -347,85 +345,44 @@ const updateDepositPositions = async (balances: Map<string, bigint>) => {
   isDepositsLoaded.value = true
 }
 
-const checkOperatorForSubAccount = async (
-  subAccount: string,
-  evcAddress: Address,
-  provider: ethers.Provider,
-): Promise<Address | null> => {
+const updateOperatorsForPositions = async (address: string) => {
   try {
-    const evcContract = new ethers.Contract(evcAddress, EVC_ABI, provider)
+    const { fetchSwapPools } = useSwapPools()
+    const pools = await fetchSwapPools(address)
 
-    for (const operator of KNOWN_OPERATORS) {
-      try {
-        const isAuthorized = await evcContract.isAccountOperatorAuthorized(
-          subAccount,
-          operator,
-        ) as boolean
+    const newOperatorsMap = new Map<string, Address | null>()
 
-        if (isAuthorized) {
-          return operator
-        }
-      }
-      catch (error) {
-        console.warn(`Failed to check operator ${operator} for account ${subAccount}:`, error)
-      }
+    for (const pool of pools) {
+      const subAccount = ethers.getAddress(pool.account)
+      newOperatorsMap.set(subAccount, pool.pool)
     }
 
-    return null
+    const primaryPool = pools.find(
+      p => ethers.getAddress(p.account) === ethers.getAddress(address),
+    )
+    if (primaryPool) {
+      newOperatorsMap.set(ethers.getAddress(address), primaryPool.pool)
+    }
+
+    operatorsBySubAccount.value = newOperatorsMap
   }
   catch (error) {
-    console.error(`Failed to check operators for account ${subAccount}:`, error)
-    return null
+    console.warn('Failed to update operators:', error)
   }
-}
-
-const updateOperatorsForPositions = async (
-  evcAddress: Address,
-  address: string,
-) => {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-
-  const allSubAccounts = new Set<string>()
-
-  borrowPositions.value.forEach((position) => {
-    if (position.subAccount) {
-      allSubAccounts.add(ethers.getAddress(position.subAccount))
-    }
-  })
-
-  allSubAccounts.add(ethers.getAddress(address))
-
-  const operatorChecks = Array.from(allSubAccounts).map(async (subAccount) => {
-    const operator = await checkOperatorForSubAccount(subAccount, evcAddress, provider)
-    return { subAccount, operator }
-  })
-
-  const results = await Promise.all(operatorChecks)
-
-  const newOperatorsMap = new Map<string, Address | null>()
-  results.forEach(({ subAccount, operator }) => {
-    newOperatorsMap.set(subAccount, operator)
-  })
-
-  operatorsBySubAccount.value = newOperatorsMap
 }
 
 export const useEulerAccount = () => {
   const { isLoaded: isBalancesLoaded, balances } = useWallets()
-  const { eulerLensAddresses, eulerCoreAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
+  const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
   const { address } = useAccount()
 
-  watch([isBalancesLoaded, isEulerLensAddressesReady, borrowPositions], async () => {
+  watch([isBalancesLoaded, isEulerLensAddressesReady], async () => {
     if (isBalancesLoaded.value && isEulerLensAddressesReady.value) {
       updateBorrowPositions(eulerLensAddresses.value, address.value as string)
       updateDepositPositions(balances.value)
 
-      if (eulerCoreAddresses.value?.evc && address.value) {
-        await updateOperatorsForPositions(
-          eulerCoreAddresses.value.evc as Address,
-          address.value,
-        )
+      if (address.value) {
+        await updateOperatorsForPositions(address.value)
       }
     }
   }, { immediate: true })

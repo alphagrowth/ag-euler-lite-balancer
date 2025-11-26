@@ -130,15 +130,16 @@ const submit = async () => {
       asset: borrowVault.value?.asset,
       amount: borrowAmount.value,
       subAccount: position.value?.subAccount,
-      onConfirm: (disableOperator: boolean) => {
+      hasBorrows: (position.value?.borrowed || 0n) > 0n,
+      onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {
         setTimeout(() => {
-          send(disableOperator)
+          send(disableOperator, transferAssets)
         }, 400)
       },
     },
   })
 }
-const send = async (disableOperator?: boolean) => {
+const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
   try {
     isSubmitting.value = true
     if (!collateralVault.value || !borrowVault.value || !position.value) {

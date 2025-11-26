@@ -61,7 +61,6 @@ export const useEulerOperations = () => {
     amount: bigint,
     _symbol: string,
     subAccount?: string,
-    operator?: Address,
   ) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -94,12 +93,6 @@ export const useEulerOperations = () => {
       ])
     }
 
-    if (operator) {
-      hooks.addContractInterface(evcAddress, [
-        'function setAccountOperator(address,address,bool) external',
-      ])
-    }
-
     hooks.setMainCallHookCallFromSelf(vaultAddr, 'deposit', [amount, depositToAddr])
 
     const saHooks = hooks.build()
@@ -126,17 +119,6 @@ export const useEulerOperations = () => {
       evcCalls.unshift(approveCall)
     }
 
-    // Disable operator after supply if provided
-    if (operator) {
-      const disableOperatorCall = {
-        targetContract: evcAddress,
-        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
-        value: 0n,
-        data: hooks.getDataForCall(evcAddress, 'setAccountOperator', [depositToAddr, operator, false]) as Hash,
-      }
-      evcCalls.push(disableOperatorCall as EVCCall)
-    }
-
     const depositHash = await writeContractAsync({
       address: evcAddress,
       abi: EVC_ABI,
@@ -156,7 +138,6 @@ export const useEulerOperations = () => {
     subAccount?: string,
     _maxSharesAmount?: bigint,
     _isMax?: boolean,
-    operator?: Address,
   ) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -182,13 +163,6 @@ export const useEulerOperations = () => {
       ])
     }
 
-    if (operator) {
-      hooks.addContractInterface(evcAddress, [
-        'function setAccountOperator(address,address,bool) external',
-      ])
-    }
-
-    // When withdrawing from a subaccount, the call must be from SA perspective (on behalf of subaccount)
     if (subAccount) {
       hooks.setMainCallHookCallFromSA(vaultAddr, 'withdraw', [assetsAmount, userAddr, withdrawFromAddr])
     }
@@ -207,17 +181,6 @@ export const useEulerOperations = () => {
         data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
       }
       evcCalls.unshift(tosCall)
-    }
-
-    // Disable operator after withdraw if provided
-    if (operator) {
-      const disableOperatorCall = {
-        targetContract: evcAddress,
-        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
-        value: 0n,
-        data: hooks.getDataForCall(evcAddress, 'setAccountOperator', [withdrawFromAddr, operator, false]) as Hash,
-      }
-      evcCalls.push(disableOperatorCall as EVCCall)
     }
 
     const withdrawHash = await writeContractAsync({
@@ -520,7 +483,6 @@ export const useEulerOperations = () => {
     borrowAssetAddress: string,
     amount: bigint,
     subAccount: string,
-    operator?: Address,
   ) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -562,12 +524,6 @@ export const useEulerOperations = () => {
       ])
     }
 
-    if (operator) {
-      hooks.addContractInterface(evcAddress, [
-        'function setAccountOperator(address,address,bool) external',
-      ])
-    }
-
     hooks.setMainCallHookCallFromSelf(borrowVaultAddr, 'repay', [amount, subAccountAddr])
 
     const saHooks = hooks.build()
@@ -581,17 +537,6 @@ export const useEulerOperations = () => {
         data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
       }
       evcCalls.unshift(tosCall)
-    }
-
-    // Disable operator after repay if provided
-    if (operator) {
-      const disableOperatorCall = {
-        targetContract: evcAddress,
-        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
-        value: 0n,
-        data: hooks.getDataForCall(evcAddress, 'setAccountOperator', [subAccountAddr, operator, false]) as Hash,
-      }
-      evcCalls.push(disableOperatorCall as EVCCall)
     }
 
     const repayHash = await writeContractAsync({
@@ -611,7 +556,6 @@ export const useEulerOperations = () => {
     amount: bigint,
     subAccount: string,
     vaultAddress: string,
-    operator?: Address,
   ) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -673,12 +617,6 @@ export const useEulerOperations = () => {
       ])
     }
 
-    if (operator) {
-      hooks.addContractInterface(evcAddress, [
-        'function setAccountOperator(address,address,bool) external',
-      ])
-    }
-
     const evcCalls = []
 
     if (!hasSigned) {
@@ -727,16 +665,6 @@ export const useEulerOperations = () => {
     }
 
     evcCalls.push(repayCall, disableControllerCall, disableCollateralCall, redeemCall, depositCall)
-
-    if (operator) {
-      const disableOperatorCall = {
-        targetContract: evcAddress,
-        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
-        value: 0n,
-        data: hooks.getDataForCall(evcAddress, 'setAccountOperator', [subAccountAddr, operator, false]) as Hash,
-      }
-      evcCalls.push(disableOperatorCall)
-    }
 
     const fullRepayHash = await writeContractAsync({
       address: evcAddress,
@@ -813,6 +741,7 @@ export const useEulerOperations = () => {
     subAccount: Address,
     uninstallPool: boolean = false,
     eulerSwapFactoryAddress?: Address,
+    transferVaults?: { vault0: Address, vault1: Address },
   ) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -833,6 +762,15 @@ export const useEulerOperations = () => {
     if (uninstallPool && eulerSwapFactoryAddress) {
       hooks.addContractInterface(eulerSwapFactoryAddress, [
         'function uninstallPool() external',
+      ])
+    }
+
+    if (transferVaults) {
+      hooks.addContractInterface(transferVaults.vault0, [
+        'function transfer(address,uint256) external',
+      ])
+      hooks.addContractInterface(transferVaults.vault1, [
+        'function transfer(address,uint256) external',
       ])
     }
 
@@ -871,6 +809,24 @@ export const useEulerOperations = () => {
       data: hooks.getDataForCall(evcAddress, 'setAccountOperator', [subAccount, operatorAddress, false]) as Hash,
     }
     evcCalls.push(disableOperatorCall)
+
+    if (transferVaults) {
+      const transfer0Call = {
+        targetContract: transferVaults.vault0,
+        onBehalfOfAccount: subAccount,
+        value: 0n,
+        data: hooks.getDataForCall(transferVaults.vault0, 'transfer', [userAddr, ethers.MaxUint256]) as Hash,
+      }
+      evcCalls.push(transfer0Call)
+
+      const transfer1Call = {
+        targetContract: transferVaults.vault1,
+        onBehalfOfAccount: subAccount,
+        value: 0n,
+        data: hooks.getDataForCall(transferVaults.vault1, 'transfer', [userAddr, ethers.MaxUint256]) as Hash,
+      }
+      evcCalls.push(transfer1Call)
+    }
 
     const disableHash = await writeContractAsync({
       address: evcAddress,

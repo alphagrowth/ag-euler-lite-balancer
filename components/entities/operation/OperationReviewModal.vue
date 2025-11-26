@@ -5,7 +5,7 @@ import type { VaultAsset } from '~/entities/vault'
 
 const emits = defineEmits(['close', 'confirm'])
 
-const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount } = defineProps<{
+const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount, hasBorrows } = defineProps<{
   type?: 'supply' | 'withdraw' | 'borrow' | 'reward' | 'brevis-reward' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
@@ -13,8 +13,9 @@ const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount } =
   supplyingAmount?: number | string
   rewardInfo?: Reward
   campaignInfo?: Campaign
-  onConfirm: (disable?: boolean) => void
+  onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => void
   subAccount?: string
+  hasBorrows?: boolean
 }>()
 
 const { hasOperator } = useEulerAccount()
@@ -25,10 +26,15 @@ const hasOperatorForPosition = computed(() => {
 })
 
 const disableOperator = ref(false)
+const transferAssets = ref(false)
+
+const canTransfer = computed(() => {
+  return hasOperatorForPosition.value && !hasBorrows
+})
 
 const handleConfirm = () => {
   emits('close')
-  onConfirm(disableOperator.value)
+  onConfirm(disableOperator.value, transferAssets.value)
 }
 
 const btnLabel = computed(() => {
@@ -158,14 +164,28 @@ const disclaimerText = computed(() => {
         class="flex-wrap gap-8 bg-euler-dark-600 p-16 br-12 between"
       >
         <div class="flex column gap-4">
-          <p class="p3 text-euler-dark-900 be">
+          <p class="p3 text-white-900 ">
             Disable swap operator
           </p>
-          <p class="p4 text-euler-dark-700">
+          <p class="p4 text-euler-dark-900">
             Remove operator authorization to prevent automated position management
           </p>
         </div>
         <UiSwitch v-model="disableOperator" />
+      </div>
+      <div
+        v-if="disableOperator && canTransfer"
+        class="flex-wrap gap-8 bg-euler-dark-600 p-16 br-12 between"
+      >
+        <div class="flex column gap-4">
+          <p class="p3 text-white-900 ">
+            Transfer assets to primary account
+          </p>
+          <p class="p4 text-euler-dark-900">
+            Move all vault shares from this position to your primary account
+          </p>
+        </div>
+        <UiSwitch v-model="transferAssets" />
       </div>
       <UiButton
         variant="primary"
