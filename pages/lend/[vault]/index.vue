@@ -4,6 +4,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { computeAPYs, getVaultPrice, type Vault, type VaultAsset } from '~/entities/vault'
+import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
@@ -12,7 +13,8 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { supply } = useEulerOperations()
+const { supply, buildSupplyPlan, executeTxPlan } = useEulerOperations()
+const { estimatePlanFees } = useEstimatePlanFees()
 const { getVault, updateVault } = useVaults()
 const { isConnected } = useAccount()
 const { getBalance } = useWallets()
@@ -24,7 +26,9 @@ const { getCampaignOfLendVault } = useBrevis()
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
+const feeResult = ref<null | { totalNative: string }>(null)
 const amount = ref('')
+const plan = ref<TxPlan | null>(null)
 const vault: Ref<Vault | undefined> = ref(await getVault(vaultAddress))
 const asset: Ref<VaultAsset | undefined> = ref(vault.value?.asset)
 const estimateSupplyAPY = ref(0n)
@@ -74,6 +78,7 @@ const submit = async () => {
       type: 'supply',
       asset: asset.value,
       amount: amount.value,
+      fee: feeResult.value?.totalNative,
       onConfirm: () => {
         setTimeout(() => {
           send()
@@ -85,10 +90,10 @@ const submit = async () => {
 const send = async () => {
   try {
     isSubmitting.value = true
-    if (!asset.value?.address) {
+    if (!asset.value?.address || !plan.value) {
       return
     }
-    const txHash = await supply(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol)
+    const txHash = await executeTxPlan(plan.value)
 
     modal.close()
     await updateEstimates()
@@ -110,6 +115,12 @@ const updateEstimates = useDebounceFn(async () => {
   }
   try {
     await updateVault(vault.value.address)
+    if (!asset.value?.address) {
+      return
+    }
+    plan.value = await buildSupplyPlan(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol)
+    const fees = await estimatePlanFees(plan.value)
+    feeResult.value = fees
     const { supplyAPY } = await computeAPYs(
       vault.value.interestRateInfo.borrowSPY,
       vault.value.interestRateInfo.cash + valueToNano(amount.value, vault.value.decimals),

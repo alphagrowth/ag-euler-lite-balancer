@@ -1,11 +1,13 @@
 import { useWriteContract } from '@wagmi/vue'
-import type { Address, Hash } from 'viem'
+import type { Address, Hash, Hex, Abi } from 'viem'
+import { encodeFunctionData } from 'viem'
 import { maxUint256 } from 'viem'
 import { ethers } from 'ethers'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { convertSaHooksToEVCCalls, EVC_ABI } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
 import { erc20ABI } from '~/entities/euler/abis'
+import type { TxPlan, TxStep } from '~/entities/txPlan'
 
 const FINAL_MESSAGE = 'By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: https://www.euler.finance/terms  hash:0x1a7aa1916b6c56272b62be027108c06d9af95eef4dac46acbc80267b3919e07e'
 const FINAL_HASH = '0xb0d552b4ebe441d9582f5fc732fd6026b09bec13e7f3c1e21c0ecaa3801df595'
@@ -55,6 +57,117 @@ export const useEulerOperations = () => {
     }
   }
 
+  const executeTxPlan = async (plan: TxPlan) => {
+    if (!address.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    let lastHash: Hex | undefined
+
+    for (const step of plan.steps) {
+      const txHash = await writeContractAsync({
+        address: step.to,
+        abi: step.abi,
+        functionName: step.functionName as any,
+        args: step.args as any,
+        value: step.value ?? 0n,
+      })
+
+      lastHash = txHash
+      // TODO wait for transaction provider.waitForTransaction(txHash)
+    }
+
+    return lastHash
+  }
+
+  const buildSupplyPlan = async (
+    vaultAddress: string,
+    assetAddress: string,
+    amount: bigint,
+    _symbol: string,
+    subAccount?: string,
+  ): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const vaultAddr = vaultAddress as Address
+    const assetAddr = assetAddress as Address
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const depositToAddr = subAccount ? (subAccount as Address) : userAddr
+
+    const hasSigned = await hasSignature(userAddr)
+    const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
+
+    const steps: TxStep[] = []
+
+    if (allowance < amount) {
+      const approveData = encodeFunctionData({
+        abi: erc20ABI,
+        functionName: 'approve',
+        args: [vaultAddr, maxUint256],
+      })
+
+      steps.push({
+        type: 'approve',
+        label: 'Approve asset for vault',
+        to: assetAddr,
+        abi: erc20ABI as Abi,
+        functionName: 'approve',
+        args: [vaultAddr, maxUint256] as const,
+        value: 0n,
+      })
+    }
+
+    const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(vaultAddr, [
+      'function deposit(uint256,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    hooks.setMainCallHookCallFromSelf(vaultAddr, 'deposit', [amount, depositToAddr])
+
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, depositToAddr)
+
+    if (!hasSigned) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(
+          tosSignerAddress,
+          'signTermsOfUse',
+          [FINAL_MESSAGE, FINAL_HASH],
+        ) as Hex,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    steps.push({
+      type: 'evc-batch',
+      label: 'Supply via EVC',
+      to: evcAddress,
+      abi: EVC_ABI,
+      functionName: 'batch',
+      args: [evcCalls] as const,
+      value: 0n,
+    })
+
+    return {
+      kind: 'supply',
+      steps,
+    }
+  }
+
   const supply = async (vaultAddress: string, assetAddress: string, amount: bigint, _symbol: string, subAccount?: string) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -71,11 +184,19 @@ export const useEulerOperations = () => {
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
     const needsApproval = allowance < amount
 
-    const hooks = new SaHooksBuilder()
+    if (needsApproval) {
+      const approvalHash = await writeContractAsync({
+        address: assetAddr,
+        abi: erc20ABI,
+        functionName: 'approve',
+        args: [vaultAddr, maxUint256],
+      })
 
-    hooks.addContractInterface(assetAddr, [
-      'function approve(address,uint256) external',
-    ])
+      const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+      await provider.waitForTransaction(approvalHash)
+    }
+
+    const hooks = new SaHooksBuilder()
 
     hooks.addContractInterface(vaultAddr, [
       'function deposit(uint256,address) external',
@@ -735,5 +856,7 @@ export const useEulerOperations = () => {
     borrowBySaving,
     fullRepay,
     disableCollateral,
+    executeTxPlan,
+    buildSupplyPlan
   }
 }

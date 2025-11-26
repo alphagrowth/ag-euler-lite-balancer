@@ -8,6 +8,7 @@ const { type, asset, rewardInfo, campaignInfo, amount, onConfirm } = defineProps
   type?: 'supply' | 'withdraw' | 'borrow' | 'reward' | 'brevis-reward' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
+  fee: number | string
   supplyingAssetForBorrow?: VaultAsset
   supplyingAmount?: number | string
   rewardInfo?: Reward
@@ -120,7 +121,7 @@ const disclaimerText = computed(() => {
           Transaction fee
         </div>
         <div class="flex gap-8 align-center">
-          <span class="p2">&lt; 0.3 TON</span>
+          <span class="p2">&asymp; {{ formatNumber(fee, 8, 0) }} ETH</span>
         </div>
       </div>
       <UiToast
