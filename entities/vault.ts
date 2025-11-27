@@ -139,7 +139,8 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
 }
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult, void, unknown> {
   const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerLensAddresses, eulerPeripheryAddresses } = useEulerAddresses()
+  const { eulerLensAddresses, eulerPeripheryAddresses, chainId } = useEulerAddresses()
+  const startChainId = chainId.value
   await until(computed(() => eulerLensAddresses.value?.vaultLens && eulerPeripheryAddresses.value?.governedPerspective)).toBeTruthy()
   if (!eulerLensAddresses.value?.vaultLens || !eulerPeripheryAddresses.value?.governedPerspective) {
     throw new Error('Euler addresses not loaded yet')
@@ -151,7 +152,7 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
     eulerPerspectiveABI,
     provider,
   )
-  console.log('eulerPeripheryAddresses', governedPerspectiveContract)
+
   const vaultLensContract = new ethers.Contract(
     eulerLensAddresses.value.vaultLens,
     eulerVaultLensABI,
@@ -161,6 +162,9 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
   const batchSize = 5
 
   for (let i = 0; i < verifiedVaults.length; i += batchSize) {
+    if (chainId.value !== startChainId) {
+      return
+    }
     const batch = verifiedVaults.slice(i, i + batchSize)
     const batchPromises = batch.map(async (vaultAddress) => {
       try {

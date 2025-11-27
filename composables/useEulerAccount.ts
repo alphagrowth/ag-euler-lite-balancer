@@ -23,8 +23,7 @@ const totalSuppliedValue = computed(() =>
 const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0))
 
 const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses, address: string) => {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerGoldskyUrl } = useEulerAddresses()
+  const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
   const { map } = useVaults()
 
   if (!eulerLensAddresses?.accountLens) {
@@ -33,7 +32,7 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
 
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-  const { data } = await axios.post(eulerGoldskyUrl.value, {
+  const { data } = await axios.post(SUBGRAPH_URL, {
     query: `query AccountDeposits {
       trackingActiveAccount(id: "${address}") {
         deposits
@@ -142,8 +141,7 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
     return
   }
 
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerGoldskyUrl } = useEulerAddresses()
+  const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
   const { map } = useVaults()
 
   if (!eulerLensAddresses?.accountLens) {
@@ -152,7 +150,7 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
 
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-  const { data } = await axios.post(eulerGoldskyUrl.value as string, {
+  const { data } = await axios.post(SUBGRAPH_URL, {
     query: `query AccountBorrows {
       trackingActiveAccount(id: "${address}") {
         borrows

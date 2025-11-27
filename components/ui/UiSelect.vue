@@ -188,6 +188,7 @@ const open = () => {
     background: var(--ui-select-chip-background-color);
     border-radius: 100px;
     cursor: pointer;
+    white-space: nowrap;
 
     &--active {
       font-weight: 600;

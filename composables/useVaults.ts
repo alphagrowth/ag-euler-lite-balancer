@@ -17,6 +17,7 @@ const borrowList = computed(() => getBorrowVaultsByMap(map.value).filter(pair =>
 
 const updateVaults = async () => {
   try {
+    map.value = new Map();
     isUpdating.value = true
     isLoading.value = true
     const currentMap = new Map(map.value)
@@ -65,8 +66,11 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
   return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)
 }
 
-watch(chainId, (val, oldVal) => {
-  updateVaults()
+watch(chainId, async(val, oldVal) => {
+  map.value = new Map()
+  isReady.value = false
+  await updateVaults()
+  isReady.value = true
 }, { immediate: true })
 
 export const useVaults = () => {
