@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const { isConnected } = useTonConnect()
+import { useAccount } from '@wagmi/vue'
+
+const { isConnected } = useAccount()
 const { rewards, isRewardsLoading } = useMerkl()
 const { userRewards: brevisRewards, isRewardsLoading: isBrevisRewardsLoading } = useBrevis()
 const { locks, isLocksLoading } = useREULLocks()

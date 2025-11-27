@@ -1,20 +1,19 @@
-import type { Network } from '@tonappchain/sdk'
 import config from '~/entities/config'
 
 const getRpcUrlByChainId = (chainId: number, config: object): string => {
   const key = `NEXT_PUBLIC_RPC_HTTP_${chainId}`
-  return (config[key] as string) || ''
+  return (config[key as keyof typeof config] as string) || ''
 }
 const getSubgraphUrlByChainId = (chainId: number, config: object): string => {
   const key = `SUBGRAPH_URI_${chainId}`
-  return (config[key] as string) || ''
+  return (config[key as keyof typeof config] as string) || ''
 }
 
 export const useEulerConfig = () => {
   const { network } = useRuntimeConfig().public
   const { chainId } = useEulerAddresses()
 
-  const baseConfig = config[network as Network]
+  const baseConfig = config[network as keyof typeof config]
 
   return {
     ...baseConfig,

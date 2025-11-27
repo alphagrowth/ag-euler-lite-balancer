@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
+import { useAppKit } from '@reown/appkit/vue'
+
 defineProps<{ disabled?: boolean, loading?: boolean }>()
-const { isConnected, tonConnectUI } = useTonConnect()
+const { isConnected } = useAccount()
+const { open } = useAppKit()
 
 const onClick = (e: Event) => {
   if (!isConnected.value) {
     e.preventDefault()
-    tonConnectUI.openModal()
+    open()
     return
   }
 }

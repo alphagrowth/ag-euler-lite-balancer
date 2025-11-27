@@ -1,10 +1,7 @@
-import { Network } from '@tonappchain/sdk'
-
 export const TVM_MANIFEST_URL = 'https://euler-app.fanz.ee/tonconnect-manifest.json'
 
 export default {
   testnet: {
-    NETWORK: Network.TESTNET,
     GOLDSKY_API_URL: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-tacturin/latest/gn',
     TVM_TONCENTER_URL: 'https://rp-testnet.turin.tac.build',
     TAC_FACTORY_ADDRESS: '0x95e23BBa93b6c9Ef89A1bFB2659B020e9382C060',
@@ -25,7 +22,6 @@ export default {
     SIGN_CONTRACT_ADDRESS: '0x03C4A1b8b860Dd98fB3fc03c8D693EAbABC667c5',
   },
   mainnet: {
-    NETWORK: Network.MAINNET,
     GOLDSKY_API_URL: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-tac/latest/gn',
     TVM_TONCENTER_URL: 'https://rp.mainnet.tac.build',
     EULER_PROXY: '0x7Ac31050012fA8874cdD9215da7199777492B29e',

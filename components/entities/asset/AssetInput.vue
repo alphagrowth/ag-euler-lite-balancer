@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import { nanoToValue } from '~/utils/ton-utils'
 import { getVaultPrice, type Vault, type VaultAsset, type CollateralOption } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/entities/assets'
 import { ChooseCollateralModal } from '#components'
