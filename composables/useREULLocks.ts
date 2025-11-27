@@ -1,15 +1,10 @@
-import { SenderFactory, type EvmProxyMsg } from '@tonappchain/sdk'
-import { useAccount } from '@wagmi/vue'
+import { useAccount, useWriteContract } from '@wagmi/vue'
 import { ethers } from 'ethers'
+import type { Address } from 'viem'
 
 import type { REULLock } from '~/entities/reul'
 
-const {
-  MERKL_PROXY,
-  EVM_PROVIDER_URL,
-} = useEulerConfig()
-
-const { tonConnectUI } = useTonConnect()
+const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const address = ref('')
 
@@ -18,6 +13,38 @@ const isLocksLoading = ref(true)
 const locks: Ref<REULLock[]> = ref([])
 const reulTokenContractAddress = ref('')
 const eulTokenContractAddress = ref('')
+
+const reulWithdrawABI = [
+  {
+    type: 'function',
+    name: 'withdrawToByLockTimestamp',
+    inputs: [
+      {
+        name: 'account',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'lockTimestamp',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'allowRemainderLoss',
+        type: 'bool',
+        internalType: 'bool',
+      },
+    ],
+    outputs: [
+      {
+        name: 'success',
+        type: 'bool',
+        internalType: 'bool',
+      },
+    ],
+    stateMutability: 'nonpayable',
+  },
+] as const
 
 let interval: NodeJS.Timeout | null = null
 
@@ -84,50 +111,9 @@ const loadREULLocksInfo = async (isInitialLoading = true) => {
     isLocksLoading.value = false
   }
 }
-const unlockREUL = async (lockTimestamps: bigint[]) => {
-  const { isLoaded } = useTacSdk()
-  await until(isLoaded).toBeTruthy()
-  const { tacSdk } = useTacSdk()
-  // const oneTimestampFunctionSelector = '0xd47d9de6'
-  const manyTimestampsFunctionSelector = '0x4f570258'
-
-  const withdrawToByLockTimestampData = new ethers.AbiCoder().encode(
-    ['tuple(uint256[],bool)'],
-    [[lockTimestamps, true]],
-  )
-
-  const encodedArguments = new ethers.AbiCoder().encode(
-    ['tuple(address,bytes4[],bytes[],address[])'],
-    [[
-      reulTokenContractAddress.value,
-      [manyTimestampsFunctionSelector],
-      [withdrawToByLockTimestampData],
-      [eulTokenContractAddress.value],
-    ]],
-  )
-  const evmProxyMsg: EvmProxyMsg = {
-    evmTargetAddress: MERKL_PROXY,
-    methodName: 'customFunctionCall(bytes,bytes)',
-    encodedParameters: encodedArguments,
-  }
-
-  const sender = await SenderFactory.getSender({ tonConnect: tonConnectUI })
-  const res = await tacSdk.sendCrossChainTransaction(evmProxyMsg, sender)
-  tacSdk.closeConnections()
-
-  const tsResult = res?.sendTransactionResult as {
-    success: boolean
-    error: Record<string, unknown>
-  }
-  if (!tsResult?.success) {
-    throw tsResult?.error?.info || 'Unknown error'
-  }
-
-  return res
-}
-
 export const useREULLocks = () => {
   const { isConnected, address: wagmiAddress, chainId } = useAccount()
+  const { writeContractAsync } = useWriteContract()
 
   watch(wagmiAddress, (val) => {
     if (val) {
@@ -157,6 +143,21 @@ export const useREULLocks = () => {
       }
     }
   }, { immediate: true })
+
+  const unlockREUL = async (lockTimestamps: bigint[]) => {
+    if (!address.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    const hash = await writeContractAsync({
+      address: reulTokenContractAddress.value as Address,
+      abi: reulWithdrawABI,
+      functionName: 'withdrawToByLockTimestamp',
+      args: [address.value as Address, lockTimestamps[0] as bigint, true],
+    })
+
+    return hash
+  }
 
   return {
     locks,

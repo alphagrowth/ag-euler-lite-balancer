@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
-import { OperationTrackerTransactionModal, RewardUnlockConfirmModal } from '#components'
+import { RewardUnlockConfirmModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
-import type { REULLock } from '~/entities/merkl'
+import type { REULLock } from '~/entities/reul'
 
 const modal = useModal()
 const { rewardTokens } = useMerkl()
@@ -41,11 +41,7 @@ const onUnlockClick = () => {
           isUnlocking.value = false
         }, 5000)
 
-        const tl = await unlockREUL([item.timestamp])
-
-        modal.open(OperationTrackerTransactionModal, {
-          props: { transactionLinker: tl },
-        })
+        await unlockREUL([item.timestamp])
       },
     },
   })

@@ -1,12 +1,14 @@
 import { ethers, FixedNumber } from 'ethers'
 import axios from 'axios'
 import { useAccount } from '@wagmi/vue'
+import type { Address } from 'viem'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type { EulerLensAddresses } from '~/entities/euler/addresses'
 import type {
   AccountBorrowPosition, AccountDepositPosition,
 } from '~/entities/account'
 import { convertSharesToAssets, getVaultPrice } from '~/entities/vault'
+import { EVC_ABI } from '~/utils/evc-converter'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const borrowPositions: Ref<AccountBorrowPosition[]> = ref([])
@@ -15,6 +17,8 @@ const isPositionsLoading = ref(true)
 const isPositionsLoaded = ref(false)
 const isDepositsLoading = ref(true)
 const isDepositsLoaded = ref(false)
+
+const operatorsBySubAccount: Ref<Map<string, Address | null>> = ref(new Map())
 
 const totalSuppliedValue = computed(() =>
   depositPositions.value.reduce((result, position) => result + getVaultPrice(position.assets, position.vault), 0)
@@ -337,17 +341,57 @@ const updateDepositPositions = async (balances: Map<string, bigint>) => {
   isDepositsLoaded.value = true
 }
 
+const updateOperatorsForPositions = async (address: string) => {
+  try {
+    const { fetchSwapPools } = useSwapPools()
+    const pools = await fetchSwapPools(address)
+
+    const newOperatorsMap = new Map<string, Address | null>()
+
+    for (const pool of pools) {
+      const subAccount = ethers.getAddress(pool.account)
+      newOperatorsMap.set(subAccount, pool.pool)
+    }
+
+    const primaryPool = pools.find(
+      p => ethers.getAddress(p.account) === ethers.getAddress(address),
+    )
+    if (primaryPool) {
+      newOperatorsMap.set(ethers.getAddress(address), primaryPool.pool)
+    }
+
+    operatorsBySubAccount.value = newOperatorsMap
+  }
+  catch (error) {
+    console.warn('Failed to update operators:', error)
+  }
+}
+
 export const useEulerAccount = () => {
   const { isLoaded: isBalancesLoaded, balances } = useWallets()
   const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
   const { address } = useAccount()
 
-  watch([isBalancesLoaded, isEulerLensAddressesReady], () => {
+  watch([isBalancesLoaded, isEulerLensAddressesReady], async () => {
     if (isBalancesLoaded.value && isEulerLensAddressesReady.value) {
       updateBorrowPositions(eulerLensAddresses.value, address.value as string)
       updateDepositPositions(balances.value)
+
+      if (address.value) {
+        await updateOperatorsForPositions(address.value)
+      }
     }
   }, { immediate: true })
+
+  const getOperatorForSubAccount = (subAccount: string | undefined): Address | null => {
+    if (!subAccount) return null
+    const checksummed = ethers.getAddress(subAccount)
+    return operatorsBySubAccount.value.get(checksummed) || null
+  }
+
+  const hasOperator = (subAccount: string | undefined): boolean => {
+    return getOperatorForSubAccount(subAccount) !== null
+  }
 
   return {
     borrowPositions,
@@ -361,5 +405,8 @@ export const useEulerAccount = () => {
     updateDepositPositions,
     totalSuppliedValue,
     totalBorrowedValue,
+    operatorsBySubAccount: computed(() => operatorsBySubAccount.value),
+    getOperatorForSubAccount,
+    hasOperator,
   }
 }

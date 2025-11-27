@@ -1,9 +1,10 @@
 <script setup lang="ts">
-const {
-  isLoaded,
-  isConnected,
-  tonConnectUI,
-} = useTonConnect()
+import { useAccount } from '@wagmi/vue'
+import { useAppKit } from '@reown/appkit/vue'
+
+const { isConnected } = useAccount()
+
+const { open } = useAppKit()
 
 const isOnboardingCompleted = useLocalStorage('is-onboarding-completed', false)
 
@@ -12,7 +13,7 @@ if (isOnboardingCompleted.value) {
 }
 
 const onConnectWalletClick = () => {
-  tonConnectUI.openModal()
+  open()
 }
 
 const onConnectLaterClick = () => {
@@ -48,7 +49,6 @@ watch(isConnected, (value) => {
           Lend, borrow and build without limits.
         </div>
         <div
-          v-show="isLoaded"
           class="column gap-8"
           :class="$style.buttons"
         >

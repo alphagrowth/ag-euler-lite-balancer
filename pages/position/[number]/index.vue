@@ -12,7 +12,7 @@ const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
 const { isConnected } = useAccount()
-const { isPositionsLoaded, isPositionsLoading, borrowPositions, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoaded, isPositionsLoading, borrowPositions, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { disableCollateral: disableCollateralOperation } = useEulerOperations()
 
@@ -85,17 +85,20 @@ const disableCollateral = async () => {
       type: 'disableCollateral',
       asset: position.value!.borrow.asset,
       amount: '0',
-      onConfirm: () => {
+      subAccount: position.value?.subAccount,
+      hasBorrows: (position.value?.borrowed || 0n) > 0n,
+      onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {
         setTimeout(() => {
-          send()
+          send(disableOperator, transferAssets)
         }, 400)
       },
     },
   })
 }
-const send = async () => {
+const send = async (_disableOperator?: boolean, _transferAssets?: boolean) => {
   try {
     isSubmitting.value = true
+    // Note: disableCollateral operation doesn't support operator parameter
     await disableCollateralOperation(
       position.value!.subAccount,
       position.value!.collateral.address,

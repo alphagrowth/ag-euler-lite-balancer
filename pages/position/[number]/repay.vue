@@ -15,7 +15,7 @@ const { error } = useToast()
 const { repay, fullRepay } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
+const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { eulerLensAddresses } = useEulerAddresses()
 const { address } = useAccount()
@@ -108,15 +108,17 @@ const submit = async () => {
       type: 'repay',
       asset: position.value!.borrow.asset,
       amount: amount.value,
-      onConfirm: () => {
+      subAccount: position.value?.subAccount,
+      hasBorrows: (position.value?.borrowed || 0n) > 0n,
+      onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {
         setTimeout(() => {
-          send()
+          send(disableOperator, transferAssets)
         }, 400)
       },
     },
   })
 }
-const send = async () => {
+const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
   try {
     isSubmitting.value = true
     if (!position.value || !borrowVault.value || !collateralVault.value) {
@@ -134,6 +136,29 @@ const send = async () => {
       position.value.subAccount,
       collateralVault.value.address,
     )
+
+    if (disableOperator && position.value?.subAccount) {
+      const { getSwapPoolForSubAccount } = useSwapPools()
+      const { disableOperator: disableOperatorFn } = useEulerOperations()
+      const operator = getOperatorForSubAccount(position.value.subAccount)
+
+      if (operator) {
+        const swapPool = transferAssets ? await getSwapPoolForSubAccount(position.value.subAccount as Address) : null
+
+        await disableOperatorFn(
+          operator,
+          position.value.subAccount as Address,
+          true,
+          swapPool?.factory,
+          swapPool
+            ? {
+                vault0: swapPool.vault0.address,
+                vault1: swapPool.vault1.address,
+              }
+            : undefined,
+        )
+      }
+    }
 
     modal.close()
     updateBorrowPositions(eulerLensAddresses.value, address.value as string)

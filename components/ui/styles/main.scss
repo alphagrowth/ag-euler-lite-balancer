@@ -68,6 +68,20 @@
   --ui-checkbox-label-color: var(--c-euler-dark-1000);
   --ui-checkbox-focus-outline-color: var(--c-yellow-warning-700);
 
+  --ui-switch-color: var(--c-euler-dark-100);
+  --ui-switch-background-color: var(--c-euler-dark-200);
+  --ui-switch-indicator-background-color: var(--c-euler-dark-700);
+  --ui-switch-hover-background-color: var(--c-euler-dark-100);
+  --ui-switch-hover-checked-background-color: var(--c-aquamarine-opaque-400);
+  --ui-switch-hover-indicator-background-color: var(--c-euler-dark-800);
+  --ui-switch-hover-checked-indicator-background-color: var(--c-aquamarine-800);
+  --ui-switch-checked-background-color: var(--c-aquamarine-opaque-300);
+  --ui-switch-checked-indicator-background-color: var(--c-aquamarine-700);
+  --ui-switch-focus-outline-color: var(--c-yellow-warning-700);
+  --ui-switch-disabled-background-color: transparent;
+  --ui-switch-disabled-border-color: var(--c-euler-dark-600);
+  --ui-switch-disabled-indicator-background-color: var(--c-euler-dark-600);
+
   --ui-footnote-icon-color: var(--c-aquamarine-700);
   --ui-footnote-floating-background-color: var(--c-euler-dark-500);
   --ui-footnote-floating-box-shadow-color: var(--c-euler-dark-100);

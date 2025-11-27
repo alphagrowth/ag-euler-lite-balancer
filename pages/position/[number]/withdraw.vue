@@ -7,12 +7,11 @@ import { useToast } from '~/components/ui/composables/useToast'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
 
 const router = useRouter()
+const route = useRoute()
 const { withdraw } = useEulerOperations()
 const { error } = useToast()
 const modal = useModal()
-
-const route = useRoute()
-const { isPositionsLoaded, borrowPositions, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoaded, borrowPositions, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
 const { isConnected, address } = useAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -95,27 +94,55 @@ const submit = async () => {
       type: 'withdraw',
       asset: asset.value,
       amount: amount.value,
-      onConfirm: () => {
+      subAccount: position.value?.subAccount,
+      hasBorrows: (position.value?.borrowed || 0n) > 0n,
+      onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {
         setTimeout(() => {
-          send()
+          send(disableOperator, transferAssets)
         }, 400)
       },
     },
   })
 }
-const send = async () => {
+const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
   try {
     isSubmitting.value = true
     if (!asset.value?.address) {
       return
     }
+
     await withdraw(
       collateralVault.value!.address,
       asset.value!.address,
       valueToNano(amount.value || '0', asset.value.decimals),
       asset.value.symbol,
       position.value?.subAccount,
+      undefined,
+      undefined,
     )
+
+    if (disableOperator && position.value?.subAccount) {
+      const { getSwapPoolForSubAccount } = useSwapPools()
+      const { disableOperator: disableOperatorFn } = useEulerOperations()
+      const operator = getOperatorForSubAccount(position.value.subAccount)
+
+      if (operator) {
+        const swapPool = transferAssets ? await getSwapPoolForSubAccount(position.value.subAccount as Address) : null
+
+        await disableOperatorFn(
+          operator,
+          position.value.subAccount as Address,
+          true,
+          swapPool?.factory,
+          swapPool
+            ? {
+                vault0: swapPool.vault0.address,
+                vault1: swapPool.vault1.address,
+              }
+            : undefined,
+        )
+      }
+    }
 
     modal.close()
     updateBorrowPositions(eulerLensAddresses.value, address.value as string)
