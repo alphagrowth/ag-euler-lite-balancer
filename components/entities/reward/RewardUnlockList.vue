@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { REULLock } from '~/entities/merkl'
+import type { REULLock } from '~/entities/reul'
 
 defineProps<{
   items: REULLock[]

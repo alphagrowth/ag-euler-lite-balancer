@@ -1,5 +1,6 @@
 import { useAccount, useWriteContract } from '@wagmi/vue'
 import { ethers } from 'ethers'
+import type { Address } from 'viem'
 
 import type { REULLock } from '~/entities/reul'
 
@@ -12,6 +13,38 @@ const isLocksLoading = ref(true)
 const locks: Ref<REULLock[]> = ref([])
 const reulTokenContractAddress = ref('')
 const eulTokenContractAddress = ref('')
+
+const reulWithdrawABI = [
+  {
+    type: 'function',
+    name: 'withdrawToByLockTimestamp',
+    inputs: [
+      {
+        name: 'account',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'lockTimestamp',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'allowRemainderLoss',
+        type: 'bool',
+        internalType: 'bool',
+      },
+    ],
+    outputs: [
+      {
+        name: 'success',
+        type: 'bool',
+        internalType: 'bool',
+      },
+    ],
+    stateMutability: 'nonpayable',
+  },
+] as const
 
 let interval: NodeJS.Timeout | null = null
 
@@ -117,12 +150,10 @@ export const useREULLocks = () => {
     }
 
     const hash = await writeContractAsync({
-      address: reulTokenContractAddress.value as `0x${string}`,
-      abi: [
-        'function withdrawToByLockTimestamp(address account, uint256 lockTimestamp, bool allowRemainderLoss) external',
-      ],
+      address: reulTokenContractAddress.value as Address,
+      abi: reulWithdrawABI,
       functionName: 'withdrawToByLockTimestamp',
-      args: [address.value, lockTimestamps[0], true],
+      args: [address.value as Address, lockTimestamps[0] as bigint, true],
     })
 
     return hash
