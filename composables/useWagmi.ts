@@ -151,6 +151,10 @@ export const useWagmi = () => {
             isChangingChain = false
           })
         }
+      } else {
+        changeChain(1).finally(() => {
+          isChangingChain = false
+        })
       }
     }
   }, { immediate: true })

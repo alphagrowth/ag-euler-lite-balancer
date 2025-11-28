@@ -7,6 +7,8 @@ import type { Opportunity, Reward, RewardsResponseItem, RewardToken } from '~/en
 const {
   MERKL_API_BASE_URL,
 } = useEulerConfig()
+const { chainId } = useEulerAddresses()
+
 
 const endpoints = {
   tokens: `${MERKL_API_BASE_URL}/tokens/reward`,
@@ -14,7 +16,6 @@ const endpoints = {
   rewards: (addr: string) => `${MERKL_API_BASE_URL}/users/${addr}/rewards`,
   campaignById: (id: string) => `${MERKL_API_BASE_URL}/campaigns/${id}`,
 }
-const DISTRIBUTOR_ADDRESS = '0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae'
 
 const merklDistributorABI = [
   {
@@ -67,7 +68,7 @@ const loadTokens = async (isInitialLoading = true) => {
     }
     const res = await axios.get(endpoints.tokens, {
       params: {
-        chainId: 1,
+        chainId: chainId.value,
       },
     })
 
@@ -90,7 +91,7 @@ const loadOpportunities = async (isInitialLoading = true) => {
     const res = await axios.get(endpoints.opportunities, {
       params: {
         type: 'EULER',
-        chainId: 1,
+        chainId: chainId.value,
       },
     })
 
@@ -137,7 +138,7 @@ const loadRewards = async (isInitialLoading = true) => {
     }
     const res = await axios.get(endpoints.rewards(address.value), {
       params: {
-        chainId: 1,
+        chainId: chainId.value,
       },
     })
 
@@ -168,6 +169,7 @@ const getOpportunityOfBorrowVault = (assetAddress: string) => {
 
 export const useMerkl = () => {
   const { isConnected, address: wagmiAddress } = useAccount()
+  const { MERKL_ADDRESS } = useEulerConfig()
   const { writeContractAsync } = useWriteContract()
 
   const claimReward = async (reward: Reward) => {
@@ -176,7 +178,7 @@ export const useMerkl = () => {
     }
 
     const hash = await writeContractAsync({
-      address: DISTRIBUTOR_ADDRESS as Address,
+      address: MERKL_ADDRESS as Address,
       abi: merklDistributorABI,
       functionName: 'claim',
       args: [
