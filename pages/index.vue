@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/entities/assets'
+import { getVaultPrice } from '~/entities/vault'
+import type { Vault } from '~/entities/vault'
 
 defineOptions({
   name: 'IndexPage',
@@ -30,13 +32,19 @@ const filteredList = computed(() => {
   return list.value.filter(vault => selectedCollateral.value.includes(vault.asset.address))
 })
 
+const sortedList = computed(() => {
+  return [...filteredList.value].sort((a: Vault, b: Vault) => {
+    return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
+  })
+})
+
 const load = () => {
   let collateral = route.query.collateral
   if (!collateral) return
   if (typeof collateral === 'string') {
     collateral = [collateral]
   }
-  selectedCollateral.value = collateral
+  selectedCollateral.value = collateral as string[]
 }
 
 load()
@@ -82,9 +90,9 @@ load()
       />
 
       <VaultsList
-        v-else-if="filteredList.length"
+        v-else-if="sortedList.length"
         type="lend"
-        :items="filteredList"
+        :items="sortedList"
       />
       <div
         v-else
