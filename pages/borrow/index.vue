@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/entities/assets'
+import { getVaultPrice } from '~/entities/vault'
+import type { BorrowVaultPair } from '~/entities/vault'
 
 defineOptions({
   name: 'BorrowPage',
@@ -46,6 +48,12 @@ const filteredBorrowList = computed(() => {
     && (!selectedDebt.value.length || selectedDebt.value.includes(pair.borrow.asset.address)),
   )
 })
+
+const sortedBorrowList = computed(() => {
+  return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+    return getVaultPrice(b.borrow.supply - b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.supply - a.borrow.borrow, a.borrow)
+  })
+})
 </script>
 
 <template>
@@ -90,8 +98,8 @@ const filteredBorrowList = computed(() => {
         :class="$style.loader"
       />
       <VaultsBorrowList
-        v-else-if="filteredBorrowList.length"
-        :items="filteredBorrowList"
+        v-else-if="sortedBorrowList.length"
+        :items="sortedBorrowList"
       />
       <div
         v-else
