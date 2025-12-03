@@ -2,6 +2,7 @@ import { ethers } from 'ethers'
 import type { OracleDetailedInfo } from '~/entities/oracle'
 import {
   // eulerAccountLensABI,
+  eulerEarnVaultLensABI,
   eulerPerspectiveABI,
   eulerUtilsLensABI,
   eulerVaultLensABI,
@@ -78,9 +79,60 @@ export interface BorrowVaultPair {
   initialLiquidationLTV: bigint
 }
 
-export interface VaultIteratorResult {
-  vaults: Vault[]
+export interface VaultIteratorResult<T> {
+  vaults: T[]
   isFinished: boolean
+}
+
+export interface EarnVaultStrategyInfo {
+  strategy: string
+  allocatedAssets: bigint
+  availableAssets: bigint
+  currentAllocationCap: bigint
+  pendingAllocationCap: bigint
+  pendingAllocationCapValidAt: bigint
+  removableAt: bigint
+  info: {
+    timestamp: bigint
+    vault: string
+    vaultName: string
+    vaultSymbol: string
+    vaultDecimals: bigint
+    asset: string
+    assetName: string
+    assetSymbol: string
+    assetDecimals: bigint
+    totalShares: bigint
+    totalAssets: bigint
+    isEVault: boolean
+  }
+}
+
+export interface EarnVault {
+  address: string
+  name: string
+  symbol: string
+  decimals: bigint
+  totalShares: bigint
+  totalAssets: bigint
+  lostAssets: bigint
+  availableAssets: bigint
+  timelock: bigint
+  performanceFee: bigint
+  feeReceiver: string
+  owner: string
+  creator: string
+  curator: string
+  guardian: string
+  evc: string
+  permit2: string
+  pendingTimelock: bigint
+  pendingTimelockValidAt: bigint
+  pendingGuardian: string
+  pendingGuardianValidAt: bigint
+  supplyQueue: string[]
+  asset: VaultAsset
+  strategies: EarnVaultStrategyInfo[]
 }
 
 export interface CollateralOption {
@@ -144,7 +196,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
     backupAssetOracleInfo: data.backupAssetOracleInfo,
   } as Vault
 }
-export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult, void, unknown> {
+export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult<Vault>, void, unknown> {
   const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses, eulerPeripheryAddresses, chainId } = useEulerAddresses()
   const startChainId = chainId.value
@@ -225,6 +277,102 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
 
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as Vault[]
+    const isFinished = i + batchSize >= verifiedVaults.length
+
+    yield {
+      vaults: validVaults,
+      isFinished,
+    }
+  }
+}
+
+export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorResult<EarnVault>, void, unknown> {
+  const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
+  const { eulerLensAddresses, eulerPeripheryAddresses, chainId } = useEulerAddresses()
+  const startChainId = chainId.value
+  await until(computed(() => eulerLensAddresses.value?.eulerEarnVaultLens && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective)).toBeTruthy()
+  if (!eulerLensAddresses.value?.eulerEarnVaultLens || !eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective) {
+    throw new Error('Euler Earn addresses not loaded yet')
+  }
+
+  const provider = new ethers.JsonRpcProvider(_EVM_PROVIDER_URL)
+  const governedPerspectiveContract = new ethers.Contract(
+    eulerPeripheryAddresses.value.eulerEarnGovernedPerspective,
+    eulerPerspectiveABI,
+    provider,
+  )
+
+  const earnVaultLensContract = new ethers.Contract(
+    eulerLensAddresses.value.eulerEarnVaultLens,
+    eulerEarnVaultLensABI,
+    provider,
+  )
+  const verifiedVaults = await governedPerspectiveContract.verifiedArray() as string[]
+
+  const batchSize = 5
+
+  for (let i = 0; i < verifiedVaults.length; i += batchSize) {
+    if (chainId.value !== startChainId) {
+      return
+    }
+    const batch = verifiedVaults.slice(i, i + batchSize)
+    const batchPromises = batch.map(async (vaultAddress) => {
+      try {
+        const raw = await earnVaultLensContract.getVaultInfoFull(vaultAddress)
+        const data = raw.toObject({ deep: true })
+
+        return {
+          address: data.vault,
+          name: data.vaultName,
+          symbol: data.vaultSymbol,
+          decimals: data.vaultDecimals,
+          totalShares: data.totalShares,
+          totalAssets: data.totalAssets,
+          lostAssets: data.lostAssets,
+          availableAssets: data.availableAssets,
+          timelock: data.timelock,
+          performanceFee: data.performanceFee,
+          feeReceiver: data.feeReceiver,
+          owner: data.owner,
+          creator: data.creator,
+          curator: data.curator,
+          guardian: data.guardian,
+          evc: data.evc,
+          permit2: data.permit2,
+          pendingTimelock: data.pendingTimelock,
+          pendingTimelockValidAt: data.pendingTimelockValidAt,
+          pendingGuardian: data.pendingGuardian,
+          pendingGuardianValidAt: data.pendingGuardianValidAt,
+          supplyQueue: data.supplyQueue,
+          asset: {
+            address: data.asset,
+            name: data.assetName,
+            symbol: data.assetSymbol,
+            decimals: data.assetDecimals,
+          },
+          strategies: raw.strategies.toArray().map((s: { toObject: (opts?: { deep?: boolean }) => EarnVaultStrategyInfo }) => {
+            const strategy = s.toObject({ deep: true })
+            return {
+              strategy: strategy.strategy,
+              allocatedAssets: strategy.allocatedAssets,
+              availableAssets: strategy.availableAssets,
+              currentAllocationCap: strategy.currentAllocationCap,
+              pendingAllocationCap: strategy.pendingAllocationCap,
+              pendingAllocationCapValidAt: strategy.pendingAllocationCapValidAt,
+              removableAt: strategy.removableAt,
+              info: strategy.info,
+            }
+          }),
+        } as EarnVault
+      }
+      catch (e) {
+        console.error(`Error fetching Earn vault ${vaultAddress}:`, e)
+        return undefined
+      }
+    })
+
+    const res = await Promise.all(batchPromises)
+    const validVaults = res.filter(o => !!o) as EarnVault[]
     const isFinished = i + batchSize >= verifiedVaults.length
 
     yield {

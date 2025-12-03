@@ -1,7 +1,11 @@
 import { ethers } from 'ethers'
 import {
-  type BorrowVaultPair, fetchVault,
-  fetchVaults, getBorrowVaultPairByMapAndAddresses,
+  type BorrowVaultPair,
+  type EarnVault,
+  fetchEarnVaults,
+  fetchVault,
+  fetchVaults,
+  getBorrowVaultPairByMapAndAddresses,
   getBorrowVaultsByMap,
   type Vault,
 } from '~/entities/vault'
@@ -12,12 +16,17 @@ const isLoading = ref(false)
 const isUpdating = ref(false)
 const map: Ref<Map<string, Vault>> = shallowRef(new Map())
 
+const isEarnLoading = ref(false)
+const isEarnUpdating = ref(false)
+const earnMap: Ref<Map<string, EarnVault>> = shallowRef(new Map())
+
 const list = computed(() => [...map.value.values()])
+const earnList = computed(() => [...earnMap.value.values()])
 const borrowList = computed(() => getBorrowVaultsByMap(map.value).filter(pair => pair.borrow.supply > 0n))
 
 const updateVaults = async () => {
   try {
-    map.value = new Map();
+    map.value = new Map()
     isUpdating.value = true
     isLoading.value = true
     const currentMap = new Map(map.value)
@@ -39,9 +48,37 @@ const updateVaults = async () => {
     isUpdating.value = false
   }
 }
+const updateEarnVaults = async () => {
+  try {
+    earnMap.value = new Map()
+    isEarnUpdating.value = true
+    isEarnLoading.value = true
+    const currentMap = new Map(earnMap.value)
+
+    for await (const result of fetchEarnVaults()) {
+      result.vaults.forEach((vault) => {
+        currentMap.set(vault.address, vault)
+      })
+
+      earnMap.value = new Map(currentMap)
+      isEarnLoading.value = false
+
+      if (result.isFinished) {
+        break
+      }
+    }
+  }
+  finally {
+    isEarnUpdating.value = false
+    console.log(earnList.value)
+  }
+}
 const loadVaults = async () => {
   try {
-    await updateVaults()
+    await Promise.all([
+      updateEarnVaults(),
+      updateVaults(),
+    ])
   }
   finally {
     isReady.value = true
@@ -66,10 +103,13 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
   return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)
 }
 
-watch(chainId, async(val, oldVal) => {
+watch(chainId, async (val, oldVal) => {
   map.value = new Map()
   isReady.value = false
-  await updateVaults()
+  await Promise.all([
+    updateEarnVaults(),
+    updateVaults(),
+  ])
   isReady.value = true
 }, { immediate: true })
 
@@ -86,5 +126,10 @@ export const useVaults = () => {
     updateVault,
     updateVaults,
     getBorrowVaultPair,
+    earnMap,
+    earnList,
+    isEarnLoading,
+    isEarnUpdating,
+    updateEarnVaults,
   }
 }

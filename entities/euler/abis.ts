@@ -2601,11 +2601,6 @@ export const eulerEarnVaultLensABI = [
     type: 'constructor',
     inputs: [
       {
-        name: '_oracleLens',
-        type: 'address',
-        internalType: 'address',
-      },
-      {
         name: '_utilsLens',
         type: 'address',
         internalType: 'address',
@@ -2661,82 +2656,6 @@ export const eulerEarnVaultLensABI = [
         name: '',
         type: 'int256',
         internalType: 'int256',
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'getVaultAccessControlInfo',
-    inputs: [
-      {
-        name: 'vault',
-        type: 'address',
-        internalType: 'address',
-      },
-    ],
-    outputs: [
-      {
-        name: '',
-        type: 'tuple',
-        internalType: 'struct EulerEarnVaultAccessControlInfo',
-        components: [
-          {
-            name: 'defaultAdmins',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'guardianAdmins',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'strategyOperatorAdmins',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'eulerEarnManagerAdmins',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'withdrawalQueueManagerAdmins',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'rebalancerAdmins',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'guardians',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'strategyOperators',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'eulerEarnManagers',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'withdrawalQueueManagers',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-          {
-            name: 'rebalancers',
-            type: 'address[]',
-            internalType: 'address[]',
-          },
-        ],
       },
     ],
     stateMutability: 'view',
@@ -2813,52 +2732,17 @@ export const eulerEarnVaultLensABI = [
             internalType: 'uint256',
           },
           {
-            name: 'totalAssetsDeposited',
+            name: 'lostAssets',
             type: 'uint256',
             internalType: 'uint256',
           },
           {
-            name: 'totalAssetsAllocated',
+            name: 'availableAssets',
             type: 'uint256',
             internalType: 'uint256',
           },
           {
-            name: 'totalAssetsAllocatable',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-          {
-            name: 'totalAllocationPoints',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-          {
-            name: 'interestAccrued',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-          {
-            name: 'lastInterestUpdate',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-          {
-            name: 'interestSmearEnd',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-          {
-            name: 'interestLeft',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-          {
-            name: 'lastHarvestTimestamp',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-          {
-            name: 'interestSmearingPeriod',
+            name: 'timelock',
             type: 'uint256',
             internalType: 'uint256',
           },
@@ -2873,12 +2757,22 @@ export const eulerEarnVaultLensABI = [
             internalType: 'address',
           },
           {
-            name: 'hookedOperations',
-            type: 'uint256',
-            internalType: 'uint256',
+            name: 'owner',
+            type: 'address',
+            internalType: 'address',
           },
           {
-            name: 'hookTarget',
+            name: 'creator',
+            type: 'address',
+            internalType: 'address',
+          },
+          {
+            name: 'curator',
+            type: 'address',
+            internalType: 'address',
+          },
+          {
+            name: 'guardian',
             type: 'address',
             internalType: 'address',
           },
@@ -2888,81 +2782,34 @@ export const eulerEarnVaultLensABI = [
             internalType: 'address',
           },
           {
-            name: 'balanceTracker',
-            type: 'address',
-            internalType: 'address',
-          },
-          {
             name: 'permit2',
             type: 'address',
             internalType: 'address',
           },
           {
-            name: 'isHarvestCoolDownCheckOn',
-            type: 'bool',
-            internalType: 'bool',
+            name: 'pendingTimelock',
+            type: 'uint256',
+            internalType: 'uint256',
           },
           {
-            name: 'accessControlInfo',
-            type: 'tuple',
-            internalType: 'struct EulerEarnVaultAccessControlInfo',
-            components: [
-              {
-                name: 'defaultAdmins',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'guardianAdmins',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'strategyOperatorAdmins',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'eulerEarnManagerAdmins',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'withdrawalQueueManagerAdmins',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'rebalancerAdmins',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'guardians',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'strategyOperators',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'eulerEarnManagers',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'withdrawalQueueManagers',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-              {
-                name: 'rebalancers',
-                type: 'address[]',
-                internalType: 'address[]',
-              },
-            ],
+            name: 'pendingTimelockValidAt',
+            type: 'uint256',
+            internalType: 'uint256',
+          },
+          {
+            name: 'pendingGuardian',
+            type: 'address',
+            internalType: 'address',
+          },
+          {
+            name: 'pendingGuardianValidAt',
+            type: 'uint256',
+            internalType: 'uint256',
+          },
+          {
+            name: 'supplyQueue',
+            type: 'address[]',
+            internalType: 'address[]',
           },
           {
             name: 'strategies',
@@ -2975,24 +2822,34 @@ export const eulerEarnVaultLensABI = [
                 internalType: 'address',
               },
               {
-                name: 'assetsAllocated',
+                name: 'allocatedAssets',
                 type: 'uint256',
                 internalType: 'uint256',
               },
               {
-                name: 'allocationPoints',
+                name: 'availableAssets',
                 type: 'uint256',
                 internalType: 'uint256',
               },
               {
-                name: 'allocationCap',
+                name: 'currentAllocationCap',
                 type: 'uint256',
                 internalType: 'uint256',
               },
               {
-                name: 'isInEmergency',
-                type: 'bool',
-                internalType: 'bool',
+                name: 'pendingAllocationCap',
+                type: 'uint256',
+                internalType: 'uint256',
+              },
+              {
+                name: 'pendingAllocationCapValidAt',
+                type: 'uint256',
+                internalType: 'uint256',
+              },
+              {
+                name: 'removableAt',
+                type: 'uint256',
+                internalType: 'uint256',
               },
               {
                 name: 'info',
@@ -3063,99 +2920,7 @@ export const eulerEarnVaultLensABI = [
               },
             ],
           },
-          {
-            name: 'backupAssetPriceInfo',
-            type: 'tuple',
-            internalType: 'struct AssetPriceInfo',
-            components: [
-              {
-                name: 'queryFailure',
-                type: 'bool',
-                internalType: 'bool',
-              },
-              {
-                name: 'queryFailureReason',
-                type: 'bytes',
-                internalType: 'bytes',
-              },
-              {
-                name: 'timestamp',
-                type: 'uint256',
-                internalType: 'uint256',
-              },
-              {
-                name: 'oracle',
-                type: 'address',
-                internalType: 'address',
-              },
-              {
-                name: 'asset',
-                type: 'address',
-                internalType: 'address',
-              },
-              {
-                name: 'unitOfAccount',
-                type: 'address',
-                internalType: 'address',
-              },
-              {
-                name: 'amountIn',
-                type: 'uint256',
-                internalType: 'uint256',
-              },
-              {
-                name: 'amountOutMid',
-                type: 'uint256',
-                internalType: 'uint256',
-              },
-              {
-                name: 'amountOutBid',
-                type: 'uint256',
-                internalType: 'uint256',
-              },
-              {
-                name: 'amountOutAsk',
-                type: 'uint256',
-                internalType: 'uint256',
-              },
-            ],
-          },
-          {
-            name: 'backupAssetOracleInfo',
-            type: 'tuple',
-            internalType: 'struct OracleDetailedInfo',
-            components: [
-              {
-                name: 'oracle',
-                type: 'address',
-                internalType: 'address',
-              },
-              {
-                name: 'name',
-                type: 'string',
-                internalType: 'string',
-              },
-              {
-                name: 'oracleInfo',
-                type: 'bytes',
-                internalType: 'bytes',
-              },
-            ],
-          },
         ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'oracleLens',
-    inputs: [],
-    outputs: [
-      {
-        name: '',
-        type: 'address',
-        internalType: 'contract OracleLens',
       },
     ],
     stateMutability: 'view',
