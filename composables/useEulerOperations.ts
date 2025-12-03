@@ -7,6 +7,8 @@ import { convertSaHooksToEVCCalls, EVC_ABI, type EVCCall } from '~/utils/evc-con
 import { getNewSubAccount } from '~/entities/account'
 import { erc20ABI } from '~/entities/euler/abis'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
+import { buildPythUpdateCalls, sumCallValues } from '~/utils/pyth'
+import { useVaults } from '~/composables/useVaults'
 
 const FINAL_MESSAGE = 'By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: https://www.euler.finance/terms  hash:0x1a7aa1916b6c56272b62be027108c06d9af95eef4dac46acbc80267b3919e07e'
 const FINAL_HASH = '0xb0d552b4ebe441d9582f5fc732fd6026b09bec13e7f3c1e21c0ecaa3801df595'
@@ -15,7 +17,8 @@ export const useEulerOperations = () => {
   const { address } = useWagmi()
   const { writeContractAsync } = useWriteContract()
   const { eulerCoreAddresses, eulerPeripheryAddresses } = useEulerAddresses()
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
+  const { map } = useVaults()
 
   const checkAllowance = async (assetAddress: Address, spenderAddress: Address, userAddress: Address): Promise<bigint> => {
     const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
@@ -28,6 +31,17 @@ export const useEulerOperations = () => {
     catch (e) {
       console.error('Error checking allowance:', e)
       return 0n
+    }
+  }
+
+  const preparePythUpdates = async (vaultAddresses: string[], sender: Address) => {
+    try {
+      const vaults = vaultAddresses.map(addr => map.value.get(ethers.getAddress(addr)))
+      return await buildPythUpdateCalls(vaults, EVM_PROVIDER_URL, PYTH_HERMES_URL, sender)
+    }
+    catch (err) {
+      console.warn('[preparePythUpdates] failed', err)
+      return { calls: [], totalFee: 0n }
     }
   }
 
@@ -483,12 +497,19 @@ export const useEulerOperations = () => {
 
     evcCalls.push(depositCall as EVCCall, enableControllerCall as EVCCall, enableCollateralCall as EVCCall, borrowCall as EVCCall)
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr, borrowVaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     const borrowHash = await writeContractAsync({
       address: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return borrowHash
@@ -581,12 +602,19 @@ export const useEulerOperations = () => {
 
     evcCalls.push(enableControllerCall as EVCCall, enableCollateralCall as EVCCall, borrowCall as EVCCall)
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr, borrowVaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     const borrowHash = await writeContractAsync({
       address: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return borrowHash

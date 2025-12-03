@@ -1,4 +1,5 @@
 import { ethers } from 'ethers'
+import type { OracleDetailedInfo } from '~/entities/oracle'
 import {
   // eulerAccountLensABI,
   eulerPerspectiveABI,
@@ -58,6 +59,7 @@ export interface Vault {
   borrowCap: bigint
   interestFee: bigint
   configFlags: bigint
+  oracle: string
   totalAssets: bigint
   totalCash: bigint
   asset: VaultAsset
@@ -65,6 +67,8 @@ export interface Vault {
   interestRateInfo: VaultInterestRateInfo
   collateralPrices: VaultCollateralPrice[]
   liabilityPriceInfo: VaultLiabilityPriceInfo
+  oracleDetailedInfo?: OracleDetailedInfo
+  backupAssetOracleInfo?: OracleDetailedInfo
 }
 export interface BorrowVaultPair {
   borrow: Vault
@@ -115,6 +119,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
     totalAssets: data.totalAssets,
     interestFee: data.interestFee,
     configFlags: data.configFlags,
+    oracle: data.oracle,
     collateralLTVs: raw.collateralLTVInfo.toArray().map((o: { toObject: () => void }) => o.toObject()),
     collateralPrices: raw.collateralPriceInfo.toArray().map((o: { toObject: () => void }) => o.toObject()),
     liabilityPriceInfo: data.liabilityPriceInfo,
@@ -135,6 +140,8 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
       symbol: data.assetSymbol,
       decimals: data.assetDecimals,
     },
+    oracleDetailedInfo: data.oracleInfo,
+    backupAssetOracleInfo: data.backupAssetOracleInfo,
   } as Vault
 }
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult, void, unknown> {
@@ -194,6 +201,7 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
           totalAssets: data.totalAssets,
           interestFee: data.interestFee,
           configFlags: data.configFlags,
+          oracle: data.oracle,
           collateralLTVs: raw.collateralLTVInfo.toArray().map((o: { toObject: () => void }) => o.toObject()),
           collateralPrices: raw.collateralPriceInfo.toArray().map((o: { toObject: () => void }) => o.toObject()),
           liabilityPriceInfo: data.liabilityPriceInfo,
@@ -205,6 +213,8 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
             symbol: data.assetSymbol,
             decimals: data.assetDecimals,
           },
+          oracleDetailedInfo: data.oracleInfo,
+          backupAssetOracleInfo: data.backupAssetOracleInfo,
         } as Vault
       }
       catch (e) {

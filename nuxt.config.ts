@@ -61,6 +61,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       network: process.env.NETWORK,
+      pythHermesUrl: process.env.PYTH_HERMES_URL || 'https://hermes.pyth.network',
     },
   },
 

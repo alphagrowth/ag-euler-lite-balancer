@@ -14,7 +14,7 @@ const getMerklAddressByChainId = (chainId: number, config: object): string => {
 }
 
 export const useEulerConfig = () => {
-  const { network } = useRuntimeConfig().public
+  const { network, pythHermesUrl } = useRuntimeConfig().public
   const { chainId } = useEulerAddresses()
 
   const baseConfig = config[network as keyof typeof config]
@@ -24,5 +24,6 @@ export const useEulerConfig = () => {
     EVM_PROVIDER_URL: computed(() => getRpcUrlByChainId(chainId.value, baseConfig)).value,
     SUBGRAPH_URL: computed(() => getSubgraphUrlByChainId(chainId.value, baseConfig)).value,
     MERKL_ADDRESS: computed(() => getMerklAddressByChainId(chainId.value, baseConfig)).value,
+    PYTH_HERMES_URL: pythHermesUrl,
   }
 }
