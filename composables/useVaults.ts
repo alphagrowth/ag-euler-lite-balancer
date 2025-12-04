@@ -10,7 +10,6 @@ import {
   type Vault,
 } from '~/entities/vault'
 
-const { chainId } = useEulerAddresses()
 const isReady = ref(false)
 const isLoading = ref(false)
 const isUpdating = ref(false)
@@ -70,11 +69,13 @@ const updateEarnVaults = async () => {
   }
   finally {
     isEarnUpdating.value = false
-    console.log(earnList.value)
   }
 }
 const loadVaults = async () => {
   try {
+    isReady.value = false
+    map.value = new Map()
+    earnMap.value = new Map()
     await Promise.all([
       updateEarnVaults(),
       updateVaults(),
@@ -102,16 +103,6 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
   }
   return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)
 }
-
-watch(chainId, async (val, oldVal) => {
-  map.value = new Map()
-  isReady.value = false
-  await Promise.all([
-    updateEarnVaults(),
-    updateVaults(),
-  ])
-  isReady.value = true
-}, { immediate: true })
 
 export const useVaults = () => {
   return {

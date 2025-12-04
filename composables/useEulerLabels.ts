@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-dynamic-delete */
 import axios from 'axios'
 import {
   type EulerLabelEntity,
@@ -13,15 +14,22 @@ const entities: Record<string, EulerLabelEntity> = shallowReactive({})
 
 export const useEulerLabels = () => {
   const { getEulerLabelsVaultsUrl, getEulerLabelsProductsUrl, getEulerLabelsEntitiesUrl } = useEulerConfig()
-  const { getCurrentChainConfig } = useEulerAddresses()
 
   const loadLabels = async () => {
     try {
       isLoading.value = true
+      const { getCurrentChainConfig } = useEulerAddresses()
+
+      await until(getCurrentChainConfig).toBeTruthy()
+
+      Object.keys(vaults).forEach(key => delete vaults[key])
+      Object.keys(products).forEach(key => delete products[key])
+      Object.keys(entities).forEach(key => delete entities[key])
+
       const [vaultsRes, productRes, entitiesRes] = await Promise.all([
-        axios.get(getEulerLabelsVaultsUrl(getCurrentChainConfig.value?.chainId || 1)),
-        axios.get(getEulerLabelsProductsUrl(getCurrentChainConfig.value?.chainId || 1)),
-        axios.get(getEulerLabelsEntitiesUrl(getCurrentChainConfig.value?.chainId || 1)),
+        axios.get(getEulerLabelsVaultsUrl(getCurrentChainConfig.value!.chainId)),
+        axios.get(getEulerLabelsProductsUrl(getCurrentChainConfig.value!.chainId)),
+        axios.get(getEulerLabelsEntitiesUrl(getCurrentChainConfig.value!.chainId)),
       ])
 
       Object.assign(vaults, vaultsRes.data)
@@ -35,8 +43,6 @@ export const useEulerLabels = () => {
       isLoading.value = false
     }
   }
-
-  loadLabels()
 
   return {
     isLoading,

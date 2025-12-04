@@ -197,27 +197,25 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   } as Vault
 }
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult<Vault>, void, unknown> {
-  const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerLensAddresses, eulerPeripheryAddresses, chainId } = useEulerAddresses()
+  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { eulerLensAddresses, chainId } = useEulerAddresses()
+  const { vaults } = useEulerLabels()
+
   const startChainId = chainId.value
-  await until(computed(() => eulerLensAddresses.value?.vaultLens && eulerPeripheryAddresses.value?.governedPerspective)).toBeTruthy()
-  if (!eulerLensAddresses.value?.vaultLens || !eulerPeripheryAddresses.value?.governedPerspective) {
+
+  await until(computed(() => eulerLensAddresses.value?.vaultLens && Object.keys(vaults).length)).toBeTruthy()
+
+  if (!eulerLensAddresses.value?.vaultLens) {
     throw new Error('Euler addresses not loaded yet')
   }
 
-  const provider = new ethers.JsonRpcProvider(_EVM_PROVIDER_URL)
-  const governedPerspectiveContract = new ethers.Contract(
-    eulerPeripheryAddresses.value.governedPerspective,
-    eulerPerspectiveABI,
-    provider,
-  )
-
+  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const vaultLensContract = new ethers.Contract(
     eulerLensAddresses.value.vaultLens,
     eulerVaultLensABI,
     provider,
   )
-  const verifiedVaults = await governedPerspectiveContract.verifiedArray() as string[]
+  const verifiedVaults = Object.keys(vaults)
   const batchSize = 5
 
   for (let i = 0; i < verifiedVaults.length; i += batchSize) {
@@ -289,8 +287,11 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
 export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorResult<EarnVault>, void, unknown> {
   const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses, eulerPeripheryAddresses, chainId } = useEulerAddresses()
+
   const startChainId = chainId.value
+
   await until(computed(() => eulerLensAddresses.value?.eulerEarnVaultLens && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective)).toBeTruthy()
+
   if (!eulerLensAddresses.value?.eulerEarnVaultLens || !eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective) {
     throw new Error('Euler Earn addresses not loaded yet')
   }
