@@ -49,6 +49,7 @@ export interface VaultInterestRateInfo {
   supplyAPY: bigint
 }
 export interface Vault {
+  verified: boolean
   name: string
   symbol: string
   supply: bigint
@@ -144,6 +145,7 @@ export interface CollateralOption {
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses } = useEulerAddresses()
+  const { vaults } = useEulerLabels()
 
   if (!eulerLensAddresses.value?.vaultLens) {
     throw new Error('Euler addresses not loaded yet')
@@ -159,6 +161,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const data = raw.toObject({ deep: true })
 
   return {
+    verified: Object.keys(vaults).includes(vaultAddress),
     address: data.vault,
     name: data.vaultName,
     supply: data.totalAssets,
@@ -239,6 +242,7 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
         }
 
         return {
+          verified: true,
           address: data.vault,
           name: data.vaultName,
           supply: data.totalAssets,

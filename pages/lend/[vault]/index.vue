@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal, VaultSupplyApyModal } from '#components'
+import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { computeAPYs, getVaultPrice, type Vault, type VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
@@ -63,6 +63,17 @@ const load = async () => {
   isLoading.value = true
   try {
     estimateSupplyAPY.value = vault.value!.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value, 25)
+
+    if (!vault.value?.verified) {
+      modal.open(VaultUnverifiedDisclaimerModal, {
+        isNotClosable: true,
+        props: {
+          onCancel: () => {
+            router.replace('/')
+          },
+        },
+      })
+    }
   }
   catch (e) {
     showError('Unable to load Vault')

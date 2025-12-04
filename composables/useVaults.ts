@@ -86,9 +86,17 @@ const loadVaults = async () => {
   }
 }
 const getVault = async (address: string): Promise<Vault> => {
-  if (!map.value.get(ethers.getAddress(address))) {
-    await until(isReady).toBe(true)
+  const { vaults } = useEulerLabels()
+
+  await until(computed(() => Object.keys(vaults).length)).toBeTruthy()
+
+  if (Object.keys(vaults).includes(ethers.getAddress(address))) {
+    await until(computed(() => map.value.get(ethers.getAddress(address)))).toBeTruthy()
   }
+  else {
+    return fetchVault(ethers.getAddress(address))
+  }
+
   return map.value.get(ethers.getAddress(address))!
 }
 const updateVault = async (vaultAddress: string): Promise<Vault> => {

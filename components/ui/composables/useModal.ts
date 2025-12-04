@@ -60,7 +60,7 @@ export const useModal = () => {
       list.splice(list.findIndex(item => item.id === id), 1)
     }
 
-    if (!isBack) {
+    if (!isBack && window.history.state === id) {
       window.history.back()
     }
 
