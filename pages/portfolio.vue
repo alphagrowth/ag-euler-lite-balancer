@@ -27,7 +27,7 @@ const tabsModel = ref(route.name as string)
 
 const tabs = computed(() => [
   {
-    label: 'Borrow',
+    label: 'Positions',
     value: 'portfolio',
     badge: borrowPositions.value.length || null,
   },

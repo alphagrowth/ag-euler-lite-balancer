@@ -2,7 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { getRelativeTimeBetweenDates } from '~/utils/time-utils'
+import { formatTtl } from '~/utils/crypto-utils'
 import { VaultOverviewModal, OperationReviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -12,7 +12,7 @@ const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
 const { isConnected } = useAccount()
-const { isPositionsLoaded, isPositionsLoading, borrowPositions, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
+const { isPositionsLoaded, isPositionsLoading, borrowPositions, updateBorrowPositions: _updateBorrowPositions, getOperatorForSubAccount: _getOperatorForSubAccount } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { disableCollateral: disableCollateralOperation } = useEulerOperations()
 
@@ -47,26 +47,28 @@ const liquidationPrice = computed(() => {
 
   return nanoToValue(price, 18)
 })
+const borrowLiquidationPrice = computed(() => {
+  if (!position.value) return undefined
+
+  const collateralValueLiquidation = position.value.collateralValueLiquidation
+  const liabilityValue = position.value.liabilityValue
+
+  if (liabilityValue === 0n || collateralValueLiquidation === 0n) {
+    return undefined
+  }
+
+  const multiplier = nanoToValue(collateralValueLiquidation, 18) / nanoToValue(liabilityValue, 18)
+  const currentBorrowPrice = getVaultPrice(1, borrowVault.value)
+
+  return currentBorrowPrice * multiplier
+})
 const timeToLiquidationDisplay = computed(() => {
   if (!position.value) {
     return '-'
   }
-  if (position.value.timeToLiquidation >= 4000000000000n) {
-    return '∞'
-  }
 
-  try {
-    const nowDate = new Date()
-    const currentDate = new Date(Number(position?.value?.timeToLiquidation))
-    if (currentDate > nowDate) {
-      return 'Expired'
-    }
-
-    return getRelativeTimeBetweenDates(nowDate, currentDate)
-  }
-  catch {
-    return '∞'
-  }
+  const result = formatTtl(position.value.timeToLiquidation)
+  return result?.display || '-'
 })
 const netAPY = computed(() => {
   return getNetAPY(
@@ -102,10 +104,7 @@ const send = async (_disableOperator?: boolean, _transferAssets?: boolean) => {
     await disableCollateralOperation(
       position.value!.subAccount,
       position.value!.collateral.address,
-      position.value!.collateral.asset.address,
-      0n,
       position.value!.borrow.address,
-      position.value!.borrow.asset.address,
     )
 
     modal.close()
@@ -131,7 +130,14 @@ const load = async () => {
     console.warn(e)
   }
 }
-const openInfoModal = () => {
+const openCollateralInfoModal = () => {
+  modal.open(VaultOverviewModal, {
+    props: {
+      vault: collateralVault.value,
+    },
+  })
+}
+const openPairInfoModal = () => {
   modal.open(VaultOverviewModal, {
     props: {
       pair: position.value,
@@ -234,7 +240,11 @@ watch(isConnected, () => {
           size="small"
         />
       </div>
-      <div v-if="!hasNoBorrow">
+      <div
+        v-if="!hasNoBorrow"
+        :class="$style.asset"
+        @click="openPairInfoModal"
+      >
         <div class="mb-12 h4">
           Borrow
         </div>
@@ -272,10 +282,18 @@ watch(isConnected, () => {
             </div>
             <div class="between gap-8 flex-wrap mb-12">
               <div class="text-euler-dark-900 p3">
-                Current price
+                Oracle price
               </div>
               <div class="text-white p3">
                 ${{ formatNumber(getVaultPrice(1, position.borrow)) }}
+              </div>
+            </div>
+            <div class="between gap-8 flex-wrap mb-12">
+              <div class="text-euler-dark-900 p3">
+                Liquidation price
+              </div>
+              <div class="text-white p3">
+                ${{ borrowLiquidationPrice ? formatNumber(borrowLiquidationPrice) : '-' }}
               </div>
             </div>
             <div class="between gap-8">
@@ -299,7 +317,10 @@ watch(isConnected, () => {
           </div>
         </div>
       </div>
-      <div>
+      <div
+        :class="$style.asset"
+        @click="openCollateralInfoModal"
+      >
         <div class="mb-12 h4">
           {{ !hasNoBorrow ? 'Collateral' : 'Deposit' }}
         </div>
@@ -340,7 +361,7 @@ watch(isConnected, () => {
             </div>
             <div class="between gap-8 flex-wrap mb-16">
               <div class="text-euler-dark-900 p3">
-                Current price
+                Oracle price
               </div>
               <div class="text-white p3">
                 ${{ formatNumber(getVaultPrice(1, position.collateral)) }}
@@ -408,7 +429,7 @@ watch(isConnected, () => {
         <UiButton
           size="large"
           variant="primary-stroke"
-          @click="openInfoModal"
+          @click="openPairInfoModal"
         >
           Pair information
         </UiButton>
@@ -433,6 +454,10 @@ watch(isConnected, () => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.asset {
+  cursor: pointer;
 }
 
 .assetsInfo {

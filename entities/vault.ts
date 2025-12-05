@@ -552,3 +552,23 @@ export const getMaxWithdraw = (vaultAddress: string, account: string): Promise<b
   }], provider)
   return contract.maxWithdraw(account)
 }
+
+export const getUtilization = (
+  totalAssets: bigint,
+  totalBorrow: bigint,
+): number => {
+  if (!totalAssets || totalAssets <= 0n || !totalBorrow || totalBorrow <= 0n) {
+    return 0
+  }
+
+  const assetsNum = Number(totalAssets)
+  const borrowNum = Number(totalBorrow)
+
+  const utilization = (borrowNum / assetsNum) * 100
+
+  return Number(utilization.toFixed(2))
+}
+
+export const getVaultUtilization = (vault: Vault): number => {
+  return getUtilization(vault.totalAssets, vault.borrow)
+}

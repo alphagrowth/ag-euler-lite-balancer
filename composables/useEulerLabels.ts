@@ -11,9 +11,10 @@ const isLoading = ref(false)
 const vaults: Record<string, EulerLabelVault> = shallowReactive({})
 const products: Record<string, EulerLabelProduct> = shallowReactive({})
 const entities: Record<string, EulerLabelEntity> = shallowReactive({})
+const earnVaults = ref([])
 
 export const useEulerLabels = () => {
-  const { getEulerLabelsVaultsUrl, getEulerLabelsProductsUrl, getEulerLabelsEntitiesUrl } = useEulerConfig()
+  const { getEulerLabelsVaultsUrl, getEulerLabelsProductsUrl, getEulerLabelsEntitiesUrl, getEulerLabelsEarnVaultsUrl } = useEulerConfig()
 
   const loadLabels = async () => {
     try {
@@ -25,12 +26,21 @@ export const useEulerLabels = () => {
       Object.keys(vaults).forEach(key => delete vaults[key])
       Object.keys(products).forEach(key => delete products[key])
       Object.keys(entities).forEach(key => delete entities[key])
+      earnVaults.value = []
 
       const [vaultsRes, productRes, entitiesRes] = await Promise.all([
         axios.get(getEulerLabelsVaultsUrl(getCurrentChainConfig.value!.chainId)),
         axios.get(getEulerLabelsProductsUrl(getCurrentChainConfig.value!.chainId)),
         axios.get(getEulerLabelsEntitiesUrl(getCurrentChainConfig.value!.chainId)),
       ])
+
+      axios.get(getEulerLabelsEarnVaultsUrl(getCurrentChainConfig.value!.chainId))
+        .then((res) => {
+          earnVaults.value = res.data
+        })
+        .catch(() => {
+          earnVaults.value = []
+        })
 
       Object.assign(vaults, vaultsRes.data)
       Object.assign(products, productRes.data)
@@ -49,6 +59,7 @@ export const useEulerLabels = () => {
     vaults,
     products,
     entities,
+    earnVaults,
     loadLabels,
   }
 }

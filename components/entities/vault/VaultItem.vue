@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getVaultPrice, type Vault } from '~/entities/vault'
+import { getVaultPrice, getVaultUtilization, type Vault } from '~/entities/vault'
 import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/entities/assets'
@@ -21,6 +21,7 @@ const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
 const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
+const utilization = computed(() => getVaultUtilization(vault))
 </script>
 
 <template>
