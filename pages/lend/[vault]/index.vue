@@ -13,8 +13,7 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { supply, buildSupplyPlan, executeTxPlan } = useEulerOperations()
-const { estimatePlanFees } = useEstimatePlanFees()
+const { supply } = useEulerOperations()
 const { getVault, updateVault } = useVaults()
 const { isConnected } = useAccount()
 const { getBalance } = useWallets()
@@ -26,7 +25,6 @@ const { getCampaignOfLendVault } = useBrevis()
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
-const feeResult = ref<null | { totalNative: string }>(null)
 const amount = ref('')
 const plan = ref<TxPlan | null>(null)
 const vault: Ref<Vault | undefined> = ref(await getVault(vaultAddress))
@@ -89,7 +87,6 @@ const submit = async () => {
       type: 'supply',
       asset: asset.value,
       amount: amount.value,
-      fee: feeResult.value?.totalNative,
       onConfirm: () => {
         setTimeout(() => {
           send()
@@ -101,10 +98,11 @@ const submit = async () => {
 const send = async () => {
   try {
     isSubmitting.value = true
-    if (!asset.value?.address || !plan.value) {
+    if (!asset.value?.address) {
       return
     }
-    const txHash = await executeTxPlan(plan.value)
+    console.warn()
+    const txHash = await supply(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol)
 
     modal.close()
     await updateEstimates()
@@ -129,9 +127,6 @@ const updateEstimates = useDebounceFn(async () => {
     if (!asset.value?.address) {
       return
     }
-    plan.value = await buildSupplyPlan(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol)
-    const fees = await estimatePlanFees(plan.value)
-    feeResult.value = fees
     const { supplyAPY } = await computeAPYs(
       vault.value.interestRateInfo.borrowSPY,
       vault.value.interestRateInfo.cash + valueToNano(amount.value, vault.value.decimals),
