@@ -123,8 +123,6 @@ const open = () => {
     gap: 8px;
     width: fit-content;
     max-width: 100%;
-    overflow: auto;
-    scrollbar-width: none;
 
     &::-webkit-scrollbar {
       display: none;

@@ -12,6 +12,7 @@ const { borrowList, isLoading } = useVaults()
 
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
+const sortBy = ref<string>('Liquidity')
 
 const collateralAssetOptions = computed(() => {
   return borrowList.value
@@ -50,9 +51,18 @@ const filteredBorrowList = computed(() => {
 })
 
 const sortedBorrowList = computed(() => {
-  return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-    return getVaultPrice(b.borrow.supply - b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.supply - a.borrow.borrow, a.borrow)
-  })
+  switch (sortBy.value) {
+    case 'Liquidity':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return getVaultPrice(b.borrow.supply - b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.supply - a.borrow.borrow, a.borrow)
+      })
+    case 'Borrow APY':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return Number(b.borrow.interestRateInfo.borrowAPY) - Number(a.borrow.interestRateInfo.borrowAPY)
+      })
+    default:
+      return filteredBorrowList.value
+  }
 })
 </script>
 
@@ -71,6 +81,12 @@ const sortedBorrowList = computed(() => {
         Discover vaults
       </h3>
       <div class="flex gap-8">
+        <VaultSortButton
+          v-model="sortBy"
+          :options="['Liquidity', 'Borrow APY']"
+          placeholder="Sort By"
+          title="Sorting type"
+        />
         <UiSelect
           v-model="selectedCollateral"
           :class="$style.filterSelect"
