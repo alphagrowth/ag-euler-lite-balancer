@@ -317,11 +317,11 @@ const renderChart = async () => {
           symbol: 'circle',
           symbolSize: 6,
           lineStyle: {
-            color: '#E15241',
+            color: '#23C09B',
             width: 2,
           },
           itemStyle: {
-            color: '#E15241',
+            color: '#23C09B',
           },
           emphasis: {
             focus: 'series',
@@ -345,11 +345,11 @@ const renderChart = async () => {
           symbol: 'circle',
           symbolSize: 6,
           lineStyle: {
-            color: '#23C09B',
+            color: '#f7772c',
             width: 2,
           },
           itemStyle: {
-            color: '#23C09B',
+            color: '#f7772c',
           },
           emphasis: {
             focus: 'series',
