@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Vault } from '~/entities/vault'
 
+const emits = defineEmits(['vault-click'])
 const { vault } = defineProps<{ vault: Vault }>()
 const { borrowList } = useVaults()
 
@@ -27,33 +28,43 @@ const borrowVaultPairs = computed(() => borrowList.value.filter(pair => pair.bor
       <div
         v-for="pair in borrowVaultPairs"
         :key="pair.collateral.address"
-        class="bg-euler-dark-500 br-16 "
+        @click="emits('vault-click')"
       >
-        <div
-          class="px-16 pt-16 pb-12"
-          style="border-bottom: 1px solid var(--c-euler-dark-600)"
+        <NuxtLink
+          class="bg-euler-dark-500 br-16 text-white"
+          :class="$style.exposureItem"
+          :to="`/lend/${pair.collateral.address}`"
         >
-          <VaultLabelsAndAssets
-            :vault="pair.collateral"
-            :assets="[pair.collateral.asset]"
-          />
-        </div>
-        <div class="column gap-12 px-16 pt-12 pb-16">
-          <VaultOverviewLabelValue
-            label="Max LTV"
-            orientation="horizontal"
-            :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
-          />
-          <VaultOverviewLabelValue
-            label="LLTV"
-            orientation="horizontal"
-            :value="`${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%`"
-          />
-        </div>
+          <div
+            class="px-16 pt-16 pb-12"
+            style="border-bottom: 1px solid var(--c-euler-dark-600)"
+          >
+            <VaultLabelsAndAssets
+              :vault="pair.collateral"
+              :assets="[pair.collateral.asset]"
+            />
+          </div>
+          <div class="column gap-12 px-16 pt-12 pb-16">
+            <VaultOverviewLabelValue
+              label="Max LTV"
+              orientation="horizontal"
+              :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
+            />
+            <VaultOverviewLabelValue
+              label="LLTV"
+              orientation="horizontal"
+              :value="`${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%`"
+            />
+          </div>
+        </NuxtLink>
       </div>
     </div>
   </div>
 </template>
 
 <style module lang="scss">
+.exposureItem {
+  display: block;
+  text-decoration: none;
+}
 </style>

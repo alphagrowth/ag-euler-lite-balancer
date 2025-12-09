@@ -4,7 +4,7 @@ import VaultOverview from '~/components/entities/vault/overview/VaultOverview.vu
 import { getAssetLogoUrl } from '~/entities/assets'
 import type { AccountBorrowPosition } from '~/entities/account'
 
-const emit = defineEmits(['close'])
+const emits = defineEmits(['close'])
 
 const { pair, vault } = defineProps<{ pair?: BorrowVaultPair | AccountBorrowPosition, vault?: Vault }>()
 
@@ -31,6 +31,10 @@ const tabs = computed(() => {
     },
   ]
 })
+
+const onVaultClick = () => {
+  emits('close')
+}
 </script>
 
 <template>
@@ -82,7 +86,10 @@ const tabs = computed(() => {
       </template>
 
       <template v-else-if="vault">
-        <VaultOverview :vault="vault" />
+        <VaultOverview
+          :vault="vault"
+          @vault-click="onVaultClick"
+        />
       </template>
     </div>
   </BaseModalWrapper>
