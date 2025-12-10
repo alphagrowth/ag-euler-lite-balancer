@@ -80,9 +80,12 @@ const sortedBorrowList = computed(() => {
       <h3 class="h3 mb-16">
         Discover vaults
       </h3>
-      <div class="flex gap-8">
+      <div
+        :class="$style.filterSelectWrap"
+      >
         <VaultSortButton
           v-model="sortBy"
+          :class="$style.sortBtn"
           :options="['Liquidity', 'Borrow APY']"
           placeholder="Sort By"
           title="Sorting type"
@@ -152,10 +155,21 @@ const sortedBorrowList = computed(() => {
   flex: 1;
 }
 
+.filterSelectWrap {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+
+.sortBtn {
+  flex-shrink: 0;
+}
+
 .filterSelect {
   flex: 1;
-  max-width: 50%;
-  align-self: stretch;
+  min-width: 0;
 }
 
 .searchIcon {
