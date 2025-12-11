@@ -2,29 +2,40 @@
 import { getVaultPrice } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/entities/assets'
 import type { AccountDepositPosition } from '~/entities/account'
+import { VaultOverviewModal } from '#components'
+import { useModal } from '~/components/ui/composables/useModal'
 
 const { position } = defineProps<{ position: AccountDepositPosition }>()
+const modal = useModal()
 
 const { getOpportunityOfLendVault } = useMerkl()
 
 const vault = computed(() => position.vault)
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
+
 const { name } = useEulerProductOfVault(vault.value.address)
 
 const earnDisplay = computed(() => {
   return compactNumber(getVaultPrice(position.assets, vault.value) * ((nanoToValue(vault.value.interestRateInfo.supplyAPY, 25))) * 90 / 365 / 100)
 })
-
 const earnDisplayWithReward = computed(() => {
   return compactNumber(getVaultPrice(position.assets, vault.value) * ((nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))) * 90 / 365 / 100)
 })
+
+const onClick = () => {
+  modal.open(VaultOverviewModal, {
+    props: {
+      vault: vault,
+    },
+  })
+}
 </script>
 
 <template>
-  <NuxtLink
+  <div
     :class="$style.VaultItem"
-    :to="`/lend/${vault.address}/withdraw`"
     class="text-white bg-euler-dark-500 br-16"
+    @click="onClick"
   >
     <div :class="$style.top">
       <div
@@ -116,13 +127,14 @@ const earnDisplayWithReward = computed(() => {
         </div>
       </div>
     </div>
-  </NuxtLink>
+  </div>
 </template>
 
 <style lang="scss" module>
 .VaultItem {
   display: block;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .top {

@@ -23,6 +23,7 @@ const opportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.a
 const brevisInfo = computed(() => getCampaignOfBorrowVault(pair.borrow.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
+const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2))
 </script>
 
 <template>

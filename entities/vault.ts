@@ -48,6 +48,11 @@ export interface VaultInterestRateInfo {
   cash: bigint
   supplyAPY: bigint
 }
+export interface VaultIRMInfo {
+  interestRateModelInfo?: {
+    interestRateModelType?: number
+  }
+}
 export interface Vault {
   verified: boolean
   name: string
@@ -71,6 +76,13 @@ export interface Vault {
   liabilityPriceInfo: VaultLiabilityPriceInfo
   oracleDetailedInfo?: OracleDetailedInfo
   backupAssetOracleInfo?: OracleDetailedInfo
+  dToken: string
+  governorAdmin: string
+  governorFeeReceiver: string
+  unitOfAccount: string
+  interestRateModelAddress: string
+  hookTarget: string
+  irmInfo?: VaultIRMInfo
 }
 export interface BorrowVaultPair {
   borrow: Vault
@@ -197,6 +209,17 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
     },
     oracleDetailedInfo: data.oracleInfo,
     backupAssetOracleInfo: data.backupAssetOracleInfo,
+    dToken: data.dToken,
+    governorAdmin: data.governorAdmin,
+    governorFeeReceiver: data.governorFeeReceiver,
+    unitOfAccount: data.unitOfAccount,
+    interestRateModelAddress: data.interestRateModel,
+    hookTarget: data.hookTarget,
+    irmInfo: data.irmInfo
+      ? {
+          interestRateModelInfo: data.irmInfo.interestRateModelInfo,
+        }
+      : undefined,
   } as Vault
 }
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult<Vault>, void, unknown> {
@@ -269,6 +292,17 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
           },
           oracleDetailedInfo: data.oracleInfo,
           backupAssetOracleInfo: data.backupAssetOracleInfo,
+          dToken: data.dToken,
+          governorAdmin: data.governorAdmin,
+          governorFeeReceiver: data.governorFeeReceiver,
+          unitOfAccount: data.unitOfAccount,
+          interestRateModelAddress: data.interestRateModel,
+          hookTarget: data.hookTarget,
+          irmInfo: data.irmInfo
+            ? {
+                interestRateModelInfo: data.irmInfo.interestRateModelInfo,
+              }
+            : undefined,
         } as Vault
       }
       catch (e) {
@@ -551,4 +585,24 @@ export const getMaxWithdraw = (vaultAddress: string, account: string): Promise<b
     type: 'function',
   }], provider)
   return contract.maxWithdraw(account)
+}
+
+export const getUtilization = (
+  totalAssets: bigint,
+  totalBorrow: bigint,
+): number => {
+  if (!totalAssets || totalAssets <= 0n || !totalBorrow || totalBorrow <= 0n) {
+    return 0
+  }
+
+  const assetsNum = Number(totalAssets)
+  const borrowNum = Number(totalBorrow)
+
+  const utilization = (borrowNum / assetsNum) * 100
+
+  return Number(utilization.toFixed(2))
+}
+
+export const getVaultUtilization = (vault: Vault): number => {
+  return getUtilization(vault.totalAssets, vault.borrow)
 }

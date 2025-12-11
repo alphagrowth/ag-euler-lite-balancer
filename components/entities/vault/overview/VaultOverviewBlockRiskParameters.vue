@@ -8,6 +8,20 @@ const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const shareTokenExchangeRate: Ref<bigint | undefined> = ref()
 
+const supplyCapPercentageDisplay = computed(() => {
+  if (vault.supplyCap >= MaxUint256 || vault.supplyCap === 0n) return 0
+  const scale = 10n ** 2n
+  const fraction = (vault.supply * scale * 100n) / vault.supplyCap
+  return parseFloat(`${fraction / scale}.${fraction % scale}`)
+})
+
+const borrowCapPercentageDisplay = computed(() => {
+  if (vault.borrowCap >= MaxUint256 || vault.borrowCap === 0n) return 0
+  const scale = 10n ** 2n
+  const fraction = (vault.borrow * scale * 100n) / vault.borrowCap
+  return parseFloat(`${fraction / scale}.${fraction % scale}`)
+})
+
 const calcPrice = (amount: bigint) => {
   return getVaultPrice(nanoToValue(amount, vault.decimals), vault)
 }
@@ -48,20 +62,34 @@ load()
     </p>
     <div class="column align-start gap-24">
       <VaultOverviewLabelValue
-        label="Liquidation"
+        label="Liquidation bonus"
         :value="`0-${vault.maxLiquidationDiscount / 100n}%`"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
         label="Supply cap"
-        :value="vault.supplyCap >= MaxUint256 ? '∞' : `$${compactNumber(calcPrice(vault.supplyCap))}`"
         orientation="horizontal"
-      />
+      >
+        <div class="gap-4 align-center">
+          <span>{{ vault.supplyCap >= MaxUint256 ? '∞' : `$${compactNumber(calcPrice(vault.supplyCap))}` }} ({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
+          <UiRadialProgress
+            :value="supplyCapPercentageDisplay"
+            :max="100"
+          />
+        </div>
+      </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Borrow cap"
-        :value="vault.borrowCap >= MaxUint256 ? '∞' :`$${compactNumber(calcPrice(vault.borrowCap))}`"
         orientation="horizontal"
-      />
+      >
+        <div class="gap-4 align-center">
+          <span>{{ vault.borrowCap >= MaxUint256 ? '∞' :`$${compactNumber(calcPrice(vault.borrowCap))}` }} ({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
+          <UiRadialProgress
+            :value="borrowCapPercentageDisplay"
+            :max="100"
+          />
+        </div>
+      </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Share token exchange rate"
         orientation="horizontal"

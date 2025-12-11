@@ -12,6 +12,7 @@ const { borrowList, isLoading } = useVaults()
 
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
+const sortBy = ref<string>('Liquidity')
 
 const collateralAssetOptions = computed(() => {
   return borrowList.value
@@ -50,9 +51,18 @@ const filteredBorrowList = computed(() => {
 })
 
 const sortedBorrowList = computed(() => {
-  return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-    return getVaultPrice(b.borrow.supply - b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.supply - a.borrow.borrow, a.borrow)
-  })
+  switch (sortBy.value) {
+    case 'Liquidity':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return getVaultPrice(b.borrow.supply - b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.supply - a.borrow.borrow, a.borrow)
+      })
+    case 'Borrow APY':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return Number(b.borrow.interestRateInfo.borrowAPY) - Number(a.borrow.interestRateInfo.borrowAPY)
+      })
+    default:
+      return filteredBorrowList.value
+  }
 })
 </script>
 
@@ -70,7 +80,16 @@ const sortedBorrowList = computed(() => {
       <h3 class="h3 mb-16">
         Discover vaults
       </h3>
-      <div class="flex gap-8">
+      <div
+        :class="$style.filterSelectWrap"
+      >
+        <VaultSortButton
+          v-model="sortBy"
+          :class="$style.sortBtn"
+          :options="['Liquidity', 'Borrow APY']"
+          placeholder="Sort By"
+          title="Sorting type"
+        />
         <UiSelect
           v-model="selectedCollateral"
           :class="$style.filterSelect"
@@ -136,10 +155,21 @@ const sortedBorrowList = computed(() => {
   flex: 1;
 }
 
+.filterSelectWrap {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+
+.sortBtn {
+  flex-shrink: 0;
+}
+
 .filterSelect {
   flex: 1;
-  max-width: 50%;
-  align-self: stretch;
+  min-width: 0;
 }
 
 .searchIcon {

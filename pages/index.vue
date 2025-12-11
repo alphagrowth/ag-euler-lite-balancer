@@ -12,6 +12,7 @@ const { list, isLoading } = useVaults()
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])
+const sortBy = ref<string>('Total Supply')
 
 const assetOptions = computed(() => {
   return list.value
@@ -33,9 +34,18 @@ const filteredList = computed(() => {
 })
 
 const sortedList = computed(() => {
-  return [...filteredList.value].sort((a: Vault, b: Vault) => {
-    return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
-  })
+  switch (sortBy.value) {
+    case 'Total Supply':
+      return [...filteredList.value].sort((a: Vault, b: Vault) => {
+        return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
+      })
+    case 'Supply APY':
+      return [...filteredList.value].sort((a: Vault, b: Vault) => {
+        return Number(b.interestRateInfo.supplyAPY) - Number(a.interestRateInfo.supplyAPY)
+      })
+    default:
+      return filteredList.value
+  }
 })
 
 const load = () => {
@@ -69,16 +79,26 @@ load()
       <h3 class="h3 mb-16 pl-16">
         Discover vaults
       </h3>
-      <UiSelect
-        v-model="selectedCollateral"
-        class="px-16"
-        :class="$style.filterSelect"
-        :options="assetOptions"
-        placeholder="Choose asset"
-        title="Choose asset"
-        icon="filter"
-        options-chips
-      />
+      <div
+        class="align-center"
+        :class="$style.filterSelectScroll"
+      >
+        <VaultSortButton
+          v-model="sortBy"
+          :options="['Total Supply', 'Supply APY']"
+          placeholder="Sort By"
+          title="Sorting type"
+        />
+        <UiSelect
+          v-model="selectedCollateral"
+          :class="$style.filterSelect"
+          :options="assetOptions"
+          placeholder="Choose asset"
+          title="Choose asset"
+          icon="filter"
+          options-chips
+        />
+      </div>
     </div>
     <div
       :class="$style.contentArea"
@@ -131,6 +151,13 @@ load()
 
 .filterSelectWrap {
   margin: 0 -16px;
+}
+
+.filterSelectScroll {
+  overflow: auto;
+  scrollbar-width: none;
+  gap: 8px;
+  padding: 0 16px;
 }
 
 .searchIcon {

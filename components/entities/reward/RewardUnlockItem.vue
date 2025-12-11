@@ -28,7 +28,7 @@ const formattedDate = computed(() => {
 })
 
 const daysUntilMaturity = computed(() => {
-  return Math.floor(DateTime.fromSeconds(Number(item.timestamp)).plus({ days: 180 }).diffNow('days').days)
+  return Math.max(0, Math.floor(DateTime.fromSeconds(Number(item.timestamp)).plus({ days: 180 }).diffNow('days').days))
 })
 
 const onUnlockClick = () => {

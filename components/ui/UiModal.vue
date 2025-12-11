@@ -102,7 +102,6 @@ onBeforeUnmount(() => {
     width: 100%;
     height: 100%;
     position: relative;
-    max-width: var(--ui-modal-max-width);
     margin: 0 auto;
   }
 }
