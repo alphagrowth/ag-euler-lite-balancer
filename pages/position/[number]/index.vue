@@ -12,7 +12,7 @@ const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
 const { isConnected } = useAccount()
-const { isPositionsLoaded, isPositionsLoading, borrowPositions, updateBorrowPositions: _updateBorrowPositions, getOperatorForSubAccount: _getOperatorForSubAccount } = useEulerAccount()
+const { isPositionsLoaded, isPositionsLoading, borrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { disableCollateral: disableCollateralOperation } = useEulerOperations()
 
@@ -296,7 +296,10 @@ watch(isConnected, () => {
                 ${{ borrowLiquidationPrice ? formatNumber(borrowLiquidationPrice) : '-' }}
               </div>
             </div>
-            <div class="between gap-8">
+            <div
+              class="between gap-8"
+              @click.stop
+            >
               <UiButton
                 size="medium"
                 variant="primary"
@@ -392,6 +395,7 @@ watch(isConnected, () => {
             <div
               v-if="!hasNoBorrow"
               class="flex gap-8"
+              @click.stop
             >
               <UiButton
                 size="medium"
