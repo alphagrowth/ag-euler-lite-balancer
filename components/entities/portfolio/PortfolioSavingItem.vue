@@ -110,7 +110,10 @@ const onClick = () => {
             </div>
           </div>
         </div>
-        <div class="between align-center gap-8">
+        <div
+          class="between align-center gap-8"
+          @click.stop
+        >
           <UiButton
             :to="`/lend/${vault.address}/`"
             rounded
