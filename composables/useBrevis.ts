@@ -186,14 +186,14 @@ export const useBrevis = () => {
     }
   }, { immediate: true })
 
-  watch(isConnected, (val) => {
+  watch(isConnected, () => {
     if (!isLoaded.value) {
       loadCampaigns()
       loadRewards()
       isLoaded.value = true
     }
 
-    if (val && !interval) {
+    if (!interval) {
       interval = setInterval(() => {
         loadRewards(false)
         loadCampaigns(false)

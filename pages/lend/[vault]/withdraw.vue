@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
+import { createPublicClient, http, type Address } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -10,6 +11,7 @@ import {
   type Vault,
   type VaultAsset,
 } from '~/entities/vault'
+import { eulerUtilsLensABI } from '~/entities/euler/abis'
 
 const router = useRouter()
 const route = useRoute()
@@ -17,9 +19,10 @@ const modal = useModal()
 const { error } = useToast()
 const { withdraw, redeem } = useEulerOperations()
 const { getVault } = useVaults()
-const { isConnected } = useAccount()
+const { isConnected, chain, address } = useAccount()
 const { getBalance } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
+const { eulerLensAddresses } = useEulerAddresses()
 const vaultAddress = route.params.vault as string
 
 const isLoading = ref(false)
@@ -33,6 +36,7 @@ const sharesBalance = ref(0n)
 const delta = ref(0n)
 const estimateSupplyAPY = ref(0n)
 const estimatesError = ref('')
+const balanceFromContract = ref(0n)
 
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value?.address || ''))
 const amountFixed = computed(() => {
@@ -42,7 +46,9 @@ const amountFixed = computed(() => {
     { decimals: Number(asset.value?.decimals || 0) },
   )
 })
-const balance = computed(() => getBalance(vault.value?.address as `0x${string}`) || 0n)
+const balance = computed(() => {
+  return getBalance(vault.value?.address as `0x${string}`) || 0n
+})
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   return assetsBalance.value < amountFixed.value.value
@@ -64,6 +70,10 @@ const load = async () => {
     vault.value = await getVault(vaultAddress)
     estimateSupplyAPY.value = vault.value.interestRateInfo.supplyAPY
     asset.value = vault.value?.asset
+
+    if (!vault.value.verified) {
+      await getBalanceFromContract()
+    }
     updateBalance()
   }
   catch (e) {
@@ -74,6 +84,26 @@ const load = async () => {
     isLoading.value = false
   }
 }
+const getBalanceFromContract = async () => {
+  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const client = createPublicClient({
+    chain: chain.value,
+    transport: http(EVM_PROVIDER_URL),
+  })
+
+  const utilsLensAddress = eulerLensAddresses.value?.utilsLens as Address
+
+  const tokenBalancesResult = await client.readContract({
+    address: utilsLensAddress,
+    abi: eulerUtilsLensABI,
+    functionName: 'tokenBalances',
+    args: [address.value as Address, [vault.value?.address]],
+  }) as bigint[]
+
+  tokenBalancesResult.forEach((balance: bigint) => {
+    balanceFromContract.value = balance
+  })
+}
 const updateBalance = async () => {
   if (!isConnected.value) {
     assetsBalance.value = 0n
@@ -81,8 +111,7 @@ const updateBalance = async () => {
     return
   }
 
-  sharesBalance.value = balance.value
-
+  sharesBalance.value = vault.value?.verified ? balance.value : balanceFromContract.value
   assetsBalance.value = await convertSharesToAssets(
     vaultAddress,
     sharesBalance.value,

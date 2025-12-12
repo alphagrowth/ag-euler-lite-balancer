@@ -14,7 +14,7 @@ const {
   totalBorrowedValue,
   isPositionsLoaded,
 } = useEulerAccount()
-const { updateBorrowPositions, updateDepositPositions } = useEulerAccount()
+const { updateBorrowPositions, updateDepositPositions, isShowAllPositions } = useEulerAccount()
 const { rewards } = useMerkl()
 const { locks } = useREULLocks()
 const { isConnected, address } = useAccount()
@@ -50,8 +50,8 @@ const checkTab = () => {
 }
 
 const updatePositions = async () => {
-  updateDepositPositions(balances.value)
-  updateBorrowPositions(eulerLensAddresses.value, address.value as string, false)
+  updateDepositPositions(balances.value, eulerLensAddresses.value, address.value as string)
+  updateBorrowPositions(eulerLensAddresses.value, address.value as string)
 }
 
 watch(tabsModel, checkTab, { immediate: true })
@@ -72,9 +72,17 @@ onDeactivated(() => {
     :class="$style.PortfolioPage"
     class="column gap-16"
   >
-    <h2 class="h2 px-16">
-      Your Portfolio
-    </h2>
+    <div class="align-center between px-16">
+      <h2 class="h2">
+        Your Portfolio
+      </h2>
+      <div class="align-center gap-8">
+        <span class="h6">All positions/savings</span>
+        <UiSwitch
+          v-model="isShowAllPositions"
+        />
+      </div>
+    </div>
 
     <div
       class="column gap-16 p-16 br-16 mx-16"

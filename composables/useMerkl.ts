@@ -9,7 +9,6 @@ const {
 } = useEulerConfig()
 const { chainId } = useEulerAddresses()
 
-
 const endpoints = {
   tokens: `${MERKL_API_BASE_URL}/tokens/reward`,
   opportunities: `${MERKL_API_BASE_URL}/opportunities/campaigns`,
@@ -201,7 +200,7 @@ export const useMerkl = () => {
     }
   }, { immediate: true })
 
-  watch(isConnected, (val) => {
+  watch(isConnected, () => {
     if (!isLoaded.value) {
       loadOpportunities()
       loadTokens()
@@ -209,7 +208,7 @@ export const useMerkl = () => {
       isLoaded.value = true
     }
 
-    if (val && !interval) {
+    if (!interval) {
       interval = setInterval(() => {
         loadRewards(false)
         loadOpportunities(false)

@@ -160,7 +160,7 @@ const send = async () => {
 
     modal.close()
     updateBalance()
-    updateBorrowPositions(eulerLensAddresses.value, address.value || '', false)
+    updateBorrowPositions(eulerLensAddresses.value, address.value || '')
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)

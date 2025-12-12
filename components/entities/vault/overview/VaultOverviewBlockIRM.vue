@@ -33,7 +33,7 @@ const irmTypeLabel = computed(() => {
     return 'Kink'
   }
   else if (modelType === INTEREST_RATE_MODEL_TYPE.ADAPTIVE_CURVE) {
-    return 'Adaptive Curve'
+    return 'Adaptive'
   }
   return 'Interest Rate Model'
 })
@@ -86,7 +86,7 @@ const fetchIRMData = async () => {
     const modelType = Number(irmData.interestRateModelInfo?.interestRateModelType)
 
     // Fetch kink-specific data if applicable
-    if (modelType === INTEREST_RATE_MODEL_TYPE.KINK || modelType === INTEREST_RATE_MODEL_TYPE.ADAPTIVE_CURVE) {
+    if (modelType === INTEREST_RATE_MODEL_TYPE.KINK) {
       try {
         kinkData = await vaultLensContract.getVaultKinkInterestRateModelInfo(vault.address)
       }

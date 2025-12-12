@@ -8,6 +8,7 @@ import {
   getBorrowVaultPairByMapAndAddresses,
   getBorrowVaultsByMap,
   type Vault,
+  type VaultCollateralLTV,
 } from '~/entities/vault'
 
 const isReady = ref(false)
@@ -106,10 +107,43 @@ const updateVault = async (vaultAddress: string): Promise<Vault> => {
   return vault
 }
 const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: string): Promise<BorrowVaultPair> => {
-  if (!getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)) {
-    await until(isReady).toBe(true)
+  await until(isReady).toBe(true)
+
+  if (map.value.has(borrowAddress)) {
+    return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)
   }
-  return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)
+  else {
+    let obj: BorrowVaultPair | undefined = undefined
+    const borrowVault = await fetchVault(borrowAddress)
+    if (!borrowVault) {
+      throw '[getBorrowVaultPairByMapAndAddresses]: Borrow vault not found'
+    }
+    let collateralLTV: VaultCollateralLTV
+    let collateralLTVAddr: string
+
+    borrowVault.collateralLTVs.forEach((c) => {
+      if (c.collateral !== collateralAddress) {
+        return
+      }
+      collateralLTV = c
+      collateralLTVAddr = c.collateral
+    })
+
+    const cVault = await fetchVault(collateralLTVAddr!)
+    obj = {
+      borrow: borrowVault,
+      collateral: cVault,
+      borrowLTV: collateralLTV!.borrowLTV,
+      liquidationLTV: collateralLTV!.liquidationLTV,
+      initialLiquidationLTV: collateralLTV!.initialLiquidationLTV,
+    } as BorrowVaultPair
+
+    if (!obj) {
+      throw '[getBorrowVaultPairByMapAndAddresses]: Vault pair not found'
+    }
+
+    return obj
+  }
 }
 
 export const useVaults = () => {

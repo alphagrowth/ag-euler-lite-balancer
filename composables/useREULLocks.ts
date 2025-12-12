@@ -67,6 +67,10 @@ const loadReulTokenContractAddresses = async (chainId: number) => {
 const loadREULLocksInfo = async (isInitialLoading = true) => {
   await until(computed(() => reulTokenContractAddress.value && eulTokenContractAddress.value)).toBeTruthy()
   try {
+    if (!address.value) {
+      locks.value = []
+      return
+    }
     if (isInitialLoading) {
       isLocksLoading.value = true
     }
@@ -124,14 +128,14 @@ export const useREULLocks = () => {
     }
   }, { immediate: true })
 
-  watch(isConnected, (val) => {
+  watch(isConnected, () => {
     if (!isLoaded.value) {
       loadREULLocksInfo()
       loadReulTokenContractAddresses(chainId.value || 1)
       isLoaded.value = true
     }
 
-    if (val && !interval) {
+    if (!interval) {
       interval = setInterval(() => {
         loadREULLocksInfo(false)
       }, 10000)
