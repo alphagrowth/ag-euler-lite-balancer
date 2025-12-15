@@ -10,6 +10,17 @@ const { changeCurrentChainId, chainId: currentChainId } = useEulerAddresses()
 
 let cachedWagmiData: ReturnType<typeof initializeWagmi> | null = null
 
+const parseChainId = (value: unknown): number | null => {
+  const normalized = Array.isArray(value) ? value[0] : value
+  const parsed = typeof normalized === 'string'
+    ? Number.parseInt(normalized, 10)
+    : typeof normalized === 'number'
+      ? normalized
+      : NaN
+
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 function initializeWagmi() {
   const { address: wagmiAddress, isConnected: wagmiIsConnected, connector, chain: wagmiChain, status } = useAccount()
   const { disconnect: wagmiDisconnect } = useDisconnect()
@@ -47,6 +58,8 @@ export const useWagmi = () => {
     cachedWagmiData = initializeWagmi()
   }
 
+  const route = useRoute()
+  const router = useRouter()
   const {
     wagmiAddress,
     wagmiIsConnected,
@@ -65,6 +78,7 @@ export const useWagmi = () => {
   const isConnected = computed(() => Boolean(wagmiIsConnected.value))
   const chain = computed(() => wagmiChain.value)
   const chainId = computed(() => wagmiChain.value?.id)
+  const routeNetworkId = computed(() => parseChainId(route.query.network))
 
   const checksummedAddress = computed(() => {
     try {
@@ -99,14 +113,28 @@ export const useWagmi = () => {
     modal()
   }
 
+  const syncRouteNetwork = (targetChainId: number) => {
+    if (routeNetworkId.value === targetChainId) {
+      return
+    }
+
+    router.replace({
+      query: {
+        ...route.query,
+        network: targetChainId,
+      },
+    })
+  }
+
   const changeChain = async (targetChainId: number) => {
     try {
       isChangingChain = true
       localStorage.setItem('chainId', String(targetChainId))
       changeCurrentChainId(targetChainId)
-      if (isConnected.value) {
-        await switchChain({ chainId: targetChainId })
-      }
+      syncRouteNetwork(targetChainId)
+      // if (isConnected.value) {
+      //   await switchChain({ chainId: targetChainId })
+      // }
     }
     catch (error) {
       console.error('Failed to switch chain:', error)
@@ -136,28 +164,31 @@ export const useWagmi = () => {
     }
   }, { immediate: true })
 
-  watch(currentChainId, (val) => {
-    if (isChangingChain) {
+  watch(routeNetworkId, (networkId) => {
+    if (!networkId || isChangingChain || networkId === currentChainId.value) {
       return
     }
 
-    if (!val) {
-      const savedChainId = localStorage.getItem('chainId')
-      if (savedChainId) {
-        const chainIdNum = Number.parseInt(savedChainId, 10)
-        if (chainIdNum && chainIdNum !== val) {
-          isChangingChain = true
-          changeChain(chainIdNum).finally(() => {
-            isChangingChain = false
-          })
-        }
-      } else {
-        changeChain(1).finally(() => {
-          isChangingChain = false
-        })
-      }
-    }
+    changeChain(networkId)
   }, { immediate: true })
+
+  watch(currentChainId, (val) => {
+    if (!val) {
+      return
+    }
+
+    syncRouteNetwork(val)
+  }, { immediate: true })
+
+  watch(wagmiChain, (val) => {
+    if (!val?.id || isChangingChain) {
+      return
+    }
+
+    changeCurrentChainId(val.id)
+    localStorage.setItem('chainId', String(val.id))
+    syncRouteNetwork(val.id)
+  })
 
   return {
     isLoaded,

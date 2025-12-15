@@ -172,7 +172,7 @@ onClickOutside(reference, () => {
           icon-right
           @click="onChainButtonClick"
         >
-          <BaseAvatar :src="`/chains/${chainId || _chainId}.webp`" />
+          <BaseAvatar :src="`/chains/${_chainId}.webp`" />
         </UiButton>
         <UiButton
           :icon="isConnected ? 'arrow-down' : 'plus'"
