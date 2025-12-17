@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { BorrowVaultPair, EarnVault, Vault } from '~/entities/vault'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountBorrowPosition } from '~/entities/account'
 
 const emits = defineEmits(['close'])

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getEarnVaultPrice } from '~/entities/vault'
 import type { EarnVault } from '~/entities/vault'
 

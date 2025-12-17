@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
 import { getVaultPrice, type Vault, type VaultAsset, type CollateralOption, type EarnVault, getEarnVaultPrice } from '~/entities/vault'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 

@@ -3,7 +3,7 @@ import { OperationReviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { Campaign } from '~/entities/brevis'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { campaign } = defineProps<{ campaign: Campaign }>()
 

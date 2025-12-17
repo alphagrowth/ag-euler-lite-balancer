@@ -2,7 +2,7 @@
 import { getEarnVaultPrice, type EarnVault } from '~/entities/vault'
 import { useEulerEntitiesOfEarnVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 
 const { isConnected } = useWagmi()

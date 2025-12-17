@@ -2,7 +2,7 @@
 import { ethers } from 'ethers'
 import type { EarnVault, Vault, VaultAsset } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { vault, assets, size } = defineProps<{
   vault: Vault | EarnVault

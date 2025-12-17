@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getVaultPrice } from '~/entities/vault'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountDepositPosition } from '~/entities/account'
 import { VaultOverviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'

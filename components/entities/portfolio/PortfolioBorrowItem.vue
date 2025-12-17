@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AccountBorrowPosition } from '~/entities/account'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
 

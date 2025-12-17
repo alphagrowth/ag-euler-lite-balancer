@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AccountBorrowPosition } from '~/entities/account'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
 
@@ -101,7 +101,7 @@ const netAPY = computed(() => {
             :class="[$style.apy, nanoToValue(position.collateral.interestRateInfo.supplyAPY, 25) + (opportunityInfoForCollateral?.apr || 0) <= 0 ? 'text-red-700' : 'text-aquamarine-700']"
             class="p2"
           >
-          {{ formatNumber(nanoToValue(position.collateral.interestRateInfo.supplyAPY, 25) + (opportunityInfoForCollateral?.apr || 0)) }}%
+            {{ formatNumber(nanoToValue(position.collateral.interestRateInfo.supplyAPY, 25) + (opportunityInfoForCollateral?.apr || 0)) }}%
           </div>
         </div>
       </div>
