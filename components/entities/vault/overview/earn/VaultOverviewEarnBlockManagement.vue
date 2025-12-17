@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { EarnVault } from '~/entities/vault'
+import { formatTtl } from '~/utils/crypto-utils'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
 
@@ -21,6 +22,12 @@ const vaultAddressesInfo = computed(() => ([
 const shortenAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
+
+const timelockDisplay = computed(() => {
+  const timelockInSeconds = vault.timelock
+  const timelockInDays = timelockInSeconds / 86400n
+  return formatTtl(timelockInDays)?.display || 'Unknown'
+})
 
 const onCopyClick = (address: string) => {
   navigator.clipboard.writeText(address)
@@ -59,6 +66,11 @@ const onCopyClick = (address: string) => {
           </button>
         </div>
       </VaultOverviewLabelValue>
+      <VaultOverviewLabelValue
+        label="Time lock"
+        :value="timelockDisplay"
+        orientation="horizontal"
+      />
     </div>
   </div>
 </template>
