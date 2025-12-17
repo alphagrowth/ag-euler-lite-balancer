@@ -4,8 +4,6 @@ import type { Address } from 'viem'
 
 import type { REULLock } from '~/entities/reul'
 
-const { EVM_PROVIDER_URL } = useEulerConfig()
-
 const address = ref('')
 
 const isLoaded = ref(false)
@@ -75,6 +73,7 @@ const loadREULLocksInfo = async (isInitialLoading = true) => {
       isLocksLoading.value = true
     }
 
+    const { EVM_PROVIDER_URL } = useEulerConfig()
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const contract = new ethers.Contract(reulTokenContractAddress.value, [
       'function getLockedAmounts(address account) view returns (uint256[], uint256[])',

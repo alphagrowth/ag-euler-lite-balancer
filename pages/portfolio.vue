@@ -10,11 +10,15 @@ const router = useRouter()
 const {
   borrowPositions,
   depositPositions,
+  earnPositions,
   totalSuppliedValue,
   totalBorrowedValue,
   isPositionsLoaded,
+  isShowAllPositions,
+  updateBorrowPositions,
+  updateDepositPositions,
+  updateEarnPositions,
 } = useEulerAccount()
-const { updateBorrowPositions, updateDepositPositions, isShowAllPositions } = useEulerAccount()
 const { rewards } = useMerkl()
 const { locks } = useREULLocks()
 const { isConnected, address } = useAccount()
@@ -34,7 +38,7 @@ const tabs = computed(() => [
   {
     label: 'Savings',
     value: 'portfolio-saving',
-    badge: depositPositions.value.length || null,
+    badge: depositPositions.value.length || earnPositions.value.length ? depositPositions.value.length + earnPositions.value.length : null,
   },
   {
     label: 'Rewards',
@@ -51,6 +55,7 @@ const checkTab = () => {
 
 const updatePositions = async () => {
   updateDepositPositions(balances.value, eulerLensAddresses.value, address.value as string)
+  updateEarnPositions(balances.value, eulerLensAddresses.value, address.value as string)
   updateBorrowPositions(eulerLensAddresses.value, address.value as string)
 }
 

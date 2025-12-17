@@ -4,6 +4,7 @@ import {
   type EarnVault,
   fetchEarnVaults,
   fetchVault,
+  fetchEarnVault,
   fetchVaults,
   getBorrowVaultPairByMapAndAddresses,
   getBorrowVaultsByMap,
@@ -100,10 +101,24 @@ const getVault = async (address: string): Promise<Vault> => {
 
   return map.value.get(ethers.getAddress(address))!
 }
+const getEarnVault = async (address: string): Promise<EarnVault> => {
+  // TODO: support earnVaults.json when ready
+  // const { earnVaults } = useEulerLabels()
+
+  await until(computed(() => earnMap.value.get(ethers.getAddress(address)))).toBeTruthy()
+
+  return earnMap.value.get(ethers.getAddress(address)) || fetchEarnVault(address)
+}
 const updateVault = async (vaultAddress: string): Promise<Vault> => {
   const address = ethers.getAddress(vaultAddress)
   const vault = await fetchVault(address)
   map.value.set(address, vault)
+  return vault
+}
+const updateEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
+  const address = ethers.getAddress(vaultAddress)
+  const vault = await fetchEarnVault(address)
+  earnMap.value.set(address, vault)
   return vault
 }
 const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: string): Promise<BorrowVaultPair> => {
@@ -155,8 +170,10 @@ export const useVaults = () => {
     isLoading,
     isUpdating,
     getVault,
+    getEarnVault,
     loadVaults,
     updateVault,
+    updateEarnVault,
     updateVaults,
     getBorrowVaultPair,
     earnMap,

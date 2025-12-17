@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import type { BorrowVaultPair, Vault } from '~/entities/vault'
-import VaultOverview from '~/components/entities/vault/overview/VaultOverview.vue'
+import type { BorrowVaultPair, EarnVault, Vault } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/entities/assets'
 import type { AccountBorrowPosition } from '~/entities/account'
 
 const emits = defineEmits(['close'])
 
-const { pair, vault } = defineProps<{ pair?: BorrowVaultPair | AccountBorrowPosition, vault?: Vault }>()
+const { pair, vault, earnVault } = defineProps<{ pair?: BorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault }>()
 
 const tab = ref()
 const tabs = computed(() => {
@@ -88,6 +87,13 @@ const onVaultClick = () => {
       <template v-else-if="vault">
         <VaultOverview
           :vault="vault"
+          @vault-click="onVaultClick"
+        />
+      </template>
+
+      <template v-else-if="earnVault">
+        <VaultOverviewEarn
+          :vault="earnVault"
           @vault-click="onVaultClick"
         />
       </template>

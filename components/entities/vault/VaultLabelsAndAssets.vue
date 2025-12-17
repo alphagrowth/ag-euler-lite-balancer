@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import type { Vault, VaultAsset } from '~/entities/vault'
+import type { EarnVault, Vault, VaultAsset } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/entities/assets'
 
 const { vault, assets, size } = defineProps<{
-  vault: Vault
+  vault: Vault | EarnVault
   assets: VaultAsset[]
   size?: 'large'
 }>()

@@ -31,6 +31,7 @@ watch(route, () => {
     isMenuVisible.value = ![
       'lend-vault',
       'lend-withdraw',
+      'earn-vault',
       'borrow-collateral-borrow',
       'position-number-repay',
       'position-number-supply',

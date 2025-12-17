@@ -10,7 +10,7 @@ const isVaultsUpdated = ref(false)
 let interval: NodeJS.Timeout
 
 export const useWallets = () => {
-  const { map, isReady } = useVaults()
+  const { map, earnMap, isReady } = useVaults()
   const { address, isConnected, chain } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
 
@@ -22,6 +22,11 @@ export const useWallets = () => {
 
       const tokenAddresses: Address[] = []
       map.value.forEach((vault) => {
+        tokenAddresses.push(vault.address as Address)
+        tokenAddresses.push(vault.asset.address as Address)
+      })
+
+      earnMap.value.forEach((vault) => {
         tokenAddresses.push(vault.address as Address)
         tokenAddresses.push(vault.asset.address as Address)
       })
@@ -54,7 +59,7 @@ export const useWallets = () => {
     }
   }
 
-  watch(map, () => {
+  watch([map, earnMap], () => {
     isVaultsUpdated.value = true
   })
 

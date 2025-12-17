@@ -22,6 +22,12 @@ const links: Link[] = [
     activeIcon: 'borrow-filled',
   },
   {
+    name: 'earn',
+    label: 'Earn',
+    icon: 'lend-outline',
+    activeIcon: 'lend-filled',
+  },
+  {
     name: 'portfolio',
     label: 'Portfolio',
     icon: 'portfolio-outline',
