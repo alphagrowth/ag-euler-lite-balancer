@@ -16,3 +16,18 @@ export const socials = {
   github: 'https://github.com/',
 }
 
+export const availableNetworkIds = [
+  1,
+  42161,
+  8453,
+  1923,
+  146,
+  60808,
+  80094,
+  43114,
+  56,
+  130,
+  239,
+  59144,
+  9745,
+] as const

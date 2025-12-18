@@ -2,11 +2,13 @@ import { useAccount, useDisconnect, useBalance, useSwitchChain, useEnsName } fro
 import { useAppKit } from '@reown/appkit/vue'
 import { formatUnits, getAddress, isAddress, type Address } from 'viem'
 import { truncate } from '~/utils/string-utils'
+import { availableNetworkIds } from '~/entities/custom'
 
 let isChangingChain = false
 const isLoaded = ref(false)
 const walletName = ref('Wallet')
 const { changeCurrentChainId, chainId: currentChainId } = useEulerAddresses()
+const allowedChainIds = availableNetworkIds.length ? [...availableNetworkIds] : [1]
 
 let cachedWagmiData: ReturnType<typeof initializeWagmi> | null = null
 
@@ -78,7 +80,10 @@ export const useWagmi = () => {
   const isConnected = computed(() => Boolean(wagmiIsConnected.value))
   const chain = computed(() => wagmiChain.value)
   const chainId = computed(() => wagmiChain.value?.id)
-  const routeNetworkId = computed(() => parseChainId(route.query.network))
+  const routeNetworkId = computed(() => {
+    const parsed = parseChainId(route.query.network)
+    return parsed && allowedChainIds.includes(parsed) ? parsed : null
+  })
 
   const checksummedAddress = computed(() => {
     try {
@@ -127,6 +132,11 @@ export const useWagmi = () => {
   }
 
   const changeChain = async (targetChainId: number) => {
+    if (!allowedChainIds.includes(targetChainId)) {
+      console.warn(`[useWagmi] chainId ${targetChainId} is not allowed`)
+      return
+    }
+
     try {
       isChangingChain = true
       localStorage.setItem('chainId', String(targetChainId))
@@ -182,6 +192,11 @@ export const useWagmi = () => {
 
   watch(wagmiChain, (val) => {
     if (!val?.id || isChangingChain) {
+      return
+    }
+
+    if (!allowedChainIds.includes(val.id)) {
+      console.warn(`[useWagmi] chainId ${val.id} is not allowed`)
       return
     }
 

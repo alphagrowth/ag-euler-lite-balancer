@@ -51,13 +51,18 @@ interface EulerChainConfig {
   }
 }
 
+const allowedChainIds = availableNetworkIds.length ? [...availableNetworkIds] : [1]
 const eulerChainsConfig = ref<EulerChainConfig[]>([])
 const isLoading = ref(false)
-const chainId = ref<number>(0);
+const chainId = ref<number>(allowedChainIds[0] || 0)
 const error = ref<string | null>(null)
 
 export const useEulerAddresses = () => {
   const changeCurrentChainId = (_chainId: number) => {
+    if (!allowedChainIds.includes(_chainId)) {
+      console.warn(`[useEulerAddresses] chainId ${_chainId} is not allowed`)
+      return
+    }
     chainId.value = _chainId
   }
 
@@ -73,8 +78,14 @@ export const useEulerAddresses = () => {
         throw new Error(`Failed to fetch Euler config: ${response.statusText}`)
       }
 
-      const data = await response.json()
-      eulerChainsConfig.value = data
+      const data: EulerChainConfig[] = await response.json()
+      const filteredData = data.filter(chain => allowedChainIds.includes(chain.chainId))
+
+      if (!filteredData.length) {
+        console.warn('[useEulerAddresses] availableNetworkIds did not match any remote chains, using full list')
+      }
+
+      eulerChainsConfig.value = filteredData.length ? filteredData : data
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
@@ -88,11 +99,13 @@ export const useEulerAddresses = () => {
   const getCurrentChainConfig = computed(() => {
     if (eulerChainsConfig.value.length === 0) return undefined
 
-    if (chainId.value) {
-      return eulerChainsConfig.value.find(chain => chain.chainId === chainId.value)
+    const targetChainId = chainId.value || allowedChainIds.find(id => eulerChainsConfig.value.some(chain => chain.chainId === id)) || null
+
+    if (targetChainId) {
+      return eulerChainsConfig.value.find(chain => chain.chainId === targetChainId)
     }
 
-    return eulerChainsConfig.value.find(chain => chain.chainId === 1)
+    return eulerChainsConfig.value[0]
   })
 
   const eulerLensAddresses = computed(() => {
@@ -175,3 +188,4 @@ export const useEulerAddresses = () => {
     isReady: computed(() => eulerChainsConfig.value.length > 0 && !error.value),
   }
 }
+import { availableNetworkIds } from '~/entities/custom'
