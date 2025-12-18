@@ -152,4 +152,20 @@
   --ui-toast-neutral-text-color: var(--c-euler-dark-1000);
   --ui-toast-neutral-splitter-color: var(--c-euler-dark-500);
   --ui-toast-neutral-action-background-color: var(--c-euler-dark-300);
+
+  --ui-input-background-color: var(--c-euler-dark-200);
+  --ui-input-border-color: transparent;
+  --ui-input-focus-border-color: var(--c-aquamarine-600);
+  --ui-input-error-border-color: var(--c-red-600);
+  --ui-input-disabled-border-color: var(--c-euler-dark-600);
+
+  --ui-input-color: var(--c-euler-dark-1000);
+  --ui-input-placeholder-color: var(--c-euler-dark-800);
+  --ui-input-label-color: var(--c-euler-dark-800);
+  --ui-input-label-floating-color: var(--c-euler-dark-900);
+  --ui-input-disabled-color: var(--c-euler-dark-700);
+  --ui-input-icon-color: var(--c-euler-dark-800);
+
+  --ui-input-help-color: var(--c-euler-dark-900);
+  --ui-input-error-color: var(--c-red-800);
 }

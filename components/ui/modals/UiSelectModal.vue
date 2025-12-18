@@ -8,6 +8,11 @@ const props = defineProps<{
 const emit = defineEmits(['close'])
 
 const localSelected = ref<string[]>([...props.selected])
+const searchModel = ref('')
+
+const filteredOptions = computed(() => {
+  return searchModel.value ? props.options.filter(option => option.label.toLowerCase().includes(searchModel.value.toLowerCase())) : props.options
+})
 
 const toggleOption = (value: string) => {
   const idx = localSelected.value.indexOf(value)
@@ -47,9 +52,15 @@ watch(() => props.selected, (val) => {
     @close="close"
   >
     <div class="ui-select-modal__content">
+      <UiInput
+        v-model="searchModel"
+        placeholder="Search asset"
+        class="mb-16"
+        icon="search"
+      />
       <div class="ui-select-modal__list">
         <div
-          v-for="opt in options"
+          v-for="opt in filteredOptions"
           :key="opt.value"
           class="ui-select-modal__row"
           @click="toggleOption(opt.value)"

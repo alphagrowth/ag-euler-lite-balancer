@@ -26,6 +26,23 @@ const assetOptions = computed(() => {
     )
 })
 
+const topOptions = computed(() => {
+  const sortedBySupply = [...list.value].sort((a: Vault, b: Vault) => {
+    return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
+  })
+
+  return sortedBySupply
+    .slice(0, 3)
+    .map(vault => ({
+      label: vault.asset.symbol,
+      value: vault.asset.address,
+      icon: getAssetLogoUrl(vault.asset.symbol),
+    }))
+    .reduce((prev, curr) =>
+      prev.find(vault => vault.value === curr.value) ? prev : [...prev, curr], [] as { label: string, value: string, icon: string }[],
+    )
+})
+
 const filteredList = computed(() => {
   if (!selectedCollateral.value.length) {
     return list.value
@@ -96,7 +113,7 @@ load()
           placeholder="Choose asset"
           title="Choose asset"
           icon="filter"
-          options-chips
+          :chip-options="topOptions"
         />
       </div>
     </div>
