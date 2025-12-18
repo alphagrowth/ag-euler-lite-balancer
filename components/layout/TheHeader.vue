@@ -5,6 +5,7 @@ import { useAppKit } from '@reown/appkit/vue'
 import { useAccount } from '@wagmi/vue'
 import { WalletDisconnectModal, SelectChainModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
+import { links, socials } from '~/entities/custom'
 
 // AppKit modal controls
 const { open } = useAppKit()
@@ -86,27 +87,18 @@ onClickOutside(reference, () => {
             <div class="column gap-4 w-100">
               <div class="mb-24">
                 <p class="mb-8 text-euler-dark-800 h6 left">
-                  Explore Euler
+                  Explore
                 </p>
+
                 <a
-                  href="https://docs.euler.finance/"
+                  v-for="(link, index) in links"
+                  :key="`link-${index}`"
+                  :href="link.url"
                   :class="$style.docsLink"
                   class="flex gap-4 mb-4"
                   target="_blank"
                 >
-                  <span class="h6">Docs</span>
-                  <SvgIcon
-                    class="icon--20 text-aquamarine-700"
-                    name="arrow-top-right"
-                  />
-                </a>
-                <a
-                  href="https://app.euler.finance/terms?network=tac"
-                  :class="$style.docsLink"
-                  class="flex gap-4"
-                  target="_blank"
-                >
-                  <span class="h6">Terms of Use</span>
+                  <span class="h6">{{ link.title }}</span>
                   <SvgIcon
                     class="icon--20 text-aquamarine-700"
                     name="arrow-top-right"
@@ -115,7 +107,19 @@ onClickOutside(reference, () => {
               </div>
               <div class="flex gap-12">
                 <a
-                  href="https://x.com/eulerfinance"
+                  v-for="item in Object.entries(socials)"
+                  :href="item[1]"
+                  class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
+                  :class="$style.socialLink"
+                  target="_blank"
+                >
+                  <SvgIcon
+                    class="icon--20"
+                    :name="item[0]"
+                  />
+                </a>
+                <!-- <a
+                  href="https://x.com/"
                   class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
                   :class="$style.socialLink"
                   target="_blank"
@@ -126,7 +130,7 @@ onClickOutside(reference, () => {
                   />
                 </a>
                 <a
-                  href="https://discord.euler.finance/"
+                  href="https://discord.com/"
                   class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
                   :class="$style.socialLink"
                   target="_blank"
@@ -137,7 +141,7 @@ onClickOutside(reference, () => {
                   />
                 </a>
                 <a
-                  href="https://t.me/eulerfinance_official"
+                  href="https://t.me/"
                   class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
                   :class="$style.socialLink"
                   target="_blank"
@@ -148,7 +152,7 @@ onClickOutside(reference, () => {
                   />
                 </a>
                 <a
-                  href="https://github.com/euler-xyz"
+                  href="https://github.com/"
                   class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
                   :class="$style.socialLink"
                   target="_blank"
@@ -157,7 +161,7 @@ onClickOutside(reference, () => {
                     class="icon--20"
                     name="github"
                   />
-                </a>
+                </a> -->
               </div>
             </div>
           </div>
