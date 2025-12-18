@@ -1,3 +1,5 @@
+import { labelsRepo } from '~/entities/custom'
+
 export const TVM_MANIFEST_URL = 'https://euler-app.fanz.ee/tonconnect-manifest.json'
 
 export default {
@@ -91,11 +93,11 @@ export default {
     // [137]: "0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae",
     TAC_FACTORY_ADDRESS: '0x070820Ed658860f77138d71f74EfbE173775895b',
     ETH_VAULT_CONNECTOR: '0x01F594c66A5561b90Bc782dD0297f294cD668b64',
-    getEulerLabelsVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/master/${chainId}/vaults.json`,
-    getEulerLabelsEntitiesUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/master/${chainId}/entities.json`,
-    getEulerLabelsProductsUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/master/${chainId}/products.json`,
-    getEulerLabelsEarnVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/master/${chainId}/eulerEarnVaults.json`,
-    EULER_LABELS_LOGO_URL: 'https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/master/logo',
+    getEulerLabelsVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/vaults.json`,
+    getEulerLabelsEntitiesUrl: (chainId: number) => `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/entities.json`,
+    getEulerLabelsProductsUrl: (chainId: number) => `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/products.json`,
+    getEulerLabelsEarnVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/eulerEarnVaults.json`,
+    EULER_LABELS_LOGO_URL: `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/logo`,
     MERKL_PROXY: '0x74e6b5e701bA5de3245653d72A075c7709EeFDC4',
     MERKL_TAC_SA_FACTORY: '0x070820Ed658860f77138d71f74EfbE173775895b',
     REUL_TOKEN_CONTRACT_ADDRESS: '0xCf623E50430CCb55214985F9C986a5Fa50aD7686',
