@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { type BorrowVaultPair, getVaultPrice } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { pair } = defineProps<{ pair: BorrowVaultPair }>()
 

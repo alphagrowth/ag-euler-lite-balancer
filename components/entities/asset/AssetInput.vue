@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import { getVaultPrice, type Vault, type VaultAsset, type CollateralOption } from '~/entities/vault'
-import { getAssetLogoUrl } from '~/entities/assets'
+import { getVaultPrice, type Vault, type VaultAsset, type CollateralOption, type EarnVault, getEarnVaultPrice } from '~/entities/vault'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
@@ -9,7 +9,7 @@ const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false
   label?: string
   desc?: string
   maxable?: boolean
-  vault?: Vault
+  vault?: Vault | EarnVault
   asset: VaultAsset
   balance?: bigint
   balanceLoading?: boolean
@@ -33,7 +33,13 @@ const price = computed(() => {
   if (!vault) {
     return 0
   }
-  return getVaultPrice(+model.value || 0, vault)
+
+  if ('type' in vault && vault.type === 'earn') {
+    return getEarnVaultPrice(+model.value || 0, vault)
+  }
+  else {
+    return getVaultPrice(+model.value || 0, vault as Vault)
+  }
 })
 const setMax = () => {
   model.value = ethers.formatUnits(balance, Number(asset.decimals))

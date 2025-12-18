@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { getAssetLogoUrl } from '~/entities/assets'
-import { type CollateralOption } from '~/entities/vault'
+import { getAssetLogoUrl } from '~/composables/useTokens'
+import type { CollateralOption } from '~/entities/vault'
 
 const emits = defineEmits(['close'])
 const { productName, symbol, collateralOptions, selected = 0, onSave } = defineProps<{

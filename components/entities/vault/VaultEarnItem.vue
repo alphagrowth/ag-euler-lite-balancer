@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { getVaultPrice, getVaultUtilization, type Vault } from '~/entities/vault'
-import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { getEarnVaultPrice, type EarnVault } from '~/entities/vault'
+import { useEulerEntitiesOfEarnVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 
 const { isConnected } = useWagmi()
-const { vault } = defineProps<{ vault: Vault }>()
-const { name } = useEulerProductOfVault(vault.address)
-const entities = useEulerEntitiesOfVault(vault.address)
+const { vault } = defineProps<{ vault: EarnVault }>()
+const entities = useEulerEntitiesOfEarnVault(vault)
 const { balances, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
@@ -21,13 +20,12 @@ const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
 const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
-const utilization = computed(() => getVaultUtilization(vault))
 </script>
 
 <template>
   <NuxtLink
-    :class="$style.VaultItem"
-    :to="`/lend/${vault.address}`"
+    :class="$style.VaultEarnItem"
+    :to="`/earn/${vault.address}`"
     class="text-white bg-euler-dark-500 br-16"
   >
     <div :class="$style.top">
@@ -38,7 +36,7 @@ const utilization = computed(() => getVaultUtilization(vault))
       />
       <div :class="$style.topCenter">
         <div class="text-euler-dark-900 p3 mb-4">
-          {{ name || vault.name }}
+          {{ vault.name }}
         </div>
         <div class="h5">
           {{ vault.asset.symbol }}
@@ -49,7 +47,7 @@ const utilization = computed(() => getVaultUtilization(vault))
           Supply APY
         </div>
         <div
-          :class="[$style.apy, nanoToValue(vault.interestRateInfo.supplyAPY, 25) <= 0 ? 'text-red-700' : 'text-aquamarine-700']"
+          :class="[$style.apy, (vault.supplyAPY || 0) <= 0 ? 'text-red-700' : 'text-aquamarine-700']"
           class="p2"
         >
           <SvgIcon
@@ -57,7 +55,7 @@ const utilization = computed(() => getVaultUtilization(vault))
             class="icon--20 text-aquamarine-700 mr-4"
             name="sparks"
           />
-          {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + totalRewardsAPY) }}%
+          {{ formatNumber((vault.supplyAPY || 0) + totalRewardsAPY) }}%
         </div>
       </div>
     </div>
@@ -67,12 +65,12 @@ const utilization = computed(() => getVaultUtilization(vault))
           Total supply
         </div>
         <div class="p2">
-          {{ `$${compactNumber(getVaultPrice(vault.totalAssets, vault))}` }}
+          {{ `$${compactNumber(getEarnVaultPrice(vault.totalAssets, vault))}` }}
         </div>
       </div>
       <div :class="$style.bottomCenter">
         <div class="text-euler-dark-900 p3 mb-4">
-          Governor
+          Capital allocator
         </div>
         <BaseAvatar
           class="icon--20"
@@ -93,7 +91,7 @@ const utilization = computed(() => getVaultUtilization(vault))
             style="width: 70px; height: 20px"
           >
             <div class="p2">
-              ${{ compactNumber(getVaultPrice(balance, vault)) }}
+              ${{ compactNumber(getEarnVaultPrice(balance, vault)) }}
             </div>
           </BaseLoadableContent>
         </template>
@@ -104,7 +102,7 @@ const utilization = computed(() => getVaultUtilization(vault))
 </template>
 
 <style lang="scss" module>
-.VaultItem {
+.VaultEarnItem {
   display: block;
   text-decoration: none;
 }

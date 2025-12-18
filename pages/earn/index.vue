@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getVaultPrice } from '~/entities/vault'
-import type { Vault } from '~/entities/vault'
+import { getEarnVaultPrice } from '~/entities/vault'
+import type { EarnVault } from '~/entities/vault'
 
 defineOptions({
-  name: 'IndexPage',
+  name: 'EarnPage',
 })
 
-const { list, isLoading } = useVaults()
+const { earnList: list, isLoading } = useVaults()
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])
@@ -36,12 +36,12 @@ const filteredList = computed(() => {
 const sortedList = computed(() => {
   switch (sortBy.value) {
     case 'Total Supply':
-      return [...filteredList.value].sort((a: Vault, b: Vault) => {
-        return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
+      return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+        return getEarnVaultPrice(b.totalAssets, b) - getEarnVaultPrice(a.totalAssets, a)
       })
     case 'Supply APY':
-      return [...filteredList.value].sort((a: Vault, b: Vault) => {
-        return Number(b.interestRateInfo.supplyAPY) - Number(a.interestRateInfo.supplyAPY)
+      return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+        return Number(b.supplyAPY) - Number(a.supplyAPY)
       })
     default:
       return filteredList.value
@@ -62,16 +62,15 @@ load()
 
 <template>
   <section
-    :class="$style.lendPage"
+    :class="$style.EarnPage"
     class="column"
   >
     <BasePageHeader
-      title="Lend"
-      description="Earn yield on assets by lending them out."
+      title="Earn"
+      description="Deposit once, earn passive yield across multiple professionally curated strategies."
       class="mb-24"
       arrow-down
     />
-
     <div
       class="mb-16"
       :class="$style.filterSelectWrap"
@@ -109,7 +108,7 @@ load()
         class="my-16 mx-auto"
       />
 
-      <VaultsList
+      <VaultsEarnList
         v-else-if="sortedList.length"
         type="lend"
         :items="sortedList"
@@ -134,11 +133,10 @@ load()
   </section>
 </template>
 
-<style lang="scss" module>
-.lendPage {
+<style module lang="scss">
+.EarnPage {
   min-height: calc(100dvh - 178px);
 }
-
 .loader {
   flex: 1;
   align-self: center;

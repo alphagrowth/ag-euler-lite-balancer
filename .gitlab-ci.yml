@@ -2,3 +2,4 @@ include:
   - project: 'Yobalabs/devops/cicd'
     ref: main
     file: '.cicd_frontend.yml'
+#trigger commit

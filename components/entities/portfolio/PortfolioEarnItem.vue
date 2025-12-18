@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { getVaultPrice } from '~/entities/vault'
+import { getEarnVaultPrice } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import type { AccountDepositPosition } from '~/entities/account'
+import type { AccountEarnPosition } from '~/entities/account'
 import { VaultOverviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
-const { position } = defineProps<{ position: AccountDepositPosition }>()
+const { position } = defineProps<{ position: AccountEarnPosition }>()
 const modal = useModal()
 
 const { getOpportunityOfLendVault } = useMerkl()
@@ -16,16 +16,16 @@ const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.add
 const { name } = useEulerProductOfVault(vault.value.address)
 
 const earnDisplay = computed(() => {
-  return compactNumber(getVaultPrice(position.assets, vault.value) * ((nanoToValue(vault.value.interestRateInfo.supplyAPY, 25))) * 90 / 365 / 100)
+  return compactNumber(getEarnVaultPrice(position.assets, vault.value) * (vault.value.supplyAPY || 0) * 90 / 365 / 100)
 })
 const earnDisplayWithReward = computed(() => {
-  return compactNumber(getVaultPrice(position.assets, vault.value) * ((nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))) * 90 / 365 / 100)
+  return compactNumber(getEarnVaultPrice(position.assets, vault.value) * (((vault.value.supplyAPY || 0) + (opportunityInfo.value?.apr || 0))) * 90 / 365 / 100)
 })
 
 const onClick = () => {
   modal.open(VaultOverviewModal, {
     props: {
-      vault: vault,
+      earnVault: vault,
     },
   })
 }
@@ -68,7 +68,7 @@ const onClick = () => {
               name="sparks"
               class="icon--20 text-aquamarine-700 mr-4"
             />
-            {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + (opportunityInfo?.apr || 0)) }}%
+            {{ formatNumber((vault.supplyAPY || 0) + (opportunityInfo?.apr || 0)) }}%
           </div>
         </div>
       </div>
@@ -84,7 +84,7 @@ const onClick = () => {
           </div>
           <div class="between gap-8 right">
             <div class="text-white p3">
-              ${{ compactNumber(getVaultPrice(position.assets, vault)) }}
+              ${{ compactNumber(getEarnVaultPrice(position.assets, vault)) }}
             </div>
             <div class="text-euler-dark-900 p3">
               ~ {{ compactNumber(nanoToValue(position.assets, vault.asset.decimals)) }} {{ vault.asset.symbol }}
@@ -115,14 +115,14 @@ const onClick = () => {
           @click.stop
         >
           <UiButton
-            :to="`/lend/${vault.address}/`"
+            :to="`/earn/${vault.address}/`"
             rounded
           >
             Supply
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/lend/${vault.address}/withdraw`"
+            :to="`/earn/${vault.address}/withdraw`"
             rounded
           >
             Withdraw

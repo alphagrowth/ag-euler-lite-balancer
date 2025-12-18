@@ -5,6 +5,7 @@ const { type } = defineProps<{ type: string }>()
 const icon = computed(() => {
   switch (type) {
     case 'governed':
+    case 'managed':
       return 'bank'
     case 'escrow':
       return 'shield'
@@ -16,6 +17,8 @@ const label = computed(() => {
   switch (type) {
     case 'governed':
       return 'Governed'
+    case 'managed':
+      return 'Managed'
     case 'escrow':
       return 'Escrow'
   }

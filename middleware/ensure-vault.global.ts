@@ -1,9 +1,9 @@
-import { useToast } from '~/components/ui/composables/useToast'
 import { getAddress } from 'viem'
+import { useToast } from '~/components/ui/composables/useToast'
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const { info } = useToast()
-  if (process.server) {
+  if (import.meta.server) {
     return
   }
 
@@ -42,7 +42,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  if (!vaultAddress || !vaults[vaultAddress]) {
+  if (!to.path.includes('earn') && (!vaultAddress || !vaults[vaultAddress])) {
     info('This vault could not be found on this chain!')
     return navigateTo({
       path: '/',

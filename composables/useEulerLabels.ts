@@ -5,6 +5,7 @@ import {
   type EulerLabelProduct, eulerLabelProductEmpty,
   type EulerLabelVault,
 } from '~/entities/euler/labels'
+import type { EarnVault } from '~/entities/vault'
 
 const isLoading = ref(false)
 
@@ -83,10 +84,27 @@ const getEntitiesByVault = (vaultAddress: string) => {
   return arr
 }
 
+const getEntitiesByEarnVault = (earnVault: EarnVault) => {
+  const arr: EulerLabelEntity[] = []
+  const ownerAddress = earnVault.owner
+
+  Object.values(entities).forEach((entity) => {
+    if (entity.addresses && Object.keys(entity.addresses).includes(ownerAddress)) {
+      arr.push(entity)
+    }
+  })
+
+  return arr
+}
+
 export const useEulerProductOfVault = (vaultAddress: string | Ref<string>) => {
   return toReactive(computed(() => getProductByVault(unref(vaultAddress))))
 }
 
 export const useEulerEntitiesOfVault = (vaultAddress: string | Ref<string>) => {
   return toReactive(computed(() => getEntitiesByVault(unref(vaultAddress))))
+}
+
+export const useEulerEntitiesOfEarnVault = (earnVault: EarnVault | Ref<EarnVault>) => {
+  return toReactive(computed(() => getEntitiesByEarnVault(unref(earnVault))))
 }

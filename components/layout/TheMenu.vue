@@ -10,6 +10,12 @@ const route = useRoute()
 
 const links: Link[] = [
   {
+    name: 'earn',
+    label: 'Earn',
+    icon: 'lend-outline',
+    activeIcon: 'lend-filled',
+  },
+  {
     name: 'index',
     label: 'Lend',
     icon: 'lend-outline',

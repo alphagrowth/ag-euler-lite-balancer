@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
 import axios from 'axios'
-import type { Vault } from '~/entities/vault'
+import type { EarnVault, Vault } from '~/entities/vault'
 
 export type AccountVaultLiquidityCollateral = {
   collateral: string
@@ -66,6 +66,11 @@ export interface AccountBorrowPosition {
 }
 export interface AccountDepositPosition {
   vault: Vault
+  shares: bigint
+  assets: bigint
+}
+export interface AccountEarnPosition {
+  vault: EarnVault
   shares: bigint
   assets: bigint
 }

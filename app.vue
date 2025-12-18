@@ -5,6 +5,7 @@ const route = useRoute()
 const router = useRouter()
 const { loadEulerConfig, chainId } = useEulerAddresses()
 const { loadVaults, isReady: isVaultsReady } = useVaults()
+const { loadTokens } = useTokens()
 const { loadLabels } = useEulerLabels()
 const { updateBalances } = useWallets()
 const { isConnected } = useAccount()
@@ -31,6 +32,7 @@ watch(route, () => {
     isMenuVisible.value = ![
       'lend-vault',
       'lend-withdraw',
+      'earn-vault',
       'borrow-collateral-borrow',
       'position-number-repay',
       'position-number-supply',
@@ -46,6 +48,7 @@ checkOnboarding()
 
 watch(chainId, async () => {
   await loadLabels()
+  await loadTokens()
   loadVaults()
 }, { immediate: true })
 
