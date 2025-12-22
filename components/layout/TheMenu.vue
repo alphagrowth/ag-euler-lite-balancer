@@ -93,6 +93,7 @@ const getMenuIcon = (link: Link) => {
 
   svg {
     margin-bottom: 10px;
+    color: var(--c-aquamarine-700);
   }
 }
 </style>

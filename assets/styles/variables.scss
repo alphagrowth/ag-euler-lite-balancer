@@ -1,6 +1,10 @@
 :root {
   --safe-area-inset-bottom: env(safe-area-inset-bottom);
 
+  // Brand hue (overridden at runtime from custom.ts)
+  --brand-hue: 211deg;
+  --brand-accent-hue: calc(var(--brand-hue) - 45deg);
+
   // Colors
   --white: 255, 255, 255;
   --black: 0, 0, 0;
@@ -21,24 +25,27 @@
   --yellow-warning-700: 223, 178, 4;
   --slice-of-heaven-300: 197, 198, 247;
 
-  --euler-dark-100: 2, 5, 8;
-  --euler-dark-200: 4, 10, 16;
-  --euler-dark-300: 8, 19, 31;
-  --euler-dark-400: 12, 29, 47;
-  --euler-dark-500: 16, 38, 62;
-  --euler-dark-600: 20, 48, 78;
-  --euler-dark-700: 67, 89, 113;
-  --euler-dark-800: 114, 131, 149;
-  --euler-dark-900: 161, 172, 184;
-  --euler-dark-1000: 247, 248, 249;
+  --border-primary: var(--brand-hue) 55% 24%;
 
-  --aquamarine-300: 14, 78, 63;
-  --aquamarine-500: 28, 153, 124;
-  --aquamarine-600: 35, 192, 155;
-  --aquamarine-700: 42, 229, 185;
-  --aquamarine-800: 102, 236, 205;
-  --aquamarine-900: 161, 244, 224;
-  --aquamarine-1000: 221, 251, 244;
+  // Brand palette in HSL (hue is configurable)
+  --euler-dark-100: var(--brand-hue) 60% 1.96%;
+  --euler-dark-200: var(--brand-hue) 60% 3.92%;
+  --euler-dark-300: var(--brand-hue) 58.97% 7.65%;
+  --euler-dark-400: var(--brand-hue) 59.32% 11.57%;
+  --euler-dark-500: var(--brand-hue) 58.97% 15.29%;
+  --euler-dark-600: var(--brand-hue) 59.18% 19.22%;
+  --euler-dark-700: var(--brand-hue) 25.56% 35.29%;
+  --euler-dark-800: var(--brand-hue) 14.17% 51.57%;
+  --euler-dark-900: var(--brand-hue) 13.94% 67.65%;
+  --euler-dark-1000: var(--brand-hue) 14.29% 97.25%;
+
+  --aquamarine-300: var(--brand-accent-hue) 69.57% 18.04%;
+  --aquamarine-500: var(--brand-accent-hue) 69.06% 35.49%;
+  --aquamarine-600: var(--brand-accent-hue) 69.16% 44.51%;
+  --aquamarine-700: var(--brand-accent-hue) 78.24% 53.14%;
+  --aquamarine-800: var(--brand-accent-hue) 77.91% 66.27%;
+  --aquamarine-900: var(--brand-accent-hue) 79.05% 79.41%;
+  --aquamarine-1000: var(--brand-accent-hue) 78.95% 92.55%;
 
   --teal-light-100: 235, 249, 249;
   --teal-light-300: 177, 230, 231;
@@ -93,37 +100,39 @@
   --c-yellow-opaque-900: rgba(var(--yellow-600), 0.8);
   --c-yellow-opaque-1000: rgba(var(--yellow-600), 0.9);
 
-  --c-euler-dark-100: rgb(var(--euler-dark-100));
-  --c-euler-dark-200: rgb(var(--euler-dark-200));
-  --c-euler-dark-300: rgb(var(--euler-dark-300));
-  --c-euler-dark-400: rgb(var(--euler-dark-400));
-  --c-euler-dark-500: rgb(var(--euler-dark-500));
-  --c-euler-dark-600: rgb(var(--euler-dark-600));
-  --c-euler-dark-700: rgb(var(--euler-dark-700));
-  --c-euler-dark-800: rgb(var(--euler-dark-800));
-  --c-euler-dark-900: rgb(var(--euler-dark-900));
-  --c-euler-dark-1000: rgb(var(--euler-dark-1000));
+  --c-euler-dark-100: hsl(var(--euler-dark-100));
+  --c-euler-dark-200: hsl(var(--euler-dark-200));
+  --c-euler-dark-300: hsl(var(--euler-dark-300));
+  --c-euler-dark-400: hsl(var(--euler-dark-400));
+  --c-euler-dark-500: hsl(var(--euler-dark-500));
+  --c-euler-dark-600: hsl(var(--euler-dark-600));
+  --c-euler-dark-700: hsl(var(--euler-dark-700));
+  --c-euler-dark-800: hsl(var(--euler-dark-800));
+  --c-euler-dark-900: hsl(var(--euler-dark-900));
+  --c-euler-dark-1000: hsl(var(--euler-dark-1000));
 
-  --c-aquamarine-300: rgb(var(--aquamarine-300));
-  --c-aquamarine-500: rgb(var(--aquamarine-500));
-  --c-aquamarine-600: rgb(var(--aquamarine-600));
-  --c-aquamarine-700: rgb(var(--aquamarine-700));
-  --c-aquamarine-800: rgb(var(--aquamarine-800));
-  --c-aquamarine-900: rgb(var(--aquamarine-900));
-  --c-aquamarine-1000: rgb(var(--aquamarine-1000));
+  --c-aquamarine-300: hsl(var(--aquamarine-300));
+  --c-aquamarine-500: hsl(var(--aquamarine-500));
+  --c-aquamarine-600: hsl(var(--aquamarine-600));
+  --c-aquamarine-700: hsl(var(--aquamarine-700));
+  --c-aquamarine-800: hsl(var(--aquamarine-800));
+  --c-aquamarine-900: hsl(var(--aquamarine-900));
+  --c-aquamarine-1000: hsl(var(--aquamarine-1000));
 
-  --c-aquamarine-opaque-200: rgba(var(--aquamarine-700), 0.1);
-  --c-aquamarine-opaque-300: rgba(var(--aquamarine-700), 0.2);
-  --c-aquamarine-opaque-400: rgba(var(--aquamarine-700), 0.3);
-  --c-aquamarine-opaque-500: rgba(var(--aquamarine-700), 0.4);
-  --c-aquamarine-opaque-600: rgba(var(--aquamarine-700), 0.5);
-  --c-aquamarine-opaque-700: rgba(var(--aquamarine-700), 0.6);
-  --c-aquamarine-opaque-800: rgba(var(--aquamarine-700), 0.7);
-  --c-aquamarine-opaque-900: rgba(var(--aquamarine-700), 0.8);
-  --c-aquamarine-opaque-1000: rgba(var(--aquamarine-700), 0.9);
+  --c-aquamarine-opaque-200: hsl(var(--aquamarine-700) / 0.1);
+  --c-aquamarine-opaque-300: hsl(var(--aquamarine-700) / 0.2);
+  --c-aquamarine-opaque-400: hsl(var(--aquamarine-700) / 0.3);
+  --c-aquamarine-opaque-500: hsl(var(--aquamarine-700) / 0.4);
+  --c-aquamarine-opaque-600: hsl(var(--aquamarine-700) / 0.5);
+  --c-aquamarine-opaque-700: hsl(var(--aquamarine-700) / 0.6);
+  --c-aquamarine-opaque-800: hsl(var(--aquamarine-700) / 0.7);
+  --c-aquamarine-opaque-900: hsl(var(--aquamarine-700) / 0.8);
+  --c-aquamarine-opaque-1000: hsl(var(--aquamarine-700) / 0.9);
 
   --c-teal-light-100: rgb(var(--teal-light-100));
   --c-teal-light-300: rgb(var(--teal-light-300));
+
+  --c-border-primary: hsl(var(--border-primary));
 }
 
 :root {

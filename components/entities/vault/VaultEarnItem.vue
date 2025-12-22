@@ -110,7 +110,7 @@ const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
 .top {
   display: flex;
   padding: 16px 16px 12px;
-  border-bottom: 1px solid #1B3C5F;
+  border-bottom: 1px solid var(--c-border-primary);
 }
 
 .topCenter {

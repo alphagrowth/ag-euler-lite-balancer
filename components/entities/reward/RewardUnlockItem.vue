@@ -104,6 +104,6 @@ const onUnlockClick = () => {
 }
 
 .reulTop {
-  border-bottom: 1px solid #1B3C5F;
+  border-bottom: 1px solid var(--c-border-primary);
 }
 </style>

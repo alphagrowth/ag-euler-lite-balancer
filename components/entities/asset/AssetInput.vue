@@ -180,7 +180,7 @@ const openChooseCollateralModal = () => {
   outline: none;
 
   &::placeholder {
-    color: rgb(var(--euler-dark-800));
+    color: var(--c-euler-dark-800);
   }
 }
 
