@@ -8,6 +8,9 @@ const radioModel = ref('radio-test-1')
 const tabsModel = ref(0)
 const checkboxModel = ref(false)
 const switchModel = ref(false)
+const inputModel = ref('')
+const inputWithValueModel = ref('Example value')
+const inputErrorModel = ref('Error value')
 const asset: VaultAsset = {
   name: 'Mock TON',
   decimals: 18n,
@@ -25,6 +28,57 @@ const openLegalModal = () => {
   <section>
     <div>
       <div class="p-16">
+        <h3 class="h3 mb-16">
+          Input Components
+        </h3>
+
+        <div class="mb-16">
+          <UiInput
+            v-model="inputModel"
+            placeholder="Enter your email"
+            label="Email"
+            class="mb-16"
+            style="max-width: 380px"
+          />
+          <UiInput
+            v-model="inputWithValueModel"
+            placeholder="Search..."
+            label="Search"
+            class="mb-16"
+            style="max-width: 380px"
+          />
+          <UiInput
+            v-model="inputModel"
+            placeholder="Enter password"
+            label="Password"
+            type="password"
+            help-text="Your password must be at least 8 characters"
+            class="mb-16"
+            style="max-width: 380px"
+          />
+          <UiInput
+            v-model="inputErrorModel"
+            placeholder="Enter your email"
+            label="Email (Error)"
+            error
+            help-text="Please enter a valid email address"
+            class="mb-16"
+            style="max-width: 380px"
+          />
+          <UiInput
+            v-model="inputModel"
+            placeholder="Disabled input"
+            label="Disabled"
+            disabled
+            class="mb-16"
+            style="max-width: 380px"
+          />
+        </div>
+
+        <h3 class="h3 mb-16">
+          Other Components
+        </h3>
+
         <AssetInput
           :asset="asset"
           class="mb-16"

@@ -10,7 +10,7 @@ const parseChainId = (value: unknown): number | null => {
 }
 
 export default defineNuxtRouteMiddleware((to) => {
-  if (process.server) {
+  if (import.meta.server) {
     return
   }
 
@@ -28,6 +28,6 @@ export default defineNuxtRouteMiddleware((to) => {
         network: fallbackChainId,
       },
       hash: to.hash,
-    }, { replace: true })
+    })
   }
 })

@@ -9,7 +9,7 @@ const props = defineProps<{
   title?: string
   icon?: string
   showSelectedOptions?: boolean
-  optionsChips?: boolean
+  chipOptions?: { label: string, value: string, icon?: string }[]
 }>()
 
 const modal = useModal()
@@ -37,16 +37,6 @@ const plusText = computed(() => {
   return `+${props.showSelectedOptions ? model.value.length - 2 : model.value.length}`
 })
 
-const sortedOptions = computed(() => {
-  return [...props.options].sort((a) => {
-    if (model.value.includes(a.value)) {
-      return -1
-    }
-
-    return 0
-  })
-})
-
 const toggleOption = (value: string) => {
   if (model.value.includes(value)) {
     model.value = model.value.filter(v => v !== value)
@@ -72,7 +62,7 @@ const open = () => {
 
 <template>
   <div
-    :class="['ui-select', { 'ui-select--chips': optionsChips }]"
+    :class="['ui-select', { 'ui-select--chips': chipOptions && chipOptions.length > 0 }]"
   >
     <div
       class="ui-select__field"
@@ -94,9 +84,9 @@ const open = () => {
         class="ui-select__arrow"
       />
     </div>
-    <template v-if="optionsChips">
+    <template v-if="chipOptions && chipOptions.length > 0">
       <div
-        v-for="option in sortedOptions"
+        v-for="option in chipOptions"
         :key="option.value"
         :class="['ui-select__chip', { 'ui-select__chip--active': model.includes(option.value) }]"
         @click="toggleOption(option.value)"
@@ -115,7 +105,6 @@ const open = () => {
 <style lang="scss">
 .ui-select {
   position: relative;
-  width: 100%;
 
   &--chips {
     display: flex;

@@ -7,7 +7,6 @@ import type { Opportunity, Reward, RewardsResponseItem, RewardToken } from '~/en
 const {
   MERKL_API_BASE_URL,
 } = useEulerConfig()
-const { chainId } = useEulerAddresses()
 
 const endpoints = {
   tokens: `${MERKL_API_BASE_URL}/tokens/reward`,
@@ -60,14 +59,14 @@ const isRewardsLoading = ref(true)
 
 let interval: NodeJS.Timeout | null = null
 
-const loadTokens = async (isInitialLoading = true) => {
+const loadTokens = async (chainId: number, isInitialLoading = true) => {
   try {
     if (isInitialLoading) {
       isTokensLoading.value = true
     }
     const res = await axios.get(endpoints.tokens, {
       params: {
-        chainId: chainId.value,
+        chainId,
       },
     })
 
@@ -82,32 +81,45 @@ const loadTokens = async (isInitialLoading = true) => {
   }
 }
 
-const loadOpportunities = async (isInitialLoading = true) => {
+const loadOpportunities = async (chainId: number, isInitialLoading = true) => {
   try {
     if (isInitialLoading) {
       isOpportunitiesLoading.value = true
     }
-    const res = await axios.get(endpoints.opportunities, {
-      params: {
-        type: 'EULER',
-        chainId: chainId.value,
-      },
-    })
 
-    const opportunities: Opportunity[] = res.data
+    // Fetch from both endpoints: EULER type for standard vaults and ERC20LOGPROCESSOR for Earn vaults
+    const urls = [
+      `${MERKL_API_BASE_URL}/opportunities/?chainId=${chainId}&type=EULER&campaigns=true`,
+      `${MERKL_API_BASE_URL}/opportunities/?chainId=${chainId}&mainProtocolId=euler&campaigns=true&type=ERC20LOGPROCESSOR`,
+    ]
 
-    if (opportunities) {
+    const results = await Promise.all(
+      urls.map(async (url) => {
+        try {
+          const res = await axios.get(url)
+          return Array.isArray(res.data) ? res.data : []
+        }
+        catch (error) {
+          console.warn('Error fetching opportunities from', url, error)
+          return []
+        }
+      }),
+    )
+
+    const allOpportunities: Opportunity[] = results.flatMap(result => result ?? [])
+
+    if (allOpportunities.length > 0) {
       const lends = []
       const borrows = []
 
-      for (let i = 0; i < opportunities.length; i++) {
-        if (opportunities[i].status === 'LIVE') {
-          switch (opportunities[i].action) {
+      for (let i = 0; i < allOpportunities.length; i++) {
+        if (allOpportunities[i].status === 'LIVE') {
+          switch (allOpportunities[i].action) {
             case 'BORROW':
-              borrows.push(opportunities[i])
+              borrows.push(allOpportunities[i])
               break
             case 'LEND':
-              lends.push(opportunities[i])
+              lends.push(allOpportunities[i])
               break
             default:
               break
@@ -126,7 +138,7 @@ const loadOpportunities = async (isInitialLoading = true) => {
     isOpportunitiesLoading.value = false
   }
 }
-const loadRewards = async (isInitialLoading = true) => {
+const loadRewards = async (chainId: number, isInitialLoading = true) => {
   try {
     if (!address.value) {
       rewards.value = []
@@ -137,7 +149,7 @@ const loadRewards = async (isInitialLoading = true) => {
     }
     const res = await axios.get(endpoints.rewards(address.value), {
       params: {
-        chainId: chainId.value,
+        chainId,
       },
     })
 
@@ -170,6 +182,7 @@ export const useMerkl = () => {
   const { isConnected, address: wagmiAddress } = useAccount()
   const { MERKL_ADDRESS } = useEulerConfig()
   const { writeContractAsync } = useWriteContract()
+  const { chainId } = useEulerAddresses()
 
   const claimReward = async (reward: Reward) => {
     if (!wagmiAddress.value) {
@@ -200,20 +213,24 @@ export const useMerkl = () => {
     }
   }, { immediate: true })
 
-  watch(isConnected, () => {
+  watch([isConnected, chainId], (val, oldVal) => {
+    if (oldVal[1] && val[1] !== oldVal[1]) {
+      isLoaded.value = false
+    }
+
     if (!isLoaded.value) {
-      loadOpportunities()
-      loadTokens()
-      loadRewards()
+      loadOpportunities(chainId.value)
+      loadTokens(chainId.value)
+      loadRewards(chainId.value)
       isLoaded.value = true
     }
 
     if (!interval) {
       interval = setInterval(() => {
-        loadRewards(false)
-        loadOpportunities(false)
-        loadTokens(false)
-      }, 5000)
+        loadRewards(chainId.value, false)
+        loadOpportunities(chainId.value, false)
+        loadTokens(chainId.value, false)
+      }, 10000)
     }
     else {
       if (interval) {

@@ -1,5 +1,15 @@
 <script setup lang="ts">
-const { title, full = false, close = true } = defineProps<{ title?: string, full?: boolean, close?: boolean }>()
+const {
+  title,
+  full = false,
+  close = true,
+  warning = false,
+} = defineProps<{
+  title?: string
+  full?: boolean
+  close?: boolean
+  warning?: boolean
+}>()
 defineEmits(['close'])
 </script>
 
@@ -19,8 +29,13 @@ defineEmits(['close'])
       />
       <p
         v-if="title"
-        class="center p2"
+        class="center p2 align-center gap-8"
       >
+        <SvgIcon
+          v-if="warning"
+          name="warning"
+          :class="$style.warning"
+        />
         {{ title }}
       </p>
       <UiButton
@@ -89,6 +104,12 @@ defineEmits(['close'])
 
 .top {
   height: 36px;
+}
+
+.warning {
+  width: 20px;
+  height: 20px;
+  color: var(--c-yellow-600);
 }
 
 .close {

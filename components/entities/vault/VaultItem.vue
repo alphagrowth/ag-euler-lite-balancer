@@ -4,6 +4,8 @@ import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/u
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultUtilizationWarningModal } from '#components'
 
 const { isConnected } = useWagmi()
 const { vault } = defineProps<{ vault: Vault }>()
@@ -12,6 +14,7 @@ const entities = useEulerEntitiesOfVault(vault.address)
 const { balances, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
+const modal = useModal()
 
 const entitiesLabels = computed(() => entities.map(e => e.name))
 const entitiesLogos = computed(() => entities.map(e => getEulerLabelEntityLogo(e.logo)))
@@ -22,6 +25,10 @@ const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
 const utilization = computed(() => getVaultUtilization(vault))
+
+const onWarningClick = () => {
+  modal.open(VaultUtilizationWarningModal)
+}
 </script>
 
 <template>
@@ -61,8 +68,8 @@ const utilization = computed(() => getVaultUtilization(vault))
         </div>
       </div>
     </div>
-    <div :class="$style.bottom">
-      <div :class="$style.bottomLeft">
+    <div :class="$style.middle">
+      <div :class="$style.middleLeft">
         <div class="text-euler-dark-900 p3 mb-4">
           Total supply
         </div>
@@ -70,7 +77,7 @@ const utilization = computed(() => getVaultUtilization(vault))
           {{ `$${compactNumber(getVaultPrice(vault.totalAssets, vault))}` }}
         </div>
       </div>
-      <div :class="$style.bottomCenter">
+      <div :class="$style.middleCenter">
         <div class="text-euler-dark-900 p3 mb-4">
           Governor
         </div>
@@ -81,7 +88,7 @@ const utilization = computed(() => getVaultUtilization(vault))
         />
       </div>
       <div
-        :class="$style.bottomRight"
+        :class="$style.middleRight"
         class="column"
       >
         <template v-if="isConnected">
@@ -97,7 +104,34 @@ const utilization = computed(() => getVaultUtilization(vault))
             </div>
           </BaseLoadableContent>
         </template>
-
+      </div>
+    </div>
+    <div :class="$style.bottom">
+      <div :class="$style.bottomLeft">
+        <div class="text-euler-dark-900 p3">
+          Utilization
+        </div>
+      </div>
+      <div
+        :class="$style.bottomRight"
+      >
+        <button
+          v-if="utilization >= 95"
+          :class="$style.bottomUtilWarning"
+          @click.stop.prevent="onWarningClick"
+        >
+          <SvgIcon
+            name="warning"
+            :class="$style.bottomUtilWarningIcon"
+          />
+        </button>
+        <UiRadialProgress
+          :value="utilization"
+          :max="100"
+        />
+        <div class="p2">
+          {{ compactNumber(utilization, 2, 2) }}%
+        </div>
       </div>
     </div>
   </NuxtLink>
@@ -126,6 +160,29 @@ const utilization = computed(() => getVaultUtilization(vault))
   align-items: flex-end;
 }
 
+.middle {
+  display: flex;
+  padding: 12px 16px 12px;
+  border-bottom: 1px solid #1B3C5F;
+}
+
+.middleLeft {
+  flex: 1;
+}
+
+.middleCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.middleRight {
+  align-items: end;
+  text-align: right;
+  flex: 1;
+}
+
 .bottom {
   display: flex;
   padding: 12px 16px 16px;
@@ -135,17 +192,30 @@ const utilization = computed(() => getVaultUtilization(vault))
   flex: 1;
 }
 
-.bottomCenter {
+.bottomRight {
   display: flex;
-  flex-direction: column;
+  gap: 8px;
+  justify-content: end;
   align-items: center;
+  text-align: right;
   flex: 1;
 }
 
-.bottomRight {
-  align-items: end;
-  text-align: right;
-  flex: 1;
+.bottomUtilWarning {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 20px;
+  height: 20px;
+  background-color: #3e4540;
+  color: var(--c-yellow-600);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.bottomUtilWarningIcon {
+  width: 16px;
+  height: 16px;
 }
 
 .apy {
