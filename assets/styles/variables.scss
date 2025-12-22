@@ -18,6 +18,7 @@
   --green-1000: 224, 239, 220;
 
   --yellow-600: 236, 192, 51;
+  --yellow-700: 240, 205, 92;
   --yellow-1000: 251, 242, 214;
 
   --orange-1000: 252, 235, 211;
@@ -63,6 +64,7 @@
   --c-green-1000: rgb(var(--green-1000));
 
   --c-yellow-600: rgb(var(--yellow-600));
+  --c-yellow-700: rgb(var(--yellow-700));
   --c-yellow-1000: rgb(var(--yellow-1000));
 
   --c-orange-1000: rgb(var(--orange-1000));
@@ -197,6 +199,10 @@
   color: var(--c-yellow-600);
 }
 
+.text-yellow-700 {
+  color: var(--c-yellow-700);
+}
+
 .text-yellow-1000 {
   color: var(--c-yellow-1000);
 }
@@ -320,6 +326,10 @@
 
 .bg-yellow-600 {
   background-color: var(--c-yellow-600);
+}
+
+.bg-yellow-700 {
+  background-color: var(--c-yellow-700);
 }
 
 .bg-yellow-1000 {

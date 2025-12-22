@@ -35,7 +35,10 @@ const borrowCount = computed(() =>
         :value="product.name"
       />
       <VaultOverviewLabelValue label="Governor(s)">
-        <div class="column gap-16">
+        <div
+          v-if="entities.length"
+          class="column gap-16"
+        >
           <div
             v-for="(entity, idx) in entities"
             :key="idx"
@@ -52,9 +55,15 @@ const borrowCount = computed(() =>
             >{{ entity.name }}</a>
           </div>
         </div>
+        <div v-else>
+          -
+        </div>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Market type">
-        <VaultTypeChip :type="entities.length ? 'governed' : ''" />
+        <VaultTypeChip
+          :vault="vault"
+          :type="entities.length ? 'governed' : ''"
+        />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Can be borrowed">
         <div class="align-center gap-8">
@@ -81,5 +90,4 @@ const borrowCount = computed(() =>
 </template>
 
 <style scoped lang="scss">
-
 </style>

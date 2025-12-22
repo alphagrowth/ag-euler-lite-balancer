@@ -161,16 +161,18 @@ export interface CollateralOption {
 
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerLensAddresses } = useEulerAddresses()
+  const { loadEulerConfig, isReady } = useEulerAddresses()
   const { vaults } = useEulerLabels()
 
-  if (!eulerLensAddresses.value?.vaultLens) {
-    throw new Error('Euler addresses not loaded yet')
+  if (!isReady.value) {
+    loadEulerConfig()
+    await until(computed(() => isReady.value)).toBeTruthy()
   }
+  const { eulerLensAddresses } = useEulerAddresses()
 
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const vaultLensContract = new ethers.Contract(
-    eulerLensAddresses.value.vaultLens,
+    eulerLensAddresses.value!.vaultLens,
     eulerVaultLensABI,
     provider,
   )

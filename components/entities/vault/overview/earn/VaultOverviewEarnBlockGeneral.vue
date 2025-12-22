@@ -19,7 +19,10 @@ const feeDisplay = computed(() => {
     </p>
     <div class="column align-start gap-24">
       <VaultOverviewLabelValue label="Vault status">
-        <VaultTypeChip :type="entities.length ? 'managed' : ''" />
+        <VaultTypeChip
+          :vault="vault"
+          :type="entities.length ? 'managed' : ''"
+        />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Capital allocator">
         <div class="column gap-16">

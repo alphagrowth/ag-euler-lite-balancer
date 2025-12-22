@@ -28,7 +28,20 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
     />
 
     <div>
-      <p class="text-euler-dark-900 mb-4">
+      <p
+        v-if="'verified' in vault && !vault.verified"
+        class="text-yellow-600 mb-4 align-center gap-4"
+      >
+        <SvgIcon
+          name="warning"
+          class="icon--20"
+        />
+        Unknown vault
+      </p>
+      <p
+        v-else
+        class="text-euler-dark-900 mb-4"
+      >
         {{ name || vault.name }}
       </p>
 

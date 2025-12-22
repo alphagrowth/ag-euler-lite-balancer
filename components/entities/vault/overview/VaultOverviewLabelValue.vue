@@ -18,7 +18,7 @@ const { label, value, orientation = 'vertical' } = defineProps<{
     </div>
     <div class="p2 text-white">
       <slot>
-        {{ value }}
+        {{ value || '-' }}
       </slot>
     </div>
   </div>

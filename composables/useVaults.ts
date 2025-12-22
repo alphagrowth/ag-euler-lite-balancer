@@ -90,8 +90,6 @@ const loadVaults = async () => {
 const getVault = async (address: string): Promise<Vault> => {
   const { vaults } = useEulerLabels()
 
-  await until(computed(() => Object.keys(vaults).length)).toBeTruthy()
-
   if (Object.keys(vaults).includes(ethers.getAddress(address))) {
     await until(computed(() => map.value.get(ethers.getAddress(address)))).toBeTruthy()
   }
@@ -122,8 +120,6 @@ const updateEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   return vault
 }
 const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: string): Promise<BorrowVaultPair> => {
-  await until(isReady).toBe(true)
-
   if (map.value.has(borrowAddress)) {
     return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)
   }

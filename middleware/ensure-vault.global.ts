@@ -25,24 +25,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }, { replace: true })
   }
 
-  const { vaults, loadLabels } = useEulerLabels()
+  const { getVault } = useVaults()
 
-  if (!Object.keys(vaults).length) {
-    try {
-      await loadLabels()
-    }
-    catch (err) {
-      console.warn('[ensure-vault] failed to load labels', err)
-      info('This vault could not be found on this chain!')
-      return navigateTo({
-        path: '/',
-        query: { ...to.query },
-        hash: to.hash,
-      }, { replace: true })
-    }
-  }
-
-  if (!to.path.includes('earn') && (!vaultAddress || !vaults[vaultAddress])) {
+  if (
+    !to.path.includes('earn') && (!vaultAddress || !(await getVault(vaultAddress)))
+  ) {
+    console.warn('[ensure-vault] failed to load labels')
     info('This vault could not be found on this chain!')
     return navigateTo({
       path: '/',

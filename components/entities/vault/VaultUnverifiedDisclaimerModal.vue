@@ -12,15 +12,15 @@ const handleCancel = () => {
 
 <template>
   <BaseModalWrapper
-    title="Unverified vault"
+    title="Important!"
+    warning
     @close="handleCancel"
   >
-    <div
-      :class="$style.content"
-      class="text-white"
-    >
-      <p>Are you sure you want to interact with the unverified vault?</p>
-      <p>
+    <div :class="$style.content">
+      <h4 class="text-white h4">
+        Are you sure you want to interact with the unverified vault?
+      </h4>
+      <p class="pb-8">
         Proceeding with this unverified vault may pose security risks. Unverified vaults could potentially be used for phishing attempts.
       </p>
       <p>
@@ -51,9 +51,11 @@ const handleCancel = () => {
 .content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 12px;
+  color: var(--c-euler-dark-900);
+  margin-bottom: 24px;
 }
+
 .buttons {
   display: flex;
   gap: 8px;

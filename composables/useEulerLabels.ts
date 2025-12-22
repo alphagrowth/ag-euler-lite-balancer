@@ -20,8 +20,11 @@ export const useEulerLabels = () => {
   const loadLabels = async () => {
     try {
       isLoading.value = true
-      const { getCurrentChainConfig } = useEulerAddresses()
+      const { getCurrentChainConfig, loadEulerConfig } = useEulerAddresses()
 
+      if (!getCurrentChainConfig.value) {
+        loadEulerConfig()
+      }
       await until(getCurrentChainConfig).toBeTruthy()
 
       Object.keys(vaults).forEach(key => delete vaults[key])
