@@ -163,7 +163,7 @@ const onWarningClick = () => {
 .middle {
   display: flex;
   padding: 12px 16px 12px;
-  border-bottom: 1px solid #1B3C5F;
+  border-bottom: 1px solid var(--c-border-primary);
 }
 
 .middleLeft {
