@@ -6,15 +6,16 @@ import { useAccount } from '@wagmi/vue'
 import { WalletDisconnectModal, SelectChainModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { links, socials } from '~/entities/custom'
+import { type MenuItem, menuItems } from '~/entities/menu'
 
 // AppKit modal controls
 const { open } = useAppKit()
 
 // Wagmi account info
 const { address, isConnected } = useAccount()
-const { chainId: _chainId } = useEulerAddresses()
-const { chainId } = useWagmi()
+const { chainId } = useEulerAddresses()
 const modal = useModal()
+const route = useRoute()
 
 const reference = ref(null)
 const floating = ref(null)
@@ -41,6 +42,13 @@ const onChainButtonClick = () => {
 const onLogoClick = () => {
   isSocialsTooltipVisible.value = !isSocialsTooltipVisible.value
 }
+const getIsMenuItemActive = (link: MenuItem) => {
+  if (link.name === 'index') {
+    return route.name === 'index' || route.name?.toString().startsWith('lend')
+  }
+
+  return route.name?.toString().startsWith(link.name)
+}
 
 onClickOutside(reference, () => {
   isSocialsTooltipVisible.value = false
@@ -50,11 +58,10 @@ onClickOutside(reference, () => {
 <template>
   <header
     :class="$style.TheHeader"
-    class="flex justify-center p-16 bg-euler-dark-300"
+    class="flex justify-center bg-euler-dark-300"
   >
     <div
       :class="$style.wrap"
-      class="between align-center"
     >
       <button
         ref="reference"
@@ -108,6 +115,7 @@ onClickOutside(reference, () => {
               <div class="flex gap-12">
                 <a
                   v-for="item in Object.entries(socials)"
+                  :key="item[0]"
                   :href="item[1]"
                   class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
                   :class="$style.socialLink"
@@ -167,7 +175,22 @@ onClickOutside(reference, () => {
           </div>
         </Transition>
       </button>
-      <div>
+      <div :class="$style.menu">
+        <NuxtLink
+          v-for="item in menuItems"
+          :key="item.name"
+          :to="{ name: item.name }"
+          :class="[$style.menuItem, getIsMenuItemActive(item) ? $style._active : '']"
+          class="text-white align-center center"
+        >
+          <UiIcon
+            class="icon--20"
+            :name="item.icon"
+          />
+          <span>{{ item.label }}</span>
+        </NuxtLink>
+      </div>
+      <div :class="$style.buttons">
         <UiButton
           :class="$style.chain"
           icon="arrow-down"
@@ -176,7 +199,7 @@ onClickOutside(reference, () => {
           icon-right
           @click="onChainButtonClick"
         >
-          <BaseAvatar :src="`/chains/${_chainId}.webp`" />
+          <BaseAvatar :src="`/chains/${chainId}.webp`" />
         </UiButton>
         <UiButton
           :icon="isConnected ? 'arrow-down' : 'plus'"
@@ -199,14 +222,59 @@ onClickOutside(reference, () => {
   right: 0;
   left: 0;
   z-index: 101;
-  min-height: 36px;
-  //box-shadow: 0px 4px 6px 4px var(--c-euler-dark-300);
+  min-height: 44px;
+  border-bottom: 1px solid var(--c-euler-dark-600);
+  padding: 22px 24px;
+
+  @include respond-to(mobile) {
+    min-height: 36px;
+    border-bottom: none;
+    padding: 16px;
+  }
 }
 
 .wrap {
+  display: flex;
+  justify-content: space-between;
   height: 100%;
   width: 100%;
-  max-width: var(--container-w);
+  align-items: center;
+
+  @include respond-to(mobile) {
+    max-width: var(--container-w);
+    padding: 0;
+  }
+}
+
+.menu {
+  display: flex;
+  width: 100%;
+  max-width: 450px;
+  margin: 0 16px;
+  margin-left: 164px;
+
+  @include respond-to(mobile) {
+    display: none;
+  }
+}
+
+.menuItem {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  text-decoration: none;
+  width: 100%;
+  padding: 12px 0;
+  border-radius: 8px;
+
+  svg {
+    color: var(--c-aquamarine-700);
+  }
+
+  &._active {
+    background-color: var(--c-euler-dark-400);
+  }
 }
 
 .logoWrap {
@@ -248,5 +316,10 @@ onClickOutside(reference, () => {
 .chain {
   margin-right: 8px;
   padding: 6px 8px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: nowrap;
 }
 </style>

@@ -32,6 +32,7 @@ const health = ref()
 const netAPY = ref()
 const liquidationPrice = ref()
 const isSavingCollateral = ref(false)
+const tab = ref()
 
 const errorText = computed(() => {
   if (computedBalance.value < valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)) {
@@ -69,6 +70,28 @@ const ltvFixed = computed(() => {
     return fn.sub(FixedNumber.fromValue(100n, 4))
   }
   return fn
+})
+const tabs = computed(() => {
+  if (!pair.value) {
+    return []
+  }
+  return [
+    {
+      label: 'Pair details',
+      value: undefined,
+      avatars: [getAssetLogoUrl(pair.value.collateral.asset.symbol), getAssetLogoUrl(pair.value.borrow.asset.symbol)],
+    },
+    {
+      label: pair.value.collateral.asset.symbol,
+      value: 'collateral',
+      avatars: [getAssetLogoUrl(pair.value.collateral.asset.symbol)],
+    },
+    {
+      label: pair.value.borrow.asset.symbol,
+      value: 'borrow',
+      avatars: [getAssetLogoUrl(pair.value.borrow.asset.symbol)],
+    },
+  ]
 })
 
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
@@ -256,117 +279,184 @@ watch(savingCollateral, (val) => {
 </script>
 
 <template>
-  <VaultForm
-    title="Open borrow position"
-    class="column gap-16"
-    @submit.prevent="submit"
-  >
-    <template v-if="pair">
-      <VaultLabelsAndAssets
-        v-if="collateralVault && borrowVault"
-        :vault="collateralVault"
-        :assets="pairAssets as VaultAsset[]"
-        size="large"
-      />
+  <div class="flex gap-32">
+    <VaultForm
+      title="Open borrow position"
+      class="column gap-16"
+      :class="$style.form"
+      @submit.prevent="submit"
+    >
+      <template v-if="pair">
+        <VaultLabelsAndAssets
+          v-if="collateralVault && borrowVault"
+          :vault="collateralVault"
+          :assets="pairAssets as VaultAsset[]"
+          size="large"
+        />
 
-      <AssetInput
-        v-if="collateralVault"
-        v-model="collateralAmount"
-        :desc="collateralProduct.name"
-        :label="`Supply ${collateralVault.asset.symbol}`"
-        :asset="collateralVault.asset"
-        :vault="collateralVault"
-        :balance="computedBalance"
-        :collateral-options="collateralOptions as CollateralOption[]"
-        maxable
-        @input="onCollateralInput"
-        @change-collateral="onChangeCollateral"
-      />
+        <AssetInput
+          v-if="collateralVault"
+          v-model="collateralAmount"
+          :desc="collateralProduct.name"
+          :label="`Supply ${collateralVault.asset.symbol}`"
+          :asset="collateralVault.asset"
+          :vault="collateralVault"
+          :balance="computedBalance"
+          :collateral-options="collateralOptions as CollateralOption[]"
+          maxable
+          @input="onCollateralInput"
+          @change-collateral="onChangeCollateral"
+        />
 
-      <UiRange
-        v-model="ltv"
-        label="LTV"
-        :step="0.1"
-        :max="Number(pair.borrowLTV / 100n)"
-        :number-filter="(n: number) => `${n}%`"
-        @update:model-value="onLtvInput"
-      />
+        <UiRange
+          v-model="ltv"
+          label="LTV"
+          :step="0.1"
+          :max="Number(pair.borrowLTV / 100n)"
+          :number-filter="(n: number) => `${n}%`"
+          @update:model-value="onLtvInput"
+        />
 
-      <AssetInput
-        v-if="borrowVault"
-        v-model="borrowAmount"
-        :desc="borrowProduct.name"
-        :label="`Borrow ${borrowVault.asset.symbol}`"
-        :asset="borrowVault.asset"
-        :vault="borrowVault"
-        @input="onBorrowInput"
-      />
+        <AssetInput
+          v-if="borrowVault"
+          v-model="borrowAmount"
+          :desc="borrowProduct.name"
+          :label="`Borrow ${borrowVault.asset.symbol}`"
+          :asset="borrowVault.asset"
+          :vault="borrowVault"
+          @input="onBorrowInput"
+        />
 
-      <UiToast
-        v-show="errorText"
-        title="Error"
-        variant="error"
-        :description="errorText || ''"
-        size="compact"
-      />
+        <UiToast
+          v-show="errorText"
+          title="Error"
+          variant="error"
+          :description="errorText || ''"
+          size="compact"
+        />
 
-      <VaultFormInfoBlock
-        v-if="pair"
-        :loading="isEstimatesLoading"
-        class="bg-euler-dark-400 p-16 br-16 column gap-16"
+        <VaultFormInfoBlock
+          v-if="pair"
+          :loading="isEstimatesLoading"
+          class="bg-euler-dark-400 p-16 br-16 column gap-16"
+        >
+          <div class="between align-center">
+            <p class="text-euler-dark-900 ">
+              Net APY
+            </p>
+            <p class="p2">
+              {{ netAPY ? `${formatNumber(netAPY)}%` : '-' }}
+            </p>
+          </div>
+          <div class="between align-center">
+            <p class="text-euler-dark-900 ">
+              Current Price
+            </p>
+            <p class="p2">
+              {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
+              <span class="text-euler-dark-900 p3">
+                {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
+              </span>
+            </p>
+          </div>
+          <div class="between align-center">
+            <p class="text-euler-dark-900 ">
+              Liquidation price
+            </p>
+            <p class="p2">
+              {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
+              <span class="text-euler-dark-900 p3">
+                {{ collateralVault?.asset.symbol }}
+              </span>
+            </p>
+          </div>
+          <div class="between align-center">
+            <p class="text-euler-dark-900 ">
+              Health
+            </p>
+            <p class="p2">
+              {{ health ? formatNumber(health, 2) : '-' }}
+            </p>
+          </div>
+        </VaultFormInfoBlock>
+      </template>
+
+      <template #buttons>
+        <VaultFormInfoButton
+          :pair="pair"
+          :class="$style.vaultInfoButton"
+          :disabled="isSubmitting || isPositionsLoading"
+        />
+        <VaultFormSubmit
+          :disabled="isSubmitDisabled"
+          :loading="isSubmitting"
+        >
+          Review Borrow
+        </VaultFormSubmit>
+      </template>
+    </VaultForm>
+    <div
+      v-if="pair"
+      :class="$style.vaultDetails"
+    >
+      <UiTabs
+        v-if="tabs.length"
+        v-model="tab"
+        :class="$style.tabs"
+        class="mb-12"
+        :list="tabs"
       >
-        <div class="between align-center">
-          <p class="text-euler-dark-900 ">
-            Net APY
-          </p>
-          <p class="p2">
-            {{ netAPY ? `${formatNumber(netAPY)}%` : '-' }}
-          </p>
-        </div>
-        <div class="between align-center">
-          <p class="text-euler-dark-900 ">
-            Current Price
-          </p>
-          <p class="p2">
-            {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-            <span class="text-euler-dark-900 p3">
-              {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
-            </span>
-          </p>
-        </div>
-        <div class="between align-center">
-          <p class="text-euler-dark-900 ">
-            Liquidation price
-          </p>
-          <p class="p2">
-            {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-            <span class="text-euler-dark-900 p3">
-              {{ collateralVault?.asset.symbol }}
-            </span>
-          </p>
-        </div>
-        <div class="between align-center">
-          <p class="text-euler-dark-900 ">
-            Health
-          </p>
-          <p class="p2">
-            {{ health ? formatNumber(health, 2) : '-' }}
-          </p>
-        </div>
-      </VaultFormInfoBlock>
-    </template>
+        <template #default="{ tab: slotTab }">
+          <div class="align-center gap-8">
+            <BaseAvatar :src="slotTab.avatars as string[]" />
 
-    <template #buttons>
-      <VaultFormInfoButton
-        :pair="pair"
-        :disabled="isSubmitting || isPositionsLoading"
-      />
-      <VaultFormSubmit
-        :disabled="isSubmitDisabled"
-        :loading="isSubmitting"
+            {{ slotTab.label }}
+          </div>
+        </template>
+      </UiTabs>
+      <Transition
+        name="page"
+        mode="out-in"
       >
-        Review Borrow
-      </VaultFormSubmit>
-    </template>
-  </VaultForm>
+        <VaultOverviewPair
+          v-if="!tab"
+          :pair="pair"
+          style="flex-grow: 1"
+          desktop-overview
+        />
+        <VaultOverview
+          v-else-if="tab === 'collateral'"
+          :vault="pair.collateral"
+          desktop-overview
+        />
+        <VaultOverview
+          v-else-if="tab === 'borrow'"
+          :vault="pair.borrow"
+          desktop-overview
+        />
+      </Transition>
+    </div>
+  </div>
 </template>
+
+<style module lang="scss">
+.form {
+  width: 100%;
+}
+
+.vaultDetails {
+  width: 100%;
+
+  @include respond-to(mobile) {
+    display: none;
+  }
+}
+
+.vaultInfoButton {
+  display: none;
+
+  @include respond-to(mobile) {
+    display: block;
+  }
+}
+</style>

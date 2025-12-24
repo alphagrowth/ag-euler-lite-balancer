@@ -87,6 +87,46 @@ const onWarningClick = () => {
           {{ formatNumber(nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25) + totalRewardsAPY) }}%
         </div>
       </div>
+      <div
+        class="center"
+        :class="$style.middleCenterAdditional"
+      >
+        <div class="text-euler-dark-900 p3 mb-4">
+          Max LTV
+        </div>
+        <div class="p2">
+          {{ compactNumber(maxLTV, 2, 2) }}%
+        </div>
+      </div>
+      <div
+        class="center"
+        :class="$style.middleCenterAdditional"
+      >
+        <div class="text-euler-dark-900 p3 mb-4">
+          Utilization
+        </div>
+        <div
+          :class="$style.middleCenterUtilizationValue"
+        >
+          <button
+            v-if="utilization >= 95"
+            :class="[$style.utilWarning, $style._shifted]"
+            @click.stop.prevent="onWarningClick"
+          >
+            <SvgIcon
+              name="warning"
+              :class="$style.utilWarningIcon"
+            />
+          </button>
+          <UiRadialProgress
+            :value="utilization"
+            :max="100"
+          />
+          <div class="p2">
+            {{ compactNumber(utilization, 2, 2) }}%
+          </div>
+        </div>
+      </div>
       <div :class="$style.middleRight">
         <div class="text-euler-dark-900 p3 mb-4">
           LLTV
@@ -122,12 +162,12 @@ const onWarningClick = () => {
         >
           <button
             v-if="utilization >= 95"
-            :class="$style.bottomUtilWarning"
+            :class="$style.utilWarning"
             @click.stop.prevent="onWarningClick"
           >
             <SvgIcon
               name="warning"
-              :class="$style.bottomUtilWarningIcon"
+              :class="$style.utilWarningIcon"
             />
           </button>
           <UiRadialProgress
@@ -169,7 +209,10 @@ const onWarningClick = () => {
 .middle {
   display: flex;
   padding: 12px 16px 12px;
-  border-bottom: 1px solid var(--c-border-primary);
+
+  @include respond-to(mobile) {
+    border-bottom: 1px solid var(--c-border-primary);
+  }
 
   &._borrow {
     justify-content: space-between;
@@ -180,15 +223,33 @@ const onWarningClick = () => {
   text-align: center;
 }
 
+.middleCenterAdditional {
+  @include respond-to(mobile) {
+    display: none;
+  }
+}
+
+.middleCenterUtilizationValue {
+  display: flex;
+  gap: 8px;
+  justify-content: end;
+  align-items: center;
+  text-align: right;
+}
+
 .middleRight {
   text-align: right;
 }
 
 .bottom {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px 16px 16px;
+  display: none;
+
+  @include respond-to(mobile) {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px 16px;
+  }
 }
 
 .bottomItem {
@@ -210,7 +271,7 @@ const onWarningClick = () => {
   flex: 1;
 }
 
-.bottomUtilWarning {
+.utilWarning {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -222,7 +283,7 @@ const onWarningClick = () => {
   cursor: pointer;
 }
 
-.bottomUtilWarningIcon {
+.utilWarningIcon {
   width: 16px;
   height: 16px;
 }

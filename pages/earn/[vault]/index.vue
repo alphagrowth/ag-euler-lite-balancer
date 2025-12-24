@@ -153,120 +153,151 @@ watch(amount, async () => {
 </script>
 
 <template>
-  <VaultForm
-    title="Open earn position"
-    @submit.prevent="submit"
-  >
-    <div
-      v-if="vault && asset"
-      class="between"
+  <div class="flex gap-32">
+    <VaultForm
+      title="Open earn position"
+      :class="$style.form"
+      @submit.prevent="submit"
     >
-      <VaultLabelsAndAssets
-        :vault="vault"
-        :assets="assets"
-        size="large"
-      />
+      <div
+        v-if="vault && asset"
+        class="between"
+      >
+        <VaultLabelsAndAssets
+          :vault="vault"
+          :assets="assets"
+          size="large"
+        />
 
-      <div class="right">
-        <p class="mb-4 text-euler-dark-900">
-          Supply APY
-        </p>
-
-        <p class="flex justify-end gap-4 h3">
-          <SvgIcon
-            v-if="hasRewards"
-            class="icon--24 text-aquamarine-700"
-            name="sparks"
-          />
-          <span>
-            {{ supplyAPYDisplay }}%
-          </span>
-          <SvgIcon
-            :class="$style.supplyInfoIcon"
-            class="icon--24 text-euler-dark-800"
-            name="question-circle"
-            @click="onSupplyInfoIconClick"
-          />
-        </p>
-      </div>
-    </div>
-
-    <AssetInput
-      v-if="asset"
-      v-model="amount"
-      label="Deposit amount"
-      :desc="name"
-      :asset="asset"
-      :vault="vault"
-      :balance="balance"
-      maxable
-    />
-
-    <UiToast
-      v-show="errorText"
-      title="Error"
-      variant="error"
-      :description="errorText || ''"
-      size="compact"
-    />
-
-    <VaultFormInfoBlock
-      v-if="vault && asset"
-      :loading="isEstimatesLoading"
-    >
-      <div :class="$style.info">
-        <div>
-          <p class="mb-8">
-            Projected Earnings per Month
-          </p>
-
-          <p class="text-euler-dark-900">
-            <span class="text-white p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
-              asset.symbol
-            }}
-            ≈ ${{ vault ? compactNumber(getEarnVaultPrice(monthlyEarnings, vault)) : 0 }}
-          </p>
-        </div>
-
-        <div>
-          <p class="mb-8">
+        <div class="right">
+          <p class="mb-4 text-euler-dark-900">
             Supply APY
           </p>
 
-          <p
-            v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay"
-            class="p2 text-euler-dark-900"
-          >
-            {{ supplyAPYDisplay }}% <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
-              → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
-            </template>
-          </p>
-          <p
-            v-else
-            class="p2 text-white"
-          >
-            {{ supplyAPYDisplay }}%
+          <p class="flex justify-end gap-4 h3">
+            <SvgIcon
+              v-if="hasRewards"
+              class="icon--24 text-aquamarine-700"
+              name="sparks"
+            />
+            <span>
+              {{ supplyAPYDisplay }}%
+            </span>
+            <SvgIcon
+              :class="$style.supplyInfoIcon"
+              class="icon--24 text-euler-dark-800"
+              name="question-circle"
+              @click="onSupplyInfoIconClick"
+            />
           </p>
         </div>
       </div>
-    </VaultFormInfoBlock>
 
-    <template #buttons>
-      <VaultFormInfoButton
-        :earn-vault="vault"
-        :disabled="isLoading || isSubmitting"
+      <AssetInput
+        v-if="asset"
+        v-model="amount"
+        label="Deposit amount"
+        :desc="name"
+        :asset="asset"
+        :vault="vault"
+        :balance="balance"
+        maxable
       />
-      <VaultFormSubmit
-        :disabled="isSubmitDisabled"
-        :loading="isSubmitting"
+
+      <UiToast
+        v-show="errorText"
+        title="Error"
+        variant="error"
+        :description="errorText || ''"
+        size="compact"
+      />
+
+      <VaultFormInfoBlock
+        v-if="vault && asset"
+        :loading="isEstimatesLoading"
       >
-        Review Supply
-      </VaultFormSubmit>
-    </template>
-  </VaultForm>
+        <div :class="$style.info">
+          <div>
+            <p class="mb-8">
+              Projected Earnings per Month
+            </p>
+
+            <p class="text-euler-dark-900">
+              <span class="text-white p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
+                asset.symbol
+              }}
+              ≈ ${{ vault ? compactNumber(getEarnVaultPrice(monthlyEarnings, vault)) : 0 }}
+            </p>
+          </div>
+
+          <div>
+            <p class="mb-8">
+              Supply APY
+            </p>
+
+            <p
+              v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay"
+              class="p2 text-euler-dark-900"
+            >
+              {{ supplyAPYDisplay }}% <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
+                → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
+              </template>
+            </p>
+            <p
+              v-else
+              class="p2 text-white"
+            >
+              {{ supplyAPYDisplay }}%
+            </p>
+          </div>
+        </div>
+      </VaultFormInfoBlock>
+
+      <template #buttons>
+        <VaultFormInfoButton
+          :earn-vault="vault"
+          :class="$style.vaultInfoButton"
+          :disabled="isLoading || isSubmitting"
+        />
+        <VaultFormSubmit
+          :disabled="isSubmitDisabled"
+          :loading="isSubmitting"
+        >
+          Review Supply
+        </VaultFormSubmit>
+      </template>
+    </VaultForm>
+    <div :class="$style.vaultDetails">
+      <VaultOverviewEarn
+        v-if="vault"
+        :vault="vault as EarnVault"
+        desktop-overview
+      />
+    </div>
+  </div>
 </template>
 
 <style module lang="scss">
+.form {
+  width: 100%;
+}
+
+.vaultDetails {
+  width: 100%;
+
+  @include respond-to(mobile) {
+    display: none;
+  }
+}
+
+.vaultInfoButton {
+  display: none;
+
+  @include respond-to(mobile) {
+    display: block;
+  }
+}
+
 .info {
   & > *:not(:last-child) {
     padding-bottom: 16px;

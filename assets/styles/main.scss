@@ -30,20 +30,26 @@ body {
 .page-wrapper {
   display: flex;
   justify-content: center;
-  padding-top: 16px;
+  padding-top: 32px;
   padding-bottom: calc(82px + 16px);
-
+  
   &--no-menu {
     padding-bottom: 16px;
+  }
+
+  @include respond-to(mobile) {
+    padding-top: 16px;
   }
 }
 
 .container {
   width: 100%;
   max-width: var(--container-w);
+  margin: var(--container-padding);
 
   @include respond-to(mobile) {
     padding: var(--container-padding);
+    margin: 0;
   }
 }
 

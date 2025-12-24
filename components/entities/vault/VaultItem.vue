@@ -88,6 +88,35 @@ const onWarningClick = () => {
         />
       </div>
       <div
+        class="center column"
+        :class="$style.middleCenterUtilization"
+      >
+        <div class="text-euler-dark-900 p3 mb-4">
+          Utilization
+        </div>
+        <div
+          :class="$style.middleCenterUtilizationValue"
+        >
+          <button
+            v-if="utilization >= 95"
+            :class="[$style.utilWarning, $style._shifted]"
+            @click.stop.prevent="onWarningClick"
+          >
+            <SvgIcon
+              name="warning"
+              :class="$style.utilWarningIcon"
+            />
+          </button>
+          <UiRadialProgress
+            :value="utilization"
+            :max="100"
+          />
+          <div class="p2">
+            {{ compactNumber(utilization, 2, 2) }}%
+          </div>
+        </div>
+      </div>
+      <div
         :class="$style.middleRight"
         class="column"
       >
@@ -117,12 +146,12 @@ const onWarningClick = () => {
       >
         <button
           v-if="utilization >= 95"
-          :class="$style.bottomUtilWarning"
+          :class="$style.utilWarning"
           @click.stop.prevent="onWarningClick"
         >
           <SvgIcon
             name="warning"
-            :class="$style.bottomUtilWarningIcon"
+            :class="$style.utilWarningIcon"
           />
         </button>
         <UiRadialProgress
@@ -161,9 +190,14 @@ const onWarningClick = () => {
 }
 
 .middle {
+  flex: 1;
   display: flex;
   padding: 12px 16px 12px;
-  border-bottom: 1px solid var(--c-border-primary);
+  justify-content: space-between;
+
+  @include respond-to(mobile) {
+    border-bottom: 1px solid var(--c-border-primary);
+  }
 }
 
 .middleLeft {
@@ -171,21 +205,43 @@ const onWarningClick = () => {
 }
 
 .middleCenter {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.middleCenterUtilization {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  @include respond-to(mobile) {
+    display: none;
+  }
+}
+
+.middleCenterUtilizationValue {
+  display: flex;
+  gap: 8px;
+  justify-content: end;
+  align-items: center;
+  text-align: right;
 }
 
 .middleRight {
+  flex: 1;
   align-items: end;
   text-align: right;
-  flex: 1;
 }
 
 .bottom {
-  display: flex;
-  padding: 12px 16px 16px;
+  display: none;
+
+  @include respond-to(mobile) {
+    display: flex;
+    padding: 12px 16px 16px;
+  }
 }
 
 .bottomLeft {
@@ -201,7 +257,7 @@ const onWarningClick = () => {
   flex: 1;
 }
 
-.bottomUtilWarning {
+.utilWarning {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -213,7 +269,7 @@ const onWarningClick = () => {
   cursor: pointer;
 }
 
-.bottomUtilWarningIcon {
+.utilWarningIcon {
   width: 16px;
   height: 16px;
 }

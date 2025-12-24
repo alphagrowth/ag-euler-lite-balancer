@@ -25,7 +25,10 @@ defineProps<{ title?: string, loading?: boolean }>()
 
     <slot v-else />
 
-    <div class="mt-auto column gap-8">
+    <div
+      :class="$style.bottom"
+      class="column gap-8"
+    >
       <slot name="buttons" />
     </div>
   </form>
@@ -33,6 +36,14 @@ defineProps<{ title?: string, loading?: boolean }>()
 
 <style module lang="scss">
 .VaultForm {
-  min-height: calc(100dvh - 100px);
+  @include respond-to(mobile) {
+    min-height: calc(100dvh - 100px);
+  }
+}
+
+.bottom {
+  @include respond-to(mobile) {
+    margin-top: auto;
+  }
 }
 </style>

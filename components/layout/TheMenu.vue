@@ -1,46 +1,14 @@
 <script setup lang="ts">
-interface Link {
-  name: string
-  label: string
-  icon: string
-  activeIcon: string
-}
+import { type MenuItem, menuItems } from '~/entities/menu'
 
 const route = useRoute()
 
-const links: Link[] = [
-  {
-    name: 'earn',
-    label: 'Earn',
-    icon: 'lend-outline',
-    activeIcon: 'lend-filled',
-  },
-  {
-    name: 'index',
-    label: 'Lend',
-    icon: 'lend-outline',
-    activeIcon: 'lend-filled',
-  },
-  {
-    name: 'borrow',
-    label: 'Borrow',
-    icon: 'borrow-outline',
-    activeIcon: 'borrow-filled',
-  },
-  {
-    name: 'portfolio',
-    label: 'Portfolio',
-    icon: 'portfolio-outline',
-    activeIcon: 'portfolio-filled',
-  },
-]
-
-const getMenuIcon = (link: Link) => {
-  if (link.name === 'index') {
-    return route.name === 'index' || route.name?.toString().startsWith('lend') ? link.activeIcon : link.icon
+const getMenuIcon = (item: MenuItem) => {
+  if (item.name === 'index') {
+    return route.name === 'index' || route.name?.toString().startsWith('lend') ? item.activeIcon : item.icon
   }
 
-  return route.name?.toString().startsWith(link.name) ? link.activeIcon : link.icon
+  return route.name?.toString().startsWith(item.name) ? item.activeIcon : item.icon
 }
 </script>
 
@@ -54,7 +22,7 @@ const getMenuIcon = (link: Link) => {
       class="flex"
     >
       <NuxtLink
-        v-for="link in links"
+        v-for="link in menuItems"
         :key="link.name"
         :to="{ name: link.name }"
         :class="$style.item"
@@ -77,7 +45,11 @@ const getMenuIcon = (link: Link) => {
   left: 0;
   right: 0;
   z-index: 100;
-  //box-shadow: 0px -4px 6px 4px var(--c-euler-dark-300);
+  display: none;
+
+  @include respond-to(mobile) {
+    display: block;
+  }
 }
 
 .wrap {
