@@ -30,28 +30,24 @@ watch(isConnected, (value) => {
 </script>
 
 <template>
-  <section :class="$style.OnboardingPage">
-    <div :class="$style.contentWrapper">
-      <div :class="$style.bg" />
-      <div :class="$style.content">
+  <section class="w-full h-dvh -mt-16 -mb-[98px]">
+    <div class="relative flex flex-col items-center justify-between gap-24 h-full pb-16 mobile:-mx-16">
+      <div
+        class="flex-1 w-full h-full bg-[url('/onboarding-pattern.png')] bg-cover bg-bottom bg-no-repeat -z-10"
+      />
+      <div class="flex flex-col items-center gap-24 w-full px-16">
         <img
           src="/logo.png"
           alt="Euler Logo"
-          :class="$style.image"
+          class="w-[75px] h-[75px]"
         >
-        <div
-          class="h1 center"
-          :class="$style.title"
-        >
+        <div class="text-h1 text-center w-[240px]">
           The Lending Super App
         </div>
-        <div class="text-euler-dark-900 center">
+        <div class="text-euler-dark-900 text-center">
           Lend, borrow and build without limits.
         </div>
-        <div
-          class="column gap-8"
-          :class="$style.buttons"
-        >
+        <div class="flex flex-col gap-8 w-full">
           <UiButton
             size="large"
             rounded
@@ -72,61 +68,3 @@ watch(isConnected, (value) => {
     </div>
   </section>
 </template>
-
-<style lang="scss" module>
-.OnboardingPage {
-  width: 100%;
-  height: 100dvh;
-  margin-top: -16px;
-  margin-bottom: -98px;
-}
-
-.contentWrapper {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  height: 100%;
-  padding-bottom: 16px;
-
-  @include respond-to(mobile) {
-    margin-left: calc(var(--container-padding-side) * -1);
-    margin-right: calc(var(--container-padding-side) * -1);
-  }
-}
-
-.bg {
-  flex-grow: 1;
-  width: 100%;
-  height: 100%;
-  background-image: url('/onboarding-pattern.png');
-  background-size: cover;
-  background-position: bottom center;
-  background-repeat: no-repeat;
-  z-index: -1;
-}
-
-.content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  width: 100%;
-  padding: 0 16px;
-}
-
-.image {
-  width: 75px;
-  height: 75px;
-}
-
-.title {
-  width: 240px;
-}
-
-.buttons {
-  width: 100%;
-}
-</style>

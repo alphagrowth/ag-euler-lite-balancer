@@ -256,7 +256,7 @@ onUnmounted(() => {
   <VaultForm
     title="Borrow"
     :loading="isLoading || isPositionsLoading"
-    class="column gap-16"
+    class="flex flex-col gap-16"
     @submit.prevent="submit"
   >
     <template v-if="pair">
@@ -291,43 +291,43 @@ onUnmounted(() => {
       <VaultFormInfoBlock
         v-if="pair"
         :loading="isEstimatesLoading"
-        class="bg-euler-dark-400 p-16 br-16 column gap-16"
+        class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
       >
-        <div class="between align-center">
-          <p class="text-euler-dark-900 ">
+        <div class="flex justify-between items-center">
+          <p class="text-euler-dark-900">
             Net APY
           </p>
-          <p class="p2">
+          <p class="text-p2">
             {{ netAPY ? `${formatNumber(netAPY)}%` : '-' }}
           </p>
         </div>
-        <div class="between align-center">
-          <p class="text-euler-dark-900 ">
+        <div class="flex justify-between items-center">
+          <p class="text-euler-dark-900">
             Current Price
           </p>
-          <p class="p2">
+          <p class="text-p2">
             {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-            <span class="text-euler-dark-900 p3">
+            <span class="text-euler-dark-900 text-p3">
               {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
             </span>
           </p>
         </div>
-        <div class="between align-center">
-          <p class="text-euler-dark-900 ">
+        <div class="flex justify-between items-center">
+          <p class="text-euler-dark-900">
             Liquidation price
           </p>
-          <p class="p2">
+          <p class="text-p2">
             {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-            <span class="text-euler-dark-900 p3">
+            <span class="text-euler-dark-900 text-p3">
               {{ collateralVault?.asset.symbol }}
             </span>
           </p>
         </div>
-        <div class="between align-center">
-          <p class="text-euler-dark-900 ">
+        <div class="flex justify-between items-center">
+          <p class="text-euler-dark-900">
             Health
           </p>
-          <p class="p2">
+          <p class="text-p2">
             {{ health ? formatNumber(health, 2) : '-' }}
           </p>
         </div>

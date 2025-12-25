@@ -67,32 +67,28 @@ const sortedBorrowList = computed(() => {
 </script>
 
 <template>
-  <section
-    :class="$style.borrowPage"
-    class="column"
-  >
+  <section class="flex flex-col min-h-[calc(100dvh-178px)]">
     <BasePageHeader
       title="Borrow"
       description="Borrow against your collateral"
       class="mb-24"
     />
+
     <div class="mb-16">
-      <h3 class="h3 mb-16">
+      <h3 class="text-h3 mb-16">
         Discover vaults
       </h3>
-      <div
-        :class="$style.filterSelectWrap"
-      >
+      <div class="flex justify-start items-center w-full gap-8">
         <VaultSortButton
           v-model="sortBy"
-          :class="$style.sortBtn"
+          class="shrink-0"
           :options="['Liquidity', 'Borrow APY']"
           placeholder="Sort By"
           title="Sorting type"
         />
         <UiSelect
           v-model="selectedCollateral"
-          :class="$style.filterSelect"
+          class="flex-1 min-w-0"
           :options="collateralAssetOptions"
           placeholder="Collateral asset"
           title="Collateral asset"
@@ -100,7 +96,7 @@ const sortedBorrowList = computed(() => {
         />
         <UiSelect
           v-model="selectedDebt"
-          :class="$style.filterSelect"
+          class="flex-1 min-w-0"
           :options="debtAssetOptions"
           placeholder="Debt asset"
           title="Debt asset"
@@ -108,80 +104,30 @@ const sortedBorrowList = computed(() => {
         />
       </div>
     </div>
-    <div
-      :class="$style.contentArea"
-      class="column"
-    >
+
+    <div class="flex flex-col flex-1">
       <UiLoader
         v-if="isLoading"
-        :class="$style.loader"
+        class="flex-1 self-center justify-self-center"
       />
+
       <VaultsBorrowList
         v-else-if="sortedBorrowList.length"
         :items="sortedBorrowList"
       />
+
       <div
         v-else
-        :class="$style.emptyState"
-        class="column gap-12 align-center justify-center text-euler-dark-900"
+        class="flex flex-col flex-1 gap-3 items-center justify-center text-euler-dark-900"
       >
         <UiIcon
           name="search"
-          :class="$style.searchIcon"
+          class="w-24 h-24"
         />
-        <div
-          :class="$style.emptyDescription"
-          class="center"
-        >
+        <div class="text-center max-w-[180px]">
           No markets were found by these filters
         </div>
       </div>
     </div>
   </section>
 </template>
-
-<style module lang="scss">
-.borrowPage {
-  min-height: calc(100dvh - 178px);
-}
-
-.loader {
-  flex: 1;
-  align-self: center;
-  justify-self: center;
-}
-
-.contentArea {
-  flex: 1;
-}
-
-.filterSelectWrap {
-  display: flex;
-  justify-content: start;
-  align-items: center;
-  width: 100%;
-  gap: 8px;
-}
-
-.sortBtn {
-  flex-shrink: 0;
-}
-
-.filterSelect {
-  flex: 1;
-  min-width: 0;
-}
-
-.searchIcon {
-  width: 24px;
-  height: 24px;
-}
-
-.emptyState {
-  flex: 1;
-}
-
-.emptyDescription {
-  max-width: 180px;
-}
-</style>

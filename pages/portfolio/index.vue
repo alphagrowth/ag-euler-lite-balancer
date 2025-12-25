@@ -7,27 +7,20 @@ const { isReady } = useVaults()
 </script>
 
 <template>
-  <div
-    :class="$style.BorrowPage"
-    class="mx-16 flex p-8 br-16"
-  >
+  <div class="flex flex-1 mx-16 p-8 rounded-16 border border-euler-dark-600">
     <div
       v-if="isConnected && (!isPositionsLoaded || (!isReady && borrowPositions.length === 0))"
-      class="justify-center align-center"
-      :class="$style.tabContent"
+      class="flex flex-1 justify-center items-center"
     >
       <UiLoader class="text-euler-dark-900" />
     </div>
+
     <div
       v-else-if="borrowPositions.length === 0"
-      class="justify-center align-center"
-      :class="$style.tabContent"
+      class="flex flex-1 justify-center items-center"
     >
-      <div class="column gap-8 align-center text-euler-dark-900">
-        <div
-          :class="$style.searchIcon"
-          class="justify-center align-center br-12 bg-euler-dark-500"
-        >
+      <div class="flex flex-col gap-8 items-center text-euler-dark-900">
+        <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-euler-dark-500">
           <SvgIcon name="search" />
         </div>
         <template v-if="isConnected">
@@ -38,9 +31,10 @@ const { isReady } = useVaults()
         </template>
       </div>
     </div>
+
     <div
       v-else
-      :class="$style.tabContent"
+      class="flex-1"
     >
       <PortfolioList
         :items="borrowPositions"
@@ -48,27 +42,10 @@ const { isReady } = useVaults()
       />
       <div
         v-if="!isReady"
-        class="justify-center align-center mt-12"
+        class="flex justify-center items-center mt-12"
       >
         <UiLoader class="text-euler-dark-900" />
       </div>
     </div>
   </div>
 </template>
-
-<style lang="scss" module>
-.BorrowPage {
-  display: flex;
-  flex-grow: 1;
-  border: 1px solid var(--c-euler-dark-600);
-}
-
-.tabContent {
-  flex-grow: 1;
-}
-
-.searchIcon {
-  width: 48px;
-  height: 48px;
-}
-</style>
