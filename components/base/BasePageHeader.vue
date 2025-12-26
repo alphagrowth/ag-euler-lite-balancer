@@ -13,14 +13,17 @@ defineProps({
 </script>
 
 <template>
-  <div :class="$style.PageHeader">
-    <div :class="[$style.icon, arrowDown ? $style._down : null]">
+  <div class="flex items-center">
+    <div
+      class="w-[52px] h-[52px] rounded-[12px] mr-16 bg-gradient-to-b from-[hsl(var(--aquamarine-700)/0.08)] to-[hsl(var(--aquamarine-700)/0.2)] flex items-center justify-center text-aquamarine-700 flex-shrink-0"
+      :class="arrowDown ? '[&>svg]:rotate-0' : '[&>svg]:rotate-180'"
+    >
       <SvgIcon
         name="arrow-big"
       />
     </div>
     <div>
-      <div class="h3 mb-4">
+      <div class="text-h3 mb-4">
         {{ title }}
       </div>
       <p class="text-euler-dark-900">
@@ -29,32 +32,3 @@ defineProps({
     </div>
   </div>
 </template>
-
-<style lang="scss" module>
-.PageHeader {
-  display: flex;
-  align-items: center;
-}
-
-.icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  margin-right: 16px;
-  background: linear-gradient(180deg, hsl(var(--aquamarine-700) / 0.08) 0%, hsl(var(--aquamarine-700) / 0.2) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--c-aquamarine-700);
-
-  svg {
-    transform: rotate(180deg);
-  }
-
-  &._down {
-    svg {
-      transform: rotate(0);
-    }
-  }
-}
-</style>

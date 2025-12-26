@@ -11,8 +11,7 @@ defineProps<{
 
 <template>
   <div
-    :class="$style.VaultsList"
-    class="column gap-8"
+    class="flex flex-col gap-8"
   >
     <template v-if="type === 'lend'">
       <PortfolioSavingItem
@@ -61,9 +60,3 @@ defineProps<{
     </template>
   </div>
 </template>
-
-<style lang="scss" module>
-.VaultsList {
-  ///
-}
-</style>

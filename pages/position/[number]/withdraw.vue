@@ -227,7 +227,7 @@ watch(amount, async () => {
     @submit.prevent="submit"
   >
     <template v-if="collateralVault && asset">
-      <div class="between">
+      <div class="flex justify-between">
         <VaultLabelsAndAssets
           :vault="collateralVault"
           :assets="[asset]"

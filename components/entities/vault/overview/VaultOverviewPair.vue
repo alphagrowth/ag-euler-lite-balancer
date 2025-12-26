@@ -8,13 +8,6 @@ defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition, desktopOverview?: b
 <template>
   <VaultOverviewPairBlockGeneral
     :pair="pair"
-    :class="[desktopOverview ? $style.desktop : '']"
+    :class="[desktopOverview ? 'py-16 !px-0 !pt-0' : '']"
   />
 </template>
-
-<style lang="scss" module>
-.desktop {
-  padding: 16px 0 !important;
-  padding-top: 0 !important;
-}
-</style>

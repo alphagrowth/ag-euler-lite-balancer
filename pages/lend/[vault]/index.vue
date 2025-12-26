@@ -193,14 +193,14 @@ watch(amount, async () => {
           <p class="flex justify-end gap-4 text-h3">
             <SvgIcon
               v-if="hasRewards"
-              class="w-6 h-6 text-aquamarine-700"
+              class="!w-24 !h-24 text-aquamarine-700"
               name="sparks"
             />
             <span>
               {{ supplyAPYDisplay }}%
             </span>
             <SvgIcon
-              class="w-6 h-6 text-euler-dark-800 cursor-pointer"
+              class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
               name="question-circle"
               @click="onSupplyInfoIconClick"
             />

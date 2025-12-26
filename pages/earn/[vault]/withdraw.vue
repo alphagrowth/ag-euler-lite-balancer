@@ -179,13 +179,12 @@ watch(amount, async () => {
 <template>
   <VaultForm
     title="Withdraw"
-    :class="$style.LendVaultPage"
-    class="column gap-16"
+    class="flex flex-col gap-16"
     :loading="isLoading"
     @submit.prevent="submit"
   >
     <template v-if="vault && asset">
-      <div class="between">
+      <div class="flex justify-between">
         <VaultLabelsAndAssets
           :vault="vault"
           :assets="[asset]"

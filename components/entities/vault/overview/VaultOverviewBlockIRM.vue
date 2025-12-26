@@ -402,76 +402,36 @@ onMounted(async () => {
 <template>
   <div
     v-if="hasValidIRM"
-    class="bg-euler-dark-300 br-16 column gap-16 p-24"
+    class="bg-euler-dark-300 rounded-16 flex flex-col gap-16 p-24"
   >
-    <div class="row justify-between align-center wrap gap-12">
-      <div class="row align-center gap-8">
-        <p class="h3 text-white">
+    <div class="flex justify-between items-center flex-wrap gap-12">
+      <div class="flex items-center gap-8">
+        <p class="text-h3 text-white">
           Interest rate model
         </p>
-        <div :class="$style.chip">
+        <div class="inline-flex items-center py-0 px-4 rounded-4 bg-[rgba(var(--aquamarine-700),0.3)] text-aquamarine-700 text-[12px] font-medium capitalize">
           {{ irmTypeLabel }}
         </div>
       </div>
     </div>
 
-    <div :class="$style.chartWrapper">
+    <div class="relative w-full min-h-400">
       <div
         v-if="isLoading"
-        :class="$style.loading"
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#888] text-center pointer-events-none"
       >
         Loading chart...
       </div>
       <div
         v-else-if="hasError"
-        :class="$style.error"
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#e15241] text-center pointer-events-none"
       >
         Failed to load interest rate data
       </div>
       <div
         ref="chartRef"
-        :class="$style.chart"
+        class="w-full h-[400px]"
       />
     </div>
   </div>
 </template>
-
-<style module lang="scss">
-.chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 4px;
-  border-radius: 4px;
-  background-color: var(--c-aquamarine-opaque-400);
-  color: var(--c-aquamarine-700);
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: capitalize;
-}
-
-.chartWrapper {
-  position: relative;
-  width: 100%;
-  min-height: 400px;
-}
-
-.chart {
-  width: 100%;
-  height: 400px;
-}
-
-.loading,
-.error {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #888;
-  text-align: center;
-  pointer-events: none;
-}
-
-.error {
-  color: #e15241;
-}
-</style>

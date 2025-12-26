@@ -35,11 +35,10 @@ const label = computed(() => {
 <template>
   <template v-if="'verified' in vault && !vault.verified">
     <div
-      :class="[$style.VaultTypeChip, $style.unverified]"
-      class="gap-4 align-center py-8 px-12 br-8"
+      class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-yellow-opaque-200)] text-yellow-700"
     >
       <UiIcon
-        class="mr-2 icon--20 text-yellow-600"
+        class="mr-2 !w-20 !h-20 text-yellow-600"
         name="warning"
       />
       Unverified
@@ -47,25 +46,13 @@ const label = computed(() => {
   </template>
   <template v-else>
     <div
-      :class="$style.VaultTypeChip"
-      class="gap-4 align-center py-8 px-12 br-8"
+      class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-aquamarine-opaque-300)]"
     >
       <UiIcon
-        class="mr-2 icon--20"
+        class="mr-2 !w-20 !h-20"
         :name="icon"
       />
       {{ label }}
     </div>
   </template>
 </template>
-
-<style module lang="scss">
-.VaultTypeChip {
-  background-color: var(--c-aquamarine-opaque-300);
-
-  &.unverified {
-    background-color: var(--c-yellow-opaque-200);
-    color: var(--c-yellow-700);
-  }
-}
-</style>

@@ -122,7 +122,7 @@ const sortedBorrowList = computed(() => {
       >
         <UiIcon
           name="search"
-          class="w-24 h-24"
+          class="!w-24 !h-24"
         />
         <div class="text-center max-w-[180px]">
           No markets were found by these filters

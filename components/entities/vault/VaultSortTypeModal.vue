@@ -22,7 +22,8 @@ const handleClose = () => {
     <div
       v-for="(option, idx) in options"
       :key="`options-${idx}`"
-      :class="[$style.row, selectedIdx === idx ? $style._selected : null]"
+      class="flex items-center py-12 px-16 cursor-pointer rounded-16"
+      :class="[selectedIdx === idx ? 'bg-euler-dark-600' : '']"
       @click="onSave(option)"
     >
       <div class="grow-1">
@@ -33,17 +34,3 @@ const handleClose = () => {
     </div>
   </BaseModalWrapper>
 </template>
-
-<style lang="scss" module>
-.row {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  cursor: pointer;
-  border-radius: 16px;
-
-  &._selected {
-    background-color: var(--c-euler-dark-600);
-  }
-}
-</style>

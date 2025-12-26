@@ -17,13 +17,12 @@ const errorText = computed(() => {
 
 <template>
   <NuxtLayout>
-    <div :class="$style.errorPage">
-      <div class="container column between">
+    <div class="flex justify-center min-h-[100dvh] py-16">
+      <div class="container flex flex-col justify-between">
         <div
-          :class="$style.content"
-          class="column justify-center align-center"
+          class="flex flex-col justify-center items-center h-full flex-1"
         >
-          <div class="p2 center px-16">
+          <div class="text-p2 text-center px-16">
             Error:
             {{ errorText }}
           </div>
@@ -40,17 +39,3 @@ const errorText = computed(() => {
     </div>
   </NuxtLayout>
 </template>
-
-<style lang='scss' module>
-.errorPage {
-  display: flex;
-  justify-content: center;
-  min-height: 100dvh;
-  padding: 16px 0;
-}
-
-.content {
-  height: 100%;
-  flex: 1;
-}
-</style>

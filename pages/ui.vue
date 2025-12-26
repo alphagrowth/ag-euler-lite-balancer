@@ -311,119 +311,119 @@ const openLegalModal = () => {
         Slice-of-heaven-300
       </div>
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="close"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="copy"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="edit"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="filter"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="gas"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="health"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="loading"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="percent"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="plus"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="question-circle"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="search"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="shield"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="sparks"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="trash"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="unlink"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="wallet"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="warning-circle"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="arrow-down"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="arrow-top-right"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="lend-outline"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="lend-filled"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="borrow-outline"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="borrow-filled"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="portfolio-outline"
       />
       <SvgIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="portfolio-filled"
       />
       <UiIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="map-pin-off"
       />
       <UiIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="globe"
       />
       <UiIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="search-user"
       />
       <UiIcon
-        class="w-6 h-6"
+        class="!w-24 !h-24"
         name="chart"
       />
     </div>

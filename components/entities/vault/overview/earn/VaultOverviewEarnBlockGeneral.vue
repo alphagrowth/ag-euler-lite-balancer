@@ -13,11 +13,11 @@ const feeDisplay = computed(() => {
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 br-16 column gap-24 p-24">
-    <p class="h3 text-white">
+  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
+    <p class="text-h3 text-white">
       Overview
     </p>
-    <div class="column align-start gap-24">
+    <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue label="Vault status">
         <VaultTypeChip
           :vault="vault"
@@ -25,11 +25,11 @@ const feeDisplay = computed(() => {
         />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Capital allocator">
-        <div class="column gap-16">
+        <div class="flex flex-col gap-16">
           <div
             v-for="(entity, idx) in entities"
             :key="idx"
-            class="flex align-center gap-8"
+            class="flex items-center gap-8"
           >
             <BaseAvatar
               :label="entity.name"
@@ -38,7 +38,7 @@ const feeDisplay = computed(() => {
             <a
               :href="entity.url"
               target="_blank"
-              class="p2 text-white underline"
+              class="text-p2 text-white underline"
             >{{ entity.name }}</a>
           </div>
         </div>

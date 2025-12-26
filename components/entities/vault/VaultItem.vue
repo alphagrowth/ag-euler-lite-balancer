@@ -33,52 +33,50 @@ const onWarningClick = () => {
 
 <template>
   <NuxtLink
-    :class="$style.VaultItem"
+    class="block no-underline text-white bg-euler-dark-500 rounded-16"
     :to="`/lend/${vault.address}`"
-    class="text-white bg-euler-dark-500 br-16"
   >
-    <div :class="$style.top">
+    <div class="flex pb-12 p-16 border-b border-border-primary">
       <BaseAvatar
         class="icon--40"
         :src="getAssetLogoUrl(vault.asset.symbol)"
         :label="vault.asset.symbol"
       />
-      <div :class="$style.topCenter">
-        <div class="text-euler-dark-900 p3 mb-4">
+      <div class="flex-grow ml-12">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           {{ name || vault.name }}
         </div>
-        <div class="h5">
+        <div class="text-h5">
           {{ vault.asset.symbol }}
         </div>
       </div>
-      <div :class="$style.topRight">
-        <div class="text-euler-dark-900 p3 mb-4 right">
+      <div class="flex flex-col items-end">
+        <div class="text-euler-dark-900 text-p3 mb-4 text-right">
           Supply APY
         </div>
         <div
-          :class="[$style.apy, nanoToValue(vault.interestRateInfo.supplyAPY, 25) <= 0 ? 'text-red-700' : 'text-aquamarine-700']"
-          class="p2"
+          class="text-p2 flex text-aquamarine-700"
         >
           <SvgIcon
             v-if="hasRewards"
-            class="icon--20 text-aquamarine-700 mr-4"
+            class="!w-20 !h-20 text-aquamarine-700 mr-4"
             name="sparks"
           />
           {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + totalRewardsAPY) }}%
         </div>
       </div>
     </div>
-    <div :class="$style.middle">
-      <div :class="$style.middleLeft">
-        <div class="text-euler-dark-900 p3 mb-4">
+    <div class="flex-1 flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-border-primary">
+      <div class="flex-1">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           Total supply
         </div>
-        <div class="p2">
+        <div class="text-p2">
           {{ `$${compactNumber(getVaultPrice(vault.totalAssets, vault))}` }}
         </div>
       </div>
-      <div :class="$style.middleCenter">
-        <div class="text-euler-dark-900 p3 mb-4">
+      <div class="flex-1 flex flex-col items-center">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           Governor
         </div>
         <BaseAvatar
@@ -88,194 +86,78 @@ const onWarningClick = () => {
         />
       </div>
       <div
-        class="center column"
-        :class="$style.middleCenterUtilization"
+        class="flex justify-center items-center flex-col flex-1 mobile:!hidden"
       >
-        <div class="text-euler-dark-900 p3 mb-4">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           Utilization
         </div>
         <div
-          :class="$style.middleCenterUtilizationValue"
+          class="flex gap-8 justify-end items-center text-right"
         >
           <button
             v-if="utilization >= 95"
-            :class="[$style.utilWarning, $style._shifted]"
+            class="flex justify-center items-center w-20 h-20 bg-[#3e4540] text-yellow-600 rounded-4 cursor-pointer"
             @click.stop.prevent="onWarningClick"
           >
             <SvgIcon
               name="warning"
-              :class="$style.utilWarningIcon"
+              class="!w-16 !h-16"
             />
           </button>
           <UiRadialProgress
             :value="utilization"
             :max="100"
           />
-          <div class="p2">
+          <div class="text-p2">
             {{ compactNumber(utilization, 2, 2) }}%
           </div>
         </div>
       </div>
       <div
-        :class="$style.middleRight"
-        class="column"
+        class="flex flex-col flex-1 items-end text-right"
       >
         <template v-if="isConnected">
-          <div class="text-euler-dark-900 p3 mb-4">
+          <div class="text-euler-dark-900 text-p3 mb-4">
             In wallet
           </div>
           <BaseLoadableContent
             :loading="isBalancesLoading"
             style="width: 70px; height: 20px"
           >
-            <div class="p2">
+            <div class="text-p2">
               ${{ compactNumber(getVaultPrice(balance, vault)) }}
             </div>
           </BaseLoadableContent>
         </template>
       </div>
     </div>
-    <div :class="$style.bottom">
-      <div :class="$style.bottomLeft">
-        <div class="text-euler-dark-900 p3">
+    <div class="hidden mobile:flex py-12 px-16 pb-16">
+      <div class="flex-1">
+        <div class="text-euler-dark-900 text-p3">
           Utilization
         </div>
       </div>
       <div
-        :class="$style.bottomRight"
+        class="flex gap-8 justify-end items-center text-right flex-1"
       >
         <button
           v-if="utilization >= 95"
-          :class="$style.utilWarning"
+          class="flex justify-center items-center w-20 h-20 bg-[#3e4540] text-yellow-600 rounded-4 cursor-pointer"
           @click.stop.prevent="onWarningClick"
         >
           <SvgIcon
             name="warning"
-            :class="$style.utilWarningIcon"
+            class="!w-16 !h-16"
           />
         </button>
         <UiRadialProgress
           :value="utilization"
           :max="100"
         />
-        <div class="p2">
+        <div class="text-p2">
           {{ compactNumber(utilization, 2, 2) }}%
         </div>
       </div>
     </div>
   </NuxtLink>
 </template>
-
-<style lang="scss" module>
-.VaultItem {
-  display: block;
-  text-decoration: none;
-}
-
-.top {
-  display: flex;
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--c-border-primary);
-}
-
-.topCenter {
-  flex-grow: 1;
-  margin-left: 12px;
-}
-
-.topRight {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.middle {
-  flex: 1;
-  display: flex;
-  padding: 12px 16px 12px;
-  justify-content: space-between;
-
-  @include respond-to(mobile) {
-    border-bottom: 1px solid var(--c-border-primary);
-  }
-}
-
-.middleLeft {
-  flex: 1;
-}
-
-.middleCenter {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.middleCenterUtilization {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  @include respond-to(mobile) {
-    display: none;
-  }
-}
-
-.middleCenterUtilizationValue {
-  display: flex;
-  gap: 8px;
-  justify-content: end;
-  align-items: center;
-  text-align: right;
-}
-
-.middleRight {
-  flex: 1;
-  align-items: end;
-  text-align: right;
-}
-
-.bottom {
-  display: none;
-
-  @include respond-to(mobile) {
-    display: flex;
-    padding: 12px 16px 16px;
-  }
-}
-
-.bottomLeft {
-  flex: 1;
-}
-
-.bottomRight {
-  display: flex;
-  gap: 8px;
-  justify-content: end;
-  align-items: center;
-  text-align: right;
-  flex: 1;
-}
-
-.utilWarning {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 20px;
-  height: 20px;
-  background-color: #3e4540;
-  color: var(--c-yellow-600);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.utilWarningIcon {
-  width: 16px;
-  height: 16px;
-}
-
-.apy {
-  display: flex;
-  color: var(--c-aquamarine-700)
-}
-</style>

@@ -49,35 +49,32 @@ const onRejectClick = () => {
     @close="$emit('close')"
   >
     <div
-      :class="$style.wrap"
-      class="flex column gap-24 full"
+      class="flex flex-col gap-24 full flex-grow [scrollbar-width:none]"
     >
-      <div class="p3 text-euler-dark-900">
+      <div class="text-p3 text-euler-dark-900">
         By accessing or using Euler's products and services, I agree to the
-        <a class="link">Terms of Use</a>, <a class="link">Privacy Policy</a>, and
-        <a class="link">Risk Disclosures</a>. I further represent and warrant:
+        <a class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600">Terms of Use</a>, <a class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600">Privacy Policy</a>, and
+        <a class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600">Risk Disclosures</a>. I further represent and warrant:
       </div>
 
       <div
-        :class="$style.content"
-        class="bg-euler-dark-100 br-12"
+        class="bg-euler-dark-100 rounded-12 overflow-auto flex-1 [scrollbar-width:none]"
       >
         <div
           v-for="(term, index) in terms"
           :key="index"
-          :class="$style.item"
           class="flex gap-16 p-16"
+          :class="[index !== terms.length - 1 ? 'border-b border-euler-dark-400' : '']"
         >
           <div
-            :class="$style.icon"
-            class="bg-euler-dark-500 br-8 flex align-center justify-center"
+            class="bg-euler-dark-500 rounded-8 flex align-center justify-center w-48 h-48 flex-shrink-0"
           >
             <UiIcon
               :name="term.icon"
               class="text-euler-dark-900"
             />
           </div>
-          <div class="p3 text-white">
+          <div class="text-p3 text-white">
             {{ term.text }}
           </div>
         </div>
@@ -104,28 +101,3 @@ const onRejectClick = () => {
     </div>
   </BaseModalWrapper>
 </template>
-
-<style module lang="scss">
-.wrap {
-  flex-grow: 1;
-  scrollbar-width: none;
-}
-
-.content {
-  overflow: auto;
-  flex: 1 1 0;
-  scrollbar-width: none;
-}
-
-.item {
-  &:not(:last-child) {
-    border-bottom: 1px solid var(--c-euler-dark-400);
-  }
-}
-
-.icon {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-}
-</style>

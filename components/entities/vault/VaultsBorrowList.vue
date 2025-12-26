@@ -6,8 +6,7 @@ defineProps<{ items: BorrowVaultPair[] }>()
 
 <template>
   <div
-    :class="$style.VaultsList"
-    class="column gap-8"
+    class="flex flex-col gap-8"
   >
     <VaultBorrowItem
       v-for="pair in items"
@@ -16,9 +15,3 @@ defineProps<{ items: BorrowVaultPair[] }>()
     />
   </div>
 </template>
-
-<style lang="scss" module>
-.VaultsList {
-  ///
-}
-</style>

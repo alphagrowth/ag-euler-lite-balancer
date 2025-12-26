@@ -57,8 +57,7 @@ const handleClose = () => {
   >
     <div class="mb-24">
       <div
-        :class="$style.top"
-        class="between align-center pb-16 mb-16"
+        class="flex justify-between items-center pb-16 mb-16 border-b border-euler-dark-600"
       >
         <div>
           <p class="mb-4">
@@ -68,18 +67,18 @@ const handleClose = () => {
             Yield from lending on Euler
           </p>
         </div>
-        <div class="h5">
+        <div class="text-h5">
           {{ formatNumber(lendingAPY) }}%
         </div>
       </div>
       <div
         v-if="rewardsTotalAPY !== null"
-        class="between align-center mb-16"
+        class="flex justify-between items-center mb-16"
       >
         <div>
           <p class="mb-4 flex gap-4">
             <SvgIcon
-              class="icon--20 text-aquamarine-700"
+              class="!w-20 !h-20 text-aquamarine-700"
               name="sparks"
             />
             <span>Rewards APY</span>
@@ -88,19 +87,19 @@ const handleClose = () => {
             Yield from token rewards
           </p>
         </div>
-        <div class="h5">
+        <div class="text-h5">
           + {{ formatNumber(rewardsTotalAPY) }}%
         </div>
       </div>
       <div
         v-for="reward in rewardsInfo"
         :key="reward.id"
-        class="between align-center mb-16"
+        class="flex justify-between items-center mb-16"
       >
         <div class="flex">
           <img
             v-if="reward.rewardToken.icon"
-            :class="$style.rewardLogo"
+            class="w-20 h-20"
             :src="reward.rewardToken.icon"
             alt="Reward token logo"
           >
@@ -111,27 +110,16 @@ const handleClose = () => {
             ({{ reward.source === 'brevis' ? 'Brevis, ' : '' }}ends {{ reward.endDate.toFormat('MMMM dd, yyyy') }})
           </p>
         </div>
-        <div class="p2">
+        <div class="text-p2">
           {{ formatNumber(reward.apr) }}%
         </div>
       </div>
     </div>
-    <div class="bg-euler-dark-600 br-12 p-16 between align-center">
+    <div class="bg-euler-dark-600 rounded-12 p-16 flex justify-between items-center">
       <p>Total supply APY</p>
-      <p class="h4">
+      <p class="text-h4">
         {{ formatNumber(lendingAPY + (rewardsTotalAPY || 0)) }}%
       </p>
     </div>
   </BaseModalWrapper>
 </template>
-
-<style lang="scss" module>
-.top {
-  border-bottom: 1px solid var(--c-euler-dark-600);
-}
-
-.rewardLogo {
-  width: 20px;
-  height: 20px;
-}
-</style>

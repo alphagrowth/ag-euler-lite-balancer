@@ -12,26 +12,10 @@ module.exports = {
 
   theme: {
     extend: {
-      // Override Tailwind's default spacing to match your SCSS pixel values
       spacing: {
-        0: '0',
-        2: '2px',
-        4: '4px',
-        8: '8px',
-        10: '10px',
-        12: '12px',
-        16: '16px',
-        20: '20px',
-        24: '24px',
-        32: '32px',
-        36: '36px',
-        40: '40px',
-        42: '42px',
-        44: '44px',
-        46: '46px',
-        48: '48px',
-        50: '50px',
-        52: '52px',
+        ...Object.fromEntries(
+          Array.from({ length: 101 }, (_, i) => [i, `${i}px`]),
+        ),
       },
 
       colors: {
@@ -87,20 +71,17 @@ module.exports = {
         'border-primary': 'hsl(var(--border-primary))',
       },
 
-      // Custom breakpoints matching your mixins.scss
       screens: {
         mobile: { max: '900px' },
         laptop: { min: '901px' },
       },
 
-      // Border radius matching your br-* classes
       borderRadius: {
         8: '8px',
         12: '12px',
         16: '16px',
       },
 
-      // Typography matching your typography.scss
       fontSize: {
         h1: ['32px', { lineHeight: '40px', fontWeight: '600' }],
         h2: ['24px', { lineHeight: '32px', fontWeight: '600' }],
@@ -113,17 +94,14 @@ module.exports = {
         p3: ['14px', { lineHeight: '20px', fontWeight: '400' }],
       },
 
-      // Container max-width
       maxWidth: {
         container: '800px',
       },
 
-      // Z-index values
       zIndex: {
         100: '100',
       },
 
-      // Custom transitions
       transitionDuration: {
         default: '250ms',
         slow: '350ms',

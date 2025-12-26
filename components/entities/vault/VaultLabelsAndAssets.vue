@@ -18,8 +18,8 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
 
 <template>
   <div
-    :class="[$style.VaultLabelsAndAssets, size === 'large' ? 'gap-16' : 'gap-12']"
-    class="flex align-center"
+    :class="[size === 'large' ? 'gap-16' : 'gap-12']"
+    class="flex items-center"
   >
     <BaseAvatar
       :class="size === 'large' ? 'icon--46' : 'icon--38'"
@@ -30,11 +30,11 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
     <div>
       <p
         v-if="'verified' in vault && !vault.verified"
-        class="text-yellow-600 mb-4 align-center gap-4"
+        class="text-yellow-600 mb-4 items-center gap-4"
       >
         <SvgIcon
           name="warning"
-          class="icon--20"
+          class="!w-20 !h-20"
         />
         Unknown vault
       </p>
@@ -45,15 +45,9 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
         {{ name || vault.name }}
       </p>
 
-      <p class="p2 weight-600">
+      <p class="text-p2 font-semibold">
         {{ assetsLabel }}
       </p>
     </div>
   </div>
 </template>
-
-<style module lang="scss">
-.VaultLabelsAndAssets {
-  //
-}
-</style>

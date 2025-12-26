@@ -9,14 +9,13 @@ const emits = defineEmits(['close'])
     @close="emits('close')"
   >
     <div
-      :class="$style.content"
-      class="text-white"
+      class="text-white flex flex-col gap-8 mb-16"
     >
       <p>
         High utilization on this market. A large proportion of the available liquidity has been borrowed.
       </p>
     </div>
-    <div :class="$style.buttons">
+    <div class="flex gap-8">
       <UiButton
         size="large"
         rounded
@@ -27,16 +26,3 @@ const emits = defineEmits(['close'])
     </div>
   </BaseModalWrapper>
 </template>
-
-<style lang="scss" module>
-.content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-.buttons {
-  display: flex;
-  gap: 8px;
-}
-</style>

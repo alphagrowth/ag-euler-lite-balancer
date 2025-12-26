@@ -19,15 +19,10 @@ const emits = defineEmits(['input', 'change-collateral'])
 const model = defineModel<string>({ default: '' })
 
 const inputEl = useTemplateRef<HTMLInputElement>('inputEl')
-const styles = useCssModule()
 const modal = useModal()
 const isFocused = ref(false)
 
 const selectedIdx = ref(0)
-
-const classes = computed(() => ({
-  [styles._focused]: isFocused.value,
-}))
 const friendlyBalance = computed(() => nanoToValue(balance, asset?.decimals || 18))
 const price = computed(() => {
   if (!vault) {
@@ -81,13 +76,12 @@ const openChooseCollateralModal = () => {
 
 <template>
   <div
-    :class="[$style.AssetInput, classes]"
-    class="column gap-12 p-16 bg-euler-dark-100 br-16"
+    class="flex flex-col gap-12 p-16 bg-euler-dark-100 rounded-16"
+    :class="[isFocused ? 'shadow-[0_0_0_1px_hsl(var(--aquamarine-700))]' : '']"
   >
     <div
       v-if="label || desc"
-      :class="$style.top"
-      class="between text-euler-dark-800"
+      class="flex justify-between text-euler-dark-800"
     >
       <p>
         {{ label }}
@@ -98,15 +92,13 @@ const openChooseCollateralModal = () => {
       </p>
     </div>
     <div
-      :class="$style.center"
-      class="flex align-center gap-12"
+      class="flex items-center gap-12"
     >
       <input
         ref="inputEl"
         v-text-fit
         :value="model"
-        :class="$style.input"
-        class="h1 text-euler-dark-1000"
+        class="text-h1 text-euler-dark-1000 w-full h-40 outline-none placeholder:text-euler-dark-800"
         type="text"
         placeholder="0.00"
         maxlength="24"
@@ -119,8 +111,7 @@ const openChooseCollateralModal = () => {
       >
 
       <div
-        :class="$style.assetChip"
-        class="bg-euler-dark-500 p3 weight-600 gap-8 align-center justify-center px-12"
+        class="bg-euler-dark-500 text-p3 font-semibold gap-8 flex items-center justify-center px-12 h-36 rounded-[40px] whitespace-nowrap cursor-pointer"
         @click="openChooseCollateralModal"
       >
         <BaseAvatar
@@ -131,14 +122,13 @@ const openChooseCollateralModal = () => {
         {{ asset.symbol }}
         <SvgIcon
           v-if="collateralOptions.length > 1"
-          class="text-euler-dark-800 icon--16"
+          class="text-euler-dark-800 !w-16 !h-16"
           name="arrow-down"
         />
       </div>
     </div>
     <div
-      :class="$style.bottom"
-      class="between"
+      class="flex justify-between"
     >
       <p
         v-if="vault"
@@ -158,43 +148,10 @@ const openChooseCollateralModal = () => {
       >
         <p @click="setMax">
           <span class="text-euler-dark-800">{{ formatNumber(friendlyBalance) }} {{ asset.symbol }}</span> <span
-            class="text-aquamarine-700 weight-600 px-4"
-            :class="$style.max"
+            class="text-aquamarine-700 font-semibold px-4 cursor-pointer select-none text-[12px] leading-[16px]"
           >Max</span> <!-- TODO: button -->
         </p>
       </BaseLoadableContent>
     </div>
   </div>
 </template>
-
-<style module lang="scss">
-.AssetInput {
-  &._focused {
-    box-shadow: 0 0 0 1px var(--c-aquamarine-700);
-  }
-}
-
-.input {
-  width: 100%;
-  height: 40px;
-  outline: none;
-
-  &::placeholder {
-    color: var(--c-euler-dark-800);
-  }
-}
-
-.assetChip {
-  height: 36px;
-  border-radius: 40px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.max {
-  cursor: pointer;
-  user-select: none;
-  font-size: 12px;
-  line-height: 16px;
-}
-</style>

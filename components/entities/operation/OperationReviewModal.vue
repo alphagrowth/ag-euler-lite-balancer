@@ -5,7 +5,7 @@ import type { VaultAsset } from '~/entities/vault'
 
 const emits = defineEmits(['close', 'confirm'])
 
-const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount, hasBorrows } = defineProps<{
+const { type, asset, rewardInfo, amount, onConfirm, subAccount, hasBorrows } = defineProps<{
   type?: 'supply' | 'withdraw' | 'borrow' | 'reward' | 'brevis-reward' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
@@ -95,55 +95,55 @@ const disclaimerText = computed(() => {
     :title="modalLabel"
     @close="$emit('close')"
   >
-    <div class="flex column gap-24">
-      <div class="column gap-16">
+    <div class="flex flex-col gap-24">
+      <div class="flexflex-col gap-16">
         <div
           v-if="type === 'borrow' && supplyingAssetForBorrow"
-          class="flex-wrap gap-8 between"
+          class="flex-wrap gap-8 flex justify-between"
         >
-          <p class="p3 text-euler-dark-900 be">
+          <p class="text-p3 text-euler-dark-900 be">
             Supplying
           </p>
-          <div class="flex gap-8 align-center">
+          <div class="flex gap-8 items-center">
             <BaseAvatar
               class="icon--20"
               :src="''"
               :label="supplyingAssetForBorrow.symbol"
             />
-            <p class="p2">
+            <p class="text-p2">
               {{ formatNumber(supplyingAmount, 8, 0) }} {{ supplyingAssetForBorrow.symbol }}
             </p>
           </div>
         </div>
         <div
           v-if="type !== 'disableCollateral'"
-          class="flex-wrap gap-8 between"
+          class="flex-wrap gap-8 flex justify-between"
         >
-          <p class="p3 text-euler-dark-900 be">
+          <p class="text-p3 text-euler-dark-900 be">
             {{ assetLabel }}
           </p>
-          <div class="flex gap-8 align-center">
+          <div class="flex gap-8 items-center">
             <BaseAvatar
               class="icon--20"
               :src="''"
               :label="asset.symbol"
             />
-            <p class="p2">
+            <p class="text-p2">
               {{ formatNumber(amount, 8, 0) }} {{ asset.symbol === 'WTAC' ? 'TAC' : asset.symbol }} <!-- TODO wtac -> tac @ useMerkl -->
             </p>
           </div>
         </div>
       </div>
-      <div class="flex-wrap gap-8 bg-euler-dark-600 p-16 br-12 between">
-        <div class="flex gap-8 align-center">
+      <div class="flex-wrap gap-8 bg-euler-dark-600 p-16 rounded-12 flex justify-between">
+        <div class="flex gap-8 items-center">
           <UiIcon
             name="gas"
-            class="icon--20"
+            class="!w-20 !h-20"
           />
           Transaction fee
         </div>
-        <div class="flex gap-8 align-center">
-          <span class="p2">&asymp; {{ formatNumber(fee, 8, 0) }} ETH</span>
+        <div class="flex gap-8 items-center">
+          <span class="text-p2">&asymp; {{ formatNumber(fee, 8, 0) }} ETH</span>
         </div>
       </div>
       <UiToast
@@ -162,10 +162,10 @@ const disclaimerText = computed(() => {
       />
       <div
         v-if="hasOperatorForPosition"
-        class="flex-wrap gap-8 bg-euler-dark-600 p-16 br-12 between"
+        class="flex-wrap gap-8 bg-euler-dark-600 p-16 rounded-12 flex justify-between"
       >
-        <div class="flex column gap-4">
-          <p class="p3 text-white-900 ">
+        <div class="flex flex-col gap-4">
+          <p class="text-p3 text-white-900 ">
             Disable swap operator
           </p>
           <p class="p4 text-euler-dark-900">
@@ -176,10 +176,10 @@ const disclaimerText = computed(() => {
       </div>
       <div
         v-if="disableOperator && canTransfer"
-        class="flex-wrap gap-8 bg-euler-dark-600 p-16 br-12 between"
+        class="flex-wrap gap-8 bg-euler-dark-600 p-16 rounded-12 flex justify-between"
       >
-        <div class="flex column gap-4">
-          <p class="p3 text-white-900 ">
+        <div class="flex flex-col gap-4">
+          <p class="text-p3 text-white-900">
             Transfer assets to primary account
           </p>
           <p class="p4 text-euler-dark-900">
@@ -199,29 +199,3 @@ const disclaimerText = computed(() => {
     </div>
   </BaseModalWrapper>
 </template>
-
-<style module lang="scss">
-.OperationReviewModal {
-  &._success {
-    .icon {
-      border-color: var(--c-green-opaque-1000);
-      background-color: var(--c-green-opaque-300);
-    }
-  }
-
-  &._error {
-    .icon {
-      border-color: var(--c-red-opaque-1000);
-      background-color: var(--c-red-opaque-300);
-    }
-  }
-}
-
-.icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  border: 1px solid var(--c-euler-dark-700);
-  background-color: var(--c-euler-dark-600);
-}
-</style>

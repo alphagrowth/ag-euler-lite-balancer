@@ -260,7 +260,7 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
-      <div class="between">
+      <div class="flex justify-between">
         <VaultLabelsAndAssets
           :vault="position.borrow"
           :assets="assets as VaultAsset[]"

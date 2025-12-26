@@ -83,15 +83,6 @@ export default defineNuxtConfig({
     compressPublicAssets: true,
   },
 
-  vite: {
-    css: {
-      preprocessorOptions: {
-        scss: {
-          additionalData: '@use "~/assets/styles/mixins.scss" as *;',
-        },
-      },
-    },
-  },
   telemetry: false,
   eslint: { config: { stylistic: true } },
 

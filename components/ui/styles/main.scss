@@ -2,7 +2,7 @@
 @use 'transitions';
 
 :root {
-  --ui-modal-max-width: var(--container-w);
+  --ui-modal-max-width: 800px;
 
   --ui-loader-width: 22px;
   --ui-loader-animation: ui-animation-spin 1s infinite linear;

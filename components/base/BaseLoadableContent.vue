@@ -9,17 +9,8 @@ defineProps<{ loading: boolean }>()
   >
     <div
       v-if="loading"
-      :class="$style.BaseSkeleton"
+      class="w-80 h-20 rounded-12 bg-[rgba(200,200,200,0.1)]"
     />
     <slot v-else />
   </Transition>
 </template>
-
-<style module lang="scss">
-.BaseSkeleton {
-  width: 80px;
-  height: 20px;
-  border-radius: 12px;
-  background-color: rgba(200, 200, 200, 0.1);
-}
-</style>

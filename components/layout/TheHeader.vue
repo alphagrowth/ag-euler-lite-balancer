@@ -57,26 +57,24 @@ onClickOutside(reference, () => {
 
 <template>
   <header
-    :class="$style.TheHeader"
-    class="flex justify-center bg-euler-dark-300"
+    class="sticky top-0 right-0 left-0 z-[101] min-h-44 border-b border-euler-dark-600 py-22 px-24 mobile:min-h-36 mobile:border-b-0 mobile:p-16 flex justify-center bg-euler-dark-300"
   >
     <div
-      :class="$style.wrap"
+      class="flex justify-between h-full w-full items-center mobile:max-w-container mobile:p-0"
     >
       <button
         ref="reference"
-        class="between align-center gap-8"
-        :class="$style.logoWrap"
+        class="flex justify-between items-center gap-8 relative cursor-pointer outline-none"
         @click="onLogoClick"
       >
         <img
-          class="icon--32"
+          class="!w-32 !h-32"
           src="/logo.png"
           alt="Euler"
         >
         <SvgIcon
-          class="icon--18"
-          :class="[$style.arrow, isSocialsTooltipVisible ? $style._open : '']"
+          class="!w-18 !h-18 transition-transform duration-fast"
+          :class="[isSocialsTooltipVisible ? 'rotate-180' : '']"
           name="arrow-down"
         />
         <Transition
@@ -88,12 +86,12 @@ onClickOutside(reference, () => {
             v-show="isSocialsTooltipVisible"
             ref="floating"
             :style="floatingStyles"
-            :class="$style.floating"
+            class="relative max-w-[400px] w-max p-16 rounded-16 bg-euler-dark-500 border border-euler-dark-700 cursor-default"
             @click.stop
           >
-            <div class="column gap-4 w-100">
+            <div class="flex flex-col gap-4 w-full">
               <div class="mb-24">
-                <p class="mb-8 text-euler-dark-800 h6 left">
+                <p class="mb-8 text-euler-dark-800 text-h6 text-left">
                   Explore
                 </p>
 
@@ -101,13 +99,12 @@ onClickOutside(reference, () => {
                   v-for="(link, index) in links"
                   :key="`link-${index}`"
                   :href="link.url"
-                  :class="$style.docsLink"
-                  class="flex gap-4 mb-4"
+                  class="flex gap-4 mb-4 text-euler-dark-1000"
                   target="_blank"
                 >
-                  <span class="h6">{{ link.title }}</span>
+                  <span class="text-h6">{{ link.title }}</span>
                   <SvgIcon
-                    class="icon--20 text-aquamarine-700"
+                    class="!w-20 !h-20 text-aquamarine-700"
                     name="arrow-top-right"
                   />
                 </a>
@@ -117,56 +114,55 @@ onClickOutside(reference, () => {
                   v-for="item in Object.entries(socials)"
                   :key="item[0]"
                   :href="item[1]"
-                  class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
-                  :class="$style.socialLink"
+                  class="justify-center items-center p-8 text-aquamarine-1000 bg-euler-dark-500 w-36 h-36 rounded-[32px] border border-euler-dark-600"
                   target="_blank"
                 >
                   <SvgIcon
-                    class="icon--20"
+                    class="!w-20 !h-20"
                     :name="item[0]"
                   />
                 </a>
                 <!-- <a
                   href="https://x.com/"
-                  class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
+                  class="justify-center items-center p-8 text-aquamarine-1000 bg-euler-dark-500"
                   :class="$style.socialLink"
                   target="_blank"
                 >
                   <SvgIcon
-                    class="icon--20"
+                    class="!w-20 !h-20"
                     name="x"
                   />
                 </a>
                 <a
                   href="https://discord.com/"
-                  class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
+                  class="justify-center items-center p-8 text-aquamarine-1000 bg-euler-dark-500"
                   :class="$style.socialLink"
                   target="_blank"
                 >
                   <SvgIcon
-                    class="icon--20"
+                    class="!w-20 !h-20"
                     name="discord"
                   />
                 </a>
                 <a
                   href="https://t.me/"
-                  class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
+                  class="justify-center items-center p-8 text-aquamarine-1000 bg-euler-dark-500"
                   :class="$style.socialLink"
                   target="_blank"
                 >
                   <SvgIcon
-                    class="icon--20"
+                    class="!w-20 !h-20"
                     name="telegram"
                   />
                 </a>
                 <a
                   href="https://github.com/"
-                  class="justify-center align-center p-8 text-aquamarine-1000 bg-euler-dark-500"
+                  class="justify-center items-center p-8 text-aquamarine-1000 bg-euler-dark-500"
                   :class="$style.socialLink"
                   target="_blank"
                 >
                   <SvgIcon
-                    class="icon--20"
+                    class="!w-20 !h-20"
                     name="github"
                   />
                 </a> -->
@@ -175,24 +171,24 @@ onClickOutside(reference, () => {
           </div>
         </Transition>
       </button>
-      <div :class="$style.menu">
+      <div class="flex w-full max-w-[450px] !ml-[164px] mr-16 mobile:!hidden">
         <NuxtLink
           v-for="item in menuItems"
           :key="item.name"
           :to="{ name: item.name }"
-          :class="[$style.menuItem, getIsMenuItemActive(item) ? $style._active : '']"
-          class="text-white align-center center"
+          class="flex gap-8 text-[12px] no-underline w-full py-12 rounded-8 text-white items-center justify-center"
+          :class="[getIsMenuItemActive(item) ? 'bg-euler-dark-400' : '']"
         >
           <UiIcon
-            class="icon--20"
+            class="!w-20 !h-20 text-aquamarine-700"
             :name="item.icon"
           />
           <span>{{ item.label }}</span>
         </NuxtLink>
       </div>
-      <div :class="$style.buttons">
+      <div class="flex flex-nowrap flex-shrink-0">
         <UiButton
-          :class="$style.chain"
+          class="mr-8 py-6 px-8"
           icon="arrow-down"
           variant="primary-stroke"
           size="medium"
@@ -214,112 +210,3 @@ onClickOutside(reference, () => {
     </div>
   </header>
 </template>
-
-<style lang="scss" module>
-.TheHeader {
-  position: sticky;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 101;
-  min-height: 44px;
-  border-bottom: 1px solid var(--c-euler-dark-600);
-  padding: 22px 24px;
-
-  @include respond-to(mobile) {
-    min-height: 36px;
-    border-bottom: none;
-    padding: 16px;
-  }
-}
-
-.wrap {
-  display: flex;
-  justify-content: space-between;
-  height: 100%;
-  width: 100%;
-  align-items: center;
-
-  @include respond-to(mobile) {
-    max-width: var(--container-w);
-    padding: 0;
-  }
-}
-
-.menu {
-  display: flex;
-  width: 100%;
-  max-width: 450px;
-  margin: 0 16px;
-  margin-left: 164px;
-
-  @include respond-to(mobile) {
-    display: none;
-  }
-}
-
-.menuItem {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  font-size: 12px;
-  text-decoration: none;
-  width: 100%;
-  padding: 12px 0;
-  border-radius: 8px;
-
-  svg {
-    color: var(--c-aquamarine-700);
-  }
-
-  &._active {
-    background-color: var(--c-euler-dark-400);
-  }
-}
-
-.logoWrap {
-  position: relative;
-  cursor: pointer;
-  outline: none;
-}
-
-.arrow {
-  transition: transform var(--trs-fast);
-
-  &._open {
-    transform: rotate(180deg);
-  }
-}
-
-.floating {
-  position: relative;
-  max-width: calc(var(--container-w) / 2);
-  width: max-content;
-  padding: 16px;
-  border-radius: 16px;
-  background-color: var(--c-euler-dark-500);
-  border: 1px solid var(--c-euler-dark-700);
-  cursor: default;
-}
-
-.docsLink {
-  color: var(--c-euler-dark-1000);
-}
-
-.socialLink {
-  width: 36px;
-  height: 36px;
-  border-radius: 32px;
-  border: 1px solid var(--c-euler-dark-600);
-}
-
-.chain {
-  margin-right: 8px;
-  padding: 6px 8px;
-}
-
-.buttons {
-  display: flex;
-  flex-wrap: nowrap;
-}
-</style>

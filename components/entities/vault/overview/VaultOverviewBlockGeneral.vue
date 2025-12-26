@@ -19,11 +19,11 @@ const borrowCount = computed(() =>
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 br-16 column gap-24 p-24">
-    <p class="h3 text-white">
+  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
+    <p class="text-h3 text-white">
       Overview
     </p>
-    <div class="column align-start gap-24">
+    <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue
         label="Price"
         value="$0.00"
@@ -37,12 +37,12 @@ const borrowCount = computed(() =>
       <VaultOverviewLabelValue label="Governor(s)">
         <div
           v-if="entities.length"
-          class="column gap-16"
+          class="flex flex-col gap-16"
         >
           <div
             v-for="(entity, idx) in entities"
             :key="idx"
-            class="flex align-center gap-8"
+            class="flex items-center gap-8"
           >
             <BaseAvatar
               :label="entity.name"
@@ -51,7 +51,7 @@ const borrowCount = computed(() =>
             <a
               :href="entity.url"
               target="_blank"
-              class="p2 text-white underline"
+              class="text-p2 text-white underline"
             >{{ entity.name }}</a>
           </div>
         </div>
@@ -66,21 +66,21 @@ const borrowCount = computed(() =>
         />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Can be borrowed">
-        <div class="align-center gap-8">
+        <div class="flex items-center gap-8">
           <div>
             <UiIcon :name="borrowCount ? 'green-tick' : 'red-cross'" />
           </div>
-          <span class="p2 text-white">
+          <span class="text-p2 text-white">
             {{ borrowCount ? `Yes in ${borrowCount} markets` : 'No' }}
           </span>
         </div>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Can be used as collateral">
-        <div class="align-center gap-8">
+        <div class="flex items-center gap-8">
           <div>
             <UiIcon :name="collateralCount ? 'green-tick' : 'red-cross'" />
           </div>
-          <span class="p2 text-white">
+          <span class="text-p2 text-white">
             {{ collateralCount ? `Yes in ${collateralCount} markets` : 'No' }}
           </span>
         </div>
@@ -88,6 +88,3 @@ const borrowCount = computed(() =>
     </div>
   </div>
 </template>
-
-<style scoped lang="scss">
-</style>

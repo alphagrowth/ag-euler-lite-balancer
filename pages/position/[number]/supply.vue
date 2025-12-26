@@ -245,7 +245,7 @@ onUnmounted(() => {
     </div>
 
     <template v-else-if="collateralVault">
-      <div class="between">
+      <div class="flex justify-between">
         <VaultLabelsAndAssets
           :vault="collateralVault"
           :assets="assets"
