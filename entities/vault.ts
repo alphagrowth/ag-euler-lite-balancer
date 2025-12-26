@@ -80,6 +80,9 @@ export interface Vault {
   governorAdmin: string
   governorFeeReceiver: string
   unitOfAccount: string
+  unitOfAccountName?: string
+  unitOfAccountSymbol?: string
+  unitOfAccountDecimals?: bigint
   interestRateModelAddress: string
   hookTarget: string
   irmInfo?: VaultIRMInfo
@@ -220,6 +223,9 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
     governorAdmin: data.governorAdmin,
     governorFeeReceiver: data.governorFeeReceiver,
     unitOfAccount: data.unitOfAccount,
+    unitOfAccountName: data.unitOfAccountName,
+    unitOfAccountSymbol: data.unitOfAccountSymbol,
+    unitOfAccountDecimals: data.unitOfAccountDecimals,
     interestRateModelAddress: data.interestRateModel,
     hookTarget: data.hookTarget,
     irmInfo: data.irmInfo
@@ -419,6 +425,9 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
           governorAdmin: data.governorAdmin,
           governorFeeReceiver: data.governorFeeReceiver,
           unitOfAccount: data.unitOfAccount,
+          unitOfAccountName: data.unitOfAccountName,
+          unitOfAccountSymbol: data.unitOfAccountSymbol,
+          unitOfAccountDecimals: data.unitOfAccountDecimals,
           interestRateModelAddress: data.interestRateModel,
           hookTarget: data.hookTarget,
           irmInfo: data.irmInfo
