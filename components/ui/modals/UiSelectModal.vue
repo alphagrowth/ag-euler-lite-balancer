@@ -11,7 +11,11 @@ const localSelected = ref<string[]>([...props.selected])
 const searchModel = ref('')
 
 const filteredOptions = computed(() => {
-  return searchModel.value ? props.options.filter(option => option.label.toLowerCase().includes(searchModel.value.toLowerCase())) : props.options
+  return searchModel.value
+    ? props.options.filter((option) => {
+        return option.label.replace('₮', 'T').toLowerCase().includes(searchModel.value.toLowerCase())
+      })
+    : props.options
 })
 
 const toggleOption = (value: string) => {
