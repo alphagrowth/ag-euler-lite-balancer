@@ -1,7 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@gvade/nuxt3-svg-sprite', '@vueuse/nuxt'],
+  modules: ['@nuxtjs/tailwindcss', '@nuxt/eslint', '@gvade/nuxt3-svg-sprite', '@vueuse/nuxt'],
   ssr: false,
 
   components: [
@@ -83,15 +83,6 @@ export default defineNuxtConfig({
     compressPublicAssets: true,
   },
 
-  vite: {
-    css: {
-      preprocessorOptions: {
-        scss: {
-          additionalData: '@use "~/assets/styles/mixins.scss" as *;',
-        },
-      },
-    },
-  },
   telemetry: false,
   eslint: { config: { stylistic: true } },
 

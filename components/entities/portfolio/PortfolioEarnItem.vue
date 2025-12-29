@@ -33,85 +33,81 @@ const onClick = () => {
 
 <template>
   <div
-    :class="$style.VaultItem"
-    class="text-white bg-euler-dark-500 br-16"
+    class="block no-underline text-white bg-euler-dark-500 rounded-16 cursor-pointer"
     @click="onClick"
   >
-    <div :class="$style.top">
+    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
       <div
-        :class="$style.portfolioWrap"
-        class="flex"
+        class="flex w-full"
       >
         <BaseAvatar
           class="icon--40"
           :src="getAssetLogoUrl(vault.asset.symbol)"
           :label="vault.asset.symbol"
         />
-        <div :class="$style.topCenter">
-          <div class="text-euler-dark-900 p3 mb-4">
+        <div class="flex-grow ml-12">
+          <div class="text-euler-dark-900 text-p3 mb-4">
             {{ name || vault.name }}
           </div>
-          <div class="h5">
+          <div class="text-h5">
             {{ vault.asset.symbol }}
           </div>
         </div>
-        <div :class="$style.topRight">
-          <div class="text-euler-dark-900 p3 mb-4">
+        <div class="flex flex-col items-end">
+          <div class="text-euler-dark-900 text-p3 mb-4">
             Supply APY
           </div>
           <div
-            :class="$style.apy"
-            class="p2"
+            class="text-p2 flex text-aquamarine-700"
           >
             <SvgIcon
               v-if="opportunityInfo?.apr"
               name="sparks"
-              class="icon--20 text-aquamarine-700 mr-4"
+              class="!w-20 !h-20 text-aquamarine-700 mr-4"
             />
             {{ formatNumber((vault.supplyAPY || 0) + (opportunityInfo?.apr || 0)) }}%
           </div>
         </div>
       </div>
     </div>
-    <div :class="$style.bottom">
+    <div class="flex py-12 px-16 pb-16">
       <div
-        class="column gap-12"
-        :class="$style.portfolioWrap"
+        class="flex flex-col gap-12 w-full"
       >
-        <div class="between">
-          <div class="text-euler-dark-900 p3">
+        <div class="flex justify-between">
+          <div class="text-euler-dark-900 text-p3">
             Supply value
           </div>
-          <div class="between gap-8 right">
-            <div class="text-white p3">
+          <div class="flex justify-between gap-8 text-right">
+            <div class="text-white text-p3">
               ${{ compactNumber(getEarnVaultPrice(position.assets, vault)) }}
             </div>
-            <div class="text-euler-dark-900 p3">
+            <div class="text-euler-dark-900 text-p3">
               ~ {{ compactNumber(nanoToValue(position.assets, vault.asset.decimals)) }} {{ vault.asset.symbol }}
             </div>
           </div>
         </div>
-        <div class="between">
-          <div class="text-euler-dark-900 p3">
+        <div class="flex justify-between">
+          <div class="text-euler-dark-900 text-p3">
             Earn in 90 days
           </div>
-          <div class="between gap-8 right">
-            <div class="text-white p3">
+          <div class="flex justify-between gap-8 text-right">
+            <div class="text-white text-p3">
               ${{ earnDisplay }}
             </div>
             <div
               v-if="opportunityInfo?.apr"
-              class="text-white p3 flex gap-2 align-center"
+              class="text-white text-p3 flex gap-2 items-center"
             >
               + <SvgIcon
                 name="sparks"
-                class="icon--18 text-aquamarine-700"
+                class="!w-18 !h-18 text-aquamarine-700"
               /> ${{ earnDisplayWithReward }}
             </div>
           </div>
         </div>
         <div
-          class="between align-center gap-8"
+          class="flex justify-between items-center gap-8"
           @click.stop
         >
           <UiButton
@@ -132,57 +128,3 @@ const onClick = () => {
     </div>
   </div>
 </template>
-
-<style lang="scss" module>
-.VaultItem {
-  display: block;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.top {
-  display: flex;
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--c-border-primary);
-}
-
-.topCenter {
-  flex-grow: 1;
-  margin-left: 12px;
-}
-
-.topRight {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.bottom {
-  display: flex;
-  padding: 12px 16px 16px;
-}
-
-.bottomCenter {
-  display: flex;
-  flex-direction: column;
-  align-items: end;
-  flex-grow: 1;
-}
-
-.bottomRight {
-  text-align: right;
-}
-
-.apy {
-  display: flex;
-  color: var(--c-aquamarine-700)
-}
-
-.portfolioWrap {
-  width: 100%;
-}
-
-.position {
-  border: 1px solid var(--c-euler-dark-700);
-}
-</style>

@@ -26,7 +26,8 @@ const handleClose = () => {
     <div
       v-for="(option, idx) in collateralOptions"
       :key="`options-${idx}`"
-      :class="[$style.row, selectedIdx === idx ? $style._selected : null]"
+      class="flex items-center py-12 px-16 cursor-pointer rounded-16"
+      :class="[selectedIdx === idx ? 'bg-euler-dark-600' : '']"
       @click="selectedIdx = idx"
     >
       <BaseAvatar
@@ -37,24 +38,24 @@ const handleClose = () => {
         <div class="text-euler-dark-900 mb-2">
           {{ productName }}
         </div>
-        <div class="h5 align-center">
+        <div class="text-h5 flex items-center">
           {{ symbol }}
           <div
             v-if="option.type === 'wallet'"
-            :class="$style.wallet"
+            class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[#A1F4E01A] text-aquamarine-600"
           >
             Wallet
           </div>
           <div
             v-else
-            :class="$style.saving"
+            class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[#CBC0951A] text-yellow-600"
           >
             Saving
           </div>
         </div>
       </div>
-      <div class="right">
-        <div class="h5">
+      <div class="text-right">
+        <div class="text-h5">
           ${{ compactNumber(option.price, 2) }}
         </div>
         <div class="text-euler-dark-900">
@@ -63,7 +64,7 @@ const handleClose = () => {
       </div>
     </div>
     <UiButton
-      :class="$style.btn"
+      class="w-full mt-12"
       size="large"
       type="submit"
       @click="onSave(selectedIdx !== 0)"
@@ -72,42 +73,3 @@ const handleClose = () => {
     </UiButton>
   </BaseModalWrapper>
 </template>
-
-<style lang="scss" module>
-.row {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  cursor: pointer;
-  border-radius: 16px;
-
-  &._selected {
-    background-color: var(--c-euler-dark-600);
-  }
-}
-
-.saving {
-  margin-left: 6px;
-  font-size: 12px;
-  line-height: 16px;
-  padding: 4px 8px;
-  border-radius: 8px;
-  background-color: #CBC0951A;
-  color: var(--c-yellow-600);
-}
-
-.wallet {
-  margin-left: 6px;
-  font-size: 12px;
-  line-height: 16px;
-  padding: 4px 8px;
-  border-radius: 8px;
-  background-color: #A1F4E01A;
-  color: var(--c-aquamarine-600);
-}
-
-.btn {
-  width: 100%;
-  margin-top: 12px;
-}
-</style>

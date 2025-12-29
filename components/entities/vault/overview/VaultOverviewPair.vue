@@ -12,11 +12,11 @@ defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition, desktopOverview?: b
   >
     <VaultOverviewPairBlockGeneral
       :pair="pair"
-      :class="[desktopOverview ? $style.desktop : '']"
+      :class="[desktopOverview ? 'py-16 !px-0 !pt-0' : '']"
     />
     <VaultOverviewBlockOracleAdapters
       :vaults="[pair.collateral, pair.borrow]"
-      :class="[desktopOverview ? $style.desktop : '']"
+      :class="[desktopOverview ? 'py-16 !px-0 !pt-0' : '']"
     />
   </div>
 </template>
@@ -30,3 +30,4 @@ defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition, desktopOverview?: b
   }
 }
 </style>
+

@@ -16,8 +16,8 @@ const handleCancel = () => {
     warning
     @close="handleCancel"
   >
-    <div :class="$style.content">
-      <h4 class="text-white h4">
+    <div class="flex flex-col gap-12 text-euler-dark-900 mb-24">
+      <h4 class="text-white text-h4">
         Are you sure you want to interact with the unverified vault?
       </h4>
       <p class="pb-8">
@@ -27,7 +27,7 @@ const handleCancel = () => {
         Please ensure you trust the source before continuing.
       </p>
     </div>
-    <div :class="$style.buttons">
+    <div class="flex gap-8">
       <UiButton
         size="large"
         rounded
@@ -46,18 +46,3 @@ const handleCancel = () => {
     </div>
   </BaseModalWrapper>
 </template>
-
-<style lang="scss" module>
-.content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  color: var(--c-euler-dark-900);
-  margin-bottom: 24px;
-}
-
-.buttons {
-  display: flex;
-  gap: 8px;
-}
-</style>

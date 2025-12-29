@@ -24,21 +24,19 @@ const amountToBeBurned = computed(() => {
 
 <template>
   <div
-    :class="$style.RewardUnlockConfirmModal"
-    class="bg-euler-dark-500"
+    class="flex flex-col absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-16 min-w-[375px] max-w-[600px] overflow-auto [scrollbar-width:none] max-h-[85dvh] rounded-16 mobile:top-auto mobile:left-0 mobile:bottom-0 mobile:w-full mobile:min-w-full mobile:max-h-[95dvh] mobile:translate-x-0 mobile:translate-y-0 mobile:rounded-t-16 mobile:rounded-b-0 bg-euler-dark-500 [&::-webkit-scrollbar]:hidden"
   >
     <div
-      class="between mb-12 align-center center h3"
-      :class="$style.top"
+      class="flex justify-between mb-12 items-center text-h3 h-36"
     >
       Are you sure?
     </div>
-    <div class="p2 text-euler-dark-900 mb-24">
+    <div class="text-p2 text-euler-dark-900 mb-24">
       This action will unlock <span class="text-aquamarine-700">{{ formatNumber(unlockableAmount, 6) }} EUL</span>,
       and <span class="text-aquamarine-700">{{ formatNumber(amountToBeBurned, 6) }} EUL will be permanently burned.</span>
       To fully redeem your EUL rewards, you must wait for the <span class="text-aquamarine-700">6-month</span> vesting period to complete.
     </div>
-    <div class="between gap-8">
+    <div class="flex justify-between gap-8">
       <UiButton
         variant="primary-stroke"
         size="large"
@@ -57,40 +55,3 @@ const amountToBeBurned = computed(() => {
     </div>
   </div>
 </template>
-
-<style module lang="scss">
-.RewardUnlockConfirmModal {
-  display: flex;
-  flex-direction: column;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  padding: 16px;
-  min-width: 375px;
-  max-width: 600px;
-  overflow: auto;
-  scrollbar-width: none;
-  max-height: calc(85dvh);
-  border-radius: 16px;
-
-  @include respond-to(mobile) {
-    top: auto;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    min-width: 100%;
-    max-height: calc(95dvh);
-    transform: translate(0, 0);
-    border-radius: 16px 16px 0 0;
-  }
-}
-
-.top {
-  height: 36px;
-}
-
-.close {
-  cursor: pointer;
-}
-</style>

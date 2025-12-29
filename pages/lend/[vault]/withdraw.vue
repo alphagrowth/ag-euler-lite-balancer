@@ -231,13 +231,12 @@ watch(amount, async () => {
 <template>
   <VaultForm
     title="Withdraw"
-    :class="$style.LendVaultPage"
-    class="column gap-16"
+    class="flex flex-col gap-16"
     :loading="isLoading"
     @submit.prevent="submit"
   >
     <template v-if="vault && asset">
-      <div class="between">
+      <div class="flex justify-between">
         <VaultLabelsAndAssets
           :vault="vault"
           :assets="[asset]"
@@ -265,45 +264,45 @@ watch(amount, async () => {
 
       <VaultFormInfoBlock
         :loading="isEstimatesLoading"
-        class="column gap-16"
+        class="flex flex-col gap-16"
       >
-        <div class="between align-center">
+        <div class="flex justify-between items-center">
           <p class="text-euler-dark-900">
             Supply APY
           </p>
           <p
             v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay"
-            class="p2 text-euler-dark-900"
+            class="text-p2 text-euler-dark-900"
           >
             {{ supplyAPYDisplay }}% → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
           </p>
           <p
             v-else
-            class="p2 text-white"
+            class="text-p2 text-white"
           >
             {{ supplyAPYDisplay }}%
           </p>
         </div>
-        <div class="between align-center">
+        <div class="flex justify-between items-center">
           <p class="text-euler-dark-900">
             Deposit
           </p>
-          <p class="p2 text-euler-dark-900">
+          <p class="text-p2 text-euler-dark-900">
             ${{ formatNumber(getVaultPrice(assetsBalance, vault)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
               → <span class="text-white">${{ formatNumber(getVaultPrice(delta, vault)) }}</span>
             </template>
           </p>
         </div>
-        <div class="between align-center">
+        <div class="flex justify-between items-center">
           <p class="text-euler-dark-900">
             Available for withdraw
           </p>
           <p
             v-if="asset"
-            class="p2 align-center gap-4"
+            class="text-p2 flex items-center gap-4"
           >
-            {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="p3 text-euler-dark-900">{{ asset.symbol }}</span>
-            <span class="p3 text-euler-dark-900">≈ ${{ formatNumber(getVaultPrice(assetsBalance, vault)) }}</span>
+            {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="text-p3 text-euler-dark-900">{{ asset.symbol }}</span>
+            <span class="text-p3 text-euler-dark-900">≈ ${{ formatNumber(getVaultPrice(assetsBalance, vault)) }}</span>
           </p>
         </div>
       </VaultFormInfoBlock>
@@ -319,9 +318,3 @@ watch(amount, async () => {
     </template>
   </VaultForm>
 </template>
-
-<style module lang="scss">
-.LendVaultPage {
-  min-height: calc(100dvh - 178px);
-}
-</style>

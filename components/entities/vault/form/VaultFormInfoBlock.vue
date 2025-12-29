@@ -4,7 +4,7 @@ defineProps<{ loading?: boolean }>()
 
 <template>
   <div
-    class="relative bg-euler-dark-400 p-16 br-16"
+    class="relative bg-euler-dark-400 p-16 rounded-16"
     style="overflow: hidden"
   >
     <BaseLoadingBar v-show="loading" />

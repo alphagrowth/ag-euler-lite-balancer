@@ -1,15 +1,13 @@
 <template>
   <div
-    class="flex gap-12 br-8 p-20"
-    :class="$style.WalletInactiveDisclaimer"
+    class="flex gap-12 rounded-8 p-20 text-orange-1000 bg-[rgba(var(--yellow-600),0.2)] border border-[rgba(var(--yellow-600),0.3)]"
   >
     <SvgIcon
-      :class="$style.icon"
-      class="icon--20"
+      class="!w-20 !h-20 flex-shrink-0"
       name="info-circle"
     />
     <div>
-      <p class="h6 mb-2">
+      <p class="text-h6 mb-2">
         Your TON wallet is not yet activated
       </p>
       <p>
@@ -18,15 +16,3 @@
     </div>
   </div>
 </template>
-
-<style lang="scss" module>
-.WalletInactiveDisclaimer {
-  color: var(--c-orange-1000);
-  background-color: var(--c-yellow-opaque-300);
-  border: 1px solid var(--c-yellow-opaque-400);
-}
-
-.icon {
-  flex-shrink: 0;
-}
-</style>

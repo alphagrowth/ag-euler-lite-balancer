@@ -78,27 +78,19 @@ load()
 </script>
 
 <template>
-  <section
-    :class="$style.EarnPage"
-    class="column"
-  >
+  <section class="flex flex-col min-h-[calc(100dvh-178px)]">
     <BasePageHeader
       title="Earn"
       description="Deposit once, earn passive yield across multiple professionally curated strategies."
       class="mb-24"
       arrow-down
     />
-    <div
-      class="mb-16"
-      :class="$style.filterSelectWrap"
-    >
-      <h3 class="h3 mb-16 pl-16">
+
+    <div class="mb-16 -mx-16">
+      <h3 class="text-h3 mb-16 pl-16">
         Discover vaults
       </h3>
-      <div
-        class="align-center"
-        :class="$style.filterSelectScroll"
-      >
+      <div class="flex items-center overflow-auto [scrollbar-width:none] gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"
           :options="['Total Supply', 'Supply APY']"
@@ -107,7 +99,6 @@ load()
         />
         <UiSelect
           v-model="selectedCollateral"
-          :class="$style.filterSelect"
           :options="assetOptions"
           placeholder="Choose asset"
           title="Choose asset"
@@ -116,10 +107,8 @@ load()
         />
       </div>
     </div>
-    <div
-      :class="$style.contentArea"
-      class="column"
-    >
+
+    <div class="flex flex-col flex-1">
       <UiLoader
         v-if="isLoading"
         class="my-16 mx-auto"
@@ -130,61 +119,19 @@ load()
         type="lend"
         :items="sortedList"
       />
+
       <div
         v-else
-        :class="$style.emptyState"
-        class="column gap-12 align-center justify-center text-euler-dark-900"
+        class="flex flex-col flex-1 gap-3 items-center justify-center text-euler-dark-900"
       >
         <UiIcon
           name="search"
-          :class="$style.searchIcon"
+          class="!w-24 !h-24"
         />
-        <div
-          :class="$style.emptyDescription"
-          class="center"
-        >
+        <div class="text-center max-w-[180px]">
           No markets were found by these filters
         </div>
       </div>
     </div>
   </section>
 </template>
-
-<style module lang="scss">
-.EarnPage {
-  min-height: calc(100dvh - 178px);
-}
-.loader {
-  flex: 1;
-  align-self: center;
-  justify-self: center;
-}
-
-.contentArea {
-  flex: 1;
-}
-
-.filterSelectWrap {
-  margin: 0 -16px;
-}
-
-.filterSelectScroll {
-  overflow: auto;
-  scrollbar-width: none;
-  gap: 8px;
-  padding: 0 16px;
-}
-
-.searchIcon {
-  width: 24px;
-  height: 24px;
-}
-
-.emptyState {
-  flex: 1;
-}
-
-.emptyDescription {
-  max-width: 180px;
-}
-</style>

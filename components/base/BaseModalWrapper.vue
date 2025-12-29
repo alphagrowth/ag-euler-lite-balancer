@@ -15,26 +15,25 @@ defineEmits(['close'])
 
 <template>
   <div
-    :class="[$style.BaseModal, { [$style._full]: full }]"
-    class="bg-euler-dark-500"
+    class="flex flex-col absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-16 min-w-[min(375px,100vw)] max-w-[600px] overflow-auto [scrollbar-width:none] max-h-[85dvh] rounded-16 mobile:top-auto mobile:left-0 mobile:bottom-0 mobile:w-full mobile:min-w-full mobile:max-h-[95dvh] mobile:translate-x-0 mobile:translate-y-0 mobile:rounded-t-16 mobile:rounded-b-0 bg-euler-dark-500 [&::-webkit-scrollbar]:hidden"
+    :class="[full ? 'min-h-[85dvh] mobile:min-h-[95dvh]' : '']"
   >
     <div
       v-if="title || close"
-      class="between mb-12 align-center"
-      :class="$style.top"
+      class="flex justify-between mb-12 items-center h-36"
     >
       <div
         v-if="close"
-        style="width: 36px"
+        class="w-36"
       />
       <p
         v-if="title"
-        class="center p2 align-center gap-8"
+        class="flex text-center text-p2 items-center gap-8"
       >
         <SvgIcon
           v-if="warning"
           name="warning"
-          :class="$style.warning"
+          class="!w-20 !h-20 text-yellow-600"
         />
         {{ title }}
       </p>
@@ -48,71 +47,13 @@ defineEmits(['close'])
       />
     </div>
 
-    <div :class="$style.content">
+    <div
+      class="flex flex-col"
+      :class="[full ? 'flex-grow' : '']"
+    >
       <slot />
     </div>
 
     <slot name="bottom" />
   </div>
 </template>
-
-<style module lang="scss">
-.BaseModal {
-  display: flex;
-  flex-direction: column;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  padding: 16px;
-  min-width: min(375px, 100vw);
-  max-width: 600px;
-  overflow: auto;
-  scrollbar-width: none;
-  max-height: calc(85dvh);
-  border-radius: 16px;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  @include respond-to(mobile) {
-    top: auto;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    min-width: 100%;
-    max-height: calc(95dvh);
-    transform: translate(0, 0);
-    border-radius: 16px 16px 0 0;
-  }
-
-  &._full {
-    min-height: 85dvh;
-
-    .content {
-      display: flex;
-      flex-direction: column;
-      flex-grow: 1;
-    }
-
-    @include respond-to(mobile) {
-      min-height: 95dvh;
-    }
-  }
-}
-
-.top {
-  height: 36px;
-}
-
-.warning {
-  width: 20px;
-  height: 20px;
-  color: var(--c-yellow-600);
-}
-
-.close {
-  cursor: pointer;
-}
-</style>

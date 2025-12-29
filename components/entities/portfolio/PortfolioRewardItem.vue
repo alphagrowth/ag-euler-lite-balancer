@@ -10,6 +10,7 @@ const { reward } = defineProps<{ reward: Reward }>()
 const { isTokensLoading, rewardTokens, claimReward, loadRewards, buildClaimRewardPlan } = useMerkl()
 const modal = useModal()
 const { error } = useToast()
+const { chainId } = useEulerAddresses()
 
 const isClaiming = ref(false)
 const plan = ref<TxPlan | null>(null)
@@ -29,7 +30,7 @@ const claim = async () => {
 
     await claimReward(reward)
     modal.close()
-    loadRewards()
+    loadRewards(chainId.value)
   }
   catch (e) {
     error('Transaction failed')
@@ -73,26 +74,24 @@ const onClaimClick = async () => {
 
 <template>
   <div
-    :class="$style.VaultItem"
-    class="text-white bg-euler-dark-500 br-16 p-16"
+    class="text-white bg-euler-dark-500 rounded-16 p-16"
   >
     <div
-      :class="$style.portfolioWrap"
-      class="column gap-12"
+      class="flex flex-col gap-12"
     >
-      <div class="between align-center mb-12">
+      <div class="flex justify-between items-center mb-12">
         <BaseAvatar
           :src="tokenIconUrl || '/img/euler-default.png'"
           class="icon--40"
         />
-        <h4 class="h5 ml-12">
+        <h4 class="text-h5 ml-12">
           {{ reward.token.symbol === 'WTAC' ? 'TAC' : reward.token.symbol }} <!-- TODO wtac -> tac @ useMerkl -->
         </h4>
-        <div class="column gap-8 ml-auto right">
-          <p class="p2">
+        <div class="flex flex-col gap-8 ml-auto text-right">
+          <p class="text-p2">
             {{ amountInUsd < 0.01 ? ' < $0.01' : `$${formatNumber(amountInUsd, 2)}` }}
           </p>
-          <p class="p3 text-euler-dark-900">
+          <p class="text-p3 text-euler-dark-900">
             ~ {{ amountToClaim < 0.01 ? '< 0.01' : formatNumber(amountToClaim, 2) }} {{ reward.token.symbol === 'WTAC' ? 'TAC' : reward.token.symbol }} <!-- TODO wtac -> tac @ useMerkl -->
           </p>
         </div>
@@ -107,8 +106,3 @@ const onClaimClick = async () => {
     </div>
   </div>
 </template>
-
-<style lang="scss" module>
-.VaultItem {
-}
-</style>

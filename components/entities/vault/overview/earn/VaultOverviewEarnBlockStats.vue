@@ -13,11 +13,11 @@ const calcPrice = (amount: bigint) => {
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 br-16 column gap-24 p-24">
-    <p class="h3 text-white">
+  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
+    <p class="text-h3 text-white">
       Statistics
     </p>
-    <div class="column align-start gap-24">
+    <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue
         label="Total supply"
         :value="`$${compactNumber(calcPrice(vault.totalShares))}`"
@@ -36,7 +36,3 @@ const calcPrice = (amount: bigint) => {
     </div>
   </div>
 </template>
-
-<style scoped lang="scss">
-
-</style>

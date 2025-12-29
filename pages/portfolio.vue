@@ -73,58 +73,46 @@ onDeactivated(() => {
 </script>
 
 <template>
-  <section
-    :class="$style.PortfolioPage"
-    class="column gap-16"
-  >
-    <div class="align-center between px-16">
-      <h2 class="h2">
+  <section class="flex flex-col gap-16 min-h-[calc(100dvh-178px)] mobile:-mx-16">
+    <div class="flex items-center justify-between px-16">
+      <h2 class="text-h2">
         Your Portfolio
       </h2>
-      <div class="align-center gap-8">
-        <span class="h6">All positions/savings</span>
+      <div class="flex items-center gap-8">
+        <span class="text-h6">All positions/savings</span>
         <UiSwitch
           v-model="isShowAllPositions"
         />
       </div>
     </div>
 
-    <div
-      class="column gap-16 p-16 br-16 mx-16"
-      :class="$style.assetsInfo"
-    >
-      <div class="between align-center">
-        <div
-          class="p2 text-euler-dark-900"
-        >
+    <div class="flex flex-col gap-16 p-16 rounded-16 mx-16 border border-euler-dark-600">
+      <div class="flex justify-between items-center">
+        <div class="text-p2 text-euler-dark-900">
           Net asset value
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
-          <div class="h5 text-white">
+          <div class="text-h5 text-white">
             {{ `$${compactNumber(totalSuppliedValue - totalBorrowedValue)}` }}
           </div>
         </BaseLoadableContent>
       </div>
-      <div class="between align-center">
-        <div
-          class="p2 text-euler-dark-900"
-        >
+      <div class="flex justify-between items-center">
+        <div class="text-p2 text-euler-dark-900">
           Total supplied value
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
-          <div class="h5 text-white">
+          <div class="text-h5 text-white">
             {{ `$${compactNumber(totalSuppliedValue)}` }}
           </div>
         </BaseLoadableContent>
       </div>
-      <div class="between align-center">
-        <div
-          class="p2 text-euler-dark-900"
-        >
+      <div class="flex justify-between items-center">
+        <div class="text-p2 text-euler-dark-900">
           Total borrowed value
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
-          <div class="h5 text-white">
+          <div class="text-h5 text-white">
             {{ `$${compactNumber(totalBorrowedValue)}` }}
           </div>
         </BaseLoadableContent>
@@ -140,32 +128,3 @@ onDeactivated(() => {
     <NuxtPage />
   </section>
 </template>
-
-<style lang="scss" module>
-.PortfolioPage {
-  min-height: calc(100dvh - 178px);
-
-  @include respond-to(mobile) {
-    margin: 0 calc(var(--container-padding-side) * -1);
-  }
-}
-
-.assetsInfo {
-  border: 1px solid var(--c-euler-dark-600);
-}
-
-.tab {
-  display: flex;
-  flex-grow: 1;
-  border: 1px solid var(--c-euler-dark-600);
-}
-
-.tabContent {
-  flex-grow: 1;
-}
-
-.searchIcon {
-  width: 48px;
-  height: 48px;
-}
-</style>

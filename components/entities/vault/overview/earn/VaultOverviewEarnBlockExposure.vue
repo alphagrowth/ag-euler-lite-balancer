@@ -43,17 +43,17 @@ load()
 <template>
   <div
     v-if="exposureList.length"
-    class="bg-euler-dark-300 br-16 column gap-24 p-24"
+    class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
   >
     <div>
-      <p class="h3 text-white mb-12">
+      <p class="text-h3 text-white mb-12">
         Exposure
       </p>
     </div>
 
     <div
       v-if="!isLoading"
-      class="column gap-12"
+      class="flex flex-col gap-12"
     >
       <div
         v-for="exposure in exposureList"
@@ -61,8 +61,7 @@ load()
         @click="emits('vault-click')"
       >
         <NuxtLink
-          class="bg-euler-dark-500 br-16 text-white"
-          :class="$style.exposureItem"
+          class="bg-euler-dark-500 rounded-16 text-white block no-underline"
           :to="`/lend/${exposure.info.vault}`"
         >
           <div
@@ -79,7 +78,7 @@ load()
               }]"
             />
           </div>
-          <div class="column gap-12 px-16 pt-12 pb-16">
+          <div class="flex flex-col gap-12 px-16 pt-12 pb-16">
             <VaultOverviewLabelValue
               label="Allocation (%)"
               orientation="horizontal"
@@ -96,10 +95,3 @@ load()
     </div>
   </div>
 </template>
-
-<style module lang="scss">
-.exposureItem {
-  display: block;
-  text-decoration: none;
-}
-</style>

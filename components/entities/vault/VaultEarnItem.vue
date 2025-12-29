@@ -24,52 +24,50 @@ const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
 
 <template>
   <NuxtLink
-    :class="$style.VaultEarnItem"
+    class="block no-underline text-white bg-euler-dark-500 rounded-16"
     :to="`/earn/${vault.address}`"
-    class="text-white bg-euler-dark-500 br-16"
   >
-    <div :class="$style.top">
+    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
       <BaseAvatar
         class="icon--40"
         :src="getAssetLogoUrl(vault.asset.symbol)"
         :label="vault.asset.symbol"
       />
-      <div :class="$style.topCenter">
-        <div class="text-euler-dark-900 p3 mb-4">
+      <div class="flex-grow ml-12">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           {{ vault.name }}
         </div>
-        <div class="h5">
+        <div class="text-h5">
           {{ vault.asset.symbol }}
         </div>
       </div>
-      <div :class="$style.topRight">
-        <div class="text-euler-dark-900 p3 mb-4 right">
+      <div class="flex flex-col items-end">
+        <div class="text-euler-dark-900 text-p3 mb-4 text-right">
           Supply APY
         </div>
         <div
-          :class="[$style.apy, (vault.supplyAPY || 0) <= 0 ? 'text-red-700' : 'text-aquamarine-700']"
-          class="p2"
+          class="text-p2 flex text-aquamarine-700"
         >
           <SvgIcon
             v-if="hasRewards"
-            class="icon--20 text-aquamarine-700 mr-4"
+            class="!w-20 !h-20 text-aquamarine-700 mr-4"
             name="sparks"
           />
           {{ formatNumber((vault.supplyAPY || 0) + totalRewardsAPY) }}%
         </div>
       </div>
     </div>
-    <div :class="$style.bottom">
-      <div :class="$style.bottomLeft">
-        <div class="text-euler-dark-900 p3 mb-4">
+    <div class="flex py-12 px-16 pb-16">
+      <div class="flex-1">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           Total supply
         </div>
-        <div class="p2">
+        <div class="text-p2">
           {{ `$${compactNumber(getEarnVaultPrice(vault.totalAssets, vault))}` }}
         </div>
       </div>
-      <div :class="$style.bottomCenter">
-        <div class="text-euler-dark-900 p3 mb-4">
+      <div class="flex flex-col items-center flex-1">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           Capital allocator
         </div>
         <BaseAvatar
@@ -79,18 +77,17 @@ const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
         />
       </div>
       <div
-        :class="$style.bottomRight"
-        class="column"
+        class="flex flex-col flex-1 items-end text-right"
       >
         <template v-if="isConnected">
-          <div class="text-euler-dark-900 p3 mb-4">
+          <div class="text-euler-dark-900 text-p3 mb-4">
             In wallet
           </div>
           <BaseLoadableContent
             :loading="isBalancesLoading"
             style="width: 70px; height: 20px"
           >
-            <div class="p2">
+            <div class="text-p2">
               ${{ compactNumber(getEarnVaultPrice(balance, vault)) }}
             </div>
           </BaseLoadableContent>
@@ -100,54 +97,3 @@ const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
     </div>
   </NuxtLink>
 </template>
-
-<style lang="scss" module>
-.VaultEarnItem {
-  display: block;
-  text-decoration: none;
-}
-
-.top {
-  display: flex;
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--c-border-primary);
-}
-
-.topCenter {
-  flex-grow: 1;
-  margin-left: 12px;
-}
-
-.topRight {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.bottom {
-  display: flex;
-  padding: 12px 16px 16px;
-}
-
-.bottomLeft {
-  flex: 1;
-}
-
-.bottomCenter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-}
-
-.bottomRight {
-  align-items: end;
-  text-align: right;
-  flex: 1;
-}
-
-.apy {
-  display: flex;
-  color: var(--c-aquamarine-700)
-}
-</style>

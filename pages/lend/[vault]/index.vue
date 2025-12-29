@@ -192,12 +192,12 @@ watch(amount, async () => {
   <div class="flex gap-32">
     <VaultForm
       title="Open lend position"
-      :class="$style.form"
+      class="w-full"
       @submit.prevent="submit"
     >
       <div
         v-if="vault && asset"
-        class="between"
+        class="flex justify-between"
       >
         <VaultLabelsAndAssets
           :vault="vault"
@@ -205,23 +205,22 @@ watch(amount, async () => {
           size="large"
         />
 
-        <div class="right">
+        <div class="flex flex-col items-end justify-end">
           <p class="mb-4 text-euler-dark-900">
             Supply APY
           </p>
 
-          <p class="flex justify-end gap-4 h3">
+          <p class="flex justify-end gap-4 text-h3">
             <SvgIcon
               v-if="hasRewards"
-              class="icon--24 text-aquamarine-700"
+              class="!w-24 !h-24 text-aquamarine-700"
               name="sparks"
             />
             <span>
               {{ supplyAPYDisplay }}%
             </span>
             <SvgIcon
-              :class="$style.supplyInfoIcon"
-              class="icon--24 text-euler-dark-800"
+              class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
               name="question-circle"
               @click="onSupplyInfoIconClick"
             />
@@ -252,14 +251,14 @@ watch(amount, async () => {
         v-if="vault && asset"
         :loading="isEstimatesLoading"
       >
-        <div :class="$style.info">
+        <div class="[&>*:not(:last-child)]:pb-16 [&>*:not(:last-child)]:mb-16 [&>*:not(:last-child)]:border-b [&>*:not(:last-child)]:border-white/10">
           <div>
             <p class="mb-8">
               Projected Earnings per Month
             </p>
 
             <p class="text-euler-dark-900">
-              <span class="text-white p2">{{ compactNumber(monthlyEarnings) }}</span> {{
+              <span class="text-white text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
                 asset.symbol
               }}
               ≈ ${{ vault ? compactNumber(getVaultPrice(monthlyEarnings, vault)) : 0 }}
@@ -273,7 +272,7 @@ watch(amount, async () => {
 
             <p
               v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay"
-              class="p2 text-euler-dark-900"
+              class="text-p2 text-euler-dark-900"
             >
               {{ supplyAPYDisplay }}% <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
                 → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
@@ -281,7 +280,7 @@ watch(amount, async () => {
             </p>
             <p
               v-else
-              class="p2 text-white"
+              class="text-p2 text-white"
             >
               {{ supplyAPYDisplay }}%
             </p>
@@ -291,7 +290,7 @@ watch(amount, async () => {
 
       <template #buttons>
         <VaultFormInfoButton
-          :class="$style.vaultInfoButton"
+          class="laptop:!hidden"
           :vault="vault"
           :disabled="isLoading || isSubmitting"
         />
@@ -303,7 +302,7 @@ watch(amount, async () => {
         </VaultFormSubmit>
       </template>
     </VaultForm>
-    <div :class="$style.vaultDetails">
+    <div class="w-full hidden laptop:!block">
       <VaultOverview
         v-if="vault"
         :vault="vault"
@@ -312,37 +311,3 @@ watch(amount, async () => {
     </div>
   </div>
 </template>
-
-<style module lang="scss">
-.form {
-  width: 100%;
-}
-
-.vaultDetails {
-  width: 100%;
-
-  @include respond-to(mobile) {
-    display: none;
-  }
-}
-
-.vaultInfoButton {
-  display: none;
-
-  @include respond-to(mobile) {
-    display: block;
-  }
-}
-
-.info {
-  & > *:not(:last-child) {
-    padding-bottom: 16px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid rgba(var(--white), 0.1);
-  }
-}
-
-.supplyInfoIcon {
-  cursor: pointer;
-}
-</style>

@@ -28,7 +28,3 @@ const onClick = () => {
     {{ pair ? 'Pair information' : 'Vault information' }}
   </UiButton>
 </template>
-
-<style scoped lang="scss">
-
-</style>

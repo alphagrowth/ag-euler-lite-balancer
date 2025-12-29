@@ -323,8 +323,7 @@ watch(savingCollateral, (val) => {
   <div class="flex gap-32">
     <VaultForm
       title="Open borrow position"
-      class="column gap-16"
-      :class="$style.form"
+      class="flex flex-col gap-16 w-full"
       @submit.prevent="submit"
     >
       <template v-if="pair">
@@ -379,43 +378,43 @@ watch(savingCollateral, (val) => {
         <VaultFormInfoBlock
           v-if="pair"
           :loading="isEstimatesLoading"
-          class="bg-euler-dark-400 p-16 br-16 column gap-16"
+          class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
         >
-          <div class="between align-center">
-            <p class="text-euler-dark-900 ">
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
               Net APY
             </p>
-            <p class="p2">
+            <p class="text-p2">
               {{ netAPY ? `${formatNumber(netAPY)}%` : '-' }}
             </p>
           </div>
-          <div class="between align-center">
-            <p class="text-euler-dark-900 ">
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
               Current Price
             </p>
-            <p class="p2">
+            <p class="text-p2">
               {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-              <span class="text-euler-dark-900 p3">
+              <span class="text-euler-dark-900 text-p3">
                 {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
               </span>
             </p>
           </div>
-          <div class="between align-center">
-            <p class="text-euler-dark-900 ">
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
               Liquidation price
             </p>
-            <p class="p2">
+            <p class="text-p2">
               {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-              <span class="text-euler-dark-900 p3">
+              <span class="text-euler-dark-900 text-p3">
                 {{ collateralVault?.asset.symbol }}
               </span>
             </p>
           </div>
-          <div class="between align-center">
-            <p class="text-euler-dark-900 ">
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
               Health
             </p>
-            <p class="p2">
+            <p class="text-p2">
               {{ health ? formatNumber(health, 2) : '-' }}
             </p>
           </div>
@@ -425,8 +424,7 @@ watch(savingCollateral, (val) => {
       <template #buttons>
         <VaultFormInfoButton
           :pair="pair"
-          :class="$style.vaultInfoButton"
-          :disabled="isSubmitting || isPositionsLoading"
+          class="laptop:!hidden"
         />
         <VaultFormSubmit
           :disabled="isSubmitDisabled"
@@ -438,17 +436,16 @@ watch(savingCollateral, (val) => {
     </VaultForm>
     <div
       v-if="pair"
-      :class="$style.vaultDetails"
+      class="w-full mobile:hidden"
     >
       <UiTabs
         v-if="tabs.length"
         v-model="tab"
-        :class="$style.tabs"
         class="mb-12"
         :list="tabs"
       >
         <template #default="{ tab: slotTab }">
-          <div class="align-center gap-8">
+          <div class="flex items-center gap-8">
             <BaseAvatar :src="slotTab.avatars as string[]" />
 
             {{ slotTab.label }}
@@ -479,25 +476,3 @@ watch(savingCollateral, (val) => {
     </div>
   </div>
 </template>
-
-<style module lang="scss">
-.form {
-  width: 100%;
-}
-
-.vaultDetails {
-  width: 100%;
-
-  @include respond-to(mobile) {
-    display: none;
-  }
-}
-
-.vaultInfoButton {
-  display: none;
-
-  @include respond-to(mobile) {
-    display: block;
-  }
-}
-</style>

@@ -37,144 +37,140 @@ const onWarningClick = () => {
 <template>
   <NuxtLink
     :to="`/borrow/${pair.collateral.address}/${pair.borrow.address}`"
-    :class="$style.VaultItem"
-    class="text-white bg-euler-dark-500 br-16"
+    class="block no-underline text-white bg-euler-dark-500 rounded-16"
   >
-    <div :class="$style.top">
+    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
       <BaseAvatar
         :src="[pair.collateral.asset.symbol, pair.borrow.asset.symbol].map(s => getAssetLogoUrl(s))"
         :label="[pair.collateral.asset.symbol, pair.borrow.asset.symbol]"
         class="icon--40"
       />
-      <div :class="$style.topCenter">
-        <div class="text-euler-dark-900 p3 mb-4">
+      <div class="flex-grow ml-12">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           {{ pairName }}
         </div>
-        <div class="h5">
+        <div class="text-h5">
           {{ [pair.collateral.asset.symbol, pair.borrow.asset.symbol].join('/') }}
         </div>
       </div>
-      <div :class="$style.topRight">
-        <div class="text-euler-dark-900 p3 mb-4 right">
+      <div class="flex flex-col items-end">
+        <div class="text-euler-dark-900 text-p3 mb-4 text-right">
           Borrow APY
         </div>
         <div
-          :class="$style.apy"
-          class="p2"
+          class="text-p2 flex text-aquamarine-700"
         >
           <SvgIcon
             v-if="hasRewards"
-            class="icon--20 text-aquamarine-700 mr-4"
+            class="!w-20 !h-20 text-aquamarine-700 mr-4"
             name="sparks"
           />{{ formatNumber(nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25) - totalRewardsAPY) }}%
         </div>
       </div>
     </div>
-    <div :class="[$style.middle, $style._borrow]">
-      <div :class="$style.middleLeft">
-        <div class="text-euler-dark-900 p3 mb-4">
+    <div class="flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-border-primary">
+      <div>
+        <div class="text-euler-dark-900 text-p3 mb-4">
           Liquidity
         </div>
-        <div class="p2">
+        <div class="text-p2">
           {{ `$${compactNumber(getVaultPrice(pair.borrow.supply - pair.borrow.borrow, pair.borrow))}` }}
         </div>
       </div>
-      <div :class="$style.middleCenter">
-        <div class="text-euler-dark-900 p3 mb-4">
+      <div class="text-center">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           Supply APY
         </div>
-        <div class="p2">
+        <div class="text-p2">
           {{ formatNumber(nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25) + totalRewardsAPY) }}%
         </div>
       </div>
       <div
-        class="center"
-        :class="$style.middleCenterAdditional"
+        class="flex flex-col justify-center items-center mobile:!hidden"
       >
-        <div class="text-euler-dark-900 p3 mb-4">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           Max LTV
         </div>
-        <div class="p2">
+        <div class="text-p2">
           {{ compactNumber(maxLTV, 2, 2) }}%
         </div>
       </div>
       <div
-        class="center"
-        :class="$style.middleCenterAdditional"
+        class="flex flex-col justify-center items-center mobile:!hidden"
       >
-        <div class="text-euler-dark-900 p3 mb-4">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           Utilization
         </div>
         <div
-          :class="$style.middleCenterUtilizationValue"
+          class="flex gap-8 justify-end items-center text-right"
         >
           <button
             v-if="utilization >= 95"
-            :class="[$style.utilWarning, $style._shifted]"
+            class="flex justify-center items-center w-20 h-20 bg-[#3e4540] text-yellow-600 rounded-4 cursor-pointer"
             @click.stop.prevent="onWarningClick"
           >
             <SvgIcon
               name="warning"
-              :class="$style.utilWarningIcon"
+              class="!w-16 !h-16"
             />
           </button>
           <UiRadialProgress
             :value="utilization"
             :max="100"
           />
-          <div class="p2">
+          <div class="text-p2">
             {{ compactNumber(utilization, 2, 2) }}%
           </div>
         </div>
       </div>
-      <div :class="$style.middleRight">
-        <div class="text-euler-dark-900 p3 mb-4">
+      <div class="text-right">
+        <div class="text-euler-dark-900 text-p3 mb-4">
           LLTV
         </div>
-        <div class="p2">
+        <div class="text-p2">
           {{ pair.liquidationLTV / 100n }}%
         </div>
       </div>
     </div>
-    <div :class="$style.bottom">
-      <div :class="$style.bottomItem">
-        <div :class="$style.bottomLeft">
-          <div class="text-euler-dark-900 p3">
+    <div class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
+      <div class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-euler-dark-900 text-p3">
             Max LTV
           </div>
         </div>
         <div
-          :class="$style.bottomRight"
+          class="flex gap-8 justify-end items-center text-right flex-1"
         >
-          <div class="p2">
+          <div class="text-p2">
             {{ compactNumber(maxLTV, 2, 2) }}%
           </div>
         </div>
       </div>
-      <div :class="$style.bottomItem">
-        <div :class="$style.bottomLeft">
-          <div class="text-euler-dark-900 p3">
+      <div class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-euler-dark-900 text-p3">
             Utilization
           </div>
         </div>
         <div
-          :class="$style.bottomRight"
+          class="flex gap-8 justify-end items-center text-right flex-1"
         >
           <button
             v-if="utilization >= 95"
-            :class="$style.utilWarning"
+            class="flex justify-center items-center w-20 h-20 bg-[#3e4540] text-yellow-600 rounded-4 cursor-pointer"
             @click.stop.prevent="onWarningClick"
           >
             <SvgIcon
               name="warning"
-              :class="$style.utilWarningIcon"
+              class="!w-16 !h-16"
             />
           </button>
           <UiRadialProgress
             :value="utilization"
             :max="100"
           />
-          <div class="p2">
+          <div class="text-p2">
             {{ compactNumber(utilization, 2, 2) }}%
           </div>
         </div>
@@ -182,109 +178,3 @@ const onWarningClick = () => {
     </div>
   </NuxtLink>
 </template>
-
-<style lang="scss" module>
-.VaultItem {
-  display: block;
-  text-decoration: none;
-}
-
-.top {
-  display: flex;
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--c-border-primary);
-}
-
-.topCenter {
-  flex-grow: 1;
-  margin-left: 12px;
-}
-
-.topRight {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.middle {
-  display: flex;
-  padding: 12px 16px 12px;
-
-  @include respond-to(mobile) {
-    border-bottom: 1px solid var(--c-border-primary);
-  }
-
-  &._borrow {
-    justify-content: space-between;
-  }
-}
-
-.middleCenter {
-  text-align: center;
-}
-
-.middleCenterAdditional {
-  @include respond-to(mobile) {
-    display: none;
-  }
-}
-
-.middleCenterUtilizationValue {
-  display: flex;
-  gap: 8px;
-  justify-content: end;
-  align-items: center;
-  text-align: right;
-}
-
-.middleRight {
-  text-align: right;
-}
-
-.bottom {
-  display: none;
-
-  @include respond-to(mobile) {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px 16px 16px;
-  }
-}
-
-.bottomItem {
-  display: flex;
-  width: 100%;
-  justify-content: space-between;
-}
-
-.bottomLeft {
-  flex: 1;
-}
-
-.bottomRight {
-  display: flex;
-  gap: 8px;
-  justify-content: end;
-  align-items: center;
-  text-align: right;
-  flex: 1;
-}
-
-.utilWarning {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 20px;
-  height: 20px;
-  background-color: #3e4540;
-  color: var(--c-yellow-600);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.utilWarningIcon {
-  width: 16px;
-  height: 16px;
-}
-</style>

@@ -7,39 +7,28 @@ const { isReady } = useVaults()
 </script>
 
 <template>
-  <div
-    :class="$style.SavingsPage"
-    class="mx-16"
-  >
-    <div class="between align-center mb-8">
-      <h3 class="h3 weight-400">
+  <div class="mx-16">
+    <div class="flex justify-between items-center mb-8">
+      <h3 class="text-h3 font-normal">
         Managed lending
       </h3>
     </div>
-    <p class="p2 text-euler-dark-900 mb-16">
+    <p class="text-p2 text-euler-dark-900 mb-16">
       Savings are supply-only deposits that earn you yield. They are not used as collateral to back a borrowing position.
     </p>
-    <div
-      :class="$style.savingsSection"
-      class="flex p-8 br-16 mb-16"
-    >
+    <div class="flex flex-1 p-8 rounded-16 mb-16 border border-euler-dark-600">
       <div
         v-if="isConnected && (!isDepositsLoaded || (!isReady && earnPositions.length === 0))"
-        class="justify-center align-center"
-        :class="$style.tabContent"
+        class="flex flex-1 justify-center items-center"
       >
         <UiLoader class="text-euler-dark-900 my-8" />
       </div>
       <div
         v-else-if="earnPositions.length === 0"
-        class="justify-center align-center"
-        :class="$style.tabContent"
+        class="flex flex-1 justify-center items-center"
       >
-        <div class="column gap-8 align-center text-euler-dark-900 py-32">
-          <div
-            :class="$style.searchIcon"
-            class="justify-center align-center br-12 bg-euler-dark-500"
-          >
+        <div class="flex flex-col gap-8 items-center text-euler-dark-900 py-32">
+          <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-euler-dark-500">
             <SvgIcon name="search" />
           </div>
           <template v-if="isConnected">
@@ -52,7 +41,7 @@ const { isReady } = useVaults()
       </div>
       <div
         v-else
-        :class="$style.tabContent"
+        class="flex-1"
       >
         <PortfolioList
           :items="earnPositions"
@@ -60,41 +49,34 @@ const { isReady } = useVaults()
         />
         <div
           v-if="!isReady"
-          class="justify-center align-center mt-12"
+          class="flex justify-center items-center mt-12"
         >
           <UiLoader class="text-euler-dark-900" />
         </div>
       </div>
     </div>
-    <div class="between align-center mb-8">
-      <h3 class="h3 weight-400">
+
+    <div class="flex justify-between items-center mb-8">
+      <h3 class="text-h3 font-normal">
         Direct lending
       </h3>
     </div>
-    <p class="p2 text-euler-dark-900 mb-16">
+    <p class="text-p2 text-euler-dark-900 mb-16">
       Savings are supply-only deposits on your main account that earn you yield. They are not used as collateral to back a borrowing position.
     </p>
-    <div
-      :class="$style.savingsSection"
-      class="flex p-8 br-16"
-    >
+    <div class="flex flex-1 p-8 rounded-16 border border-euler-dark-600">
       <div
         v-if="isConnected && (!isDepositsLoaded || (!isReady && depositPositions.length === 0))"
-        class="justify-center align-center"
-        :class="$style.tabContent"
+        class="flex flex-1 justify-center items-center"
       >
         <UiLoader class="text-euler-dark-900 my-8" />
       </div>
       <div
         v-else-if="depositPositions.length === 0"
-        class="justify-center align-center"
-        :class="$style.tabContent"
+        class="flex flex-1 justify-center items-center"
       >
-        <div class="column gap-8 align-center text-euler-dark-900 py-32">
-          <div
-            :class="$style.searchIcon"
-            class="justify-center align-center br-12 bg-euler-dark-500"
-          >
+        <div class="flex flex-col gap-8 items-center text-euler-dark-900 py-32">
+          <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-euler-dark-500">
             <SvgIcon name="search" />
           </div>
           <template v-if="isConnected">
@@ -107,7 +89,7 @@ const { isReady } = useVaults()
       </div>
       <div
         v-else
-        :class="$style.tabContent"
+        class="flex-1"
       >
         <PortfolioList
           :items="depositPositions"
@@ -115,7 +97,7 @@ const { isReady } = useVaults()
         />
         <div
           v-if="!isReady"
-          class="justify-center align-center mt-12"
+          class="flex justify-center items-center mt-12"
         >
           <UiLoader class="text-euler-dark-900" />
         </div>
@@ -123,23 +105,3 @@ const { isReady } = useVaults()
     </div>
   </div>
 </template>
-
-<style lang="scss" module>
-.SavingsPage {
-}
-
-.savingsSection {
-  display: flex;
-  flex-grow: 1;
-  border: 1px solid var(--c-euler-dark-600);
-}
-
-.tabContent {
-  flex-grow: 1;
-}
-
-.searchIcon {
-  width: 48px;
-  height: 48px;
-}
-</style>

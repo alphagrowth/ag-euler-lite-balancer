@@ -74,34 +74,32 @@ const onClaimClick = async () => {
 
 <template>
   <div
-    :class="$style.VaultItem"
-    class="text-white bg-euler-dark-500 br-16 p-16"
+    class="text-white bg-euler-dark-500 rounded-16 p-16"
   >
     <div
-      :class="$style.portfolioWrap"
-      class="column gap-12"
+      class="flex flex-col gap-12"
     >
-      <div class="between align-center mb-12">
-        <div class="flex align-center">
+      <div class="flex justify-between items-center mb-12">
+        <div class="flex items-center">
           <BaseAvatar
             v-if="vault"
             :src="getAssetLogoUrl(vault.asset.address)"
             class="icon--40"
           />
           <div class="ml-12">
-            <h4 class="h5 mb-4">
+            <h4 class="text-h5 mb-4">
               {{ campaign.reward_info.token_symbol }}
             </h4>
-            <p class="p3 text-euler-dark-900">
+            <p class="text-p3 text-euler-dark-900">
               {{ actionLabel }} {{ vault?.asset.symbol }}
             </p>
           </div>
         </div>
-        <div class="column gap-8 right">
-          <p class="p2">
+        <div class="flex flex-col gap-8 text-right">
+          <p class="text-p2">
             {{ rewardUsdValue < 0.01 ? ' < $0.01' : `$${formatNumber(rewardUsdValue, 2)}` }}
           </p>
-          <p class="p3 text-euler-dark-900">
+          <p class="text-p3 text-euler-dark-900">
             ~ {{ rewardAmount < 0.01 ? '< 0.01' : formatNumber(rewardAmount, 2) }} {{ campaign.reward_info.token_symbol }}
           </p>
         </div>
@@ -116,8 +114,3 @@ const onClaimClick = async () => {
     </div>
   </div>
 </template>
-
-<style lang="scss" module>
-.VaultItem {
-}
-</style>

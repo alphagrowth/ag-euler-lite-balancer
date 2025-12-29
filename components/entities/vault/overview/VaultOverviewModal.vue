@@ -38,7 +38,7 @@ const onVaultClick = () => {
 
 <template>
   <BaseModalWrapper
-    :class="$style.VaultOverviewModal"
+    class="w-full max-w-[500px]"
     full
     title="Market information"
     @close="$emit('close')"
@@ -46,22 +46,19 @@ const onVaultClick = () => {
     <UiTabs
       v-if="tabs.length"
       v-model="tab"
-      :class="$style.tabs"
-      class="mb-12"
+      class="mb-12 mx-[-16px]"
       :list="tabs"
     >
       <template #default="{ tab: slotTab }">
-        <div class="align-center gap-8">
+        <div class="flex items-center gap-8">
           <BaseAvatar :src="slotTab.avatars as string[]" />
-
           {{ slotTab.label }}
         </div>
       </template>
     </UiTabs>
 
     <div
-      :class="$style.content"
-      class="column"
+      class="flex flex-col flex-grow mx-[-8px]"
     >
       <template v-if="pair">
         <Transition
@@ -100,19 +97,3 @@ const onVaultClick = () => {
     </div>
   </BaseModalWrapper>
 </template>
-
-<style module lang="scss">
-.VaultOverviewModal {
-  width: 100%;
-  max-width: 500px;
-}
-
-.tabs {
-  margin: 0 -16px;
-}
-
-.content {
-  flex-grow: 1;
-  margin: 0 -8px;
-}
-</style>

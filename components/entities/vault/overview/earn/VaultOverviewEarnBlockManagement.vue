@@ -35,32 +35,31 @@ const onCopyClick = (address: string) => {
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 br-16 column gap-24 p-24">
-    <p class="h3 text-white">
+  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
+    <p class="text-h3 text-white">
       Management
     </p>
-    <div class="column align-start gap-24">
+    <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue
         v-for="infoItem in vaultAddressesInfo"
         :key="infoItem.title"
         :label="infoItem.title"
         orientation="horizontal"
       >
-        <div class="gap-4 align-center">
+        <div class="flex gap-4 items-center">
           <NuxtLink
             :to="`https://etherscan.io/address/${infoItem.address}`"
-            class="link"
+            class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
             target="_blank"
           >
             {{ shortenAddress(infoItem.address) }}
           </NuxtLink>
           <button
-            :class="$style.copyBtn"
-            class="text-euler-dark-900"
+            class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
             @click="onCopyClick(infoItem.address)"
           >
             <SvgIcon
-              class="icon--18"
+              class="!w-18 !h-18"
               name="copy"
             />
           </button>
@@ -74,18 +73,3 @@ const onCopyClick = (address: string) => {
     </div>
   </div>
 </template>
-
-  <style module lang="scss">
-  .copyBtn {
-    cursor: pointer;
-    outline: none;
-
-    &:hover {
-      color: var(--c-euler-dark-800);
-    }
-
-    &:active {
-      color: var(--c-euler-dark-700);
-    }
-  }
-  </style>

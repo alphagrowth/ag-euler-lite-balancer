@@ -72,10 +72,10 @@ onUnmounted(() => {
   <TheHeader v-if="isHeaderVisible" />
   <main>
     <section
-      class="page-wrapper"
-      :class="{ 'page-wrapper--no-menu': !isMenuVisible }"
+      class="flex justify-center pt-32 mobile:pt-16"
+      :class="isMenuVisible ? 'pb-[98px]' : 'pb-16'"
     >
-      <div class="container">
+      <div class="w-full max-w-container mx-16 mobile:px-16 mobile:mx-0">
         <NuxtLayout>
           <NuxtPage
             :transition="{ name: 'page', mode: 'out-in' }"
@@ -91,6 +91,3 @@ onUnmounted(() => {
     <TheMenu v-show="isMenuVisible" />
   </Transition>
 </template>
-
-<style module lang="scss">
-</style>

@@ -11,10 +11,10 @@ const borrowVaultPairs = computed(() => borrowList.value.filter(pair => pair.bor
 <template>
   <div
     v-if="borrowVaultPairs.length"
-    class="bg-euler-dark-300 br-16 column gap-24 p-24"
+    class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
   >
     <div>
-      <p class="h3 text-white mb-12">
+      <p class="text-h3 text-white mb-12">
         Collateral exposure
       </p>
       <p class="text-euler-dark-900">
@@ -24,15 +24,14 @@ const borrowVaultPairs = computed(() => borrowList.value.filter(pair => pair.bor
       </p>
     </div>
 
-    <div class="column gap-12">
+    <div class="flex flex-col gap-12">
       <div
         v-for="pair in borrowVaultPairs"
         :key="pair.collateral.address"
         @click="emits('vault-click')"
       >
         <NuxtLink
-          class="bg-euler-dark-500 br-16 text-white"
-          :class="$style.exposureItem"
+          class="bg-euler-dark-500 rounded-16 text-white block no-underline"
           :to="`/lend/${pair.collateral.address}`"
         >
           <div
@@ -44,7 +43,7 @@ const borrowVaultPairs = computed(() => borrowList.value.filter(pair => pair.bor
               :assets="[pair.collateral.asset]"
             />
           </div>
-          <div class="column gap-12 px-16 pt-12 pb-16">
+          <div class="flex flex-col gap-12 px-16 pt-12 pb-16">
             <VaultOverviewLabelValue
               label="Max LTV"
               orientation="horizontal"
@@ -61,10 +60,3 @@ const borrowVaultPairs = computed(() => borrowList.value.filter(pair => pair.bor
     </div>
   </div>
 </template>
-
-<style module lang="scss">
-.exposureItem {
-  display: block;
-  text-decoration: none;
-}
-</style>

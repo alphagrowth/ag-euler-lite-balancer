@@ -50,35 +50,33 @@ const onUnlockClick = () => {
 
 <template>
   <div
-    :class="$style.RewardUnlockItem"
-    class="column gap-12 bg-euler-dark-500 br-16"
+    class="flex flex-col gap-12 bg-euler-dark-500 rounded-16"
   >
     <div
-      class="between align-center p-16 pb-12"
-      :class="$style.reulTop"
+      class="flex justify-between items-center p-16 pb-12 border-b border-border-primary"
     >
       <BaseAvatar
         src="/img/euler-default.png"
         class="icon--40"
       />
-      <h4 class="h5 ml-12">
+      <h4 class="text-h5 ml-12">
         rEUL
       </h4>
-      <div class="column gap-8 ml-auto right">
-        <p class="p2">
+      <div class="flex flex-col gap-8 ml-auto text-right">
+        <p class="text-p2">
           {{ formatNumber(unlockableAmount, 6) }} EUL
         </p>
-        <p class="p3 text-euler-dark-900">
+        <p class="text-p3 text-euler-dark-900">
           OF {{ formatNumber(amount, 6) }} rEUL
         </p>
       </div>
     </div>
     <div class="pb-16 pl-16 pr-16">
-      <div class="between align-center mb-16">
+      <div class="flex justify-between items-center mb-16">
         <div class="text-euler-dark-900">
           Maturity date
         </div>
-        <div class="right column gap-4 p2">
+        <div class="text-right flex flex-col gap-4 text-p2">
           <div>
             in {{ daysUntilMaturity }} days
           </div>
@@ -98,12 +96,3 @@ const onUnlockClick = () => {
     </div>
   </div>
 </template>
-
-<style lang="scss" module>
-.RewardUnlockItem {
-}
-
-.reulTop {
-  border-bottom: 1px solid var(--c-border-primary);
-}
-</style>

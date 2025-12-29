@@ -97,7 +97,7 @@ onClickOutside(reference, () => {
 
   &__floating {
     position: relative;
-    max-width: calc(var(--container-w) / 2);
+    max-width: calc(800px / 2);
     min-width: 200px;
     width: max-content;
     padding: 16px;

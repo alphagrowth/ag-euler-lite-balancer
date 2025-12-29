@@ -28,7 +28,7 @@ const openLegalModal = () => {
   <section>
     <div>
       <div class="p-16">
-        <h3 class="h3 mb-16">
+        <h3 class="text-h3 mb-16">
           Input Components
         </h3>
 
@@ -37,15 +37,13 @@ const openLegalModal = () => {
             v-model="inputModel"
             placeholder="Enter your email"
             label="Email"
-            class="mb-16"
-            style="max-width: 380px"
+            class="mb-16 max-w-[380px]"
           />
           <UiInput
             v-model="inputWithValueModel"
             placeholder="Search..."
             label="Search"
-            class="mb-16"
-            style="max-width: 380px"
+            class="mb-16 max-w-[380px]"
           />
           <UiInput
             v-model="inputModel"
@@ -53,8 +51,7 @@ const openLegalModal = () => {
             label="Password"
             type="password"
             help-text="Your password must be at least 8 characters"
-            class="mb-16"
-            style="max-width: 380px"
+            class="mb-16 max-w-[380px]"
           />
           <UiInput
             v-model="inputErrorModel"
@@ -62,27 +59,24 @@ const openLegalModal = () => {
             label="Email (Error)"
             error
             help-text="Please enter a valid email address"
-            class="mb-16"
-            style="max-width: 380px"
+            class="mb-16 max-w-[380px]"
           />
           <UiInput
             v-model="inputModel"
             placeholder="Disabled input"
             label="Disabled"
             disabled
-            class="mb-16"
-            style="max-width: 380px"
+            class="mb-16 max-w-[380px]"
           />
         </div>
 
-        <h3 class="h3 mb-16">
+        <h3 class="text-h3 mb-16">
           Other Components
         </h3>
 
         <AssetInput
           :asset="asset"
-          class="mb-16"
-          style="max-width: 380px"
+          class="mb-16 max-w-[380px]"
         />
 
         <UiRange
@@ -91,7 +85,7 @@ const openLegalModal = () => {
         />
       </div>
 
-      <div class="flex align-center gap-8 mb-16">
+      <div class="flex items-center gap-8 mb-16">
         <UiCheckbox
           v-model="checkboxModel"
           name="test"
@@ -111,7 +105,7 @@ const openLegalModal = () => {
         />
       </div>
 
-      <div class="flex align-center gap-8 mb-16">
+      <div class="flex items-center gap-8 mb-16">
         <UiSwitch
           v-model="switchModel"
           name="switch"
@@ -259,28 +253,28 @@ const openLegalModal = () => {
         </div>
       </div>
 
-      <div class="h1">
+      <div class="text-h1">
         Headline 1
       </div>
-      <div class="h2">
+      <div class="text-h2">
         Headline 2
       </div>
-      <div class="h3">
+      <div class="text-h3">
         Headline 3
       </div>
-      <div class="h4">
+      <div class="text-h4">
         Headline 4
       </div>
-      <div class="h5">
+      <div class="text-h5">
         Headline 5
       </div>
-      <div class="p1">
+      <div class="text-p1">
         Paragraph 1
       </div>
-      <div class="p2">
+      <div class="text-p2">
         Paragraph 2
       </div>
-      <div class="p3">
+      <div class="text-p3">
         Paragraph 3
       </div>
       <div class="text-white">
@@ -317,123 +311,123 @@ const openLegalModal = () => {
         Slice-of-heaven-300
       </div>
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="close"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="copy"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="edit"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="filter"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="gas"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="health"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="loading"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="percent"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="plus"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="question-circle"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="search"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="shield"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="sparks"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="trash"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="unlink"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="wallet"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="warning-circle"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="arrow-down"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="arrow-top-right"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="lend-outline"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="lend-filled"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="borrow-outline"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="borrow-filled"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="portfolio-outline"
       />
       <SvgIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="portfolio-filled"
       />
       <UiIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="map-pin-off"
       />
       <UiIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="globe"
       />
       <UiIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="search-user"
       />
       <UiIcon
-        :class="$style.icon"
+        class="!w-24 !h-24"
         name="chart"
       />
     </div>
-    <div class="flex align-center mb-8">
+    <div class="flex items-center mb-8">
       <UiRadio
         v-model="radioModel"
         name="test"
@@ -455,7 +449,7 @@ const openLegalModal = () => {
       />
     </div>
 
-    <div class="flex align-center gap-8">
+    <div class="flex items-center gap-8">
       Health score
       <UiFootnote
         title="Your health score"
@@ -464,10 +458,3 @@ const openLegalModal = () => {
     </div>
   </section>
 </template>
-
-<style lang="scss" module>
-.icon {
-  width: 24px;
-  height: 24px;
-}
-</style>

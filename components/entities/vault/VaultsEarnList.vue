@@ -6,8 +6,7 @@ defineProps<{ items: EarnVault[] }>()
 
 <template>
   <div
-    :class="$style.VaultsList"
-    class="column gap-8"
+    class="flex flex-col gap-8"
   >
     <VaultEarnItem
       v-for="vault in items"
@@ -16,9 +15,3 @@ defineProps<{ items: EarnVault[] }>()
     />
   </div>
 </template>
-
-<style lang="scss" module>
-.VaultsList {
-  ///
-}
-</style>

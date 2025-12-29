@@ -22,11 +22,10 @@ const onDisconnectClick = () => {
     @close="$emit('close')"
   >
     <div
-      :class="$style.content"
-      class="flex column align-center gap-16 mb-16"
+      class="flex flex-col items-center gap-16 mb-16 -mt-8 py-6"
     >
-      <div class="flex justify-center align-center gap-16">
-        <div class="h3 center">
+      <div class="flex justify-center items-center gap-16">
+        <div class="text-h3 text-center">
           {{ `${address?.slice(0, 6)}...${address?.slice(-4)}` }}
         </div>
         <UiButton
@@ -49,10 +48,3 @@ const onDisconnectClick = () => {
     </UiButton>
   </BaseModalWrapper>
 </template>
-
-<style module lang="scss">
-.content {
-  margin-top: -8px;
-  padding: 6px 0;
-}
-</style>

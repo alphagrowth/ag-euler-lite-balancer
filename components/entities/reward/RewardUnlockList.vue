@@ -8,8 +8,7 @@ defineProps<{
 
 <template>
   <div
-    :class="$style.RewardUnlockList"
-    class="column gap-8"
+    class="flex flex-col gap-8"
   >
     <RewardUnlockItem
       v-for="(item, idx) in items"
@@ -18,9 +17,3 @@ defineProps<{
     />
   </div>
 </template>
-
-<style lang="scss" module>
-.RewardUnlockList {
-  ///
-}
-</style>

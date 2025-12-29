@@ -28,58 +28,17 @@ const open = () => {
 
 <template>
   <div
-    :class="$style.VaultSortButton"
+    class="relative flex items-center gap-6 flex-shrink-0 min-h-36 text-white py-6 px-16 bg-euler-dark-500 rounded-[100px] cursor-pointer"
     @click="open"
   >
     <UiIcon
       name="sort"
-      :class="$style.icon"
+      class="!w-16 !h-16"
     />
-    <span :class="$style.text">{{ placeholder }}</span>
+    <span class="whitespace-nowrap overflow-hidden text-ellipsis">{{ placeholder }}</span>
     <span
       v-if="model"
-      :class="$style.plus"
+      class="inline-flex justify-center items-center text-aquamarine-700 text-[14px] font-normal py-2 px-6 ml-auto -mr-10 bg-[var(--c-aquamarine-opaque-300)] rounded-[100px]"
     >{{ model }}</span>
   </div>
 </template>
-
-<style lang="scss" module>
-.VaultSortButton {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  min-height: 36px;
-  color: var(--c-white);
-  padding: 6px 16px;
-  background: var(--c-euler-dark-500);
-  border-radius: 100px;
-  cursor: pointer;
-}
-
-.icon {
-  width: 16px;
-  height: 16px;
-}
-
-.text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.plus {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  color: var(--c-aquamarine-700);
-  font-size: 14px;
-  font-weight: 400;
-  padding: 2px 6px;
-  margin-left: auto;
-  margin-right: -10px;
-  background: var(--c-aquamarine-opaque-300);
-  border-radius: 100px;
-}
-</style>
