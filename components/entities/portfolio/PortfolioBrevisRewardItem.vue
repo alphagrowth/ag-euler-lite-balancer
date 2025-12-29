@@ -4,16 +4,18 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { Campaign } from '~/entities/brevis'
 import { getAssetLogoUrl } from '~/composables/useTokens'
+import type { TxPlan } from '~/entities/txPlan'
 
 const { campaign } = defineProps<{ campaign: Campaign }>()
 
 const { getVault } = useVaults()
-const { claimReward, loadRewards } = useBrevis()
+const { claimReward, loadRewards, buildClaimRewardPlan } = useBrevis()
 const modal = useModal()
 const { error } = useToast()
 
 const vault = ref(await getVault(campaign.vault_address))
 const isClaiming = ref(false)
+const plan = ref<TxPlan | null>(null)
 const rewardAmount = computed(() => Number.parseFloat(campaign.reward_info.reward_amt))
 const rewardUsdValue = computed(() => rewardAmount.value * Number.parseFloat(campaign.reward_info.reward_usd_price))
 const actionLabel = computed(() => campaign.action === 2001 ? 'Borrow' : 'Lend')
@@ -37,6 +39,14 @@ const claim = async () => {
 
 const onClaimClick = async () => {
   try {
+    try {
+      plan.value = await buildClaimRewardPlan(campaign)
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
     modal.open(OperationReviewModal, {
       props: {
         type: 'brevis-reward',
@@ -47,6 +57,7 @@ const onClaimClick = async () => {
         },
         amount: rewardAmount.value,
         campaignInfo: campaign,
+        plan: plan.value || undefined,
         onConfirm: () => {
           setTimeout(() => {
             claim()

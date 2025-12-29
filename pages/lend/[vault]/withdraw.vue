@@ -12,12 +12,13 @@ import {
   type VaultAsset,
 } from '~/entities/vault'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
+import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { withdraw, redeem } = useEulerOperations()
+const { withdraw, redeem, buildWithdrawPlan, buildRedeemPlan } = useEulerOperations()
 const { getVault } = useVaults()
 const { isConnected, chain, address } = useAccount()
 const { getBalance } = useWallets()
@@ -29,6 +30,7 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
+const plan = ref<TxPlan | null>(null)
 const vault: Ref<Vault | undefined> = ref()
 const asset: Ref<VaultAsset | undefined> = ref()
 const assetsBalance = ref(0n)
@@ -119,11 +121,28 @@ const updateBalance = async () => {
   delta.value = assetsBalance.value
 }
 const submit = async () => {
+  if (!asset.value?.address) {
+    return
+  }
+
+  const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+
+  try {
+    plan.value = isMax
+      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
+      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+    plan.value = null
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'withdraw',
       asset: asset.value,
       amount: amount.value,
+      plan: plan.value || undefined,
       onConfirm: () => {
         setTimeout(() => {
           send()

@@ -6,12 +6,13 @@ import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
+import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { supply } = useEulerOperations()
+const { supply, buildSupplyPlan } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
 const { borrowPositions, isPositionsLoaded, getOperatorForSubAccount } = useEulerAccount()
@@ -22,6 +23,7 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
+const plan = ref<TxPlan | null>(null)
 const balance = ref(0n)
 const estimateNetAPY = ref(0)
 const estimateUserLTV = ref(0n)
@@ -96,11 +98,31 @@ const updateBalance = async () => {
   balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
 }
 const submit = async () => {
+  if (!collateralVault.value?.asset.address) {
+    return
+  }
+
+  try {
+    plan.value = await buildSupplyPlan(
+      collateralVault.value.address,
+      collateralVault.value.asset.address,
+      valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
+      collateralVault.value.asset.symbol,
+      position.value?.subAccount,
+      { includePermit2Call: false },
+    )
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+    plan.value = null
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'supply',
       asset: asset.value,
       amount: amount.value,
+      plan: plan.value || undefined,
       subAccount: position.value?.subAccount,
       hasBorrows: (position.value?.borrowed || 0n) > 0n,
       onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {

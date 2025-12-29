@@ -2,14 +2,16 @@
 import type { Reward } from '~/entities/merkl'
 import type { Campaign } from '~/entities/brevis'
 import type { VaultAsset } from '~/entities/vault'
+import type { TxPlan } from '~/entities/txPlan'
 
 const emits = defineEmits(['close', 'confirm'])
 
-const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount, hasBorrows } = defineProps<{
-  type?: 'supply' | 'withdraw' | 'borrow' | 'reward' | 'brevis-reward' | 'disableCollateral'
+const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount, hasBorrows, fee, plan } = defineProps<{
+  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'reward' | 'brevis-reward' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
-  fee: number | string
+  fee?: number | string
+  plan?: TxPlan
   supplyingAssetForBorrow?: VaultAsset
   supplyingAmount?: number | string
   rewardInfo?: Reward
@@ -20,6 +22,37 @@ const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount, ha
 }>()
 
 const { hasOperator } = useEulerAccount()
+const { chain } = useWagmi()
+const { estimatePlanFees } = useEstimatePlanFees()
+
+const isEstimatingFee = ref(false)
+const feeEstimate = ref<string | null>(null)
+
+const nativeSymbol = computed(() => chain.value?.nativeCurrency?.symbol || 'ETH')
+
+const loadFeeEstimate = async () => {
+  if (!plan) {
+    feeEstimate.value = null
+    return
+  }
+
+  try {
+    isEstimatingFee.value = true
+    const res = await estimatePlanFees(plan)
+    feeEstimate.value = res.totalNative
+  }
+  catch (err) {
+    console.warn('[OperationReviewModal] fee estimate failed', err)
+    feeEstimate.value = null
+  }
+  finally {
+    isEstimatingFee.value = false
+  }
+}
+
+watch(() => plan, () => {
+  loadFeeEstimate()
+}, { immediate: true })
 
 const hasOperatorForPosition = computed(() => {
   if (!subAccount) return false
@@ -88,6 +121,19 @@ const disclaimerText = computed(() => {
 
   return `You're claiming ${formatNumber(amount)} tokens, ${formatNumber(eulerOnlyRewardsAmount.value || 0)} of them from Euler, ${formatNumber(Number(amount) - (eulerOnlyRewardsAmount.value || 0))} of them earned elsewhere`
 })
+
+const feeDisplay = computed(() => {
+  if (isEstimatingFee.value) {
+    return '...'
+  }
+
+  const value = feeEstimate.value ?? fee
+  if (value === undefined || value === null || value === '') {
+    return '-'
+  }
+
+  return `${formatNumber(value, 8, 0)} ${nativeSymbol.value}`
+})
 </script>
 
 <template>
@@ -143,7 +189,7 @@ const disclaimerText = computed(() => {
           Transaction fee
         </div>
         <div class="flex gap-8 align-center">
-          <span class="p2">&asymp; {{ formatNumber(fee, 8, 0) }} ETH</span>
+          <span class="p2">&asymp; {{ feeDisplay }}</span>
         </div>
       </div>
       <UiToast

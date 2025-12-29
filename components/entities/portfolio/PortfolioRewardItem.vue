@@ -3,14 +3,16 @@ import { OperationReviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { Reward } from '~/entities/merkl'
+import type { TxPlan } from '~/entities/txPlan'
 
 const { reward } = defineProps<{ reward: Reward }>()
 
-const { isTokensLoading, rewardTokens, claimReward, loadRewards } = useMerkl()
+const { isTokensLoading, rewardTokens, claimReward, loadRewards, buildClaimRewardPlan } = useMerkl()
 const modal = useModal()
 const { error } = useToast()
 
 const isClaiming = ref(false)
+const plan = ref<TxPlan | null>(null)
 
 const amount = computed(() => nanoToValue(reward.amount, reward.token.decimals))
 const claimed = computed(() => nanoToValue(reward.claimed, reward.token.decimals))
@@ -40,12 +42,21 @@ const claim = async () => {
 
 const onClaimClick = async () => {
   try {
+    try {
+      plan.value = await buildClaimRewardPlan(reward)
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
     modal.open(OperationReviewModal, {
       props: {
         type: 'reward',
         asset: reward.token,
         amount: amountToClaim.value,
         rewardInfo: reward,
+        plan: plan.value || undefined,
         onConfirm: () => {
           setTimeout(() => {
             claim()

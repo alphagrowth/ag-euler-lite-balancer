@@ -12,6 +12,19 @@ export const useEstimatePlanFees = () => {
 
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
 
+  const getFallbackGasLimit = (step: TxStep) => {
+    if (step.type === 'approve' || step.type === 'permit2-approve') {
+      return 65000n
+    }
+
+    if (step.type === 'evc-batch') {
+      const calls = Array.isArray(step.args?.[0]) ? step.args[0].length : 1
+      return 200000n + (70000n * BigInt(calls))
+    }
+
+    return 200000n
+  }
+
   const estimatePlanFees = async (plan: TxPlan) => {
     if (!address.value) {
       throw new Error('Wallet not connected')
@@ -37,12 +50,19 @@ export const useEstimatePlanFees = () => {
         args: step.args as any,
       })
 
-      const gasLimit = await estimateGas(config, {
-        account: address.value as Address,
-        to: step.to,
-        value: step.value ?? 0n,
-        data,
-      })
+      let gasLimit: bigint
+      try {
+        gasLimit = await estimateGas(config, {
+          account: address.value as Address,
+          to: step.to,
+          value: step.value ?? 0n,
+          data,
+        })
+      }
+      catch (err) {
+        console.warn('[estimatePlanFees] gas estimate failed, using fallback', err)
+        gasLimit = getFallbackGasLimit(step)
+      }
 
       const feeWei = gasLimit * gasPrice
       results.push({

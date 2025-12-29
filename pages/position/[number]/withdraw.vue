@@ -5,10 +5,11 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
+import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
 const route = useRoute()
-const { withdraw } = useEulerOperations()
+const { withdraw, buildWithdrawPlan } = useEulerOperations()
 const { error } = useToast()
 const modal = useModal()
 const { isPositionsLoaded, borrowPositions, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
@@ -22,6 +23,7 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
+const plan = ref<TxPlan | null>(null)
 const estimateNetAPY = ref(0)
 const estimateUserLTV = ref(0n)
 const estimateHealth = ref(0n)
@@ -89,11 +91,28 @@ const load = async () => {
   }
 }
 const submit = async () => {
+  if (!asset.value?.address || !collateralVault.value?.address) {
+    return
+  }
+
+  try {
+    plan.value = await buildWithdrawPlan(
+      collateralVault.value.address,
+      valueToNano(amount.value || '0', asset.value.decimals),
+      position.value?.subAccount,
+    )
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+    plan.value = null
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'withdraw',
       asset: asset.value,
       amount: amount.value,
+      plan: plan.value || undefined,
       subAccount: position.value?.subAccount,
       hasBorrows: (position.value?.borrowed || 0n) > 0n,
       onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {

@@ -6,12 +6,13 @@ import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, getVaultPrice, type VaultAsset, type CollateralOption, convertAssetsToShares } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { borrowBySaving, borrow } = useEulerOperations()
+const { borrowBySaving, borrow, buildBorrowPlan, buildBorrowBySavingPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
 const { updateBorrowPositions, depositPositions, isPositionsLoading } = useEulerAccount()
@@ -27,6 +28,7 @@ const savingBalance = ref(0n)
 const savingAssets = ref(0n)
 const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
+const plan = ref<TxPlan | null>(null)
 const pair: Ref<BorrowVaultPair | undefined> = ref(await getBorrowVaultPair(route.params.collateral as string, route.params.borrow as string))
 const health = ref()
 const netAPY = ref()
@@ -140,11 +142,50 @@ const submit = async () => {
     return
   }
 
+  if (!borrowVault.value || !collateralVault.value) {
+    return
+  }
+
+  const collateralAmountNano = valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals)
+  const borrowAmountNano = valueToNano(borrowAmount.value || '0', borrowVault.value?.decimals)
+  let collateralAmountForPlan = collateralAmountNano
+
+  if (isSavingCollateral.value) {
+    if (savingCollateral.value?.assets === collateralAmountNano) {
+      collateralAmountForPlan = savingBalance.value
+    }
+    else {
+      collateralAmountForPlan = await convertAssetsToShares(collateralVault.value.address, collateralAmountNano)
+    }
+  }
+
+  try {
+    plan.value = isSavingCollateral.value
+      ? await buildBorrowBySavingPlan(
+        collateralVault.value.address,
+        collateralAmountForPlan,
+        borrowVault.value.address,
+        borrowAmountNano,
+      )
+      : await buildBorrowPlan(
+        collateralVault.value.address,
+        collateralVault.value.asset.address,
+        collateralAmountForPlan,
+        borrowVault.value.address,
+        borrowAmountNano,
+      )
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+    plan.value = null
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'borrow',
       asset: borrowVault.value?.asset,
       amount: borrowAmount.value,
+      plan: plan.value || undefined,
       supplyingAssetForBorrow: collateralVault.value?.asset,
       supplyingAmount: collateralAmount.value,
       onConfirm: () => {

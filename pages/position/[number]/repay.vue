@@ -7,12 +7,13 @@ import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, getVaultPrice, type VaultAsset } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
+import type { TxPlan } from '~/entities/txPlan'
 
 const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
-const { repay, fullRepay } = useEulerOperations()
+const { repay, fullRepay, buildRepayPlan, buildFullRepayPlan } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
 const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
@@ -24,6 +25,7 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
+const plan = ref<TxPlan | null>(null)
 const balance = ref(0n)
 const position: Ref<AccountBorrowPosition | undefined> = ref()
 const estimateNetAPY = ref(0)
@@ -103,11 +105,40 @@ const updateBalance = async () => {
     .value
 }
 const submit = async () => {
+  if (!position.value || !borrowVault.value || !collateralVault.value) {
+    return
+  }
+
+  const amountNano = valueToNano(amount.value || '0', borrowVault.value.asset.decimals)
+  const shouldFullRepay = balance.value <= amountNano
+
+  try {
+    plan.value = shouldFullRepay
+      ? await buildFullRepayPlan(
+        borrowVault.value.address,
+        borrowVault.value.asset.address,
+        amountNano,
+        position.value.subAccount,
+        collateralVault.value.address,
+      )
+      : await buildRepayPlan(
+        borrowVault.value.address,
+        borrowVault.value.asset.address,
+        amountNano,
+        position.value.subAccount,
+      )
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+    plan.value = null
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'repay',
       asset: position.value!.borrow.asset,
       amount: amount.value,
+      plan: plan.value || undefined,
       subAccount: position.value?.subAccount,
       hasBorrows: (position.value?.borrowed || 0n) > 0n,
       onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {

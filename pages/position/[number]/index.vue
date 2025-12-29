@@ -2,6 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { getNetAPY, getVaultPrice } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
+import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
 import { VaultOverviewModal, OperationReviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -14,7 +15,7 @@ const { error } = useToast()
 const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, borrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { disableCollateral: disableCollateralOperation } = useEulerOperations()
+const { disableCollateral: disableCollateralOperation, buildDisableCollateralPlan } = useEulerOperations()
 
 const positionIndex = route.params.number as string
 
@@ -82,11 +83,23 @@ const netAPY = computed(() => {
 })
 
 const disableCollateral = async () => {
+  let plan: TxPlan | null = null
+  try {
+    plan = await buildDisableCollateralPlan(
+      position.value!.subAccount,
+      position.value!.collateral.address,
+    )
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'disableCollateral',
       asset: position.value!.borrow.asset,
       amount: '0',
+      plan: plan || undefined,
       subAccount: position.value?.subAccount,
       hasBorrows: (position.value?.borrowed || 0n) > 0n,
       onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {

@@ -3,6 +3,7 @@ import type { Address } from 'viem'
 import axios from 'axios'
 
 import type { Opportunity, Reward, RewardsResponseItem, RewardToken } from '~/entities/merkl'
+import type { TxPlan } from '~/entities/txPlan'
 
 const {
   MERKL_API_BASE_URL,
@@ -204,6 +205,32 @@ export const useMerkl = () => {
     return hash
   }
 
+  const buildClaimRewardPlan = async (reward: Reward): Promise<TxPlan> => {
+    if (!wagmiAddress.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    return {
+      kind: 'reward',
+      steps: [
+        {
+          type: 'other',
+          label: 'Claim reward',
+          to: MERKL_ADDRESS as Address,
+          abi: merklDistributorABI,
+          functionName: 'claim',
+          args: [
+            [wagmiAddress.value],
+            [reward.token.address as Address],
+            [BigInt(reward.amount)],
+            [reward.proofs as Address[]],
+          ],
+          value: 0n,
+        },
+      ],
+    }
+  }
+
   watch(wagmiAddress, (val) => {
     if (val) {
       address.value = val
@@ -249,6 +276,7 @@ export const useMerkl = () => {
     isOpportunitiesLoading,
     isRewardsLoading,
     claimReward,
+    buildClaimRewardPlan,
     loadOpportunities,
     loadTokens,
     loadRewards,

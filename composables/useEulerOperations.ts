@@ -200,6 +200,7 @@ export const useEulerOperations = () => {
     amount: bigint,
     _symbol: string,
     subAccount?: string,
+    options: { includePermit2Call?: boolean } = {},
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -215,7 +216,8 @@ export const useEulerOperations = () => {
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
     const permit2Address = eulerCoreAddresses.value.permit2 as Address
-    const canUsePermit2 = !!chainId.value && !(await isSmartContractWallet(userAddr))
+    const includePermit2Call = options.includePermit2Call ?? true
+    const canUsePermit2 = includePermit2Call && !!chainId.value && !(await isSmartContractWallet(userAddr))
 
     const steps: TxStep[] = []
 
@@ -300,6 +302,637 @@ export const useEulerOperations = () => {
     return {
       kind: 'supply',
       steps,
+    }
+  }
+
+  const buildWithdrawPlan = async (
+    vaultAddress: string,
+    assetsAmount: bigint,
+    subAccount?: string,
+  ): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const vaultAddr = vaultAddress as Address
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const withdrawFromAddr = subAccount ? (subAccount as Address) : userAddr
+
+    const hasSigned = await hasSignature(userAddr)
+
+    const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(vaultAddr, [
+      'function withdraw(uint256,address,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    if (subAccount) {
+      hooks.setMainCallHookCallFromSA(vaultAddr, 'withdraw', [assetsAmount, userAddr, withdrawFromAddr])
+    }
+    else {
+      hooks.setMainCallHookCallFromSelf(vaultAddr, 'withdraw', [assetsAmount, userAddr, withdrawFromAddr])
+    }
+
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, withdrawFromAddr)
+
+    if (!hasSigned) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    return {
+      kind: 'withdraw',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Withdraw via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls] as const,
+          value: 0n,
+        },
+      ],
+    }
+  }
+
+  const buildRedeemPlan = async (
+    vaultAddress: string,
+    assetsAmount: bigint,
+    maxSharesAmount?: bigint,
+    isMax?: boolean,
+  ): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const vaultAddr = vaultAddress as Address
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+
+    const hasSigned = await hasSignature(userAddr)
+
+    const vaultContract = new ethers.Contract(vaultAddr, [
+      'function previewWithdraw(uint256) external view returns (uint256)',
+    ], rpcProvider)
+
+    let sharesAmount = isMax
+      ? maxSharesAmount || 0n
+      : await vaultContract.previewWithdraw(assetsAmount).catch(() => 0n)
+
+    if (isMax === false && maxSharesAmount && (sharesAmount > maxSharesAmount)) {
+      sharesAmount = maxSharesAmount
+    }
+
+    const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(vaultAddr, [
+      'function redeem(uint256,address,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    hooks.setMainCallHookCallFromSelf(vaultAddr, 'redeem', [sharesAmount, userAddr, userAddr])
+
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
+
+    if (!hasSigned) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    return {
+      kind: 'withdraw',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Withdraw via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls] as const,
+          value: 0n,
+        },
+      ],
+    }
+  }
+
+  const buildBorrowPlan = async (
+    vaultAddress: string,
+    assetAddress: string,
+    amount: bigint,
+    borrowVaultAddress: string,
+    borrowAmount: bigint,
+    subAccount?: string,
+  ): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const vaultAddr = vaultAddress as Address
+    const assetAddr = assetAddress as Address
+    const borrowVaultAddr = borrowVaultAddress as Address
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+
+    const subAccountAddr = subAccount || await getNewSubAccount(address.value)
+
+    const hasSigned = await hasSignature(userAddr)
+
+    const steps: TxStep[] = []
+
+    if (amount > 0n) {
+      const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
+      if (allowance < amount) {
+        steps.push({
+          type: 'approve',
+          label: 'Approve asset for vault',
+          to: assetAddr,
+          abi: erc20ABI as Abi,
+          functionName: 'approve',
+          args: [vaultAddr, maxUint256] as const,
+          value: 0n,
+        })
+      }
+    }
+
+    const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(vaultAddr, [
+      'function deposit(uint256,address) external',
+    ])
+    hooks.addContractInterface(borrowVaultAddr, [
+      'function borrow(uint256,address) external',
+    ])
+    hooks.addContractInterface(evcAddress, [
+      'function enableController(address,address) external',
+      'function enableCollateral(address,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
+
+    if (!hasSigned) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    const depositCall = {
+      targetContract: vaultAddr,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: hooks.getDataForCall(vaultAddr, 'deposit', [amount, subAccountAddr]) as Hash,
+    }
+
+    const enableControllerCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableController', [subAccountAddr, borrowVaultAddr]) as Hash,
+    }
+
+    const enableCollateralCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableCollateral', [subAccountAddr, vaultAddr]) as Hash,
+    }
+
+    const borrowCall = {
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'borrow', [borrowAmount, userAddr]) as Hash,
+    }
+
+    evcCalls.push(depositCall as EVCCall, enableControllerCall as EVCCall, enableCollateralCall as EVCCall, borrowCall as EVCCall)
+
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr, borrowVaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
+    steps.push({
+      type: 'evc-batch',
+      label: 'Borrow via EVC',
+      to: evcAddress,
+      abi: EVC_ABI,
+      functionName: 'batch',
+      args: [evcCalls as never],
+      value: totalValue,
+    })
+
+    return {
+      kind: 'borrow',
+      steps,
+    }
+  }
+
+  const buildBorrowBySavingPlan = async (
+    vaultAddress: string,
+    amount: bigint,
+    borrowVaultAddress: string,
+    borrowAmount: bigint,
+    subAccount?: string,
+  ): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const vaultAddr = vaultAddress as Address
+    const borrowVaultAddr = borrowVaultAddress as Address
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+
+    const subAccountAddr = subAccount || await getNewSubAccount(address.value)
+
+    const hasSigned = await hasSignature(userAddr)
+
+    const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(vaultAddr, [
+      'function transfer(address,uint256) external',
+    ])
+    hooks.addContractInterface(borrowVaultAddr, [
+      'function borrow(uint256,address) external',
+    ])
+    hooks.addContractInterface(evcAddress, [
+      'function enableCollateral(address,address) external',
+      'function enableController(address,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    hooks.addPreHookCallFromSelf(vaultAddr, 'transfer', [subAccountAddr, amount])
+
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
+
+    if (!hasSigned) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    const enableControllerCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableController', [subAccountAddr, borrowVaultAddr]) as Hash,
+    }
+
+    const enableCollateralCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableCollateral', [subAccountAddr, vaultAddr]) as Hash,
+    }
+
+    const borrowCall = {
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'borrow', [borrowAmount, userAddr]) as Hash,
+    }
+
+    evcCalls.push(enableControllerCall as EVCCall, enableCollateralCall as EVCCall, borrowCall as EVCCall)
+
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr, borrowVaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
+    return {
+      kind: 'borrow',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Borrow via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls as never],
+          value: totalValue,
+        },
+      ],
+    }
+  }
+
+  const buildRepayPlan = async (
+    borrowVaultAddress: string,
+    borrowAssetAddress: string,
+    amount: bigint,
+    subAccount: string,
+  ): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const borrowVaultAddr = borrowVaultAddress as Address
+    const borrowAssetAddr = borrowAssetAddress as Address
+    const userAddr = address.value as Address
+    const subAccountAddr = subAccount as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+
+    const hasSigned = await hasSignature(userAddr)
+
+    const steps: TxStep[] = []
+    const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
+
+    if (allowance < amount) {
+      steps.push({
+        type: 'approve',
+        label: 'Approve asset for vault',
+        to: borrowAssetAddr,
+        abi: erc20ABI as Abi,
+        functionName: 'approve',
+        args: [borrowVaultAddr, maxUint256] as const,
+        value: 0n,
+      })
+    }
+
+    const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(borrowVaultAddr, [
+      'function repay(uint256,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    hooks.setMainCallHookCallFromSelf(borrowVaultAddr, 'repay', [amount, subAccountAddr])
+
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, subAccountAddr)
+
+    if (!hasSigned) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    steps.push({
+      type: 'evc-batch',
+      label: 'Repay via EVC',
+      to: evcAddress,
+      abi: EVC_ABI,
+      functionName: 'batch',
+      args: [evcCalls as never],
+      value: 0n,
+    })
+
+    return {
+      kind: 'repay',
+      steps,
+    }
+  }
+
+  const buildFullRepayPlan = async (
+    borrowVaultAddress: string,
+    borrowAssetAddress: string,
+    amount: bigint,
+    subAccount: string,
+    vaultAddress: string,
+  ): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const vaultAddr = vaultAddress as Address
+    const borrowVaultAddr = borrowVaultAddress as Address
+    const borrowAssetAddr = borrowAssetAddress as Address
+    const userAddr = address.value as Address
+    const subAccountAddr = subAccount as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+
+    const hasSigned = await hasSignature(userAddr)
+    const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
+
+    const steps: TxStep[] = []
+    if (allowance < amount) {
+      steps.push({
+        type: 'approve',
+        label: 'Approve asset for vault',
+        to: borrowAssetAddr,
+        abi: erc20ABI as Abi,
+        functionName: 'approve',
+        args: [borrowVaultAddr, maxUint256] as const,
+        value: 0n,
+      })
+    }
+
+    const vaultContract = new ethers.Contract(vaultAddr, [
+      'function balanceOf(address) external view returns (uint256)',
+      'function convertToAssets(uint256) external view returns (uint256)',
+    ], rpcProvider)
+
+    const subAccountShares = await vaultContract.balanceOf(subAccountAddr).catch(() => 0n)
+    const subAccountAssets = await vaultContract.convertToAssets(subAccountShares).catch(() => 0n)
+
+    const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(borrowVaultAddr, [
+      'function repay(uint256,address) external',
+      'function disableController() external',
+    ])
+    hooks.addContractInterface(vaultAddr, [
+      'function redeem(uint256,address,address) external',
+      'function deposit(uint256,address) external',
+    ])
+    hooks.addContractInterface(evcAddress, [
+      'function disableCollateral(address,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    const evcCalls = []
+
+    if (!hasSigned) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+      }
+      evcCalls.push(tosCall)
+    }
+
+    const repayCall = {
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'repay', [maxUint256, subAccountAddr]) as Hash,
+    }
+
+    const disableControllerCall = {
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'disableController', []) as Hash,
+    }
+
+    const disableCollateralCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'disableCollateral', [subAccountAddr, vaultAddr]) as Hash,
+    }
+
+    const redeemCall = {
+      targetContract: vaultAddr,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(vaultAddr, 'redeem', [subAccountShares, userAddr, subAccountAddr]) as Hash,
+    }
+
+    const depositCall = {
+      targetContract: vaultAddr,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: hooks.getDataForCall(vaultAddr, 'deposit', [subAccountAssets, userAddr]) as Hash,
+    }
+
+    evcCalls.push(repayCall, disableControllerCall, disableCollateralCall, redeemCall, depositCall)
+
+    steps.push({
+      type: 'evc-batch',
+      label: 'Repay via EVC',
+      to: evcAddress,
+      abi: EVC_ABI,
+      functionName: 'batch',
+      args: [evcCalls as never],
+      value: 0n,
+    })
+
+    return {
+      kind: 'full-repay',
+      steps,
+    }
+  }
+
+  const buildDisableCollateralPlan = async (
+    subAccount: string,
+    vaultAddress: string,
+  ): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const vaultAddr = vaultAddress as Address
+    const userAddr = address.value as Address
+    const subAccountAddr = subAccount as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+
+    const hasSigned = await hasSignature(userAddr)
+
+    const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(vaultAddr, [
+      'function redeem(uint256,address,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    const redeemCall = {
+      targetContract: vaultAddr,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(vaultAddr, 'redeem', [maxUint256, userAddr, subAccountAddr]) as Hash,
+    }
+
+    const evcCalls = [redeemCall]
+
+    if (!hasSigned) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    return {
+      kind: 'disable-collateral',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Disable collateral via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls as never],
+          value: 0n,
+        },
+      ],
     }
   }
 
@@ -1198,6 +1831,13 @@ export const useEulerOperations = () => {
     disableCollateral,
     executeTxPlan,
     buildSupplyPlan,
+    buildWithdrawPlan,
+    buildRedeemPlan,
+    buildBorrowPlan,
+    buildBorrowBySavingPlan,
+    buildRepayPlan,
+    buildFullRepayPlan,
+    buildDisableCollateralPlan,
     disableOperator,
   }
 }

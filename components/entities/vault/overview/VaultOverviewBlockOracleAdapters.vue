@@ -104,21 +104,6 @@ const getAdapterKey = (adapter: OracleAdapterEntry) => `${adapter.oracle}-${adap
             <div class="p2">
               {{ resolveSymbol(adapter.base) }}/{{ resolveSymbol(adapter.quote) }}
             </div>
-            <!-- <NuxtLink
-              :to="`https://etherscan.io/address/${adapter.base}`"
-              class="link"
-              target="_blank"
-            >
-              {{ resolveSymbol(adapter.base) }}
-            </NuxtLink> -->
-            <!-- <span class="text-euler-dark-900">/</span>
-            <NuxtLink
-              :to="`https://etherscan.io/address/${adapter.quote}`"
-              class="link"
-              target="_blank"
-            >
-              {{ resolveSymbol(adapter.quote) }}
-            </NuxtLink> -->
           </div>
         </template>
         <div class="gap-4 align-center">

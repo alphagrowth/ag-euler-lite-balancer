@@ -7,12 +7,13 @@ import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, getVaultPrice } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { AccountBorrowPosition } from '~/entities/account'
+import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { borrow } = useEulerOperations()
+const { borrow, buildBorrowPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected } = useAccount()
 const { borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
@@ -28,6 +29,7 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isBalanceLoading = ref(false)
 const isEstimatesLoading = ref(false)
+const plan = ref<TxPlan | null>(null)
 const pair: Ref<BorrowVaultPair | undefined> = ref()
 const health = ref()
 const netAPY = ref()
@@ -124,11 +126,31 @@ const updateBalance = async () => {
   isBalanceLoading.value = false
 }
 const submit = async () => {
+  if (!borrowVault.value || !collateralVault.value) {
+    return
+  }
+
+  try {
+    plan.value = await buildBorrowPlan(
+      collateralVault.value.address,
+      collateralVault.value.asset.address,
+      0n,
+      borrowVault.value.address,
+      valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
+      position.value?.subAccount,
+    )
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+    plan.value = null
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'borrow',
       asset: borrowVault.value?.asset,
       amount: borrowAmount.value,
+      plan: plan.value || undefined,
       subAccount: position.value?.subAccount,
       hasBorrows: (position.value?.borrowed || 0n) > 0n,
       onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {

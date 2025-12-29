@@ -13,7 +13,7 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { supply } = useEulerOperations()
+const { supply, buildSupplyPlan } = useEulerOperations()
 const { getVault, updateVault } = useVaults()
 const { isConnected } = useAccount()
 const { getBalance } = useWallets()
@@ -82,11 +82,31 @@ const load = async () => {
   }
 }
 const submit = async () => {
+  if (!asset.value?.address) {
+    return
+  }
+
+  try {
+    plan.value = await buildSupplyPlan(
+      vaultAddress,
+      asset.value.address,
+      valueToNano(amount.value || '0', asset.value.decimals),
+      asset.value.symbol,
+      undefined,
+      { includePermit2Call: false },
+    )
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+    plan.value = null
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'supply',
       asset: asset.value,
       amount: amount.value,
+      plan: plan.value || undefined,
       onConfirm: () => {
         setTimeout(() => {
           send()

@@ -3,6 +3,7 @@ import type { Address } from 'viem'
 import axios from 'axios'
 
 import type { Campaign, CampaignsRequest, MerkleProofRequest } from '~/entities/brevis'
+import type { TxPlan } from '~/entities/txPlan'
 import { CampaignAction } from '~/entities/brevis'
 
 const BREVIS_API_URL = 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns'
@@ -177,6 +178,51 @@ export const useBrevis = () => {
     return hash
   }
 
+  const buildClaimRewardPlan = async (campaign: Campaign): Promise<TxPlan> => {
+    if (!wagmiAddress.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    const request: MerkleProofRequest = {
+      user_addr: wagmiAddress.value,
+      campaign_id: [campaign.campaign_id],
+      chain_id: [campaign.chain_id],
+    }
+
+    const res = await axios.post(BREVIS_MERKLE_PROOF_URL, request)
+
+    if (res.data.err) {
+      throw new Error(res.data.err.msg || 'Failed to fetch merkle proof')
+    }
+
+    const rewardsBatch = res.data.rewardsBatch
+    if (!rewardsBatch || rewardsBatch.length === 0) {
+      throw new Error('No claimable rewards found')
+    }
+
+    const merkleData = rewardsBatch[0]
+
+    return {
+      kind: 'brevis-reward',
+      steps: [
+        {
+          type: 'other',
+          label: 'Claim reward',
+          to: merkleData.claimContractAddr as Address,
+          abi: brevisClaimABI,
+          functionName: 'claim',
+          args: [
+            wagmiAddress.value,
+            merkleData.cumulativeRewards.map((r: string) => BigInt(r)),
+            BigInt(merkleData.epoch),
+            merkleData.merkleProof as Address[],
+          ],
+          value: 0n,
+        },
+      ],
+    }
+  }
+
   watch(wagmiAddress, (val) => {
     if (val) {
       address.value = val
@@ -216,6 +262,7 @@ export const useBrevis = () => {
     loadCampaigns,
     loadRewards,
     claimReward,
+    buildClaimRewardPlan,
     getCampaignOfLendVault,
     getCampaignOfBorrowVault,
   }
