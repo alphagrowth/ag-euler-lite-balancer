@@ -181,7 +181,7 @@ const onClick = (e: Event) => {
   }
 
   &__loading {
-    width: 100%;
+    width: 20px;
     height: 20px;
     animation: rotate 0.6s infinite linear;
   }

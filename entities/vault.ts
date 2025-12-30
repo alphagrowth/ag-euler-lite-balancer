@@ -125,6 +125,7 @@ export interface EarnVaultStrategyInfo {
 }
 
 export interface EarnVault {
+  verified: boolean
   type: 'earn'
   address: string
   name: string
@@ -238,6 +239,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
 export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses, eulerPeripheryAddresses } = useEulerAddresses()
+  const { earnVaults } = useEulerLabels()
 
   await until(computed(() => eulerLensAddresses.value?.eulerEarnVaultLens && eulerLensAddresses.value?.utilsLens && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective)).toBeTruthy()
 
@@ -317,6 +319,7 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
   }
 
   return {
+    verified: Object.keys(earnVaults.value).includes(vaultAddress),
     type: 'earn',
     address: data.vault,
     name: data.vaultName,
@@ -555,6 +558,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorR
         }
 
         return {
+          verified: true,
           type: 'earn',
           address: data.vault,
           name: data.vaultName,

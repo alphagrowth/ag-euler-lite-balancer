@@ -100,10 +100,7 @@ const getVault = async (address: string): Promise<Vault> => {
   return map.value.get(ethers.getAddress(address))!
 }
 const getEarnVault = async (address: string): Promise<EarnVault> => {
-  // TODO: support earnVaults.json when ready
-  // const { earnVaults } = useEulerLabels()
-
-  await until(computed(() => earnMap.value.get(ethers.getAddress(address)))).toBeTruthy()
+  await until(computed(() => earnMap.value.size)).toBeTruthy()
 
   return earnMap.value.get(ethers.getAddress(address)) || fetchEarnVault(address)
 }
