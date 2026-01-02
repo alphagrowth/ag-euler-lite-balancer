@@ -319,7 +319,7 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
   }
 
   return {
-    verified: Object.keys(earnVaults.value).includes(vaultAddress),
+    verified: earnVaults.value.includes(vaultAddress),
     type: 'earn',
     address: data.vault,
     name: data.vaultName,
@@ -460,10 +460,16 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
 export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorResult<EarnVault>, void, unknown> {
   const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses, eulerPeripheryAddresses, chainId } = useEulerAddresses()
+  const { earnVaults, isLoading } = useEulerLabels()
 
   const startChainId = chainId.value
 
-  await until(computed(() => eulerLensAddresses.value?.eulerEarnVaultLens && eulerLensAddresses.value?.utilsLens && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective)).toBeTruthy()
+  await until(computed(() => {
+    return eulerLensAddresses.value?.eulerEarnVaultLens
+      && eulerLensAddresses.value?.utilsLens
+      && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective
+      && !isLoading.value
+  })).toBeTruthy()
 
   if (!eulerLensAddresses.value?.eulerEarnVaultLens || !eulerLensAddresses.value?.utilsLens || !eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective) {
     throw new Error('Euler Earn addresses not loaded yet')
@@ -488,7 +494,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorR
     provider,
   )
 
-  const verifiedVaults = await governedPerspectiveContract.verifiedArray() as string[]
+  const verifiedVaults = earnVaults.value.length ? earnVaults.value : await governedPerspectiveContract.verifiedArray() as string[]
   const USD_ADDRESS = '0x0000000000000000000000000000000000000348' // USD unit of account
 
   const batchSize = 5
