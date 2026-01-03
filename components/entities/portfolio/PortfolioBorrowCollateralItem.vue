@@ -84,7 +84,7 @@ const netAPY = computed(() => {
               )) }}
             </div>
             <div class="text-euler-dark-900 text-p3">
-              ~ {{ formatNumber(nanoToValue(position.supplied, position.collateral.decimals)) }}
+              ~ {{ roundAndCompactTokens(position.supplied, position.collateral.decimals) }}
               {{ position.borrow.asset.symbol }}
             </div>
           </div>

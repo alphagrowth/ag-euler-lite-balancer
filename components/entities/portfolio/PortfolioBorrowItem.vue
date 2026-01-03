@@ -101,7 +101,7 @@ const netAPY = computed(() => {
               ${{ formatNumber(getVaultPrice(position.borrowed, position.borrow)) }}
             </div>
             <div class="text-euler-dark-900 text-p3">
-              ~ {{ formatNumber(nanoToValue(position.borrowed, position.borrow.decimals)) }}
+              ~ {{ roundAndCompactTokens(position.borrowed, position.borrow.decimals) }}
               {{ position.borrow.asset.symbol }}
             </div>
           </div>
