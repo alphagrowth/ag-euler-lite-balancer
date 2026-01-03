@@ -86,30 +86,36 @@ const getAdapterKey = (adapter: OracleAdapterEntry) => `${adapter.oracle}-${adap
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 br-16 column gap-24 p-24">
-    <p class="h3 text-white">
+  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
+    <p class="text-h3 text-white">
       Oracles
     </p>
-    <div v-if="!adapters.length" class="p3 text-euler-dark-900">
+    <div
+      v-if="!adapters.length"
+      class="text-p3 text-euler-dark-900"
+    >
       No oracle adapters found
     </div>
-    <div v-else class="column align-start gap-16">
+    <div
+      v-else
+      class="flex flex-col items-start gap-16"
+    >
       <VaultOverviewLabelValue
         v-for="adapter in adapters"
         :key="getAdapterKey(adapter)"
         orientation="horizontal"
       >
         <template #label>
-          <div class="gap-4 align-center">
+          <div class="flex gap-4 items-center">
             <div class="p2">
               {{ resolveSymbol(adapter.base) }}/{{ resolveSymbol(adapter.quote) }}
             </div>
           </div>
         </template>
-        <div class="gap-4 align-center">
+        <div class="flex gap-4 items-center">
           <NuxtLink
             :to="`https://etherscan.io/address/${adapter.oracle}`"
-            class="link"
+            class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
             target="_blank"
           >
             {{ shortenAddress(adapter.oracle) }}
@@ -120,7 +126,7 @@ const getAdapterKey = (adapter: OracleAdapterEntry) => `${adapter.oracle}-${adap
             @click="onCopyClick(adapter.oracle)"
           >
             <SvgIcon
-              class="icon--18"
+              class="!w-18 !h-18"
               name="copy"
             />
           </button>
