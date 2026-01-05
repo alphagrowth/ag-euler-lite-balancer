@@ -238,24 +238,24 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
 }
 export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerLensAddresses, eulerPeripheryAddresses } = useEulerAddresses()
   const { earnVaults } = useEulerLabels()
+  const { loadEulerConfig, isReady } = useEulerAddresses()
 
-  await until(computed(() => eulerLensAddresses.value?.eulerEarnVaultLens && eulerLensAddresses.value?.utilsLens && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective)).toBeTruthy()
-
-  if (!eulerLensAddresses.value?.eulerEarnVaultLens || !eulerLensAddresses.value?.utilsLens || !eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective) {
-    throw new Error('Euler Earn addresses not loaded yet')
+  if (!isReady.value) {
+    loadEulerConfig()
+    await until(computed(() => isReady.value)).toBeTruthy()
   }
+
+  const { eulerLensAddresses } = useEulerAddresses()
 
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const earnVaultLensContract = new ethers.Contract(
-    eulerLensAddresses.value.eulerEarnVaultLens,
+    eulerLensAddresses.value!.eulerEarnVaultLens,
     eulerEarnVaultLensABI,
     provider,
   )
-
   const utilsLensContract = new ethers.Contract(
-    eulerLensAddresses.value.utilsLens,
+    eulerLensAddresses.value!.utilsLens,
     eulerUtilsLensABI,
     provider,
   )

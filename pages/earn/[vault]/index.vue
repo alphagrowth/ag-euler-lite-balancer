@@ -150,7 +150,6 @@ const updateEstimates = useDebounceFn(async () => {
       return
     }
     estimateSupplyAPY.value = (vault.value.supplyAPY || 0) + totalRewardsAPY.value
-    console.log(+(amount.value || 0) * (estimateSupplyAPY.value / 12 / 100))
     monthlyEarnings.value = !amount.value
       ? 0
       : +(amount.value || 0) * (estimateSupplyAPY.value / 12 / 100)
