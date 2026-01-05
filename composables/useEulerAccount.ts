@@ -24,7 +24,6 @@ const operatorsBySubAccount: Ref<Map<string, Address | null>> = ref(new Map())
 
 const totalSuppliedValue = computed(() =>
   depositPositions.value.reduce((result, position) => result + getVaultPrice(position.assets, position.vault), 0)
-  + earnPositions.value.reduce((result, position) => result + getEarnVaultPrice(position.assets, position.vault), 0)
   + borrowPositions.value.reduce((result, position) => result + getVaultPrice(position.supplied, position.collateral), 0),
 )
 const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0))
