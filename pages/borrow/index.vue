@@ -3,15 +3,18 @@ import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultPrice } from '~/entities/vault'
 import type { BorrowVaultPair } from '~/entities/vault'
+import { getProductByVault } from '~/composables/useEulerLabels'
 
 defineOptions({
   name: 'BorrowPage',
 })
 
 const { borrowList, isLoading } = useVaults()
+const { products, entities } = useEulerLabels()
 
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
+const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Liquidity')
 
 const collateralAssetOptions = computed(() => {
@@ -40,14 +43,29 @@ const debtAssetOptions = computed(() => {
     )
 })
 
+const marketOptions = computed(() => {
+  return borrowList.value.reduce((result, pair) => {
+    const market = Object.values(products).find(product => product.vaults.includes(pair.collateral.address))
+    const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
+    const entityObj = entityName ? entities[entityName] : null
+
+    if (market && !result.find(option => option.label === market.name)) {
+      return [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj?.logo}` : undefined }]
+    }
+
+    return result
+  }, [] as { label: string, value: string, icon?: string }[])
+})
+
 const filteredBorrowList = computed(() => {
-  if (!selectedCollateral.value.length && !selectedDebt.value.length) {
-    return borrowList.value
-  }
-  return borrowList.value.filter(pair =>
-    (!selectedCollateral.value.length || selectedCollateral.value.includes(pair.collateral.asset.address))
-    && (!selectedDebt.value.length || selectedDebt.value.includes(pair.borrow.asset.address)),
-  )
+  return borrowList.value
+    .filter(pair =>
+      selectedCollateral.value.length || selectedDebt.value.length
+        ? ((!selectedCollateral.value.length || selectedCollateral.value.includes(pair.collateral.asset.address))
+          && (!selectedDebt.value.length || selectedDebt.value.includes(pair.borrow.asset.address)))
+        : true,
+    )
+    .filter(pair => selectedMarkets.value.length ? selectedMarkets.value.includes(getProductByVault(pair.collateral.address).name) : true)
 })
 
 const sortedBorrowList = computed(() => {
@@ -78,17 +96,25 @@ const sortedBorrowList = computed(() => {
       <h3 class="text-h3 mb-16">
         Discover vaults
       </h3>
-      <div class="flex justify-start items-center w-full gap-8">
+      <div class="flex justify-start items-center w-full gap-8 mobile:flex-wrap">
         <VaultSortButton
           v-model="sortBy"
-          class="shrink-0"
+          class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
           :options="['Liquidity', 'Borrow APY']"
           placeholder="Sort By"
           title="Sorting type"
         />
         <UiSelect
+          v-model="selectedMarkets"
+          class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
+          :options="marketOptions"
+          placeholder="Choose market"
+          title="Choose market"
+          icon="filter"
+        />
+        <UiSelect
           v-model="selectedCollateral"
-          class="flex-1 min-w-0"
+          class="flex-1 min-w-0 mobile:basis-[calc(50%-4px)]"
           :options="collateralAssetOptions"
           placeholder="Collateral asset"
           title="Collateral asset"
@@ -96,7 +122,7 @@ const sortedBorrowList = computed(() => {
         />
         <UiSelect
           v-model="selectedDebt"
-          class="flex-1 min-w-0"
+          class="flex-1 min-w-0 mobile:basis-[calc(50%-4px)]"
           :options="debtAssetOptions"
           placeholder="Debt asset"
           title="Debt asset"

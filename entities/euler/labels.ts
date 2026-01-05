@@ -20,7 +20,7 @@ export type EulerLabelEntity = {
 export type EulerLabelProduct = {
   name: string
   description: string
-  entity: string[]
+  entity: string[] | string
   url: string
   vaults: string[]
 }

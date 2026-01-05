@@ -71,12 +71,12 @@ export const useEulerLabels = () => {
   }
 }
 
-const getProductByVault = (vaultAddress: string) => {
+export const getProductByVault = (vaultAddress: string) => {
   return Object.values(products).find(product => product.vaults.includes(vaultAddress))
     || eulerLabelProductEmpty
 }
 
-const getEntitiesByVault = (vaultAddress: string) => {
+export const getEntitiesByVault = (vaultAddress: string) => {
   const arr: EulerLabelEntity[] = []
   let entityKeys = vaults?.[vaultAddress]?.entity
   if (!Array.isArray(entityKeys)) {
@@ -90,7 +90,7 @@ const getEntitiesByVault = (vaultAddress: string) => {
   return arr
 }
 
-const getEntitiesByEarnVault = (earnVault: EarnVault) => {
+export const getEntitiesByEarnVault = (earnVault: EarnVault) => {
   const arr: EulerLabelEntity[] = []
   const ownerAddress = earnVault.owner
 

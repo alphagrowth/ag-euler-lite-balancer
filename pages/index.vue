@@ -3,16 +3,33 @@ import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultPrice } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
+import { getProductByVault } from '~/composables/useEulerLabels'
 
 defineOptions({
   name: 'IndexPage',
 })
 
 const { list, isLoading } = useVaults()
+const { products, entities } = useEulerLabels()
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])
+const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
+
+const marketOptions = computed(() => {
+  return list.value.reduce((result, vault) => {
+    const market = Object.values(products).find(product => product.vaults.includes(vault.address))
+    const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
+    const entityObj = entityName ? entities[entityName] : null
+
+    if (market && !result.find(option => option.label === market.name)) {
+      return [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj?.logo}` : undefined }]
+    }
+
+    return result
+  }, [] as { label: string, value: string, icon?: string }[])
+})
 
 const assetOptions = computed(() => {
   return list.value
@@ -44,10 +61,9 @@ const topOptions = computed(() => {
 })
 
 const filteredList = computed(() => {
-  if (!selectedCollateral.value.length) {
-    return list.value
-  }
-  return list.value.filter(vault => selectedCollateral.value.includes(vault.asset.address))
+  return list.value
+    .filter(vault => selectedCollateral.value.length ? selectedCollateral.value.includes(vault.asset.address) : true)
+    .filter(vault => selectedMarkets.value.length ? selectedMarkets.value.includes(getProductByVault(vault.address).name) : true)
 })
 
 const sortedList = computed(() => {
@@ -96,6 +112,13 @@ load()
           :options="['Total Supply', 'Supply APY']"
           placeholder="Sort By"
           title="Sorting type"
+        />
+        <UiSelect
+          v-model="selectedMarkets"
+          :options="marketOptions"
+          placeholder="Choose market"
+          title="Choose market"
+          icon="filter"
         />
         <UiSelect
           v-model="selectedCollateral"
