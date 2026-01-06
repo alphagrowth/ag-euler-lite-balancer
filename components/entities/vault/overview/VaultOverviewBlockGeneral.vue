@@ -62,7 +62,7 @@ const borrowCount = computed(() =>
       <VaultOverviewLabelValue label="Market type">
         <VaultTypeChip
           :vault="vault"
-          :type="entities.length ? 'governed' : ''"
+          :type="entities.length ? 'governed' : 'type' in vault ? vault.type as string : ''"
         />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Can be borrowed">

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { Vault, EarnVault } from '~/entities/vault'
+import type { Vault, EarnVault, EscrowVault } from '~/entities/vault'
 
 // TODO: More types
 const { type, vault } = defineProps<{
   type: string
-  vault: Vault | EarnVault
+  vault: Vault | EarnVault | EscrowVault
 }>()
 
 const icon = computed(() => {

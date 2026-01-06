@@ -157,6 +157,10 @@ export interface EarnVault {
   }
 }
 
+export interface EscrowVault extends Vault {
+  type: 'escrow'
+}
+
 export interface CollateralOption {
   type: string
   amount: number
@@ -354,6 +358,15 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     assetPriceInfo,
   } as EarnVault
 }
+
+export const fetchEscrowVault = async (vaultAddress: string): Promise<EscrowVault> => {
+  const vault = await fetchVault(vaultAddress)
+  return {
+    ...vault,
+    type: 'escrow',
+  } as EscrowVault
+}
+
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult<Vault>, void, unknown> {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses, chainId } = useEulerAddresses()
@@ -607,6 +620,127 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorR
 
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as EarnVault[]
+    const isFinished = i + batchSize >= verifiedVaults.length
+
+    yield {
+      vaults: validVaults,
+      isFinished,
+    }
+  }
+}
+
+export const fetchEscrowVaults = async function* (): AsyncGenerator<VaultIteratorResult<EscrowVault>, void, unknown> {
+  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { eulerPeripheryAddresses, eulerLensAddresses, chainId } = useEulerAddresses()
+
+  const startChainId = chainId.value
+
+  await until(computed(() => {
+    return eulerPeripheryAddresses.value?.escrowedCollateralPerspective
+      && eulerLensAddresses.value?.vaultLens
+  })).toBeTruthy()
+
+  if (!eulerPeripheryAddresses.value?.escrowedCollateralPerspective || !eulerLensAddresses.value?.vaultLens) {
+    throw new Error('Escrow perspective or vault lens address not loaded yet')
+  }
+
+  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const perspectiveContract = new ethers.Contract(
+    eulerPeripheryAddresses.value.escrowedCollateralPerspective,
+    eulerPerspectiveABI,
+    provider,
+  )
+
+  const vaultLensContract = new ethers.Contract(
+    eulerLensAddresses.value.vaultLens,
+    eulerVaultLensABI,
+    provider,
+  )
+
+  let verifiedVaults: string[]
+  try {
+    verifiedVaults = await perspectiveContract.verifiedArray() as string[]
+  }
+  catch (e) {
+    console.error('Error fetching escrow vaults from perspective:', e)
+    verifiedVaults = []
+  }
+
+  const batchSize = 5
+
+  for (let i = 0; i < verifiedVaults.length; i += batchSize) {
+    if (chainId.value !== startChainId) {
+      return
+    }
+    const batch = verifiedVaults.slice(i, i + batchSize)
+    const batchPromises = batch.map(async (vaultAddress) => {
+      try {
+        const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
+        const data = raw.toObject({ deep: true })
+
+        if (!data.irmInfo?.interestRateInfo?._) {
+          data.irmInfo.interestRateInfo._ = {
+            borrowAPY: 0n,
+            borrowSPY: 0n,
+            borrows: 0n,
+            cash: 0n,
+            supplyAPY: 0n,
+          }
+        }
+
+        return {
+          verified: true,
+          type: 'escrow',
+          address: data.vault,
+          name: data.vaultName,
+          supply: data.totalAssets,
+          borrow: data.totalBorrowed,
+          symbol: data.vaultSymbol,
+          decimals: data.vaultDecimals,
+          supplyCap: data.supplyCap,
+          borrowCap: data.borrowCap,
+          totalCash: data.totalCash,
+          totalAssets: data.totalAssets,
+          interestFee: data.interestFee,
+          configFlags: data.configFlags,
+          oracle: data.oracle,
+          collateralLTVs: raw.collateralLTVInfo.toArray().map((o: { toObject: () => void }) => o.toObject()),
+          collateralPrices: raw.collateralPriceInfo.toArray().map((o: { toObject: () => void }) => o.toObject()),
+          liabilityPriceInfo: data.liabilityPriceInfo,
+          maxLiquidationDiscount: data.maxLiquidationDiscount,
+          interestRateInfo: data.irmInfo.interestRateInfo._,
+          asset: {
+            address: data.asset,
+            name: data.assetName,
+            symbol: data.assetSymbol,
+            decimals: data.assetDecimals,
+          },
+          oracleDetailedInfo: data.oracleInfo,
+          backupAssetOracleInfo: data.backupAssetOracleInfo,
+          dToken: data.dToken,
+          governorAdmin: data.governorAdmin,
+          governorFeeReceiver: data.governorFeeReceiver,
+          unitOfAccount: data.unitOfAccount,
+          unitOfAccountName: data.unitOfAccountName,
+          unitOfAccountSymbol: data.unitOfAccountSymbol,
+          unitOfAccountDecimals: data.unitOfAccountDecimals,
+          interestRateModelAddress: data.interestRateModel,
+          hookTarget: data.hookTarget,
+          irmInfo: data.irmInfo
+            ? {
+                interestRateModelInfo: data.irmInfo.interestRateModelInfo,
+              }
+            : undefined,
+        } as EscrowVault
+      }
+      catch (e) {
+        console.error(`Error fetching escrow vault ${vaultAddress}:`, e)
+        return undefined
+      }
+    })
+
+    const res = await Promise.all(batchPromises)
+    const validVaults = res.filter(o => !!o) as EscrowVault[]
     const isFinished = i + batchSize >= verifiedVaults.length
 
     yield {

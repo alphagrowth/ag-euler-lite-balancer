@@ -1,16 +1,50 @@
 <script setup lang="ts">
-import type { Vault } from '~/entities/vault'
+import type { Vault, EscrowVault } from '~/entities/vault'
 
 const emits = defineEmits(['vault-click'])
 const { vault } = defineProps<{ vault: Vault }>()
-const { borrowList } = useVaults()
+const { borrowList, escrowMap } = useVaults()
 
 const borrowVaultPairs = computed(() => borrowList.value.filter(pair => pair.borrow.address === vault.address))
+
+const escrowCollateralPairs = computed(() => {
+  const pairs: Array<{
+    borrow: Vault
+    collateral: EscrowVault
+    borrowLTV: bigint
+    liquidationLTV: bigint
+    initialLiquidationLTV: bigint
+    isEscrow: true
+  }> = []
+
+  vault.collateralLTVs.forEach((ltv) => {
+    if (ltv.borrowLTV <= 0n) return
+
+    const escrowVault = escrowMap.value.get(ltv.collateral)
+    if (escrowVault) {
+      pairs.push({
+        borrow: vault,
+        collateral: escrowVault,
+        borrowLTV: ltv.borrowLTV,
+        liquidationLTV: ltv.liquidationLTV,
+        initialLiquidationLTV: ltv.initialLiquidationLTV,
+        isEscrow: true,
+      })
+    }
+  })
+
+  return pairs
+})
+
+const allCollateralPairs = computed(() => [
+  ...escrowCollateralPairs.value,
+  ...borrowVaultPairs.value.map(pair => ({ ...pair, isEscrow: false })),
+])
 </script>
 
 <template>
   <div
-    v-if="borrowVaultPairs.length"
+    v-if="allCollateralPairs.length"
     class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
   >
     <div>
@@ -26,13 +60,13 @@ const borrowVaultPairs = computed(() => borrowList.value.filter(pair => pair.bor
 
     <div class="flex flex-col gap-12">
       <div
-        v-for="pair in borrowVaultPairs"
+        v-for="pair in allCollateralPairs"
         :key="pair.collateral.address"
         @click="emits('vault-click')"
       >
         <NuxtLink
           class="bg-euler-dark-500 rounded-16 text-white block no-underline"
-          :to="`/lend/${pair.collateral.address}`"
+          :to="`/borrow/${pair.collateral.address}/${pair.borrow.address}`"
         >
           <div
             class="px-16 pt-16 pb-12"
