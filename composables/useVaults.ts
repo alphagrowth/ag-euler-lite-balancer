@@ -186,13 +186,10 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
   const collateralAddr = ethers.getAddress(collateralAddress)
   const borrowAddr = ethers.getAddress(borrowAddress)
 
-  // Try to use cached data if available
   if (map.value.has(borrowAddr)) {
-    // Check if collateral is in regular map
     if (map.value.has(collateralAddr)) {
       return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddr, borrowAddr)
     }
-    // Check if collateral is in escrow map
     else if (escrowMap.value.has(collateralAddr)) {
       const borrowVault = map.value.get(borrowAddr)!
       const escrowVault = escrowMap.value.get(collateralAddr)!
@@ -212,7 +209,6 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
     }
   }
 
-  // Fetch if not in cache
   const borrowVault = await fetchVault(borrowAddr)
   if (!borrowVault) {
     throw '[getBorrowVaultPair]: Borrow vault not found'
@@ -223,18 +219,15 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
     throw '[getBorrowVaultPair]: Collateral not configured for this borrow vault'
   }
 
-  // Check if collateral is an escrow vault
   let collateralVault
   if (escrowMap.value.has(collateralAddr)) {
     collateralVault = await getEscrowVault(collateralAddr)
   }
   else {
-    // Try fetching as regular vault first, if it fails, try as escrow vault
     try {
       collateralVault = await fetchVault(collateralAddr)
     }
     catch {
-      // Try as escrow vault
       collateralVault = await fetchEscrowVault(collateralAddr)
     }
   }

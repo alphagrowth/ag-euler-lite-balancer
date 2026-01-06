@@ -433,10 +433,46 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
 }
 
 export const fetchEscrowVault = async (vaultAddress: string): Promise<EscrowVault> => {
+  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { eulerLensAddresses } = useEulerAddresses()
+
   const vault = await fetchVault(vaultAddress)
+
+  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const utilsLensContract = new ethers.Contract(
+    eulerLensAddresses.value!.utilsLens,
+    eulerUtilsLensABI,
+    provider,
+  )
+
+  const USD_ADDRESS = '0x0000000000000000000000000000000000000348' // USD unit of account
+  try {
+    const priceInfo = await utilsLensContract.getAssetPriceInfo(vault.asset.address, USD_ADDRESS)
+    const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
+
+    if (!priceData.queryFailure && priceData.amountOutMid && priceData.amountOutMid > 0n) {
+      vault.liabilityPriceInfo = {
+        amountIn: priceData.amountIn || ethers.parseUnits('1', Number(vault.asset.decimals)),
+        amountOutAsk: priceData.amountOutAsk || priceData.amountOutMid,
+        amountOutBid: priceData.amountOutBid || priceData.amountOutMid,
+        amountOutMid: priceData.amountOutMid,
+        queryFailure: false,
+        queryFailureReason: '',
+        timestamp: priceData.timestamp,
+        oracle: priceData.oracle,
+        asset: vault.asset.address,
+        unitOfAccount: USD_ADDRESS,
+      }
+    }
+  }
+  catch (e) {
+    console.warn(`Could not fetch asset price for escrow vault ${vaultAddress}:`, e)
+  }
+
   return {
     ...vault,
     type: 'escrow',
+    verified: true,
   } as EscrowVault
 }
 
@@ -704,7 +740,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorR
 }
 
 export const fetchEscrowVaults = async function* (): AsyncGenerator<VaultIteratorResult<EscrowVault>, void, unknown> {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { eulerPeripheryAddresses, eulerLensAddresses, chainId } = useEulerAddresses()
 
   const startChainId = chainId.value
@@ -712,9 +748,10 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<VaultIterato
   await until(computed(() => {
     return eulerPeripheryAddresses.value?.escrowedCollateralPerspective
       && eulerLensAddresses.value?.vaultLens
+      && eulerLensAddresses.value?.utilsLens
   })).toBeTruthy()
 
-  if (!eulerPeripheryAddresses.value?.escrowedCollateralPerspective || !eulerLensAddresses.value?.vaultLens) {
+  if (!eulerPeripheryAddresses.value?.escrowedCollateralPerspective || !eulerLensAddresses.value?.vaultLens || !eulerLensAddresses.value?.utilsLens) {
     throw new Error('Escrow perspective or vault lens address not loaded yet')
   }
 
@@ -728,6 +765,12 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<VaultIterato
   const vaultLensContract = new ethers.Contract(
     eulerLensAddresses.value.vaultLens,
     eulerVaultLensABI,
+    provider,
+  )
+
+  const utilsLensContract = new ethers.Contract(
+    eulerLensAddresses.value.utilsLens,
+    eulerUtilsLensABI,
     provider,
   )
 
@@ -815,6 +858,38 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<VaultIterato
 
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as EscrowVault[]
+    await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
+
+    const USD_ADDRESS = '0x0000000000000000000000000000000000000348'
+    await Promise.all(
+      validVaults.map(async (vault) => {
+        if (!vault.liabilityPriceInfo || vault.liabilityPriceInfo.queryFailure || vault.liabilityPriceInfo.amountOutMid === 0n) {
+          try {
+            const priceInfo = await utilsLensContract.getAssetPriceInfo(vault.asset.address, USD_ADDRESS)
+            const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
+
+            if (!priceData.queryFailure && priceData.amountOutMid && priceData.amountOutMid > 0n) {
+              vault.liabilityPriceInfo = {
+                amountIn: priceData.amountIn || ethers.parseUnits('1', Number(vault.asset.decimals)),
+                amountOutAsk: priceData.amountOutAsk || priceData.amountOutMid,
+                amountOutBid: priceData.amountOutBid || priceData.amountOutMid,
+                amountOutMid: priceData.amountOutMid,
+                queryFailure: false,
+                queryFailureReason: '',
+                timestamp: priceData.timestamp,
+                oracle: priceData.oracle,
+                asset: vault.asset.address,
+                unitOfAccount: USD_ADDRESS,
+              }
+            }
+          }
+          catch (e) {
+            console.warn(`Could not fetch asset price for escrow vault ${vault.address}:`, e)
+          }
+        }
+      }),
+    )
+
     const isFinished = i + batchSize >= verifiedVaults.length
 
     yield {
@@ -877,11 +952,30 @@ export const getVaultPriceInfo = (vault: Vault) => {
   }
 
   if (!vault.liabilityPriceInfo || vault.liabilityPriceInfo.queryFailure) {
+    if (vault.collateralPrices && vault.collateralPrices.length > 0) {
+      const collateralPrice = vault.collateralPrices[0]
+      if (collateralPrice.amountOutMid && collateralPrice.amountOutMid > 0n) {
+        const mid = collateralPrice.amountOutMid
+        const ask = collateralPrice.amountOutAsk && collateralPrice.amountOutAsk > 0n ? collateralPrice.amountOutAsk : mid
+        const bid = collateralPrice.amountOutBid && collateralPrice.amountOutBid > 0n ? collateralPrice.amountOutBid : mid
+        return { amountOutAsk: ask, amountOutBid: bid, amountOutMid: mid }
+      }
+    }
     return undefined
   }
 
   const { amountOutAsk, amountOutBid, amountOutMid } = vault.liabilityPriceInfo
   if (!amountOutMid || amountOutMid === 0n) {
+    // Fallback to collateral price if available
+    if (vault.collateralPrices && vault.collateralPrices.length > 0) {
+      const collateralPrice = vault.collateralPrices[0]
+      if (collateralPrice.amountOutMid && collateralPrice.amountOutMid > 0n) {
+        const mid = collateralPrice.amountOutMid
+        const ask = collateralPrice.amountOutAsk && collateralPrice.amountOutAsk > 0n ? collateralPrice.amountOutAsk : mid
+        const bid = collateralPrice.amountOutBid && collateralPrice.amountOutBid > 0n ? collateralPrice.amountOutBid : mid
+        return { amountOutAsk: ask, amountOutBid: bid, amountOutMid: mid }
+      }
+    }
     return undefined
   }
 
