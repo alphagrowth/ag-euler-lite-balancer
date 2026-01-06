@@ -1,3 +1,4 @@
+import { PriceServiceConnection } from '@pythnetwork/price-service-client'
 import { ethers } from 'ethers'
 import type { Address, Hex } from 'viem'
 import { collectPythFeedIds, type PythFeed } from '~/entities/oracle'
@@ -22,6 +23,40 @@ const PYTH_ABI = [
 ] as const
 
 const normalizeHex = (value: string): Hex => (value.startsWith('0x') ? value : (`0x${value}` as Hex))
+const normalizeFeedId = (value: string): Hex => normalizeHex(value).toLowerCase() as Hex
+
+const DEFAULT_PRICE_CACHE_TTL_MS = 15_000
+
+type PriceFeedLike = {
+  id: string
+  getPriceUnchecked: () => { price: string; expo: number }
+}
+
+type CachedPrice = {
+  price: bigint
+  expiresAt: number
+}
+
+let priceServiceEndpoint = ''
+let priceServiceClient: PriceServiceConnection | undefined
+const priceCache = new Map<string, CachedPrice>()
+
+const getPriceServiceClient = (endpoint: string) => {
+  if (!priceServiceClient || priceServiceEndpoint !== endpoint) {
+    priceServiceEndpoint = endpoint
+    priceServiceClient = new PriceServiceConnection(endpoint)
+  }
+  return priceServiceClient
+}
+
+const priceToAmountOutMid = (price: { price: string; expo: number }): bigint => {
+  const raw = BigInt(price.price)
+  const scale = price.expo + 18
+  if (scale >= 0) {
+    return raw * (10n ** BigInt(scale))
+  }
+  return raw / (10n ** BigInt(-scale))
+}
 
 const collectFeedsFromVault = (vault: Vault | undefined, maxDepth: number): PythFeed[] => {
   if (!vault) return []
@@ -138,6 +173,54 @@ export const buildPythUpdateCalls = async (
   }
 
   return { calls, totalFee }
+}
+
+export const fetchPythPrices = async (
+  feedIds: Hex[],
+  hermesEndpoint?: string,
+  cacheTtlMs = DEFAULT_PRICE_CACHE_TTL_MS,
+): Promise<Map<string, bigint>> => {
+  const prices = new Map<string, bigint>()
+  if (!feedIds.length || !hermesEndpoint) {
+    return prices
+  }
+
+  const now = Date.now()
+  const missing: Hex[] = []
+
+  feedIds.forEach((feedId) => {
+    const key = normalizeFeedId(feedId)
+    const cached = priceCache.get(key)
+    if (cached && cached.expiresAt > now) {
+      prices.set(key, cached.price)
+      return
+    }
+    missing.push(key)
+  })
+
+  if (!missing.length) {
+    return prices
+  }
+
+  try {
+    const client = getPriceServiceClient(hermesEndpoint)
+    const priceFeeds = await client.getLatestPriceFeeds(missing) as PriceFeedLike[]
+
+    priceFeeds.forEach((feed) => {
+      const key = normalizeFeedId(feed.id)
+      const amountOutMid = priceToAmountOutMid(feed.getPriceUnchecked())
+      priceCache.set(key, {
+        price: amountOutMid,
+        expiresAt: now + cacheTtlMs,
+      })
+      prices.set(key, amountOutMid)
+    })
+  }
+  catch (err) {
+    console.warn('[fetchPythPrices] error', err)
+  }
+
+  return prices
 }
 
 export const sumCallValues = (calls: EVCCall[]): bigint => calls.reduce((acc, call) => acc + (call.value || 0n), 0n)

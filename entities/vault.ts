@@ -1,5 +1,6 @@
 import { ethers } from 'ethers'
-import type { OracleDetailedInfo } from '~/entities/oracle'
+import type { Hex } from 'viem'
+import { collectPythFeedIdsForPair, type OracleDetailedInfo } from '~/entities/oracle'
 import {
   // eulerAccountLensABI,
   eulerEarnVaultLensABI,
@@ -7,9 +8,16 @@ import {
   eulerUtilsLensABI,
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
+import { fetchPythPrices } from '~/utils/pyth'
 // import type { AccountBorrowPosition } from '~/entities/account'
 
 export interface VaultLiabilityPriceInfo {
+  queryFailure?: boolean
+  queryFailureReason?: string
+  timestamp?: bigint
+  oracle?: string
+  asset?: string
+  unitOfAccount?: string
   amountIn: bigint
   amountOutAsk: bigint
   amountOutBid: bigint
@@ -74,6 +82,9 @@ export interface Vault {
   interestRateInfo: VaultInterestRateInfo
   collateralPrices: VaultCollateralPrice[]
   liabilityPriceInfo: VaultLiabilityPriceInfo
+  pythPriceInfo?: {
+    amountOutMid: bigint
+  }
   oracleDetailedInfo?: OracleDetailedInfo
   backupAssetOracleInfo?: OracleDetailedInfo
   dToken: string
@@ -167,8 +178,66 @@ export interface CollateralOption {
   price: number
 }
 
+const collectVaultPythFeedIds = (
+  oracleInfo: OracleDetailedInfo | undefined,
+  backupOracleInfo: OracleDetailedInfo | undefined,
+  base: string,
+  quote: string,
+) => {
+  const feeds = [
+    ...collectPythFeedIdsForPair(oracleInfo, base, quote, 3),
+    ...collectPythFeedIdsForPair(backupOracleInfo, base, quote, 3),
+  ].filter(feed => feed.pythAddress !== ethers.ZeroAddress)
+
+  const unique = new Map<string, Hex>()
+  feeds.forEach((feed) => {
+    const key = feed.feedId.toLowerCase()
+    if (!unique.has(key)) {
+      unique.set(key, feed.feedId)
+    }
+  })
+
+  return [...unique.values()]
+}
+
+const applyPythPriceInfo = async (vaults: Vault[], hermesEndpoint?: string) => {
+  if (!vaults.length || !hermesEndpoint) return
+
+  const feedToVaults = new Map<string, Vault[]>()
+  const feedIds: Hex[] = []
+
+  vaults.forEach((vault) => {
+    const feeds = collectVaultPythFeedIds(
+      vault.oracleDetailedInfo,
+      vault.backupAssetOracleInfo,
+      vault.asset.address,
+      vault.unitOfAccount,
+    )
+    if (feeds.length !== 1) return
+    const feedId = feeds[0]
+    const key = feedId.toLowerCase()
+    if (!feedToVaults.has(key)) {
+      feedToVaults.set(key, [])
+      feedIds.push(feedId)
+    }
+    feedToVaults.get(key)?.push(vault)
+  })
+
+  if (!feedIds.length) return
+
+  const prices = await fetchPythPrices(feedIds, hermesEndpoint)
+
+  feedToVaults.forEach((vaultList, key) => {
+    const price = prices.get(key)
+    if (price === undefined) return
+    vaultList.forEach((vault) => {
+      vault.pythPriceInfo = { amountOutMid: price }
+    })
+  })
+}
+
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { loadEulerConfig, isReady } = useEulerAddresses()
   const { vaults } = useEulerLabels()
 
@@ -187,7 +256,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
   const data = raw.toObject({ deep: true })
 
-  return {
+  const vault = {
     verified: Object.keys(vaults).includes(vaultAddress),
     address: data.vault,
     name: data.vaultName,
@@ -239,6 +308,10 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
         }
       : undefined,
   } as Vault
+
+  await applyPythPriceInfo([vault], PYTH_HERMES_URL)
+
+  return vault
 }
 export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
@@ -368,7 +441,7 @@ export const fetchEscrowVault = async (vaultAddress: string): Promise<EscrowVaul
 }
 
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult<Vault>, void, unknown> {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { eulerLensAddresses, chainId } = useEulerAddresses()
   const { vaults } = useEulerLabels()
 
@@ -461,6 +534,7 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
 
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as Vault[]
+    await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
     const isFinished = i + batchSize >= verifiedVaults.length
 
     yield {
@@ -796,9 +870,34 @@ export const getBorrowVaultPairByMapAndAddresses = (vaultsMap: Map<string, Vault
 
   return obj
 }
+export const getVaultPriceInfo = (vault: Vault) => {
+  if (vault.pythPriceInfo?.amountOutMid && vault.pythPriceInfo.amountOutMid > 0n) {
+    const mid = vault.pythPriceInfo.amountOutMid
+    return { amountOutAsk: mid, amountOutBid: mid, amountOutMid: mid }
+  }
+
+  if (!vault.liabilityPriceInfo || vault.liabilityPriceInfo.queryFailure) {
+    return undefined
+  }
+
+  const { amountOutAsk, amountOutBid, amountOutMid } = vault.liabilityPriceInfo
+  if (!amountOutMid || amountOutMid === 0n) {
+    return undefined
+  }
+
+  const ask = amountOutAsk && amountOutAsk > 0n ? amountOutAsk : amountOutMid
+  const bid = amountOutBid && amountOutBid > 0n ? amountOutBid : amountOutMid
+
+  return { amountOutAsk: ask, amountOutBid: bid, amountOutMid }
+}
+
 export const getVaultPrice = (amount: number | bigint, vault: Vault) => {
+  const priceInfo = getVaultPriceInfo(vault)
+  if (!priceInfo) {
+    return 0
+  }
   const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.decimals) : amount
-  return actualAmount * nanoToValue(vault.liabilityPriceInfo.amountOutMid, 18)
+  return actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
 }
 
 export const getEarnVaultPrice = (amount: number | bigint, vault: EarnVault) => {

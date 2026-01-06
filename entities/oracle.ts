@@ -201,6 +201,83 @@ const resolveAdapterPair = (context: OracleAdapterContext, override?: OracleAdap
   return { base, quote }
 }
 
+export const collectPythFeedIdsForPair = (
+  oracleInfo: OracleDetailedInfo | null | undefined,
+  base: Address,
+  quote: Address,
+  maxDepth = 3,
+): PythFeed[] => {
+  const feeds: PythFeed[] = []
+  const visited = new Set<string>()
+
+  const visit = (info: OracleDetailedInfo | null | undefined, depth: number, context: OracleAdapterContext) => {
+    if (!info || depth > maxDepth) return
+    const key = `${info.oracle}-${info.name}-${info.oracleInfo}-${context.base || ''}-${context.quote || ''}`
+    if (visited.has(key)) return
+    visited.add(key)
+
+    if (info.name === 'EulerRouter') {
+      const decoded = decodeEulerRouterInfo(info.oracleInfo)
+      if (!decoded) return
+      const targetBase = context.base?.toLowerCase()
+      const targetQuote = context.quote?.toLowerCase()
+      let matched = false
+      const total = Math.max(
+        decoded.resolvedOraclesInfo?.length ?? 0,
+        decoded.bases?.length ?? 0,
+        decoded.quotes?.length ?? 0,
+      )
+      for (let i = 0; i < total; i += 1) {
+        const child = decoded.resolvedOraclesInfo?.[i]
+        const childBase = decoded.bases?.[i]
+        const childQuote = decoded.quotes?.[i]
+        if (!child) continue
+        if (targetBase && targetQuote) {
+          if (!childBase || !childQuote) continue
+          if (childBase.toLowerCase() !== targetBase || childQuote.toLowerCase() !== targetQuote) continue
+          matched = true
+        }
+        visit(child, depth + 1, { base: childBase, quote: childQuote })
+      }
+      if (decoded.fallbackOracleInfo && (!targetBase || !targetQuote || !matched)) {
+        visit(decoded.fallbackOracleInfo, depth + 1, context)
+      }
+      return
+    }
+
+    if (info.name === 'CrossAdapter') {
+      const decoded = decodeCrossAdapterInfo(info.oracleInfo)
+      if (!decoded) return
+      visit(decoded.oracleBaseCrossInfo, depth + 1, { base: decoded.base, quote: decoded.cross })
+      visit(decoded.oracleCrossQuoteInfo, depth + 1, { base: decoded.cross, quote: decoded.quote })
+      return
+    }
+
+    if (info.name === 'PythOracle') {
+      const decoded = decodePythOracleInfo(info.oracleInfo)
+      const pair = resolveAdapterPair(context, decoded ? { base: decoded.base, quote: decoded.quote } : undefined)
+      if (decoded && pair) {
+        feeds.push({
+          pythAddress: decoded.pyth,
+          feedId: normalizeHex(decoded.feedId),
+        })
+      }
+    }
+  }
+
+  visit(oracleInfo, 0, { base, quote })
+
+  const deduped = new Map<string, PythFeed>()
+  feeds.forEach((feed) => {
+    const key = `${feed.pythAddress.toLowerCase()}:${feed.feedId.toLowerCase()}`
+    if (!deduped.has(key)) {
+      deduped.set(key, feed)
+    }
+  })
+
+  return [...deduped.values()]
+}
+
 export const collectOracleAdapters = (
   oracleInfo: OracleDetailedInfo | null | undefined,
   maxDepth = 3,
