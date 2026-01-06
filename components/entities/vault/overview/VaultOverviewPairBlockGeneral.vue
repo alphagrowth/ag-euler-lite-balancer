@@ -5,9 +5,18 @@ import type { AccountBorrowPosition } from '~/entities/account'
 const { pair } = defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition }>()
 
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const borrowRewardAPY = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address)?.apr)
 const collateralRewardAPY = computed(() => getOpportunityOfLendVault(pair.collateral.address)?.apr)
+const supplyApyWithRewards = computed(() => withIntrinsicSupplyApy(
+  nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25),
+  pair.collateral.asset.symbol,
+) + (collateralRewardAPY.value || 0))
+const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
+  nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
+  pair.borrow.asset.symbol,
+) - (borrowRewardAPY.value || 0))
 
 const price = computed(() => {
   return getVaultPrice(1, pair.collateral)
@@ -30,11 +39,11 @@ const price = computed(() => {
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Supply APY"
-        :value="`${formatNumber(nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25) + (collateralRewardAPY || 0))}%`"
+        :value="`${formatNumber(supplyApyWithRewards)}%`"
       />
       <VaultOverviewLabelValue
         label="Borrow APY"
-        :value="`${formatNumber(nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25) - (borrowRewardAPY || 0))}%`"
+        :value="`${formatNumber(borrowApyWithRewards)}%`"
       />
       <VaultOverviewLabelValue
         label="Max LTV"

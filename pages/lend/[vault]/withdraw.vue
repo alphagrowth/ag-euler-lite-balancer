@@ -23,6 +23,7 @@ const { getVault } = useVaults()
 const { isConnected, chain, address } = useAccount()
 const { getBalance } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
 const vaultAddress = route.params.vault as string
 
@@ -60,10 +61,12 @@ const isSubmitDisabled = computed(() => {
 })
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
-  return formatNumber(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))
+  const base = withIntrinsicSupplyApy(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25), vault.value.asset.symbol)
+  return formatNumber(base + (opportunityInfo.value?.apr || 0))
 })
 const estimateSupplyAPYDisplay = computed(() => {
-  return formatNumber(nanoToValue(estimateSupplyAPY.value, 25) + (opportunityInfo.value?.apr || 0))
+  const base = withIntrinsicSupplyApy(nanoToValue(estimateSupplyAPY.value, 25), vault.value?.asset.symbol)
+  return formatNumber(base + (opportunityInfo.value?.apr || 0))
 })
 
 const load = async () => {

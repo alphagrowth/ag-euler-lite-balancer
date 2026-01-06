@@ -9,17 +9,23 @@ const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()
 
 const { getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const vault = computed(() => position.vault)
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
+const supplyApy = computed(() => withIntrinsicSupplyApy(
+  nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
+  vault.value.asset.symbol,
+))
+const supplyApyWithRewards = computed(() => supplyApy.value + (opportunityInfo.value?.apr || 0))
 
 const { name } = useEulerProductOfVault(vault.value.address)
 
 const earnDisplay = computed(() => {
-  return compactNumber(getVaultPrice(position.assets, vault.value) * ((nanoToValue(vault.value.interestRateInfo.supplyAPY, 25))) * 90 / 365 / 100)
+  return compactNumber(getVaultPrice(position.assets, vault.value) * supplyApy.value * 90 / 365 / 100)
 })
 const earnDisplayWithReward = computed(() => {
-  return compactNumber(getVaultPrice(position.assets, vault.value) * ((nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))) * 90 / 365 / 100)
+  return compactNumber(getVaultPrice(position.assets, vault.value) * supplyApyWithRewards.value * 90 / 365 / 100)
 })
 
 const onClick = () => {
@@ -65,7 +71,7 @@ const onClick = () => {
               name="sparks"
               class="!w-20 !h-20 text-aquamarine-700 mr-4"
             />
-            {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + (opportunityInfo?.apr || 0)) }}%
+            {{ formatNumber(supplyApyWithRewards) }}%
           </div>
         </div>
       </div>

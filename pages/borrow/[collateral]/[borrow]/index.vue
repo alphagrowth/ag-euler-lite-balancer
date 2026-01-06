@@ -17,6 +17,7 @@ const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
 const { updateBorrowPositions, depositPositions, isPositionsLoading } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
 const { getBalance } = useWallets()
 
@@ -101,6 +102,14 @@ const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.
 
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(pair.value?.borrow.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(pair.value?.collateral.address || ''))
+const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
+  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+  collateralVault.value?.asset.symbol,
+))
+const borrowApy = computed(() => withIntrinsicBorrowApy(
+  nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+  borrowVault.value?.asset.symbol,
+))
 
 const savingCollateral = computed(() => {
   return depositPositions.value.find(position => position.vault.address === route.params.collateral)
@@ -279,9 +288,9 @@ const updateEstimates = useDebounceFn(async () => {
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
     netAPY.value = getNetAPY(
       getVaultPrice(+collateralAmount.value || 0, collateralVault.value!),
-      nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+      collateralSupplyApy.value,
       getVaultPrice(+borrowAmount.value || 0, borrowVault.value!),
-      nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+      borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,
     )

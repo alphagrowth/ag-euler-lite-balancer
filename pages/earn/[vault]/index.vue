@@ -21,6 +21,7 @@ const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
+const { getIntrinsicApy } = useIntrinsicApy()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -49,6 +50,7 @@ const opportunityInfo = computed(() => getOpportunityOfLendVault(vaultAddress))
 const brevisInfo = computed(() => getCampaignOfLendVault(vaultAddress))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
+const intrinsicApy = computed(() => getIntrinsicApy(vault.value?.asset.symbol))
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
   return formatNumber((vault.value!.supplyAPY || 0) + totalRewardsAPY.value)
@@ -155,6 +157,7 @@ const onSupplyInfoIconClick = () => {
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: vault.value!.supplyAPY || 0,
+      intrinsicAPY: intrinsicApy.value,
       opportunityInfo: opportunityInfo.value,
       brevisInfo: brevisInfo.value,
     },

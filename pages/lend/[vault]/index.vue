@@ -21,6 +21,7 @@ const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
+const { getIntrinsicApy } = useIntrinsicApy()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -49,9 +50,15 @@ const opportunityInfo = computed(() => getOpportunityOfLendVault(vaultAddress))
 const brevisInfo = computed(() => getCampaignOfLendVault(vaultAddress))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
+const intrinsicApy = computed(() => getIntrinsicApy(vault.value?.asset.symbol))
+const baseSupplyApy = computed(() => {
+  if (!vault.value) return 0
+  return nanoToValue(vault.value.interestRateInfo.supplyAPY, 25)
+})
+const supplyApyWithIntrinsic = computed(() => baseSupplyApy.value + intrinsicApy.value)
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
-  return formatNumber(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + totalRewardsAPY.value)
+  return formatNumber(supplyApyWithIntrinsic.value + totalRewardsAPY.value)
 })
 const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(nanoToValue(estimateSupplyAPY.value, 25))
@@ -60,7 +67,7 @@ const estimateSupplyAPYDisplay = computed(() => {
 const load = async () => {
   isLoading.value = true
   try {
-    estimateSupplyAPY.value = vault.value!.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value, 25)
+    estimateSupplyAPY.value = vault.value!.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
 
     if (!vault.value?.verified) {
       modal.open(VaultUnverifiedDisclaimerModal, {
@@ -153,7 +160,7 @@ const updateEstimates = useDebounceFn(async () => {
       vault.value.interestRateInfo.borrows,
       vault.value.interestFee,
     )
-    estimateSupplyAPY.value = supplyAPY + valueToNano(totalRewardsAPY.value, 25)
+    estimateSupplyAPY.value = supplyAPY + valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
     monthlyEarnings.value = !amount.value
       ? 0
       : (+(amount.value || 0) * nanoToValue(estimateSupplyAPY.value, 27)) / 12
@@ -168,7 +175,8 @@ const updateEstimates = useDebounceFn(async () => {
 const onSupplyInfoIconClick = () => {
   modal.open(VaultSupplyApyModal, {
     props: {
-      lendingAPY: nanoToValue(vault.value!.interestRateInfo.supplyAPY, 25),
+      lendingAPY: baseSupplyApy.value,
+      intrinsicAPY: intrinsicApy.value,
       opportunityInfo: opportunityInfo.value,
       brevisInfo: brevisInfo.value,
     },

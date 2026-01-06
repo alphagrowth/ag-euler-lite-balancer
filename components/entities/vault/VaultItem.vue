@@ -14,6 +14,7 @@ const entities = useEulerEntitiesOfVault(vault.address)
 const { balances, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
+const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const modal = useModal()
 
 const entitiesLabels = computed(() => entities.map(e => e.name))
@@ -24,6 +25,11 @@ const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
 const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
+const supplyApy = computed(() => withIntrinsicSupplyApy(
+  nanoToValue(vault.interestRateInfo.supplyAPY, 25),
+  vault.asset.symbol,
+))
+const supplyApyWithRewards = computed(() => supplyApy.value + totalRewardsAPY.value)
 const utilization = computed(() => getVaultUtilization(vault))
 
 const onWarningClick = () => {
@@ -62,7 +68,7 @@ const onWarningClick = () => {
             class="!w-20 !h-20 text-aquamarine-700 mr-4"
             name="sparks"
           />
-          {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + totalRewardsAPY) }}%
+          {{ formatNumber(supplyApyWithRewards) }}%
         </div>
       </div>
     </div>

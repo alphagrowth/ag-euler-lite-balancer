@@ -19,6 +19,8 @@ export const socials = {
 // Base hue for the app theme in degrees (0-360). Change to shift the brand palette.
 export const themeHue = 150
 
+export const enableIntrinsicApy = true // defillama
+
 export const availableNetworkIds = [
   1,
   42161,

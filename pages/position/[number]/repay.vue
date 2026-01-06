@@ -18,6 +18,7 @@ const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
 const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
 const { address } = useAccount()
 
@@ -42,12 +43,20 @@ const isSubmitDisabled = computed(() => {
 })
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
+const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
+  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+  collateralVault.value?.asset.symbol,
+))
+const borrowApy = computed(() => withIntrinsicBorrowApy(
+  nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+  borrowVault.value?.asset.symbol,
+))
 const netAPY = computed(() => {
   return getNetAPY(
     getVaultPrice(position.value?.supplied || 0n, collateralVault.value!),
-    nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+    collateralSupplyApy.value,
     getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
-    nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+    borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
   )
@@ -216,9 +225,9 @@ const updateEstimates = useDebounceFn(async () => {
     }
     estimateNetAPY.value = getNetAPY(
       getVaultPrice((position.value.supplied || 0n), collateralVault.value!),
-      nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25), // TODO: consider calculated supplyAPY after withdraw
+      collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
       getVaultPrice((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value),
-      nanoToValue(borrowVault.value.interestRateInfo.borrowAPY || 0n, 25),
+      borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,
     )

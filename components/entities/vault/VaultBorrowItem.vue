@@ -11,6 +11,7 @@ const { name: collateralName } = useEulerProductOfVault(pair.collateral.address)
 const { name: borrowName } = useEulerProductOfVault(pair.borrow.address)
 const { getOpportunityOfBorrowVault } = useMerkl()
 const { getCampaignOfBorrowVault } = useBrevis()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const modal = useModal()
 
 const pairName = computed(() => {
@@ -26,6 +27,16 @@ const opportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.a
 const brevisInfo = computed(() => getCampaignOfBorrowVault(pair.borrow.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
+const supplyApy = computed(() => withIntrinsicSupplyApy(
+  nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25),
+  pair.collateral.asset.symbol,
+))
+const borrowApy = computed(() => withIntrinsicBorrowApy(
+  nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
+  pair.borrow.asset.symbol,
+))
+const supplyApyWithRewards = computed(() => supplyApy.value + totalRewardsAPY.value)
+const borrowApyWithRewards = computed(() => borrowApy.value - totalRewardsAPY.value)
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2))
 const utilization = computed(() => getVaultUtilization(pair.collateral))
 
@@ -64,7 +75,7 @@ const onWarningClick = () => {
             v-if="hasRewards"
             class="!w-20 !h-20 text-aquamarine-700 mr-4"
             name="sparks"
-          />{{ formatNumber(nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25) - totalRewardsAPY) }}%
+          />{{ formatNumber(borrowApyWithRewards) }}%
         </div>
       </div>
     </div>
@@ -82,7 +93,7 @@ const onWarningClick = () => {
           Supply APY
         </div>
         <div class="text-p2">
-          {{ formatNumber(nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25) + totalRewardsAPY) }}%
+          {{ formatNumber(supplyApyWithRewards) }}%
         </div>
       </div>
       <div

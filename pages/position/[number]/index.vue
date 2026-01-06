@@ -15,6 +15,7 @@ const { error } = useToast()
 const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, borrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { disableCollateral: disableCollateralOperation, buildDisableCollateralPlan } = useEulerOperations()
 
 const positionIndex = route.params.number as string
@@ -29,6 +30,16 @@ const hasNoBorrow = computed(() => position.value!.borrow.borrow === 0n)
 
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
+const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
+  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+  collateralVault.value?.asset.symbol,
+))
+const borrowApy = computed(() => withIntrinsicBorrowApy(
+  nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+  borrowVault.value?.asset.symbol,
+))
+const collateralSupplyApyWithRewards = computed(() => collateralSupplyApy.value + (opportunityInfoForCollateral.value?.apr || 0))
+const borrowApyWithRewards = computed(() => borrowApy.value - (opportunityInfoForBorrow.value?.apr || 0))
 
 const netAssetValueUsd = computed(() => {
   if (!position.value) {
@@ -74,9 +85,9 @@ const timeToLiquidationDisplay = computed(() => {
 const netAPY = computed(() => {
   return getNetAPY(
     getVaultPrice(position.value?.supplied || 0n, collateralVault.value!),
-    nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+    collateralSupplyApy.value,
     getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
-    nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+    borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
   )
@@ -272,7 +283,7 @@ watch(isConnected, () => {
                 Borrow APY
               </div>
               <div class="text-white text-p3">
-                {{ formatNumber(nanoToValue(position.borrow.interestRateInfo.borrowAPY, 25) - (opportunityInfoForBorrow?.apr || 0)) }}%
+                {{ formatNumber(borrowApyWithRewards) }}%
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
@@ -351,7 +362,7 @@ watch(isConnected, () => {
                 Supply APY
               </div>
               <div class="text-white text-p3">
-                {{ formatNumber(nanoToValue(position.collateral.interestRateInfo.supplyAPY, 25) + (opportunityInfoForCollateral?.apr || 0)) }}%
+                {{ formatNumber(collateralSupplyApyWithRewards) }}%
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-16">

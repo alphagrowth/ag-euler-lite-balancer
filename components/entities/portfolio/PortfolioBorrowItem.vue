@@ -7,6 +7,7 @@ import { getNetAPY, getVaultPrice } from '~/entities/vault'
 const { index, position } = defineProps<{ index: number, position: AccountBorrowPosition }>()
 
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const { name: collateralName } = useEulerProductOfVault(position.collateral.address)
 const { name: borrowName } = useEulerProductOfVault(position.borrow.address)
@@ -33,13 +34,21 @@ const liquidationPrice = computed(() => {
 })
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
+const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
+  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+  collateralVault.value?.asset.symbol,
+))
+const borrowApy = computed(() => withIntrinsicBorrowApy(
+  nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+  borrowVault.value?.asset.symbol,
+))
 
 const netAPY = computed(() => {
   return getNetAPY(
     getVaultPrice(position.supplied || 0n, collateralVault.value!),
-    nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+    collateralSupplyApy.value,
     getVaultPrice(position.borrowed || 0n || 0, borrowVault.value!),
-    nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+    borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
   )
