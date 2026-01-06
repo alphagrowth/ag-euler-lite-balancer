@@ -7,19 +7,20 @@ import {
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { availableNetworkIds } from '~/entities/custom'
 
-const projectId = 'b4d5f74af3e208693c5c26a4eb041592'
+const projectId = 'b4d5f74af3e208693c5c26a4eb041592' // https://reown.com/
+const url = 'https://beta-lite.boostcult.fun'
 
 const metadata = {
   name: 'Euler Lite',
   description: 'Euler Finance Lite',
-  url: 'https://euler-app.fanz.ee/',
-  icons: ['https://euler-app.fanz.ee/manifest-img.png'],
+  url,
+  icons: [`${url}/manifest-img.png`],
 }
 
 const allNetworks: AppKitNetwork[] = [
   mainnet, arbitrum, base, swellchain, sonic,
   bob, berachain, avalanche, bsc, unichain,
-  tac, linea, plasma
+  tac, linea, plasma,
 ]
 
 const networkMap = new Map<number | string, AppKitNetwork>(

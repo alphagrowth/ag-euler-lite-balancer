@@ -6,15 +6,6 @@ ARG APP_PORT
 ENV PORT=${APP_PORT}
 EXPOSE ${APP_PORT}
 
-# ARG NETWORK
-# ENV NETWORK=${NETWORK}
-
-# ARG TGA_NAME
-# ENV TGA_NAME=${TGA_NAME}
-
-# ARG TGA_TOKEN
-# ENV TGA_TOKEN=${TGA_TOKEN}
-
 # Create app directory
 WORKDIR /usr/src/app
 # Copy package.json for installing dependencies
