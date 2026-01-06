@@ -4,7 +4,7 @@ import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY, getVaultPrice, type VaultAsset, type CollateralOption, convertAssetsToShares } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, convertAssetsToShares } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { TxPlan } from '~/entities/txPlan'
 
@@ -56,9 +56,13 @@ const isSubmitDisabled = computed(() => {
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
 const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
-const priceFixed = computed(() => (
-  FixedNumber.fromValue(collateralVault.value?.liabilityPriceInfo?.amountOutAsk || 0n, 18))
-  .div(FixedNumber.fromValue(borrowVault.value?.liabilityPriceInfo?.amountOutBid || 1n, 18)))
+const priceFixed = computed(() => {
+  const collateralPrice = collateralVault.value ? getVaultPriceInfo(collateralVault.value) : undefined
+  const borrowPrice = borrowVault.value ? getVaultPriceInfo(borrowVault.value) : undefined
+  const ask = collateralPrice?.amountOutAsk || 0n
+  const bid = borrowPrice?.amountOutBid || 1n
+  return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
+})
 const collateralAmountFixed = computed(() => FixedNumber.fromValue(
   valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals),
   Number(collateralVault.value?.decimals),

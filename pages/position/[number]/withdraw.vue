@@ -4,7 +4,7 @@ import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
-import { getNetAPY, getVaultPrice } from '~/entities/vault'
+import { getNetAPY, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -62,10 +62,13 @@ const amountFixed = computed(() => FixedNumber.fromValue(
 const borrowedFixed = computed(() => FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
 const suppliedFixed = computed(() => FixedNumber.fromValue(position.value?.supplied || 0n, position.value?.collateral.decimals || 18))
 // Use the correct collateral/borrow price ratio for LTV calculations (not the liquidation price)
-const priceFixed = computed(() =>
-  FixedNumber.fromValue(collateralVault.value?.liabilityPriceInfo?.amountOutAsk || 0n, 18)
-    .div(FixedNumber.fromValue(borrowVault.value?.liabilityPriceInfo?.amountOutBid || 1n, 18)),
-)
+const priceFixed = computed(() => {
+  const collateralPrice = collateralVault.value ? getVaultPriceInfo(collateralVault.value) : undefined
+  const borrowPrice = borrowVault.value ? getVaultPriceInfo(borrowVault.value) : undefined
+  const ask = collateralPrice?.amountOutAsk || 0n
+  const bid = borrowPrice?.amountOutBid || 1n
+  return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
+})
 const liquidationPrice = computed(() => {
   // position.value?.price is already the liquidation price
   const price = position.value?.price || 0n

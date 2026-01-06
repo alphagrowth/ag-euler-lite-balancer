@@ -8,7 +8,7 @@ import type {
   AccountBorrowPosition, AccountDepositPosition,
   AccountEarnPosition,
 } from '~/entities/account'
-import { convertSharesToAssets, getVaultPrice, getEarnVaultPrice } from '~/entities/vault'
+import { convertSharesToAssets, getVaultPrice, getEarnVaultPrice, getVaultPriceInfo } from '~/entities/vault'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const earnPositions: Ref<AccountEarnPosition[]> = ref([])
@@ -264,8 +264,10 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
           : FixedNumber.fromValue(liquidationLTV, 2).div(healthFixed)
         const userLTV = userLTVFixed.value
 
-        const priceFixed = FixedNumber.fromValue(collateral.liabilityPriceInfo.amountOutAsk || 0n, 18)
-          .div(FixedNumber.fromValue(borrow.liabilityPriceInfo.amountOutBid || 1n, 18))
+        const collateralPrice = getVaultPriceInfo(collateral)
+        const borrowPrice = getVaultPriceInfo(borrow)
+        const priceFixed = FixedNumber.fromValue(collateralPrice?.amountOutAsk || 0n, 18)
+          .div(FixedNumber.fromValue(borrowPrice?.amountOutBid || 1n, 18))
 
         const supplyLiquidationPriceRatio = collateralValueLiquidation === 0n
           ? FixedNumber.fromValue(0n, 18)
@@ -274,7 +276,7 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
               .div(FixedNumber.fromValue(collateralValueLiquidation, 18))
               .add(FixedNumber.fromValue(1n, 0))
 
-        const currentCollateralPrice = FixedNumber.fromValue(collateral.liabilityPriceInfo.amountOutMid || 0n, 18)
+        const currentCollateralPrice = FixedNumber.fromValue(collateralPrice?.amountOutMid || 0n, 18)
 
         const price = currentCollateralPrice.mul(supplyLiquidationPriceRatio).value
 
