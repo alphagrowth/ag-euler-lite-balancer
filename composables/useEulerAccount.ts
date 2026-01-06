@@ -8,7 +8,7 @@ import type {
   AccountBorrowPosition, AccountDepositPosition,
   AccountEarnPosition,
 } from '~/entities/account'
-import { convertSharesToAssets, getVaultPrice } from '~/entities/vault'
+import { convertSharesToAssets, getVaultPrice, getEarnVaultPrice } from '~/entities/vault'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const earnPositions: Ref<AccountEarnPosition[]> = ref([])
@@ -332,7 +332,8 @@ const updateDepositPositions = async (balances: Map<string, bigint>, eulerLensAd
     return
   }
 
-  const { list, earnList, getVault } = useVaults()
+  const { list, getVault, earnMap } = useVaults()
+  const { earnVaults } = useEulerLabels()
 
   const isAllPositionsAtStart = isShowAllPositions.value
   let deposits: AccountDepositPosition[] = []
@@ -368,13 +369,25 @@ const updateDepositPositions = async (balances: Map<string, bigint>, eulerLensAd
             return undefined
           }
 
-          const res = await accountLensContract.getAccountInfo(subAccount, vault)
+          // Check if this is an earn vault, skip if it is (handled by updateEarnPositions)
+          const normalizedVault = ethers.getAddress(vault)
+          if (earnVaults.value.includes(normalizedVault) || earnMap.value.has(normalizedVault)) {
+            return undefined
+          }
 
-          return {
-            vault: await getVault(vault),
-            shares: res.vaultAccountInfo.shares,
-            assets: res.vaultAccountInfo.assets,
-          } as AccountDepositPosition
+          try {
+            const res = await accountLensContract.getAccountInfo(subAccount, vault)
+
+            return {
+              vault: await getVault(vault),
+              shares: res.vaultAccountInfo.shares,
+              assets: res.vaultAccountInfo.assets,
+            } as AccountDepositPosition
+          }
+          catch (e) {
+            console.warn(`Failed to fetch regular vault ${vault}:`, e)
+            return undefined
+          }
         })
       deposits = [...deposits, ...(await Promise.all(batch)).filter(o => !!o)] as AccountDepositPosition[]
     }
@@ -416,7 +429,8 @@ const updateEarnPositions = async (balances: Map<string, bigint>, eulerLensAddre
     return
   }
 
-  const { earnList, getEarnVault } = useVaults()
+  const { earnList, getEarnVault, map } = useVaults()
+  const { vaults } = useEulerLabels()
 
   const isAllPositionsAtStart = isShowAllPositions.value
   let earns: AccountEarnPosition[] = []
@@ -452,13 +466,25 @@ const updateEarnPositions = async (balances: Map<string, bigint>, eulerLensAddre
             return undefined
           }
 
-          const res = await accountLensContract.getAccountInfo(subAccount, vault)
+          // Check if this is a regular vault, skip if it is (handled by updateDepositPositions)
+          const normalizedVault = ethers.getAddress(vault)
+          if (Object.keys(vaults).includes(normalizedVault) || map.value.has(normalizedVault)) {
+            return undefined
+          }
 
-          return {
-            vault: await getEarnVault(vault),
-            shares: res.vaultAccountInfo.shares,
-            assets: res.vaultAccountInfo.assets,
-          } as AccountEarnPosition
+          try {
+            const res = await accountLensContract.getAccountInfo(subAccount, vault)
+
+            return {
+              vault: await getEarnVault(vault),
+              shares: res.vaultAccountInfo.shares,
+              assets: res.vaultAccountInfo.assets,
+            } as AccountEarnPosition
+          }
+          catch (e) {
+            console.warn(`Failed to fetch earn vault ${vault}:`, e)
+            return undefined
+          }
         })
       earns = [...earns, ...(await Promise.all(batch)).filter(o => !!o)] as AccountEarnPosition[]
     }

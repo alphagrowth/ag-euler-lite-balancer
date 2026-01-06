@@ -11,6 +11,7 @@ import {
   type Vault,
   type VaultCollateralLTV,
 } from '~/entities/vault'
+import { labelsRepo } from '~/entities/custom'
 
 const isReady = ref(false)
 const isLoading = ref(false)
@@ -100,12 +101,20 @@ const getVault = async (address: string): Promise<Vault> => {
   return map.value.get(ethers.getAddress(address))!
 }
 const getEarnVault = async (address: string): Promise<EarnVault> => {
-  // TODO: support earnVaults.json when ready
-  // const { earnVaults } = useEulerLabels()
+  await until(computed(() => earnMap.value.size)).toBeTruthy()
 
-  await until(computed(() => earnMap.value.get(ethers.getAddress(address)))).toBeTruthy()
+  if (labelsRepo !== 'euler-xyz/euler-labels') {
+    const { earnVaults } = useEulerLabels()
 
-  return earnMap.value.get(ethers.getAddress(address)) || fetchEarnVault(address)
+    if (Object.keys(earnVaults).includes(ethers.getAddress(address))) {
+      await until(computed(() => earnMap.value.get(ethers.getAddress(address)))).toBeTruthy()
+    }
+    else {
+      return fetchEarnVault(ethers.getAddress(address))
+    }
+  }
+
+  return earnMap.value.get(ethers.getAddress(address)) || fetchEarnVault(ethers.getAddress(address))
 }
 const updateVault = async (vaultAddress: string): Promise<Vault> => {
   const address = ethers.getAddress(vaultAddress)

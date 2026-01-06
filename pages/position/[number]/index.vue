@@ -274,7 +274,7 @@ watch(isConnected, () => {
                   ${{ formatNumber(getVaultPrice(position.borrowed, borrowVault)) }}
                 </div>
                 <div class="text-euler-dark-900 text-p3">
-                  ~ {{ formatNumber(nanoToValue(position.borrowed, borrowVault.decimals)) }} {{ borrowVault.asset.symbol }}
+                  ~ {{ roundAndCompactTokens(position.borrowed, borrowVault.decimals) }} {{ borrowVault.asset.symbol }}
                 </div>
               </div>
             </div>
@@ -352,7 +352,7 @@ watch(isConnected, () => {
                   )) }}
                 </div>
                 <div class="text-euler-dark-900 text-p3">
-                  ~ {{ formatNumber(nanoToValue(position.supplied, position.collateral.decimals)) }}
+                  ~ {{ roundAndCompactTokens(position.supplied, position.collateral.decimals) }}
                   {{ position.collateral.asset.symbol }}
                 </div>
               </div>

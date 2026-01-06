@@ -128,7 +128,6 @@ const send = async () => {
     if (!asset.value?.address) {
       return
     }
-    console.warn()
     const txHash = await supply(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol)
 
     modal.close()

@@ -6,13 +6,14 @@ import {
   type EulerLabelVault,
 } from '~/entities/euler/labels'
 import type { EarnVault } from '~/entities/vault'
+import { labelsRepo } from '~/entities/custom'
 
 const isLoading = ref(false)
 
 const vaults: Record<string, EulerLabelVault> = shallowReactive({})
 const products: Record<string, EulerLabelProduct> = shallowReactive({})
 const entities: Record<string, EulerLabelEntity> = shallowReactive({})
-const earnVaults = ref([])
+const earnVaults: Ref<string[]> = ref([]) // string of earn vault addresses
 
 export const useEulerLabels = () => {
   const { getEulerLabelsVaultsUrl, getEulerLabelsProductsUrl, getEulerLabelsEntitiesUrl, getEulerLabelsEarnVaultsUrl } = useEulerConfig()
@@ -38,13 +39,15 @@ export const useEulerLabels = () => {
         axios.get(getEulerLabelsEntitiesUrl(getCurrentChainConfig.value!.chainId)),
       ])
 
-      axios.get(getEulerLabelsEarnVaultsUrl(getCurrentChainConfig.value!.chainId))
-        .then((res) => {
-          earnVaults.value = res.data
-        })
-        .catch(() => {
-          earnVaults.value = []
-        })
+      if (labelsRepo !== 'euler-xyz/euler-labels') {
+        axios.get(getEulerLabelsEarnVaultsUrl(getCurrentChainConfig.value!.chainId))
+          .then((res) => {
+            earnVaults.value = res.data
+          })
+          .catch(() => {
+            earnVaults.value = []
+          })
+      }
 
       Object.assign(vaults, vaultsRes.data)
       Object.assign(products, productRes.data)
@@ -68,12 +71,12 @@ export const useEulerLabels = () => {
   }
 }
 
-const getProductByVault = (vaultAddress: string) => {
+export const getProductByVault = (vaultAddress: string) => {
   return Object.values(products).find(product => product.vaults.includes(vaultAddress))
     || eulerLabelProductEmpty
 }
 
-const getEntitiesByVault = (vaultAddress: string) => {
+export const getEntitiesByVault = (vaultAddress: string) => {
   const arr: EulerLabelEntity[] = []
   let entityKeys = vaults?.[vaultAddress]?.entity
   if (!Array.isArray(entityKeys)) {
@@ -87,7 +90,7 @@ const getEntitiesByVault = (vaultAddress: string) => {
   return arr
 }
 
-const getEntitiesByEarnVault = (earnVault: EarnVault) => {
+export const getEntitiesByEarnVault = (earnVault: EarnVault) => {
   const arr: EulerLabelEntity[] = []
   const ownerAddress = earnVault.owner
 

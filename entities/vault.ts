@@ -125,6 +125,7 @@ export interface EarnVaultStrategyInfo {
 }
 
 export interface EarnVault {
+  verified: boolean
   type: 'earn'
   address: string
   name: string
@@ -237,23 +238,24 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
 }
 export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerLensAddresses, eulerPeripheryAddresses } = useEulerAddresses()
+  const { earnVaults } = useEulerLabels()
+  const { loadEulerConfig, isReady } = useEulerAddresses()
 
-  await until(computed(() => eulerLensAddresses.value?.eulerEarnVaultLens && eulerLensAddresses.value?.utilsLens && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective)).toBeTruthy()
-
-  if (!eulerLensAddresses.value?.eulerEarnVaultLens || !eulerLensAddresses.value?.utilsLens || !eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective) {
-    throw new Error('Euler Earn addresses not loaded yet')
+  if (!isReady.value) {
+    loadEulerConfig()
+    await until(computed(() => isReady.value)).toBeTruthy()
   }
+
+  const { eulerLensAddresses } = useEulerAddresses()
 
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const earnVaultLensContract = new ethers.Contract(
-    eulerLensAddresses.value.eulerEarnVaultLens,
+    eulerLensAddresses.value!.eulerEarnVaultLens,
     eulerEarnVaultLensABI,
     provider,
   )
-
   const utilsLensContract = new ethers.Contract(
-    eulerLensAddresses.value.utilsLens,
+    eulerLensAddresses.value!.utilsLens,
     eulerUtilsLensABI,
     provider,
   )
@@ -317,6 +319,7 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
   }
 
   return {
+    verified: earnVaults.value.includes(vaultAddress),
     type: 'earn',
     address: data.vault,
     name: data.vaultName,
@@ -457,10 +460,16 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
 export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorResult<EarnVault>, void, unknown> {
   const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses, eulerPeripheryAddresses, chainId } = useEulerAddresses()
+  const { earnVaults, isLoading } = useEulerLabels()
 
   const startChainId = chainId.value
 
-  await until(computed(() => eulerLensAddresses.value?.eulerEarnVaultLens && eulerLensAddresses.value?.utilsLens && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective)).toBeTruthy()
+  await until(computed(() => {
+    return eulerLensAddresses.value?.eulerEarnVaultLens
+      && eulerLensAddresses.value?.utilsLens
+      && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective
+      && !isLoading.value
+  })).toBeTruthy()
 
   if (!eulerLensAddresses.value?.eulerEarnVaultLens || !eulerLensAddresses.value?.utilsLens || !eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective) {
     throw new Error('Euler Earn addresses not loaded yet')
@@ -485,7 +494,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorR
     provider,
   )
 
-  const verifiedVaults = await governedPerspectiveContract.verifiedArray() as string[]
+  const verifiedVaults = earnVaults.value.length ? earnVaults.value : await governedPerspectiveContract.verifiedArray() as string[]
   const USD_ADDRESS = '0x0000000000000000000000000000000000000348' // USD unit of account
 
   const batchSize = 5
@@ -555,6 +564,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorR
         }
 
         return {
+          verified: true,
           type: 'earn',
           address: data.vault,
           name: data.vaultName,

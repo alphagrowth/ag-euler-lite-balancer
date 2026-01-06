@@ -2,7 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal } from '#components'
+import { OperationReviewModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, getVaultPrice, type VaultAsset, type CollateralOption, convertAssetsToShares } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -171,18 +171,18 @@ const submit = async () => {
   try {
     plan.value = isSavingCollateral.value
       ? await buildBorrowBySavingPlan(
-        collateralVault.value.address,
-        collateralAmountForPlan,
-        borrowVault.value.address,
-        borrowAmountNano,
-      )
+          collateralVault.value.address,
+          collateralAmountForPlan,
+          borrowVault.value.address,
+          borrowAmountNano,
+        )
       : await buildBorrowPlan(
-        collateralVault.value.address,
-        collateralVault.value.asset.address,
-        collateralAmountForPlan,
-        borrowVault.value.address,
-        borrowAmountNano,
-      )
+          collateralVault.value.address,
+          collateralVault.value.asset.address,
+          collateralAmountForPlan,
+          borrowVault.value.address,
+          borrowAmountNano,
+        )
   }
   catch (e) {
     console.warn('[OperationReviewModal] failed to build plan', e)
@@ -309,6 +309,16 @@ const updateEstimates = useDebounceFn(async () => {
 watch(pair, (val) => {
   if (!val) {
     return
+  }
+  if (!val.collateral.verified) {
+    modal.open(VaultUnverifiedDisclaimerModal, {
+      isNotClosable: true,
+      props: {
+        onCancel: () => {
+          router.replace('/')
+        },
+      },
+    })
   }
   updateBalance()
 }, { immediate: true })

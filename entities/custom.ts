@@ -37,4 +37,4 @@ export const availableNetworkIds = [
   9745,
 ] as const
 
-export const labelsRepo = 'euler-xyz/euler-labels' // https://github.com/euler-xyz/euler-labels
+export const labelsRepo: string = 'euler-xyz/euler-labels' // https://github.com/euler-xyz/euler-labels

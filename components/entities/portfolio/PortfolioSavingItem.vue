@@ -89,7 +89,7 @@ const onClick = () => {
               ${{ compactNumber(getVaultPrice(position.assets, vault)) }}
             </div>
             <div class="text-euler-dark-900 text-p3">
-              ~ {{ compactNumber(nanoToValue(position.assets, vault.asset.decimals)) }} {{ vault.asset.symbol }}
+              ~ {{ roundAndCompactTokens(position.assets, vault.decimals) }} {{ vault.asset.symbol }}
             </div>
           </div>
         </div>

@@ -93,6 +93,16 @@ const netAPY = computed(() => {
       >
         <div class="flex justify-between">
           <div class="text-euler-dark-900 text-p3">
+            Net asset value
+          </div>
+          <div class="flex justify-between gap-8 text-right">
+            <div class="text-white text-p3">
+              ${{ formatNumber(getVaultPrice(position.supplied, position.collateral) - getVaultPrice(position.borrowed, position.borrow)) }}
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between">
+          <div class="text-euler-dark-900 text-p3">
             My Debt
           </div>
           <div class="flex justify-between gap-8 text-right">
@@ -100,7 +110,7 @@ const netAPY = computed(() => {
               ${{ formatNumber(getVaultPrice(position.borrowed, position.borrow)) }}
             </div>
             <div class="text-euler-dark-900 text-p3">
-              ~ {{ formatNumber(nanoToValue(position.borrowed, position.borrow.decimals)) }}
+              ~ {{ roundAndCompactTokens(position.borrowed, position.borrow.decimals) }}
               {{ position.borrow.asset.symbol }}
             </div>
           </div>

@@ -89,3 +89,46 @@ export function formatTtlRelative(ttl?: bigint): string {
 
   return result.display
 }
+
+export const roundAndCompactTokens = (amount: bigint, decimals: bigint): string => {
+  if (amount === 0n) {
+    return '0'
+  }
+
+  const value = nanoToValue(amount, decimals)
+
+  if (value === 0) {
+    return '0'
+  }
+
+  const valueStr = value.toFixed(18)
+
+  const decimalIndex = valueStr.indexOf('.')
+  if (decimalIndex === -1) {
+    return valueStr
+  }
+
+  const fractionalPart = valueStr.substring(decimalIndex + 1)
+  let firstSignificantIndex = -1
+
+  for (let i = 0; i < fractionalPart.length; i++) {
+    if (fractionalPart[i] !== '0') {
+      firstSignificantIndex = i
+      break
+    }
+  }
+
+  if (firstSignificantIndex === -1) {
+    return '0'
+  }
+
+  if ([0, 1].includes(firstSignificantIndex) || value >= 1) {
+    return compactNumber(value, 2)
+  }
+
+  const precision = firstSignificantIndex + 1
+  const multiplier = Math.pow(10, precision)
+  const rounded = Math.round(value * multiplier) / multiplier
+
+  return compactNumber(rounded, precision)
+}

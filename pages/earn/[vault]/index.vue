@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal, VaultSupplyApyModal } from '#components'
+import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { getEarnVaultPrice, type EarnVault, type VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
@@ -66,6 +66,17 @@ const load = async () => {
     asset.value = vault.value?.asset
 
     estimateSupplyAPY.value = (vault.value.supplyAPY || 0) + totalRewardsAPY.value
+
+    if (!vault.value?.verified) {
+      modal.open(VaultUnverifiedDisclaimerModal, {
+        isNotClosable: true,
+        props: {
+          onCancel: () => {
+            router.replace('/')
+          },
+        },
+      })
+    }
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -141,7 +152,6 @@ const updateEstimates = useDebounceFn(async () => {
       return
     }
     estimateSupplyAPY.value = (vault.value.supplyAPY || 0) + totalRewardsAPY.value
-    console.log(+(amount.value || 0) * (estimateSupplyAPY.value / 12 / 100))
     monthlyEarnings.value = !amount.value
       ? 0
       : +(amount.value || 0) * (estimateSupplyAPY.value / 12 / 100)
