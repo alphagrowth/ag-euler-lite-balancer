@@ -4,7 +4,7 @@ import { useAccount } from '@wagmi/vue'
 const route = useRoute()
 const router = useRouter()
 const { loadEulerConfig, chainId } = useEulerAddresses()
-const { loadVaults, isReady: isVaultsReady } = useVaults()
+const { loadVaults, isReady: isVaultsReady, resetVaultsState } = useVaults()
 const { loadTokens } = useTokens()
 const { loadLabels } = useEulerLabels()
 const { updateBalances } = useWallets()
@@ -46,10 +46,15 @@ watch(route, () => {
 await loadEulerConfig()
 checkOnboarding()
 
-watch(chainId, async () => {
-  await loadLabels()
-  await loadTokens()
-  loadVaults()
+watch(chainId, () => {
+  resetVaultsState()
+  const targetChainId = chainId.value
+  const labelsPromise = loadLabels()
+  void loadTokens()
+  void labelsPromise.then(() => {
+    if (chainId.value !== targetChainId) return
+    void loadVaults()
+  })
 }, { immediate: true })
 
 watch([isConnected, isVaultsReady], ([val]) => {

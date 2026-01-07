@@ -1,10 +1,18 @@
 import { getAddress } from 'viem'
 import { useToast } from '~/components/ui/composables/useToast'
 
-export default defineNuxtRouteMiddleware(async (to) => {
+export default defineNuxtRouteMiddleware(async (to, from) => {
   const { info } = useToast()
   if (import.meta.server) {
     return
+  }
+
+  if (from && to.path === from.path) {
+    const toVaultParam = Array.isArray(to.params?.vault) ? to.params?.vault[0] : to.params?.vault
+    const fromVaultParam = Array.isArray(from.params?.vault) ? from.params?.vault[0] : from.params?.vault
+    if (toVaultParam === fromVaultParam) {
+      return
+    }
   }
 
   const rawVault = to.params?.vault

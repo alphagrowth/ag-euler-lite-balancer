@@ -8,43 +8,72 @@ const balances = ref(new Map<string, bigint>())
 const isVaultsUpdated = ref(false)
 
 let interval: NodeJS.Timeout
+let isChainWatchInitialized = false
 
 export const useWallets = () => {
-  const { map, earnMap, isReady } = useVaults()
+  const { map, earnMap, isReady, loadedChainId } = useVaults()
   const { address, isConnected, chain } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
+  const { chainId } = useEulerAddresses()
+
+  if (!isChainWatchInitialized) {
+    watch(chainId, () => {
+      balances.value.clear()
+      isLoaded.value = false
+      isLoading.value = true
+    })
+    isChainWatchInitialized = true
+  }
 
   const updateBalances = async () => {
+    if (!isConnected.value || !address.value || !chain.value) {
+      isLoaded.value = true
+      isLoading.value = false
+      return
+    }
+    if (!isReady.value || loadedChainId.value !== chainId.value) {
+      return
+    }
+
+    const tokenAddresses: Address[] = []
+    map.value.forEach((vault) => {
+      tokenAddresses.push(vault.address as Address)
+      tokenAddresses.push(vault.asset.address as Address)
+    })
+
+    earnMap.value.forEach((vault) => {
+      tokenAddresses.push(vault.address as Address)
+      tokenAddresses.push(vault.asset.address as Address)
+    })
+
+    if (!tokenAddresses.length) {
+      isLoaded.value = true
+      isLoading.value = false
+      return
+    }
+
+    const { EVM_PROVIDER_URL } = useEulerConfig()
+    const client = createPublicClient({
+      chain: chain.value,
+      transport: http(EVM_PROVIDER_URL),
+    })
+
+    const utilsLensAddress = eulerLensAddresses.value?.utilsLens as Address
+    if (!utilsLensAddress) {
+      return
+    }
+
     try {
-      if (!isConnected.value || !address.value || !chain.value) {
-        return
-      }
-
-      const tokenAddresses: Address[] = []
-      map.value.forEach((vault) => {
-        tokenAddresses.push(vault.address as Address)
-        tokenAddresses.push(vault.asset.address as Address)
-      })
-
-      earnMap.value.forEach((vault) => {
-        tokenAddresses.push(vault.address as Address)
-        tokenAddresses.push(vault.asset.address as Address)
-      })
-
-      const { EVM_PROVIDER_URL } = useEulerConfig()
-      const client = createPublicClient({
-        chain: chain.value,
-        transport: http(EVM_PROVIDER_URL),
-      })
-
-      const utilsLensAddress = eulerLensAddresses.value?.utilsLens as Address
-
       const tokenBalancesResult = await client.readContract({
         address: utilsLensAddress,
         abi: eulerUtilsLensABI,
         functionName: 'tokenBalances',
         args: [address.value as Address, tokenAddresses],
       }) as bigint[]
+
+      if (loadedChainId.value !== chainId.value) {
+        return
+      }
 
       tokenBalancesResult.forEach((balance: bigint, index: number) => {
         balances.value.set(tokenAddresses[index], balance)
@@ -54,6 +83,9 @@ export const useWallets = () => {
       console.warn('Error updating balances:', e)
     }
     finally {
+      if (loadedChainId.value !== chainId.value) {
+        return
+      }
       isLoaded.value = true
       isLoading.value = false
     }

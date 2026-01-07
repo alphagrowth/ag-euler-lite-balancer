@@ -21,10 +21,20 @@ const map: Ref<Map<string, Vault>> = shallowRef(new Map())
 const isEarnLoading = ref(false)
 const isEarnUpdating = ref(false)
 const earnMap: Ref<Map<string, EarnVault>> = shallowRef(new Map())
+const loadedChainId = ref<number | null>(null)
 
 const list = computed(() => [...map.value.values()])
 const earnList = computed(() => [...earnMap.value.values()])
 const borrowList = computed(() => getBorrowVaultsByMap(map.value).filter(pair => pair.borrow.supply > 0n))
+
+const resetVaultsState = () => {
+  isReady.value = false
+  isLoading.value = true
+  isEarnLoading.value = true
+  map.value = new Map()
+  earnMap.value = new Map()
+  loadedChainId.value = null
+}
 
 const updateVaults = async () => {
   try {
@@ -75,17 +85,21 @@ const updateEarnVaults = async () => {
   }
 }
 const loadVaults = async () => {
+  const { chainId } = useEulerAddresses()
+  const startChainId = chainId.value
+
   try {
-    isReady.value = false
-    map.value = new Map()
-    earnMap.value = new Map()
+    resetVaultsState()
     await Promise.all([
       updateEarnVaults(),
       updateVaults(),
     ])
   }
   finally {
-    isReady.value = true
+    if (chainId.value === startChainId) {
+      isReady.value = true
+      loadedChainId.value = startChainId
+    }
   }
 }
 const getVault = async (address: string): Promise<Vault> => {
@@ -172,11 +186,13 @@ export const useVaults = () => {
     list,
     borrowList,
     isReady,
+    loadedChainId,
     isLoading,
     isUpdating,
     getVault,
     getEarnVault,
     loadVaults,
+    resetVaultsState,
     updateVault,
     updateEarnVault,
     updateVaults,
