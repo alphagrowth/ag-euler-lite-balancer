@@ -1,93 +1,293 @@
-# Euler-lite
+# Euler Lite
 
+## 🎯 Overview
 
+Euler Lite provides all the core functionality of Euler Finance in a customizable package:
 
-## Getting started
+- **Lending & Borrowing**: Users can deposit assets to earn yield or borrow against collateral
+- **Portfolio Management**: Track positions and performance
+- **Rewards**: Participate in Merkl/Brevis reward programs
+- **Multi-chain Support**: Connect to multiple EVM-compatible networks
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 📋 Prerequisites
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Before you begin, ensure you have the following installed:
 
-## Add your files
+- **Node.js** 18+ (recommended: 20.12.2)
+- **npm** or **yarn** package manager
+- **Git**
+- A **Reown Project ID** (formerly WalletConnect) - get one at [reown.com](https://reown.com/)
+- Your domain URL where the app will be hosted
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## 🚀 Quick Start
 
+### 1. Clone and Install
+
+```bash
+git clone <repository-url>
+cd euler-lite
+npm install
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/yobalabs/euler-lite/euler-lite.git
-git branch -M main
-git push -uf origin main
+
+### 2. Environment Configuration
+
+Create a `.env` file in the root directory with the following variables:
+
+```bash
+# Network configuration (required)
+NETWORK=mainnet  # or testnet
+
+# Pyth Hermes URL (optional, defaults to https://hermes.pyth.network)
+PYTH_HERMES_URL=https://hermes.pyth.network
+
+# HTTPS configuration for local development (optional)
+HTTPS_KEY=/path/to/key.pem
+HTTPS_CERT=/path/to/cert.pem
 ```
 
-## Integrate with your tools
+**Note**: The `NETWORK` variable is required. Other variables are optional and have sensible defaults.
 
-- [ ] [Set up project integrations](https://gitlab.com/yobalabs/euler-lite/euler-lite/-/settings/integrations)
+### 3. Customize Your Instance
 
-## Collaborate with your team
+The most important step is customizing your instance to match your brand and requirements.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+#### 3.1. App Branding (`entities/custom.ts`)
 
-## Test and Deploy
+Open `entities/custom.ts` and configure the following:
 
-Use the built-in continuous integration in GitLab.
+**Social Links** - Update with your social media profiles:
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+```typescript
+export const socials = {
+  x: "https://x.com/yourhandle",
+  discord: "https://discord.com/invite/yourserver",
+  telegram: "https://t.me/yourchannel",
+  github: "https://github.com/yourorg",
+} as const;
+```
 
-***
+**Documentation & Legal Links** - Set your documentation and terms:
 
-# Editing this README
+```typescript
+export const links = [
+  {
+    title: "Docs",
+    url: "https://your-docs-url.com",
+  },
+  {
+    title: "Terms of Use",
+    url: "https://your-terms-url.com",
+  },
+] as const;
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+**Theme Color** - Customize your brand color (hue in degrees, 0-360):
 
-## Suggestions for a good README
+```typescript
+export const themeHue = 150; // Change to your brand color hue
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+**Supported Networks** - Configure which blockchain networks your instance supports:
 
-## Name
-Choose a self-explaining name for your project.
+```typescript
+export const availableNetworkIds = [
+  1, // Ethereum Mainnet
+  42161, // Arbitrum
+  8453, // Base
+  // Add or remove network IDs as needed
+] as const;
+```
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+**Euler Labels Repository** - Set the GitHub repository for Euler labels:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```typescript
+export const labelsRepo: string = "euler-xyz/euler-labels"; // or your fork
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+**Intrinsic APY** - Enable/disable DeFiLlama integration:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```typescript
+export const enableIntrinsicApy = true; // Set to false to disable
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+#### 3.2. Wagmi Configuration (`plugins/00.wagmi.ts`)
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+Open `plugins/00.wagmi.ts` and update:
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+**Reown Project ID** - Replace with your own project ID:
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```typescript
+const projectId = "your-reown-project-id"; // Get from https://reown.com/
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+**App URL** - Set your domain URL:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```typescript
+const url = "https://your-domain.com";
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+**App Metadata** - Update the app name and description:
 
-## License
-For open source projects, say how it is licensed.
+```typescript
+const metadata = {
+  name: "Your App Name",
+  description: "Your app description",
+  url,
+  icons: [`${url}/manifest-img.png`],
+};
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+#### 3.3. App Title and Favicon (`nuxt.config.ts`)
+
+Open `nuxt.config.ts` and update:
+
+**App Title** - Change the title shown in browser tabs:
+
+```typescript
+app: {
+  head: {
+    title: 'Your App Name',  // Update this
+    // ...
+  }
+}
+```
+
+**Favicon** - Replace the favicon files in `public/favicons/`:
+
+- `favicon.ico`
+- `favicon.svg`
+- `favicon-96x96.png`
+
+The favicon paths are already configured in `nuxt.config.ts` to point to `/favicons/favicon.ico`.
+
+**Theme Color** - Update the theme color meta tag:
+
+```typescript
+meta: [
+  // ...
+  {
+    name: "theme-color",
+    content: "#your-color", // Update to match your brand
+  },
+];
+```
+
+#### 3.4. Token Icons (Optional)
+
+If your vaults use specific tokens that aren't already provided by Euler Indexer (see composables/useTokens.ts), add their icons to `public/tokens/`:
+
+1. Add token icon files (PNG format recommended) to `public/tokens/`
+2. Name them using the symbol name in lowercase (e.g., `eth.png`)
+3. The app will automatically use these icons when displaying tokens (as a fallback)
+
+### 4. Development
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:3000` (or the next available port).
+
+### 5. Build for Production
+
+Build the application:
+
+```bash
+npm run build
+```
+
+Preview the production build locally:
+
+```bash
+npm run preview
+```
+
+## 🐳 Docker Deployment
+
+The project includes a Dockerfile for containerized deployment:
+
+```bash
+# Build the Docker image
+docker build --build-arg APP_PORT=3000 -t euler-lite .
+
+# Run the container
+docker run -p 3000:3000 \
+  -e NETWORK=mainnet \
+  -e PYTH_HERMES_URL=https://hermes.pyth.network \
+  euler-lite
+```
+
+## 📁 Project Structure
+
+Key directories and files:
+
+- `composables/` - Vue composables for app logic (vaults, tokens, operations, etc.)
+- `components/` - Vue components organized by feature
+- `entities/` - Type definitions and configuration
+  - `custom.ts` - **Your main customization file**
+- `pages/` - Nuxt pages/routes
+- `plugins/` - Nuxt plugins
+  - `00.wagmi.ts` - **Wagmi/Reown configuration**
+- `public/` - Static assets
+  - `favicons/` - **Favicon files**
+  - `tokens/` - **Token icon files**
+- `nuxt.config.ts` - **Nuxt configuration (title, favicon)**
+
+## 🔧 Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build locally
+- `npm run generate` - Generate static site
+- `npm run postinstall` - Prepare Nuxt (runs automatically after install)
+
+## ⚙️ Configuration Checklist
+
+Before deploying, ensure you've completed:
+
+- [ ] Created `.env` file with `NETWORK` variable
+- [ ] Updated social links in `entities/custom.ts`
+- [ ] Updated documentation and terms links in `entities/custom.ts`
+- [ ] Set theme color hue in `entities/custom.ts`
+- [ ] Configured supported networks in `entities/custom.ts`
+- [ ] Updated Euler labels repository in `entities/custom.ts` (if using custom labels)
+- [ ] Set Reown Project ID in `plugins/00.wagmi.ts`
+- [ ] Updated app URL in `plugins/00.wagmi.ts`
+- [ ] Updated app metadata (name, description) in `plugins/00.wagmi.ts`
+- [ ] Changed app title in `nuxt.config.ts`
+- [ ] Replaced favicon files in `public/favicons/`
+- [ ] Updated theme color in `nuxt.config.ts`
+- [ ] Added custom token icons to `public/tokens/` (if needed)
+
+## 🆘 Troubleshooting
+
+### Build Errors
+
+- Ensure Node.js version is 18+ (20.12.2 recommended)
+- Clear `node_modules` and reinstall: `rm -rf node_modules && npm install`
+- Check TypeScript compilation errors
+
+### Wallet Connection Issues
+
+- Verify Reown Project ID is correct
+- Ensure app URL matches your domain
+- Check browser console for errors
+- Verify network IDs in `entities/custom.ts` match supported networks
+
+### Network Configuration
+
+- Ensure `NETWORK` environment variable is set correctly
+- Verify network IDs in `availableNetworkIds` are valid
+- Check that network configurations match your deployment environment
+
+## 📚 Additional Resources
+
+- [Nuxt.js Documentation](https://nuxt.com/docs)
+- [Reown (WalletConnect) Documentation](https://docs.reown.com/)
+- [Euler Finance Documentation](https://docs.euler.finance/)
+
+## 🤝 Support
+
+For issues specific to Euler Lite, please refer to the main Euler protocol documentation or reach out to the Euler team.

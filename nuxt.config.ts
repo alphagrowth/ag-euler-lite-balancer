@@ -20,14 +20,14 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Euler TMA',
+      title: 'Euler Lite',
       htmlAttrs: {
         lang: 'en',
       },
       meta: [
         {
           name: 'description',
-          content: 'Euler TMA',
+          content: 'Euler Lite',
         },
         { charset: 'utf-8' },
         {

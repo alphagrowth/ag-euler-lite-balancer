@@ -13,9 +13,9 @@ const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
 const { borrowBySaving, borrow, buildBorrowPlan, buildBorrowBySavingPlan } = useEulerOperations()
-const { getBorrowVaultPair, updateVault } = useVaults()
+const { getBorrowVaultPair, updateVault, isReady: areVaultsReady } = useVaults()
 const { address, isConnected } = useAccount()
-const { updateBorrowPositions, depositPositions, isPositionsLoading } = useEulerAccount()
+const { updateBorrowPositions, depositPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -340,6 +340,21 @@ watch(savingCollateral, (val) => {
     savingAssets.value = val.assets
   }
 })
+
+watch(areVaultsReady, async (ready) => {
+  if (ready && route.params.collateral && route.params.borrow) {
+    try {
+      const refreshedPair = await getBorrowVaultPair(
+        route.params.collateral as string,
+        route.params.borrow as string,
+      )
+      pair.value = refreshedPair
+    }
+    catch (e) {
+      console.error('Error refreshing vault pair:', e)
+    }
+  }
+}, { immediate: false })
 </script>
 
 <template>

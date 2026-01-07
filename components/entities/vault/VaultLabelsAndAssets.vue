@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import type { EarnVault, Vault, VaultAsset } from '~/entities/vault'
+import type { EarnVault, EscrowVault, Vault, VaultAsset } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { vault, assets, size } = defineProps<{
-  vault: Vault | EarnVault
+  vault: Vault | EarnVault | EscrowVault
   assets: VaultAsset[]
   size?: 'large'
 }>()
@@ -37,6 +37,12 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
           class="!w-20 !h-20"
         />
         Unknown vault
+      </p>
+      <p
+        v-else-if="'type' in vault && vault.type === 'escrow'"
+        class="text-euler-dark-900 mb-4"
+      >
+        Ungoverned
       </p>
       <p
         v-else

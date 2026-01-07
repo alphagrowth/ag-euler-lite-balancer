@@ -2,14 +2,16 @@ import { ethers } from 'ethers'
 import {
   type BorrowVaultPair,
   type EarnVault,
+  type EscrowVault,
   fetchEarnVaults,
   fetchVault,
   fetchEarnVault,
+  fetchEscrowVault,
+  fetchEscrowVaults,
   fetchVaults,
   getBorrowVaultPairByMapAndAddresses,
   getBorrowVaultsByMap,
   type Vault,
-  type VaultCollateralLTV,
 } from '~/entities/vault'
 import { labelsRepo } from '~/entities/custom'
 
@@ -23,14 +25,20 @@ const isEarnUpdating = ref(false)
 const earnMap: Ref<Map<string, EarnVault>> = shallowRef(new Map())
 const loadedChainId = ref<number | null>(null)
 
+const isEscrowLoading = ref(false)
+const isEscrowUpdating = ref(false)
+const escrowMap: Ref<Map<string, EscrowVault>> = shallowRef(new Map())
+
 const list = computed(() => [...map.value.values()])
 const earnList = computed(() => [...earnMap.value.values()])
+const escrowList = computed(() => [...escrowMap.value.values()])
 const borrowList = computed(() => getBorrowVaultsByMap(map.value).filter(pair => pair.borrow.supply > 0n))
 
 const resetVaultsState = () => {
   isReady.value = false
   isLoading.value = true
   isEarnLoading.value = true
+  escrowMap.value = new Map()
   map.value = new Map()
   earnMap.value = new Map()
   loadedChainId.value = null
@@ -84,6 +92,32 @@ const updateEarnVaults = async () => {
     isEarnUpdating.value = false
   }
 }
+
+const updateEscrowVaults = async () => {
+  try {
+    escrowMap.value = new Map()
+    isEscrowUpdating.value = true
+    isEscrowLoading.value = true
+    const currentMap = new Map(escrowMap.value)
+
+    for await (const result of fetchEscrowVaults()) {
+      result.vaults.forEach((vault) => {
+        currentMap.set(vault.address, vault)
+      })
+
+      escrowMap.value = new Map(currentMap)
+      isEscrowLoading.value = false
+
+      if (result.isFinished) {
+        break
+      }
+    }
+  }
+  finally {
+    isEscrowUpdating.value = false
+  }
+}
+
 const loadVaults = async () => {
   const { chainId } = useEulerAddresses()
   const startChainId = chainId.value
@@ -93,6 +127,7 @@ const loadVaults = async () => {
     await Promise.all([
       updateEarnVaults(),
       updateVaults(),
+      updateEscrowVaults(),
     ])
   }
   finally {
@@ -142,41 +177,81 @@ const updateEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   earnMap.value.set(address, vault)
   return vault
 }
-const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: string): Promise<BorrowVaultPair> => {
-  if (map.value.has(borrowAddress)) {
-    return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddress, borrowAddress)
+
+const getEscrowVault = async (address: string): Promise<EscrowVault> => {
+  await until(computed(() => escrowMap.value.size)).toBeTruthy()
+
+  if (escrowMap.value.has(ethers.getAddress(address))) {
+    return escrowMap.value.get(ethers.getAddress(address))!
   }
   else {
-    let obj: BorrowVaultPair | undefined = undefined
-    const borrowVault = await fetchVault(borrowAddress)
-    if (!borrowVault) {
-      throw '[getBorrowVaultPairByMapAndAddresses]: Borrow vault not found'
-    }
-    let collateralLTV: VaultCollateralLTV
-    let collateralLTVAddr: string
+    return fetchEscrowVault(ethers.getAddress(address))
+  }
+}
 
-    borrowVault.collateralLTVs.forEach((c) => {
-      if (c.collateral !== collateralAddress) {
-        return
+const updateEscrowVault = async (vaultAddress: string): Promise<EscrowVault> => {
+  const address = ethers.getAddress(vaultAddress)
+  const vault = await fetchEscrowVault(address)
+  escrowMap.value.set(address, vault)
+  return vault
+}
+
+const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: string): Promise<BorrowVaultPair> => {
+  const collateralAddr = ethers.getAddress(collateralAddress)
+  const borrowAddr = ethers.getAddress(borrowAddress)
+
+  if (map.value.has(borrowAddr)) {
+    if (map.value.has(collateralAddr)) {
+      return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddr, borrowAddr)
+    }
+    else if (escrowMap.value.has(collateralAddr)) {
+      const borrowVault = map.value.get(borrowAddr)!
+      const escrowVault = escrowMap.value.get(collateralAddr)!
+      const ltv = borrowVault.collateralLTVs.find(c => c.collateral === collateralAddr)
+
+      if (!ltv) {
+        throw '[getBorrowVaultPair]: Collateral LTV not found for escrow vault'
       }
-      collateralLTV = c
-      collateralLTVAddr = c.collateral
-    })
 
-    const cVault = await fetchVault(collateralLTVAddr!)
-    obj = {
-      borrow: borrowVault,
-      collateral: cVault,
-      borrowLTV: collateralLTV!.borrowLTV,
-      liquidationLTV: collateralLTV!.liquidationLTV,
-      initialLiquidationLTV: collateralLTV!.initialLiquidationLTV,
-    } as BorrowVaultPair
-
-    if (!obj) {
-      throw '[getBorrowVaultPairByMapAndAddresses]: Vault pair not found'
+      return {
+        borrow: borrowVault,
+        collateral: escrowVault,
+        borrowLTV: ltv.borrowLTV,
+        liquidationLTV: ltv.liquidationLTV,
+        initialLiquidationLTV: ltv.initialLiquidationLTV,
+      }
     }
+  }
 
-    return obj
+  const borrowVault = await fetchVault(borrowAddr)
+  if (!borrowVault) {
+    throw '[getBorrowVaultPair]: Borrow vault not found'
+  }
+
+  const collateralLTV = borrowVault.collateralLTVs.find(c => c.collateral === collateralAddr)
+  if (!collateralLTV) {
+    throw '[getBorrowVaultPair]: Collateral not configured for this borrow vault'
+  }
+
+  let collateralVault
+  if (escrowMap.value.has(collateralAddr)) {
+    collateralVault = await getEscrowVault(collateralAddr)
+  }
+  else {
+    try {
+      collateralVault = await fetchVault(collateralAddr)
+    }
+    catch {
+      collateralVault = await fetchEscrowVault(collateralAddr)
+    }
+  }
+
+  return {
+    borrow: borrowVault,
+    collateral: collateralVault,
+    borrowLTV: collateralLTV.borrowLTV,
+    liquidationLTV: collateralLTV.liquidationLTV,
+    initialLiquidationLTV: collateralLTV.initialLiquidationLTV,
   }
 }
 
@@ -191,16 +266,23 @@ export const useVaults = () => {
     isUpdating,
     getVault,
     getEarnVault,
+    getEscrowVault,
     loadVaults,
     resetVaultsState,
     updateVault,
     updateEarnVault,
+    updateEscrowVault,
     updateVaults,
+    updateEarnVaults,
+    updateEscrowVaults,
     getBorrowVaultPair,
     earnMap,
     earnList,
     isEarnLoading,
     isEarnUpdating,
-    updateEarnVaults,
+    escrowMap,
+    escrowList,
+    isEscrowLoading,
+    isEscrowUpdating,
   }
 }

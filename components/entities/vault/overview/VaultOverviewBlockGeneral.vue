@@ -5,17 +5,27 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
-const { borrowList } = useVaults()
+const { borrowList, list } = useVaults()
 
 const product = useEulerProductOfVault(vault.address)
 const entities = useEulerEntitiesOfVault(vault.address)
 
-const collateralCount = computed(() =>
-  borrowList.value.filter(pair => pair.collateral.address === vault.address).length,
-)
-const borrowCount = computed(() =>
-  borrowList.value.filter(pair => pair.borrow.address === vault.address).length,
-)
+const collateralCount = computed(() => {
+  const regularCount = borrowList.value.filter(pair => pair.collateral.address === vault.address).length
+
+  if ('type' in vault && vault.type === 'escrow') {
+    const vaultsAcceptingThisAsCollateral = list.value.filter(v =>
+      v.collateralLTVs.some(ltv => ltv.collateral === vault.address && ltv.borrowLTV > 0n),
+    ).length
+    return regularCount + vaultsAcceptingThisAsCollateral
+  }
+
+  return regularCount
+})
+
+const borrowCount = computed(() => {
+  return borrowList.value.filter(pair => pair.borrow.address === vault.address).length
+})
 </script>
 
 <template>
@@ -62,7 +72,7 @@ const borrowCount = computed(() =>
       <VaultOverviewLabelValue label="Market type">
         <VaultTypeChip
           :vault="vault"
-          :type="entities.length ? 'governed' : ''"
+          :type="entities.length ? 'governed' : 'type' in vault ? vault.type as string : ''"
         />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Can be borrowed">
