@@ -1,6 +1,66 @@
 import { getAddress } from 'viem'
 import { useToast } from '~/components/ui/composables/useToast'
 
+const normalizeParam = (value: unknown) => (Array.isArray(value) ? value[0] : value)
+
+const parseChainId = (value: unknown): number | null => {
+  const normalized = normalizeParam(value)
+  const parsed = typeof normalized === 'string'
+    ? Number.parseInt(normalized, 10)
+    : typeof normalized === 'number'
+      ? normalized
+      : NaN
+
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const scheduleVaultCheck = (vaultParam: string, path: string, expectedChainId: number | null) => {
+  setTimeout(async () => {
+    const route = useRoute()
+    const { info } = useToast()
+    const { getVault } = useVaults()
+    const { chainId } = useEulerAddresses()
+
+    if (path.includes('earn')) {
+      return
+    }
+
+    const currentVault = normalizeParam(route.params?.vault)
+    if (!currentVault || String(currentVault) !== vaultParam) {
+      return
+    }
+
+    if (route.path !== path) {
+      return
+    }
+
+    if (expectedChainId !== null && chainId.value !== expectedChainId) {
+      return
+    }
+
+    try {
+      const vaultAddress = getAddress(String(currentVault))
+      await getVault(vaultAddress)
+    }
+    catch {
+      if (route.path !== path) {
+        return
+      }
+
+      if (expectedChainId !== null && chainId.value !== expectedChainId) {
+        return
+      }
+
+      info('This vault could not be found on this chain!')
+      void navigateTo({
+        path: '/',
+        query: { ...route.query },
+        hash: route.hash,
+      }, { replace: true })
+    }
+  }, 0)
+}
+
 export default defineNuxtRouteMiddleware(async (to, from) => {
   const { info } = useToast()
   if (import.meta.server) {
@@ -8,9 +68,14 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   }
 
   if (from && to.path === from.path) {
-    const toVaultParam = Array.isArray(to.params?.vault) ? to.params?.vault[0] : to.params?.vault
-    const fromVaultParam = Array.isArray(from.params?.vault) ? from.params?.vault[0] : from.params?.vault
+    const toVaultParam = normalizeParam(to.params?.vault)
+    const fromVaultParam = normalizeParam(from.params?.vault)
     if (toVaultParam === fromVaultParam) {
+      const toNetworkId = parseChainId(to.query.network)
+      const fromNetworkId = parseChainId(from.query.network)
+      if (toVaultParam && toNetworkId !== fromNetworkId) {
+        scheduleVaultCheck(String(toVaultParam), to.path, toNetworkId)
+      }
       return
     }
   }
@@ -22,7 +87,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
   let vaultAddress: string | null = null
   try {
-    vaultAddress = getAddress(Array.isArray(rawVault) ? rawVault[0] : String(rawVault))
+    vaultAddress = getAddress(String(normalizeParam(rawVault)))
   }
   catch {
     info('This vault could not be found on this chain!')
