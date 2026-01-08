@@ -1014,11 +1014,11 @@ export const computeAPYs = (borrowSPY: bigint, cash: bigint, borrows: bigint, in
   return utilsLensContract.computeAPYs(borrowSPY, cash, borrows, interestFee)
 }
 export const getNetAPY = (supplyUSD: number, supplyAPY: number, borrowUSD: number, borrowAPY: number, supplyRewardAPY?: number | null, borrowRewardAPY?: number | null) => {
-  const sum = (supplyUSD * (supplyAPY + (supplyRewardAPY || 0))) - (borrowUSD * (borrowAPY - (borrowRewardAPY || 0)))
-  if (sum === 0) {
+  if (supplyUSD === 0) {
     return 0
   }
-  return sum / (sum < 0 ? borrowUSD : supplyUSD)
+  const sum = (supplyUSD * (supplyAPY + (supplyRewardAPY || 0))) - (borrowUSD * (borrowAPY - (borrowRewardAPY || 0)))
+  return sum / supplyUSD
 }
 export const convertSharesToAssets = (vaultAddress: string, sharesAmount: bigint): Promise<bigint> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
