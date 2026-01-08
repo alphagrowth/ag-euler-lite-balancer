@@ -83,7 +83,7 @@ const onWarningClick = () => {
       </div>
       <div class="flex-1 flex flex-col items-center">
         <div class="text-euler-dark-900 text-p3 mb-4">
-          Governor
+          Risk curator
         </div>
         <BaseAvatar
           class="icon--20"

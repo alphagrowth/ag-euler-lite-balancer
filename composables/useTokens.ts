@@ -8,14 +8,15 @@ const isLoading = ref(false)
 const tokens: Record<string, TokenData> = shallowReactive({})
 
 export const useTokens = () => {
+  const { getCurrentChainConfig } = useEulerAddresses()
+  const { chainId } = useEulerAddresses()
+
   const loadTokens = async () => {
     try {
       isLoading.value = true
-      const { getCurrentChainConfig } = useEulerAddresses()
-      await until(getCurrentChainConfig).toBeTruthy()
-      const { chainId } = useEulerAddresses()
-
       Object.keys(tokens).forEach(key => delete tokens[key])
+
+      await until(getCurrentChainConfig).toBeTruthy()
 
       const res = await axios.get(`https://indexer-main.euler.finance/v1/tokens?chainId=${chainId.value}`)
 
@@ -30,6 +31,8 @@ export const useTokens = () => {
       isLoading.value = false
     }
   }
+
+  watch(chainId, loadTokens)
 
   return {
     isLoading,

@@ -175,7 +175,7 @@ const feeDisplay = computed(() => {
               :label="asset.symbol"
             />
             <p class="text-p2">
-              {{ formatNumber(amount, 8, 0) }} {{ asset.symbol === 'WTAC' ? 'TAC' : asset.symbol }} <!-- TODO wtac -> tac @ useMerkl -->
+              {{ formatNumber(amount, 8, 0) }} {{ asset.symbol }}
             </p>
           </div>
         </div>

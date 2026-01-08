@@ -44,7 +44,7 @@ const borrowCount = computed(() => {
         label="Market"
         :value="product.name"
       />
-      <VaultOverviewLabelValue label="Governor(s)">
+      <VaultOverviewLabelValue label="Risk curator(s)">
         <div
           v-if="entities.length"
           class="flex flex-col gap-16"

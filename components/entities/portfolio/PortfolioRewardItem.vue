@@ -85,14 +85,14 @@ const onClaimClick = async () => {
           class="icon--40"
         />
         <h4 class="text-h5 ml-12">
-          {{ reward.token.symbol === 'WTAC' ? 'TAC' : reward.token.symbol }} <!-- TODO wtac -> tac @ useMerkl -->
+          {{ reward.token.symbol === 'WTAC' ? 'TAC' : reward.token.symbol }}
         </h4>
         <div class="flex flex-col gap-8 ml-auto text-right">
           <p class="text-p2">
             {{ amountInUsd < 0.01 ? ' < $0.01' : `$${formatNumber(amountInUsd, 2)}` }}
           </p>
           <p class="text-p3 text-euler-dark-900">
-            ~ {{ amountToClaim < 0.01 ? '< 0.01' : formatNumber(amountToClaim, 2) }} {{ reward.token.symbol === 'WTAC' ? 'TAC' : reward.token.symbol }} <!-- TODO wtac -> tac @ useMerkl -->
+            ~ {{ amountToClaim < 0.01 ? '< 0.01' : formatNumber(amountToClaim, 2) }} {{ reward.token.symbol }}
           </p>
         </div>
       </div>

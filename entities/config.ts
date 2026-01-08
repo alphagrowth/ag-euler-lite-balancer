@@ -2,7 +2,6 @@ import { labelsRepo } from '~/entities/custom'
 
 export default {
   testnet: {
-    GOLDSKY_API_URL: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-tacturin/latest/gn',
     EULER_API_URL: 'https://indexer-main.euler.finance',
     getEulerLabelsVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/${chainId}/vaults.json`,
     getEulerLabelsEntitiesUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/${chainId}/entities.json`,
@@ -12,7 +11,6 @@ export default {
     MERKL_API_BASE_URL: 'https://api.merkl.xyz/v4',
   },
   mainnet: {
-    GOLDSKY_API_URL: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-tac/latest/gn',
     EULER_API_URL: 'https://indexer-main.euler.finance',
     NEXT_PUBLIC_RPC_HTTP_1: 'https://quaint-yolo-isle.quiknode.pro/f7cb88b87e7020548579d7980a52a13d2b114339',
     NEXT_PUBLIC_RPC_HTTP_10: 'https://quaint-yolo-isle.optimism.quiknode.pro/f7cb88b87e7020548579d7980a52a13d2b114339',

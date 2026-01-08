@@ -103,7 +103,7 @@ const checkGetController = async (subAccount: string) => {
 }
 
 export const getNewSubAccount = async (ownerAddress: string) => {
-  const { GOLDSKY_API_URL } = useEulerConfig()
+  const { SUBGRAPH_URL } = useEulerConfig()
   const { eulerCoreAddresses, loadEulerConfig } = useEulerAddresses()
 
   if (!eulerCoreAddresses.value) {
@@ -111,7 +111,7 @@ export const getNewSubAccount = async (ownerAddress: string) => {
   }
 
   const address = ethers.getAddress(ownerAddress)
-  const { data } = await axios.post(GOLDSKY_API_URL, {
+  const { data } = await axios.post(SUBGRAPH_URL, {
     query: `query AccountBorrows {
       trackingActiveAccount(id: "${ownerAddress}") {
         borrows
