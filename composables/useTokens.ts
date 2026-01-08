@@ -8,8 +8,7 @@ const isLoading = ref(false)
 const tokens: Record<string, TokenData> = shallowReactive({})
 
 export const useTokens = () => {
-  const { getCurrentChainConfig } = useEulerAddresses()
-  const { chainId } = useEulerAddresses()
+  const { getCurrentChainConfig, chainId } = useEulerAddresses()
 
   const loadTokens = async () => {
     try {

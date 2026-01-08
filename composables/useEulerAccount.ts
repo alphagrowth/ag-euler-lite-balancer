@@ -193,6 +193,7 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
       .map(async (entry: string) => {
         const vault = `0x${entry.substring(42)}`
         const subAccount = entry.substring(0, 42)
+        const { chainId } = useEulerAddresses()
 
         const res = await accountLensContract.getAccountInfo(subAccount, vault)
         const collateral = isShowAllPositions.value ? await getVault(ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0])) : map.value.get(ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0]))
@@ -214,7 +215,7 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
           if (!indexerData) {
             try {
               const response = await fetch(
-                `https://indexer-main.euler.finance/v2/account/positions?chainId=1&address=${address}&timestamp=${Date.now()}`,
+                `https://indexer-main.euler.finance/v2/account/positions?chainId=${chainId.value}&address=${address}&timestamp=${Date.now()}`,
               )
               indexerData = await response.json()
             }

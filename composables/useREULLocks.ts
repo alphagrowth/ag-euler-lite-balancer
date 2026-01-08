@@ -147,6 +147,12 @@ export const useREULLocks = () => {
     }
   }, { immediate: true })
 
+  watch(chainId, () => {
+    reulTokenContractAddress.value = ''
+    eulTokenContractAddress.value = ''
+    loadReulTokenContractAddresses(chainId.value || 1)
+  })
+
   const unlockREUL = async (lockTimestamps: bigint[]) => {
     if (!address.value) {
       throw new Error('Wallet not connected')
