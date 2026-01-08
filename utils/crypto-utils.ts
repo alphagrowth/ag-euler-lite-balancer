@@ -118,12 +118,12 @@ export const roundAndCompactTokens = (amount: bigint, decimals: bigint): string 
     }
   }
 
-  if (firstSignificantIndex === -1) {
-    return '0'
-  }
-
   if ([0, 1].includes(firstSignificantIndex) || value >= 1) {
     return compactNumber(value, 2)
+  }
+
+  if (firstSignificantIndex === -1) {
+    return '0'
   }
 
   const precision = firstSignificantIndex + 1
