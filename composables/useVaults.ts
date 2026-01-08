@@ -32,7 +32,13 @@ const escrowMap: Ref<Map<string, EscrowVault>> = shallowRef(new Map())
 const list = computed(() => [...map.value.values()])
 const earnList = computed(() => [...earnMap.value.values()])
 const escrowList = computed(() => [...escrowMap.value.values()])
-const borrowList = computed(() => getBorrowVaultsByMap(map.value).filter(pair => pair.borrow.supply > 0n))
+const borrowList = computed(() =>
+  getBorrowVaultsByMap(map.value).filter(pair =>
+    pair.borrow.supply > 0n
+    && pair.borrow.borrowCap > 0n
+    && pair.borrow.totalCash > 0n,
+  ),
+)
 
 const resetVaultsState = () => {
   isReady.value = false
