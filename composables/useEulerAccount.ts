@@ -8,7 +8,7 @@ import type {
   AccountBorrowPosition, AccountDepositPosition,
   AccountEarnPosition,
 } from '~/entities/account'
-import { convertSharesToAssets, getVaultPrice, getEarnVaultPrice, getVaultPriceInfo } from '~/entities/vault'
+import { convertSharesToAssets, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const earnPositions: Ref<AccountEarnPosition[]> = ref([])
@@ -50,7 +50,7 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
   const depositEntries = data.data.trackingActiveAccount?.deposits || []
 
   let deposits: AccountBorrowPosition[] = []
-  const borrows: any[] = []
+  const borrows: { borrowed: bigint }[] = []
   const batchSize = 5
 
   for (let i = 0; i < depositEntries.length; i += batchSize) {
@@ -70,12 +70,32 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
         if (!enabledCollaterals || !enabledControllers) {
           return undefined
         }
-        const collateral = map.value.get(ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0]))
-        const borrow = map.value.get(ethers.getAddress(res.evcAccountInfo.enabledControllers[0]))
-        if (!collateral || !borrow) {
+
+        const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
+        const borrow = map.value.get(borrowAddress)
+        if (!borrow) {
           return undefined
         }
-        const cLTV = borrow?.collateralLTVs.find(ltv => ltv.collateral === collateral.address)
+
+        let collateralAddress: string | undefined
+        for (const enabledCollateral of res.evcAccountInfo.enabledCollaterals) {
+          const addr = ethers.getAddress(enabledCollateral)
+          if (borrow.collateralLTVs.some(ltv => ethers.getAddress(ltv.collateral) === addr)) {
+            collateralAddress = addr
+            break
+          }
+        }
+
+        if (!collateralAddress) {
+          collateralAddress = ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0])
+        }
+
+        const collateral = map.value.get(collateralAddress)
+        if (!collateral) {
+          return undefined
+        }
+
+        const cLTV = borrow.collateralLTVs.find(ltv => ethers.getAddress(ltv.collateral) === collateral.address)
         const collateralValueLiquidation = res.vaultAccountInfo.liquidityInfo.collateralValueLiquidation
         const liabilityValue = res.vaultAccountInfo.liquidityInfo.liabilityValue
         const liquidationLTV = cLTV?.liquidationLTV || 0n
@@ -196,13 +216,31 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
         const { chainId } = useEulerAddresses()
 
         const res = await accountLensContract.getAccountInfo(subAccount, vault)
-        const collateral = isShowAllPositions.value ? await getVault(ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0])) : map.value.get(ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0]))
-        const borrow = isShowAllPositions.value ? await getVault(ethers.getAddress(res.evcAccountInfo.enabledControllers[0])) : map.value.get(ethers.getAddress(res.evcAccountInfo.enabledControllers[0]))
-        if (!collateral || !borrow) {
+        const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
+        const borrow = isShowAllPositions.value ? await getVault(borrowAddress) : map.value.get(borrowAddress)
+        if (!borrow) {
           return undefined
         }
 
-        const cLTV = borrow?.collateralLTVs.find(ltv => ltv.collateral === collateral.address)
+        let collateralAddress: string | undefined
+        for (const enabledCollateral of res.evcAccountInfo.enabledCollaterals) {
+          const addr = ethers.getAddress(enabledCollateral)
+          if (borrow.collateralLTVs.some(ltv => ethers.getAddress(ltv.collateral) === addr)) {
+            collateralAddress = addr
+            break
+          }
+        }
+
+        if (!collateralAddress) {
+          collateralAddress = ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0])
+        }
+
+        const collateral = isShowAllPositions.value ? await getVault(collateralAddress) : map.value.get(collateralAddress)
+        if (!collateral) {
+          return undefined
+        }
+
+        const cLTV = borrow.collateralLTVs.find(ltv => ethers.getAddress(ltv.collateral) === collateral.address)
 
         let liquidityInfo
         try {
@@ -237,11 +275,13 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
             return undefined
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const indexerLiquidityInfo: any = indexerPosition.debt.liquidityInfo
           liquidityInfo = {
-            collateralValueLiquidation: BigInt(indexerPosition.debt.liquidityInfo.collateralValueLiquidation),
+            collateralValueLiquidation: BigInt(indexerLiquidityInfo.collateralValueLiquidation),
             // Use liabilityValueLiquidation (not liabilityValue which doesn't exist in indexer response)
-            liabilityValue: BigInt(indexerPosition.debt.liquidityInfo.liabilityValueLiquidation || indexerPosition.debt.liquidityInfo.liabilityValueBorrowing || 0),
-            timeToLiquidation: BigInt(indexerPosition.debt.liquidityInfo.timeToLiquidation),
+            liabilityValue: BigInt(indexerLiquidityInfo.liabilityValueLiquidation || indexerLiquidityInfo.liabilityValueBorrowing || 0),
+            timeToLiquidation: BigInt(indexerLiquidityInfo.timeToLiquidation),
           }
         }
 
