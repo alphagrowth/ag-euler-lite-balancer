@@ -60,7 +60,14 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
         const vault = `0x${entry.substring(42)}`
         const subAccount = entry.substring(0, 42)
 
-        const res = await accountLensContract.getAccountInfo(subAccount, vault)
+        let res
+        try {
+          res = await accountLensContract.getAccountInfo(subAccount, vault)
+        }
+        catch {
+          return undefined
+        }
+
         let enabledCollaterals = ''
         let enabledControllers = ''
         if (res.evcAccountInfo.enabledCollaterals.length > 0 && res.evcAccountInfo.enabledControllers.length > 0) {
@@ -133,11 +140,18 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
     const batch = deposits
       .slice(i, i + batchSize)
       .map(async (deposit: AccountBorrowPosition) => {
-        const res = await accountLensContract.getAccountInfo(deposit.subAccount, deposit.borrow.address)
-        const borrowed = res.vaultAccountInfo.borrowed
+        try {
+          const res = await accountLensContract.getAccountInfo(deposit.subAccount, deposit.borrow.address)
+          const borrowed = res.vaultAccountInfo.borrowed
 
-        return {
-          borrowed,
+          return {
+            borrowed,
+          }
+        }
+        catch {
+          return {
+            borrowed: 0n,
+          }
         }
       })
 
@@ -215,7 +229,18 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
         const subAccount = entry.substring(0, 42)
         const { chainId } = useEulerAddresses()
 
-        const res = await accountLensContract.getAccountInfo(subAccount, vault)
+        let res
+        try {
+          res = await accountLensContract.getAccountInfo(subAccount, vault)
+        }
+        catch {
+          return undefined
+        }
+
+        if (!res.evcAccountInfo.enabledControllers.length || !res.evcAccountInfo.enabledCollaterals.length) {
+          return undefined
+        }
+
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
         const borrow = isShowAllPositions.value ? await getVault(borrowAddress) : map.value.get(borrowAddress)
         if (!borrow) {
