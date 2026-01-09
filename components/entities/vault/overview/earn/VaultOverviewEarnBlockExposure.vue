@@ -10,8 +10,8 @@ const exposureVaults: Ref<Vault[]> = ref([])
 const isLoading = ref(false)
 
 const exposureList = computed(() => {
-  return vault.strategies.filter((strat) => {
-    return strat.allocatedAssets > 0n
+  return [...vault.strategies].sort((a, b) => {
+    return nanoToValue(b.allocatedAssets) - nanoToValue(a.allocatedAssets)
   })
 })
 
