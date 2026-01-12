@@ -4,7 +4,7 @@ import { type EarnVault, type Vault, getVaultPrice } from '~/entities/vault'
 const emits = defineEmits(['vault-click'])
 const { vault } = defineProps<{ vault: EarnVault }>()
 
-const { getVault } = useVaults()
+const { getVault, getEscrowVault, escrowList } = useVaults()
 
 const exposureVaults: Ref<Vault[]> = ref([])
 const isLoading = ref(false)
@@ -25,7 +25,7 @@ const load = async () => {
   try {
     isLoading.value = true
     const promises = exposureList.value.map((exposure) => {
-      return getVault(exposure.info.vault)
+      return escrowList.value.find(escrow => escrow.address === exposure.info.vault) ? getEscrowVault(exposure.info.vault) : getVault(exposure.info.vault)
     })
     exposureVaults.value = await Promise.all(promises)
   }

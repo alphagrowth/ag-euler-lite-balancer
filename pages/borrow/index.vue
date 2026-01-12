@@ -110,6 +110,7 @@ const sortedBorrowList = computed(() => {
           :options="marketOptions"
           placeholder="Choose market"
           title="Choose market"
+          modal-input-placeholder="Search market"
           icon="filter"
         />
         <UiSelect
@@ -118,6 +119,7 @@ const sortedBorrowList = computed(() => {
           :options="collateralAssetOptions"
           placeholder="Collateral asset"
           title="Collateral asset"
+          modal-input-placeholder="Search asset"
           show-selected-options
         />
         <UiSelect
@@ -126,6 +128,7 @@ const sortedBorrowList = computed(() => {
           :options="debtAssetOptions"
           placeholder="Debt asset"
           title="Debt asset"
+          modal-input-placeholder="Search asset"
           show-selected-options
         />
       </div>

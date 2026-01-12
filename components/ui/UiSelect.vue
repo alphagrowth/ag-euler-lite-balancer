@@ -9,6 +9,7 @@ const props = defineProps<{
   title?: string
   icon?: string
   showSelectedOptions?: boolean
+  modalInputPlaceholder?: string
   chipOptions?: { label: string, value: string, icon?: string }[]
 }>()
 
@@ -52,6 +53,7 @@ const open = () => {
       selected: model.value,
       options: props.options,
       title: props.title,
+      inputPlaceholder: props.modalInputPlaceholder,
       onSave: (selected: string[]) => {
         model.value = selected
       },

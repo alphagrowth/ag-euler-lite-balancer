@@ -102,6 +102,7 @@ load()
           :options="assetOptions"
           placeholder="Choose asset"
           title="Choose asset"
+          modal-input-placeholder="Search asset"
           icon="filter"
           :chip-options="topOptions"
         />

@@ -3,6 +3,7 @@ const props = defineProps<{
   selected: string[]
   options: { label: string, value: string, icon?: string }[]
   title?: string
+  inputPlaceholder?: string
   onSave?: (selected: string[]) => void
 }>()
 const emit = defineEmits(['close'])
@@ -58,7 +59,7 @@ watch(() => props.selected, (val) => {
     <div class="ui-select-modal__content">
       <UiInput
         v-model="searchModel"
-        placeholder="Search asset"
+        :placeholder="inputPlaceholder || 'Search'"
         class="mb-16"
         icon="search"
       />
