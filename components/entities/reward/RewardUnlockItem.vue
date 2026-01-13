@@ -5,13 +5,16 @@ import { useModal } from '~/components/ui/composables/useModal'
 import type { REULLock } from '~/entities/reul'
 
 const modal = useModal()
-const { rewardTokens } = useMerkl()
+const { rewardTokens, isTokensLoading } = useMerkl()
 const { unlockREUL } = useREULLocks()
 const { item } = defineProps<{ item: REULLock }>()
 
 const isUnlocking = ref(false)
 
 const reulToken = computed(() => {
+  if (isTokensLoading.value && rewardTokens.value.length === 0) {
+    return
+  }
   return rewardTokens.value.find(token => token.symbol === 'rEUL')
 })
 
@@ -64,10 +67,10 @@ const onUnlockClick = () => {
       </h4>
       <div class="flex flex-col gap-8 ml-auto text-right">
         <p class="text-p2">
-          {{ formatNumber(unlockableAmount, 6) }} EUL
+          {{ reulToken ? `${formatNumber(unlockableAmount, 6)} rEUL` : '...' }}
         </p>
         <p class="text-p3 text-euler-dark-900">
-          OF {{ formatNumber(amount, 6) }} rEUL
+          {{ reulToken ? `OF ${formatNumber(amount, 6)} rEUL` : '...' }}
         </p>
       </div>
     </div>
