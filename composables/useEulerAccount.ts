@@ -206,28 +206,12 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
   let borrows: AccountBorrowPosition[] = []
   const batchSize = 5
 
-  // Indexer fallback data (fetched only once if needed)
-  let indexerData: Record<string, {
-    debt?: {
-      vault: string
-      borrowed: string
-      liquidityInfo: {
-        queryFailure: boolean
-        collateralValueLiquidation: string
-        liabilityValue: string
-        timeToLiquidation: string
-      }
-    }
-    collaterals?: Record<string, { vault: string }>
-  }> | null = null
-
   for (let i = 0; i < borrowEntries.length; i += batchSize) {
     const batch = borrowEntries
       .slice(i, i + batchSize)
       .map(async (entry: string) => {
         const vault = `0x${entry.substring(42)}`
         const subAccount = entry.substring(0, 42)
-        const { chainId } = useEulerAddresses()
 
         let res
         try {
@@ -267,51 +251,10 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
 
         const cLTV = borrow.collateralLTVs.find(ltv => ethers.getAddress(ltv.collateral) === collateral.address)
 
-        let liquidityInfo
-        try {
-          liquidityInfo = res.vaultAccountInfo.liquidityInfo
-          if (liquidityInfo.queryFailure || liquidityInfo.collateralValueLiquidation === 0n) {
-            throw new Error('Query failure flag set or collateralValueLiquidation is 0')
-          }
-        }
-        catch {
-          if (!indexerData) {
-            try {
-              const response = await fetch(
-                `https://indexer-main.euler.finance/v2/account/positions?chainId=${chainId.value}&address=${address}&timestamp=${Date.now()}`,
-              )
-              indexerData = await response.json()
-            }
-            catch (e) {
-              console.error('Failed to fetch indexer data:', e)
-            }
-          }
-
-          if (!indexerData) {
-            console.warn('No indexer data available, skipping position')
-            return undefined
-          }
-
-          const checksummedSubAccount = ethers.getAddress(subAccount)
-          const indexerPosition = indexerData[checksummedSubAccount]
-
-          if (!indexerPosition?.debt?.liquidityInfo || indexerPosition.debt.liquidityInfo.queryFailure) {
-            console.warn('Indexer position has no liquidityInfo or query failed')
-            return undefined
-          }
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const indexerLiquidityInfo: any = indexerPosition.debt.liquidityInfo
-          liquidityInfo = {
-            collateralValueLiquidation: BigInt(indexerLiquidityInfo.collateralValueLiquidation),
-            // Use liabilityValueLiquidation (not liabilityValue which doesn't exist in indexer response)
-            liabilityValue: BigInt(indexerLiquidityInfo.liabilityValueLiquidation || indexerLiquidityInfo.liabilityValueBorrowing || 0),
-            timeToLiquidation: BigInt(indexerLiquidityInfo.timeToLiquidation),
-          }
-        }
+        const liquidityInfo = res.vaultAccountInfo.liquidityInfo
 
         const collateralValueLiquidation = liquidityInfo.collateralValueLiquidation
-        let liabilityValue = liquidityInfo.liabilityValue
+        let liabilityValue = liquidityInfo.liabilityValueBorrowing
         const liquidationLTV = cLTV?.liquidationLTV || 0n
 
         if (liabilityValue === 0n && res.vaultAccountInfo.borrowed > 0n) {
@@ -321,15 +264,14 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
             .div(FixedNumber.fromValue(borrow.liabilityPriceInfo.amountIn, 0))
           liabilityValue = borrowedInUnitOfAccount.value
         }
-
         const healthFixed = liabilityValue === 0n
           ? FixedNumber.fromValue(0n, 18)
           : FixedNumber.fromValue(collateralValueLiquidation, 18).div(FixedNumber.fromValue(liabilityValue, 18))
+
         const userLTVFixed = healthFixed.isZero()
           ? FixedNumber.fromValue(0n, 2)
           : FixedNumber.fromValue(liquidationLTV, 2).div(healthFixed)
         const userLTV = userLTVFixed.value
-
         const collateralPrice = getVaultPriceInfo(collateral)
         const borrowPrice = getVaultPriceInfo(borrow)
         const priceFixed = FixedNumber.fromValue(collateralPrice?.amountOutAsk || 0n, 18)
