@@ -40,13 +40,8 @@ export const useEulerLabels = () => {
       ])
 
       if (labelsRepo !== 'euler-xyz/euler-labels') {
-        axios.get(getEulerLabelsEarnVaultsUrl(getCurrentChainConfig.value!.chainId))
-          .then((res) => {
-            earnVaults.value = res.data
-          })
-          .catch(() => {
-            earnVaults.value = []
-          })
+        const earnRes = await axios.get(getEulerLabelsEarnVaultsUrl(getCurrentChainConfig.value!.chainId))
+        earnVaults.value = earnRes.data
       }
 
       Object.assign(vaults, vaultsRes.data)
