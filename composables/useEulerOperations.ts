@@ -23,6 +23,18 @@ export const useEulerOperations = () => {
   const { map } = useVaults()
 
   const rpcProvider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const resolvePermit2Address = (vaultAddr?: Address): Address | undefined => {
+    const fallback = eulerCoreAddresses.value?.permit2 as Address | undefined
+    if (!vaultAddr) {
+      return fallback && fallback !== ethers.ZeroAddress ? fallback : undefined
+    }
+
+    const vault = map.value.get(ethers.getAddress(vaultAddr))
+    const vaultPermit2 = vault?.permit2 as Address | undefined
+    const resolved = vaultPermit2 && vaultPermit2 !== ethers.ZeroAddress ? vaultPermit2 : fallback
+
+    return resolved && resolved !== ethers.ZeroAddress ? resolved : undefined
+  }
 
   const checkAllowance = async (assetAddress: Address, spenderAddress: Address, userAddress: Address): Promise<bigint> => {
     const contract = new ethers.Contract(assetAddress, erc20ABI, rpcProvider)
@@ -40,23 +52,13 @@ export const useEulerOperations = () => {
   const nowInSeconds = () => BigInt(Math.floor(Date.now() / 1000))
   const PERMIT2_SIG_WINDOW = 60n * 60n * 24n * 180n
 
-  const isSmartContractWallet = async (userAddress: Address) => {
-    try {
-      const code = await rpcProvider.getCode(userAddress)
-      return code !== '0x'
-    }
-    catch (err) {
-      console.warn('[permit2] failed to check wallet code', err)
-      return false
-    }
-  }
-
-  const getPermit2Allowance = async (token: Address, spender: Address, owner: Address) => {
-    if (!eulerCoreAddresses.value?.permit2) {
+  const getPermit2Allowance = async (token: Address, spender: Address, owner: Address, permit2Address?: Address) => {
+    const resolvedPermit2 = permit2Address ?? resolvePermit2Address()
+    if (!resolvedPermit2) {
       return { amount: 0n, expiration: 0n, nonce: 0n }
     }
 
-    const contract = new ethers.Contract(eulerCoreAddresses.value.permit2, permit2Abi, rpcProvider)
+    const contract = new ethers.Contract(resolvedPermit2, permit2Abi, rpcProvider)
     try {
       const result = await contract.allowance(owner, token, spender)
       const amount = (result.amount ?? result[0] ?? 0n) as bigint
@@ -65,8 +67,7 @@ export const useEulerOperations = () => {
 
       return { amount, expiration, nonce }
     }
-    catch (err) {
-      console.warn('[permit2] allowance lookup failed', err)
+    catch {
       return { amount: 0n, expiration: 0n, nonce: 0n }
     }
   }
@@ -87,13 +88,13 @@ export const useEulerOperations = () => {
     await rpcProvider.waitForTransaction(approvalHash)
   }
 
-  const buildPermit2Call = async (token: Address, spender: Address, requiredAmount: bigint, owner: Address): Promise<EVCCall | undefined> => {
-    if (!chainId.value || !eulerCoreAddresses.value?.permit2) {
+  const buildPermit2Call = async (token: Address, spender: Address, requiredAmount: bigint, owner: Address, permit2Address?: Address): Promise<EVCCall | undefined> => {
+    const resolvedPermit2 = permit2Address ?? resolvePermit2Address()
+    if (!chainId.value || !resolvedPermit2) {
       return undefined
     }
 
-    const permit2Address = eulerCoreAddresses.value.permit2 as Address
-    const allowance = await getPermit2Allowance(token, spender, owner)
+    const allowance = await getPermit2Allowance(token, spender, owner, resolvedPermit2)
     const currentTime = nowInSeconds()
 
     if (allowance.amount >= requiredAmount && allowance.expiration > currentTime) {
@@ -115,7 +116,7 @@ export const useEulerOperations = () => {
       domain: {
         name: 'Permit2',
         chainId: chainId.value,
-        verifyingContract: permit2Address,
+        verifyingContract: resolvedPermit2,
       },
       types: PERMIT2_TYPES,
       primaryType: 'PermitSingle',
@@ -129,7 +130,7 @@ export const useEulerOperations = () => {
     })
 
     return {
-      targetContract: permit2Address,
+      targetContract: resolvedPermit2,
       onBehalfOfAccount: owner,
       value: 0n,
       data,
@@ -215,17 +216,19 @@ export const useEulerOperations = () => {
 
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
-    const permit2Address = eulerCoreAddresses.value.permit2 as Address
+    const permit2Address = resolvePermit2Address(vaultAddr)
     const includePermit2Call = options.includePermit2Call ?? true
-    const canUsePermit2 = includePermit2Call && !!chainId.value && !(await isSmartContractWallet(userAddr))
+    const canUsePermit2 = includePermit2Call && !!chainId.value && !!permit2Address
 
     const steps: TxStep[] = []
 
     let permitCall: EVCCall | undefined
+    const usesPermit2 = canUsePermit2 && allowance < amount
 
-    if (canUsePermit2 && allowance < amount && permit2Address) {
+    if (usesPermit2 && permit2Address) {
       const permit2Allowance = await checkAllowance(assetAddr, permit2Address, userAddr)
-      if (permit2Allowance < amount) {
+      const needsPermit2Approval = permit2Allowance < amount
+      if (needsPermit2Approval) {
         steps.push({
           type: 'permit2-approve',
           label: 'Approve token for Permit2',
@@ -237,7 +240,9 @@ export const useEulerOperations = () => {
         })
       }
 
-      permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr)
+      if (!needsPermit2Approval) {
+        permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
+      }
     }
     else if (allowance < amount) {
       steps.push({
@@ -291,7 +296,7 @@ export const useEulerOperations = () => {
 
     steps.push({
       type: 'evc-batch',
-      label: permitCall ? 'Permit2 supply via EVC' : 'Supply via EVC',
+      label: usesPermit2 ? 'Permit2 supply via EVC' : 'Supply via EVC',
       to: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
@@ -449,6 +454,7 @@ export const useEulerOperations = () => {
     borrowVaultAddress: string,
     borrowAmount: bigint,
     subAccount?: string,
+    options: { includePermit2Call?: boolean } = {},
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -460,16 +466,47 @@ export const useEulerOperations = () => {
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const permit2Address = resolvePermit2Address(vaultAddr)
 
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
 
     const hasSigned = await hasSignature(userAddr)
+    const requirePermit2 = true
 
     const steps: TxStep[] = []
 
+    let permitCall: EVCCall | undefined
+    let usesPermit2 = false
+
     if (amount > 0n) {
       const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
-      if (allowance < amount) {
+      const includePermit2Call = options.includePermit2Call ?? true
+      const canUsePermit2 = includePermit2Call && !!chainId.value && !!permit2Address
+      usesPermit2 = canUsePermit2 && allowance < amount
+
+      if (usesPermit2 && permit2Address) {
+        const permit2Allowance = await checkAllowance(assetAddr, permit2Address, userAddr)
+        const needsPermit2Approval = permit2Allowance < amount
+        if (needsPermit2Approval) {
+          steps.push({
+            type: 'permit2-approve',
+            label: 'Approve token for Permit2',
+            to: assetAddr,
+            abi: erc20ABI as Abi,
+            functionName: 'approve',
+            args: [permit2Address, maxUint256] as const,
+            value: 0n,
+          })
+        }
+
+        if (!needsPermit2Approval) {
+          permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
+        }
+      }
+      else if (allowance < amount) {
+        if (requirePermit2) {
+          throw new Error('Permit2 required for borrow')
+        }
         steps.push({
           type: 'approve',
           label: 'Approve asset for vault',
@@ -514,6 +551,10 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
+    if (permitCall) {
+      evcCalls.unshift(permitCall)
+    }
+
     const depositCall = {
       targetContract: vaultAddr,
       onBehalfOfAccount: userAddr,
@@ -553,7 +594,7 @@ export const useEulerOperations = () => {
 
     steps.push({
       type: 'evc-batch',
-      label: 'Borrow via EVC',
+      label: usesPermit2 ? 'Permit2 borrow via EVC' : 'Borrow via EVC',
       to: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
@@ -684,13 +725,36 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const permit2Address = resolvePermit2Address(borrowVaultAddr)
 
     const hasSigned = await hasSignature(userAddr)
 
     const steps: TxStep[] = []
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
+    const canUsePermit2 = !!chainId.value && !!permit2Address
+    let permitCall: EVCCall | undefined
+    const usesPermit2 = canUsePermit2 && allowance < amount
 
-    if (allowance < amount) {
+    if (usesPermit2 && permit2Address) {
+      const permit2Allowance = await checkAllowance(borrowAssetAddr, permit2Address, userAddr)
+      const needsPermit2Approval = permit2Allowance < amount
+      if (needsPermit2Approval) {
+        steps.push({
+          type: 'permit2-approve',
+          label: 'Approve token for Permit2',
+          to: borrowAssetAddr,
+          abi: erc20ABI as Abi,
+          functionName: 'approve',
+          args: [permit2Address, maxUint256] as const,
+          value: 0n,
+        })
+      }
+
+      if (!needsPermit2Approval) {
+        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
+      }
+    }
+    else if (allowance < amount) {
       steps.push({
         type: 'approve',
         label: 'Approve asset for vault',
@@ -729,9 +793,13 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
+    if (permitCall) {
+      evcCalls.unshift(permitCall)
+    }
+
     steps.push({
       type: 'evc-batch',
-      label: 'Repay via EVC',
+      label: usesPermit2 ? 'Permit2 repay via EVC' : 'Repay via EVC',
       to: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
@@ -763,12 +831,35 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const permit2Address = resolvePermit2Address(borrowVaultAddr)
 
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
+    const canUsePermit2 = !!chainId.value && !!permit2Address
+    let permitCall: EVCCall | undefined
+    const usesPermit2 = canUsePermit2 && allowance < amount
 
     const steps: TxStep[] = []
-    if (allowance < amount) {
+    if (usesPermit2 && permit2Address) {
+      const permit2Allowance = await checkAllowance(borrowAssetAddr, permit2Address, userAddr)
+      const needsPermit2Approval = permit2Allowance < amount
+      if (needsPermit2Approval) {
+        steps.push({
+          type: 'permit2-approve',
+          label: 'Approve token for Permit2',
+          to: borrowAssetAddr,
+          abi: erc20ABI as Abi,
+          functionName: 'approve',
+          args: [permit2Address, maxUint256] as const,
+          value: 0n,
+        })
+      }
+
+      if (!needsPermit2Approval) {
+        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
+      }
+    }
+    else if (allowance < amount) {
       steps.push({
         type: 'approve',
         label: 'Approve asset for vault',
@@ -820,6 +911,10 @@ export const useEulerOperations = () => {
       evcCalls.push(tosCall)
     }
 
+    if (permitCall) {
+      evcCalls.push(permitCall)
+    }
+
     const repayCall = {
       targetContract: borrowVaultAddr,
       onBehalfOfAccount: userAddr,
@@ -859,7 +954,7 @@ export const useEulerOperations = () => {
 
     steps.push({
       type: 'evc-batch',
-      label: 'Repay via EVC',
+      label: usesPermit2 ? 'Permit2 full repay via EVC' : 'Repay via EVC',
       to: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
@@ -946,12 +1041,12 @@ export const useEulerOperations = () => {
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const permit2Address = eulerCoreAddresses.value.permit2 as Address
+    const permit2Address = resolvePermit2Address(vaultAddr)
     const depositToAddr = subAccount ? (subAccount as Address) : userAddr
 
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
-    const canUsePermit2 = !!chainId.value && !(await isSmartContractWallet(userAddr))
+    const canUsePermit2 = !!chainId.value && !!permit2Address
 
     let permitCall: EVCCall | undefined
     let usingPermit2 = false
@@ -959,12 +1054,11 @@ export const useEulerOperations = () => {
     if (canUsePermit2 && allowance < amount && permit2Address) {
       try {
         await ensurePermit2TokenApproval(assetAddr, amount, userAddr, permit2Address)
-        permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr)
+        permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
         usingPermit2 = true
       }
-      catch (err) {
+      catch {
         usingPermit2 = false
-        console.warn('[permit2] falling back to standard approval', err)
       }
     }
 
@@ -1195,8 +1289,9 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
 
     const hasSigned = await hasSignature(userAddr)
-    const permit2Address = eulerCoreAddresses.value.permit2 as Address
-    const canUsePermit2 = !!chainId.value && !(await isSmartContractWallet(userAddr))
+    const requirePermit2 = true
+    const permit2Address = resolvePermit2Address(vaultAddr)
+    const canUsePermit2 = !!chainId.value && !!permit2Address
     let permitCall: EVCCall | undefined
 
     if (amount > 0n) {
@@ -1206,18 +1301,20 @@ export const useEulerOperations = () => {
       if (canUsePermit2 && allowance < amount && permit2Address) {
         try {
           await ensurePermit2TokenApproval(assetAddr, amount, userAddr, permit2Address)
-          permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr)
+          permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
           usingPermit2 = true
         }
-        catch (err) {
+        catch {
           usingPermit2 = false
-          console.warn('[permit2] borrow flow falling back to standard approval', err)
         }
       }
 
       const needsApproval = !usingPermit2 && allowance < amount
 
       if (needsApproval) {
+        if (requirePermit2) {
+          throw new Error('Permit2 required for borrow')
+        }
         const approvalHash = await writeContractAsync({
           address: assetAddr,
           abi: erc20ABI,
@@ -1434,12 +1531,12 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const permit2Address = eulerCoreAddresses.value.permit2 as Address
+    const permit2Address = resolvePermit2Address(borrowVaultAddr)
 
     const hasSigned = await hasSignature(userAddr)
 
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
-    const canUsePermit2 = !!chainId.value && !(await isSmartContractWallet(userAddr))
+    const canUsePermit2 = !!chainId.value && !!permit2Address
 
     let permitCall: EVCCall | undefined
     let usingPermit2 = false
@@ -1447,12 +1544,11 @@ export const useEulerOperations = () => {
     if (canUsePermit2 && allowance < amount && permit2Address) {
       try {
         await ensurePermit2TokenApproval(borrowAssetAddr, amount, userAddr, permit2Address)
-        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr)
+        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
         usingPermit2 = true
       }
-      catch (err) {
+      catch {
         usingPermit2 = false
-        console.warn('[permit2] repay flow falling back to standard approval', err)
       }
     }
 
@@ -1529,11 +1625,11 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const permit2Address = eulerCoreAddresses.value.permit2 as Address
+    const permit2Address = resolvePermit2Address(borrowVaultAddr)
 
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
-    const canUsePermit2 = !!chainId.value && !(await isSmartContractWallet(userAddr))
+    const canUsePermit2 = !!chainId.value && !!permit2Address
 
     let permitCall: EVCCall | undefined
     let usingPermit2 = false
@@ -1541,12 +1637,11 @@ export const useEulerOperations = () => {
     if (canUsePermit2 && allowance < amount && permit2Address) {
       try {
         await ensurePermit2TokenApproval(borrowAssetAddr, amount, userAddr, permit2Address)
-        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr)
+        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
         usingPermit2 = true
       }
-      catch (err) {
+      catch {
         usingPermit2 = false
-        console.warn('[permit2] full repay flow falling back to standard approval', err)
       }
     }
 
