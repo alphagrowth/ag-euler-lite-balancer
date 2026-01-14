@@ -117,6 +117,22 @@ const netAPY = computed(() => {
         </div>
         <div class="flex justify-between">
           <div class="text-euler-dark-900 text-p3">
+            Collateral value
+          </div>
+          <div class="flex justify-between gap-8 text-right">
+            <div class="text-white text-p3">
+              ${{ formatNumber(getVaultPrice(
+                nanoToValue(position.supplied, position.collateral.decimals), position.collateral,
+              )) }}
+            </div>
+            <div class="text-euler-dark-900 text-p3">
+              ~ {{ roundAndCompactTokens(position.supplied, position.collateral.decimals) }}
+              {{ position.collateral.asset.symbol }}
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between">
+          <div class="text-euler-dark-900 text-p3">
             Net APY
           </div>
           <div
