@@ -110,6 +110,7 @@ const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
   collateralVault.value?.asset.symbol,
 ))
+const collateralSupplyApyWithRewards = computed(() => collateralSupplyApy.value + (opportunityInfoForCollateral.value?.apr || 0))
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
@@ -124,6 +125,7 @@ const collateralOptions = computed(() => {
       type: 'wallet',
       amount: nanoToValue(balance.value, collateralVault.value?.asset.decimals),
       price: getVaultPrice(nanoToValue(balance.value, collateralVault.value?.asset.decimals) || 0, collateralVault.value!),
+      apy: collateralSupplyApyWithRewards.value,
     },
   ]
 
@@ -132,6 +134,7 @@ const collateralOptions = computed(() => {
       type: 'saving',
       amount: nanoToValue(savingCollateral.value.assets, collateralVault.value?.asset.decimals),
       price: getVaultPrice(nanoToValue(savingCollateral.value.assets, collateralVault.value?.asset.decimals) || 0, collateralVault.value!),
+      apy: collateralSupplyApyWithRewards.value,
     })
   }
   return options

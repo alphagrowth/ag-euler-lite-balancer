@@ -176,6 +176,7 @@ export interface CollateralOption {
   type: string
   amount: number
   price: number
+  apy?: number
   label?: string
   symbol?: string
   vaultAddress?: string

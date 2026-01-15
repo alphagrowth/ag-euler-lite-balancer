@@ -3,7 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal } from '#components'
-import { type BorrowVaultPair, type Vault } from '~/entities/vault'
+import { type Vault, getVaultPrice } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapApi } from '~/composables/useSwapApi'
@@ -11,6 +11,8 @@ import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
+import { useMerkl } from '~/composables/useMerkl'
+import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +23,8 @@ const { getSwapQuotes, logSwapFailure } = useSwapApi()
 const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
+const { getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -28,7 +32,6 @@ const plan = ref<TxPlan | null>(null)
 const fromAmount = ref('')
 const toAmount = ref('')
 const slippage = ref(0.5)
-const tab = ref()
 const quotes = ref<SwapApiQuote[]>([])
 const isQuoteLoading = ref(false)
 const quoteError = ref<string | null>(null)
@@ -109,19 +112,6 @@ watch([collateralVaults, fromVault], () => {
   syncToVault()
 }, { immediate: true })
 
-const pair = computed<BorrowVaultPair | undefined>(() => {
-  if (!fromVault.value || !toVault.value) {
-    return undefined
-  }
-  return {
-    collateral: fromVault.value,
-    borrow: toVault.value,
-    borrowLTV: 0n,
-    liquidationLTV: 0n,
-    initialLiquidationLTV: 0n,
-  }
-})
-
 const quote = computed(() => quotes.value[0] || null)
 
 const resetQuoteState = () => {
@@ -136,18 +126,6 @@ const resetQuoteState = () => {
   isQuoteLoading.value = false
 }
 
-const quoteRate = computed(() => {
-  if (!quote.value || !fromVault.value || !toVault.value) {
-    return null
-  }
-  const amountIn = Number(ethers.formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.decimals)))
-  const amountOut = Number(ethers.formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.decimals)))
-  if (!amountIn || !amountOut) {
-    return null
-  }
-  return amountOut / amountIn
-})
-
 const savingPosition = computed(() => {
   if (!fromVault.value) {
     return null
@@ -161,6 +139,77 @@ const savingPosition = computed(() => {
 
 const balance = computed(() => {
   return savingPosition.value?.assets || 0n
+})
+
+const fromOpportunity = computed(() => {
+  return fromVault.value ? getOpportunityOfLendVault(fromVault.value.address) : null
+})
+const toOpportunity = computed(() => {
+  return toVault.value ? getOpportunityOfLendVault(toVault.value.address) : null
+})
+const fromSupplyApy = computed(() => {
+  if (!fromVault.value) {
+    return null
+  }
+  const base = nanoToValue(fromVault.value.interestRateInfo.supplyAPY || 0n, 25)
+  return withIntrinsicSupplyApy(base, fromVault.value.asset.symbol) + (fromOpportunity.value?.apr || 0)
+})
+const toSupplyApy = computed(() => {
+  if (!toVault.value) {
+    return null
+  }
+  const base = nanoToValue(toVault.value.interestRateInfo.supplyAPY || 0n, 25)
+  return withIntrinsicSupplyApy(base, toVault.value.asset.symbol) + (toOpportunity.value?.apr || 0)
+})
+
+const currentPrice = computed(() => {
+  if (!quote.value || !fromVault.value || !toVault.value) {
+    return null
+  }
+  const amountIn = Number(ethers.formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.asset.decimals)))
+  const amountOut = Number(ethers.formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals)))
+  if (!amountIn || !amountOut) {
+    return null
+  }
+  return {
+    value: amountIn / amountOut,
+    symbol: `${fromVault.value.asset.symbol}/${toVault.value.asset.symbol}`,
+  }
+})
+
+const swapSummary = computed(() => {
+  if (!quote.value || !fromVault.value || !toVault.value) {
+    return null
+  }
+  const amountIn = ethers.formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.asset.decimals))
+  const amountOut = ethers.formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals))
+  return {
+    from: `${formatNumber(amountIn)} ${fromVault.value.asset.symbol}`,
+    to: `${formatNumber(amountOut)} ${toVault.value.asset.symbol}`,
+  }
+})
+
+const priceImpact = computed(() => {
+  if (!quote.value || !fromVault.value || !toVault.value) {
+    return null
+  }
+  const amountInUsd = getVaultPrice(BigInt(quote.value.amountIn), fromVault.value)
+  const amountOutUsd = getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
+  if (!amountInUsd || !amountOutUsd) {
+    return null
+  }
+  const impact = (amountOutUsd / amountInUsd - 1) * 100
+  if (!Number.isFinite(impact)) {
+    return null
+  }
+  return impact
+})
+
+const routedVia = computed(() => {
+  if (!quote.value?.route?.length) {
+    return null
+  }
+  return quote.value.route.map(route => route.providerName).join(', ')
 })
 
 const errorText = computed(() => {
@@ -182,36 +231,6 @@ const isSubmitDisabled = computed(() => {
     || balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)
     || !(+fromAmount.value)
     || !toAmount.value
-})
-
-const minReceived = computed(() => {
-  if (quote.value && toVault.value) {
-    return Number(ethers.formatUnits(BigInt(quote.value.amountOutMin), Number(toVault.value.decimals)))
-  }
-  return null
-})
-
-const tabs = computed(() => {
-  if (!pair.value) {
-    return []
-  }
-  return [
-    {
-      label: 'Pair details',
-      value: undefined,
-      avatars: [getAssetLogoUrl(pair.value.collateral.asset.symbol), getAssetLogoUrl(pair.value.borrow.asset.symbol)],
-    },
-    {
-      label: pair.value.collateral.asset.symbol,
-      value: 'collateral',
-      avatars: [getAssetLogoUrl(pair.value.collateral.asset.symbol)],
-    },
-    {
-      label: pair.value.borrow.asset.symbol,
-      value: 'borrow',
-      avatars: [getAssetLogoUrl(pair.value.borrow.asset.symbol)],
-    },
-  ]
 })
 
 const onFromInput = async () => {
@@ -402,152 +421,133 @@ const send = async () => {
       @submit.prevent="submit"
     >
       <template v-if="fromVault && toVault">
+        <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
+          <div class="flex flex-col gap-16 w-full">
+            <AssetInput
+              v-model="fromAmount"
+              :desc="fromProduct.name"
+              label="From"
+              :asset="fromVault.asset"
+              :vault="fromVault"
+              :balance="balance"
+              maxable
+              @input="onFromInput"
+            />
 
-        <AssetInput
-          v-model="fromAmount"
-          :desc="fromProduct.name"
-          label="From"
-          :asset="fromVault.asset"
-          :vault="fromVault"
-          :balance="balance"
-          maxable
-          @input="onFromInput"
-        />
+            <UiRange
+              v-model="slippage"
+              label="Slippage tolerance"
+              :step="0.1"
+              :max="5"
+              :number-filter="(n: number) => `${n}%`"
+            />
 
-        <UiRange
-          v-model="slippage"
-          label="Slippage tolerance"
-          :step="0.1"
-          :max="5"
-          :number-filter="(n: number) => `${n}%`"
-        />
+            <AssetInput
+              v-model="toAmount"
+              :desc="toProduct.name"
+              label="To"
+              :asset="toVault.asset"
+              :vault="toVault"
+              :collateral-options="collateralOptions"
+              :readonly="true"
+              @change-collateral="onToVaultChange"
+            />
 
-        <AssetInput
-          v-model="toAmount"
-          :desc="toProduct.name"
-          label="To"
-          :asset="toVault.asset"
-          :vault="toVault"
-          :collateral-options="collateralOptions"
-          :readonly="true"
-          @change-collateral="onToVaultChange"
-        />
+            <UiToast
+              v-show="errorText"
+              title="Error"
+              variant="error"
+              :description="errorText || ''"
+              size="compact"
+            />
 
-        <UiToast
-          v-show="errorText"
-          title="Error"
-          variant="error"
-          :description="errorText || ''"
-          size="compact"
-        />
+            <UiToast
+              v-if="quoteError"
+              title="Swap quote"
+              variant="warning"
+              :description="quoteError"
+              size="compact"
+            />
+          </div>
 
-        <UiToast
-          v-if="quoteError"
-          title="Swap quote"
-          variant="warning"
-          :description="quoteError"
-          size="compact"
-        />
-
-        <VaultFormInfoBlock
-          :loading="isQuoteLoading"
-          class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
-        >
-          <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
-              Rate
-            </p>
-            <p class="text-p2">
-              {{ quoteRate !== null ? formatNumber(quoteRate) : '-' }}
-              <span class="text-euler-dark-900 text-p3">
-                {{ fromVault.asset.symbol }}/{{ toVault.asset.symbol }}
-              </span>
+          <VaultFormInfoBlock
+            :loading="isQuoteLoading"
+            class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px]"
+          >
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                {{ fromVault.asset.symbol || 'Token1' }} supply APY
+              </p>
+              <p class="text-p2">
+                {{ fromSupplyApy !== null ? `${formatNumber(fromSupplyApy)}%` : '-' }}
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                {{ toVault.asset.symbol || 'Token2' }} supply APY
+              </p>
+              <p class="text-p2">
+                {{ toSupplyApy !== null ? `${formatNumber(toSupplyApy)}%` : '-' }}
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Current price
+              </p>
+              <p class="text-p2">
+                {{ currentPrice ? `${formatNumber(currentPrice.value)} ${currentPrice.symbol}` : '-' }}
+              </p>
+            </div>
+            <div class="flex justify-between items-start">
+              <p class="text-euler-dark-900">
+                Swap
+              </p>
+              <p class="text-p2 text-right flex flex-col items-end">
+                <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
+                <span
+                  v-if="swapSummary"
+                  class="text-euler-dark-900 text-p3"
+                >
+                  {{ swapSummary.to }}
+                </span>
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Price impact
+              </p>
+              <p class="text-p2">
+                {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Slippage tolerance
+              </p>
+              <p class="text-p2">
+                {{ formatNumber(slippage, 2, 0) }}%
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Routed via
+              </p>
+              <p class="text-p2 text-right">
+              {{ routedVia || '-' }}
             </p>
           </div>
-          <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
-              Estimated received
-            </p>
-            <p class="text-p2">
-              {{ toAmount ? formatNumber(toAmount) : '-' }}
-              <span class="text-euler-dark-900 text-p3">
-                {{ toVault.asset.symbol }}
-              </span>
-            </p>
-          </div>
-          <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
-              Minimum received
-            </p>
-            <p class="text-p2">
-              {{ minReceived ? formatNumber(minReceived) : '-' }}
-              <span class="text-euler-dark-900 text-p3">
-                {{ toVault.asset.symbol }}
-              </span>
-            </p>
-          </div>
-          <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
-              Slippage tolerance
-            </p>
-            <p class="text-p2">
-              {{ formatNumber(slippage, 2, 0) }}%
-            </p>
-          </div>
-        </VaultFormInfoBlock>
-      </template>
+          </VaultFormInfoBlock>
 
-      <template #buttons>
-        <VaultFormInfoButton
-          :pair="pair"
-          class="laptop:!hidden"
-        />
-        <VaultFormSubmit
-          :disabled="isSubmitDisabled"
-          :loading="isSubmitting"
-        >
-          Review Swap
-        </VaultFormSubmit>
+          <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
+            <VaultFormSubmit
+              :disabled="isSubmitDisabled"
+              :loading="isSubmitting"
+            >
+              Review Swap
+            </VaultFormSubmit>
+          </div>
+        </div>
       </template>
     </VaultForm>
-    <div
-      v-if="pair"
-      class="w-full mobile:hidden"
-    >
-      <UiTabs
-        v-if="tabs.length"
-        v-model="tab"
-        class="mb-12"
-        :list="tabs"
-      >
-        <template #default="{ tab: slotTab }">
-          <div class="flex items-center gap-8">
-            <BaseAvatar :src="slotTab.avatars as string[]" />
-            {{ slotTab.label }}
-          </div>
-        </template>
-      </UiTabs>
-      <Transition
-        name="page"
-        mode="out-in"
-      >
-        <VaultOverviewPair
-          v-if="!tab"
-          :pair="pair"
-          style="flex-grow: 1"
-          desktop-overview
-        />
-        <VaultOverview
-          v-else-if="tab === 'collateral'"
-          :vault="pair.collateral"
-          desktop-overview
-        />
-        <VaultOverview
-          v-else-if="tab === 'borrow'"
-          :vault="pair.borrow"
-          desktop-overview
-        />
-      </Transition>
-    </div>
   </div>
 </template>

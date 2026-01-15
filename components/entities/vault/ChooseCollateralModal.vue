@@ -22,7 +22,7 @@ const handleClose = () => {
 
 <template>
   <BaseModalWrapper
-    title="Accepted collateral"
+    title="Select collateral"
     @close="handleClose"
   >
     <div
@@ -30,13 +30,15 @@ const handleClose = () => {
       :key="`options-${idx}`"
       class="flex items-center py-12 px-16 cursor-pointer rounded-16"
       :class="[selectedIdx === idx ? 'bg-euler-dark-600' : '']"
-      @click="selectedIdx = idx"
+      @click="
+        selectedIdx = idx;onSave(idx)
+      "
     >
       <BaseAvatar
         :src="getAssetLogoUrl(getOptionSymbol(option))"
         class="icon--36 mr-10"
       />
-      <div class="grow-1">
+      <div class="flex-grow">
         <div class="text-euler-dark-900 mb-2">
           {{ getOptionLabel(option) }}
         </div>
@@ -56,22 +58,14 @@ const handleClose = () => {
           </div>
         </div>
       </div>
-      <div class="text-right">
-        <div class="text-h5">
-          ${{ compactNumber(option.price, 2) }}
+      <div class="text-right grow-1">
+        <div class="text-euler-dark-900 mb-2">
+          APY
         </div>
-        <div class="text-euler-dark-900">
-          {{ option.amount }} {{ getOptionSymbol(option) }}
+        <div class="text-h5">
+          {{ option.apy !== undefined ? `${formatNumber(option.apy)}%` : '-' }}
         </div>
       </div>
     </div>
-    <UiButton
-      class="w-full mt-12"
-      size="large"
-      type="submit"
-      @click="onSave(selectedIdx)"
-    >
-      Save Changes
-    </UiButton>
   </BaseModalWrapper>
 </template>

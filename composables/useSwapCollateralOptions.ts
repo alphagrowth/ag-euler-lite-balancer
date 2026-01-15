@@ -1,6 +1,8 @@
 import { ethers } from 'ethers'
 import type { Address } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
+import { useMerkl } from '~/composables/useMerkl'
+import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { type CollateralOption, getVaultPrice, type Vault } from '~/entities/vault'
 
 export const useSwapCollateralOptions = ({
@@ -12,6 +14,8 @@ export const useSwapCollateralOptions = ({
 }) => {
   const { list, map, escrowMap } = useVaults()
   const { getBalance } = useWallets()
+  const { getOpportunityOfLendVault } = useMerkl()
+  const { withIntrinsicSupplyApy } = useIntrinsicApy()
 
   const resolveVault = (address: string) => {
     const normalized = ethers.getAddress(address)
@@ -57,11 +61,15 @@ export const useSwapCollateralOptions = ({
       const balance = getBalance(vault.asset.address as Address)
       const amount = nanoToValue(balance, vault.asset.decimals)
       const product = getProductByVault(vault.address)
+      const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
+      const opportunity = getOpportunityOfLendVault(vault.address)
+      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
 
       return {
         type: 'vault',
         amount,
         price: getVaultPrice(amount, vault),
+        apy,
         symbol: vault.asset.symbol,
         label: product.name || vault.name,
         vaultAddress: vault.address,
