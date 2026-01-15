@@ -372,21 +372,8 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
 
     // Check if price query failed
     if (priceData.queryFailure || !priceData.amountOutMid || priceData.amountOutMid === 0n) {
-      // Fallback: For stablecoins, assume $1 parity
-      const stablecoins = ['USD', 'USDC', 'USDT', 'DAI', 'FRAX', 'LUSD', 'GUSD', 'USDP', 'TUSD', 'BUSD', 'SUSD']
-      const isStablecoin = stablecoins.some(stable =>
-        data.assetSymbol?.toUpperCase().includes(stable),
-      )
-
-      if (isStablecoin) {
-        assetPriceInfo = {
-          amountOutMid: ethers.parseUnits('1', 18),
-        }
-      }
-      else {
-        console.warn(`No price available for asset ${data.asset} (${data.assetSymbol})`)
-        assetPriceInfo = undefined
-      }
+      console.warn(`No price available for asset ${data.asset} (${data.assetSymbol})`)
+      assetPriceInfo = undefined
     }
     else {
       assetPriceInfo = {
