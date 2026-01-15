@@ -220,10 +220,6 @@ const updateEstimates = useDebounceFn(async () => {
     estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
       ? 0n
       : FixedNumber.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
-
-    if (userLtvFixed.gte(FixedNumber.fromValue(position.value!.liquidationLTV, 2))) {
-      throw new Error('Not enough liquidity for the vault, LTV is too large')
-    }
   }
   catch (e: unknown) {
     console.warn(e)
