@@ -44,8 +44,8 @@ const setMax = () => {
     inputEl.value.value = model.value || ''
   }
 }
-const onInput = (e: Event) => {
-  if (readonly) {
+const onInput = (e: InputEvent) => {
+  if (readonly || e.data === '-') {
     (e.target as HTMLInputElement).value = String(model.value ?? '')
     return
   }
