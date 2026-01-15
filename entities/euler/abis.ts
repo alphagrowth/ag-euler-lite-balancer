@@ -1047,6 +1047,81 @@ export const eulerAccountLensABI = [
     stateMutability: 'view',
   },
 ]
+
+export const swapperAbi = [
+  {
+    type: 'function',
+    name: 'multicall',
+    inputs: [
+      {
+        name: 'calls',
+        type: 'bytes[]',
+        internalType: 'bytes[]',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+]
+
+export const swapVerifierAbi = [
+  {
+    type: 'function',
+    name: 'verifyAmountMinAndSkim',
+    inputs: [
+      {
+        name: 'vault',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'receiver',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'amountMin',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'deadline',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'verifyDebtMax',
+    inputs: [
+      {
+        name: 'vault',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'account',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'amountMax',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'deadline',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'view',
+  },
+]
 export const eulerUtilsLensABI = [
   {
     type: 'constructor',

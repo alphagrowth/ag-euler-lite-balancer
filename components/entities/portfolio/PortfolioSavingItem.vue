@@ -113,7 +113,7 @@ const onClick = () => {
           </div>
         </div>
         <div
-          class="flex justify-between items-center gap-8"
+          class="flex flex-wrap items-center gap-8"
           @click.stop
         >
           <UiButton
@@ -128,6 +128,13 @@ const onClick = () => {
             rounded
           >
             Withdraw
+          </UiButton>
+          <UiButton
+            variant="primary-stroke"
+            :to="`/lend/${vault.address}/swap`"
+            rounded
+          >
+            Asset swap
           </UiButton>
         </div>
       </div>

@@ -5,11 +5,12 @@ import { ethers } from 'ethers'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { convertSaHooksToEVCCalls, EVC_ABI, type EVCCall } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
-import { erc20ABI } from '~/entities/euler/abis'
+import { erc20ABI, swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
 import { buildPythUpdateCalls, sumCallValues } from '~/utils/pyth'
 import { useVaults } from '~/composables/useVaults'
 import { MAX_UINT48, MAX_UINT160, PERMIT2_TYPES, permit2Abi } from '~/entities/permit2'
+import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
 
 const FINAL_MESSAGE = 'By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: https://www.euler.finance/terms  hash:0x1a7aa1916b6c56272b62be027108c06d9af95eef4dac46acbc80267b3919e07e'
 const FINAL_HASH = '0xb0d552b4ebe441d9582f5fc732fd6026b09bec13e7f3c1e21c0ecaa3801df595'
@@ -170,6 +171,166 @@ export const useEulerOperations = () => {
       console.error('Error checking ToS signature:', e)
       return false
     }
+  }
+
+  const getSwapWithdrawAmount = (quote: SwapApiQuote) => {
+    const amountIn = BigInt(quote.amountIn || 0)
+    const amountInMax = BigInt(quote.amountInMax || 0)
+    if (amountInMax > 0n) {
+      return amountIn < amountInMax ? amountIn : amountInMax
+    }
+    return amountIn
+  }
+
+  const buildSwapVerifierData = ({
+    quote,
+    swapperMode,
+    isRepay,
+    targetDebt = 0n,
+    currentDebt = 0n,
+  }: {
+    quote: SwapApiQuote
+    swapperMode: SwapperMode
+    isRepay: boolean
+    targetDebt?: bigint
+    currentDebt?: bigint
+  }) => {
+    let functionName: 'verifyAmountMinAndSkim' | 'verifyDebtMax'
+    let amount: bigint
+
+    const adjustForInterest = (debtAmount: bigint) => (debtAmount * 10_001n) / 10_000n
+
+    if (isRepay) {
+      functionName = 'verifyDebtMax'
+      if (swapperMode === SwapperMode.TARGET_DEBT) {
+        amount = targetDebt
+      }
+      else {
+        amount = currentDebt - BigInt(quote.amountOutMin || 0)
+        if (amount < 0n) {
+          amount = 0n
+        }
+        amount = adjustForInterest(amount)
+      }
+    }
+    else {
+      functionName = 'verifyAmountMinAndSkim'
+      amount = BigInt(quote.amountOutMin || 0)
+    }
+
+    return encodeFunctionData({
+      abi: swapVerifierAbi,
+      functionName,
+      args: [
+        quote.verify.vault,
+        quote.verify.account,
+        amount,
+        BigInt(quote.verify.deadline || 0),
+      ],
+    })
+  }
+
+  const buildSwapEvcCalls = async ({
+    quote,
+    swapperMode,
+    isRepay,
+    targetDebt = 0n,
+    currentDebt = 0n,
+  }: {
+    quote: SwapApiQuote
+    swapperMode: SwapperMode
+    isRepay: boolean
+    targetDebt?: bigint
+    currentDebt?: bigint
+  }) => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const hasSigned = await hasSignature(userAddr)
+
+    if (isRepay && quote.verify.type !== SwapVerificationType.DebtMax) {
+      throw new Error('Swap verifier type mismatch')
+    }
+    if (!isRepay && quote.verify.type !== SwapVerificationType.SkimMin) {
+      throw new Error('Swap verifier type mismatch')
+    }
+
+    const withdrawAmount = getSwapWithdrawAmount(quote)
+    if (withdrawAmount <= 0n) {
+      throw new Error('Swap amount is zero')
+    }
+
+    const verifierData = buildSwapVerifierData({
+      quote,
+      swapperMode,
+      isRepay,
+      targetDebt,
+      currentDebt,
+    })
+
+    if (verifierData.toLowerCase() !== quote.verify.verifierData.toLowerCase()) {
+      console.warn('[swap] SwapVerifier data mismatch')
+      throw new Error('SwapVerifier data mismatch')
+    }
+
+    const hooks = new SaHooksBuilder()
+    hooks.addContractInterface(quote.vaultIn, [
+      'function withdraw(uint256,address,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    const evcCalls: EVCCall[] = []
+
+    if (!hasSigned) {
+      evcCalls.push({
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+      })
+    }
+
+    evcCalls.push({
+      targetContract: quote.vaultIn,
+      onBehalfOfAccount: quote.accountIn,
+      value: 0n,
+      data: hooks.getDataForCall(
+        quote.vaultIn,
+        'withdraw',
+        [withdrawAmount, quote.swap.swapperAddress, quote.accountIn],
+      ) as Hash,
+    })
+
+    evcCalls.push({
+      targetContract: quote.swap.swapperAddress,
+      onBehalfOfAccount: quote.accountIn,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: swapperAbi,
+        functionName: 'multicall',
+        args: [quote.swap.multicallItems.map(item => item.data)],
+      }),
+    })
+
+    evcCalls.push({
+      targetContract: quote.verify.verifierAddress,
+      onBehalfOfAccount: quote.verify.account,
+      value: 0n,
+      data: verifierData,
+    })
+
+    const totalValue = sumCallValues(evcCalls)
+
+    return { evcCalls, evcAddress, totalValue }
   }
 
   const executeTxPlan = async (plan: TxPlan) => {
@@ -968,6 +1129,43 @@ export const useEulerOperations = () => {
     }
   }
 
+  const buildSwapPlan = async ({
+    quote,
+    swapperMode = SwapperMode.EXACT_IN,
+    isRepay = false,
+    targetDebt = 0n,
+    currentDebt = 0n,
+  }: {
+    quote: SwapApiQuote
+    swapperMode?: SwapperMode
+    isRepay?: boolean
+    targetDebt?: bigint
+    currentDebt?: bigint
+  }): Promise<TxPlan> => {
+    const { evcCalls, evcAddress, totalValue } = await buildSwapEvcCalls({
+      quote,
+      swapperMode,
+      isRepay,
+      targetDebt,
+      currentDebt,
+    })
+
+    return {
+      kind: 'swap',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Swap via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls as never],
+          value: totalValue,
+        },
+      ],
+    }
+  }
+
   const buildDisableCollateralPlan = async (
     subAccount: string,
     vaultAddress: string,
@@ -1029,6 +1227,38 @@ export const useEulerOperations = () => {
         },
       ],
     }
+  }
+
+  const swap = async ({
+    quote,
+    swapperMode = SwapperMode.EXACT_IN,
+    isRepay = false,
+    targetDebt = 0n,
+    currentDebt = 0n,
+  }: {
+    quote: SwapApiQuote
+    swapperMode?: SwapperMode
+    isRepay?: boolean
+    targetDebt?: bigint
+    currentDebt?: bigint
+  }) => {
+    const { evcCalls, evcAddress, totalValue } = await buildSwapEvcCalls({
+      quote,
+      swapperMode,
+      isRepay,
+      targetDebt,
+      currentDebt,
+    })
+
+    const swapHash = await writeContractAsync({
+      address: evcAddress,
+      abi: EVC_ABI,
+      functionName: 'batch',
+      args: [evcCalls as never],
+      value: totalValue,
+    })
+
+    return swapHash
   }
 
   const supply = async (vaultAddress: string, assetAddress: string, amount: bigint, _symbol: string, subAccount?: string) => {
@@ -1924,6 +2154,7 @@ export const useEulerOperations = () => {
     borrowBySaving,
     fullRepay,
     disableCollateral,
+    swap,
     executeTxPlan,
     buildSupplyPlan,
     buildWithdrawPlan,
@@ -1932,6 +2163,7 @@ export const useEulerOperations = () => {
     buildBorrowBySavingPlan,
     buildRepayPlan,
     buildFullRepayPlan,
+    buildSwapPlan,
     buildDisableCollateralPlan,
     disableOperator,
   }

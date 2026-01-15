@@ -2,20 +2,29 @@
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
+import { OperationReviewModal } from '#components'
 import { type BorrowVaultPair, type Vault } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapApi } from '~/composables/useSwapApi'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import type { TxPlan } from '~/entities/txPlan'
+import { useModal } from '~/components/ui/composables/useModal'
+import { useToast } from '~/components/ui/composables/useToast'
 
 const route = useRoute()
+const router = useRouter()
 const { getVault } = useVaults()
 const { isConnected, address } = useAccount()
 const { depositPositions } = useEulerAccount()
 const { getSwapQuotes, logSwapFailure } = useSwapApi()
+const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
+const modal = useModal()
+const { error: showError } = useToast()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const plan = ref<TxPlan | null>(null)
 const fromAmount = ref('')
 const toAmount = ref('')
 const slippage = ref(0.5)
@@ -322,12 +331,61 @@ const onToVaultChange = (selectedIndex: number) => {
 }
 
 const submit = async () => {
-  if (isSubmitting.value) {
+  if (isSubmitting.value || !fromVault.value || !quote.value) {
     return
   }
+
+  try {
+    plan.value = await buildSwapPlan({
+      quote: quote.value,
+      swapperMode: SwapperMode.EXACT_IN,
+      isRepay: false,
+      targetDebt: 0n,
+      currentDebt: 0n,
+    })
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+    plan.value = null
+  }
+
+  modal.open(OperationReviewModal, {
+    props: {
+      type: 'swap',
+      asset: fromVault.value.asset,
+      amount: fromAmount.value,
+      plan: plan.value || undefined,
+      onConfirm: () => {
+        setTimeout(() => {
+          send()
+        }, 400)
+      },
+    },
+  })
+}
+
+const send = async () => {
+  if (!fromVault.value || !quote.value) {
+    return
+  }
+
   isSubmitting.value = true
   try {
-    await nextTick()
+    await executeSwap({
+      quote: quote.value,
+      swapperMode: SwapperMode.EXACT_IN,
+      isRepay: false,
+      targetDebt: 0n,
+      currentDebt: 0n,
+    })
+    modal.close()
+    setTimeout(() => {
+      router.replace('/portfolio/saving')
+    }, 400)
+  }
+  catch (e) {
+    showError('Transaction failed')
+    console.warn(e)
   }
   finally {
     isSubmitting.value = false

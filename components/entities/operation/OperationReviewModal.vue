@@ -7,7 +7,7 @@ import type { TxPlan } from '~/entities/txPlan'
 const emits = defineEmits(['close', 'confirm'])
 
 const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount, hasBorrows, fee, plan } = defineProps<{
-  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'reward' | 'brevis-reward' | 'disableCollateral'
+  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'reward' | 'brevis-reward' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
   fee?: number | string
@@ -77,6 +77,8 @@ const btnLabel = computed(() => {
       return 'Supply'
     case 'withdraw':
       return 'Withdraw'
+    case 'swap':
+      return 'Swap'
     default:
       return 'Submit'
   }
@@ -87,6 +89,8 @@ const modalLabel = computed(() => {
       return 'Supply review'
     case 'withdraw':
       return 'Withdraw review'
+    case 'swap':
+      return 'Swap review'
     default:
       return 'Operation review'
   }
@@ -99,6 +103,8 @@ const assetLabel = computed(() => {
       return 'Withdraw'
     case 'borrow':
       return 'Borrowing'
+    case 'swap':
+      return 'Swapping'
     case 'reward':
     case 'brevis-reward':
       return 'Claiming'
