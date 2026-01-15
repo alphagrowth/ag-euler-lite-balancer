@@ -3,37 +3,51 @@ import type { Address } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
 import { type CollateralOption, getVaultPrice, type Vault } from '~/entities/vault'
 
-export const useSwapCollateralOptions = (borrowVault: Ref<Vault | undefined>) => {
-  const { borrowList, escrowMap } = useVaults()
+export const useSwapCollateralOptions = ({
+  currentVault,
+  liabilityVault,
+}: {
+  currentVault: Ref<Vault | undefined>
+  liabilityVault?: Ref<Vault | undefined>
+}) => {
+  const { list, map, escrowMap } = useVaults()
   const { getBalance } = useWallets()
 
+  const resolveVault = (address: string) => {
+    const normalized = ethers.getAddress(address)
+    return map.value.get(normalized) || escrowMap.value.get(normalized)
+  }
+
   const collateralVaults = computed(() => {
-    const baseVault = borrowVault.value
-    if (!baseVault) {
-      return []
+    const current = currentVault.value
+    const currentAddress = current ? ethers.getAddress(current.address) : null
+    const liability = liabilityVault?.value
+
+    let candidates: Vault[] = []
+
+    if (liability) {
+      candidates = liability.collateralLTVs
+        .filter(ltv => ltv.borrowLTV > 0n)
+        .map(ltv => resolveVault(ltv.collateral))
+        .filter((vault): vault is Vault => Boolean(vault))
     }
-
-    const baseAddress = ethers.getAddress(baseVault.address)
-    const standardVaults = borrowList.value
-      .filter(pair => ethers.getAddress(pair.borrow.address) === baseAddress)
-      .map(pair => pair.collateral)
-
-    const escrowVaults = baseVault.collateralLTVs
-      .filter(ltv => ltv.borrowLTV > 0n)
-      .map(ltv => escrowMap.value.get(ethers.getAddress(ltv.collateral)))
-      .filter((vault): vault is Vault => Boolean(vault))
+    else {
+      candidates = [
+        ...list.value,
+        ...escrowMap.value.values(),
+      ]
+    }
 
     const unique = new Map<string, Vault>()
-    const addVault = (vault: Vault) => {
+    candidates.forEach((vault) => {
       const address = ethers.getAddress(vault.address)
-      if (address === baseAddress || unique.has(address)) {
+      if (currentAddress && address === currentAddress) {
         return
       }
-      unique.set(address, vault)
-    }
-
-    standardVaults.forEach(addVault)
-    escrowVaults.forEach(addVault)
+      if (!unique.has(address)) {
+        unique.set(address, vault)
+      }
+    })
 
     return [...unique.values()]
   })

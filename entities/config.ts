@@ -3,6 +3,7 @@ import { labelsRepo } from '~/entities/custom'
 export default {
   testnet: {
     EULER_API_URL: 'https://indexer-main.euler.finance',
+    SWAP_API_URL: 'https://swap.euler.finance',
     getEulerLabelsVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/${chainId}/vaults.json`,
     getEulerLabelsEntitiesUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/${chainId}/entities.json`,
     getEulerLabelsProductsUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/${chainId}/products.json`,
@@ -12,6 +13,7 @@ export default {
   },
   mainnet: {
     EULER_API_URL: 'https://indexer-main.euler.finance',
+    SWAP_API_URL: 'https://swap.euler.finance',
     NEXT_PUBLIC_RPC_HTTP_1: 'https://quaint-yolo-isle.quiknode.pro/f7cb88b87e7020548579d7980a52a13d2b114339',
     NEXT_PUBLIC_RPC_HTTP_10: 'https://quaint-yolo-isle.optimism.quiknode.pro/f7cb88b87e7020548579d7980a52a13d2b114339',
     NEXT_PUBLIC_RPC_HTTP_100: 'https://quaint-yolo-isle.xdai.quiknode.pro/f7cb88b87e7020548579d7980a52a13d2b114339',

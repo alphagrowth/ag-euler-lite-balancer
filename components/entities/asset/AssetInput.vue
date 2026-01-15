@@ -5,7 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
-const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false, collateralOptions = [] } = defineProps<{
+const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false, collateralOptions = [], readonly = false } = defineProps<{
   label?: string
   desc?: string
   maxable?: boolean
@@ -14,6 +14,7 @@ const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false
   balance?: bigint
   balanceLoading?: boolean
   collateralOptions?: CollateralOption[]
+  readonly?: boolean
 }>()
 const emits = defineEmits(['input', 'change-collateral'])
 const model = defineModel<string>({ default: '' })
@@ -44,6 +45,10 @@ const setMax = () => {
   }
 }
 const onInput = (e: Event) => {
+  if (readonly) {
+    (e.target as HTMLInputElement).value = String(model.value ?? '')
+    return
+  }
   let value = (e.target as HTMLInputElement).value
   value = value.replace(',', '.')
   if (isNaN(Number(value)) && Boolean(value)) {
@@ -104,7 +109,8 @@ const openChooseCollateralModal = () => {
         maxlength="24"
         autocomplete="off"
         step="0.1"
-        inputmode="decimal"
+        :readonly="readonly"
+        :inputmode="readonly ? 'none' : 'decimal'"
         @focus="isFocused = true"
         @blur="isFocused = false"
         @input="onInput"

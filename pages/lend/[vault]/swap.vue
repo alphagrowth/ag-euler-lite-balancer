@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { FixedNumber, ethers } from 'ethers'
-import { type BorrowVaultPair, getVaultPriceInfo, type Vault } from '~/entities/vault'
+import { ethers } from 'ethers'
+import { type Address, zeroAddress } from 'viem'
+import { type BorrowVaultPair, type Vault } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
+import { useSwapApi } from '~/composables/useSwapApi'
+import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 
 const route = useRoute()
 const { getVault } = useVaults()
-const { isConnected } = useAccount()
-const { getBalance } = useWallets()
+const { isConnected, address } = useAccount()
+const { depositPositions } = useEulerAccount()
+const { getSwapQuotes, logSwapFailure } = useSwapApi()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -16,13 +20,18 @@ const fromAmount = ref('')
 const toAmount = ref('')
 const slippage = ref(0.5)
 const tab = ref()
+const quotes = ref<SwapApiQuote[]>([])
+const isQuoteLoading = ref(false)
+const quoteError = ref<string | null>(null)
+let quoteAbort: AbortController | null = null
+let quoteRequestId = 0
 
 const fromVault: Ref<Vault | undefined> = ref()
 const toVault: Ref<Vault | undefined> = ref()
 
 const fromProduct = useEulerProductOfVault(computed(() => fromVault.value?.address || ''))
 const toProduct = useEulerProductOfVault(computed(() => toVault.value?.address || ''))
-const { collateralOptions, collateralVaults } = useSwapCollateralOptions(fromVault)
+const { collateralOptions, collateralVaults } = useSwapCollateralOptions({ currentVault: fromVault })
 
 const getVaultAddress = () => route.params.vault as string
 const getTargetAddress = () => (typeof route.query.to === 'string' ? route.query.to : '')
@@ -104,24 +113,45 @@ const pair = computed<BorrowVaultPair | undefined>(() => {
   }
 })
 
-const priceFixed = computed(() => {
-  const fromPrice = fromVault.value ? getVaultPriceInfo(fromVault.value) : undefined
-  const toPrice = toVault.value ? getVaultPriceInfo(toVault.value) : undefined
-  const ask = fromPrice?.amountOutAsk || 0n
-  const bid = toPrice?.amountOutBid || 1n
-  return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
+const quote = computed(() => quotes.value[0] || null)
+
+const resetQuoteState = () => {
+  quotes.value = []
+  quoteError.value = null
+  toAmount.value = ''
+  if (quoteAbort) {
+    quoteAbort.abort()
+    quoteAbort = null
+  }
+  quoteRequestId += 1
+  isQuoteLoading.value = false
+}
+
+const quoteRate = computed(() => {
+  if (!quote.value || !fromVault.value || !toVault.value) {
+    return null
+  }
+  const amountIn = Number(ethers.formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.decimals)))
+  const amountOut = Number(ethers.formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.decimals)))
+  if (!amountIn || !amountOut) {
+    return null
+  }
+  return amountOut / amountIn
 })
 
-const fromAmountFixed = computed(() => FixedNumber.fromValue(
-  valueToNano(fromAmount.value || '0', Number(fromVault.value?.decimals || 18)),
-  Number(fromVault.value?.decimals || 18),
-))
+const savingPosition = computed(() => {
+  if (!fromVault.value) {
+    return null
+  }
+  const currentAddress = normalizeAddress(fromVault.value.address)
+  if (!currentAddress) {
+    return null
+  }
+  return depositPositions.value.find(position => normalizeAddress(position.vault.address) === currentAddress) || null
+})
 
 const balance = computed(() => {
-  if (!fromVault.value?.asset.address) {
-    return 0n
-  }
-  return getBalance(fromVault.value?.asset.address as `0x${string}`) || 0n
+  return savingPosition.value?.assets || 0n
 })
 
 const errorText = computed(() => {
@@ -146,12 +176,10 @@ const isSubmitDisabled = computed(() => {
 })
 
 const minReceived = computed(() => {
-  const output = Number(toAmount.value || 0)
-  if (!output) {
-    return null
+  if (quote.value && toVault.value) {
+    return Number(ethers.formatUnits(BigInt(quote.value.amountOutMin), Number(toVault.value.decimals)))
   }
-  const factor = Math.max(0, 1 - slippage.value / 100)
-  return output * factor
+  return null
 })
 
 const tabs = computed(() => {
@@ -178,24 +206,108 @@ const tabs = computed(() => {
 })
 
 const onFromInput = async () => {
-  if (!fromVault.value || !toVault.value || !fromAmount.value || priceFixed.value.isZero()) {
+  if (!fromVault.value || !toVault.value || !fromAmount.value) {
     toAmount.value = ''
+    resetQuoteState()
     return
   }
-  await nextTick()
-  toAmount.value = fromAmountFixed.value
-    .mul(priceFixed.value)
-    .round(Number(toVault.value?.decimals || 18))
-    .toString()
+  toAmount.value = ''
+  requestQuote()
 }
+
+const requestQuote = useDebounceFn(async () => {
+  quoteError.value = null
+
+  if (!fromVault.value || !toVault.value || !fromAmount.value) {
+    resetQuoteState()
+    return
+  }
+
+  let amount: bigint
+  try {
+    amount = valueToNano(fromAmount.value, fromVault.value.asset.decimals)
+  }
+  catch {
+    resetQuoteState()
+    return
+  }
+  if (!amount || amount <= 0n) {
+    resetQuoteState()
+    return
+  }
+
+  toAmount.value = ''
+
+  if (quoteAbort) {
+    quoteAbort.abort()
+  }
+  const controller = new AbortController()
+  quoteAbort = controller
+  const requestId = ++quoteRequestId
+
+  isQuoteLoading.value = true
+  try {
+    const data = await getSwapQuotes({
+      tokenIn: fromVault.value.asset.address as Address,
+      tokenOut: toVault.value.asset.address as Address,
+      accountIn: (address.value || zeroAddress) as Address,
+      accountOut: (address.value || zeroAddress) as Address,
+      amount,
+      vaultIn: fromVault.value.address as Address,
+      receiver: toVault.value.address as Address,
+      slippage: slippage.value,
+      swapperMode: SwapperMode.EXACT_IN,
+      isRepay: false,
+      targetDebt: 0n,
+      currentDebt: 0n,
+    }, { signal: controller.signal })
+
+    if (requestId !== quoteRequestId) {
+      return
+    }
+
+    quotes.value = data
+    const best = data[0]
+    if (best && toVault.value) {
+      toAmount.value = ethers.formatUnits(BigInt(best.amountOut), Number(toVault.value.decimals))
+    }
+  }
+  catch (err) {
+    const error = err as { name?: string; message?: string }
+    if (error?.name === 'CanceledError' || error?.name === 'AbortError') {
+      return
+    }
+    quoteError.value = 'Unable to fetch swap quote'
+    quotes.value = []
+    logSwapFailure({
+      reason: error?.message || 'Unknown error',
+      fromVault: fromVault.value?.address,
+      toVault: toVault.value?.address,
+      amount: fromAmount.value,
+      slippage: slippage.value,
+    })
+  }
+  finally {
+    if (requestId === quoteRequestId) {
+      isQuoteLoading.value = false
+    }
+  }
+}, 500)
 
 watch(toVault, () => {
   if (!toVault.value) {
     toAmount.value = ''
+    resetQuoteState()
     return
   }
   if (fromAmount.value) {
     onFromInput()
+  }
+})
+
+watch([fromVault, slippage], () => {
+  if (fromAmount.value) {
+    requestQuote()
   }
 })
 
@@ -259,6 +371,7 @@ const submit = async () => {
           :asset="toVault.asset"
           :vault="toVault"
           :collateral-options="collateralOptions"
+          :readonly="true"
           @change-collateral="onToVaultChange"
         />
 
@@ -270,7 +383,16 @@ const submit = async () => {
           size="compact"
         />
 
+        <UiToast
+          v-if="quoteError"
+          title="Swap quote"
+          variant="warning"
+          :description="quoteError"
+          size="compact"
+        />
+
         <VaultFormInfoBlock
+          :loading="isQuoteLoading"
           class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
         >
           <div class="flex justify-between items-center">
@@ -278,7 +400,7 @@ const submit = async () => {
               Rate
             </p>
             <p class="text-p2">
-              {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
+              {{ quoteRate !== null ? formatNumber(quoteRate) : '-' }}
               <span class="text-euler-dark-900 text-p3">
                 {{ fromVault.asset.symbol }}/{{ toVault.asset.symbol }}
               </span>
