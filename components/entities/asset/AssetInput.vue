@@ -64,9 +64,9 @@ const openChooseCollateralModal = () => {
       symbol: asset.symbol,
       collateralOptions: collateralOptions,
       selected: selectedIdx.value,
-      onSave: (isSaving: boolean) => {
-        selectedIdx.value = isSaving ? 1 : 0
-        emits('change-collateral', isSaving)
+      onSave: (selectedIndex: number) => {
+        selectedIdx.value = selectedIndex
+        emits('change-collateral', selectedIndex)
         modal.close()
       },
     },

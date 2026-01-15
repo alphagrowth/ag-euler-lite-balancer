@@ -12,6 +12,8 @@ const { productName, symbol, collateralOptions, selected = 0, onSave } = defineP
 }>()
 
 const selectedIdx = ref(selected)
+const getOptionLabel = (option: CollateralOption) => option.label || productName
+const getOptionSymbol = (option: CollateralOption) => option.symbol || symbol
 
 const handleClose = () => {
   emits('close')
@@ -31,15 +33,15 @@ const handleClose = () => {
       @click="selectedIdx = idx"
     >
       <BaseAvatar
-        :src="getAssetLogoUrl(symbol)"
+        :src="getAssetLogoUrl(getOptionSymbol(option))"
         class="icon--36 mr-10"
       />
       <div class="grow-1">
         <div class="text-euler-dark-900 mb-2">
-          {{ productName }}
+          {{ getOptionLabel(option) }}
         </div>
         <div class="text-h5 flex items-center">
-          {{ symbol }}
+          {{ getOptionSymbol(option) }}
           <div
             v-if="option.type === 'wallet'"
             class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[#A1F4E01A] text-aquamarine-600"
@@ -47,7 +49,7 @@ const handleClose = () => {
             Wallet
           </div>
           <div
-            v-else
+            v-else-if="option.type === 'saving'"
             class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[#CBC0951A] text-yellow-600"
           >
             Saving
@@ -59,7 +61,7 @@ const handleClose = () => {
           ${{ compactNumber(option.price, 2) }}
         </div>
         <div class="text-euler-dark-900">
-          {{ option.amount }} {{ symbol }}
+          {{ option.amount }} {{ getOptionSymbol(option) }}
         </div>
       </div>
     </div>
@@ -67,7 +69,7 @@ const handleClose = () => {
       class="w-full mt-12"
       size="large"
       type="submit"
-      @click="onSave(selectedIdx !== 0)"
+      @click="onSave(selectedIdx)"
     >
       Save Changes
     </UiButton>

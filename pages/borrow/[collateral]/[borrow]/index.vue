@@ -250,8 +250,12 @@ const send = async () => {
     isSubmitting.value = false
   }
 }
-const onChangeCollateral = (isSaving: boolean) => {
-  isSavingCollateral.value = isSaving
+const onChangeCollateral = (selection: boolean | number) => {
+  if (typeof selection === 'number') {
+    isSavingCollateral.value = selection === 1
+    return
+  }
+  isSavingCollateral.value = selection
 }
 const onCollateralInput = async () => {
   await nextTick()

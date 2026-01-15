@@ -176,6 +176,9 @@ export interface CollateralOption {
   type: string
   amount: number
   price: number
+  label?: string
+  symbol?: string
+  vaultAddress?: string
 }
 
 const collectVaultPythFeedIds = (
