@@ -5,8 +5,10 @@ import { truncate } from '~/utils/string-utils'
 import { availableNetworkIds } from '~/entities/custom'
 
 let isChangingChain = false
+let isInitialRouteSync = true
 const isLoaded = ref(false)
 const walletName = ref('Wallet')
+const routeNetworkId: Ref<number | null> = ref(null)
 const { changeCurrentChainId, chainId: currentChainId } = useEulerAddresses()
 const allowedChainIds = availableNetworkIds.length ? [...availableNetworkIds] : [1]
 
@@ -80,10 +82,6 @@ export const useWagmi = () => {
   const isConnected = computed(() => Boolean(wagmiIsConnected.value))
   const chain = computed(() => wagmiChain.value)
   const chainId = computed(() => wagmiChain.value?.id)
-  const routeNetworkId = computed(() => {
-    const parsed = parseChainId(route.query.network)
-    return parsed && allowedChainIds.includes(parsed) ? parsed : null
-  })
 
   const checksummedAddress = computed(() => {
     try {
@@ -172,6 +170,16 @@ export const useWagmi = () => {
         isLoaded.value = true
       }, 5000)
     }
+  }, { immediate: true })
+
+  watch(computed(() => route.query.network), (network, oldNetwork) => {
+    if (isChangingChain || (!oldNetwork && !isInitialRouteSync)) {
+      return
+    }
+
+    const parsed = parseChainId(network)
+    routeNetworkId.value = parsed && allowedChainIds.includes(parsed) ? parsed : null
+    isInitialRouteSync = false
   }, { immediate: true })
 
   watch(routeNetworkId, (networkId) => {
