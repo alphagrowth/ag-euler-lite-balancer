@@ -208,12 +208,13 @@ const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
 }
 const onCollateralInput = async () => {
   await nextTick()
-  borrowAmount.value = collateralAmountFixed.value
+  const result = collateralAmountFixed.value
     .mul(priceFixed.value)
     .mul(ltvFixed.value)
     .div(FixedNumber.fromValue(100n)).round(Number(borrowVault.value?.decimals || 18))
     .subUnsafe(FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
-    .toString()
+  const zero = FixedNumber.fromValue(0n, Number(borrowVault.value?.decimals || 18))
+  borrowAmount.value = result.lt(zero) ? zero.toString() : result.toString()
 }
 const onBorrowInput = async () => {
   await nextTick()
