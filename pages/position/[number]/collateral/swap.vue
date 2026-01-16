@@ -1,0 +1,738 @@
+<script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
+import { ethers } from 'ethers'
+import { type Address, zeroAddress } from 'viem'
+import { OperationReviewModal } from '#components'
+import type { AccountBorrowPosition } from '~/entities/account'
+import { type Vault, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
+import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
+import { useSwapApi } from '~/composables/useSwapApi'
+import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import type { TxPlan } from '~/entities/txPlan'
+import { useModal } from '~/components/ui/composables/useModal'
+import { useToast } from '~/components/ui/composables/useToast'
+import { useMerkl } from '~/composables/useMerkl'
+import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+
+const route = useRoute()
+const router = useRouter()
+const { isConnected, address } = useAccount()
+const { borrowPositions, isPositionsLoaded, isPositionsLoading } = useEulerAccount()
+const { getSwapQuotes, logSwapFailure } = useSwapApi()
+const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
+const modal = useModal()
+const { error: showError } = useToast()
+const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+
+const positionIndex = route.params.number as string
+
+const isLoading = ref(false)
+const isSubmitting = ref(false)
+const plan = ref<TxPlan | null>(null)
+const fromAmount = ref('')
+const toAmount = ref('')
+const slippage = ref(0.1)
+const quotes = ref<SwapApiQuote[]>([])
+const isQuoteLoading = ref(false)
+const quoteError = ref<string | null>(null)
+let quoteAbort: AbortController | null = null
+let quoteRequestId = 0
+
+const position: Ref<AccountBorrowPosition | null> = ref(null)
+
+const fromVault = computed(() => position.value?.collateral)
+const borrowVault = computed(() => position.value?.borrow)
+const toVault: Ref<Vault | undefined> = ref()
+
+const fromProduct = useEulerProductOfVault(computed(() => fromVault.value?.address || ''))
+const toProduct = useEulerProductOfVault(computed(() => toVault.value?.address || ''))
+const { collateralOptions, collateralVaults } = useSwapCollateralOptions({
+  currentVault: computed(() => fromVault.value as Vault | undefined),
+  liabilityVault: computed(() => borrowVault.value as Vault | undefined),
+})
+
+const loadPosition = async () => {
+  isLoading.value = true
+  await until(isPositionsLoaded).toBe(true)
+
+  position.value = borrowPositions.value[+positionIndex - 1] || null
+  if (position.value && !fromAmount.value) {
+    fromAmount.value = `${nanoToValue(position.value.supplied || 0n, position.value.collateral.decimals)}`
+  }
+  isLoading.value = false
+}
+
+watch([isPositionsLoaded, () => route.params.number], ([loaded]) => {
+  if (loaded) {
+    loadPosition()
+  }
+}, { immediate: true })
+
+const normalizeAddress = (addr?: string) => {
+  if (!addr) {
+    return ''
+  }
+  try {
+    return ethers.getAddress(addr)
+  }
+  catch {
+    return ''
+  }
+}
+
+const getTargetAddress = () => (typeof route.query.to === 'string' ? route.query.to : '')
+
+const syncToVault = () => {
+  if (!fromVault.value) {
+    return
+  }
+  if (!collateralVaults.value.length) {
+    if (!toVault.value) {
+      toVault.value = fromVault.value
+    }
+    return
+  }
+
+  const targetAddress = normalizeAddress(getTargetAddress())
+  const currentAddress = toVault.value ? normalizeAddress(toVault.value.address) : ''
+  const nextVault = collateralVaults.value.find(vault => normalizeAddress(vault.address) === targetAddress)
+    || collateralVaults.value.find(vault => normalizeAddress(vault.address) === currentAddress)
+    || collateralVaults.value[0]
+
+  if (!toVault.value || normalizeAddress(toVault.value.address) !== normalizeAddress(nextVault.address)) {
+    toVault.value = nextVault
+  }
+}
+
+watch([collateralVaults, fromVault, () => route.query.to], () => {
+  syncToVault()
+}, { immediate: true })
+
+const quote = computed(() => quotes.value[0] || null)
+const balance = computed(() => position.value?.supplied || 0n)
+
+const resetQuoteState = () => {
+  quotes.value = []
+  quoteError.value = null
+  toAmount.value = ''
+  if (quoteAbort) {
+    quoteAbort.abort()
+    quoteAbort = null
+  }
+  quoteRequestId += 1
+  isQuoteLoading.value = false
+}
+
+const fromOpportunity = computed(() => {
+  return fromVault.value ? getOpportunityOfLendVault(fromVault.value.address) : null
+})
+const toOpportunity = computed(() => {
+  return toVault.value ? getOpportunityOfLendVault(toVault.value.address) : null
+})
+const borrowOpportunity = computed(() => {
+  return borrowVault.value ? getOpportunityOfBorrowVault(borrowVault.value.asset.address) : null
+})
+const fromSupplyApy = computed(() => {
+  if (!fromVault.value) {
+    return null
+  }
+  const base = nanoToValue(fromVault.value.interestRateInfo.supplyAPY || 0n, 25)
+  return withIntrinsicSupplyApy(base, fromVault.value.asset.symbol) + (fromOpportunity.value?.apr || 0)
+})
+const toSupplyApy = computed(() => {
+  if (!toVault.value) {
+    return null
+  }
+  const base = nanoToValue(toVault.value.interestRateInfo.supplyAPY || 0n, 25)
+  return withIntrinsicSupplyApy(base, toVault.value.asset.symbol) + (toOpportunity.value?.apr || 0)
+})
+const borrowApy = computed(() => {
+  if (!borrowVault.value) {
+    return null
+  }
+  const base = nanoToValue(borrowVault.value.interestRateInfo.borrowAPY || 0n, 25)
+  return withIntrinsicBorrowApy(base, borrowVault.value.asset.symbol) - (borrowOpportunity.value?.apr || 0)
+})
+
+const supplyValueUsd = computed(() => {
+  if (!fromVault.value || !position.value) {
+    return null
+  }
+  return getVaultPrice(position.value.supplied, fromVault.value)
+})
+const nextSupplyValueUsd = computed(() => {
+  if (!quote.value || !toVault.value) {
+    return null
+  }
+  return getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
+})
+const borrowValueUsd = computed(() => {
+  if (!borrowVault.value || !position.value) {
+    return null
+  }
+  return getVaultPrice(position.value.borrowed, borrowVault.value)
+})
+
+const calculateRoe = (
+  supplyUsd: number | null,
+  borrowUsd: number | null,
+  supplyApy: number | null,
+  borrowApyValue: number | null,
+) => {
+  if (supplyUsd === null || borrowUsd === null || supplyApy === null || borrowApyValue === null) {
+    return null
+  }
+  const equity = supplyUsd - borrowUsd
+  if (!Number.isFinite(equity) || equity <= 0) {
+    return null
+  }
+  const net = supplyUsd * supplyApy - borrowUsd * borrowApyValue
+  if (!Number.isFinite(net)) {
+    return null
+  }
+  return net / equity
+}
+
+const roeBefore = computed(() => {
+  return calculateRoe(supplyValueUsd.value, borrowValueUsd.value, fromSupplyApy.value, borrowApy.value)
+})
+const roeAfter = computed(() => {
+  return calculateRoe(nextSupplyValueUsd.value, borrowValueUsd.value, toSupplyApy.value, borrowApy.value)
+})
+
+const priceRatio = computed(() => {
+  if (!toVault.value || !borrowVault.value) {
+    return null
+  }
+  const collateralPrice = getVaultPriceInfo(toVault.value)
+  const borrowPrice = getVaultPriceInfo(borrowVault.value)
+  const ask = collateralPrice?.amountOutAsk || 0n
+  const bid = borrowPrice?.amountOutBid || 0n
+  if (!ask || !bid) {
+    return null
+  }
+  return nanoToValue(ask, 18) / nanoToValue(bid, 18)
+})
+const nextCollateralAmount = computed(() => {
+  if (!quote.value || !toVault.value) {
+    return null
+  }
+  return nanoToValue(BigInt(quote.value.amountOut), toVault.value.decimals)
+})
+const borrowAmount = computed(() => {
+  if (!borrowVault.value || !position.value) {
+    return null
+  }
+  return nanoToValue(position.value.borrowed, borrowVault.value.decimals)
+})
+
+const currentLtv = computed(() => {
+  if (!position.value) {
+    return null
+  }
+  return nanoToValue(position.value.userLTV, 18)
+})
+const currentLiquidationLtv = computed(() => {
+  if (!position.value) {
+    return null
+  }
+  return nanoToValue(position.value.liquidationLTV, 2)
+})
+const nextLiquidationLtv = computed(() => {
+  if (!borrowVault.value || !toVault.value) {
+    return null
+  }
+  const match = borrowVault.value.collateralLTVs.find(
+    ltv => normalizeAddress(ltv.collateral) === normalizeAddress(toVault.value?.address),
+  )
+  return match ? nanoToValue(match.liquidationLTV, 2) : null
+})
+const nextLtv = computed(() => {
+  if (!borrowAmount.value || !nextCollateralAmount.value || !priceRatio.value) {
+    return null
+  }
+  if (priceRatio.value <= 0 || nextCollateralAmount.value <= 0) {
+    return null
+  }
+  return (borrowAmount.value / (nextCollateralAmount.value * priceRatio.value)) * 100
+})
+const currentHealth = computed(() => {
+  if (!position.value) {
+    return null
+  }
+  return nanoToValue(position.value.health, 18)
+})
+const nextHealth = computed(() => {
+  if (!nextLiquidationLtv.value || !nextLtv.value) {
+    return null
+  }
+  if (nextLtv.value <= 0) {
+    return null
+  }
+  return nextLiquidationLtv.value / nextLtv.value
+})
+const currentLiquidationPrice = computed(() => {
+  if (!position.value?.price) {
+    return null
+  }
+  const value = nanoToValue(position.value.price, 18)
+  return value > 0 ? value : null
+})
+const nextLiquidationPrice = computed(() => {
+  if (!priceRatio.value || !nextHealth.value) {
+    return null
+  }
+  if (nextHealth.value <= 0) {
+    return null
+  }
+  return priceRatio.value / nextHealth.value
+})
+
+const currentPrice = computed(() => {
+  if (!quote.value || !fromVault.value || !toVault.value) {
+    return null
+  }
+  const amountIn = Number(ethers.formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.asset.decimals)))
+  const amountOut = Number(ethers.formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals)))
+  if (!amountIn || !amountOut) {
+    return null
+  }
+  return {
+    value: amountIn / amountOut,
+    symbol: `${fromVault.value.asset.symbol}/${toVault.value.asset.symbol}`,
+  }
+})
+
+const swapSummary = computed(() => {
+  if (!quote.value || !fromVault.value || !toVault.value) {
+    return null
+  }
+  const amountIn = ethers.formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.asset.decimals))
+  const amountOut = ethers.formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals))
+  return {
+    from: `${formatNumber(amountIn)} ${fromVault.value.asset.symbol}`,
+    to: `${formatNumber(amountOut)} ${toVault.value.asset.symbol}`,
+  }
+})
+
+const priceImpact = computed(() => {
+  if (!quote.value || !fromVault.value || !toVault.value) {
+    return null
+  }
+  const amountInUsd = getVaultPrice(BigInt(quote.value.amountIn), fromVault.value)
+  const amountOutUsd = getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
+  if (!amountInUsd || !amountOutUsd) {
+    return null
+  }
+  const impact = (amountOutUsd / amountInUsd - 1) * 100
+  if (!Number.isFinite(impact)) {
+    return null
+  }
+  return impact
+})
+
+const routedVia = computed(() => {
+  if (!quote.value?.route?.length) {
+    return null
+  }
+  return quote.value.route.map(route => route.providerName).join(', ')
+})
+
+const errorText = computed(() => {
+  if (!fromVault.value?.asset) {
+    return null
+  }
+  if (balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)) {
+    return 'Not enough balance'
+  }
+  return null
+})
+
+const isSubmitDisabled = computed(() => {
+  if (!isConnected.value) return false
+  if (!fromVault.value?.asset || !toVault.value?.asset || !quote.value) {
+    return true
+  }
+  return isLoading.value
+    || isQuoteLoading.value
+    || balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)
+    || !(+fromAmount.value)
+    || !toAmount.value
+})
+
+const onFromInput = async () => {
+  if (!fromVault.value || !toVault.value || !fromAmount.value) {
+    toAmount.value = ''
+    resetQuoteState()
+    return
+  }
+  toAmount.value = ''
+  requestQuote()
+}
+
+const requestQuote = useDebounceFn(async () => {
+  quoteError.value = null
+
+  if (!fromVault.value || !toVault.value || !fromAmount.value || !position.value) {
+    resetQuoteState()
+    return
+  }
+
+  let amount: bigint
+  try {
+    amount = valueToNano(fromAmount.value, fromVault.value.asset.decimals)
+  }
+  catch {
+    resetQuoteState()
+    return
+  }
+  if (!amount || amount <= 0n) {
+    resetQuoteState()
+    return
+  }
+
+  toAmount.value = ''
+
+  if (quoteAbort) {
+    quoteAbort.abort()
+  }
+  const controller = new AbortController()
+  quoteAbort = controller
+  const requestId = ++quoteRequestId
+
+  isQuoteLoading.value = true
+  try {
+    const account = (position.value.subAccount || address.value || zeroAddress) as Address
+    const data = await getSwapQuotes({
+      tokenIn: fromVault.value.asset.address as Address,
+      tokenOut: toVault.value.asset.address as Address,
+      accountIn: account,
+      accountOut: account,
+      amount,
+      vaultIn: fromVault.value.address as Address,
+      receiver: toVault.value.address as Address,
+      slippage: slippage.value,
+      swapperMode: SwapperMode.EXACT_IN,
+      isRepay: false,
+      targetDebt: 0n,
+      currentDebt: 0n,
+    }, { signal: controller.signal })
+
+    if (requestId !== quoteRequestId) {
+      return
+    }
+
+    quotes.value = data
+    const best = data[0]
+    if (best && toVault.value) {
+      toAmount.value = ethers.formatUnits(BigInt(best.amountOut), Number(toVault.value.decimals))
+    }
+  }
+  catch (err) {
+    const error = err as { name?: string; message?: string }
+    if (error?.name === 'CanceledError' || error?.name === 'AbortError') {
+      return
+    }
+    quoteError.value = 'Unable to fetch swap quote'
+    quotes.value = []
+    logSwapFailure({
+      reason: error?.message || 'Unknown error',
+      fromVault: fromVault.value?.address,
+      toVault: toVault.value?.address,
+      amount: fromAmount.value,
+      slippage: slippage.value,
+      swapperMode: SwapperMode.EXACT_IN,
+      isRepay: false,
+    })
+  }
+  finally {
+    if (requestId === quoteRequestId) {
+      isQuoteLoading.value = false
+    }
+  }
+}, 500)
+
+watch(toVault, () => {
+  if (!toVault.value) {
+    toAmount.value = ''
+    resetQuoteState()
+    return
+  }
+  if (fromAmount.value) {
+    onFromInput()
+  }
+})
+
+watch([fromVault, slippage], () => {
+  if (fromAmount.value) {
+    requestQuote()
+  }
+})
+
+const onToVaultChange = (selectedIndex: number) => {
+  const nextVault = collateralVaults.value[selectedIndex]
+  if (!nextVault) {
+    return
+  }
+  if (!toVault.value || normalizeAddress(toVault.value.address) !== normalizeAddress(nextVault.address)) {
+    toVault.value = nextVault
+  }
+}
+
+const submit = async () => {
+  if (isSubmitting.value || !fromVault.value || !quote.value) {
+    return
+  }
+
+  try {
+    plan.value = await buildSwapPlan({
+      quote: quote.value,
+      swapperMode: SwapperMode.EXACT_IN,
+      isRepay: false,
+      targetDebt: 0n,
+      currentDebt: 0n,
+      enableCollateral: true,
+    })
+  }
+  catch (e) {
+    console.warn('[OperationReviewModal] failed to build plan', e)
+    plan.value = null
+  }
+
+  modal.open(OperationReviewModal, {
+    props: {
+      type: 'swap',
+      asset: fromVault.value.asset,
+      amount: fromAmount.value,
+      plan: plan.value || undefined,
+      onConfirm: () => {
+        setTimeout(() => {
+          send()
+        }, 400)
+      },
+    },
+  })
+}
+
+const send = async () => {
+  if (!fromVault.value || !quote.value) {
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    await executeSwap({
+      quote: quote.value,
+      swapperMode: SwapperMode.EXACT_IN,
+      isRepay: false,
+      targetDebt: 0n,
+      currentDebt: 0n,
+      enableCollateral: true,
+    })
+    modal.close()
+    setTimeout(() => {
+      router.replace('/portfolio')
+    }, 400)
+  }
+  catch (e) {
+    showError('Transaction failed')
+    console.warn(e)
+  }
+  finally {
+    isSubmitting.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="flex gap-32">
+    <VaultForm
+      title="Collateral swap"
+      class="flex flex-col gap-16 w-full"
+      :loading="isLoading || isPositionsLoading"
+      @submit.prevent="submit"
+    >
+      <template v-if="fromVault && toVault">
+        <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
+          <div class="flex flex-col gap-16 w-full">
+            <AssetInput
+              v-model="fromAmount"
+              :desc="fromProduct.name"
+              label="From"
+              :asset="fromVault.asset"
+              :vault="fromVault"
+              :balance="balance"
+              maxable
+              @input="onFromInput"
+            />
+
+            <AssetInput
+              v-model="toAmount"
+              :desc="toProduct.name"
+              label="To"
+              :asset="toVault.asset"
+              :vault="toVault"
+              :collateral-options="collateralOptions"
+              :readonly="true"
+              @change-collateral="onToVaultChange"
+            />
+
+            <UiToast
+              v-show="errorText"
+              title="Error"
+              variant="error"
+              :description="errorText || ''"
+              size="compact"
+            />
+
+            <UiToast
+              v-if="quoteError"
+              title="Swap quote"
+              variant="warning"
+              :description="quoteError"
+              size="compact"
+            />
+
+            <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
+              <VaultFormSubmit
+                :disabled="isSubmitDisabled"
+                :loading="isSubmitting"
+              >
+                Review Swap
+              </VaultFormSubmit>
+            </div>
+          </div>
+
+          <VaultFormInfoBlock
+            :loading="isQuoteLoading"
+            class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px]"
+          >
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                ROE
+              </p>
+              <p class="text-p2">
+                <template v-if="roeBefore !== null && roeAfter !== null && quote">
+                  <span class="text-euler-dark-900">{{ formatNumber(roeBefore) }}%</span>
+                  → <span class="text-white">{{ formatNumber(roeAfter) }}%</span>
+                </template>
+                <template v-else>
+                  {{ roeBefore !== null ? `${formatNumber(roeBefore)}%` : '-' }}
+                </template>
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Current price
+              </p>
+              <p class="text-p2">
+                {{ currentPrice ? `${formatNumber(currentPrice.value)} ${currentPrice.symbol}` : '-' }}
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Liquidation price
+              </p>
+              <p class="text-p2">
+                <template v-if="currentLiquidationPrice !== null && nextLiquidationPrice !== null && quote">
+                  <span class="text-euler-dark-900">{{ formatNumber(currentLiquidationPrice, 4) }}</span>
+                  → <span class="text-white">{{ formatNumber(nextLiquidationPrice, 4) }}</span>
+                </template>
+                <template v-else>
+                  {{ currentLiquidationPrice !== null ? formatNumber(currentLiquidationPrice, 4) : '-' }}
+                </template>
+                <span class="text-euler-dark-900 text-p3">
+                  {{ fromVault?.asset.symbol }}
+                </span>
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Your LTV (LLTV)
+              </p>
+              <p class="text-p2 text-right">
+                <template v-if="currentLtv !== null && currentLiquidationLtv !== null && nextLtv !== null && nextLiquidationLtv !== null && quote">
+                  <span class="text-euler-dark-900">
+                    {{ formatNumber(currentLtv) }}%
+                    <span class="text-euler-dark-900 text-p3">
+                      ({{ formatNumber(currentLiquidationLtv) }}%)
+                    </span>
+                  </span>
+                  → <span class="text-white">
+                    {{ formatNumber(nextLtv) }}%
+                    <span class="text-euler-dark-900 text-p3">
+                      ({{ formatNumber(nextLiquidationLtv) }}%)
+                    </span>
+                  </span>
+                </template>
+                <template v-else>
+                  <span v-if="currentLtv !== null && currentLiquidationLtv !== null">
+                    {{ formatNumber(currentLtv) }}%
+                    <span class="text-euler-dark-900 text-p3">
+                      ({{ formatNumber(currentLiquidationLtv) }}%)
+                    </span>
+                  </span>
+                  <span v-else>-</span>
+                </template>
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Your health
+              </p>
+              <p class="text-p2">
+                <template v-if="currentHealth !== null && nextHealth !== null && quote">
+                  <span class="text-euler-dark-900">{{ formatNumber(currentHealth, 2) }}</span>
+                  → <span class="text-white">{{ formatNumber(nextHealth, 2) }}</span>
+                </template>
+                <template v-else>
+                  {{ currentHealth !== null ? formatNumber(currentHealth, 2) : '-' }}
+                </template>
+              </p>
+            </div>
+            <div class="flex justify-between items-start">
+              <p class="text-euler-dark-900">
+                Swap
+              </p>
+              <p class="text-p2 text-right flex flex-col items-end">
+                <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
+                <span
+                  v-if="swapSummary"
+                  class="text-euler-dark-900 text-p3"
+                >
+                  {{ swapSummary.to }}
+                </span>
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Price impact
+              </p>
+              <p class="text-p2">
+                {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Slippage tolerance
+              </p>
+              <p class="text-p2">
+                {{ formatNumber(slippage, 2, 0) }}%
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Routed via
+              </p>
+              <p class="text-p2 text-right">
+                {{ routedVia || '-' }}
+              </p>
+            </div>
+          </VaultFormInfoBlock>
+        </div>
+      </template>
+    </VaultForm>
+  </div>
+</template>

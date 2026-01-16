@@ -239,12 +239,14 @@ export const useEulerOperations = () => {
     isRepay,
     targetDebt = 0n,
     currentDebt = 0n,
+    enableCollateral = false,
   }: {
     quote: SwapApiQuote
     swapperMode: SwapperMode
     isRepay: boolean
     targetDebt?: bigint
     currentDebt?: bigint
+    enableCollateral?: boolean
   }) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -296,6 +298,12 @@ export const useEulerOperations = () => {
     else {
       hooks.addContractInterface(quote.vaultIn, [
         'function withdraw(uint256,address,address) external',
+      ])
+    }
+
+    if (enableCollateral) {
+      hooks.addContractInterface(evcAddress, [
+        'function enableCollateral(address,address) external',
       ])
     }
 
@@ -364,6 +372,15 @@ export const useEulerOperations = () => {
       value: 0n,
       data: verifierData,
     })
+
+    if (enableCollateral) {
+      evcCalls.push({
+        targetContract: evcAddress,
+        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+        value: 0n,
+        data: hooks.getDataForCall(evcAddress, 'enableCollateral', [quote.accountOut, quote.receiver]) as Hash,
+      })
+    }
 
     if (isDebtSwap && quote.receiver.toLowerCase() !== quote.vaultIn.toLowerCase()) {
       evcCalls.push({
@@ -1181,12 +1198,14 @@ export const useEulerOperations = () => {
     isRepay = false,
     targetDebt = 0n,
     currentDebt = 0n,
+    enableCollateral = false,
   }: {
     quote: SwapApiQuote
     swapperMode?: SwapperMode
     isRepay?: boolean
     targetDebt?: bigint
     currentDebt?: bigint
+    enableCollateral?: boolean
   }): Promise<TxPlan> => {
     const { evcCalls, evcAddress, totalValue } = await buildSwapEvcCalls({
       quote,
@@ -1194,6 +1213,7 @@ export const useEulerOperations = () => {
       isRepay,
       targetDebt,
       currentDebt,
+      enableCollateral,
     })
 
     return {
@@ -1281,12 +1301,14 @@ export const useEulerOperations = () => {
     isRepay = false,
     targetDebt = 0n,
     currentDebt = 0n,
+    enableCollateral = false,
   }: {
     quote: SwapApiQuote
     swapperMode?: SwapperMode
     isRepay?: boolean
     targetDebt?: bigint
     currentDebt?: bigint
+    enableCollateral?: boolean
   }) => {
     const { evcCalls, evcAddress, totalValue } = await buildSwapEvcCalls({
       quote,
@@ -1294,6 +1316,7 @@ export const useEulerOperations = () => {
       isRepay,
       targetDebt,
       currentDebt,
+      enableCollateral,
     })
 
     const swapHash = await writeContractAsync({

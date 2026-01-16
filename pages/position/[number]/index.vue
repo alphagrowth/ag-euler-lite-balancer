@@ -424,6 +424,14 @@ watch(isConnected, () => {
               >
                 Withdraw
               </UiButton>
+              <UiButton
+                size="medium"
+                variant="primary-stroke"
+                rounded
+                :to="`/position/${positionIndex}/collateral/swap`"
+              >
+                Collateral swap
+              </UiButton>
             </div>
             <div v-else>
               <UiButton
