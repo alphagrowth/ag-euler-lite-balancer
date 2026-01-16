@@ -78,6 +78,8 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
           return undefined
         }
 
+        const collaterals = res.evcAccountInfo.enabledCollaterals.map(collateral => ethers.getAddress(collateral))
+
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
         const borrow = map.value.get(borrowAddress)
         if (!borrow) {
@@ -118,6 +120,7 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
         return {
           borrow,
           collateral,
+          collaterals,
           subAccount,
           liabilityLTV: 0n,
           borrowLTV: cLTV?.borrowLTV || 0n,
@@ -225,6 +228,8 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
           return undefined
         }
 
+        const collaterals = res.evcAccountInfo.enabledCollaterals.map(collateral => ethers.getAddress(collateral))
+
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
         const borrow = isShowAllPositions.value ? await getVault(borrowAddress) : map.value.get(borrowAddress)
         if (!borrow) {
@@ -303,6 +308,7 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
         return {
           borrow,
           collateral,
+          collaterals,
           subAccount,
           liabilityLTV: 0n,
           borrowLTV: cLTV?.borrowLTV || 0n,

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { FixedNumber } from 'ethers'
+import { ethers, FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
-import { getNetAPY, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
+import { eulerAccountLensABI } from '~/entities/euler/abis'
+import { getNetAPY, getVaultPrice, getVaultPriceInfo, type Vault } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -16,7 +17,9 @@ const { isPositionsLoaded, borrowPositions, updateBorrowPositions, getOperatorFo
 const { isConnected, address } = useAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
-const { eulerLensAddresses } = useEulerAddresses()
+const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
+const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const positionIndex = route.params.number as string
 
@@ -29,12 +32,16 @@ const estimateNetAPY = ref(0)
 const estimateUserLTV = ref(0n)
 const estimateHealth = ref(0n)
 const estimatesError = ref('')
+const selectedCollateral = ref<Vault | null>(null)
+const selectedCollateralAssets = ref(0n)
+const lastCollateralAddress = ref('')
 
 const position = computed(() => borrowPositions.value[+positionIndex - 1])
 const isPositionLoaded = computed(() => !!position.value)
-const collateralVault = computed(() => position.value?.collateral)
+const collateralVault = computed(() => selectedCollateral.value || position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
 const asset = computed(() => collateralVault.value?.asset)
+const collateralAssets = computed(() => selectedCollateralAssets.value)
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
@@ -47,7 +54,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 ))
 const netAPY = computed(() => {
   return getNetAPY(
-    getVaultPrice(position.value?.supplied || 0n, collateralVault.value!),
+    getVaultPrice(collateralAssets.value, collateralVault.value!),
     collateralSupplyApy.value,
     getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
     borrowApy.value,
@@ -60,7 +67,7 @@ const amountFixed = computed(() => FixedNumber.fromValue(
   Number(collateralVault.value?.decimals),
 ))
 const borrowedFixed = computed(() => FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
-const suppliedFixed = computed(() => FixedNumber.fromValue(position.value?.supplied || 0n, position.value?.collateral.decimals || 18))
+const suppliedFixed = computed(() => FixedNumber.fromValue(collateralAssets.value, collateralVault.value?.decimals || 18))
 // Use the correct collateral/borrow price ratio for LTV calculations (not the liquidation price)
 const priceFixed = computed(() => {
   const collateralPrice = collateralVault.value ? getVaultPriceInfo(collateralVault.value) : undefined
@@ -79,9 +86,69 @@ const liquidationPrice = computed(() => {
 })
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  return (position.value?.supplied || 0n) < valueToNano(amount.value, asset.value?.decimals)
+  return collateralAssets.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
+
+const normalizeAddress = (address?: string) => {
+  if (!address) {
+    return ''
+  }
+  try {
+    return ethers.getAddress(address)
+  }
+  catch {
+    return ''
+  }
+}
+
+const getSelectedCollateralAddress = () =>
+  (typeof route.query.collateral === 'string' ? route.query.collateral : '')
+
+const loadSelectedCollateral = async () => {
+  if (!position.value) {
+    selectedCollateral.value = null
+    selectedCollateralAssets.value = 0n
+    return
+  }
+
+  const primaryAddress = normalizeAddress(position.value.collateral.address)
+  const targetAddress = normalizeAddress(getSelectedCollateralAddress()) || primaryAddress
+
+  if (targetAddress !== lastCollateralAddress.value) {
+    amount.value = ''
+    lastCollateralAddress.value = targetAddress
+  }
+
+  selectedCollateralAssets.value = targetAddress === primaryAddress ? position.value.supplied : 0n
+
+  try {
+    if (!isEulerAddressesReady.value) {
+      await loadEulerConfig()
+    }
+
+    await until(isVaultsReady).toBe(true)
+
+    const vault = map.value.get(targetAddress) || await getVault(targetAddress)
+    selectedCollateral.value = vault
+
+    const lensAddress = eulerLensAddresses.value?.accountLens
+    if (!lensAddress) {
+      throw new Error('Account lens address is not available')
+    }
+
+    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
+    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
+    const res = await accountLensContract.getAccountInfo(position.value.subAccount, targetAddress)
+    selectedCollateralAssets.value = res.vaultAccountInfo.assets
+  }
+  catch (e) {
+    console.warn('[Withdraw] failed to load collateral', e)
+    if (!selectedCollateral.value) {
+      selectedCollateral.value = position.value.collateral
+    }
+  }
+}
 
 const load = async () => {
   if (!isConnected.value) {
@@ -90,6 +157,7 @@ const load = async () => {
   isLoading.value = true
   await until(isPositionLoaded).toBe(true)
   try {
+    await loadSelectedCollateral()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value.userLTV
     estimateHealth.value = position.value.health
@@ -199,7 +267,7 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('Not enough liquidity in your position')
     }
     estimateNetAPY.value = getNetAPY(
-      getVaultPrice((position.value!.supplied || 0n) - valueToNano(amount.value, collateralVault.value.decimals), collateralVault.value!),
+      getVaultPrice(collateralAssets.value - valueToNano(amount.value, collateralVault.value.decimals), collateralVault.value!),
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
       getVaultPrice(position.value!.borrowed || 0n || 0, borrowVault.value!),
       borrowApy.value,
@@ -240,6 +308,15 @@ watch(isPositionsLoaded, (val) => {
     load()
   }
 }, { immediate: true })
+watch(() => route.query.collateral, async () => {
+  if (!isPositionLoaded.value) {
+    return
+  }
+  await loadSelectedCollateral()
+  estimateNetAPY.value = netAPY.value
+  estimateUserLTV.value = position.value?.userLTV || 0n
+  estimateHealth.value = position.value?.health || 0n
+})
 watch(amount, async () => {
   if (!collateralVault.value) {
     return
@@ -272,7 +349,7 @@ watch(amount, async () => {
         label="Withdraw amount"
         :asset="asset"
         :vault="collateralVault"
-        :balance="position.supplied"
+        :balance="collateralAssets"
         maxable
       />
 

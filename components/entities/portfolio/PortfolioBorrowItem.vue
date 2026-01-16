@@ -14,6 +14,12 @@ const { name: borrowName } = useEulerProductOfVault(position.borrow.address)
 
 const borrowVault = computed(() => position.borrow)
 const collateralVault = computed(() => position.collateral)
+const hasMultipleCollaterals = computed(() => (position.collaterals?.length || 0) > 1)
+const collateralSymbolLabel = computed(() => {
+  const symbol = position.collateral.asset.symbol
+  return hasMultipleCollaterals.value ? `${symbol} & others` : symbol
+})
+const pairSymbols = computed(() => `${collateralSymbolLabel.value}/${position.borrow.asset.symbol}`)
 const pairName = computed(() => {
   if (!collateralName || !borrowName) {
     return `${position.collateral.name}/${position.borrow.name}`
@@ -80,7 +86,7 @@ const netAPY = computed(() => {
               {{ pairName }}
             </div>
             <div class="text-h5">
-              {{ [position.collateral.asset.symbol, position.borrow.asset.symbol].join('/') }}
+              {{ pairSymbols }}
             </div>
           </div>
         </div>
