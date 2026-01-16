@@ -605,6 +605,15 @@ const send = async () => {
               :description="quoteError"
               size="compact"
             />
+
+            <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
+              <VaultFormSubmit
+                :disabled="isSubmitDisabled"
+                :loading="isSubmitting"
+              >
+                Review Swap
+              </VaultFormSubmit>
+            </div>
           </div>
 
           <VaultFormInfoBlock
@@ -733,15 +742,6 @@ const send = async () => {
               </p>
             </div>
           </VaultFormInfoBlock>
-
-          <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
-            <VaultFormSubmit
-              :disabled="isSubmitDisabled"
-              :loading="isSubmitting"
-            >
-              Review Swap
-            </VaultFormSubmit>
-          </div>
         </div>
       </template>
     </VaultForm>
