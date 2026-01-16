@@ -1,52 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
-const cspHeaderValue = `
-  default-src 'self';
-  script-src 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' 'self';
-  style-src 'unsafe-inline' 'self';
-  object-src 'none';
-  base-uri 'self';
-  connect-src 'self'
-    https://indexer-main.euler.finance
-    https://swap.euler.finance
-    https://api.merkl.xyz
-    https://incentra-prd.brevis.network
-    https://hermes.pyth.network
-    https://raw.githubusercontent.com
-    https://rpc.walletconnect.org
-    https://api.web3modal.org
-    https://explorer-api.walletconnect.com
-    https://verify.walletconnect.org
-    https://pulse.walletconnect.org
-    https://rpc.monad.xyz
-    https://chain-proxy.wallet.coinbase.com
-    https://cca-lite.coinbase.com
-    https://yields.llama.fi
-    https://*.quiknode.pro
-    https://*.alchemy.com
-    https://*.ankr.com
-    https://*.goldsky.com
-    wss://www.walletlink.org
-    wss://relay.walletconnect.com
-    wss://relay.walletconnect.org;
-  font-src 'self'
-    https://fonts.reown.com;
-  frame-src 'self'
-    https://verify.walletconnect.org
-    https://verify.walletconnect.com;
-  frame-ancestors 'self';
-  img-src 'self' data: blob:
-    https://raw.githubusercontent.com
-    https://storage.googleapis.com
-    https://token-images.euler.finance;
-  manifest-src 'self';
-  media-src 'self';
-  worker-src 'self' blob:;
-  form-action 'self';
-  block-all-mixed-content;
-`
-  .replace(/\s{2,}/g, ' ')
-  .trim()
+const cspHeaderValue = `default-src 'self'; script-src 'unsafe-eval' 'unsafe-inline' 'self'; style-src 'unsafe-inline' 'self'; connect-src 'self' https://indexer-main.euler.finance;`
 
 export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss', '@nuxt/eslint', '@gvade/nuxt3-svg-sprite', '@vueuse/nuxt'],
