@@ -173,11 +173,14 @@ export const useEulerOperations = () => {
     }
   }
 
-  const getSwapWithdrawAmount = (quote: SwapApiQuote) => {
+  const getSwapInputAmount = (quote: SwapApiQuote, swapperMode: SwapperMode) => {
     const amountIn = BigInt(quote.amountIn || 0)
     const amountInMax = BigInt(quote.amountInMax || 0)
+    if (swapperMode === SwapperMode.EXACT_IN) {
+      return amountIn
+    }
     if (amountInMax > 0n) {
-      return amountIn < amountInMax ? amountIn : amountInMax
+      return amountInMax
     }
     return amountIn
   }
@@ -259,11 +262,12 @@ export const useEulerOperations = () => {
       throw new Error('Swap verifier type mismatch')
     }
 
-    const withdrawAmount = getSwapWithdrawAmount(quote)
-    if (withdrawAmount <= 0n) {
+    const inputAmount = getSwapInputAmount(quote, swapperMode)
+    if (inputAmount <= 0n) {
       throw new Error('Swap amount is zero')
     }
 
+    const isDebtSwap = isRepay && quote.accountIn.toLowerCase() !== quote.accountOut.toLowerCase()
     const verifierData = buildSwapVerifierData({
       quote,
       swapperMode,
@@ -278,9 +282,22 @@ export const useEulerOperations = () => {
     }
 
     const hooks = new SaHooksBuilder()
-    hooks.addContractInterface(quote.vaultIn, [
-      'function withdraw(uint256,address,address) external',
-    ])
+    if (isDebtSwap) {
+      hooks.addContractInterface(quote.vaultIn, [
+        'function borrow(uint256,address) external',
+      ])
+      hooks.addContractInterface(evcAddress, [
+        'function enableController(address,address) external',
+      ])
+      hooks.addContractInterface(quote.receiver, [
+        'function disableController() external',
+      ])
+    }
+    else {
+      hooks.addContractInterface(quote.vaultIn, [
+        'function withdraw(uint256,address,address) external',
+      ])
+    }
 
     if (!hasSigned) {
       hooks.addContractInterface(tosSignerAddress, [
@@ -299,16 +316,36 @@ export const useEulerOperations = () => {
       })
     }
 
-    evcCalls.push({
-      targetContract: quote.vaultIn,
-      onBehalfOfAccount: quote.accountIn,
-      value: 0n,
-      data: hooks.getDataForCall(
-        quote.vaultIn,
-        'withdraw',
-        [withdrawAmount, quote.swap.swapperAddress, quote.accountIn],
-      ) as Hash,
-    })
+    if (isDebtSwap) {
+      evcCalls.push({
+        targetContract: evcAddress,
+        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+        value: 0n,
+        data: hooks.getDataForCall(evcAddress, 'enableController', [quote.accountOut, quote.vaultIn]) as Hash,
+      })
+      evcCalls.push({
+        targetContract: quote.vaultIn,
+        onBehalfOfAccount: quote.accountOut,
+        value: 0n,
+        data: hooks.getDataForCall(
+          quote.vaultIn,
+          'borrow',
+          [inputAmount, quote.swap.swapperAddress],
+        ) as Hash,
+      })
+    }
+    else {
+      evcCalls.push({
+        targetContract: quote.vaultIn,
+        onBehalfOfAccount: quote.accountIn,
+        value: 0n,
+        data: hooks.getDataForCall(
+          quote.vaultIn,
+          'withdraw',
+          [inputAmount, quote.swap.swapperAddress, quote.accountIn],
+        ) as Hash,
+      })
+    }
 
     evcCalls.push({
       targetContract: quote.swap.swapperAddress,
@@ -327,6 +364,15 @@ export const useEulerOperations = () => {
       value: 0n,
       data: verifierData,
     })
+
+    if (isDebtSwap && quote.receiver.toLowerCase() !== quote.vaultIn.toLowerCase()) {
+      evcCalls.push({
+        targetContract: quote.receiver,
+        onBehalfOfAccount: quote.accountOut,
+        value: 0n,
+        data: hooks.getDataForCall(quote.receiver, 'disableController', []) as Hash,
+      })
+    }
 
     const totalValue = sumCallValues(evcCalls)
 

@@ -322,6 +322,14 @@ watch(isConnected, () => {
               >
                 Repay
               </UiButton>
+              <UiButton
+                size="medium"
+                variant="primary-stroke"
+                rounded
+                :to="`/position/${positionIndex}/borrow/swap`"
+              >
+                Debt swap
+              </UiButton>
             </div>
           </div>
         </div>
