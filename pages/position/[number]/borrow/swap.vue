@@ -4,7 +4,7 @@ import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal } from '#components'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault, getVaultPrice } from '~/entities/vault'
+import { type Vault, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapDebtOptions } from '~/composables/useSwapDebtOptions'
 import { useSwapApi } from '~/composables/useSwapApi'
@@ -23,8 +23,8 @@ const { getSwapQuotes, logSwapFailure } = useSwapApi()
 const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
-const { getOpportunityOfBorrowVault } = useMerkl()
-const { withIntrinsicBorrowApy } = useIntrinsicApy()
+const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const positionIndex = route.params.number as string
 
@@ -132,6 +132,16 @@ const fromOpportunity = computed(() => {
 const toOpportunity = computed(() => {
   return toVault.value ? getOpportunityOfBorrowVault(toVault.value.asset.address) : null
 })
+const collateralOpportunity = computed(() => {
+  return collateralVault.value ? getOpportunityOfLendVault(collateralVault.value.address) : null
+})
+const collateralSupplyApy = computed(() => {
+  if (!collateralVault.value) {
+    return null
+  }
+  const base = nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25)
+  return withIntrinsicSupplyApy(base, collateralVault.value.asset.symbol) + (collateralOpportunity.value?.apr || 0)
+})
 const fromBorrowApy = computed(() => {
   if (!fromVault.value) {
     return null
@@ -145,6 +155,141 @@ const toBorrowApy = computed(() => {
   }
   const base = nanoToValue(toVault.value.interestRateInfo.borrowAPY || 0n, 25)
   return withIntrinsicBorrowApy(base, toVault.value.asset.symbol) - (toOpportunity.value?.apr || 0)
+})
+
+const supplyValueUsd = computed(() => {
+  if (!collateralVault.value || !position.value) {
+    return null
+  }
+  return getVaultPrice(position.value.supplied, collateralVault.value)
+})
+const currentBorrowValueUsd = computed(() => {
+  if (!fromVault.value || !position.value) {
+    return null
+  }
+  return getVaultPrice(position.value.borrowed, fromVault.value)
+})
+const nextBorrowValueUsd = computed(() => {
+  if (!quote.value || !toVault.value) {
+    return null
+  }
+  return getVaultPrice(BigInt(quote.value.amountIn), toVault.value)
+})
+
+const calculateRoe = (
+  supplyUsd: number | null,
+  borrowUsd: number | null,
+  supplyApy: number | null,
+  borrowApy: number | null,
+) => {
+  if (supplyUsd === null || borrowUsd === null || supplyApy === null || borrowApy === null) {
+    return null
+  }
+  const equity = supplyUsd - borrowUsd
+  if (!Number.isFinite(equity) || equity <= 0) {
+    return null
+  }
+  const net = supplyUsd * supplyApy - borrowUsd * borrowApy
+  if (!Number.isFinite(net)) {
+    return null
+  }
+  return net / equity
+}
+
+const roeBefore = computed(() => {
+  return calculateRoe(supplyValueUsd.value, currentBorrowValueUsd.value, collateralSupplyApy.value, fromBorrowApy.value)
+})
+const roeAfter = computed(() => {
+  return calculateRoe(supplyValueUsd.value, nextBorrowValueUsd.value, collateralSupplyApy.value, toBorrowApy.value)
+})
+
+const priceRatio = computed(() => {
+  if (!collateralVault.value || !toVault.value) {
+    return null
+  }
+  const collateralPrice = getVaultPriceInfo(collateralVault.value)
+  const borrowPrice = getVaultPriceInfo(toVault.value)
+  const ask = collateralPrice?.amountOutAsk || 0n
+  const bid = borrowPrice?.amountOutBid || 0n
+  if (!ask || !bid) {
+    return null
+  }
+  return nanoToValue(ask, 18) / nanoToValue(bid, 18)
+})
+
+const collateralAmount = computed(() => {
+  if (!collateralVault.value || !position.value) {
+    return null
+  }
+  return nanoToValue(position.value.supplied, collateralVault.value.decimals)
+})
+const nextBorrowAmount = computed(() => {
+  if (!quote.value || !toVault.value) {
+    return null
+  }
+  return nanoToValue(BigInt(quote.value.amountIn), toVault.value.decimals)
+})
+
+const currentLtv = computed(() => {
+  if (!position.value) {
+    return null
+  }
+  return nanoToValue(position.value.userLTV, 18)
+})
+const currentLiquidationLtv = computed(() => {
+  if (!position.value) {
+    return null
+  }
+  return nanoToValue(position.value.liquidationLTV, 2)
+})
+const nextLiquidationLtv = computed(() => {
+  if (!toVault.value || !collateralVault.value) {
+    return null
+  }
+  const match = toVault.value.collateralLTVs.find(
+    ltv => normalizeAddress(ltv.collateral) === normalizeAddress(collateralVault.value?.address),
+  )
+  return match ? nanoToValue(match.liquidationLTV, 2) : null
+})
+const nextLtv = computed(() => {
+  if (!nextBorrowAmount.value || !collateralAmount.value || !priceRatio.value) {
+    return null
+  }
+  if (priceRatio.value <= 0 || collateralAmount.value <= 0) {
+    return null
+  }
+  return (nextBorrowAmount.value / (collateralAmount.value * priceRatio.value)) * 100
+})
+const currentHealth = computed(() => {
+  if (!position.value) {
+    return null
+  }
+  return nanoToValue(position.value.health, 18)
+})
+const nextHealth = computed(() => {
+  if (!nextLiquidationLtv.value || !nextLtv.value) {
+    return null
+  }
+  if (nextLtv.value <= 0) {
+    return null
+  }
+  return nextLiquidationLtv.value / nextLtv.value
+})
+const currentLiquidationPrice = computed(() => {
+  if (!position.value?.price) {
+    return null
+  }
+  const value = nanoToValue(position.value.price, 18)
+  return value > 0 ? value : null
+})
+const nextLiquidationPrice = computed(() => {
+  if (!priceRatio.value || !nextHealth.value) {
+    return null
+  }
+  if (nextHealth.value <= 0) {
+    return null
+  }
+  return priceRatio.value / nextHealth.value
 })
 
 const currentPrice = computed(() => {
@@ -468,18 +613,16 @@ const send = async () => {
           >
             <div class="flex justify-between items-center">
               <p class="text-euler-dark-900">
-                {{ fromVault.asset.symbol || 'Token1' }} borrow APY
+                ROE
               </p>
               <p class="text-p2">
-                {{ fromBorrowApy !== null ? `${formatNumber(fromBorrowApy)}%` : '-' }}
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
-                {{ toVault.asset.symbol || 'Token2' }} borrow APY
-              </p>
-              <p class="text-p2">
-                {{ toBorrowApy !== null ? `${formatNumber(toBorrowApy)}%` : '-' }}
+                <template v-if="roeBefore !== null && roeAfter !== null && quote">
+                  <span class="text-euler-dark-900">{{ formatNumber(roeBefore) }}%</span>
+                  → <span class="text-white">{{ formatNumber(roeAfter) }}%</span>
+                </template>
+                <template v-else>
+                  {{ roeBefore !== null ? `${formatNumber(roeBefore)}%` : '-' }}
+                </template>
               </p>
             </div>
             <div class="flex justify-between items-center">
@@ -488,6 +631,67 @@ const send = async () => {
               </p>
               <p class="text-p2">
                 {{ currentPrice ? `${formatNumber(currentPrice.value)} ${currentPrice.symbol}` : '-' }}
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Liquidation price
+              </p>
+              <p class="text-p2">
+                <template v-if="currentLiquidationPrice !== null && nextLiquidationPrice !== null && quote">
+                  <span class="text-euler-dark-900">{{ formatNumber(currentLiquidationPrice, 4) }}</span>
+                  → <span class="text-white">{{ formatNumber(nextLiquidationPrice, 4) }}</span>
+                </template>
+                <template v-else>
+                  {{ currentLiquidationPrice !== null ? `${formatNumber(currentLiquidationPrice, 4)} ` : '-' }}
+                </template>
+                <span class="text-euler-dark-900 text-p3">
+                  {{ collateralVault?.asset.symbol }}
+                </span>
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Your LTV (LLTV)
+              </p>
+              <p class="text-p2 text-right">
+                <template v-if="currentLtv !== null && currentLiquidationLtv !== null && nextLtv !== null && nextLiquidationLtv !== null && quote">
+                  <span class="text-euler-dark-900">
+                    {{ formatNumber(currentLtv) }}%
+                    <span class="text-euler-dark-900 text-p3">
+                      ({{ formatNumber(currentLiquidationLtv) }}%)
+                    </span>
+                  </span>
+                  → <span class="text-white">
+                    {{ formatNumber(nextLtv) }}%
+                    <span class="text-euler-dark-900 text-p3">
+                      ({{ formatNumber(nextLiquidationLtv) }}%)
+                    </span>
+                  </span>
+                </template>
+                <template v-else>
+                  <span v-if="currentLtv !== null && currentLiquidationLtv !== null">
+                    {{ formatNumber(currentLtv) }}%
+                    <span class="text-euler-dark-900 text-p3">
+                      ({{ formatNumber(currentLiquidationLtv) }}%)
+                    </span>
+                  </span>
+                  <span v-else>-</span>
+                </template>
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Your health
+              </p>
+              <p class="text-p2">
+                <template v-if="currentHealth !== null && nextHealth !== null && quote">
+                  <span class="text-euler-dark-900">{{ formatNumber(currentHealth, 2) }}</span>
+                  → <span class="text-white">{{ formatNumber(nextHealth, 2) }}</span>
+                </template>
+                <template v-else>
+                  {{ currentHealth !== null ? formatNumber(currentHealth, 2) : '-' }}
+                </template>
               </p>
             </div>
             <div class="flex justify-between items-start">
@@ -510,6 +714,14 @@ const send = async () => {
               </p>
               <p class="text-p2">
                 {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Slippage tolerance
+              </p>
+              <p class="text-p2">
+                {{ formatNumber(slippage, 2, 0) }}%
               </p>
             </div>
             <div class="flex justify-between items-center">
