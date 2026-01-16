@@ -51,6 +51,7 @@ export interface Account {
 export interface AccountBorrowPosition {
   borrow: Vault
   collateral: Vault
+  collaterals?: string[]
   subAccount: string
   health: bigint
   userLTV: bigint

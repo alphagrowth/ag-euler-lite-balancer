@@ -4,6 +4,7 @@ import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal } from '#components'
 import type { AccountBorrowPosition } from '~/entities/account'
+import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { type Vault, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
@@ -25,6 +26,9 @@ const modal = useModal()
 const { error: showError } = useToast()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
+const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const positionIndex = route.params.number as string
 
@@ -41,8 +45,11 @@ let quoteAbort: AbortController | null = null
 let quoteRequestId = 0
 
 const position: Ref<AccountBorrowPosition | null> = ref(null)
+const selectedCollateral = ref<Vault | null>(null)
+const selectedCollateralAssets = ref(0n)
+const lastCollateralAddress = ref('')
 
-const fromVault = computed(() => position.value?.collateral)
+const fromVault = computed(() => selectedCollateral.value || position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
 const toVault: Ref<Vault | undefined> = ref()
 
@@ -58,9 +65,7 @@ const loadPosition = async () => {
   await until(isPositionsLoaded).toBe(true)
 
   position.value = borrowPositions.value[+positionIndex - 1] || null
-  if (position.value && !fromAmount.value) {
-    fromAmount.value = `${nanoToValue(position.value.supplied || 0n, position.value.collateral.decimals)}`
-  }
+  await loadSelectedCollateral()
   isLoading.value = false
 }
 
@@ -69,6 +74,12 @@ watch([isPositionsLoaded, () => route.params.number], ([loaded]) => {
     loadPosition()
   }
 }, { immediate: true })
+watch(() => route.query.collateral, async () => {
+  if (!position.value) {
+    return
+  }
+  await loadSelectedCollateral()
+})
 
 const normalizeAddress = (addr?: string) => {
   if (!addr) {
@@ -79,6 +90,59 @@ const normalizeAddress = (addr?: string) => {
   }
   catch {
     return ''
+  }
+}
+
+const getSelectedCollateralAddress = () =>
+  (typeof route.query.collateral === 'string' ? route.query.collateral : '')
+
+const loadSelectedCollateral = async () => {
+  if (!position.value) {
+    selectedCollateral.value = null
+    selectedCollateralAssets.value = 0n
+    return
+  }
+
+  const primaryAddress = normalizeAddress(position.value.collateral.address)
+  const targetAddress = normalizeAddress(getSelectedCollateralAddress()) || primaryAddress
+
+  if (targetAddress !== lastCollateralAddress.value) {
+    fromAmount.value = ''
+    lastCollateralAddress.value = targetAddress
+    resetQuoteState()
+  }
+
+  selectedCollateralAssets.value = targetAddress === primaryAddress ? position.value.supplied : 0n
+
+  try {
+    if (!isEulerAddressesReady.value) {
+      await loadEulerConfig()
+    }
+
+    await until(isVaultsReady).toBe(true)
+
+    const vault = map.value.get(targetAddress) || await getVault(targetAddress)
+    selectedCollateral.value = vault
+
+    const lensAddress = eulerLensAddresses.value?.accountLens
+    if (!lensAddress) {
+      throw new Error('Account lens address is not available')
+    }
+
+    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
+    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
+    const res = await accountLensContract.getAccountInfo(position.value.subAccount, targetAddress)
+    selectedCollateralAssets.value = res.vaultAccountInfo.assets
+  }
+  catch (e) {
+    console.warn('[Collateral swap] failed to load collateral', e)
+    if (!selectedCollateral.value) {
+      selectedCollateral.value = position.value.collateral
+    }
+  }
+
+  if (!fromAmount.value && selectedCollateral.value) {
+    fromAmount.value = `${nanoToValue(selectedCollateralAssets.value || 0n, selectedCollateral.value.decimals)}`
   }
 }
 
@@ -111,7 +175,7 @@ watch([collateralVaults, fromVault, () => route.query.to], () => {
 }, { immediate: true })
 
 const quote = computed(() => quotes.value[0] || null)
-const balance = computed(() => position.value?.supplied || 0n)
+const balance = computed(() => selectedCollateralAssets.value)
 
 const resetQuoteState = () => {
   quotes.value = []
@@ -160,7 +224,7 @@ const supplyValueUsd = computed(() => {
   if (!fromVault.value || !position.value) {
     return null
   }
-  return getVaultPrice(position.value.supplied, fromVault.value)
+  return getVaultPrice(selectedCollateralAssets.value, fromVault.value)
 })
 const nextSupplyValueUsd = computed(() => {
   if (!quote.value || !toVault.value) {

@@ -53,13 +53,25 @@ const { borrowOptions, borrowVaults } = useSwapDebtOptions({
   currentBorrowVault: computed(() => fromVault.value as Vault | undefined),
 })
 
+const quote = computed(() => quotes.value[0] || null)
+const currentDebt = computed(() => position.value?.borrowed || 0n)
+const balance = computed(() => currentDebt.value)
+
+const setFromAmountToMax = () => {
+  if (!fromVault.value) {
+    fromAmount.value = ''
+    return
+  }
+  fromAmount.value = `${nanoToValue(currentDebt.value, fromVault.value.decimals)}`
+}
+
 const loadPosition = async () => {
   isLoading.value = true
   await until(isPositionsLoaded).toBe(true)
 
   position.value = borrowPositions.value[+positionIndex - 1] || null
-  if (position.value && !fromAmount.value) {
-    fromAmount.value = `${nanoToValue(position.value.borrowed || 0n, position.value.borrow.decimals)}`
+  if (position.value) {
+    setFromAmountToMax()
   }
   isLoading.value = false
 }
@@ -109,10 +121,6 @@ const syncToVault = () => {
 watch([borrowVaults, fromVault, () => route.query.to], () => {
   syncToVault()
 }, { immediate: true })
-
-const quote = computed(() => quotes.value[0] || null)
-const currentDebt = computed(() => position.value?.borrowed || 0n)
-const balance = computed(() => currentDebt.value)
 
 const resetQuoteState = () => {
   quotes.value = []
@@ -484,6 +492,16 @@ watch([fromVault, slippage], () => {
   }
 })
 
+watch([currentDebt, fromVault], () => {
+  if (!position.value) {
+    return
+  }
+  setFromAmountToMax()
+  if (toVault.value) {
+    requestQuote()
+  }
+})
+
 const onToVaultChange = (selectedIndex: number) => {
   const nextVault = borrowVaults.value[selectedIndex]
   if (!nextVault) {
@@ -575,8 +593,7 @@ const send = async () => {
               :asset="fromVault.asset"
               :vault="fromVault"
               :balance="balance"
-              maxable
-              @input="onFromInput"
+              :readonly="true"
             />
 
             <AssetInput
