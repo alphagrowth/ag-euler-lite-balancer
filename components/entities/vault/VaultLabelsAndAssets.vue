@@ -4,14 +4,15 @@ import type { EarnVault, EscrowVault, Vault, VaultAsset } from '~/entities/vault
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 
-const { vault, assets, size } = defineProps<{
+const { vault, assets, size, assetsLabel } = defineProps<{
   vault: Vault | EarnVault | EscrowVault
   assets: VaultAsset[]
   size?: 'large'
+  assetsLabel?: string
 }>()
 const { name } = useEulerProductOfVault(ethers.getAddress(vault.address))
 
-const assetsLabel = computed(() => assets.map(asset => asset.symbol).join('/'))
+const displayAssetsLabel = computed(() => assetsLabel || assets.map(asset => asset.symbol).join('/'))
 const avatarSrcs = computed(() => assets.map(asset => getAssetLogoUrl(asset.symbol)))
 const avatarLabels = computed(() => assets.map(asset => asset.symbol))
 </script>
@@ -52,7 +53,7 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
       </p>
 
       <p class="text-p2 font-semibold">
-        {{ assetsLabel }}
+        {{ displayAssetsLabel }}
       </p>
     </div>
   </div>

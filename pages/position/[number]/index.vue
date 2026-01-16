@@ -39,16 +39,23 @@ const { EVM_PROVIDER_URL } = useEulerConfig()
 const borrowVault = computed(() => position.value!.borrow)
 const collateralVault = computed(() => position.value!.collateral)
 const primaryCollateralAddress = computed(() => position.value ? ethers.getAddress(position.value.collateral.address) : '')
-const collateralAssets = computed(() => {
-  if (!position.value) return []
-  if (collateralItems.value.length) {
-    return collateralItems.value.map(item => item.vault.asset)
+const collateralCount = computed(() => position.value?.collaterals?.length ?? collateralItems.value.length)
+const collateralSymbolLabel = computed(() => {
+  if (!position.value) {
+    return ''
   }
-  return [position.value.collateral.asset]
+  const symbol = position.value.collateral.asset.symbol
+  return collateralCount.value > 1 ? `${symbol} & others` : symbol
+})
+const pairAssetsLabel = computed(() => {
+  if (!position.value) {
+    return ''
+  }
+  return `${collateralSymbolLabel.value}/${position.value.borrow.asset.symbol}`
 })
 const pairAssets = computed(() => {
   if (!position.value) return []
-  return [...collateralAssets.value, borrowVault.value.asset]
+  return [collateralVault.value.asset, borrowVault.value.asset]
 })
 const hasNoBorrow = computed(() => position.value!.borrow.borrow === 0n)
 
@@ -328,6 +335,7 @@ watch(isConnected, () => {
       <VaultLabelsAndAssets
         :vault="position.collateral"
         :assets="pairAssets"
+        :assets-label="pairAssetsLabel"
       />
 
       <div
