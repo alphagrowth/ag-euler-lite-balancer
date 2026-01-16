@@ -145,13 +145,13 @@ export default defineNuxtConfig({
 
   nitro: {
     compressPublicAssets: true,
-    // routeRules: {
-    //   '/**': {
-    //     headers: {
-    //       'Content-Security-Policy': cspHeaderValue,
-    //     },
-    //   },
-    // },
+    routeRules: {
+      '/**': {
+        headers: {
+          'Content-Security-Policy': cspHeaderValue,
+        },
+      },
+    },
   },
 
   telemetry: false,
