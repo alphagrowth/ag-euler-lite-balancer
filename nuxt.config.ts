@@ -1,23 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-import config from './entities/config'
 
-// Build CSP dynamically from config
-const network = (process.env.NETWORK || 'mainnet') as 'mainnet' | 'testnet'
-const networkConfig = config[network]
-
-// Extract all RPC URLs
-const rpcUrls = Object.entries(networkConfig)
-  .filter(([key]) => key.startsWith('NEXT_PUBLIC_RPC_HTTP_'))
-  .map(([_, value]) => value as string)
-  .join(' ')
-
-// Extract all Subgraph URLs
-const subgraphUrls = Object.entries(networkConfig)
-  .filter(([key]) => key.startsWith('SUBGRAPH_'))
-  .map(([_, value]) => value as string)
-  .join(' ')
-
-// Build Content Security Policy
 const cspHeaderValue = `
   default-src 'self';
   script-src 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' 'self';
@@ -40,8 +22,10 @@ const cspHeaderValue = `
     https://chain-proxy.wallet.coinbase.com
     https://cca-lite.coinbase.com
     https://yields.llama.fi
-    ${rpcUrls}
-    ${subgraphUrls}
+    https://*.quiknode.pro
+    https://*.alchemy.com
+    https://*.ankr.com
+    https://*.goldsky.com
     wss://www.walletlink.org
     wss://relay.walletconnect.com
     wss://relay.walletconnect.org;
