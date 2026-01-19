@@ -98,6 +98,7 @@ const submit = async () => {
       valueToNano(amount.value || '0', asset.value.decimals),
       asset.value.symbol,
       undefined,
+      { includePermit2Call: false },
     )
   }
   catch (e) {

@@ -27,6 +27,7 @@ export interface SwapApiRequestInput {
   deadline?: number
   dustAccount?: Address
   routingOverride?: RoutingConfig
+  provider?: string
 }
 
 const buildRequestParams = (
@@ -53,6 +54,7 @@ const buildRequestParams = (
     isRepay: String(params.isRepay ?? false),
     dustAccount: params.dustAccount || origin,
     routingOverride: params.routingOverride ? JSON.stringify(params.routingOverride) : undefined,
+    provider: params.provider,
   }
 
   return Object.fromEntries(
@@ -61,6 +63,16 @@ const buildRequestParams = (
 }
 
 const parseSwapApiResponse = (payload: SwapApiResponse | { data?: SwapApiQuote[] }) => {
+  if ('success' in payload && payload.success === false) {
+    throw new Error('Swap API returned success=false')
+  }
+  if ('data' in payload && Array.isArray(payload.data)) {
+    return payload.data
+  }
+  return []
+}
+
+const parseSwapProvidersResponse = (payload: { success?: boolean; data?: string[] }) => {
   if ('success' in payload && payload.success === false) {
     throw new Error('Swap API returned success=false')
   }
@@ -100,6 +112,27 @@ export const useSwapApi = () => {
     return parseSwapApiResponse(response.data)
   }
 
+  const getSwapProviders = async (): Promise<string[]> => {
+    if (!chainId.value) {
+      return []
+    }
+    try {
+      const response = await axios.get<{ success?: boolean; data?: string[] }>(
+        `${baseUrl}/providers`,
+        {
+          params: {
+            chainId: chainId.value,
+          },
+        },
+      )
+      return parseSwapProvidersResponse(response.data)
+    }
+    catch (error) {
+      console.warn('[useSwapApi] providers failed', error)
+      return []
+    }
+  }
+
   const getSwapQuote = async (
     params: SwapApiRequestInput,
     options?: { signal?: AbortSignal },
@@ -121,6 +154,7 @@ export const useSwapApi = () => {
     baseUrl,
     getSwapQuote,
     getSwapQuotes,
+    getSwapProviders,
     logSwapFailure,
   }
 }

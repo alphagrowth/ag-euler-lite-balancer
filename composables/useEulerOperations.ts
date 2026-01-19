@@ -442,7 +442,7 @@ export const useEulerOperations = () => {
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
     const permit2Address = resolvePermit2Address(vaultAddr)
     const includePermit2Call = options.includePermit2Call ?? true
-    const canUsePermit2 = includePermit2Call && !!chainId.value && !!permit2Address
+    const canUsePermit2 = !!chainId.value && !!permit2Address
 
     const steps: TxStep[] = []
 
@@ -464,7 +464,7 @@ export const useEulerOperations = () => {
         })
       }
 
-      if (!needsPermit2Approval) {
+      if (!needsPermit2Approval && includePermit2Call) {
         permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
       }
     }
@@ -705,7 +705,7 @@ export const useEulerOperations = () => {
     if (amount > 0n) {
       const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
       const includePermit2Call = options.includePermit2Call ?? true
-      const canUsePermit2 = includePermit2Call && !!chainId.value && !!permit2Address
+      const canUsePermit2 = !!chainId.value && !!permit2Address
       usesPermit2 = canUsePermit2 && allowance < amount
 
       if (usesPermit2 && permit2Address) {
@@ -723,7 +723,7 @@ export const useEulerOperations = () => {
           })
         }
 
-        if (!needsPermit2Approval) {
+        if (!needsPermit2Approval && includePermit2Call) {
           permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
         }
       }
@@ -946,6 +946,7 @@ export const useEulerOperations = () => {
     quote,
     swapperMode = SwapperMode.EXACT_IN,
     subAccount,
+    includePermit2Call = true,
   }: {
     supplyVaultAddress: string
     supplyAssetAddress: string
@@ -959,6 +960,7 @@ export const useEulerOperations = () => {
     quote?: SwapApiQuote
     swapperMode?: SwapperMode
     subAccount?: string
+    includePermit2Call?: boolean
   }): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -1027,7 +1029,7 @@ export const useEulerOperations = () => {
           })
         }
 
-        if (!needsPermit2Approval) {
+        if (!needsPermit2Approval && includePermit2Call) {
           permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Addr)
         }
       }
@@ -1251,6 +1253,7 @@ export const useEulerOperations = () => {
     borrowAssetAddress: string,
     amount: bigint,
     subAccount: string,
+    options: { includePermit2Call?: boolean } = {},
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -1268,6 +1271,7 @@ export const useEulerOperations = () => {
 
     const steps: TxStep[] = []
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
+    const includePermit2Call = options.includePermit2Call ?? true
     const canUsePermit2 = !!chainId.value && !!permit2Address
     let permitCall: EVCCall | undefined
     const usesPermit2 = canUsePermit2 && allowance < amount
@@ -1287,7 +1291,7 @@ export const useEulerOperations = () => {
         })
       }
 
-      if (!needsPermit2Approval) {
+      if (!needsPermit2Approval && includePermit2Call) {
         permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
       }
     }
@@ -1356,6 +1360,7 @@ export const useEulerOperations = () => {
     amount: bigint,
     subAccount: string,
     vaultAddress: string,
+    options: { includePermit2Call?: boolean } = {},
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -1372,6 +1377,7 @@ export const useEulerOperations = () => {
 
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
+    const includePermit2Call = options.includePermit2Call ?? true
     const canUsePermit2 = !!chainId.value && !!permit2Address
     let permitCall: EVCCall | undefined
     const usesPermit2 = canUsePermit2 && allowance < amount
@@ -1392,7 +1398,7 @@ export const useEulerOperations = () => {
         })
       }
 
-      if (!needsPermit2Approval) {
+      if (!needsPermit2Approval && includePermit2Call) {
         permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
       }
     }

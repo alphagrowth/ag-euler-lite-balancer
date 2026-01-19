@@ -187,6 +187,7 @@ const submit = async () => {
       valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
       collateralVault.value.asset.symbol,
       position.value?.subAccount,
+      { includePermit2Call: false },
     )
   }
   catch (e) {

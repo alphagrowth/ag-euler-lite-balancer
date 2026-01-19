@@ -130,12 +130,14 @@ const submit = async () => {
         amountNano,
         position.value.subAccount,
         collateralVault.value.address,
+        { includePermit2Call: false },
       )
       : await buildRepayPlan(
         borrowVault.value.address,
         borrowVault.value.asset.address,
         amountNano,
         position.value.subAccount,
+        { includePermit2Call: false },
       )
   }
   catch (e) {

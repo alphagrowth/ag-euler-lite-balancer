@@ -151,6 +151,7 @@ const submit = async () => {
       borrowVault.value.address,
       valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
       position.value?.subAccount,
+      { includePermit2Call: false },
     )
   }
   catch (e) {
