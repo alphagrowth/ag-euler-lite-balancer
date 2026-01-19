@@ -1500,7 +1500,7 @@ watch(areVaultsReady, async (ready) => {
         </template>
 
         <template v-else-if="multiplySupplyVault && multiplyLongVault && multiplyShortVault">
-          <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
+          <div class="grid gap-16 laptop:items-start">
             <div class="flex flex-col gap-16 w-full">
               <AssetInput
                 v-model="multiplyInputAmount"
@@ -1525,42 +1525,6 @@ watch(areVaultsReady, async (ready) => {
                 @update:model-value="onMultiplierInput"
               />
 
-              <AssetInput
-                v-model="multiplyLongAmount"
-                :desc="multiplyLongProduct.name"
-                label="Long"
-                :asset="multiplyLongVault.asset"
-                :vault="multiplyLongVault"
-                :readonly="true"
-              />
-
-              <AssetInput
-                v-model="multiplyShortAmount"
-                :desc="multiplyShortProduct.name"
-                label="Short"
-                :asset="multiplyShortVault.asset"
-                :vault="multiplyShortVault"
-                :readonly="true"
-              />
-
-              <UiToast
-                v-show="multiplyErrorText"
-                title="Error"
-                variant="error"
-                :description="multiplyErrorText || ''"
-                size="compact"
-              />
-
-              <UiToast
-                v-if="multiplyQuoteError"
-                title="Swap quote"
-                variant="warning"
-                :description="multiplyQuoteError"
-                size="compact"
-              />
-            </div>
-
-            <div class="flex flex-col gap-16 w-full laptop:max-w-[360px]">
               <div class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-12">
                 <div class="flex justify-between items-center">
                   <p class="text-p2 text-white">
@@ -1626,6 +1590,42 @@ watch(areVaultsReady, async (ready) => {
                 </div>
               </div>
 
+              <AssetInput
+                v-model="multiplyLongAmount"
+                :desc="multiplyLongProduct.name"
+                label="Long"
+                :asset="multiplyLongVault.asset"
+                :vault="multiplyLongVault"
+                :readonly="true"
+              />
+
+              <AssetInput
+                v-model="multiplyShortAmount"
+                :desc="multiplyShortProduct.name"
+                label="Short"
+                :asset="multiplyShortVault.asset"
+                :vault="multiplyShortVault"
+                :readonly="true"
+              />
+
+              <UiToast
+                v-show="multiplyErrorText"
+                title="Error"
+                variant="error"
+                :description="multiplyErrorText || ''"
+                size="compact"
+              />
+
+              <UiToast
+                v-if="multiplyQuoteError"
+                title="Swap quote"
+                variant="warning"
+                :description="multiplyQuoteError"
+                size="compact"
+              />
+            </div>
+
+            <div class="flex flex-col gap-16 w-full">
               <VaultFormInfoBlock
                 :loading="isMultiplyQuoteLoading"
                 class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full"
