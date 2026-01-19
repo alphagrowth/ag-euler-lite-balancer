@@ -1,4 +1,4 @@
-import { labelsRepo } from '~/entities/custom'
+import { labelsRepo } from './custom'
 
 export default {
   testnet: {

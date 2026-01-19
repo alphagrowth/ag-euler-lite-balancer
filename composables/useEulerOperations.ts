@@ -51,7 +51,7 @@ export const useEulerOperations = () => {
   }
 
   const nowInSeconds = () => BigInt(Math.floor(Date.now() / 1000))
-  const PERMIT2_SIG_WINDOW = 60n * 60n * 24n * 180n
+  const PERMIT2_SIG_WINDOW = 60n * 60n
 
   const getPermit2Allowance = async (token: Address, spender: Address, owner: Address, permit2Address?: Address) => {
     const resolvedPermit2 = permit2Address ?? resolvePermit2Address()

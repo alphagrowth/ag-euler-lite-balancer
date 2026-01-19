@@ -104,6 +104,65 @@ export const availableNetworkIds = [
 export const labelsRepo: string = "euler-xyz/euler-labels"; // or your fork
 ```
 
+**EulerEarn Vaults Configuration** - Specify which EulerEarn vaults to display in your app:
+
+If you're using a custom labels repository (i.e., `labelsRepo` is not `"euler-xyz/euler-labels"`), you can curate which EulerEarn vaults are shown by creating chain-specific `earn-vaults.json` files in your labels repository.
+
+**How it works**:
+
+1. **Set your labels repository** in `entities/custom.ts` (if you haven't already):
+
+   ```typescript
+   export const labelsRepo: string = "your-username/your-labels-repo";
+   ```
+
+2. **Create chain-specific earn-vaults.json files** in your labels repository:
+
+   - File path: `{chainId}/earn-vaults.json`
+   - The file should be an array of vault addresses (strings)
+   - Each supported chain needs its own file
+
+3. **File structure example**:
+
+   ```
+   your-labels-repo/
+   ├── 1/                    # Ethereum Mainnet (chainId: 1)
+   │   └── earn-vaults.json
+   ├── 42161/                # Arbitrum (chainId: 42161)
+   │   └── earn-vaults.json
+   └── 8453/                 # Base (chainId: 8453)
+       └── earn-vaults.json
+   ```
+
+4. **earn-vaults.json format**:
+   The file must be a JSON array of vault addresses (checksummed or lowercase):
+
+   ```json
+   [
+     "0x1234567890123456789012345678901234567890",
+     "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+     "0xFEDCBA9876543210FEDCBA9876543210FEDCBA98"
+   ]
+   ```
+
+   **Example for Ethereum Mainnet** (`1/earn-vaults.json`):
+
+   ```json
+   [
+     "0x7e7a0e85cc0c4b9db7b7b1c5a12d5d8e1f3c4a5b",
+     "0x9f8c9e7d6b5a4c3b2a1f0e9d8c7b6a5f4e3d2c1",
+     "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
+   ]
+   ```
+
+**Important Notes**:
+
+- Only vault addresses listed in `earn-vaults.json` will be displayed in your app's EulerEarn section
+- If you're using the default `"euler-xyz/euler-labels"` repository, all verified EulerEarn vaults will be shown automatically
+- The app loads `earn-vaults.json` from: `https://raw.githubusercontent.com/{labelsRepo}/refs/heads/master/{chainId}/earn-vaults.json`
+- Each chain ID needs its own `earn-vaults.json` file in the corresponding directory
+- Addresses will be normalized (checksummed) automatically, so you can use either lowercase or checksummed addresses
+
 **Intrinsic APY** - Enable/disable DeFiLlama integration:
 
 ```typescript
@@ -174,11 +233,41 @@ meta: [
 
 #### 3.4. Token Icons (Optional)
 
-If your vaults use specific tokens that aren't already provided by Euler Indexer (see composables/useTokens.ts), add their icons to `public/tokens/`:
+The app uses a two-tier system for token icon resolution:
 
-1. Add token icon files (PNG format recommended) to `public/tokens/`
-2. Name them using the symbol name in lowercase (e.g., `eth.png`)
-3. The app will automatically use these icons when displaying tokens (as a fallback)
+**Primary Source**: Token icons are automatically loaded from the Euler Indexer API (`https://indexer-main.euler.finance/v1/tokens`). The indexer provides token metadata including `logoURI` for each token based on the current chain ID.
+
+**Fallback**: If a token doesn't have a `logoURI` from the indexer, the app falls back to custom icons in `public/tokens/`.
+
+**How Token Icon Resolution Works**:
+
+The `getAssetLogoUrl(symbol)` function in `composables/useTokens.ts` uses the following logic:
+
+```typescript
+export const getAssetLogoUrl = (symbol: string) => {
+  return tokens[symbol]?.logoURI ?? `/tokens/${symbol}.png`;
+};
+```
+
+1. **First**: Checks if the token (loaded from the indexer API for the current chain) has a `logoURI` property
+2. **Fallback**: If no `logoURI` exists, looks for a file at `/tokens/${symbol}.png` in the `public` directory
+
+**Adding Custom Token Icons**:
+
+If you need to add custom token icons for tokens not provided by the Euler Indexer:
+
+1. **File Location**: Add token icon files to `public/tokens/`
+2. **File Naming**: Name files using the token's **symbol** in lowercase with `.png` extension
+   - Example: `eth.png`, `usdc.png`, `wbtc.png`
+3. **Not Chain-Specific**: Token icons are shared across all chains - the same `eth.png` file works for ETH on Ethereum Mainnet, Arbitrum, Base, etc.
+4. **How It Works**: The app matches tokens by their `symbol` property (which is consistent across chains for the same asset), not by chain ID
+
+**Example**:
+
+- If a token with symbol `"MYTOKEN"` doesn't have a `logoURI` from the indexer, create `public/tokens/mytoken.png`
+- This icon will be used whenever `getAssetLogoUrl("MYTOKEN")` is called, regardless of which chain the user is connected to
+
+**Note**: Token data (including symbol) is loaded per-chain from the Euler Indexer API when users switch networks. The `useTokens` composable watches for chain changes and reloads tokens accordingly. Custom icons in `public/tokens/` are only used when the indexer doesn't provide a `logoURI` for that token symbol.
 
 ### 4. Development
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import type { Address } from 'viem'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
@@ -21,6 +22,7 @@ const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
 const { address } = useAccount()
+const { getBalance } = useWallets()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -220,6 +222,10 @@ const updateEstimates = useDebounceFn(async () => {
     return
   }
   try {
+    const walletBalance = getBalance(borrowVault.value.asset.address as Address)
+    if (walletBalance < valueToNano(amount.value, borrowVault.value.decimals)) {
+      throw new Error('Not enough balance')
+    }
     if (balanceFixed.value.lt(amountFixed.value)) {
       throw new Error('You repaying more than required')
     }
