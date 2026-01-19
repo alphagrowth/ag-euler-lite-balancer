@@ -6,7 +6,7 @@ import type { TxPlan } from '~/entities/txPlan'
 
 const emits = defineEmits(['close', 'confirm'])
 
-const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount, hasBorrows, fee, plan } = defineProps<{
+const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, fee, plan } = defineProps<{
   type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'reward' | 'brevis-reward' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
@@ -16,12 +16,11 @@ const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, subAccount, ha
   supplyingAmount?: number | string
   rewardInfo?: Reward
   campaignInfo?: Campaign
-  onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => void
+  onConfirm: () => void
   subAccount?: string
   hasBorrows?: boolean
 }>()
 
-const { hasOperator } = useEulerAccount()
 const { chain } = useWagmi()
 const { estimatePlanFees } = useEstimatePlanFees()
 
@@ -54,21 +53,9 @@ watch(() => plan, () => {
   loadFeeEstimate()
 }, { immediate: true })
 
-const hasOperatorForPosition = computed(() => {
-  if (!subAccount) return false
-  return hasOperator(subAccount)
-})
-
-const disableOperator = ref(false)
-const transferAssets = ref(false)
-
-const canTransfer = computed(() => {
-  return hasOperatorForPosition.value && !hasBorrows
-})
-
 const handleConfirm = () => {
   emits('close')
-  onConfirm(disableOperator.value, transferAssets.value)
+  onConfirm()
 }
 
 const btnLabel = computed(() => {
@@ -212,34 +199,6 @@ const feeDisplay = computed(() => {
         description="Disabling collateral will move this deposit to savings"
         size="compact"
       />
-      <div
-        v-if="hasOperatorForPosition"
-        class="flex-wrap gap-8 bg-euler-dark-600 p-16 rounded-12 flex justify-between"
-      >
-        <div class="flex flex-col gap-4">
-          <p class="text-p3 text-white-900 ">
-            Disable swap operator
-          </p>
-          <p class="p4 text-euler-dark-900">
-            Remove operator authorization to prevent automated position management
-          </p>
-        </div>
-        <UiSwitch v-model="disableOperator" />
-      </div>
-      <div
-        v-if="disableOperator && canTransfer"
-        class="flex-wrap gap-8 bg-euler-dark-600 p-16 rounded-12 flex justify-between"
-      >
-        <div class="flex flex-col gap-4">
-          <p class="text-p3 text-white-900">
-            Transfer assets to primary account
-          </p>
-          <p class="p4 text-euler-dark-900">
-            Move all vault shares from this position to your primary account
-          </p>
-        </div>
-        <UiSwitch v-model="transferAssets" />
-      </div>
       <UiButton
         variant="primary"
         size="xlarge"

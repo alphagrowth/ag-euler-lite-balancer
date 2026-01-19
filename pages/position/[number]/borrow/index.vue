@@ -166,15 +166,15 @@ const submit = async () => {
       plan: plan.value || undefined,
       subAccount: position.value?.subAccount,
       hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {
+      onConfirm: () => {
         setTimeout(() => {
-          send(disableOperator, transferAssets)
+          send()
         }, 400)
       },
     },
   })
 }
-const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
+const send = async () => {
   try {
     isSubmitting.value = true
     if (!collateralVault.value || !borrowVault.value || !position.value) {

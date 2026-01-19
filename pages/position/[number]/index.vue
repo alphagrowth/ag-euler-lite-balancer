@@ -254,15 +254,15 @@ const disableCollateral = async (vault: Vault) => {
       plan: plan || undefined,
       subAccount: position.value?.subAccount,
       hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {
+      onConfirm: () => {
         setTimeout(() => {
-          send(vault.address, disableOperator, transferAssets)
+          send(vault.address)
         }, 400)
       },
     },
   })
 }
-const send = async (collateralAddress: string, _disableOperator?: boolean, _transferAssets?: boolean) => {
+const send = async (collateralAddress: string) => {
   try {
     isSubmitting.value = true
     // Note: disableCollateral operation doesn't support operator parameter

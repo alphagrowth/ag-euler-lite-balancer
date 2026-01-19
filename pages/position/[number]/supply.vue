@@ -16,7 +16,7 @@ const { error } = useToast()
 const { supply, buildSupplyPlan } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoaded, getOperatorForSubAccount } = useEulerAccount()
+const { borrowPositions, isPositionsLoaded } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { getBalance } = useWallets()
@@ -202,15 +202,15 @@ const submit = async () => {
       plan: plan.value || undefined,
       subAccount: position.value?.subAccount,
       hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {
+      onConfirm: () => {
         setTimeout(() => {
-          send(disableOperator, transferAssets)
+          send()
         }, 400)
       },
     },
   })
 }
-const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
+const send = async () => {
   try {
     isSubmitting.value = true
     if (!asset.value?.address) {
@@ -224,29 +224,6 @@ const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
       asset.value.symbol,
       position.value?.subAccount,
     )
-
-    if (disableOperator && position.value?.subAccount) {
-      const { getSwapPoolForSubAccount } = useSwapPools()
-      const { disableOperator: disableOperatorFn } = useEulerOperations()
-      const operator = getOperatorForSubAccount(position.value.subAccount)
-
-      if (operator) {
-        const swapPool = transferAssets ? await getSwapPoolForSubAccount(position.value.subAccount as Address) : null
-
-        await disableOperatorFn(
-          operator,
-          position.value.subAccount as Address,
-          true,
-          swapPool?.factory,
-          swapPool
-            ? {
-                vault0: swapPool.vault0.address,
-                vault1: swapPool.vault1.address,
-              }
-            : undefined,
-        )
-      }
-    }
 
     modal.close()
     await updateBalance()

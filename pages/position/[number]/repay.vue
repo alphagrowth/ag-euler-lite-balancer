@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import type { Address } from 'viem'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
@@ -17,7 +16,7 @@ const { error } = useToast()
 const { repay, fullRepay, buildRepayPlan, buildFullRepayPlan } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getOperatorForSubAccount } = useEulerAccount()
+const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -152,15 +151,15 @@ const submit = async () => {
       plan: plan.value || undefined,
       subAccount: position.value?.subAccount,
       hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: (disableOperator?: boolean, transferAssets?: boolean) => {
+      onConfirm: () => {
         setTimeout(() => {
-          send(disableOperator, transferAssets)
+          send()
         }, 400)
       },
     },
   })
 }
-const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
+const send = async () => {
   try {
     isSubmitting.value = true
     if (!position.value || !borrowVault.value || !collateralVault.value) {
@@ -178,29 +177,6 @@ const send = async (disableOperator?: boolean, transferAssets?: boolean) => {
       position.value.subAccount,
       collateralVault.value.address,
     )
-
-    if (disableOperator && position.value?.subAccount) {
-      const { getSwapPoolForSubAccount } = useSwapPools()
-      const { disableOperator: disableOperatorFn } = useEulerOperations()
-      const operator = getOperatorForSubAccount(position.value.subAccount)
-
-      if (operator) {
-        const swapPool = transferAssets ? await getSwapPoolForSubAccount(position.value.subAccount as Address) : null
-
-        await disableOperatorFn(
-          operator,
-          position.value.subAccount as Address,
-          true,
-          swapPool?.factory,
-          swapPool
-            ? {
-                vault0: swapPool.vault0.address,
-                vault1: swapPool.vault1.address,
-              }
-            : undefined,
-        )
-      }
-    }
 
     modal.close()
     updateBorrowPositions(eulerLensAddresses.value, address.value as string)
