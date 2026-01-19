@@ -76,6 +76,7 @@ export interface Vault {
   configFlags: bigint
   oracle: string
   totalAssets: bigint
+  totalShares: bigint
   totalCash: bigint
   asset: VaultAsset
   collateralLTVs: VaultCollateralLTV[]
@@ -272,6 +273,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
     borrowCap: data.borrowCap,
     totalCash: data.totalCash,
     totalAssets: data.totalAssets,
+    totalShares: data.totalShares,
     interestFee: data.interestFee,
     configFlags: data.configFlags,
     oracle: data.oracle,
@@ -521,6 +523,7 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
           borrowCap: data.borrowCap,
           totalCash: data.totalCash,
           totalAssets: data.totalAssets,
+          totalShares: data.totalShares,
           interestFee: data.interestFee,
           configFlags: data.configFlags,
           oracle: data.oracle,
@@ -809,6 +812,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<VaultIterato
           borrowCap: data.borrowCap,
           totalCash: data.totalCash,
           totalAssets: data.totalAssets,
+          totalShares: data.totalShares,
           interestFee: data.interestFee,
           configFlags: data.configFlags,
           oracle: data.oracle,

@@ -933,6 +933,319 @@ export const useEulerOperations = () => {
     }
   }
 
+  const buildMultiplyPlan = async ({
+    supplyVaultAddress,
+    supplyAssetAddress,
+    supplyAmount,
+    supplySharesAmount,
+    supplyIsSavings = false,
+    longVaultAddress,
+    longAssetAddress,
+    borrowVaultAddress,
+    debtAmount,
+    quote,
+    swapperMode = SwapperMode.EXACT_IN,
+    subAccount,
+  }: {
+    supplyVaultAddress: string
+    supplyAssetAddress: string
+    supplyAmount: bigint
+    supplySharesAmount?: bigint
+    supplyIsSavings?: boolean
+    longVaultAddress: string
+    longAssetAddress: string
+    borrowVaultAddress: string
+    debtAmount: bigint
+    quote?: SwapApiQuote
+    swapperMode?: SwapperMode
+    subAccount?: string
+  }): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const supplyVaultAddr = supplyVaultAddress as Address
+    const supplyAssetAddr = supplyAssetAddress as Address
+    const longVaultAddr = longVaultAddress as Address
+    const longAssetAddr = longAssetAddress as Address
+    const borrowVaultAddr = borrowVaultAddress as Address
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const supplyPermit2Address = resolvePermit2Address(supplyVaultAddr)
+    const longPermit2Address = resolvePermit2Address(longVaultAddr)
+
+    const subAccountAddr = subAccount || await getNewSubAccount(address.value)
+    const hasSigned = await hasSignature(userAddr)
+    const requirePermit2 = true
+
+    const hasSwap = !!quote
+    const borrowDepositAmount = hasSwap ? 0n : debtAmount
+    const isSameVault = supplyVaultAddr.toLowerCase() === longVaultAddr.toLowerCase()
+    const isSupplySavings = Boolean(supplyIsSavings)
+    const shouldDepositSupply = !isSupplySavings
+    if (isSupplySavings && (!supplySharesAmount || supplySharesAmount <= 0n)) {
+      throw new Error('Supply shares amount missing')
+    }
+    const supplyApprovalAmount = shouldDepositSupply
+      ? supplyAmount + (isSameVault ? borrowDepositAmount : 0n)
+      : 0n
+
+    const steps: TxStep[] = []
+    const permitCalls: EVCCall[] = []
+    let usesPermit2 = false
+
+    const prepareApproval = async (
+      assetAddr: Address,
+      vaultAddr: Address,
+      amount: bigint,
+      permit2Addr?: Address,
+    ) => {
+      let permitCall: EVCCall | undefined
+      let usesPermit2Local = false
+
+      if (amount <= 0n) {
+        return { permitCall, usesPermit2Local }
+      }
+
+      const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
+      const canUsePermit2 = !!chainId.value && !!permit2Addr
+      usesPermit2Local = canUsePermit2 && allowance < amount
+
+      if (usesPermit2Local && permit2Addr) {
+        const permit2Allowance = await checkAllowance(assetAddr, permit2Addr, userAddr)
+        const needsPermit2Approval = permit2Allowance < amount
+        if (needsPermit2Approval) {
+          steps.push({
+            type: 'permit2-approve',
+            label: 'Approve token for Permit2',
+            to: assetAddr,
+            abi: erc20ABI as Abi,
+            functionName: 'approve',
+            args: [permit2Addr, maxUint256] as const,
+            value: 0n,
+          })
+        }
+
+        if (!needsPermit2Approval) {
+          permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Addr)
+        }
+      }
+      else if (allowance < amount) {
+        if (requirePermit2) {
+          throw new Error('Permit2 required for multiply')
+        }
+        steps.push({
+          type: 'approve',
+          label: 'Approve asset for vault',
+          to: assetAddr,
+          abi: erc20ABI as Abi,
+          functionName: 'approve',
+          args: [vaultAddr, maxUint256] as const,
+          value: 0n,
+        })
+      }
+
+      return { permitCall, usesPermit2Local }
+    }
+
+    if (shouldDepositSupply) {
+      const supplyApproval = await prepareApproval(
+        supplyAssetAddr,
+        supplyVaultAddr,
+        supplyApprovalAmount,
+        supplyPermit2Address,
+      )
+      if (supplyApproval.permitCall) {
+        permitCalls.push(supplyApproval.permitCall)
+      }
+      usesPermit2 = usesPermit2 || supplyApproval.usesPermit2Local
+    }
+
+    if (borrowDepositAmount > 0n && (!isSameVault || !shouldDepositSupply)) {
+      const longApproval = await prepareApproval(
+        longAssetAddr,
+        longVaultAddr,
+        borrowDepositAmount,
+        longPermit2Address,
+      )
+      if (longApproval.permitCall) {
+        permitCalls.push(longApproval.permitCall)
+      }
+      usesPermit2 = usesPermit2 || longApproval.usesPermit2Local
+    }
+
+    const hooks = new SaHooksBuilder()
+
+    hooks.addContractInterface(supplyVaultAddr, [
+      'function deposit(uint256,address) external',
+    ])
+    if (isSupplySavings) {
+      hooks.addContractInterface(supplyVaultAddr, [
+        'function transfer(address,uint256) external',
+      ])
+    }
+    if (isSupplySavings) {
+      hooks.addPreHookCallFromSelf(supplyVaultAddr, 'transfer', [subAccountAddr, supplySharesAmount!])
+    }
+    if (!isSameVault) {
+      hooks.addContractInterface(longVaultAddr, [
+        'function deposit(uint256,address) external',
+      ])
+    }
+    hooks.addContractInterface(borrowVaultAddr, [
+      'function borrow(uint256,address) external',
+    ])
+    hooks.addContractInterface(evcAddress, [
+      'function enableController(address,address) external',
+      'function enableCollateral(address,address) external',
+    ])
+
+    if (!hasSigned) {
+      hooks.addContractInterface(tosSignerAddress, [
+        'function signTermsOfUse(string,bytes32) external',
+      ])
+    }
+
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
+
+    if (!hasSigned) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    if (permitCalls.length) {
+      evcCalls.unshift(...permitCalls)
+    }
+
+    if (shouldDepositSupply && supplyAmount > 0n) {
+      const depositCall = {
+        targetContract: supplyVaultAddr,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(supplyVaultAddr, 'deposit', [supplyAmount, subAccountAddr]) as Hash,
+      }
+      evcCalls.push(depositCall as EVCCall)
+    }
+
+    const enableControllerCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableController', [subAccountAddr, borrowVaultAddr]) as Hash,
+    }
+
+    const enableSupplyCollateralCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableCollateral', [subAccountAddr, supplyVaultAddr]) as Hash,
+    }
+
+    const borrowRecipient = hasSwap ? quote!.swap.swapperAddress : userAddr
+    const borrowAmount = hasSwap ? getSwapInputAmount(quote!, swapperMode) : debtAmount
+    if (borrowAmount <= 0n) {
+      throw new Error('Borrow amount is zero')
+    }
+
+    const borrowCall = {
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'borrow', [borrowAmount, borrowRecipient]) as Hash,
+    }
+
+    evcCalls.push(enableControllerCall as EVCCall, enableSupplyCollateralCall as EVCCall, borrowCall as EVCCall)
+
+    if (hasSwap) {
+      if (quote!.verify.type !== SwapVerificationType.SkimMin) {
+        throw new Error('Swap verifier type mismatch')
+      }
+      if (quote!.accountIn.toLowerCase() !== subAccountAddr.toLowerCase()) {
+        throw new Error('Swap quote account mismatch')
+      }
+      const verifierData = buildSwapVerifierData({
+        quote: quote!,
+        swapperMode,
+        isRepay: false,
+        targetDebt: 0n,
+        currentDebt: 0n,
+      })
+      if (verifierData.toLowerCase() !== quote!.verify.verifierData.toLowerCase()) {
+        console.warn('[multiply] SwapVerifier data mismatch')
+        throw new Error('SwapVerifier data mismatch')
+      }
+
+      evcCalls.push({
+        targetContract: quote!.swap.swapperAddress,
+        onBehalfOfAccount: quote!.accountIn as Address,
+        value: 0n,
+        data: encodeFunctionData({
+          abi: swapperAbi,
+          functionName: 'multicall',
+          args: [quote!.swap.multicallItems.map(item => item.data)],
+        }),
+      })
+
+      evcCalls.push({
+        targetContract: quote!.verify.verifierAddress,
+        onBehalfOfAccount: quote!.verify.account,
+        value: 0n,
+        data: verifierData,
+      })
+    }
+    else if (debtAmount > 0n) {
+      const depositBorrowedCall = {
+        targetContract: longVaultAddr,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(longVaultAddr, 'deposit', [debtAmount, subAccountAddr]) as Hash,
+      }
+      evcCalls.push(depositBorrowedCall as EVCCall)
+    }
+
+    if (!isSameVault) {
+      const enableLongCollateralCall = {
+        targetContract: evcAddress,
+        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+        value: 0n,
+        data: hooks.getDataForCall(evcAddress, 'enableCollateral', [subAccountAddr, longVaultAddr]) as Hash,
+      }
+      evcCalls.push(enableLongCollateralCall as EVCCall)
+    }
+
+    const pythVaults = isSameVault
+      ? [supplyVaultAddr, borrowVaultAddr]
+      : [supplyVaultAddr, borrowVaultAddr, longVaultAddr]
+    const { calls: pythCalls } = await preparePythUpdates(pythVaults, userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
+    steps.push({
+      type: 'evc-batch',
+      label: usesPermit2 ? 'Permit2 multiply via EVC' : 'Multiply via EVC',
+      to: evcAddress,
+      abi: EVC_ABI,
+      functionName: 'batch',
+      args: [evcCalls as never],
+      value: totalValue,
+    })
+
+    return {
+      kind: 'multiply',
+      steps,
+    }
+  }
+
   const buildRepayPlan = async (
     borrowVaultAddress: string,
     borrowAssetAddress: string,
@@ -2230,6 +2543,7 @@ export const useEulerOperations = () => {
     buildRedeemPlan,
     buildBorrowPlan,
     buildBorrowBySavingPlan,
+    buildMultiplyPlan,
     buildRepayPlan,
     buildFullRepayPlan,
     buildSwapPlan,
