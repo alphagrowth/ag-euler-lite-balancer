@@ -61,8 +61,11 @@ const onWarningClick = () => {
           Supply APY
         </div>
         <div
-          class="text-p2 flex text-aquamarine-700"
+          class="text-p2 flex items-center text-aquamarine-700"
         >
+          <div class="mr-6">
+            <VaultPoints :vault="vault" />
+          </div>
           <SvgIcon
             v-if="hasRewards"
             class="!w-20 !h-20 text-aquamarine-700 mr-4"

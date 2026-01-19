@@ -210,6 +210,9 @@ watch(amount, async () => {
           </p>
 
           <p class="flex justify-end gap-4 text-h3">
+            <VaultPoints
+              :vault="vault"
+            />
             <SvgIcon
               v-if="hasRewards"
               class="!w-24 !h-24 text-aquamarine-700"
