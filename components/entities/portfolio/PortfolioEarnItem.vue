@@ -13,7 +13,9 @@ const { getOpportunityOfLendVault } = useMerkl()
 const vault = computed(() => position.vault)
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
 
-const { name } = useEulerProductOfVault(vault.value.address)
+const product = useEulerProductOfVault(computed(() => vault.value.address))
+const vaultLabel = useEulerVaultLabelOfVault(computed(() => vault.value.address))
+const displayName = computed(() => vaultLabel.name || product.name || vault.value.name)
 
 const earnDisplay = computed(() => {
   return compactNumber(getEarnVaultPrice(position.assets, vault.value) * (vault.value.supplyAPY || 0) * 90 / 365 / 100)
@@ -47,7 +49,7 @@ const onClick = () => {
         />
         <div class="flex-grow ml-12">
           <div class="text-euler-dark-900 text-p3 mb-4">
-            {{ name || vault.name }}
+            {{ displayName }}
           </div>
           <div class="text-h5">
             {{ vault.asset.symbol }}
