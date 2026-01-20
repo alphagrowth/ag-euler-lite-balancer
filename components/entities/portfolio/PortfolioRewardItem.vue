@@ -21,7 +21,7 @@ const amountToClaim = computed(() => amount.value - claimed.value)
 const amountInUsd = computed(() => amountToClaim.value * reward.token.price)
 const tokenIconUrl = computed(() => {
   if (isTokensLoading.value) return null
-  return rewardTokens.value.find(token => token.address === reward.token.address)!.icon
+  return rewardTokens.value.find(token => token.address === reward.token.address)?.icon || null
 })
 
 const claim = async () => {
