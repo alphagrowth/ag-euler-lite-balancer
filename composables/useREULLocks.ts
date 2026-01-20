@@ -1,13 +1,14 @@
 import { useAccount, useWriteContract } from '@wagmi/vue'
 import { ethers } from 'ethers'
-import type { Address } from 'viem'
+import type { Address, Abi } from 'viem'
 
 import type { REULLock } from '~/entities/reul'
-
-const address = ref('')
+import type { TxPlan } from '~/entities/txPlan'
 
 const isLoaded = ref(false)
 const isLocksLoading = ref(true)
+const isAddressesLoading = ref(false)
+const addressLoadError = ref<string | null>(null)
 const locks: Ref<REULLock[]> = ref([])
 const reulTokenContractAddress = ref('')
 const eulTokenContractAddress = ref('')
@@ -48,6 +49,9 @@ let interval: NodeJS.Timeout | null = null
 
 const loadReulTokenContractAddresses = async (chainId: number) => {
   try {
+    isAddressesLoading.value = true
+    addressLoadError.value = null
+
     const response = await fetch(`https://raw.githubusercontent.com/euler-xyz/euler-interfaces/refs/heads/master/addresses/${chainId}/TokenAddresses.json`)
     if (!response.ok) {
       throw new Error(`Failed to fetch Euler config: ${response.statusText}`)
@@ -58,14 +62,19 @@ const loadReulTokenContractAddresses = async (chainId: number) => {
     eulTokenContractAddress.value = data.EUL
   }
   catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    addressLoadError.value = errorMessage
     console.error('Failed to load Reul token contract addresses:', err)
+  }
+  finally {
+    isAddressesLoading.value = false
   }
 }
 
-const loadREULLocksInfo = async (isInitialLoading = true) => {
+const loadREULLocksInfo = async (userAddress: string, isInitialLoading = true) => {
   await until(computed(() => reulTokenContractAddress.value && eulTokenContractAddress.value)).toBeTruthy()
   try {
-    if (!address.value) {
+    if (!userAddress) {
       locks.value = []
       return
     }
@@ -81,7 +90,7 @@ const loadREULLocksInfo = async (isInitialLoading = true) => {
       'function withdrawToByLockTimestamp(address account, uint256 lockTimestamp, bool allowRemainderLoss) external',
     ], provider)
 
-    const [lockTimestamps, amounts] = await contract.getLockedAmounts(address.value)
+    const [lockTimestamps, amounts] = await contract.getLockedAmounts(userAddress)
     const withdrawAmountsData: { unlockableAmount: bigint, amountToBeBurned: bigint }[] = []
 
     const batchSize = 5
@@ -90,7 +99,7 @@ const loadREULLocksInfo = async (isInitialLoading = true) => {
       const batch = lockTimestamps
         .slice(i, i + batchSize)
         .map(async (timestamp: string) => {
-          const [unlockableAmount, amountToBeBurned] = await contract.getWithdrawAmountsByLockTimestamp(address.value, timestamp)
+          const [unlockableAmount, amountToBeBurned] = await contract.getWithdrawAmountsByLockTimestamp(userAddress, timestamp)
           return {
             unlockableAmount,
             amountToBeBurned,
@@ -118,60 +127,86 @@ export const useREULLocks = () => {
   const { isConnected, address: wagmiAddress, chainId } = useAccount()
   const { writeContractAsync } = useWriteContract()
 
-  watch(wagmiAddress, (val) => {
-    if (val) {
-      address.value = val
+  watch([isConnected, chainId], ([connected, currentChainId], [_oldConnected, oldChainId]) => {
+    if (oldChainId && currentChainId !== oldChainId) {
+      isLoaded.value = false
+      locks.value = []
+      reulTokenContractAddress.value = ''
+      eulTokenContractAddress.value = ''
     }
-    else {
-      address.value = ''
-    }
-  }, { immediate: true })
 
-  watch(isConnected, () => {
-    if (!isLoaded.value) {
-      loadREULLocksInfo()
-      loadReulTokenContractAddresses(chainId.value || 1)
+    if (!isLoaded.value && wagmiAddress.value) {
+      loadREULLocksInfo(wagmiAddress.value)
+      loadReulTokenContractAddresses(currentChainId || 1)
       isLoaded.value = true
     }
 
-    if (!interval) {
+    if (connected && !interval) {
       interval = setInterval(() => {
-        loadREULLocksInfo(false)
+        if (wagmiAddress.value) {
+          loadREULLocksInfo(wagmiAddress.value, false)
+        }
       }, 10000)
     }
-    else {
-      if (interval) {
-        clearInterval(interval)
-        interval = null
-      }
+    else if (!connected && interval) {
+      clearInterval(interval)
+      interval = null
     }
   }, { immediate: true })
 
-  watch(chainId, () => {
-    reulTokenContractAddress.value = ''
-    eulTokenContractAddress.value = ''
-    loadReulTokenContractAddresses(chainId.value || 1)
-  })
-
   const unlockREUL = async (lockTimestamps: bigint[]) => {
-    if (!address.value) {
+    if (!wagmiAddress.value) {
       throw new Error('Wallet not connected')
+    }
+
+    if (!reulTokenContractAddress.value || reulTokenContractAddress.value === '') {
+      throw new Error('REUL contract address not available')
     }
 
     const hash = await writeContractAsync({
       address: reulTokenContractAddress.value as Address,
       abi: reulWithdrawABI,
       functionName: 'withdrawToByLockTimestamp',
-      args: [address.value as Address, lockTimestamps[0] as bigint, true],
+      args: [wagmiAddress.value, lockTimestamps[0] as bigint, true],
     })
 
     return hash
   }
 
+  const buildUnlockREULPlan = async (lockTimestamps: bigint[]): Promise<TxPlan> => {
+    if (!wagmiAddress.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    if (!reulTokenContractAddress.value || reulTokenContractAddress.value === '') {
+      throw new Error('REUL contract address not available')
+    }
+
+    return {
+      kind: 'reul-unlock',
+      steps: [
+        {
+          type: 'other',
+          label: 'Unlock REUL',
+          to: reulTokenContractAddress.value as Address,
+          abi: reulWithdrawABI as Abi,
+          functionName: 'withdrawToByLockTimestamp',
+          args: [wagmiAddress.value, lockTimestamps[0] as bigint, true] as const,
+          value: 0n,
+        },
+      ],
+    }
+  }
+
   return {
     locks,
     isLocksLoading,
-    loadREULLocksInfo,
+    isAddressesLoading,
+    addressLoadError,
+    reulTokenContractAddress: computed(() => reulTokenContractAddress.value),
+    eulTokenContractAddress: computed(() => eulTokenContractAddress.value),
+    loadREULLocksInfo: (address: string, isInitial?: boolean) => loadREULLocksInfo(address, isInitial),
     unlockREUL,
+    buildUnlockREULPlan,
   }
 }
