@@ -37,6 +37,29 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 ))
 const supplyApyWithRewards = computed(() => supplyApy.value + totalRewardsAPY.value)
 const borrowApyWithRewards = computed(() => borrowApy.value - totalRewardsAPY.value)
+const maxMultiplier = computed(() => {
+  const ltv = pair.borrowLTV || 0n
+  const base = 10000n
+  if (ltv <= 0n || ltv >= base) {
+    return 1
+  }
+  const result = (base * ltv) / (base - ltv) - 200n + base
+  const value = Number(result) / 10000
+  if (!Number.isFinite(value)) {
+    return 1
+  }
+  return Math.max(1, Math.floor(value * 100) / 100)
+})
+const netApy = computed(() => supplyApyWithRewards.value - borrowApyWithRewards.value)
+const maxRoe = computed(() => {
+  const multiplier = maxMultiplier.value
+  const base = supplyApyWithRewards.value
+  const net = netApy.value
+  if (!Number.isFinite(multiplier) || !Number.isFinite(base) || !Number.isFinite(net)) {
+    return 0
+  }
+  return base + (multiplier - 1) * net
+})
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2))
 const utilization = computed(() => getVaultUtilization(pair.collateral))
 
@@ -94,6 +117,22 @@ const onWarningClick = () => {
         </div>
         <div class="text-p2">
           {{ formatNumber(supplyApyWithRewards) }}%
+        </div>
+      </div>
+      <div class="text-center mobile:!hidden">
+        <div class="text-euler-dark-900 text-p3 mb-4">
+          Max ROE
+        </div>
+        <div class="text-p2">
+          {{ formatNumber(maxRoe, 2, 2) }}%
+        </div>
+      </div>
+      <div class="text-center mobile:!hidden">
+        <div class="text-euler-dark-900 text-p3 mb-4">
+          Max Multiplier
+        </div>
+        <div class="text-p2">
+          {{ formatNumber(maxMultiplier, 2, 2) }}x
         </div>
       </div>
       <div
@@ -155,6 +194,34 @@ const onWarningClick = () => {
         >
           <div class="text-p2">
             {{ compactNumber(maxLTV, 2, 2) }}%
+          </div>
+        </div>
+      </div>
+      <div class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-euler-dark-900 text-p3">
+            Max ROE
+          </div>
+        </div>
+        <div
+          class="flex gap-8 justify-end items-center text-right flex-1"
+        >
+          <div class="text-p2">
+            {{ formatNumber(maxRoe, 2, 2) }}%
+          </div>
+        </div>
+      </div>
+      <div class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-euler-dark-900 text-p3">
+            Max Multiplier
+          </div>
+        </div>
+        <div
+          class="flex gap-8 justify-end items-center text-right flex-1"
+        >
+          <div class="text-p2">
+            {{ formatNumber(maxMultiplier, 2, 2) }}x
           </div>
         </div>
       </div>
