@@ -18,6 +18,47 @@ const isPositionsLoaded = ref(false)
 const isDepositsLoading = ref(true)
 const isDepositsLoaded = ref(false)
 const isShowAllPositions = ref(false)
+const normalizeAddress = (value?: string | null) => {
+  if (!value) {
+    return ''
+  }
+  try {
+    return ethers.getAddress(value)
+  }
+  catch {
+    return ''
+  }
+}
+const toBigInt = (value: unknown) => {
+  try {
+    return BigInt(value as bigint)
+  }
+  catch {
+    return 0n
+  }
+}
+const resolvePositionCollaterals = (liquidityInfo: any, fallback: string[]) => {
+  const fallbackNormalized = fallback.map(addr => normalizeAddress(addr)).filter(Boolean)
+  const infoCollaterals = (liquidityInfo?.collaterals || [])
+    .map((addr: string) => normalizeAddress(addr))
+    .filter(Boolean)
+  const values = liquidityInfo?.collateralValuesRaw
+    || liquidityInfo?.collateralValuesLiquidation
+    || liquidityInfo?.collateralValuesBorrowing
+
+  if (infoCollaterals.length && Array.isArray(values) && values.length === infoCollaterals.length) {
+    const withValue = infoCollaterals.filter((_, idx) => toBigInt(values[idx]) > 0n)
+    if (withValue.length) {
+      return withValue
+    }
+  }
+
+  if (infoCollaterals.length) {
+    return infoCollaterals
+  }
+
+  return fallbackNormalized
+}
 
 const totalSuppliedValue = computed(() =>
   depositPositions.value.reduce((result, position) => result + getVaultPrice(position.assets, position.vault), 0)
@@ -75,7 +116,8 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
           return undefined
         }
 
-        const collaterals = res.evcAccountInfo.enabledCollaterals.map(collateral => ethers.getAddress(collateral))
+        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map(collateral => ethers.getAddress(collateral))
+        const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
 
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
         const borrow = map.value.get(borrowAddress)
@@ -84,8 +126,8 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
         }
 
         let collateralAddress: string | undefined
-        for (const enabledCollateral of res.evcAccountInfo.enabledCollaterals) {
-          const addr = ethers.getAddress(enabledCollateral)
+        const collateralCandidates = collaterals.length ? collaterals : enabledCollateralsList
+        for (const addr of collateralCandidates) {
           if (borrow.collateralLTVs.some(ltv => ethers.getAddress(ltv.collateral) === addr)) {
             collateralAddress = addr
             break
@@ -93,7 +135,7 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
         }
 
         if (!collateralAddress) {
-          collateralAddress = ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0])
+          collateralAddress = collateralCandidates[0]
         }
 
         const collateral = map.value.get(collateralAddress)
@@ -169,7 +211,12 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
       }
     })
 }
-const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, address: string, isInitialLoading = false) => {
+const updateBorrowPositions = async (
+  eulerLensAddresses: EulerLensAddresses,
+  address: string,
+  isInitialLoading = false,
+  options: { forceAllPositions?: boolean } = {},
+) => {
   if (isInitialLoading) {
     isPositionsLoaded.value = false
     isPositionsLoading.value = true
@@ -185,7 +232,8 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
 
   const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
   const { map, getVault } = useVaults()
-  const isAllPositionsAtStart = isShowAllPositions.value
+  const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
+  const isAllPositionsAtStart = shouldShowAllPositions
 
   if (!eulerLensAddresses?.accountLens) {
     throw new Error('Euler addresses not loaded yet')
@@ -225,17 +273,18 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
           return undefined
         }
 
-        const collaterals = res.evcAccountInfo.enabledCollaterals.map(collateral => ethers.getAddress(collateral))
+        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map(collateral => ethers.getAddress(collateral))
+        const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
 
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
-        const borrow = isShowAllPositions.value ? await getVault(borrowAddress) : map.value.get(borrowAddress)
+        const borrow = shouldShowAllPositions ? await getVault(borrowAddress) : map.value.get(borrowAddress)
         if (!borrow) {
           return undefined
         }
 
         let collateralAddress: string | undefined
-        for (const enabledCollateral of res.evcAccountInfo.enabledCollaterals) {
-          const addr = ethers.getAddress(enabledCollateral)
+        const collateralCandidates = collaterals.length ? collaterals : enabledCollateralsList
+        for (const addr of collateralCandidates) {
           if (borrow.collateralLTVs.some(ltv => ethers.getAddress(ltv.collateral) === addr)) {
             collateralAddress = addr
             break
@@ -243,10 +292,10 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
         }
 
         if (!collateralAddress) {
-          collateralAddress = ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0])
+          collateralAddress = collateralCandidates[0]
         }
 
-        const collateral = isShowAllPositions.value ? await getVault(collateralAddress) : map.value.get(collateralAddress)
+        const collateral = shouldShowAllPositions ? await getVault(collateralAddress) : map.value.get(collateralAddress)
         if (!collateral) {
           return undefined
         }
@@ -325,13 +374,22 @@ const updateBorrowPositions = async (eulerLensAddresses: EulerLensAddresses, add
     borrows = [...borrows, ...(await Promise.all(batch)).filter(o => !!o)] as AccountBorrowPosition[]
   }
   const collateralPositions = await updateCollateralPositions(eulerLensAddresses, address) || []
-  if (isShowAllPositions.value === isAllPositionsAtStart) {
+  const shouldUpdate = options.forceAllPositions !== undefined
+    ? true
+    : isShowAllPositions.value === isAllPositionsAtStart
+  if (shouldUpdate) {
     borrowPositions.value = [...borrows, ...collateralPositions]
     isPositionsLoading.value = false
     isPositionsLoaded.value = true
   }
 }
-const updateDepositPositions = async (balances: Map<string, bigint>, eulerLensAddresses: EulerLensAddresses, address: string, isInitialLoading = false) => {
+const updateDepositPositions = async (
+  balances: Map<string, bigint>,
+  eulerLensAddresses: EulerLensAddresses,
+  address: string,
+  isInitialLoading = false,
+  options: { forceAllPositions?: boolean } = {},
+) => {
   if (isInitialLoading) {
     isDepositsLoaded.value = false
     isDepositsLoading.value = true
@@ -348,11 +406,12 @@ const updateDepositPositions = async (balances: Map<string, bigint>, eulerLensAd
   const { list, getVault, earnMap } = useVaults()
   const { earnVaults } = useEulerLabels()
 
-  const isAllPositionsAtStart = isShowAllPositions.value
+  const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
+  const isAllPositionsAtStart = shouldShowAllPositions
   let deposits: AccountDepositPosition[] = []
   const batchSize = 5
 
-  if (isAllPositionsAtStart) {
+  if (shouldShowAllPositions) {
     const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
     if (!eulerLensAddresses?.accountLens) {
@@ -422,13 +481,22 @@ const updateDepositPositions = async (balances: Map<string, bigint>, eulerLensAd
     }
   }
 
-  if (isShowAllPositions.value === isAllPositionsAtStart) {
+  const shouldUpdate = options.forceAllPositions !== undefined
+    ? true
+    : isShowAllPositions.value === isAllPositionsAtStart
+  if (shouldUpdate) {
     depositPositions.value = deposits
     isDepositsLoading.value = false
     isDepositsLoaded.value = true
   }
 }
-const updateEarnPositions = async (balances: Map<string, bigint>, eulerLensAddresses: EulerLensAddresses, address: string, isInitialLoading = false) => {
+const updateEarnPositions = async (
+  balances: Map<string, bigint>,
+  eulerLensAddresses: EulerLensAddresses,
+  address: string,
+  isInitialLoading = false,
+  options: { forceAllPositions?: boolean } = {},
+) => {
   if (isInitialLoading) {
     isDepositsLoaded.value = false
     isDepositsLoading.value = true
@@ -445,11 +513,12 @@ const updateEarnPositions = async (balances: Map<string, bigint>, eulerLensAddre
   const { earnList, getEarnVault, map } = useVaults()
   const { vaults } = useEulerLabels()
 
-  const isAllPositionsAtStart = isShowAllPositions.value
+  const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
+  const isAllPositionsAtStart = shouldShowAllPositions
   let earns: AccountEarnPosition[] = []
   const batchSize = 5
 
-  if (isAllPositionsAtStart) {
+  if (shouldShowAllPositions) {
     const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
     if (!eulerLensAddresses?.accountLens) {
@@ -519,7 +588,10 @@ const updateEarnPositions = async (balances: Map<string, bigint>, eulerLensAddre
     }
   }
 
-  if (isShowAllPositions.value === isAllPositionsAtStart) {
+  const shouldUpdate = options.forceAllPositions !== undefined
+    ? true
+    : isShowAllPositions.value === isAllPositionsAtStart
+  if (shouldUpdate) {
     earnPositions.value = earns
     isDepositsLoading.value = false
     isDepositsLoaded.value = true
@@ -530,13 +602,33 @@ export const useEulerAccount = () => {
   const { isLoaded: isBalancesLoaded, balances } = useWallets()
   const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
   const { address } = useAccount()
+  const { public: { debugPortfolioAddress } } = useRuntimeConfig()
+  const normalizedDebugAddress = computed(() => normalizeAddress(debugPortfolioAddress))
+  const portfolioAddress = computed(() => normalizedDebugAddress.value || normalizeAddress(address.value))
+  const isDebugPortfolio = computed(() => Boolean(normalizedDebugAddress.value))
 
   const updatePositions = () => {
-    if (address.value) {
-      updateBorrowPositions(eulerLensAddresses.value, address.value)
-      updateDepositPositions(balances.value, eulerLensAddresses.value, address.value)
-      updateEarnPositions(balances.value, eulerLensAddresses.value, address.value)
-    }
+    const targetAddress = portfolioAddress.value
+    updateBorrowPositions(
+      eulerLensAddresses.value,
+      targetAddress,
+      false,
+      { forceAllPositions: isDebugPortfolio.value },
+    )
+    updateDepositPositions(
+      balances.value,
+      eulerLensAddresses.value,
+      targetAddress,
+      false,
+      { forceAllPositions: isDebugPortfolio.value },
+    )
+    updateEarnPositions(
+      balances.value,
+      eulerLensAddresses.value,
+      targetAddress,
+      false,
+      { forceAllPositions: isDebugPortfolio.value },
+    )
   }
 
   watch([isBalancesLoaded, isEulerLensAddressesReady], async () => {
@@ -546,9 +638,7 @@ export const useEulerAccount = () => {
   }, { immediate: true })
 
   watch(isShowAllPositions, () => {
-    if (address.value) {
-      updatePositions()
-    }
+    updatePositions()
   })
 
   return {
@@ -560,6 +650,8 @@ export const useEulerAccount = () => {
     isDepositsLoading,
     isDepositsLoaded,
     isShowAllPositions,
+    portfolioAddress,
+    isDebugPortfolio,
     updateBorrowPositions,
     updateCollateralPositions,
     updateDepositPositions,
