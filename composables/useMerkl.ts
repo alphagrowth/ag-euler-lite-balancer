@@ -66,8 +66,7 @@ const loadTokens = async (chainId: number, isInitialLoading = true) => {
       isTokensLoading.value = true
     }
     const res = await axios.get(endpoints.tokens)
-
-    const data: RewardToken[] = res.data[1]
+    const data: RewardToken[] = res.data[chainId]
     rewardTokens.value = data || []
   }
   catch (e) {
