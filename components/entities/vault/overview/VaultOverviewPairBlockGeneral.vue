@@ -9,6 +9,13 @@ const { pair } = defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition }>(
 const modal = useModal()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
+const { borrowList } = useVaults()
+
+const borrowCount = computed(() => {
+  return borrowList.value.filter(p => p.borrow.address === pair.borrow.address).length
+})
+
+const isBorrowable = computed(() => borrowCount.value > 0)
 
 const borrowRewardAPY = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address)?.apr)
 const collateralRewardAPY = computed(() => getOpportunityOfLendVault(pair.collateral.address)?.apr)
@@ -82,6 +89,7 @@ const onBorrowInfoIconClick = () => {
         </p>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
         label="Borrow APY"
       >
         <p class="flex items-center gap-4">

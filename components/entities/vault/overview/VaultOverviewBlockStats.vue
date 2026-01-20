@@ -5,6 +5,13 @@ const { vault } = defineProps<{ vault: Vault }>()
 
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { borrowList } = useVaults()
+
+const borrowCount = computed(() => {
+  return borrowList.value.filter(pair => pair.borrow.address === vault.address).length
+})
+
+const isBorrowable = computed(() => borrowCount.value > 0)
 
 const rewardBorrowAPY = computed(() => getOpportunityOfBorrowVault(vault.asset.address)?.apr)
 const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?.apr)
@@ -34,11 +41,13 @@ const calcPrice = (amount: bigint) => {
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
         label="Total borrowed"
         :value="`$${compactNumber(calcPrice(vault.borrow))}`"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
         label="Available liquidity"
         :value="`$${compactNumber(calcPrice(vault.supply - vault.borrow))}`"
         orientation="horizontal"
@@ -49,11 +58,13 @@ const calcPrice = (amount: bigint) => {
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
         label="Borrow APY"
         :value="`${formatNumber(borrowApyWithRewards)}%`"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
         label="Utilisation"
         orientation="horizontal"
       >
