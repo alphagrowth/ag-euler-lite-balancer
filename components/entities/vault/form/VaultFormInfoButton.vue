@@ -4,7 +4,7 @@ import { VaultOverviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import type { AccountBorrowPosition } from '~/entities/account'
 
-const { vault, pair, earnVault } = defineProps<{ vault?: Vault, pair?: BorrowVaultPair | AccountBorrowPosition, earnVault?: EarnVault, disabled?: boolean }>()
+const { vault, pair, earnVault, extraVault } = defineProps<{ vault?: Vault, pair?: BorrowVaultPair | AccountBorrowPosition, earnVault?: EarnVault, extraVault?: Vault, disabled?: boolean }>()
 const modal = useModal()
 
 const onClick = () => {
@@ -13,6 +13,7 @@ const onClick = () => {
       pair: pair,
       vault: vault,
       earnVault: earnVault,
+      extraVault,
     },
   })
 }

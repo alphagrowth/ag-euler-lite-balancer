@@ -1,23 +1,49 @@
 <script setup lang="ts">
+import { ethers } from 'ethers'
 import type { BorrowVaultPair, EarnVault, Vault } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountBorrowPosition } from '~/entities/account'
 
 const emits = defineEmits(['close'])
 
-const { pair, vault, earnVault } = defineProps<{ pair?: BorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault }>()
+const { pair, vault, earnVault, extraVault } = defineProps<{ pair?: BorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault, extraVault?: Vault }>()
 
 const tab = ref()
+const normalizeAddress = (address?: string) => {
+  if (!address) {
+    return ''
+  }
+  try {
+    return ethers.getAddress(address)
+  }
+  catch {
+    return ''
+  }
+}
 const tabs = computed(() => {
   if (!pair) {
     return []
   }
-  return [
+  const list = [
     {
       label: 'Pair details',
       value: undefined,
       avatars: [getAssetLogoUrl(pair.collateral.asset.symbol), getAssetLogoUrl(pair.borrow.asset.symbol)],
     },
+  ]
+  if (extraVault) {
+    const extraAddress = normalizeAddress(extraVault.address)
+    const collateralAddress = normalizeAddress(pair.collateral.address)
+    const borrowAddress = normalizeAddress(pair.borrow.address)
+    if (extraAddress && extraAddress !== collateralAddress && extraAddress !== borrowAddress) {
+      list.push({
+        label: extraVault.asset.symbol,
+        value: 'multiply-collateral',
+        avatars: [getAssetLogoUrl(extraVault.asset.symbol)],
+      })
+    }
+  }
+  list.push(
     {
       label: pair.collateral.asset.symbol,
       value: 'collateral',
@@ -28,8 +54,18 @@ const tabs = computed(() => {
       value: 'borrow',
       avatars: [getAssetLogoUrl(pair.borrow.asset.symbol)],
     },
-  ]
+  )
+  return list
 })
+watch(tabs, (next) => {
+  if (!tab.value) {
+    return
+  }
+  const values = next.map(item => item.value)
+  if (!values.includes(tab.value)) {
+    tab.value = undefined
+  }
+}, { immediate: true })
 
 const onVaultClick = () => {
   emits('close')
@@ -73,6 +109,10 @@ const onVaultClick = () => {
           <VaultOverview
             v-else-if="tab === 'collateral'"
             :vault="pair.collateral"
+          />
+          <VaultOverview
+            v-else-if="tab === 'multiply-collateral' && extraVault"
+            :vault="extraVault"
           />
           <VaultOverview
             v-else-if="tab === 'borrow'"

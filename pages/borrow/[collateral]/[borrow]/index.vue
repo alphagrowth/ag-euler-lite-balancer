@@ -153,7 +153,7 @@ const tabs = computed(() => {
   if (!pair.value) {
     return []
   }
-  return [
+  const list = [
     {
       label: 'Pair details',
       value: undefined,
@@ -170,6 +170,19 @@ const tabs = computed(() => {
       avatars: [getAssetLogoUrl(pair.value.borrow.asset.symbol)],
     },
   ]
+  if (formTab.value === 'multiply' && multiplySupplyVault.value) {
+    const supplyAddress = normalizeAddress(multiplySupplyVault.value.address)
+    const collateralAddress = normalizeAddress(pair.value.collateral.address)
+    const borrowAddress = normalizeAddress(pair.value.borrow.address)
+    if (supplyAddress && supplyAddress !== collateralAddress && supplyAddress !== borrowAddress) {
+      list.splice(1, 0, {
+        label: multiplySupplyVault.value.asset.symbol,
+        value: 'multiply-collateral',
+        avatars: [getAssetLogoUrl(multiplySupplyVault.value.asset.symbol)],
+      })
+    }
+  }
+  return list
 })
 const formTabs = computed(() => [
   {
@@ -181,6 +194,15 @@ const formTabs = computed(() => [
     value: 'multiply',
   },
 ])
+watch(tabs, (next) => {
+  if (!tab.value) {
+    return
+  }
+  const values = next.map(item => item.value)
+  if (!values.includes(tab.value)) {
+    tab.value = undefined
+  }
+}, { immediate: true })
 
 const multiplyShortVault = computed(() => borrowVault.value)
 const { collateralOptions: multiplyCollateralOptions, collateralVaults: multiplyCollateralVaults } = useMultiplyCollateralOptions({
@@ -1269,7 +1291,7 @@ watch(areVaultsReady, async (ready) => {
   <div class="flex gap-32">
     <VaultForm
       title="Open borrow position"
-      class="flex flex-col gap-16 w-full"
+      class="flex flex-col gap-16 w-full min-w-0"
       @submit.prevent="onSubmit"
     >
       <template v-if="pair">
@@ -1590,6 +1612,7 @@ watch(areVaultsReady, async (ready) => {
       <template #buttons>
         <VaultFormInfoButton
           :pair="pair"
+          :extra-vault="formTab === 'multiply' ? multiplySupplyVault : undefined"
           class="laptop:!hidden"
         />
         <VaultFormSubmit
@@ -1610,12 +1633,12 @@ watch(areVaultsReady, async (ready) => {
     </VaultForm>
     <div
       v-if="pair"
-      class="w-full mobile:hidden"
+      class="w-full min-w-0 mobile:hidden"
     >
       <UiTabs
         v-if="tabs.length"
         v-model="tab"
-        class="mb-12"
+        class="mb-12 min-w-0"
         :list="tabs"
       >
         <template #default="{ tab: slotTab }">
@@ -1639,6 +1662,11 @@ watch(areVaultsReady, async (ready) => {
         <VaultOverview
           v-else-if="tab === 'collateral'"
           :vault="pair.collateral"
+          desktop-overview
+        />
+        <VaultOverview
+          v-else-if="tab === 'multiply-collateral' && multiplySupplyVault"
+          :vault="multiplySupplyVault"
           desktop-overview
         />
         <VaultOverview

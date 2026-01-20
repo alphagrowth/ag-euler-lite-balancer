@@ -26,6 +26,12 @@ const blockStyles = reactive({
 })
 const scrollPosition = ref(0)
 const maxPosition = ref(0)
+const showRightGradient = computed(() => {
+  if (maxPosition.value <= 0) {
+    return false
+  }
+  return scrollPosition.value < maxPosition.value - 1
+})
 
 const currentIdx = computed(() => {
   return props.list.findIndex((item: UiTab) => item.value === model.value)
@@ -55,18 +61,23 @@ const updateBlockStyles = () => {
 
     blockStyles.transform = `translate3d(calc(${left}px - 50%), 0, 0)`
     blockStyles.width = `${width}px`
+    checkScrollPosition()
     return
   }
 
   blockStyles.transform = 'translate3d(0, 0, 0)'
   blockStyles.width = 'auto'
+  checkScrollPosition()
 }
 const checkActive = (item: UiTab) => {
   return (!model.value && !item.value) || (model.value === item.value)
 }
 const checkScrollPosition = () => {
-  scrollPosition.value = scrollableRef.value?.scrollLeft
-  maxPosition.value = scrollableRef.value?.scrollWidth - scrollableRef.value?.offsetWidth
+  const scrollLeft = scrollableRef.value?.scrollLeft || 0
+  const scrollWidth = scrollableRef.value?.scrollWidth || 0
+  const offsetWidth = scrollableRef.value?.offsetWidth || 0
+  scrollPosition.value = scrollLeft
+  maxPosition.value = scrollWidth - offsetWidth
 }
 const onSelect = (value: string | number | undefined, index: number) => {
   model.value = value
@@ -86,6 +97,10 @@ const onSelect = (value: string | number | undefined, index: number) => {
 
 watch(currentIdx, () => {
   updateBlockStyles()
+})
+watch(() => props.list.length, async () => {
+  await nextTick()
+  checkScrollPosition()
 })
 
 onMounted(() => {
@@ -153,6 +168,10 @@ defineExpose({
         :style="blockStyles"
       />
     </div>
+    <span
+      v-if="showRightGradient"
+      class="ui-tabs__gradient ui-tabs__gradient--right"
+    />
   </div>
 </template>
 
@@ -161,6 +180,7 @@ defineExpose({
   position: relative;
   $block: &;
   border-radius: 16px;
+  --ui-tabs-gradient-color: rgba(0, 0, 0, 0.35);
 
   &.is-rounded {
     #{$block}__list {
@@ -175,6 +195,8 @@ defineExpose({
   }
 
   &.is-pills {
+    --ui-tabs-gradient-color: var(--ui-tabs-pills-background-color);
+
     #{$block}__wrapper {
       box-shadow: none;
       background-color: var(--ui-tabs-pills-background-color);
@@ -246,6 +268,20 @@ defineExpose({
     border-radius: 10px 10px 0 0;
     will-change: width, transform;
     transition: transform var(--trs-default), width var(--trs-default);
+  }
+
+  &__gradient {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    z-index: 3;
+    pointer-events: none;
+
+    &--right {
+      right: 0;
+      background: linear-gradient(90deg, rgba(0, 0, 0, 0), var(--ui-tabs-gradient-color));
+    }
   }
 }
 </style>
