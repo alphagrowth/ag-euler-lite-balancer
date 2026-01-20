@@ -3,44 +3,72 @@ import type { Vault } from '~/entities/vault'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
-const vaultAddresesInfo = computed(() => ([
-  {
-    title: `Underlying ${vault.asset.symbol} token`,
-    address: vault.asset.address,
-  },
-  {
-    title: `${vault.asset.symbol} vault`,
-    address: vault.address,
-  },
-  {
-    title: `${vault.asset.symbol} debt`,
-    address: vault.dToken,
-  },
-  {
-    title: `Risk curator`,
-    address: vault.governorAdmin,
-  },
-  {
-    title: `Fee receiver`,
-    address: vault.governorFeeReceiver,
-  },
-  {
-    title: `Oracle router address`,
-    address: vault.oracle,
-  },
-  {
-    title: `Unit of account address`,
-    address: vault.unitOfAccount,
-  },
-  {
-    title: `Interest rate model address`,
-    address: vault.interestRateModelAddress,
-  },
-  {
-    title: `Hook target`,
-    address: vault.hookTarget,
-  },
-]))
+const { borrowList } = useVaults()
+
+const borrowCount = computed(() => {
+  return borrowList.value.filter(pair => pair.borrow.address === vault.address).length
+})
+
+const isBorrowable = computed(() => borrowCount.value > 0)
+
+const vaultAddresesInfo = computed(() => {
+  const baseAddresses = [
+    {
+      title: `Underlying ${vault.asset.symbol} token`,
+      address: vault.asset.address,
+    },
+    {
+      title: `${vault.asset.symbol} vault`,
+      address: vault.address,
+    },
+  ]
+
+  if (isBorrowable.value) {
+    baseAddresses.push(
+      {
+        title: `${vault.asset.symbol} debt`,
+        address: vault.dToken,
+      },
+    )
+  }
+
+  baseAddresses.push(
+    {
+      title: `Risk curator`,
+      address: vault.governorAdmin,
+    },
+  )
+
+  if (isBorrowable.value) {
+    baseAddresses.push(
+      {
+        title: `Fee receiver`,
+        address: vault.governorFeeReceiver,
+      },
+      {
+        title: `Oracle router address`,
+        address: vault.oracle,
+      },
+      {
+        title: `Unit of account address`,
+        address: vault.unitOfAccount,
+      },
+      {
+        title: `Interest rate model address`,
+        address: vault.interestRateModelAddress,
+      },
+    )
+  }
+
+  baseAddresses.push(
+    {
+      title: `Hook target`,
+      address: vault.hookTarget,
+    },
+  )
+
+  return baseAddresses
+})
 
 const shortenAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`

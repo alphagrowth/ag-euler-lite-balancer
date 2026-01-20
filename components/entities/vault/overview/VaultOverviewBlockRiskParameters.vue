@@ -5,8 +5,15 @@ import { getVaultPrice, type Vault } from '~/entities/vault'
 const { vault } = defineProps<{ vault: Vault }>()
 
 const { EVM_PROVIDER_URL } = useEulerConfig()
+const { borrowList } = useVaults()
 
 const shareTokenExchangeRate: Ref<bigint | undefined> = ref()
+
+const borrowCount = computed(() => {
+  return borrowList.value.filter(pair => pair.borrow.address === vault.address).length
+})
+
+const isBorrowable = computed(() => borrowCount.value > 0)
 
 const supplyCapPercentageDisplay = computed(() => {
   if (vault.supplyCap >= MaxUint256 || vault.supplyCap === 0n) return 0
@@ -62,6 +69,7 @@ load()
     </p>
     <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
         label="Liquidation bonus"
         :value="`0-${vault.maxLiquidationDiscount / 100n}%`"
         orientation="horizontal"
@@ -79,6 +87,7 @@ load()
         </div>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
         label="Borrow cap"
         orientation="horizontal"
       >
@@ -102,11 +111,13 @@ load()
         </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
         label="Bad debt socialisation"
         :value="vault.configFlags === 0n ? 'Yes' : 'No'"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
         label="Interest fee"
         :value="`${formatNumber(nanoToValue(vault.interestFee, 2))}%`"
         orientation="horizontal"

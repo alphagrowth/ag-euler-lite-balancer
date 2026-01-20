@@ -9,7 +9,7 @@ defineOptions({
   name: 'IndexPage',
 })
 
-const { list, isLoading } = useVaults()
+const { list, borrowList, isLoading } = useVaults()
 const { products, entities } = useEulerLabels()
 const route = useRoute()
 
@@ -17,8 +17,14 @@ const selectedCollateral = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
 
+const borrowableVaults = computed(() => {
+  return list.value.filter(vault =>
+    borrowList.value.some(pair => pair.borrow.address === vault.address),
+  )
+})
+
 const marketOptions = computed(() => {
-  return list.value.reduce((result, vault) => {
+  return borrowableVaults.value.reduce((result, vault) => {
     const market = Object.values(products).find(product => product.vaults.includes(vault.address))
     const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
     const entityObj = entityName ? entities[entityName] : null
@@ -32,7 +38,7 @@ const marketOptions = computed(() => {
 })
 
 const assetOptions = computed(() => {
-  return list.value
+  return borrowableVaults.value
     .map(vault => ({
       label: vault.asset.symbol,
       value: vault.asset.address,
@@ -44,7 +50,7 @@ const assetOptions = computed(() => {
 })
 
 const topOptions = computed(() => {
-  const sortedBySupply = [...list.value].sort((a: Vault, b: Vault) => {
+  const sortedBySupply = [...borrowableVaults.value].sort((a: Vault, b: Vault) => {
     return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
   })
 
@@ -61,7 +67,7 @@ const topOptions = computed(() => {
 })
 
 const filteredList = computed(() => {
-  return list.value
+  return borrowableVaults.value
     .filter(vault => selectedCollateral.value.length ? selectedCollateral.value.includes(vault.asset.address) : true)
     .filter(vault => selectedMarkets.value.length ? selectedMarkets.value.includes(getProductByVault(vault.address).name) : true)
 })
