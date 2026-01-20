@@ -451,7 +451,8 @@ const send = async () => {
               v-model="slippage"
               label="Slippage tolerance"
               :step="0.1"
-              :max="5"
+              :min="0"
+              :max="50"
               :number-filter="(n: number) => `${n}%`"
             />
 

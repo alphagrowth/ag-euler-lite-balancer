@@ -839,6 +839,13 @@ const requestMultiplyQuote = useDebounceFn(async () => {
     },
   })
 }, 500)
+watch(multiplySlippage, () => {
+  if (!multiplyInputAmount.value) {
+    resetMultiplyQuoteState()
+    return
+  }
+  requestMultiplyQuote()
+})
 const onMultiplyInput = () => {
   if (!multiplyInputAmount.value) {
     resetMultiplyQuoteState()
@@ -1393,6 +1400,15 @@ watch(areVaultsReady, async (ready) => {
                 :max="multiplyMaxMultiplier"
                 :number-filter="(n: number) => `${n}x`"
                 @update:model-value="onMultiplierInput"
+              />
+
+              <UiRange
+                v-model="multiplySlippage"
+                label="Slippage tolerance"
+                :step="0.1"
+                :min="0"
+                :max="50"
+                :number-filter="(n: number) => `${n}%`"
               />
 
               <SwapRouteSelector
