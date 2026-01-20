@@ -391,6 +391,11 @@ export const useEulerOperations = () => {
       })
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([quote.vaultIn, quote.receiver], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
     const totalValue = sumCallValues(evcCalls)
 
     return { evcCalls, evcAddress, totalValue }
@@ -518,6 +523,13 @@ export const useEulerOperations = () => {
       evcCalls.unshift(permitCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     steps.push({
       type: 'evc-batch',
       label: usesPermit2 ? 'Permit2 supply via EVC' : 'Supply via EVC',
@@ -525,7 +537,7 @@ export const useEulerOperations = () => {
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls] as const,
-      value: 0n,
+      value: totalValue,
     })
 
     return {
@@ -583,6 +595,13 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     return {
       kind: 'withdraw',
       steps: [
@@ -593,7 +612,7 @@ export const useEulerOperations = () => {
           abi: EVC_ABI,
           functionName: 'batch',
           args: [evcCalls] as const,
-          value: 0n,
+          value: totalValue,
         },
       ],
     }
@@ -655,6 +674,13 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     return {
       kind: 'withdraw',
       steps: [
@@ -665,7 +691,7 @@ export const useEulerOperations = () => {
           abi: EVC_ABI,
           functionName: 'batch',
           args: [evcCalls] as const,
-          value: 0n,
+          value: totalValue,
         },
       ],
     }
@@ -1338,6 +1364,13 @@ export const useEulerOperations = () => {
       evcCalls.unshift(permitCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([borrowVaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     steps.push({
       type: 'evc-batch',
       label: usesPermit2 ? 'Permit2 repay via EVC' : 'Repay via EVC',
@@ -1345,7 +1378,7 @@ export const useEulerOperations = () => {
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return {
@@ -1495,6 +1528,13 @@ export const useEulerOperations = () => {
 
     evcCalls.push(repayCall, disableControllerCall, disableCollateralCall, redeemCall, depositCall)
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr, borrowVaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     steps.push({
       type: 'evc-batch',
       label: usesPermit2 ? 'Permit2 full repay via EVC' : 'Repay via EVC',
@@ -1502,7 +1542,7 @@ export const useEulerOperations = () => {
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return {
@@ -1598,6 +1638,13 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     return {
       kind: 'disable-collateral',
       steps: [
@@ -1608,7 +1655,7 @@ export const useEulerOperations = () => {
           abi: EVC_ABI,
           functionName: 'batch',
           args: [evcCalls as never],
-          value: 0n,
+          value: totalValue,
         },
       ],
     }
@@ -1738,12 +1785,19 @@ export const useEulerOperations = () => {
       evcCalls.unshift(approveCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     const depositHash = await writeContractAsync({
       address: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return depositHash
@@ -1802,12 +1856,19 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     const withdrawHash = await writeContractAsync({
       address: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return withdrawHash
@@ -1872,12 +1933,19 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     const redeemHash = await writeContractAsync({
       address: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return redeemHash
@@ -2214,12 +2282,19 @@ export const useEulerOperations = () => {
       evcCalls.unshift(permitCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([borrowVaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     const repayHash = await writeContractAsync({
       address: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return repayHash
@@ -2360,12 +2435,19 @@ export const useEulerOperations = () => {
 
     evcCalls.push(repayCall, disableControllerCall, disableCollateralCall, redeemCall, depositCall)
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr, borrowVaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     const fullRepayHash = await writeContractAsync({
       address: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return fullRepayHash
@@ -2419,12 +2501,19 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
+    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
     const disableHash = await writeContractAsync({
       address: evcAddress,
       abi: EVC_ABI,
       functionName: 'batch',
       args: [evcCalls as never],
-      value: 0n,
+      value: totalValue,
     })
 
     return disableHash
