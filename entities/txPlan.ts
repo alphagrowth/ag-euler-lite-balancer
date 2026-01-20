@@ -17,6 +17,6 @@ export interface TxStep {
 }
 
 export interface TxPlan {
-  kind: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'full-repay' | 'disable-collateral' | string
+  kind: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'full-repay' | 'disable-collateral' | 'reward' | 'brevis-reward' | 'reul-unlock' | string
   steps: TxStep[]
 }

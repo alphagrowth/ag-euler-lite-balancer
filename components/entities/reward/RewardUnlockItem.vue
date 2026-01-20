@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
-import { RewardUnlockConfirmModal } from '#components'
+import { OperationReviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
+import { useToast } from '~/components/ui/composables/useToast'
 import type { REULLock } from '~/entities/reul'
+import type { TxPlan } from '~/entities/txPlan'
 
 const modal = useModal()
+const { error } = useToast()
 const { rewardTokens, isTokensLoading } = useMerkl()
-const { unlockREUL } = useREULLocks()
+const { unlockREUL, buildUnlockREULPlan, reulTokenContractAddress } = useREULLocks()
 const { item } = defineProps<{ item: REULLock }>()
 
 const isUnlocking = ref(false)
+const plan = ref<TxPlan | null>(null)
 
 const reulToken = computed(() => {
   if (isTokensLoading.value && rewardTokens.value.length === 0) {
@@ -26,6 +30,10 @@ const amount = computed(() => {
   return nanoToValue(item.amount, reulToken.value?.decimals)
 })
 
+const amountToBeBurned = computed(() => {
+  return nanoToValue(item.amountToBeBurned, reulToken.value?.decimals)
+})
+
 const formattedDate = computed(() => {
   return DateTime.fromSeconds(Number(item.timestamp)).plus({ days: 180 }).toFormat('MMMM dd, yyyy')
 })
@@ -34,20 +42,61 @@ const daysUntilMaturity = computed(() => {
   return Math.max(0, Math.floor(DateTime.fromSeconds(Number(item.timestamp)).plus({ days: 180 }).diffNow('days').days))
 })
 
-const onUnlockClick = () => {
-  modal.open(RewardUnlockConfirmModal, {
-    props: {
-      item,
-      onConfirm: async () => {
-        isUnlocking.value = true
-        setTimeout(() => {
-          isUnlocking.value = false
-        }, 5000)
+const unlock = async () => {
+  try {
+    isUnlocking.value = true
 
-        await unlockREUL([item.timestamp])
+    await unlockREUL([item.timestamp])
+    modal.close()
+  }
+  catch (e) {
+    error('Transaction failed')
+    console.warn(e)
+  }
+  finally {
+    isUnlocking.value = false
+  }
+}
+
+const onUnlockClick = async () => {
+  try {
+    // Build the transaction plan
+    try {
+      plan.value = await buildUnlockREULPlan([item.timestamp])
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    // Open the operation review modal (same pattern as Merkl/Brevis)
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'reul-unlock',
+        asset: {
+          symbol: 'EUL',
+          address: reulTokenContractAddress.value,
+          decimals: reulToken.value?.decimals || 18,
+        },
+        amount: unlockableAmount.value,
+        plan: plan.value || undefined,
+        reulUnlockInfo: {
+          unlockableAmount: unlockableAmount.value,
+          amountToBeBurned: amountToBeBurned.value,
+          maturityDate: formattedDate.value,
+          daysUntilMaturity: daysUntilMaturity.value,
+        },
+        onConfirm: () => {
+          setTimeout(() => {
+            unlock()
+          }, 400)
+        },
       },
-    },
-  })
+    })
+  }
+  catch (e) {
+    console.warn(e)
+  }
 }
 </script>
 

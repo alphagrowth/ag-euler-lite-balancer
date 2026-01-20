@@ -6,8 +6,15 @@ import type { TxPlan } from '~/entities/txPlan'
 
 const emits = defineEmits(['close', 'confirm'])
 
-const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, fee, plan } = defineProps<{
-  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'reward' | 'brevis-reward' | 'disableCollateral'
+interface REULUnlockInfo {
+  unlockableAmount: number
+  amountToBeBurned: number
+  maturityDate: string
+  daysUntilMaturity: number
+}
+
+const { type, asset, rewardInfo, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan } = defineProps<{
+  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
   fee?: number | string
@@ -16,6 +23,7 @@ const { type, asset, rewardInfo, campaignInfo, amount, onConfirm, fee, plan } = 
   supplyingAmount?: number | string
   rewardInfo?: Reward
   campaignInfo?: Campaign
+  reulUnlockInfo?: REULUnlockInfo
   onConfirm: () => void
   subAccount?: string
   hasBorrows?: boolean
@@ -66,6 +74,8 @@ const btnLabel = computed(() => {
       return 'Withdraw'
     case 'swap':
       return 'Swap'
+    case 'reul-unlock':
+      return 'Unlock'
     default:
       return 'Submit'
   }
@@ -78,6 +88,8 @@ const modalLabel = computed(() => {
       return 'Withdraw review'
     case 'swap':
       return 'Swap review'
+    case 'reul-unlock':
+      return 'Unlock review'
     default:
       return 'Operation review'
   }
@@ -95,9 +107,16 @@ const assetLabel = computed(() => {
     case 'reward':
     case 'brevis-reward':
       return 'Claiming'
+    case 'reul-unlock':
+      return 'Unlocking'
     default:
       return 'Spending'
   }
+})
+const reulUnlockDisclaimerText = computed(() => {
+  if (type !== 'reul-unlock' || !reulUnlockInfo) return
+
+  return `This action will unlock ${formatNumber(reulUnlockInfo.unlockableAmount, 6)} EUL, and ${formatNumber(reulUnlockInfo.amountToBeBurned, 6)} EUL will be permanently burned. To fully redeem your EUL rewards, you must wait for the 6-month vesting period to complete (${reulUnlockInfo.daysUntilMaturity} days remaining, maturity date: ${reulUnlockInfo.maturityDate}).`
 })
 const anyNonEulerReward = computed(() => {
   return !!(rewardInfo?.breakdowns.find(breakdown => !breakdown.reason.startsWith('EULER')))
@@ -190,6 +209,13 @@ const feeDisplay = computed(() => {
         title="Disclaimer"
         variant="warning"
         :description="disclaimerText"
+        size="compact"
+      />
+      <UiToast
+        v-if="type === 'reul-unlock'"
+        title="Important"
+        variant="warning"
+        :description="reulUnlockDisclaimerText"
         size="compact"
       />
       <UiToast
