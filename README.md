@@ -169,6 +169,25 @@ If you're using a custom labels repository (i.e., `labelsRepo` is not `"euler-xy
 export const enableIntrinsicApy = true; // Set to false to disable
 ```
 
+**Intrinsic APY Sources (DefiLlama)** - Configure which tokens use DefiLlama base APY:
+
+Sources live in `entities/custom.ts`:
+
+```typescript
+export const intrinsicApySources = [
+  { symbol: "steth", project: "lido" },
+  { symbol: "wsteth", sourceSymbol: "steth", project: "lido" },
+  // Add your tokens here
+] as const;
+```
+
+**How to add a token**:
+
+1. `symbol` - the vault asset symbol (case-insensitive) used in the UI.
+2. `project` - the DefiLlama project slug (from https://yields.llama.fi/pools).
+3. `sourceSymbol` - optional; use when the vault asset is a wrapped token but APY is tied to another symbol.
+
+
 #### 3.2. Wagmi Configuration (`plugins/00.wagmi.ts`)
 
 Open `plugins/00.wagmi.ts` and update:

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { enableIntrinsicApy } from '~/entities/custom'
+import { enableIntrinsicApy, intrinsicApySources } from '~/entities/custom'
 
 type DefiLlamaPool = {
   symbol?: string
@@ -14,20 +14,6 @@ type IntrinsicApySource = {
   sourceSymbol?: string
   project: string
 }
-
-const INTRINSIC_APY_SOURCES: IntrinsicApySource[] = [
-  { symbol: 'steth', project: 'lido' },
-  { symbol: 'wsteth', sourceSymbol: 'steth', project: 'lido' },
-  { symbol: 'reth', project: 'rocket-pool' },
-  { symbol: 'cbeth', project: 'coinbase-wrapped-staked-eth' },
-  { symbol: 'sfrxeth', project: 'frax-ether' },
-  { symbol: 'sweth', project: 'swell-liquid-staking' },
-  { symbol: 'weeth', project: 'ether.fi-stake' },
-  { symbol: 'ezeth', project: 'renzo' },
-  { symbol: 'ethx', project: 'stader' },
-  { symbol: 'oseth', project: 'stakewise-v2' },
-  { symbol: 'ankreth', project: 'ankr' },
-]
 
 const DEFI_LLAMA_CHAIN_BY_CHAIN_ID: Record<number, string> = {
   1: 'Ethereum',
@@ -87,8 +73,12 @@ const resolveIntrinsicApy = (pools: DefiLlamaPool[], source: IntrinsicApySource,
   return best?.apyBase ? Number(best.apyBase) : 0
 }
 
-const buildIntrinsicApyMap = (pools: DefiLlamaPool[], preferredChain?: string) => {
-  const entries = INTRINSIC_APY_SOURCES.map((source) => {
+const buildIntrinsicApyMap = (
+  pools: DefiLlamaPool[],
+  sources: readonly IntrinsicApySource[],
+  preferredChain?: string,
+) => {
+  const entries = sources.map((source) => {
     return [normalize(source.symbol), resolveIntrinsicApy(pools, source, preferredChain)] as const
   })
 
@@ -102,7 +92,11 @@ export const useIntrinsicApy = () => {
   const updateIntrinsicApy = () => {
     if (!enableIntrinsicApy) return
     if (!intrinsicApyPools.value.length) return
-    intrinsicApyBySymbol.value = buildIntrinsicApyMap(intrinsicApyPools.value, preferredChain.value)
+    intrinsicApyBySymbol.value = buildIntrinsicApyMap(
+      intrinsicApyPools.value,
+      intrinsicApySources,
+      preferredChain.value,
+    )
   }
 
   const loadIntrinsicApy = async () => {
@@ -121,7 +115,11 @@ export const useIntrinsicApy = () => {
       const pools = (res.data?.data || []) as DefiLlamaPool[]
 
       intrinsicApyPools.value = pools
-      intrinsicApyBySymbol.value = buildIntrinsicApyMap(pools, preferredChain.value)
+      intrinsicApyBySymbol.value = buildIntrinsicApyMap(
+        pools,
+        intrinsicApySources,
+        preferredChain.value,
+      )
       isLoaded.value = true
     }
     catch (err) {
