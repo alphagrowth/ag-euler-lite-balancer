@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { EarnVault } from '~/entities/vault'
 import { formatTtl } from '~/utils/crypto-utils'
+import { getExplorerLink } from '~/utils/block-explorer'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
+const { chainId } = useEulerAddresses()
 
 const vaultAddressesInfo = computed(() => ([
   {
@@ -32,6 +34,8 @@ const timelockDisplay = computed(() => {
 const onCopyClick = (address: string) => {
   navigator.clipboard.writeText(address)
 }
+
+const getExplorerAddressLink = (address: string) => getExplorerLink(address, chainId.value, true)
 </script>
 
 <template>
@@ -48,7 +52,7 @@ const onCopyClick = (address: string) => {
       >
         <div class="flex gap-4 items-center">
           <NuxtLink
-            :to="`https://etherscan.io/address/${infoItem.address}`"
+            :to="getExplorerAddressLink(infoItem.address)"
             class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
             target="_blank"
           >

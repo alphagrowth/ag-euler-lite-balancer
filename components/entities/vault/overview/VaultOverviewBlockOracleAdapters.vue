@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { Vault } from '~/entities/vault'
 import { collectOracleAdapters, type OracleAdapterEntry } from '~/entities/oracle'
+import { getExplorerLink } from '~/utils/block-explorer'
 
 const props = defineProps<{ vault?: Vault, vaults?: Vault[] }>()
 const { tokens, loadTokens } = useTokens()
+const { chainId } = useEulerAddresses()
 
 const USD_ADDRESS = '0x0000000000000000000000000000000000000348'
 const EUR_ADDRESS = '0x00000000000000000000000000000000000003d2'
@@ -83,6 +85,7 @@ const onCopyClick = (address: string) => {
 }
 
 const getAdapterKey = (adapter: OracleAdapterEntry) => `${adapter.oracle}-${adapter.base}-${adapter.quote}`
+const getExplorerAddressLink = (address: string) => getExplorerLink(address, chainId.value, true)
 </script>
 
 <template>
@@ -114,7 +117,7 @@ const getAdapterKey = (adapter: OracleAdapterEntry) => `${adapter.oracle}-${adap
         </template>
         <div class="flex gap-4 items-center">
           <NuxtLink
-            :to="`https://etherscan.io/address/${adapter.oracle}`"
+            :to="getExplorerAddressLink(adapter.oracle)"
             class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
             target="_blank"
           >
