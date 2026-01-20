@@ -7,8 +7,9 @@ import type { AccountBorrowPosition } from '~/entities/account'
 import { type Vault, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapDebtOptions } from '~/composables/useSwapDebtOptions'
-import { useSwapApi } from '~/composables/useSwapApi'
-import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
+import { SwapperMode } from '~/entities/swap'
+import { getQuoteAmount } from '~/utils/swapQuotes'
 import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -19,7 +20,6 @@ const route = useRoute()
 const router = useRouter()
 const { isConnected, address } = useAccount()
 const { borrowPositions, isPositionsLoaded, isPositionsLoading } = useEulerAccount()
-const { getSwapQuotes, logSwapFailure } = useSwapApi()
 const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
@@ -34,11 +34,20 @@ const plan = ref<TxPlan | null>(null)
 const fromAmount = ref('')
 const toAmount = ref('')
 const slippage = ref(0.1)
-const quotes = ref<SwapApiQuote[]>([])
-const isQuoteLoading = ref(false)
-const quoteError = ref<string | null>(null)
-let quoteAbort: AbortController | null = null
-let quoteRequestId = 0
+const {
+  sortedQuoteCards: quoteCardsSorted,
+  selectedProvider,
+  selectedQuote,
+  effectiveQuote,
+  providersCount,
+  isLoading: isQuoteLoading,
+  quoteError,
+  statusLabel: quotesStatusLabel,
+  getQuoteDiffPct,
+  reset: resetQuoteStateInternal,
+  requestQuotes,
+  selectProvider,
+} = useSwapQuotesParallel({ amountField: 'amountIn', compare: 'min' })
 
 const position: Ref<AccountBorrowPosition | null> = ref(null)
 
@@ -53,7 +62,17 @@ const { borrowOptions, borrowVaults } = useSwapDebtOptions({
   currentBorrowVault: computed(() => fromVault.value as Vault | undefined),
 })
 
-const quote = computed(() => quotes.value[0] || null)
+const quote = computed(() => effectiveQuote.value || null)
+watch([quote, toVault], () => {
+  if (!quote.value || !toVault.value) {
+    toAmount.value = ''
+    return
+  }
+  const amountIn = getQuoteAmount(quote.value, 'amountIn')
+  toAmount.value = amountIn > 0n
+    ? ethers.formatUnits(amountIn, Number(toVault.value.decimals))
+    : ''
+}, { immediate: true })
 const currentDebt = computed(() => position.value?.borrowed || 0n)
 const balance = computed(() => currentDebt.value)
 
@@ -123,15 +142,8 @@ watch([borrowVaults, fromVault, () => route.query.to], () => {
 }, { immediate: true })
 
 const resetQuoteState = () => {
-  quotes.value = []
-  quoteError.value = null
+  resetQuoteStateInternal()
   toAmount.value = ''
-  if (quoteAbort) {
-    quoteAbort.abort()
-    quoteAbort = null
-  }
-  quoteRequestId += 1
-  isQuoteLoading.value = false
 }
 
 const fromOpportunity = computed(() => {
@@ -349,6 +361,39 @@ const routedVia = computed(() => {
   }
   return quote.value.route.map(route => route.providerName).join(', ')
 })
+const swapRouteItems = computed(() => {
+  if (!toVault.value) {
+    return []
+  }
+  const bestProvider = quoteCardsSorted.value[0]?.provider
+  return quoteCardsSorted.value.map((card) => {
+    const amountIn = getQuoteAmount(card.quote, 'amountIn')
+    const amount = formatNumber(
+      ethers.formatUnits(amountIn, Number(toVault.value.decimals)),
+    )
+    const diffPct = getQuoteDiffPct(card.quote)
+    const badge = card.provider === bestProvider
+      ? { label: 'Best', tone: 'best' as const }
+      : diffPct !== null
+        ? { label: `+${diffPct.toFixed(2)}%`, tone: 'worse' as const }
+        : undefined
+    return {
+      provider: card.provider,
+      amount,
+      symbol: toVault.value.asset.symbol,
+      routeLabel: card.quote.route?.length
+        ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
+        : '-',
+      badge,
+    }
+  })
+})
+const swapRouteEmptyMessage = computed(() => {
+  if (!providersCount.value) {
+    return 'Enter amount to fetch quotes'
+  }
+  return 'No quotes found'
+})
 
 const errorText = computed(() => {
   if (!fromVault.value?.asset || !fromAmount.value) {
@@ -368,7 +413,7 @@ const errorText = computed(() => {
 
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  if (!fromVault.value?.asset || !toVault.value?.asset || !quote.value) {
+  if (!fromVault.value?.asset || !toVault.value?.asset || !selectedQuote.value) {
     return true
   }
   return isLoading.value
@@ -414,65 +459,31 @@ const requestQuote = useDebounceFn(async () => {
   }
 
   toAmount.value = ''
-
-  if (quoteAbort) {
-    quoteAbort.abort()
-  }
-  const controller = new AbortController()
-  quoteAbort = controller
-  const requestId = ++quoteRequestId
-
-  isQuoteLoading.value = true
-  try {
-    const accountIn = (address.value || zeroAddress) as Address
-    const accountOut = (position.value.subAccount || accountIn) as Address
-    const data = await getSwapQuotes({
-      tokenIn: toVault.value.asset.address as Address,
-      tokenOut: fromVault.value.asset.address as Address,
-      accountIn,
-      accountOut,
-      amount,
-      vaultIn: toVault.value.address as Address,
-      receiver: fromVault.value.address as Address,
-      slippage: slippage.value,
-      swapperMode: SwapperMode.TARGET_DEBT,
-      isRepay: true,
-      targetDebt: 0n,
-      currentDebt: 0n,
-    }, { signal: controller.signal })
-
-    if (requestId !== quoteRequestId) {
-      return
-    }
-
-    quotes.value = data
-    const best = data[0]
-    if (best && toVault.value) {
-      toAmount.value = ethers.formatUnits(BigInt(best.amountIn), Number(toVault.value.decimals))
-    }
-  }
-  catch (err) {
-    const error = err as { name?: string; message?: string }
-    if (error?.name === 'CanceledError' || error?.name === 'AbortError') {
-      return
-    }
-    quoteError.value = 'Unable to fetch swap quote'
-    quotes.value = []
-    logSwapFailure({
-      reason: error?.message || 'Unknown error',
+  const accountIn = (address.value || zeroAddress) as Address
+  const accountOut = (position.value.subAccount || accountIn) as Address
+  await requestQuotes({
+    tokenIn: toVault.value.asset.address as Address,
+    tokenOut: fromVault.value.asset.address as Address,
+    accountIn,
+    accountOut,
+    amount,
+    vaultIn: toVault.value.address as Address,
+    receiver: fromVault.value.address as Address,
+    slippage: slippage.value,
+    swapperMode: SwapperMode.TARGET_DEBT,
+    isRepay: true,
+    targetDebt: 0n,
+    currentDebt: 0n,
+  }, {
+    logContext: {
       fromVault: fromVault.value?.address,
       toVault: toVault.value?.address,
       amount: fromAmount.value,
       slippage: slippage.value,
       swapperMode: SwapperMode.TARGET_DEBT,
       isRepay: true,
-    })
-  }
-  finally {
-    if (requestId === quoteRequestId) {
-      isQuoteLoading.value = false
-    }
-  }
+    },
+  })
 }, 500)
 
 watch(toVault, () => {
@@ -513,13 +524,13 @@ const onToVaultChange = (selectedIndex: number) => {
 }
 
 const submit = async () => {
-  if (isSubmitting.value || !fromVault.value || !quote.value) {
+  if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
     return
   }
 
   try {
     plan.value = await buildSwapPlan({
-      quote: quote.value,
+      quote: selectedQuote.value,
       swapperMode: SwapperMode.TARGET_DEBT,
       isRepay: true,
       targetDebt: 0n,
@@ -547,14 +558,14 @@ const submit = async () => {
 }
 
 const send = async () => {
-  if (!fromVault.value || !quote.value) {
+  if (!fromVault.value || !selectedQuote.value) {
     return
   }
 
   isSubmitting.value = true
   try {
     await executeSwap({
-      quote: quote.value,
+      quote: selectedQuote.value,
       swapperMode: SwapperMode.TARGET_DEBT,
       isRepay: true,
       targetDebt: 0n,
@@ -594,6 +605,15 @@ const send = async () => {
               :vault="fromVault"
               :balance="balance"
               :readonly="true"
+            />
+
+            <SwapRouteSelector
+              :items="swapRouteItems"
+              :selected-provider="selectedProvider"
+              :status-label="quotesStatusLabel"
+              :is-loading="isQuoteLoading"
+              :empty-message="swapRouteEmptyMessage"
+              @select="selectProvider"
             />
 
             <AssetInput

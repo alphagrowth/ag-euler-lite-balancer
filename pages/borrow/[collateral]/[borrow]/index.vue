@@ -9,8 +9,9 @@ import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
-import { useSwapApi } from '~/composables/useSwapApi'
+import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import { getQuoteAmount } from '~/utils/swapQuotes'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -25,12 +26,7 @@ const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
 const { getBalance } = useWallets()
-const { getSwapQuotes, getSwapProviders, logSwapFailure } = useSwapApi()
 
-type MultiplyQuoteCard = {
-  provider: string
-  quote: SwapApiQuote
-}
 type MultiplyPlanParams = {
   supplyVaultAddress: string
   supplyAssetAddress: string
@@ -72,15 +68,21 @@ const multiplyInputAmount = ref('')
 const multiplier = ref(1)
 const multiplyLongAmount = ref('')
 const multiplyShortAmount = ref('')
-const multiplyQuoteCards = ref<MultiplyQuoteCard[]>([])
-const multiplySelectedProvider = ref<string | null>(null)
-const multiplyProvidersCount = ref(0)
-const multiplyProvidersFetchedCount = ref(0)
-const isMultiplyQuoteLoading = ref(false)
-const multiplyQuoteError = ref<string | null>(null)
+const {
+  sortedQuoteCards: multiplyQuoteCardsSorted,
+  selectedProvider: multiplySelectedProvider,
+  selectedQuote: multiplySelectedQuote,
+  effectiveQuote: multiplyEffectiveQuote,
+  providersCount: multiplyProvidersCount,
+  isLoading: isMultiplyQuoteLoading,
+  quoteError: multiplyQuoteError,
+  statusLabel: multiplyQuotesStatusLabel,
+  getQuoteDiffPct,
+  reset: resetMultiplyQuoteStateInternal,
+  requestQuotes: requestMultiplyQuotes,
+  selectProvider: selectMultiplyQuote,
+} = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
 const multiplySlippage = ref(0.5)
-let multiplyQuoteAbort: AbortController | null = null
-let multiplyQuoteRequestId = 0
 const multiplySubAccount = ref<string | null>(null)
 const isMultiplySubAccountLoading = ref(false)
 let multiplySubAccountPromise: Promise<string> | null = null
@@ -185,53 +187,39 @@ const { collateralOptions: multiplyCollateralOptions, collateralVaults: multiply
   currentVault: multiplySupplyVault,
   liabilityVault: multiplyShortVault,
 })
-const getQuoteAmountOut = (quote?: SwapApiQuote | null) => {
-  try {
-    return BigInt(quote?.amountOut || 0)
+const multiplyRouteItems = computed(() => {
+  if (!multiplyLongVault.value) {
+    return []
   }
-  catch {
-    return 0n
-  }
-}
-const sortMultiplyQuotes = (cards: MultiplyQuoteCard[]) => {
-  return [...cards].sort((a, b) => {
-    const outA = getQuoteAmountOut(a.quote)
-    const outB = getQuoteAmountOut(b.quote)
-    if (outB > outA) return 1
-    if (outB < outA) return -1
-    return 0
+  const bestProvider = multiplyQuoteCardsSorted.value[0]?.provider
+  return multiplyQuoteCardsSorted.value.map((card) => {
+    const amountOut = getQuoteAmount(card.quote, 'amountOut')
+    const amount = formatNumber(
+      ethers.formatUnits(amountOut, Number(multiplyLongVault.value.asset.decimals)),
+    )
+    const diffPct = getQuoteDiffPct(card.quote)
+    const badge = card.provider === bestProvider
+      ? { label: 'Best', tone: 'best' as const }
+      : diffPct !== null
+        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
+        : undefined
+    return {
+      provider: card.provider,
+      amount,
+      symbol: multiplyLongVault.value.asset.symbol,
+      routeLabel: card.quote.route?.length
+        ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
+        : '-',
+      badge,
+    }
   })
-}
-const multiplyQuoteCardsSorted = computed(() => sortMultiplyQuotes(multiplyQuoteCards.value))
-const multiplyBestQuote = computed(() => multiplyQuoteCardsSorted.value[0]?.quote || null)
-const multiplyBestAmountOut = computed(() => getQuoteAmountOut(multiplyBestQuote.value))
-const multiplySelectedQuote = computed(() => {
-  if (!multiplySelectedProvider.value) {
-    return null
-  }
-  const match = multiplyQuoteCards.value.find(card => card.provider === multiplySelectedProvider.value)
-  return match?.quote || null
 })
-const multiplyEffectiveQuote = computed(() => multiplySelectedQuote.value || multiplyBestQuote.value)
-const multiplyQuotesStatusLabel = computed(() => {
+const multiplyRouteEmptyMessage = computed(() => {
   if (!multiplyProvidersCount.value) {
-    return null
+    return 'Enter amount to fetch quotes'
   }
-  const current = Math.min(multiplyProvidersFetchedCount.value, multiplyProvidersCount.value)
-  const total = multiplyProvidersCount.value
-  return current < total
-    ? `Fetching quotes ${current}/${total}`
-    : `Quotes returned ${current}/${total}`
+  return 'No quotes found'
 })
-const getQuoteDiffPct = (quote: SwapApiQuote) => {
-  const bestOut = multiplyBestAmountOut.value
-  const amountOut = getQuoteAmountOut(quote)
-  if (bestOut <= 0n || amountOut <= 0n || amountOut === bestOut) {
-    return null
-  }
-  const diffBps = ((bestOut - amountOut) * 10_000n) / bestOut
-  return Number(diffBps) / 100
-}
 
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
 const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
@@ -778,29 +766,6 @@ const setMultiplyAmounts = (longAmount?: bigint | null, shortAmount?: bigint | n
     ? ethers.formatUnits(shortAmount, Number(multiplyShortVault.value.asset.decimals))
     : ''
 }
-const upsertMultiplyQuote = (provider: string, quote: SwapApiQuote) => {
-  const next = multiplyQuoteCards.value.filter(card => card.provider !== provider)
-  next.push({ provider, quote })
-  multiplyQuoteCards.value = sortMultiplyQuotes(next)
-  if (isMultiplyQuoteLoading.value && next.length > 0) {
-    isMultiplyQuoteLoading.value = false
-  }
-}
-const selectMultiplyQuote = (provider: string) => {
-  multiplySelectedProvider.value = provider
-}
-watch(multiplyQuoteCards, (next) => {
-  if (!next.length) {
-    multiplySelectedProvider.value = null
-    return
-  }
-  if (
-    multiplySelectedProvider.value
-    && !next.some(card => card.provider === multiplySelectedProvider.value)
-  ) {
-    multiplySelectedProvider.value = null
-  }
-})
 watch([multiplyEffectiveQuote, multiplyIsSameAsset, multiplyDebtAmountNano], () => {
   if (multiplyIsSameAsset.value && multiplyDebtAmountNano.value > 0n) {
     setMultiplyAmounts(multiplyDebtAmountNano.value, multiplyDebtAmountNano.value)
@@ -815,17 +780,7 @@ watch([multiplyEffectiveQuote, multiplyIsSameAsset, multiplyDebtAmountNano], () 
   setMultiplyAmounts(null, null)
 }, { immediate: true })
 const resetMultiplyQuoteState = () => {
-  multiplyQuoteCards.value = []
-  multiplySelectedProvider.value = null
-  multiplyProvidersCount.value = 0
-  multiplyProvidersFetchedCount.value = 0
-  multiplyQuoteError.value = null
-  if (multiplyQuoteAbort) {
-    multiplyQuoteAbort.abort()
-    multiplyQuoteAbort = null
-  }
-  multiplyQuoteRequestId += 1
-  isMultiplyQuoteLoading.value = false
+  resetMultiplyQuoteStateInternal()
   setMultiplyAmounts(null, null)
 }
 const requestMultiplyQuote = useDebounceFn(async () => {
@@ -858,116 +813,31 @@ const requestMultiplyQuote = useDebounceFn(async () => {
     return
   }
 
-  if (multiplyQuoteAbort) {
-    multiplyQuoteAbort.abort()
-  }
-  const controller = new AbortController()
-  multiplyQuoteAbort = controller
-  const requestId = ++multiplyQuoteRequestId
-
-  isMultiplyQuoteLoading.value = true
-  multiplyQuoteCards.value = []
-  multiplySelectedProvider.value = null
-  multiplyProvidersFetchedCount.value = 0
-  multiplyProvidersCount.value = 0
   setMultiplyAmounts(null, null)
-  try {
-    const providers = await getSwapProviders()
-    if (requestId !== multiplyQuoteRequestId) {
-      return
-    }
-    multiplyProvidersCount.value = providers.length
-
-    if (!providers.length) {
-      multiplyQuoteError.value = 'No swap providers available'
-      return
-    }
-
-    const requestParams = {
-      tokenIn: multiplyShortVault.value.asset.address as Address,
-      tokenOut: multiplyLongVault.value.asset.address as Address,
-      accountIn: account,
-      accountOut: account,
-      amount: debtAmount,
-      vaultIn: multiplyShortVault.value.address as Address,
-      receiver: multiplyLongVault.value.address as Address,
+  const requestParams = {
+    tokenIn: multiplyShortVault.value.asset.address as Address,
+    tokenOut: multiplyLongVault.value.asset.address as Address,
+    accountIn: account,
+    accountOut: account,
+    amount: debtAmount,
+    vaultIn: multiplyShortVault.value.address as Address,
+    receiver: multiplyLongVault.value.address as Address,
+    slippage: multiplySlippage.value,
+    swapperMode: SwapperMode.EXACT_IN,
+    isRepay: false,
+    targetDebt: 0n,
+    currentDebt: 0n,
+  }
+  await requestMultiplyQuotes(requestParams, {
+    logContext: {
+      fromVault: multiplyShortVault.value?.address,
+      toVault: multiplyLongVault.value?.address,
+      amount: ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
       slippage: multiplySlippage.value,
       swapperMode: SwapperMode.EXACT_IN,
       isRepay: false,
-      targetDebt: 0n,
-      currentDebt: 0n,
-    }
-    const fetchProviderQuote = async (provider: string) => {
-      try {
-        const data = await getSwapQuotes({
-          ...requestParams,
-          provider,
-        }, { signal: controller.signal })
-
-        if (requestId !== multiplyQuoteRequestId) {
-          return
-        }
-
-        const best = data.reduce<SwapApiQuote | null>((current, quote) => {
-          if (!current) return quote
-          const currentOut = getQuoteAmountOut(current)
-          const nextOut = getQuoteAmountOut(quote)
-          return nextOut > currentOut ? quote : current
-        }, null)
-
-        if (best) {
-          upsertMultiplyQuote(provider, best)
-        }
-      }
-      catch (err) {
-        const error = err as { name?: string; message?: string }
-        if (error?.name === 'CanceledError' || error?.name === 'AbortError') {
-          return
-        }
-        logSwapFailure({
-          reason: error?.message || 'Unknown error',
-          provider,
-          fromVault: multiplyShortVault.value?.address,
-          toVault: multiplyLongVault.value?.address,
-          amount: ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
-          slippage: multiplySlippage.value,
-          swapperMode: SwapperMode.EXACT_IN,
-          isRepay: false,
-        })
-      }
-      finally {
-        if (requestId !== multiplyQuoteRequestId) {
-          return
-        }
-        multiplyProvidersFetchedCount.value += 1
-        if (multiplyProvidersFetchedCount.value >= multiplyProvidersCount.value) {
-          isMultiplyQuoteLoading.value = false
-          if (!multiplyQuoteCards.value.length) {
-            multiplyQuoteError.value = 'Unable to fetch swap quote'
-          }
-        }
-      }
-    }
-
-    providers.forEach((provider) => {
-      void fetchProviderQuote(provider)
-    })
-  }
-  catch (err) {
-    const error = err as { name?: string; message?: string }
-    if (error?.name === 'CanceledError' || error?.name === 'AbortError') {
-      return
-    }
-    multiplyQuoteError.value = 'Unable to fetch swap quote'
-    multiplyQuoteCards.value = []
-  }
-  finally {
-    if (requestId === multiplyQuoteRequestId) {
-      if (multiplyProvidersFetchedCount.value >= multiplyProvidersCount.value) {
-        isMultiplyQuoteLoading.value = false
-      }
-    }
-  }
+    },
+  })
 }, 500)
 const onMultiplyInput = () => {
   if (!multiplyInputAmount.value) {
@@ -1525,70 +1395,14 @@ watch(areVaultsReady, async (ready) => {
                 @update:model-value="onMultiplierInput"
               />
 
-              <div class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-12">
-                <div class="flex justify-between items-center">
-                  <p class="text-p2 text-white">
-                    Select swap route
-                  </p>
-                  <p class="text-p3 text-euler-dark-900">
-                    {{ multiplyQuotesStatusLabel || '-' }}
-                  </p>
-                </div>
-                <div class="flex flex-col gap-8 max-h-[240px] overflow-y-auto pr-4">
-                  <template v-if="multiplyQuoteCardsSorted.length">
-                    <button
-                      v-for="card in multiplyQuoteCardsSorted"
-                      :key="card.provider"
-                      type="button"
-                      class="w-full text-left rounded-12 border p-12 transition-colors"
-                      :class="multiplySelectedProvider === card.provider
-                        ? 'border-teal-light-300 bg-euler-dark-500'
-                        : 'border-euler-dark-500 bg-euler-dark-400 hover:bg-euler-dark-500'"
-                      @click="selectMultiplyQuote(card.provider)"
-                    >
-                      <div class="flex items-start justify-between gap-8">
-                        <p class="text-p2 text-white">
-                          {{ formatNumber(ethers.formatUnits(BigInt(card.quote.amountOut || 0), Number(multiplyLongVault.asset.decimals))) }}
-                          {{ multiplyLongVault.asset.symbol }}
-                        </p>
-                        <p
-                          v-if="multiplyBestQuote"
-                          class="text-p3"
-                          :class="card.provider === multiplyQuoteCardsSorted[0]?.provider ? 'text-green-600' : 'text-red-600'"
-                        >
-                          <template v-if="card.provider === multiplyQuoteCardsSorted[0]?.provider">
-                            Best
-                          </template>
-                          <template v-else>
-                            -{{ getQuoteDiffPct(card.quote)?.toFixed(2) || '0.00' }}%
-                          </template>
-                        </p>
-                      </div>
-                      <div class="flex items-center justify-between gap-8 text-p3 text-euler-dark-900">
-                        <span class="truncate">{{ card.provider }}</span>
-                        <span class="truncate">
-                          {{ card.quote.route?.length ? `via ${card.quote.route.map(route => route.providerName).join(', ')}` : '-' }}
-                        </span>
-                      </div>
-                    </button>
-                  </template>
-                  <template v-else-if="isMultiplyQuoteLoading">
-                    <div class="h-48 rounded-12 bg-euler-dark-500 animate-pulse" />
-                    <div class="h-48 rounded-12 bg-euler-dark-500 animate-pulse" />
-                    <div class="h-48 rounded-12 bg-euler-dark-500 animate-pulse" />
-                  </template>
-                  <template v-else-if="multiplyProvidersCount === 0">
-                    <p class="text-p3 text-euler-dark-900">
-                      Enter amount to fetch quotes
-                    </p>
-                  </template>
-                  <template v-else>
-                    <p class="text-p3 text-euler-dark-900">
-                      No quotes found
-                    </p>
-                  </template>
-                </div>
-              </div>
+              <SwapRouteSelector
+                :items="multiplyRouteItems"
+                :selected-provider="multiplySelectedProvider"
+                :status-label="multiplyQuotesStatusLabel"
+                :is-loading="isMultiplyQuoteLoading"
+                :empty-message="multiplyRouteEmptyMessage"
+                @select="selectMultiplyQuote"
+              />
 
               <AssetInput
                 v-model="multiplyLongAmount"
