@@ -5,26 +5,21 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
-const { borrowList, list } = useVaults()
+const { list } = useVaults()
 
 const product = useEulerProductOfVault(vault.address)
 const entities = useEulerEntitiesOfVault(vault.address)
 
 const collateralCount = computed(() => {
-  const regularCount = borrowList.value.filter(pair => pair.collateral.address === vault.address).length
-
-  if ('type' in vault && vault.type === 'escrow') {
-    const vaultsAcceptingThisAsCollateral = list.value.filter(v =>
-      v.collateralLTVs.some(ltv => ltv.collateral === vault.address && ltv.borrowLTV > 0n),
-    ).length
-    return regularCount + vaultsAcceptingThisAsCollateral
-  }
-
-  return regularCount
+  return list.value.filter(v =>
+    v.collateralLTVs.some(ltv => ltv.collateral === vault.address && ltv.borrowLTV > 0n),
+  ).length
 })
 
 const borrowCount = computed(() => {
-  return borrowList.value.filter(pair => pair.borrow.address === vault.address).length
+  return list.value.filter(v =>
+    v.address === vault.address && v.collateralLTVs.some(ltv => ltv.borrowLTV > 0n),
+  ).length
 })
 </script>
 
