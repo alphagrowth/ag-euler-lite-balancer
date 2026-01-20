@@ -69,10 +69,10 @@ const calcPrice = (amount: bigint) => {
         orientation="horizontal"
       >
         <div class="flex gap-4 items-center">
-          {{ formatNumber(Number(vault.borrow) / (Number(vault.supply) / 100), 2) }}%
+          {{ Number(vault.supply) > 0 ? formatNumber(Number(vault.borrow) / (Number(vault.supply) / 100), 2) : '0.00' }}%
 
           <UiRadialProgress
-            :value="Number(vault.borrow) / Number(vault.supply)"
+            :value="Number(vault.supply) > 0 ? Number(vault.borrow) / Number(vault.supply) : 0"
             :max="1"
           />
         </div>

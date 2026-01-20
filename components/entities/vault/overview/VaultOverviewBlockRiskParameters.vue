@@ -79,7 +79,10 @@ load()
         orientation="horizontal"
       >
         <div class="flex gap-4 items-center">
-          <span>{{ vault.supplyCap >= MaxUint256 ? '∞' : `$${compactNumber(calcPrice(vault.supplyCap))}` }} ({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
+          <span>
+            {{ vault.supplyCap >= MaxUint256 ? '∞' : `$${compactNumber(calcPrice(vault.supplyCap))}` }}
+            <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
+          </span>
           <UiRadialProgress
             :value="supplyCapPercentageDisplay"
             :max="100"
@@ -92,7 +95,10 @@ load()
         orientation="horizontal"
       >
         <div class="flex gap-4 items-center">
-          <span>{{ vault.borrowCap >= MaxUint256 ? '∞' :`$${compactNumber(calcPrice(vault.borrowCap))}` }} ({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
+          <span>
+            {{ vault.borrowCap >= MaxUint256 ? '∞' :`$${compactNumber(calcPrice(vault.borrowCap))}` }}
+            <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
+          </span>
           <UiRadialProgress
             :value="borrowCapPercentageDisplay"
             :max="100"
