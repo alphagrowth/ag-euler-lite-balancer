@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getVaultPrice, getVaultUtilization, type Vault } from '~/entities/vault'
-import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useEulerEntitiesOfVault, useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
@@ -9,7 +9,9 @@ import { VaultUtilizationWarningModal } from '#components'
 
 const { isConnected } = useWagmi()
 const { vault } = defineProps<{ vault: Vault }>()
-const { name } = useEulerProductOfVault(vault.address)
+const product = useEulerProductOfVault(vault.address)
+const vaultLabel = useEulerVaultLabelOfVault(vault.address)
+const displayName = computed(() => vaultLabel.name || product.name || vault.name)
 const entities = useEulerEntitiesOfVault(vault.address)
 const { balances, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
@@ -50,7 +52,7 @@ const onWarningClick = () => {
       />
       <div class="flex-grow ml-12">
         <div class="text-euler-dark-900 text-p3 mb-4">
-          {{ name || vault.name }}
+          {{ displayName }}
         </div>
         <div class="text-h5">
           {{ vault.asset.symbol }}

@@ -87,6 +87,15 @@ export const links = [
 export const themeHue = 150; // Change to your brand color hue
 ```
 
+**SEO Metadata** - Default page title and description for search/social previews:
+
+```typescript
+export const appTitle = "Your App Name";
+export const appDescription = "Short SEO description of your app.";
+```
+
+These values are used in `nuxt.config.ts` for the document title, meta description, and Open Graph/Twitter tags.
+
 **Supported Networks** - Configure which blockchain networks your instance supports:
 
 ```typescript
@@ -169,6 +178,25 @@ If you're using a custom labels repository (i.e., `labelsRepo` is not `"euler-xy
 export const enableIntrinsicApy = true; // Set to false to disable
 ```
 
+**Intrinsic APY Sources (DefiLlama)** - Configure which tokens use DefiLlama base APY:
+
+Sources live in `entities/custom.ts`:
+
+```typescript
+export const intrinsicApySources = [
+  { symbol: "steth", project: "lido" },
+  { symbol: "wsteth", sourceSymbol: "steth", project: "lido" },
+  // Add your tokens here
+] as const;
+```
+
+**How to add a token**:
+
+1. `symbol` - the vault asset symbol (case-insensitive) used in the UI.
+2. `project` - the DefiLlama project slug (from https://yields.llama.fi/pools).
+3. `sourceSymbol` - optional; use when the vault asset is a wrapped token but APY is tied to another symbol.
+
+
 #### 3.2. Wagmi Configuration (`plugins/00.wagmi.ts`)
 
 Open `plugins/00.wagmi.ts` and update:
@@ -196,20 +224,12 @@ const metadata = {
 };
 ```
 
-#### 3.3. App Title and Favicon (`nuxt.config.ts`)
+#### 3.3. App Title, Description and Favicon (`nuxt.config.ts`)
 
 Open `nuxt.config.ts` and update:
 
-**App Title** - Change the title shown in browser tabs:
-
-```typescript
-app: {
-  head: {
-    title: 'Your App Name',  // Update this
-    // ...
-  }
-}
-```
+**App Title & Description (SEO)** - Update `appTitle` and `appDescription` in `entities/custom.ts`.
+Nuxt uses those values for the document title and SEO meta tags.
 
 **Favicon** - Replace the favicon files in `public/favicons/`:
 
@@ -322,7 +342,7 @@ Key directories and files:
 - `public/` - Static assets
   - `favicons/` - **Favicon files**
   - `tokens/` - **Token icon files**
-- `nuxt.config.ts` - **Nuxt configuration (title, favicon)**
+- `nuxt.config.ts` - **Nuxt configuration (SEO meta, favicon)**
 
 ## 🔧 Available Scripts
 
@@ -345,7 +365,7 @@ Before deploying, ensure you've completed:
 - [ ] Set Reown Project ID in `plugins/00.wagmi.ts`
 - [ ] Updated app URL in `plugins/00.wagmi.ts`
 - [ ] Updated app metadata (name, description) in `plugins/00.wagmi.ts`
-- [ ] Changed app title in `nuxt.config.ts`
+- [ ] Set SEO title/description in `entities/custom.ts`
 - [ ] Replaced favicon files in `public/favicons/`
 - [ ] Updated theme color in `nuxt.config.ts`
 - [ ] Added custom token icons to `public/tokens/` (if needed)

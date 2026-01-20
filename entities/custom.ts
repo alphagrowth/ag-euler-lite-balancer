@@ -16,10 +16,27 @@ export const socials = {
   github: 'https://github.com/',
 } as const
 
+// SEO defaults for the app (used in nuxt.config.ts).
+export const appTitle = 'Euler Lite'
+export const appDescription = 'Lightweight interface for Euler Finance lending and borrowing.'
+
 // Base hue for the app theme in degrees (0-360). Change to shift the brand palette.
 export const themeHue = 150
 
 export const enableIntrinsicApy = true // defillama
+export const intrinsicApySources = [
+  { symbol: 'steth', project: 'lido' },
+  { symbol: 'wsteth', sourceSymbol: 'steth', project: 'lido' },
+  { symbol: 'reth', project: 'rocket-pool' },
+  { symbol: 'cbeth', project: 'coinbase-wrapped-staked-eth' },
+  { symbol: 'sfrxeth', project: 'frax-ether' },
+  { symbol: 'sweth', project: 'swell-liquid-staking' },
+  { symbol: 'weeth', project: 'ether.fi-stake' },
+  { symbol: 'ezeth', project: 'renzo' },
+  { symbol: 'ethx', project: 'stader' },
+  { symbol: 'oseth', project: 'stakewise-v2' },
+  { symbol: 'ankreth', project: 'ankr' },
+] as const
 
 export const availableNetworkIds = [
   1,

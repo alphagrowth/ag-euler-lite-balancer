@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { Vault } from '~/entities/vault'
+import { getExplorerLink } from '~/utils/block-explorer'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
 const { borrowList } = useVaults()
+const { chainId } = useEulerAddresses()
 
 const borrowCount = computed(() => {
   return borrowList.value.filter(pair => pair.borrow.address === vault.address).length
@@ -77,6 +79,8 @@ const shortenAddress = (address: string) => {
 const onCopyClick = (address: string) => {
   navigator.clipboard.writeText(address)
 }
+
+const getExplorerAddressLink = (address: string) => getExplorerLink(address, chainId.value, true)
 </script>
 
 <template>
@@ -93,7 +97,7 @@ const onCopyClick = (address: string) => {
       >
         <div class="flex gap-4 items-center">
           <NuxtLink
-            :to="`https://etherscan.io/address/${infoItem.address}`"
+            :to="getExplorerAddressLink(infoItem.address)"
             class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
             target="_blank"
           >

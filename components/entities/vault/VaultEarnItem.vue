@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getEarnVaultPrice, type EarnVault } from '~/entities/vault'
-import { useEulerEntitiesOfEarnVault } from '~/composables/useEulerLabels'
+import { useEulerEntitiesOfEarnVault, useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
@@ -8,6 +8,8 @@ import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 const { isConnected } = useWagmi()
 const { vault } = defineProps<{ vault: EarnVault }>()
 const entities = useEulerEntitiesOfEarnVault(vault)
+const product = useEulerProductOfVault(vault.address)
+const vaultLabel = useEulerVaultLabelOfVault(vault.address)
 const { balances, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
@@ -20,6 +22,7 @@ const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
 const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
+const displayName = computed(() => vaultLabel.name || product.name || vault.name)
 </script>
 
 <template>
@@ -35,7 +38,7 @@ const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
       />
       <div class="flex-grow ml-12">
         <div class="text-euler-dark-900 text-p3 mb-4">
-          {{ vault.name }}
+          {{ displayName }}
         </div>
         <div class="text-h5">
           {{ vault.asset.symbol }}
