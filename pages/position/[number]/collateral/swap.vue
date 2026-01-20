@@ -37,7 +37,7 @@ const isSubmitting = ref(false)
 const plan = ref<TxPlan | null>(null)
 const fromAmount = ref('')
 const toAmount = ref('')
-const slippage = ref(0.1)
+const slippage = ref(0.5)
 const {
   sortedQuoteCards: quoteCardsSorted,
   selectedProvider,
@@ -641,6 +641,15 @@ const send = async () => {
               :balance="balance"
               maxable
               @input="onFromInput"
+            />
+
+            <UiRange
+              v-model="slippage"
+              label="Slippage tolerance"
+              :step="0.1"
+              :min="0"
+              :max="50"
+              :number-filter="(n: number) => `${n}%`"
             />
 
             <SwapRouteSelector
