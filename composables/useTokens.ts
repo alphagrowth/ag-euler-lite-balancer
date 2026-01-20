@@ -3,6 +3,7 @@ import axios from 'axios'
 import type {
   TokenData,
 } from '~/entities/token'
+import { CUSTOM_ICON_TOKENS } from '~/entities/customTokens'
 
 const isLoading = ref(false)
 const tokens: Record<string, TokenData> = shallowReactive({})
@@ -41,5 +42,9 @@ export const useTokens = () => {
 }
 
 export const getAssetLogoUrl = (symbol: string) => {
-  return tokens[symbol]?.logoURI ?? `/tokens/${symbol}.png`
+  if (CUSTOM_ICON_TOKENS.has(symbol.toLowerCase())) {
+    return `/tokens/${symbol.toLowerCase()}.png`
+  }
+
+  return tokens[symbol]?.logoURI ?? `/tokens/${symbol.toLowerCase()}.png`
 }
