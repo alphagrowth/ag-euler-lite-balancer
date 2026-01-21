@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useAccount } from '@wagmi/vue'
-
 const route = useRoute()
 const router = useRouter()
 const { loadEulerConfig, chainId } = useEulerAddresses()
@@ -8,7 +6,7 @@ const { loadVaults, isReady: isVaultsReady, resetVaultsState } = useVaults()
 const { loadTokens } = useTokens()
 const { loadLabels } = useEulerLabels()
 const { updateBalances } = useWallets()
-const { isConnected } = useAccount()
+const { isConnected } = useWagmi()
 
 const isMenuVisible = ref(true)
 const isHeaderVisible = ref(true)
