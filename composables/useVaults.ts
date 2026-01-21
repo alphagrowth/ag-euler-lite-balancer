@@ -5,7 +5,6 @@ import {
   type EscrowVault,
   type SecuritizeBorrowVaultPair,
   type SecuritizeVault,
-  SECURITIZE_VAULT_ADDRESSES,
   fetchEarnVaults,
   fetchVault,
   fetchEarnVault,
@@ -13,6 +12,7 @@ import {
   fetchEscrowVaults,
   fetchSecuritizeVault,
   fetchVaults,
+  filterSecuritizeVaults,
   getBorrowVaultPairByMapAndAddresses,
   getBorrowVaultsByMap,
   isSecuritizeVault,
@@ -153,8 +153,38 @@ const updateEscrowVaults = async () => {
 }
 
 const loadSecuritizeVaults = async () => {
+  // Wait for EVK vaults to be loaded first so we can check their collateral LTVs
+  await until(computed(() => map.value.size > 0)).toBeTruthy({ timeout: 30000 })
+
+  // Collect all unique collateral addresses from EVK vaults
+  const collateralAddresses = new Set<string>()
+  map.value.forEach((vault) => {
+    vault.collateralLTVs.forEach((ltv) => {
+      if (ltv.borrowLTV > 0n) {
+        collateralAddresses.add(ltv.collateral)
+      }
+    })
+  })
+
+  // Filter out collaterals that are already in map (EVK vaults) or escrowMap
+  const unknownCollaterals = [...collateralAddresses].filter(
+    addr => !map.value.has(addr) && !escrowMap.value.has(addr),
+  )
+
+  if (!unknownCollaterals.length) {
+    return
+  }
+
+  // Query subgraph to find which collaterals are securitize vaults
+  const securitizeAddresses = await filterSecuritizeVaults(unknownCollaterals)
+
+  if (!securitizeAddresses.length) {
+    return
+  }
+
+  // Fetch securitize vault details
   const results = await Promise.allSettled(
-    SECURITIZE_VAULT_ADDRESSES.map(addr => fetchSecuritizeVault(addr)),
+    securitizeAddresses.map(addr => fetchSecuritizeVault(addr)),
   )
 
   results.forEach((result) => {
@@ -296,12 +326,28 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
   if (escrowMap.value.has(collateralAddr)) {
     collateralVault = await getEscrowVault(collateralAddr)
   }
+  else if (securitizeMap.value.has(collateralAddr)) {
+    // This is a securitize vault - redirect to securitize borrow page
+    throw '[getBorrowVaultPair]: Collateral is a securitize vault, use getSecuritizeBorrowVaultPair instead'
+  }
   else {
     try {
       collateralVault = await fetchVault(collateralAddr)
     }
     catch {
-      collateralVault = await fetchEscrowVault(collateralAddr)
+      // Try escrow vault first
+      try {
+        collateralVault = await fetchEscrowVault(collateralAddr)
+      }
+      catch {
+        // Check if it's a securitize vault
+        const isSecuritize = await isSecuritizeVault(collateralAddr)
+        if (isSecuritize) {
+          throw '[getBorrowVaultPair]: Collateral is a securitize vault, use getSecuritizeBorrowVaultPair instead'
+        }
+        // Re-throw original error
+        throw '[getBorrowVaultPair]: Failed to fetch collateral vault'
+      }
     }
   }
 

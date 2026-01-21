@@ -5,7 +5,7 @@ import { type Address } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, convertAssetsToShares } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, convertAssetsToShares, isSecuritizeVault } from '~/entities/vault'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -42,6 +42,15 @@ type MultiplyPlanParams = {
   subAccount: string
 }
 
+const collateralAddress = route.params.collateral as string
+const borrowAddress = route.params.borrow as string
+
+// Check if collateral is a securitize vault - if so, redirect to securitize borrow page
+const isSecuritizeCollateral = await isSecuritizeVault(collateralAddress)
+if (isSecuritizeCollateral) {
+  navigateTo(`/borrow-securitize/${collateralAddress}/${borrowAddress}`, { replace: true })
+}
+
 const ltv = ref(0)
 const borrowAmount = ref('')
 const collateralAmount = ref('')
@@ -54,7 +63,31 @@ const isEstimatesLoading = ref(false)
 const plan = ref<TxPlan | null>(null)
 const multiplyPlan = ref<TxPlan | null>(null)
 const multiplyPlanParams = ref<MultiplyPlanParams | null>(null)
-const pair: Ref<BorrowVaultPair | undefined> = ref(await getBorrowVaultPair(route.params.collateral as string, route.params.borrow as string))
+
+// Load vault pair with fallback for securitize detection
+let initialPair: BorrowVaultPair | undefined
+try {
+  initialPair = await getBorrowVaultPair(collateralAddress, borrowAddress)
+}
+catch (e) {
+  // If getBorrowVaultPair fails due to securitize collateral, redirect
+  const errorMsg = String(e)
+  if (errorMsg.includes('securitize vault')) {
+    navigateTo(`/borrow-securitize/${collateralAddress}/${borrowAddress}`, { replace: true })
+  }
+  else {
+    // Try one more time to check if it's a securitize vault
+    const isSecuritize = await isSecuritizeVault(collateralAddress)
+    if (isSecuritize) {
+      navigateTo(`/borrow-securitize/${collateralAddress}/${borrowAddress}`, { replace: true })
+    }
+    else {
+      console.error('[borrow] Failed to load vault pair:', e)
+      throw e
+    }
+  }
+}
+const pair: Ref<BorrowVaultPair | undefined> = ref(initialPair)
 const health = ref()
 const netAPY = ref()
 const liquidationPrice = ref()
@@ -1281,6 +1314,17 @@ watch(areVaultsReady, async (ready) => {
       pair.value = refreshedPair
     }
     catch (e) {
+      // Check if it's a securitize vault and redirect
+      const errorMsg = String(e)
+      if (errorMsg.includes('securitize vault')) {
+        navigateTo(`/borrow-securitize/${route.params.collateral}/${route.params.borrow}`, { replace: true })
+        return
+      }
+      const isSecuritize = await isSecuritizeVault(route.params.collateral as string)
+      if (isSecuritize) {
+        navigateTo(`/borrow-securitize/${route.params.collateral}/${route.params.borrow}`, { replace: true })
+        return
+      }
       console.error('Error refreshing vault pair:', e)
     }
   }

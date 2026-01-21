@@ -1,4 +1,5 @@
 import { ethers } from 'ethers'
+import axios from 'axios'
 import type { Hex } from 'viem'
 import { collectPythFeedIdsForPair, type OracleDetailedInfo } from '~/entities/oracle'
 import {
@@ -11,18 +12,144 @@ import {
 import { fetchPythPrices } from '~/utils/pyth'
 // import type { AccountBorrowPosition } from '~/entities/account'
 
-// Hardcoded securitize vault addresses
-export const SECURITIZE_VAULT_ADDRESSES = [
-  '0xdB6856e8478DB159c383a0c4b274E259AF83cB15',
-].map(addr => ethers.getAddress(addr))
+// Securitize factory address - vaults created by this factory are treated as securitize vaults
+export const SECURITIZE_FACTORY_ADDRESS = '0x5f51d980f15fe6075ae30394dc35de57a4f76cbb'
 
-export const isSecuritizeVault = (address: string): boolean => {
+// Cache for vault factory lookups
+const vaultFactoryCache = new Map<string, string>()
+
+// Fetch vault factory from subgraph
+export const fetchVaultFactory = async (vaultAddress: string, subgraphUrl?: string): Promise<string | null> => {
+  const normalizedAddress = vaultAddress.toLowerCase()
+
+  // Check cache first
+  if (vaultFactoryCache.has(normalizedAddress)) {
+    return vaultFactoryCache.get(normalizedAddress)!
+  }
+
   try {
-    return SECURITIZE_VAULT_ADDRESSES.includes(ethers.getAddress(address))
+    const url = subgraphUrl || useEulerConfig().SUBGRAPH_URL
+    if (!url) {
+      console.warn('[fetchVaultFactory] No subgraph URL available')
+      return null
+    }
+
+    const { data } = await axios.post(url, {
+      query: `query VaultFactory {
+        vaults(where: { id: "${normalizedAddress}" }) {
+          id
+          factory
+        }
+      }`,
+    })
+
+    const vault = data?.data?.vaults?.[0]
+    if (vault?.factory) {
+      vaultFactoryCache.set(normalizedAddress, vault.factory.toLowerCase())
+      return vault.factory.toLowerCase()
+    }
+
+    return null
+  }
+  catch (e) {
+    console.warn('[fetchVaultFactory] Failed to fetch vault factory:', e)
+    return null
+  }
+}
+
+// Check if vault is a securitize vault by querying the subgraph for its factory
+export const isSecuritizeVault = async (address: string): Promise<boolean> => {
+  try {
+    const factory = await fetchVaultFactory(address)
+    if (!factory) {
+      // If fetch fails, treat as EVK vault
+      return false
+    }
+    return factory.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()
   }
   catch {
     return false
   }
+}
+
+// Synchronous check using cached factory data
+export const isSecuritizeVaultSync = (address: string): boolean => {
+  const normalizedAddress = address.toLowerCase()
+  const factory = vaultFactoryCache.get(normalizedAddress)
+  if (!factory) {
+    return false
+  }
+  return factory.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()
+}
+
+// Batch fetch vault factories from subgraph
+export const fetchVaultFactories = async (vaultAddresses: string[]): Promise<Map<string, string>> => {
+  const result = new Map<string, string>()
+
+  if (!vaultAddresses.length) {
+    return result
+  }
+
+  // Filter out already cached addresses
+  const uncachedAddresses = vaultAddresses.filter(addr => !vaultFactoryCache.has(addr.toLowerCase()))
+
+  // Add cached results to output
+  vaultAddresses.forEach((addr) => {
+    const cached = vaultFactoryCache.get(addr.toLowerCase())
+    if (cached) {
+      result.set(addr.toLowerCase(), cached)
+    }
+  })
+
+  if (!uncachedAddresses.length) {
+    return result
+  }
+
+  try {
+    const { SUBGRAPH_URL } = useEulerConfig()
+    if (!SUBGRAPH_URL) {
+      return result
+    }
+
+    const normalizedAddresses = uncachedAddresses.map(addr => addr.toLowerCase())
+    const { data } = await axios.post(SUBGRAPH_URL, {
+      query: `query VaultFactories {
+        vaults(where: { id_in: ${JSON.stringify(normalizedAddresses)} }) {
+          id
+          factory
+        }
+      }`,
+    })
+
+    const vaults = data?.data?.vaults || []
+    vaults.forEach((vault: { id: string, factory: string }) => {
+      if (vault.factory) {
+        const factoryLower = vault.factory.toLowerCase()
+        vaultFactoryCache.set(vault.id, factoryLower)
+        result.set(vault.id, factoryLower)
+      }
+    })
+
+    return result
+  }
+  catch (e) {
+    console.warn('[fetchVaultFactories] Failed to fetch vault factories:', e)
+    return result
+  }
+}
+
+// Get all securitize vault addresses from a list of addresses
+export const filterSecuritizeVaults = async (vaultAddresses: string[]): Promise<string[]> => {
+  const factories = await fetchVaultFactories(vaultAddresses)
+  const securitizeAddresses: string[] = []
+
+  factories.forEach((factory, address) => {
+    if (factory.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()) {
+      securitizeAddresses.push(address)
+    }
+  })
+
+  return securitizeAddresses
 }
 
 export interface VaultLiabilityPriceInfo {

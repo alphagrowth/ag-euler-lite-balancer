@@ -10,7 +10,6 @@ import {
   type Vault,
   type VaultAsset,
   getVaultPriceInfo,
-  isSecuritizeVault,
 } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
@@ -31,20 +30,23 @@ const { getBalance } = useWallets()
 const collateralAddress = route.params.collateral as string
 const borrowAddress = route.params.borrow as string
 
-// Verify this is actually a securitize collateral
-if (!isSecuritizeVault(collateralAddress)) {
-  navigateTo(`/borrow/${collateralAddress}/${borrowAddress}`, { replace: true })
-}
-
 const ltv = ref(0)
 const borrowAmount = ref('')
 const collateralAmount = ref('')
 const balance = ref(0n)
 const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
-const pair: Ref<SecuritizeBorrowVaultPair | undefined> = ref(
-  await getSecuritizeBorrowVaultPair(collateralAddress, borrowAddress),
-)
+
+// Try to load securitize vault pair - if it fails, redirect to regular borrow page
+let initialPair: SecuritizeBorrowVaultPair | undefined
+try {
+  initialPair = await getSecuritizeBorrowVaultPair(collateralAddress, borrowAddress)
+}
+catch (e) {
+  console.warn('[borrow-securitize] Failed to load securitize vault pair, redirecting to regular borrow:', e)
+  navigateTo(`/borrow/${collateralAddress}/${borrowAddress}`, { replace: true })
+}
+const pair: Ref<SecuritizeBorrowVaultPair | undefined> = ref(initialPair)
 const health = ref()
 const liquidationPrice = ref()
 

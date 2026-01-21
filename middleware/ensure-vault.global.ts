@@ -40,7 +40,7 @@ const scheduleVaultCheck = (vaultParam: string, path: string, expectedChainId: n
 
     try {
       const vaultAddress = getAddress(String(currentVault))
-      if (isSecuritizeVault(vaultAddress)) {
+      if (await isSecuritizeVault(vaultAddress)) {
         await getSecuritizeVault(vaultAddress)
       }
       else {
@@ -107,7 +107,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
   if (!to.path.includes('earn') && vaultAddress) {
     try {
-      if (isSecuritizeVault(vaultAddress)) {
+      if (await isSecuritizeVault(vaultAddress)) {
         await getSecuritizeVault(vaultAddress)
       }
       else {

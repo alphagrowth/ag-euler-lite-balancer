@@ -58,8 +58,8 @@ const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
 const { getIntrinsicApy } = useIntrinsicApy()
 
-// Determine vault type
-const vaultType = computed<VaultType>(() => isSecuritizeVault(vaultAddress) ? 'securitize' : 'evk')
+// Initial async check for vault type
+const isSecuritize = await isSecuritizeVault(vaultAddress)
 const features = computed(() => VAULT_FEATURES[vaultType.value])
 
 // State
@@ -75,13 +75,23 @@ const monthlyEarnings = ref(0)
 const evkVault: Ref<Vault | undefined> = ref(undefined)
 const securitizeVault: Ref<SecuritizeVault | undefined> = ref(undefined)
 
-// Load vault data based on type
-if (vaultType.value === 'securitize') {
+// Load vault data based on type, with fallback if detection fails
+if (isSecuritize) {
   securitizeVault.value = await getSecuritizeVault(vaultAddress)
 }
 else {
-  evkVault.value = await getVault(vaultAddress)
+  try {
+    evkVault.value = await getVault(vaultAddress)
+  }
+  catch (e) {
+    // If EVK vault load fails, try as securitize vault
+    console.warn('[lend] EVK vault load failed, trying securitize:', e)
+    securitizeVault.value = await getSecuritizeVault(vaultAddress)
+  }
 }
+
+// Determine vault type based on which vault was loaded
+const vaultType = computed<VaultType>(() => securitizeVault.value ? 'securitize' : 'evk')
 
 // Unified accessors - these provide a common interface regardless of vault type
 const vaultName = computed(() => evkVault.value?.name || securitizeVault.value?.name || '')
