@@ -143,7 +143,7 @@ export const useIntrinsicApy = () => {
   }
 
   const withIntrinsicBorrowApy = (baseApy: number, symbol?: string) => {
-    return baseApy - getIntrinsicApy(symbol)
+    return baseApy + getIntrinsicApy(symbol)
   }
 
   watch(preferredChain, () => {
