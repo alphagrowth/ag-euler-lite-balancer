@@ -37,6 +37,10 @@ const load = async () => {
   }
 }
 
+const getExposureVaultByAddress = (address: string) => {
+  return exposureVaults.value.find(vlt => address === vlt.address)
+}
+
 load()
 </script>
 
@@ -87,8 +91,10 @@ load()
             <VaultOverviewLabelValue
               label="Allocation ($)"
               orientation="horizontal"
-              :value="`$${compactNumber(getVaultPrice(exposure.allocatedAssets, exposureVaults.find((vlt) => exposure.info.vault === vlt.address) as Vault), 2)}`"
-            />
+            >
+              {{ `$${compactNumber(getVaultPrice(exposure.allocatedAssets, getExposureVaultByAddress(exposure.info.vault) as Vault), 2)}` }}
+              <span class="text-euler-dark-900">{{ `${roundAndCompactTokens(exposure.allocatedAssets, exposure.info.assetDecimals)}` }} {{ exposure.info.assetSymbol }}</span>
+            </VaultOverviewLabelValue>
           </div>
         </NuxtLink>
       </div>
