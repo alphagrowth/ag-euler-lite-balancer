@@ -11,6 +11,20 @@ import {
 import { fetchPythPrices } from '~/utils/pyth'
 // import type { AccountBorrowPosition } from '~/entities/account'
 
+// Hardcoded securitize vault addresses
+export const SECURITIZE_VAULT_ADDRESSES = [
+  '0xdB6856e8478DB159c383a0c4b274E259AF83cB15',
+].map(addr => ethers.getAddress(addr))
+
+export const isSecuritizeVault = (address: string): boolean => {
+  try {
+    return SECURITIZE_VAULT_ADDRESSES.includes(ethers.getAddress(address))
+  }
+  catch {
+    return false
+  }
+}
+
 export interface VaultLiabilityPriceInfo {
   queryFailure?: boolean
   queryFailureReason?: string
@@ -61,6 +75,20 @@ export interface VaultIRMInfo {
     interestRateModelType?: number
   }
 }
+export interface Erc4626Vault {
+  address: string
+  name: string
+  symbol: string
+  decimals: bigint
+  asset: VaultAsset
+  totalShares: bigint
+  totalAssets: bigint
+  isEVault: boolean
+}
+export interface SecuritizeVault extends Erc4626Vault {
+  type: 'securitize'
+  governorAdmin: string
+}
 export interface Vault {
   verified: boolean
   name: string
@@ -102,6 +130,14 @@ export interface Vault {
 export interface BorrowVaultPair {
   borrow: Vault
   collateral: Vault
+  borrowLTV: bigint
+  liquidationLTV: bigint
+  initialLiquidationLTV: bigint
+}
+
+export interface SecuritizeBorrowVaultPair {
+  borrow: Vault
+  collateral: SecuritizeVault
   borrowLTV: bigint
   liquidationLTV: bigint
   initialLiquidationLTV: bigint
@@ -319,6 +355,67 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
 
   return vault
 }
+
+export const fetchSecuritizeVault = async (vaultAddress: string): Promise<SecuritizeVault> => {
+  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { loadEulerConfig, isReady } = useEulerAddresses()
+
+  if (!isReady.value) {
+    loadEulerConfig()
+    await until(computed(() => isReady.value)).toBeTruthy()
+  }
+  const { eulerLensAddresses } = useEulerAddresses()
+
+  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const utilsLensContract = new ethers.Contract(
+    eulerLensAddresses.value!.utilsLens,
+    eulerUtilsLensABI,
+    provider,
+  )
+
+  const raw = await utilsLensContract.getVaultInfoERC4626(vaultAddress)
+  const data = raw.toObject({ deep: true })
+
+  // Fetch governor admin from the vault contract
+  const vaultContract = new ethers.Contract(
+    vaultAddress,
+    [{
+      inputs: [],
+      name: 'governorAdmin',
+      outputs: [{ internalType: 'address', name: '', type: 'address' }],
+      stateMutability: 'view',
+      type: 'function',
+    }],
+    provider,
+  )
+
+  let governorAdmin = ethers.ZeroAddress
+  try {
+    governorAdmin = await vaultContract.governorAdmin()
+  }
+  catch {
+    // governorAdmin may not exist on all vaults
+  }
+
+  return {
+    type: 'securitize',
+    address: data.vault,
+    name: data.vaultName,
+    symbol: data.vaultSymbol,
+    decimals: data.vaultDecimals,
+    totalShares: data.totalShares,
+    totalAssets: data.totalAssets,
+    isEVault: data.isEVault,
+    asset: {
+      address: data.asset,
+      name: data.assetName,
+      symbol: data.assetSymbol,
+      decimals: data.assetDecimals,
+    },
+    governorAdmin,
+  }
+}
+
 export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { earnVaults } = useEulerLabels()

@@ -2,14 +2,14 @@
 import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultPrice } from '~/entities/vault'
-import type { BorrowVaultPair } from '~/entities/vault'
+import type { BorrowVaultPair, SecuritizeBorrowVaultPair } from '~/entities/vault'
 import { getProductByVault } from '~/composables/useEulerLabels'
 
 defineOptions({
   name: 'BorrowPage',
 })
 
-const { borrowList, isLoading } = useVaults()
+const { borrowList, securitizeBorrowList, isLoading } = useVaults()
 const { products, entities } = useEulerLabels()
 
 const selectedCollateral = ref<string[]>([])
@@ -140,10 +140,29 @@ const sortedBorrowList = computed(() => {
         class="flex-1 self-center justify-self-center"
       />
 
-      <VaultsBorrowList
-        v-else-if="sortedBorrowList.length"
-        :items="sortedBorrowList"
-      />
+      <template v-else-if="sortedBorrowList.length || securitizeBorrowList.length">
+        <VaultsBorrowList
+          v-if="sortedBorrowList.length"
+          :items="sortedBorrowList"
+        />
+
+        <!-- Securitize Borrow Pairs -->
+        <div
+          v-if="securitizeBorrowList.length"
+          class="mt-24"
+        >
+          <h3 class="text-h4 mb-16 text-euler-dark-900">
+            Securitize Markets
+          </h3>
+          <div class="flex flex-col gap-12">
+            <SecuritizeBorrowItem
+              v-for="pair in securitizeBorrowList"
+              :key="`${pair.collateral.address}-${pair.borrow.address}`"
+              :pair="pair"
+            />
+          </div>
+        </div>
+      </template>
 
       <div
         v-else

@@ -18,7 +18,7 @@ const scheduleVaultCheck = (vaultParam: string, path: string, expectedChainId: n
   setTimeout(async () => {
     const route = useRoute()
     const { info } = useToast()
-    const { getVault } = useVaults()
+    const { getVault, getSecuritizeVault, isSecuritizeVault } = useVaults()
     const { chainId } = useEulerAddresses()
 
     if (path.includes('earn')) {
@@ -40,7 +40,12 @@ const scheduleVaultCheck = (vaultParam: string, path: string, expectedChainId: n
 
     try {
       const vaultAddress = getAddress(String(currentVault))
-      await getVault(vaultAddress)
+      if (isSecuritizeVault(vaultAddress)) {
+        await getSecuritizeVault(vaultAddress)
+      }
+      else {
+        await getVault(vaultAddress)
+      }
     }
     catch {
       if (route.path !== path) {
@@ -98,17 +103,25 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     }, { replace: true })
   }
 
-  const { getVault } = useVaults()
+  const { getVault, getSecuritizeVault, isSecuritizeVault } = useVaults()
 
-  if (
-    !to.path.includes('earn') && (!vaultAddress || !(await getVault(vaultAddress)))
-  ) {
-    console.warn('[ensure-vault] failed to load labels')
-    info('This vault could not be found on this chain!')
-    return navigateTo({
-      path: '/',
-      query: { ...to.query },
-      hash: to.hash,
-    }, { replace: true })
+  if (!to.path.includes('earn') && vaultAddress) {
+    try {
+      if (isSecuritizeVault(vaultAddress)) {
+        await getSecuritizeVault(vaultAddress)
+      }
+      else {
+        await getVault(vaultAddress)
+      }
+    }
+    catch {
+      console.warn('[ensure-vault] failed to load vault')
+      info('This vault could not be found on this chain!')
+      return navigateTo({
+        path: '/',
+        query: { ...to.query },
+        hash: to.hash,
+      }, { replace: true })
+    }
   }
 })

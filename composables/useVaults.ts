@@ -3,14 +3,19 @@ import {
   type BorrowVaultPair,
   type EarnVault,
   type EscrowVault,
+  type SecuritizeBorrowVaultPair,
+  type SecuritizeVault,
+  SECURITIZE_VAULT_ADDRESSES,
   fetchEarnVaults,
   fetchVault,
   fetchEarnVault,
   fetchEscrowVault,
   fetchEscrowVaults,
+  fetchSecuritizeVault,
   fetchVaults,
   getBorrowVaultPairByMapAndAddresses,
   getBorrowVaultsByMap,
+  isSecuritizeVault,
   type Vault,
 } from '~/entities/vault'
 import { labelsRepo } from '~/entities/custom'
@@ -29,10 +34,38 @@ const isEscrowLoading = ref(false)
 const isEscrowUpdating = ref(false)
 const escrowMap: Ref<Map<string, EscrowVault>> = shallowRef(new Map())
 
+const securitizeMap: Ref<Map<string, SecuritizeVault>> = shallowRef(new Map())
+
 const list = computed(() => [...map.value.values()])
 const earnList = computed(() => [...earnMap.value.values()])
 const escrowList = computed(() => [...escrowMap.value.values()])
 const borrowList = computed(() => getBorrowVaultsByMap(map.value))
+
+// Securitize borrow pairs - find EVK vaults that accept securitize vaults as collateral
+const securitizeBorrowList = computed((): SecuritizeBorrowVaultPair[] => {
+  const pairs: SecuritizeBorrowVaultPair[] = []
+  const evkVaults = [...map.value.values()]
+  const securitizeVaults = [...securitizeMap.value.values()]
+
+  evkVaults.forEach((borrowVault) => {
+    borrowVault.collateralLTVs.forEach((ltv) => {
+      if (ltv.borrowLTV <= 0n) return
+
+      const securitizeCollateral = securitizeVaults.find(sv => sv.address === ltv.collateral)
+      if (securitizeCollateral) {
+        pairs.push({
+          borrow: borrowVault,
+          collateral: securitizeCollateral,
+          borrowLTV: ltv.borrowLTV,
+          liquidationLTV: ltv.liquidationLTV,
+          initialLiquidationLTV: ltv.initialLiquidationLTV,
+        })
+      }
+    })
+  })
+
+  return pairs
+})
 
 const resetVaultsState = () => {
   isReady.value = false
@@ -41,6 +74,7 @@ const resetVaultsState = () => {
   escrowMap.value = new Map()
   map.value = new Map()
   earnMap.value = new Map()
+  securitizeMap.value = new Map()
   loadedChainId.value = null
 }
 
@@ -118,6 +152,18 @@ const updateEscrowVaults = async () => {
   }
 }
 
+const loadSecuritizeVaults = async () => {
+  const results = await Promise.allSettled(
+    SECURITIZE_VAULT_ADDRESSES.map(addr => fetchSecuritizeVault(addr)),
+  )
+
+  results.forEach((result) => {
+    if (result.status === 'fulfilled') {
+      securitizeMap.value.set(result.value.address, result.value)
+    }
+  })
+}
+
 const loadVaults = async () => {
   const { chainId } = useEulerAddresses()
   const startChainId = chainId.value
@@ -128,6 +174,7 @@ const loadVaults = async () => {
       updateEarnVaults(),
       updateVaults(),
       updateEscrowVaults(),
+      loadSecuritizeVaults(),
     ])
   }
   finally {
@@ -196,6 +243,18 @@ const updateEscrowVault = async (vaultAddress: string): Promise<EscrowVault> => 
   return vault
 }
 
+const getSecuritizeVault = async (address: string): Promise<SecuritizeVault> => {
+  const normalizedAddress = ethers.getAddress(address)
+
+  if (securitizeMap.value.has(normalizedAddress)) {
+    return securitizeMap.value.get(normalizedAddress)!
+  }
+
+  const vault = await fetchSecuritizeVault(normalizedAddress)
+  securitizeMap.value.set(normalizedAddress, vault)
+  return vault
+}
+
 const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: string): Promise<BorrowVaultPair> => {
   const collateralAddr = ethers.getAddress(collateralAddress)
   const borrowAddr = ethers.getAddress(borrowAddress)
@@ -255,6 +314,37 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
   }
 }
 
+const getSecuritizeBorrowVaultPair = async (collateralAddress: string, borrowAddress: string): Promise<SecuritizeBorrowVaultPair> => {
+  const collateralAddr = ethers.getAddress(collateralAddress)
+  const borrowAddr = ethers.getAddress(borrowAddress)
+
+  // Get or fetch the borrow vault (must be EVK)
+  let borrowVault = map.value.get(borrowAddr)
+  if (!borrowVault) {
+    borrowVault = await fetchVault(borrowAddr)
+  }
+  if (!borrowVault) {
+    throw '[getSecuritizeBorrowVaultPair]: Borrow vault not found'
+  }
+
+  // Check collateral LTV exists for this securitize vault
+  const collateralLTV = borrowVault.collateralLTVs.find(c => c.collateral === collateralAddr)
+  if (!collateralLTV) {
+    throw '[getSecuritizeBorrowVaultPair]: Securitize collateral not configured for this borrow vault'
+  }
+
+  // Get or fetch the securitize collateral vault
+  const collateralVault = await getSecuritizeVault(collateralAddr)
+
+  return {
+    borrow: borrowVault,
+    collateral: collateralVault,
+    borrowLTV: collateralLTV.borrowLTV,
+    liquidationLTV: collateralLTV.liquidationLTV,
+    initialLiquidationLTV: collateralLTV.initialLiquidationLTV,
+  }
+}
+
 export const useVaults = () => {
   return {
     map,
@@ -267,6 +357,8 @@ export const useVaults = () => {
     getVault,
     getEarnVault,
     getEscrowVault,
+    getSecuritizeVault,
+    isSecuritizeVault,
     loadVaults,
     resetVaultsState,
     updateVault,
@@ -276,6 +368,7 @@ export const useVaults = () => {
     updateEarnVaults,
     updateEscrowVaults,
     getBorrowVaultPair,
+    getSecuritizeBorrowVaultPair,
     earnMap,
     earnList,
     isEarnLoading,
@@ -284,5 +377,7 @@ export const useVaults = () => {
     escrowList,
     isEscrowLoading,
     isEscrowUpdating,
+    securitizeMap,
+    securitizeBorrowList,
   }
 }
