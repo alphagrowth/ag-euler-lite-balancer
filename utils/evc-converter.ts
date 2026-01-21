@@ -1,5 +1,6 @@
 import type { Address, Hash } from 'viem'
 import { encodeFunctionData } from 'viem'
+import { EVC_ABI } from '~/abis/evc'
 import type { SaHooks } from '~/entities/saHooksSDK'
 
 export interface EVCCall {
@@ -8,37 +9,6 @@ export interface EVCCall {
   value: bigint
   data: Hash
 }
-
-export const EVC_ABI = [
-  {
-    inputs: [
-      {
-        components: [
-          { name: 'targetContract', type: 'address' },
-          { name: 'onBehalfOfAccount', type: 'address' },
-          { name: 'value', type: 'uint256' },
-          { name: 'data', type: 'bytes' },
-        ],
-        name: 'items',
-        type: 'tuple[]',
-      },
-    ],
-    name: 'batch',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { name: 'account', type: 'address' },
-      { name: 'operator', type: 'address' },
-    ],
-    name: 'isAccountOperatorAuthorized',
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-] as const
 
 export function convertSaHooksToEVCCalls(
   saHooks: SaHooks,

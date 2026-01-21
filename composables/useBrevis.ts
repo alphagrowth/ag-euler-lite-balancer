@@ -2,43 +2,13 @@ import { useAccount, useWriteContract } from '@wagmi/vue'
 import type { Address } from 'viem'
 import axios from 'axios'
 
+import { brevisClaimABI } from '~/abis/brevis'
 import type { Campaign, CampaignsRequest, MerkleProofRequest } from '~/entities/brevis'
 import type { TxPlan } from '~/entities/txPlan'
 import { CampaignAction } from '~/entities/brevis'
 
 const BREVIS_API_URL = 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns'
 const BREVIS_MERKLE_PROOF_URL = 'https://incentra-prd.brevis.network/v1/getMerkleProofsBatch'
-
-const brevisClaimABI = [
-  {
-    type: 'function',
-    name: 'claim',
-    inputs: [
-      {
-        name: 'earner',
-        type: 'address',
-        internalType: 'address',
-      },
-      {
-        name: 'cumulativeAmounts',
-        type: 'uint256[]',
-        internalType: 'uint256[]',
-      },
-      {
-        name: 'epoch',
-        type: 'uint64',
-        internalType: 'uint64',
-      },
-      {
-        name: 'proof',
-        type: 'bytes32[]',
-        internalType: 'bytes32[]',
-      },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-] as const
 
 const address = ref('')
 

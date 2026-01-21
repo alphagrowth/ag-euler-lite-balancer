@@ -1,4 +1,5 @@
 import { ethers } from 'ethers'
+import { evcGetControllersAbi } from '~/abis/evc'
 import axios from 'axios'
 import type { EarnVault, Vault } from '~/entities/vault'
 
@@ -88,7 +89,7 @@ const checkGetController = async (subAccount: string) => {
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const contract = new ethers.Contract(
     eulerCoreAddresses.value.evc,
-    ['function getControllers(address) external view returns(address[])'],
+    evcGetControllersAbi,
     provider,
   )
 

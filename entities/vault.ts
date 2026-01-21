@@ -1,5 +1,11 @@
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
+import {
+  vaultConvertToAssetsAbi,
+  vaultConvertToSharesAbi,
+  vaultMaxWithdrawAbi,
+  vaultPreviewWithdrawAbi,
+} from '~/abis/vault'
 import { collectPythFeedIdsForPair, type OracleDetailedInfo } from '~/entities/oracle'
 import {
   // eulerAccountLensABI,
@@ -1018,97 +1024,25 @@ export const getNetAPY = (supplyUSD: number, supplyAPY: number, borrowUSD: numbe
 export const convertSharesToAssets = (vaultAddress: string, sharesAmount: bigint): Promise<bigint> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const contract = new ethers.Contract(vaultAddress, [{
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: 'shares',
-        type: 'uint256',
-      },
-    ],
-    name: 'convertToAssets',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  }], provider)
+  const contract = new ethers.Contract(vaultAddress, vaultConvertToAssetsAbi, provider)
   return contract.convertToAssets(sharesAmount).catch(_ => 0n)
 }
 export const convertAssetsToShares = (vaultAddress: string, assetsAmount: bigint): Promise<bigint> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const contract = new ethers.Contract(vaultAddress, [{
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: 'assets',
-        type: 'uint256',
-      },
-    ],
-    name: 'convertToShares',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  }], provider)
+  const contract = new ethers.Contract(vaultAddress, vaultConvertToSharesAbi, provider)
   return contract.convertToShares(assetsAmount).catch(_ => 0n)
 }
 export const previewWithdraw = (vaultAddress: string, assetsAmount: bigint): Promise<bigint> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const contract = new ethers.Contract(vaultAddress, [{
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: 'assets',
-        type: 'uint256',
-      },
-    ],
-    name: 'previewWithdraw',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  }], provider)
+  const contract = new ethers.Contract(vaultAddress, vaultPreviewWithdrawAbi, provider)
   return contract.previewWithdraw(assetsAmount).catch(_ => 0n)
 }
 export const getMaxWithdraw = (vaultAddress: string, account: string): Promise<bigint> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const contract = new ethers.Contract(vaultAddress, [{
-    inputs: [
-      {
-        internalType: 'address',
-        name: 'owner',
-        type: 'address',
-      },
-    ],
-    name: 'maxWithdraw',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: 'maxAssets',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  }], provider)
+  const contract = new ethers.Contract(vaultAddress, vaultMaxWithdrawAbi, provider)
   return contract.maxWithdraw(account)
 }
 
@@ -1167,13 +1101,7 @@ const calculateEarnVaultAPYFromExchangeRate = async (
     // Create vault contract instance
     const vaultContract = new ethers.Contract(
       vaultAddress,
-      [{
-        inputs: [{ internalType: 'uint256', name: 'shares', type: 'uint256' }],
-        name: 'convertToAssets',
-        outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-        stateMutability: 'view',
-        type: 'function',
-      }],
+      vaultConvertToAssetsAbi,
       provider,
     )
 

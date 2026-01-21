@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { MaxUint256, ethers } from 'ethers'
+import { vaultConvertToAssetsAbi } from '~/abis/vault'
 import { getVaultPrice, type Vault } from '~/entities/vault'
 
 const { vault } = defineProps<{ vault: Vault }>()
@@ -37,23 +38,7 @@ const load = async () => {
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const contract = new ethers.Contract(
     vault.address,
-    [{
-      type: 'function',
-      name: 'convertToAssets',
-      inputs: [
-        {
-          name: 'shares',
-          type: 'uint256',
-        },
-      ],
-      outputs: [
-        {
-          name: 'assets',
-          type: 'uint256',
-        },
-      ],
-      stateMutability: 'view',
-    }],
+    vaultConvertToAssetsAbi,
     provider,
   )
   shareTokenExchangeRate.value = await contract.convertToAssets(1n * 10n ** vault.decimals)

@@ -4,7 +4,11 @@ import type { Address, Hash, Hex, Abi, StateOverride } from 'viem'
 import { encodeFunctionData, encodePacked, hexToBigInt, keccak256, maxUint256, toHex } from 'viem'
 import { ethers } from 'ethers'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
-import { convertSaHooksToEVCCalls, EVC_ABI, type EVCCall } from '~/utils/evc-converter'
+import { erc20ApproveAbi, erc20BalanceOfAbi, erc20TransferAbi } from '~/abis/erc20'
+import { EVC_ABI, evcDisableCollateralAbi, evcDisableControllerAbi, evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
+import { tosSignerReadAbi, tosSignerWriteAbi } from '~/abis/tos'
+import { vaultBorrowAbi, vaultConvertToAssetsAbi, vaultDepositAbi, vaultPreviewWithdrawAbi, vaultRedeemAbi, vaultRepayAbi, vaultWithdrawAbi } from '~/abis/vault'
+import { convertSaHooksToEVCCalls, type EVCCall } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
 import { erc20ABI, swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
@@ -332,9 +336,7 @@ export const useEulerOperations = () => {
       return false
     }
 
-    const abi = [
-      'function lastTermsOfUseSignatureTimestamp(address account, bytes32 termsOfUseHash) external view returns (uint256)',
-    ]
+    const abi = tosSignerReadAbi
     const contract = new ethers.Contract(
       eulerPeripheryAddresses.value.termsOfUseSigner,
       abi,
@@ -463,32 +465,20 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
     if (isDebtSwap) {
-      hooks.addContractInterface(quote.vaultIn, [
-        'function borrow(uint256,address) external',
-      ])
-      hooks.addContractInterface(evcAddress, [
-        'function enableController(address,address) external',
-      ])
-      hooks.addContractInterface(quote.receiver, [
-        'function disableController() external',
-      ])
+      hooks.addContractInterface(quote.vaultIn, vaultBorrowAbi)
+      hooks.addContractInterface(evcAddress, evcEnableControllerAbi)
+      hooks.addContractInterface(quote.receiver, evcDisableControllerAbi)
     }
     else {
-      hooks.addContractInterface(quote.vaultIn, [
-        'function withdraw(uint256,address,address) external',
-      ])
+      hooks.addContractInterface(quote.vaultIn, vaultWithdrawAbi)
     }
 
     if (enableCollateral) {
-      hooks.addContractInterface(evcAddress, [
-        'function enableCollateral(address,address) external',
-      ])
+      hooks.addContractInterface(evcAddress, evcEnableCollateralAbi)
     }
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const evcCalls: EVCCall[] = []
@@ -704,17 +694,11 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(assetAddr, [
-      'function approve(address,uint256) external',
-    ])
-    hooks.addContractInterface(vaultAddr, [
-      'function deposit(uint256,address) external',
-    ])
+    hooks.addContractInterface(assetAddr, erc20ApproveAbi)
+    hooks.addContractInterface(vaultAddr, vaultDepositAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     hooks.setMainCallHookCallFromSelf(vaultAddr, 'deposit', [amount, depositToAddr])
@@ -782,14 +766,10 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(vaultAddr, [
-      'function withdraw(uint256,address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, vaultWithdrawAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     if (subAccount) {
@@ -852,9 +832,7 @@ export const useEulerOperations = () => {
 
     const hasSigned = await hasSignature(userAddr)
 
-    const vaultContract = new ethers.Contract(vaultAddr, [
-      'function previewWithdraw(uint256) external view returns (uint256)',
-    ], rpcProvider)
+    const vaultContract = new ethers.Contract(vaultAddr, vaultPreviewWithdrawAbi, rpcProvider)
 
     let sharesAmount = isMax
       ? maxSharesAmount || 0n
@@ -866,14 +844,10 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(vaultAddr, [
-      'function redeem(uint256,address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     hooks.setMainCallHookCallFromSelf(vaultAddr, 'redeem', [sharesAmount, userAddr, userAddr])
@@ -988,21 +962,12 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(vaultAddr, [
-      'function deposit(uint256,address) external',
-    ])
-    hooks.addContractInterface(borrowVaultAddr, [
-      'function borrow(uint256,address) external',
-    ])
-    hooks.addContractInterface(evcAddress, [
-      'function enableController(address,address) external',
-      'function enableCollateral(address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, vaultDepositAbi)
+    hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
+    hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const saHooks = hooks.build()
@@ -1098,21 +1063,12 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(vaultAddr, [
-      'function transfer(address,uint256) external',
-    ])
-    hooks.addContractInterface(borrowVaultAddr, [
-      'function borrow(uint256,address) external',
-    ])
-    hooks.addContractInterface(evcAddress, [
-      'function enableCollateral(address,address) external',
-      'function enableController(address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, erc20TransferAbi)
+    hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
+    hooks.addContractInterface(evcAddress, [...evcEnableCollateralAbi, ...evcEnableControllerAbi])
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     hooks.addPreHookCallFromSelf(vaultAddr, 'transfer', [subAccountAddr, amount])
@@ -1322,34 +1278,21 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(supplyVaultAddr, [
-      'function deposit(uint256,address) external',
-    ])
+    hooks.addContractInterface(supplyVaultAddr, vaultDepositAbi)
     if (isSupplySavings) {
-      hooks.addContractInterface(supplyVaultAddr, [
-        'function transfer(address,uint256) external',
-      ])
+      hooks.addContractInterface(supplyVaultAddr, erc20TransferAbi)
     }
     if (isSupplySavings) {
       hooks.addPreHookCallFromSelf(supplyVaultAddr, 'transfer', [subAccountAddr, supplySharesAmount!])
     }
     if (!isSameVault) {
-      hooks.addContractInterface(longVaultAddr, [
-        'function deposit(uint256,address) external',
-      ])
+      hooks.addContractInterface(longVaultAddr, vaultDepositAbi)
     }
-    hooks.addContractInterface(borrowVaultAddr, [
-      'function borrow(uint256,address) external',
-    ])
-    hooks.addContractInterface(evcAddress, [
-      'function enableController(address,address) external',
-      'function enableCollateral(address,address) external',
-    ])
+    hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
+    hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const saHooks = hooks.build()
@@ -1552,14 +1495,10 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(borrowVaultAddr, [
-      'function repay(uint256,address) external',
-    ])
+    hooks.addContractInterface(borrowVaultAddr, vaultRepayAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     hooks.setMainCallHookCallFromSelf(borrowVaultAddr, 'repay', [amount, subAccountAddr])
@@ -1664,32 +1603,23 @@ export const useEulerOperations = () => {
       })
     }
 
-    const vaultContract = new ethers.Contract(vaultAddr, [
-      'function balanceOf(address) external view returns (uint256)',
-      'function convertToAssets(uint256) external view returns (uint256)',
-    ], rpcProvider)
+    const vaultContract = new ethers.Contract(
+      vaultAddr,
+      [...erc20BalanceOfAbi, ...vaultConvertToAssetsAbi],
+      rpcProvider,
+    )
 
     const subAccountShares = await vaultContract.balanceOf(subAccountAddr).catch(() => 0n)
     const subAccountAssets = await vaultContract.convertToAssets(subAccountShares).catch(() => 0n)
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(borrowVaultAddr, [
-      'function repay(uint256,address) external',
-      'function disableController() external',
-    ])
-    hooks.addContractInterface(vaultAddr, [
-      'function redeem(uint256,address,address) external',
-      'function deposit(uint256,address) external',
-    ])
-    hooks.addContractInterface(evcAddress, [
-      'function disableCollateral(address,address) external',
-    ])
+    hooks.addContractInterface(borrowVaultAddr, [...vaultRepayAbi, ...evcDisableControllerAbi])
+    hooks.addContractInterface(vaultAddr, [...vaultRedeemAbi, ...vaultDepositAbi])
+    hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const evcCalls = []
@@ -1826,14 +1756,10 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(vaultAddr, [
-      'function redeem(uint256,address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const redeemCall = {
@@ -1960,17 +1886,11 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(assetAddr, [
-      'function approve(address,uint256) external',
-    ])
-    hooks.addContractInterface(vaultAddr, [
-      'function deposit(uint256,address) external',
-    ])
+    hooks.addContractInterface(assetAddr, erc20ApproveAbi)
+    hooks.addContractInterface(vaultAddr, vaultDepositAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     hooks.setMainCallHookCallFromSelf(vaultAddr, 'deposit', [amount, depositToAddr])
@@ -2045,14 +1965,10 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(vaultAddr, [
-      'function withdraw(uint256,address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, vaultWithdrawAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     if (subAccount) {
@@ -2114,9 +2030,7 @@ export const useEulerOperations = () => {
 
     const hasSigned = await hasSignature(userAddr)
 
-    const vaultContract = new ethers.Contract(vaultAddr, [
-      'function previewWithdraw(uint256) external view returns (uint256)',
-    ], rpcProvider)
+    const vaultContract = new ethers.Contract(vaultAddr, vaultPreviewWithdrawAbi, rpcProvider)
 
     let sharesAmount = isMax
       ? maxSharesAmount || 0n
@@ -2128,14 +2042,10 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(vaultAddr, [
-      'function redeem(uint256,address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     hooks.setMainCallHookCallFromSelf(vaultAddr, 'redeem', [sharesAmount, userAddr, userAddr])
@@ -2235,21 +2145,12 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(vaultAddr, [
-      'function deposit(uint256,address) external',
-    ])
-    hooks.addContractInterface(borrowVaultAddr, [
-      'function borrow(uint256,address) external',
-    ])
-    hooks.addContractInterface(evcAddress, [
-      'function enableController(address,address) external',
-      'function enableCollateral(address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, vaultDepositAbi)
+    hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
+    hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const saHooks = hooks.build()
@@ -2345,21 +2246,12 @@ export const useEulerOperations = () => {
     const hooks = new SaHooksBuilder()
 
     // Add interface for vault share transfer
-    hooks.addContractInterface(vaultAddr, [
-      'function transfer(address,uint256) external',
-    ])
-    hooks.addContractInterface(borrowVaultAddr, [
-      'function borrow(uint256,address) external',
-    ])
-    hooks.addContractInterface(evcAddress, [
-      'function enableCollateral(address,address) external',
-      'function enableController(address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, erc20TransferAbi)
+    hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
+    hooks.addContractInterface(evcAddress, [...evcEnableCollateralAbi, ...evcEnableControllerAbi])
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     // CRITICAL: Transfer vault shares from main account to subaccount
@@ -2476,14 +2368,10 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(borrowVaultAddr, [
-      'function repay(uint256,address) external',
-    ])
+    hooks.addContractInterface(borrowVaultAddr, vaultRepayAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     hooks.setMainCallHookCallFromSelf(borrowVaultAddr, 'repay', [amount, subAccountAddr])
@@ -2575,10 +2463,11 @@ export const useEulerOperations = () => {
       await waitForTxReceipt(approvalHash)
     }
 
-    const vaultContract = new ethers.Contract(vaultAddr, [
-      'function balanceOf(address) external view returns (uint256)',
-      'function convertToAssets(uint256) external view returns (uint256)',
-    ], rpcProvider)
+    const vaultContract = new ethers.Contract(
+      vaultAddr,
+      [...erc20BalanceOfAbi, ...vaultConvertToAssetsAbi],
+      rpcProvider,
+    )
 
     const subAccountShares = await vaultContract.balanceOf(subAccountAddr).catch(() => 0n)
     const subAccountAssets = await vaultContract.convertToAssets(subAccountShares).catch(() => 0n)
@@ -2588,22 +2477,12 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(borrowVaultAddr, [
-      'function repay(uint256,address) external',
-      'function disableController() external',
-    ])
-    hooks.addContractInterface(vaultAddr, [
-      'function redeem(uint256,address,address) external',
-      'function deposit(uint256,address) external',
-    ])
-    hooks.addContractInterface(evcAddress, [
-      'function disableCollateral(address,address) external',
-    ])
+    hooks.addContractInterface(borrowVaultAddr, [...vaultRepayAbi, ...evcDisableControllerAbi])
+    hooks.addContractInterface(vaultAddr, [...vaultRedeemAbi, ...vaultDepositAbi])
+    hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const evcCalls = []
@@ -2697,14 +2576,10 @@ export const useEulerOperations = () => {
 
     const hooks = new SaHooksBuilder()
 
-    hooks.addContractInterface(vaultAddr, [
-      'function redeem(uint256,address,address) external',
-    ])
+    hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
 
     if (!hasSigned) {
-      hooks.addContractInterface(tosSignerAddress, [
-        'function signTermsOfUse(string,bytes32) external',
-      ])
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const redeemCall = {
