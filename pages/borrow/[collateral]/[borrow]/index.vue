@@ -405,6 +405,31 @@ const multiplyBalance = computed(() => {
   }
   return getBalance(multiplySupplyVault.value.asset.address as `0x${string}`) || 0n
 })
+const getVaultAmountIn = (vault: Vault | undefined) => {
+  if (!vault) {
+    return 0n
+  }
+  return ethers.parseUnits('1', Number(vault.asset.decimals))
+}
+const getPythMid = (vault: Vault | undefined) => {
+  const mid = vault?.pythPriceInfo?.amountOutMid
+  return mid && mid > 0n ? mid : 0n
+}
+const isPriceInfoValid = (info?: { queryFailure?: boolean; amountIn?: bigint; amountOutMid?: bigint }) => {
+  if (!info) {
+    return false
+  }
+  if (info.queryFailure) {
+    return false
+  }
+  if (!info.amountIn || info.amountIn <= 0n) {
+    return false
+  }
+  if (!info.amountOutMid || info.amountOutMid <= 0n) {
+    return false
+  }
+  return true
+}
 const multiplyDebtAmountNano = computed(() => {
   if (!multiplySupplyVault.value || !multiplyShortVault.value) {
     return 0n
@@ -427,10 +452,27 @@ const multiplyDebtAmountNano = computed(() => {
       || normalizeAddress(price.asset) === normalizeAddress(multiplySupplyVault.value?.asset.address),
   )
   const liabilityPrice = multiplyShortVault.value.liabilityPriceInfo
-  const collateralOutBid = collateralPriceInfo?.amountOutBid || collateralPriceInfo?.amountOutMid || 0n
-  const collateralIn = collateralPriceInfo?.amountIn || 0n
-  const liabilityOutBid = liabilityPrice?.amountOutBid || liabilityPrice?.amountOutMid || 0n
-  const liabilityIn = liabilityPrice?.amountIn || 0n
+  const unitOfAccountMatch = multiplySupplyVault.value.unitOfAccount
+    && multiplyShortVault.value.unitOfAccount
+    && normalizeAddress(multiplySupplyVault.value.unitOfAccount) === normalizeAddress(multiplyShortVault.value.unitOfAccount)
+  const collateralPythMid = unitOfAccountMatch ? getPythMid(multiplySupplyVault.value) : 0n
+  const liabilityPythMid = getPythMid(multiplyShortVault.value)
+
+  const hasCollateralPrice = isPriceInfoValid(collateralPriceInfo)
+  const hasLiabilityPrice = isPriceInfoValid(liabilityPrice)
+
+  const collateralOutBid = hasCollateralPrice
+    ? (collateralPriceInfo?.amountOutBid || collateralPriceInfo?.amountOutMid || 0n)
+    : (collateralPythMid || 0n)
+  const collateralIn = hasCollateralPrice
+    ? (collateralPriceInfo?.amountIn || 0n)
+    : getVaultAmountIn(multiplySupplyVault.value)
+  const liabilityOutBid = hasLiabilityPrice
+    ? (liabilityPrice?.amountOutBid || liabilityPrice?.amountOutMid || 0n)
+    : (liabilityPythMid || 0n)
+  const liabilityIn = hasLiabilityPrice
+    ? (liabilityPrice?.amountIn || 0n)
+    : getVaultAmountIn(multiplyShortVault.value)
   if (!collateralIn || !collateralOutBid || !liabilityIn || !liabilityOutBid) {
     return 0n
   }

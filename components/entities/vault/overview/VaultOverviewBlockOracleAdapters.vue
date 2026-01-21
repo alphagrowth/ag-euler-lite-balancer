@@ -43,7 +43,6 @@ const adapters = computed(() => {
 
   return [...deduped.values()]
 })
-
 onMounted(() => {
   if (!Object.keys(tokens).length) {
     loadTokens()
