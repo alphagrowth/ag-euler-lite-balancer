@@ -109,6 +109,41 @@ export const useWagmi = () => {
     return formatUnits(balanceData.value.value, balanceData.value.decimals)
   })
 
+  const getMainPathForRoute = (): string | null => {
+    const path = route.path
+
+    if (path.startsWith('/earn/') && path !== '/earn') {
+      return '/earn'
+    }
+
+    if (path.startsWith('/borrow/') && path !== '/borrow') {
+      return '/borrow'
+    }
+
+    if (path.startsWith('/position/')) {
+      return '/portfolio'
+    }
+
+    return null
+  }
+
+  const redirectToMainIfInternal = async (targetChainId: number) => {
+    const mainPath = getMainPathForRoute()
+
+    if (!mainPath) {
+      return
+    }
+
+    await router.replace({
+      path: mainPath,
+      query: {
+        ...route.query,
+        network: targetChainId,
+      },
+      hash: route.hash,
+    })
+  }
+
   const disconnect = async () => {
     await wagmiDisconnect()
   }
@@ -143,6 +178,7 @@ export const useWagmi = () => {
       localStorage.setItem('chainId', String(targetChainId))
       changeCurrentChainId(targetChainId)
       await syncRouteNetwork(targetChainId)
+      await redirectToMainIfInternal(targetChainId)
       // if (isConnected.value) {
       //   await switchChain({ chainId: targetChainId })
       // }
@@ -207,6 +243,7 @@ export const useWagmi = () => {
     changeCurrentChainId(val.id)
     localStorage.setItem('chainId', String(val.id))
     syncRouteNetwork(val.id)
+    redirectToMainIfInternal(val.id)
   })
 
   return {
