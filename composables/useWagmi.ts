@@ -178,7 +178,9 @@ export const useWagmi = () => {
       localStorage.setItem('chainId', String(targetChainId))
       changeCurrentChainId(targetChainId)
       await syncRouteNetwork(targetChainId)
-      await redirectToMainIfInternal(targetChainId)
+      if (!isInitialRouteSync) {
+        await redirectToMainIfInternal(targetChainId)
+      }
       // if (isConnected.value) {
       //   await switchChain({ chainId: targetChainId })
       // }
@@ -243,7 +245,6 @@ export const useWagmi = () => {
     changeCurrentChainId(val.id)
     localStorage.setItem('chainId', String(val.id))
     syncRouteNetwork(val.id)
-    redirectToMainIfInternal(val.id)
   })
 
   return {
