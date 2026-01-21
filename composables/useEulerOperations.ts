@@ -1,6 +1,7 @@
-import { useSignTypedData, useWriteContract } from '@wagmi/vue'
-import type { Address, Hash, Hex, Abi } from 'viem'
-import { encodeFunctionData, maxUint256 } from 'viem'
+import { useConfig, useSignTypedData, useWriteContract } from '@wagmi/vue'
+import { readContract, simulateContract } from '@wagmi/vue/actions'
+import type { Address, Hash, Hex, Abi, StateOverride } from 'viem'
+import { encodeFunctionData, encodePacked, hexToBigInt, keccak256, maxUint256, toHex } from 'viem'
 import { ethers } from 'ethers'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { convertSaHooksToEVCCalls, EVC_ABI, type EVCCall } from '~/utils/evc-converter'
@@ -11,14 +12,18 @@ import { buildPythUpdateCalls, sumCallValues } from '~/utils/pyth'
 import { useVaults } from '~/composables/useVaults'
 import { MAX_UINT48, MAX_UINT160, PERMIT2_TYPES, permit2Abi } from '~/entities/permit2'
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
+import { isNonBlockingSimulationError } from '~/utils/tx-errors'
 
 const FINAL_MESSAGE = 'By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: https://www.euler.finance/terms  hash:0x1a7aa1916b6c56272b62be027108c06d9af95eef4dac46acbc80267b3919e07e'
 const FINAL_HASH = '0xb0d552b4ebe441d9582f5fc732fd6026b09bec13e7f3c1e21c0ecaa3801df595'
+const ALLOWANCE_SLOT_CANDIDATES = [0n, 1n, 2n, 3n] as const
+const allowanceSlotIndexCache = new Map<string, bigint>()
 
 export const useEulerOperations = () => {
   const { address, chainId } = useWagmi()
   const { writeContractAsync } = useWriteContract()
   const { signTypedDataAsync } = useSignTypedData()
+  const config = useConfig()
   const { eulerCoreAddresses, eulerPeripheryAddresses } = useEulerAddresses()
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { map } = useVaults()
@@ -62,6 +67,165 @@ export const useEulerOperations = () => {
       console.error('Error checking allowance:', e)
       return 0n
     }
+  }
+
+  const maxUint256Hex = toHex(maxUint256, { size: 32 })
+  const normalizeAddress = (address: Address | string) => {
+    try {
+      return ethers.getAddress(address)
+    }
+    catch {
+      return address.toLowerCase()
+    }
+  }
+  const computeErc20AllowanceSlot = (owner: Address, spender: Address, slotIndex: bigint): Hex => {
+    const baseSlot = keccak256(encodePacked(['uint256', 'uint256'], [hexToBigInt(owner), slotIndex]))
+    return keccak256(encodePacked(['uint256', 'uint256'], [hexToBigInt(spender), hexToBigInt(baseSlot)]))
+  }
+  const resolveAllowanceSlotIndex = async (token: Address, owner: Address, spender: Address): Promise<bigint | undefined> => {
+    const tokenKey = normalizeAddress(token)
+    const cached = allowanceSlotIndexCache.get(tokenKey)
+    if (cached !== undefined) {
+      return cached
+    }
+
+    for (const slotIndex of ALLOWANCE_SLOT_CANDIDATES) {
+      const slot = computeErc20AllowanceSlot(owner, spender, slotIndex)
+      try {
+        const value = await readContract(config, {
+          address: token,
+          abi: erc20ABI,
+          functionName: 'allowance',
+          args: [owner, spender],
+          stateOverride: [
+            {
+              address: token,
+              stateDiff: [{ slot, value: maxUint256Hex }],
+            },
+          ],
+        })
+        if (value === maxUint256) {
+          allowanceSlotIndexCache.set(tokenKey, slotIndex)
+          return slotIndex
+        }
+      }
+      catch {
+        continue
+      }
+    }
+    return undefined
+  }
+  const buildErc20AllowanceOverrides = async (
+    pairs: { token: Address; spender: Address }[],
+    owner: Address,
+  ): Promise<StateOverride> => {
+    const overridesByToken = new Map<string, { address: Address; stateDiff: { slot: Hex; value: Hex }[] }>()
+    for (const pair of pairs) {
+      let slotIndex: bigint | undefined
+      try {
+        slotIndex = await resolveAllowanceSlotIndex(pair.token, owner, pair.spender)
+      }
+      catch {
+        slotIndex = undefined
+      }
+      if (slotIndex === undefined) {
+        continue
+      }
+      const slot = computeErc20AllowanceSlot(owner, pair.spender, slotIndex)
+      const tokenKey = normalizeAddress(pair.token)
+      const entry = overridesByToken.get(tokenKey) || { address: pair.token, stateDiff: [] }
+      if (!entry.stateDiff.some(diff => diff.slot === slot)) {
+        entry.stateDiff.push({ slot, value: maxUint256Hex })
+      }
+      overridesByToken.set(tokenKey, entry)
+    }
+    return Array.from(overridesByToken.values())
+  }
+  const computePermit2AllowanceSlot = (owner: Address, token: Address, spender: Address): Hex => {
+    const baseSlot = keccak256(encodePacked(['uint256', 'uint256'], [hexToBigInt(owner), 1n]))
+    const assetSlot = keccak256(encodePacked(['uint256', 'uint256'], [hexToBigInt(token), hexToBigInt(baseSlot)]))
+    return keccak256(encodePacked(['uint256', 'uint256'], [hexToBigInt(spender), hexToBigInt(assetSlot)]))
+  }
+  const buildPermit2Overrides = (
+    pairsByPermit2: Map<string, { address: Address; pairs: { token: Address; spender: Address }[] }>,
+    owner: Address,
+  ): StateOverride => {
+    const overrides: StateOverride = []
+    for (const entry of pairsByPermit2.values()) {
+      const stateDiff = entry.pairs.map(pair => ({
+        slot: computePermit2AllowanceSlot(owner, pair.token, pair.spender),
+        value: maxUint256Hex,
+      }))
+      if (stateDiff.length) {
+        overrides.push({
+          address: entry.address,
+          stateDiff,
+        })
+      }
+    }
+    return overrides
+  }
+  const buildSimulationStateOverride = async (plan: TxPlan, owner: Address): Promise<StateOverride> => {
+    const approvalPairs: { token: Address; spender: Address }[] = []
+    const approvalSeen = new Set<string>()
+    let usesPermit2 = false
+
+    for (const step of plan.steps) {
+      if (step.type === 'permit2-approve' || (step.label && step.label.includes('Permit2'))) {
+        usesPermit2 = true
+      }
+      if (step.type !== 'approve' && step.type !== 'permit2-approve') {
+        continue
+      }
+      const spender = step.args?.[0]
+      if (typeof spender !== 'string') {
+        continue
+      }
+      const token = step.to as Address
+      const key = `${normalizeAddress(token)}:${normalizeAddress(spender as Address)}`
+      if (!approvalSeen.has(key)) {
+        approvalSeen.add(key)
+        approvalPairs.push({ token, spender: spender as Address })
+      }
+    }
+
+    const permit2Pairs = new Map<string, { address: Address; pairs: { token: Address; spender: Address }[] }>()
+    if (usesPermit2) {
+      for (const step of plan.steps) {
+        if (step.type !== 'evc-batch') {
+          continue
+        }
+        const calls = step.args?.[0] as EVCCall[] | undefined
+        if (!Array.isArray(calls)) {
+          continue
+        }
+        for (const call of calls) {
+          const target = call?.targetContract
+          if (!target) {
+            continue
+          }
+          const vault = map.value.get(normalizeAddress(target))
+          if (!vault?.asset?.address) {
+            continue
+          }
+          const permit2Address = resolvePermit2Address(vault.address as Address)
+          if (!permit2Address) {
+            continue
+          }
+          const permit2Key = normalizeAddress(permit2Address)
+          const pairKey = `${normalizeAddress(vault.asset.address as Address)}:${normalizeAddress(vault.address as Address)}`
+          const entry = permit2Pairs.get(permit2Key) || { address: permit2Address, pairs: [] }
+          if (!entry.pairs.some(pair => `${normalizeAddress(pair.token)}:${normalizeAddress(pair.spender)}` === pairKey)) {
+            entry.pairs.push({ token: vault.asset.address as Address, spender: vault.address as Address })
+          }
+          permit2Pairs.set(permit2Key, entry)
+        }
+      }
+    }
+
+    const erc20Overrides = await buildErc20AllowanceOverrides(approvalPairs, owner)
+    const permit2Overrides = buildPermit2Overrides(permit2Pairs, owner)
+    return [...permit2Overrides, ...erc20Overrides]
   }
 
   const nowInSeconds = () => BigInt(Math.floor(Date.now() / 1000))
@@ -436,6 +600,45 @@ export const useEulerOperations = () => {
     }
 
     return lastHash
+  }
+
+  const simulateTxPlan = async (plan: TxPlan) => {
+    if (!address.value) {
+      throw new Error('Wallet not connected')
+    }
+
+    const hasApprovalSteps = plan.steps.some(step => step.type === 'approve' || step.type === 'permit2-approve')
+    const stepsToSimulate = plan.steps.filter(step => step.type !== 'approve' && step.type !== 'permit2-approve')
+    let stateOverride: StateOverride | undefined
+    try {
+      const overrides = await buildSimulationStateOverride(plan, address.value as Address)
+      if (overrides.length) {
+        stateOverride = overrides
+      }
+    }
+    catch (err) {
+      console.warn('[simulateTxPlan] failed to build state overrides', err)
+    }
+
+    for (const step of stepsToSimulate) {
+      try {
+        await simulateContract(config, {
+          account: address.value as Address,
+          address: step.to,
+          abi: step.abi,
+          functionName: step.functionName as any,
+          args: step.args as any,
+          value: step.value ?? 0n,
+          stateOverride,
+        })
+      }
+      catch (err) {
+        if (hasApprovalSteps && isNonBlockingSimulationError(err)) {
+          continue
+        }
+        throw err
+      }
+    }
   }
 
   const buildSupplyPlan = async (
@@ -2553,6 +2756,7 @@ export const useEulerOperations = () => {
     disableCollateral,
     swap,
     executeTxPlan,
+    simulateTxPlan,
     buildSupplyPlan,
     buildWithdrawPlan,
     buildRedeemPlan,

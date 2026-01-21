@@ -19,6 +19,11 @@ const { isPositionsLoaded, isPositionsLoading, borrowPositions } = useEulerAccou
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { disableCollateral: disableCollateralOperation, buildDisableCollateralPlan } = useEulerOperations()
+const {
+  runSimulation: runDisableCollateralSimulation,
+  simulationError: disableCollateralSimulationError,
+  clearSimulationError: clearDisableCollateralSimulationError,
+} = useTxPlanSimulation()
 
 const positionIndex = route.params.number as string
 
@@ -31,6 +36,7 @@ const position: Ref<AccountBorrowPosition | undefined> = ref()
 const isSubmitting = ref(false)
 const collateralItems = ref<PositionCollateral[]>([])
 const isCollateralsLoading = ref(false)
+const disableCollateralErrorVault = ref<string | null>(null)
 
 const { map, getVault, isReady: isVaultsReady } = useVaults()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
@@ -158,6 +164,18 @@ const isPrimaryCollateral = (vault: Vault) => {
   return ethers.getAddress(vault.address) === primaryCollateralAddress.value
 }
 
+const isDisableCollateralError = (vault: Vault) => {
+  if (!disableCollateralErrorVault.value) {
+    return false
+  }
+  try {
+    return ethers.getAddress(vault.address) === disableCollateralErrorVault.value
+  }
+  catch {
+    return false
+  }
+}
+
 const loadCollaterals = async () => {
   if (!position.value) {
     collateralItems.value = []
@@ -235,6 +253,8 @@ const loadCollaterals = async () => {
 }
 
 const disableCollateral = async (vault: Vault) => {
+  clearDisableCollateralSimulationError()
+  disableCollateralErrorVault.value = null
   let plan: TxPlan | null = null
   try {
     plan = await buildDisableCollateralPlan(
@@ -244,6 +264,14 @@ const disableCollateral = async (vault: Vault) => {
   }
   catch (e) {
     console.warn('[OperationReviewModal] failed to build plan', e)
+  }
+
+  if (plan) {
+    const ok = await runDisableCollateralSimulation(plan)
+    if (!ok) {
+      disableCollateralErrorVault.value = ethers.getAddress(vault.address)
+      return
+    }
   }
 
   modal.open(OperationReviewModal, {
@@ -599,6 +627,14 @@ watch(isConnected, () => {
                 >
                   Disable collateral
                 </UiButton>
+                <UiToast
+                  v-if="disableCollateralSimulationError && isDisableCollateralError(collateral.vault)"
+                  class="mt-12"
+                  title="Error"
+                  variant="error"
+                  :description="disableCollateralSimulationError"
+                  size="compact"
+                />
               </div>
             </div>
           </div>

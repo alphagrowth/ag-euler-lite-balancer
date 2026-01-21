@@ -17,6 +17,7 @@ const { supply, buildSupplyPlan } = useEulerOperations()
 const { getVault, updateVault } = useVaults()
 const { isConnected } = useAccount()
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getOpportunityOfLendVault } = useMerkl()
@@ -108,6 +109,13 @@ const submit = async () => {
     plan.value = null
   }
 
+  if (plan.value) {
+    const ok = await runSimulation(plan.value)
+    if (!ok) {
+      return
+    }
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'supply',
@@ -185,6 +193,7 @@ const onSupplyInfoIconClick = () => {
 load()
 
 watch(amount, async () => {
+  clearSimulationError()
   if (!vault.value) {
     return
   }
@@ -255,6 +264,13 @@ watch(amount, async () => {
         title="Error"
         variant="error"
         :description="errorText || ''"
+        size="compact"
+      />
+      <UiToast
+        v-if="simulationError"
+        title="Error"
+        variant="error"
+        :description="simulationError"
         size="compact"
       />
 

@@ -22,6 +22,7 @@ const { withdraw, redeem, buildWithdrawPlan, buildRedeemPlan } = useEulerOperati
 const { getVault } = useVaults()
 const { isConnected, chain, address } = useAccount()
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -140,6 +141,13 @@ const submit = async () => {
     plan.value = null
   }
 
+  if (plan.value) {
+    const ok = await runSimulation(plan.value)
+    if (!ok) {
+      return
+    }
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'withdraw',
@@ -188,6 +196,7 @@ const send = async () => {
   }
 }
 const updateEstimates = useDebounceFn(async () => {
+  clearSimulationError()
   estimatesError.value = ''
   if (!vault.value) {
     return
@@ -221,6 +230,7 @@ watch(isConnected, () => {
   updateBalance()
 })
 watch(amount, async () => {
+  clearSimulationError()
   if (!vault.value) {
     return
   }
@@ -262,6 +272,13 @@ watch(amount, async () => {
         title="Error"
         variant="error"
         :description="estimatesError"
+        size="compact"
+      />
+      <UiToast
+        v-if="simulationError"
+        title="Error"
+        variant="error"
+        :description="simulationError"
         size="compact"
       />
 

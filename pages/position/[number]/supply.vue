@@ -20,6 +20,7 @@ const { borrowPositions, isPositionsLoaded } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { map, getVault, isReady: isVaultsReady } = useVaults()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
@@ -195,6 +196,13 @@ const submit = async () => {
     plan.value = null
   }
 
+  if (plan.value) {
+    const ok = await runSimulation(plan.value)
+    if (!ok) {
+      return
+    }
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'supply',
@@ -241,6 +249,7 @@ const send = async () => {
   }
 }
 const updateEstimates = useDebounceFn(async () => {
+  clearSimulationError()
   estimatesError.value = ''
   if (!collateralVault.value) {
     return
@@ -286,6 +295,7 @@ watch(isPositionsLoaded, (val) => {
   }
 }, { immediate: true })
 watch(() => route.query.collateral, async () => {
+  clearSimulationError()
   if (!isPositionLoaded.value) {
     return
   }
@@ -352,6 +362,13 @@ onUnmounted(() => {
         title="Error"
         variant="error"
         :description="estimatesError"
+        size="compact"
+      />
+      <UiToast
+        v-if="simulationError"
+        title="Error"
+        variant="error"
+        :description="simulationError"
         size="compact"
       />
 

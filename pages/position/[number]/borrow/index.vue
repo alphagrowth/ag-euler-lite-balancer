@@ -19,6 +19,7 @@ const { isConnected } = useAccount()
 const { borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
 const positionIndex = route.params.number as string
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 
@@ -159,6 +160,13 @@ const submit = async () => {
     plan.value = null
   }
 
+  if (plan.value) {
+    const ok = await runSimulation(plan.value)
+    if (!ok) {
+      return
+    }
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'borrow',
@@ -271,6 +279,7 @@ watch(isConnected, () => {
   updateBalance()
 })
 watch([collateralAmount, borrowAmount], async () => {
+  clearSimulationError()
   if (!pair.value) {
     return
   }
@@ -322,6 +331,13 @@ onUnmounted(() => {
         title="Error"
         variant="error"
         :description="errorText || ''"
+        size="compact"
+      />
+      <UiToast
+        v-if="simulationError"
+        title="Error"
+        variant="error"
+        :description="simulationError"
         size="compact"
       />
 

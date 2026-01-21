@@ -25,6 +25,7 @@ const modal = useModal()
 const { error: showError } = useToast()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 
 const positionIndex = route.params.number as string
 
@@ -424,6 +425,7 @@ const isSubmitDisabled = computed(() => {
 })
 
 const onFromInput = async () => {
+  clearSimulationError()
   if (!fromVault.value || !toVault.value || !fromAmount.value) {
     toAmount.value = ''
     resetQuoteState()
@@ -487,6 +489,7 @@ const requestQuote = useDebounceFn(async () => {
 }, 500)
 
 watch(toVault, () => {
+  clearSimulationError()
   if (!toVault.value) {
     toAmount.value = ''
     resetQuoteState()
@@ -498,12 +501,17 @@ watch(toVault, () => {
 })
 
 watch([fromVault, slippage], () => {
+  clearSimulationError()
   if (fromAmount.value) {
     requestQuote()
   }
 })
+watch(selectedQuote, () => {
+  clearSimulationError()
+})
 
 watch([currentDebt, fromVault], () => {
+  clearSimulationError()
   if (!position.value) {
     return
   }
@@ -514,6 +522,7 @@ watch([currentDebt, fromVault], () => {
 })
 
 const onToVaultChange = (selectedIndex: number) => {
+  clearSimulationError()
   const nextVault = borrowVaults.value[selectedIndex]
   if (!nextVault) {
     return
@@ -540,6 +549,13 @@ const submit = async () => {
   catch (e) {
     console.warn('[OperationReviewModal] failed to build plan', e)
     plan.value = null
+  }
+
+  if (plan.value) {
+    const ok = await runSimulation(plan.value)
+    if (!ok) {
+      return
+    }
   }
 
   modal.open(OperationReviewModal, {
@@ -641,6 +657,13 @@ const send = async () => {
               title="Error"
               variant="error"
               :description="errorText || ''"
+              size="compact"
+            />
+            <UiToast
+              v-if="simulationError"
+              title="Error"
+              variant="error"
+              :description="simulationError"
               size="compact"
             />
 

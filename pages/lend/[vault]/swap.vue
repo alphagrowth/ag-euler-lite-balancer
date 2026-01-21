@@ -25,6 +25,7 @@ const modal = useModal()
 const { error: showError } = useToast()
 const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -279,6 +280,7 @@ const isSubmitDisabled = computed(() => {
 })
 
 const onFromInput = async () => {
+  clearSimulationError()
   if (!fromVault.value || !toVault.value || !fromAmount.value) {
     toAmount.value = ''
     resetQuoteState()
@@ -336,6 +338,7 @@ const requestQuote = useDebounceFn(async () => {
 }, 500)
 
 watch(toVault, () => {
+  clearSimulationError()
   if (!toVault.value) {
     toAmount.value = ''
     resetQuoteState()
@@ -347,9 +350,13 @@ watch(toVault, () => {
 })
 
 watch([fromVault, slippage], () => {
+  clearSimulationError()
   if (fromAmount.value) {
     requestQuote()
   }
+})
+watch(selectedQuote, () => {
+  clearSimulationError()
 })
 
 const onToVaultChange = (selectedIndex: number) => {
@@ -379,6 +386,13 @@ const submit = async () => {
   catch (e) {
     console.warn('[OperationReviewModal] failed to build plan', e)
     plan.value = null
+  }
+
+  if (plan.value) {
+    const ok = await runSimulation(plan.value)
+    if (!ok) {
+      return
+    }
   }
 
   modal.open(OperationReviewModal, {
@@ -481,6 +495,13 @@ const send = async () => {
               title="Error"
               variant="error"
               :description="errorText || ''"
+              size="compact"
+            />
+            <UiToast
+              v-if="simulationError"
+              title="Error"
+              variant="error"
+              :description="simulationError"
               size="compact"
             />
 

@@ -26,6 +26,16 @@ const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
 const { getBalance } = useWallets()
+const {
+  runSimulation: runBorrowSimulation,
+  simulationError: borrowSimulationError,
+  clearSimulationError: clearBorrowSimulationError,
+} = useTxPlanSimulation()
+const {
+  runSimulation: runMultiplySimulation,
+  simulationError: multiplySimulationError,
+  clearSimulationError: clearMultiplySimulationError,
+} = useTxPlanSimulation()
 
 type MultiplyPlanParams = {
   supplyVaultAddress: string
@@ -862,6 +872,7 @@ const requestMultiplyQuote = useDebounceFn(async () => {
   })
 }, 500)
 watch(multiplySlippage, () => {
+  clearMultiplySimulationError()
   if (!multiplyInputAmount.value) {
     resetMultiplyQuoteState()
     return
@@ -869,6 +880,7 @@ watch(multiplySlippage, () => {
   requestMultiplyQuote()
 })
 const onMultiplyInput = () => {
+  clearMultiplySimulationError()
   if (!multiplyInputAmount.value) {
     resetMultiplyQuoteState()
     return
@@ -876,6 +888,7 @@ const onMultiplyInput = () => {
   requestMultiplyQuote()
 }
 const onMultiplierInput = () => {
+  clearMultiplySimulationError()
   if (!multiplyInputAmount.value) {
     resetMultiplyQuoteState()
     return
@@ -883,6 +896,7 @@ const onMultiplierInput = () => {
   requestMultiplyQuote()
 }
 const onMultiplyCollateralChange = (selectedIndex: number) => {
+  clearMultiplySimulationError()
   const nextVault = multiplyCollateralVaults.value[selectedIndex]
   const nextOption = multiplyCollateralOptions.value[selectedIndex]
   if (!nextVault || !nextOption) {
@@ -979,6 +993,13 @@ const submitMultiply = async () => {
     multiplyPlan.value = null
   }
 
+  if (multiplyPlan.value) {
+    const ok = await runMultiplySimulation(multiplyPlan.value)
+    if (!ok) {
+      return
+    }
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'borrow',
@@ -1070,6 +1091,13 @@ const submit = async () => {
     plan.value = null
   }
 
+  if (plan.value) {
+    const ok = await runBorrowSimulation(plan.value)
+    if (!ok) {
+      return
+    }
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'borrow',
@@ -1136,6 +1164,7 @@ const onSubmit = () => {
   }
 }
 const onChangeCollateral = (selection: boolean | number) => {
+  clearBorrowSimulationError()
   if (typeof selection === 'number') {
     isSavingCollateral.value = selection === 1
     return
@@ -1228,6 +1257,7 @@ watch(address, () => {
   multiplySubAccountPromise = null
 })
 watch([collateralAmount, borrowAmount], async () => {
+  clearBorrowSimulationError()
   if (!pair.value) {
     return
   }
@@ -1242,10 +1272,14 @@ watch(savingCollateral, (val) => {
   }
 })
 watch([multiplySupplyVault, multiplyLongVault, multiplyShortVault, isMultiplySavingCollateral], () => {
+  clearMultiplySimulationError()
   resetMultiplyQuoteState()
   if (multiplyInputAmount.value) {
     requestMultiplyQuote()
   }
+})
+watch(multiplySelectedQuote, () => {
+  clearMultiplySimulationError()
 })
 watch(multiplyMaxMultiplier, (max) => {
   let next = multiplier.value
@@ -1270,6 +1304,10 @@ watch(multiplyMaxMultiplier, (max) => {
   }
   requestMultiplyQuote()
 }, { immediate: true })
+watch(formTab, () => {
+  clearBorrowSimulationError()
+  clearMultiplySimulationError()
+})
 
 watch(areVaultsReady, async (ready) => {
   if (ready && route.params.collateral && route.params.borrow) {
@@ -1349,6 +1387,13 @@ watch(areVaultsReady, async (ready) => {
             title="Error"
             variant="error"
             :description="errorText || ''"
+            size="compact"
+          />
+          <UiToast
+            v-if="borrowSimulationError"
+            title="Error"
+            variant="error"
+            :description="borrowSimulationError"
             size="compact"
           />
 
@@ -1465,6 +1510,13 @@ watch(areVaultsReady, async (ready) => {
                 title="Error"
                 variant="error"
                 :description="multiplyErrorText || ''"
+                size="compact"
+              />
+              <UiToast
+                v-if="multiplySimulationError"
+                title="Error"
+                variant="error"
+                :description="multiplySimulationError"
                 size="compact"
               />
 

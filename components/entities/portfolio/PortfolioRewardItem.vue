@@ -11,6 +11,7 @@ const { isTokensLoading, rewardTokens, claimReward, loadRewards, buildClaimRewar
 const modal = useModal()
 const { error } = useToast()
 const { chainId } = useEulerAddresses()
+const { runSimulation, simulationError } = useTxPlanSimulation()
 
 const isClaiming = ref(false)
 const plan = ref<TxPlan | null>(null)
@@ -52,6 +53,13 @@ const onClaimClick = async () => {
     catch (e) {
       console.warn('[OperationReviewModal] failed to build plan', e)
       plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
     }
 
     modal.open(OperationReviewModal, {
@@ -113,6 +121,14 @@ const onClaimClick = async () => {
       >
         Claim
       </UiButton>
+      <UiToast
+        v-if="simulationError"
+        class="mt-12"
+        title="Error"
+        variant="error"
+        :description="simulationError"
+        size="compact"
+      />
     </div>
   </div>
 </template>

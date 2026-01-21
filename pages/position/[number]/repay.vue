@@ -22,6 +22,7 @@ const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
 const { address } = useAccount()
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -145,6 +146,13 @@ const submit = async () => {
     plan.value = null
   }
 
+  if (plan.value) {
+    const ok = await runSimulation(plan.value)
+    if (!ok) {
+      return
+    }
+  }
+
   modal.open(OperationReviewModal, {
     props: {
       type: 'repay',
@@ -195,6 +203,7 @@ const send = async () => {
   }
 }
 const updateEstimates = useDebounceFn(async () => {
+  clearSimulationError()
   estimatesError.value = ''
   if (!position.value || !collateralVault.value || !borrowVault.value) {
     return
@@ -251,6 +260,7 @@ watch(isConnected, () => {
   updateBalance()
 })
 watch(amount, async () => {
+  clearSimulationError()
   if (!collateralVault.value) {
     return
   }
@@ -308,6 +318,13 @@ onUnmounted(() => {
         title="Error"
         variant="error"
         :description="estimatesError"
+        size="compact"
+      />
+      <UiToast
+        v-if="simulationError"
+        title="Error"
+        variant="error"
+        :description="simulationError"
         size="compact"
       />
 
