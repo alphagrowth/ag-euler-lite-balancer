@@ -37,6 +37,20 @@ export const useEulerOperations = () => {
     return resolved && resolved !== ethers.ZeroAddress ? resolved : undefined
   }
 
+  const waitForTxReceipt = async (txHash?: Hash) => {
+    if (!txHash) {
+      return
+    }
+
+    const receipt = await rpcProvider.waitForTransaction(txHash)
+    if (!receipt) {
+      throw new Error('Transaction not found')
+    }
+    if (receipt.status === 0) {
+      throw new Error('Transaction reverted')
+    }
+  }
+
   const checkAllowance = async (assetAddress: Address, spenderAddress: Address, userAddress: Address): Promise<bigint> => {
     const contract = new ethers.Contract(assetAddress, erc20ABI, rpcProvider)
 
@@ -86,7 +100,7 @@ export const useEulerOperations = () => {
       args: [permit2Address, maxUint256],
     })
 
-    await rpcProvider.waitForTransaction(approvalHash)
+    await waitForTxReceipt(approvalHash)
   }
 
   const buildPermit2Call = async (token: Address, spender: Address, requiredAmount: bigint, owner: Address, permit2Address?: Address): Promise<EVCCall | undefined> => {
@@ -418,7 +432,7 @@ export const useEulerOperations = () => {
       })
 
       lastHash = txHash
-      // TODO wait for transaction provider.waitForTransaction(txHash)
+      await waitForTxReceipt(txHash)
     }
 
     return lastHash
@@ -1693,6 +1707,7 @@ export const useEulerOperations = () => {
       value: totalValue,
     })
 
+    await waitForTxReceipt(swapHash)
     return swapHash
   }
 
@@ -1737,7 +1752,7 @@ export const useEulerOperations = () => {
         args: [vaultAddr, maxUint256],
       })
 
-      await rpcProvider.waitForTransaction(approvalHash)
+      await waitForTxReceipt(approvalHash)
     }
 
     const hooks = new SaHooksBuilder()
@@ -1800,6 +1815,7 @@ export const useEulerOperations = () => {
       value: totalValue,
     })
 
+    await waitForTxReceipt(depositHash)
     return depositHash
   }
 
@@ -1871,6 +1887,7 @@ export const useEulerOperations = () => {
       value: totalValue,
     })
 
+    await waitForTxReceipt(withdrawHash)
     return withdrawHash
   }
 
@@ -1948,6 +1965,7 @@ export const useEulerOperations = () => {
       value: totalValue,
     })
 
+    await waitForTxReceipt(redeemHash)
     return redeemHash
   }
 
@@ -2008,7 +2026,7 @@ export const useEulerOperations = () => {
           args: [vaultAddr, maxUint256],
         })
 
-        await rpcProvider.waitForTransaction(approvalHash)
+        await waitForTxReceipt(approvalHash)
       }
     }
 
@@ -2093,6 +2111,7 @@ export const useEulerOperations = () => {
       value: totalValue,
     })
 
+    await waitForTxReceipt(borrowHash)
     return borrowHash
   }
 
@@ -2198,6 +2217,7 @@ export const useEulerOperations = () => {
       value: totalValue,
     })
 
+    await waitForTxReceipt(borrowHash)
     return borrowHash
   }
 
@@ -2248,7 +2268,7 @@ export const useEulerOperations = () => {
         args: [borrowVaultAddr, maxUint256],
       })
 
-      await rpcProvider.waitForTransaction(approvalHash)
+      await waitForTxReceipt(approvalHash)
     }
 
     const hooks = new SaHooksBuilder()
@@ -2297,6 +2317,7 @@ export const useEulerOperations = () => {
       value: totalValue,
     })
 
+    await waitForTxReceipt(repayHash)
     return repayHash
   }
 
@@ -2348,7 +2369,7 @@ export const useEulerOperations = () => {
         args: [borrowVaultAddr, maxUint256],
       })
 
-      await rpcProvider.waitForTransaction(approvalHash)
+      await waitForTxReceipt(approvalHash)
     }
 
     const vaultContract = new ethers.Contract(vaultAddr, [
@@ -2450,6 +2471,7 @@ export const useEulerOperations = () => {
       value: totalValue,
     })
 
+    await waitForTxReceipt(fullRepayHash)
     return fullRepayHash
   }
 
@@ -2516,6 +2538,7 @@ export const useEulerOperations = () => {
       value: totalValue,
     })
 
+    await waitForTxReceipt(disableHash)
     return disableHash
   }
 

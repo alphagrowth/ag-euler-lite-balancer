@@ -22,7 +22,7 @@ const {
 const { rewards } = useMerkl()
 const { locks } = useREULLocks()
 const { isConnected, address } = useAccount()
-const { isLoaded: isBalancesLoaded, balances } = useWallets()
+const { isLoaded: isBalancesLoaded, balances, updateBalances } = useWallets()
 const { eulerLensAddresses } = useEulerAddresses()
 
 const interval: Ref<NodeJS.Timeout | null> = ref(null)
@@ -53,15 +53,16 @@ const checkTab = () => {
   }
 }
 
-const updatePositions = async () => {
+const updatePositions = () => {
   updateDepositPositions(balances.value, eulerLensAddresses.value, address.value as string)
   updateEarnPositions(balances.value, eulerLensAddresses.value, address.value as string)
   updateBorrowPositions(eulerLensAddresses.value, address.value as string)
 }
 
 watch(tabsModel, checkTab, { immediate: true })
-onActivated(() => {
+onActivated(async () => {
   checkTab()
+  await updateBalances()
   updatePositions()
   interval.value = setInterval(updatePositions, 10000)
 })
