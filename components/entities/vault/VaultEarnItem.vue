@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { getEarnVaultPrice, type EarnVault } from '~/entities/vault'
 import { useEulerEntitiesOfEarnVault, useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 
-const { isConnected } = useWagmi()
+const { isConnected } = useAccount()
 const { vault } = defineProps<{ vault: EarnVault }>()
 const entities = useEulerEntitiesOfEarnVault(vault)
 const product = useEulerProductOfVault(vault.address)

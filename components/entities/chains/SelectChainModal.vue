@@ -9,8 +9,10 @@ const handleClose = () => {
   emits('close')
 }
 const onClick = (chainId: number) => {
-  changeChain(chainId)
   emits('close')
+  setTimeout(() => {
+    changeChain(chainId)
+  }, 1000)
 }
 </script>
 

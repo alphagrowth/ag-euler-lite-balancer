@@ -5,6 +5,7 @@ import { truncate } from '~/utils/string-utils'
 import { availableNetworkIds } from '~/entities/custom'
 
 let isChangingChain = false
+let isRouterReplacing = false
 let isInitialRouteSync = true
 const isLoaded = ref(false)
 const walletName = ref('Wallet')
@@ -108,6 +109,41 @@ export const useWagmi = () => {
     return formatUnits(balanceData.value.value, balanceData.value.decimals)
   })
 
+  const getMainPathForRoute = (): string | null => {
+    const path = route.path
+
+    if (path.startsWith('/earn/') && path !== '/earn') {
+      return '/earn'
+    }
+
+    if (path.startsWith('/borrow/') && path !== '/borrow') {
+      return '/borrow'
+    }
+
+    if (path.startsWith('/position/')) {
+      return '/portfolio'
+    }
+
+    return null
+  }
+
+  const redirectToMainIfInternal = async (targetChainId: number) => {
+    const mainPath = getMainPathForRoute()
+
+    if (!mainPath) {
+      return
+    }
+
+    await router.replace({
+      path: mainPath,
+      query: {
+        ...route.query,
+        network: targetChainId,
+      },
+      hash: route.hash,
+    })
+  }
+
   const disconnect = async () => {
     await wagmiDisconnect()
   }
@@ -116,17 +152,19 @@ export const useWagmi = () => {
     modal()
   }
 
-  const syncRouteNetwork = (targetChainId: number) => {
-    if (routeNetworkId.value === targetChainId) {
+  const syncRouteNetwork = async (targetChainId: number) => {
+    if (routeNetworkId.value === targetChainId || isRouterReplacing) {
       return
     }
 
-    router.replace({
+    isRouterReplacing = true
+    await router.replace({
       query: {
         ...route.query,
         network: targetChainId,
       },
     })
+    isRouterReplacing = false
   }
 
   const changeChain = async (targetChainId: number) => {
@@ -139,7 +177,10 @@ export const useWagmi = () => {
       isChangingChain = true
       localStorage.setItem('chainId', String(targetChainId))
       changeCurrentChainId(targetChainId)
-      syncRouteNetwork(targetChainId)
+      await syncRouteNetwork(targetChainId)
+      if (!isInitialRouteSync) {
+        await redirectToMainIfInternal(targetChainId)
+      }
       // if (isConnected.value) {
       //   await switchChain({ chainId: targetChainId })
       // }
@@ -172,22 +213,15 @@ export const useWagmi = () => {
     }
   }, { immediate: true })
 
-  watch(computed(() => route.query.network), (network, oldNetwork) => {
+  watch(computed(() => route.query.network), async (network, oldNetwork) => {
     if (isChangingChain || (!oldNetwork && !isInitialRouteSync)) {
       return
     }
 
     const parsed = parseChainId(network)
     routeNetworkId.value = parsed && allowedChainIds.includes(parsed) ? parsed : null
+    await changeChain(routeNetworkId.value || 1)
     isInitialRouteSync = false
-  }, { immediate: true })
-
-  watch(routeNetworkId, (networkId) => {
-    if (!networkId || isChangingChain || networkId === currentChainId.value) {
-      return
-    }
-
-    changeChain(networkId)
   }, { immediate: true })
 
   watch(currentChainId, (val) => {

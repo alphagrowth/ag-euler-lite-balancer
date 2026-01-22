@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { getVaultPrice, getVaultUtilization, type Vault } from '~/entities/vault'
 import { useEulerEntitiesOfVault, useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
@@ -7,7 +8,7 @@ import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultUtilizationWarningModal } from '#components'
 
-const { isConnected } = useWagmi()
+const { isConnected } = useAccount()
 const { vault } = defineProps<{ vault: Vault }>()
 const product = useEulerProductOfVault(vault.address)
 const vaultLabel = useEulerVaultLabelOfVault(vault.address)

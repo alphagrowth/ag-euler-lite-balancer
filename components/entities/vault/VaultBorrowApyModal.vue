@@ -16,7 +16,7 @@ const rewardsTotalAPY = computed(() => {
 
 const intrinsicApyValue = computed(() => intrinsicAPY ?? 0)
 const hasIntrinsicApy = computed(() => intrinsicApyValue.value > 0)
-const totalBorrowApy = computed(() => borrowingAPY - intrinsicApyValue.value - (rewardsTotalAPY.value || 0))
+const totalBorrowApy = computed(() => borrowingAPY + intrinsicApyValue.value - (rewardsTotalAPY.value || 0))
 
 const rewardsInfo = computed(() => {
   const rewards = opportunityInfo?.campaigns
@@ -73,7 +73,7 @@ const handleClose = () => {
             </p>
           </div>
           <div class="text-h5">
-            - {{ formatNumber(intrinsicApyValue) }}%
+            {{ formatNumber(intrinsicApyValue) }}%
           </div>
         </div>
       </div>
