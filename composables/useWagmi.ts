@@ -10,7 +10,6 @@ let isInitialRouteSync = true
 const isLoaded = ref(false)
 const walletName = ref('Wallet')
 const routeNetworkId: Ref<number | null> = ref(null)
-const { changeCurrentChainId, chainId: currentChainId } = useEulerAddresses()
 const allowedChainIds = availableNetworkIds.length ? [...availableNetworkIds] : [1]
 
 let cachedWagmiData: ReturnType<typeof initializeWagmi> | null = null
@@ -65,6 +64,7 @@ export const useWagmi = () => {
 
   const route = useRoute()
   const router = useRouter()
+  const { changeCurrentChainId, chainId: currentChainId } = useEulerAddresses()
   const {
     wagmiAddress,
     wagmiIsConnected,
