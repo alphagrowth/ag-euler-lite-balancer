@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { DEFI_LLAMA_CHAIN_BY_CHAIN_ID } from '~/entities/constants'
 import { enableIntrinsicApy, intrinsicApySources } from '~/entities/custom'
 
 type DefiLlamaPool = {
@@ -13,22 +14,6 @@ type IntrinsicApySource = {
   symbol: string
   sourceSymbol?: string
   project: string
-}
-
-const DEFI_LLAMA_CHAIN_BY_CHAIN_ID: Record<number, string> = {
-  1: 'Ethereum',
-  56: 'BSC',
-  130: 'Unichain',
-  146: 'Sonic',
-  239: 'TAC',
-  1923: 'Swell',
-  42161: 'Arbitrum',
-  43114: 'Avalanche',
-  59144: 'Linea',
-  60808: 'BOB',
-  80094: 'Berachain',
-  8453: 'Base',
-  9745: 'Plasma',
 }
 
 const intrinsicApyBySymbol: Ref<Record<string, number>> = ref({})
@@ -88,6 +73,7 @@ const buildIntrinsicApyMap = (
 export const useIntrinsicApy = () => {
   const { chainId, getCurrentChainConfig } = useEulerAddresses()
   const preferredChain = computed(() => resolvePreferredChain(chainId.value, getCurrentChainConfig.value?.name))
+  const { DEFILLAMA_YIELDS_URL } = useEulerConfig()
 
   const updateIntrinsicApy = () => {
     if (!enableIntrinsicApy) return
@@ -111,7 +97,7 @@ export const useIntrinsicApy = () => {
     try {
       isLoading.value = true
 
-      const res = await axios.get('https://yields.llama.fi/pools')
+      const res = await axios.get(DEFILLAMA_YIELDS_URL)
       const pools = (res.data?.data || []) as DefiLlamaPool[]
 
       intrinsicApyPools.value = pools

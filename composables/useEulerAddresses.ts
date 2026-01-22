@@ -1,3 +1,4 @@
+import config from '~/entities/config'
 import { availableNetworkIds } from '~/entities/custom'
 
 interface EulerChainConfig {
@@ -60,6 +61,10 @@ const chainId = ref<number>(allowedChainIds[0] || 0)
 const error = ref<string | null>(null)
 
 export const useEulerAddresses = () => {
+  const { network } = useRuntimeConfig().public
+  const baseConfig = config[network as keyof typeof config]
+  const { EULER_INTERFACES_CHAINS_URL } = baseConfig
+
   const changeCurrentChainId = (_chainId: number) => {
     if (!allowedChainIds.includes(_chainId)) {
       console.warn(`[useEulerAddresses] chainId ${_chainId} is not allowed`)
@@ -75,7 +80,10 @@ export const useEulerAddresses = () => {
     error.value = null
 
     try {
-      const response = await fetch('https://raw.githubusercontent.com/euler-xyz/euler-interfaces/refs/heads/master/EulerChains.json')
+      if (!EULER_INTERFACES_CHAINS_URL) {
+        throw new Error('Euler chains URL is not configured')
+      }
+      const response = await fetch(EULER_INTERFACES_CHAINS_URL)
       if (!response.ok) {
         throw new Error(`Failed to fetch Euler config: ${response.statusText}`)
       }

@@ -3,6 +3,7 @@ import { readContract, simulateContract } from '@wagmi/vue/actions'
 import type { Address, Hash, Hex, Abi, StateOverride } from 'viem'
 import { encodeFunctionData, encodePacked, hexToBigInt, keccak256, maxUint256, toHex } from 'viem'
 import { ethers } from 'ethers'
+import { ALLOWANCE_SLOT_CANDIDATES, FINAL_HASH, FINAL_MESSAGE, PERMIT2_SIG_WINDOW } from '~/entities/constants'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { erc20ApproveAbi, erc20BalanceOfAbi, erc20TransferAbi } from '~/abis/erc20'
 import { EVC_ABI, evcDisableCollateralAbi, evcDisableControllerAbi, evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
@@ -18,9 +19,6 @@ import { MAX_UINT48, MAX_UINT160, PERMIT2_TYPES, permit2Abi } from '~/entities/p
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { isNonBlockingSimulationError } from '~/utils/tx-errors'
 
-const FINAL_MESSAGE = 'By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: https://www.euler.finance/terms  hash:0x1a7aa1916b6c56272b62be027108c06d9af95eef4dac46acbc80267b3919e07e'
-const FINAL_HASH = '0xb0d552b4ebe441d9582f5fc732fd6026b09bec13e7f3c1e21c0ecaa3801df595'
-const ALLOWANCE_SLOT_CANDIDATES = [0n, 1n, 2n, 3n] as const
 const allowanceSlotIndexCache = new Map<string, bigint>()
 
 export const useEulerOperations = () => {
@@ -233,7 +231,6 @@ export const useEulerOperations = () => {
   }
 
   const nowInSeconds = () => BigInt(Math.floor(Date.now() / 1000))
-  const PERMIT2_SIG_WINDOW = 60n * 60n
 
   const getPermit2Allowance = async (token: Address, spender: Address, owner: Address, permit2Address?: Address) => {
     const resolvedPermit2 = permit2Address ?? resolvePermit2Address()

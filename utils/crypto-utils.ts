@@ -1,4 +1,5 @@
 import { ethers } from 'ethers'
+import { TTL_ERROR, TTL_INFINITY, TTL_LIQUIDATION, TTL_MORE_THAN_ONE_YEAR } from '~/entities/constants'
 
 export const nanoToValue = (src: bigint | number | string, decimals: number | bigint = 9) => {
   return +ethers.formatUnits(src, decimals)
@@ -12,13 +13,6 @@ export const valueToNano = (src: number | string, decimals: number | bigint = 9)
   const value = parts[0] + '.' + (parts[1] || '').substring(0, Number(decimals))
   return ethers.parseUnits(value, decimals)
 }
-
-export const TTL_INFINITY = BigInt(
-  '0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
-)
-export const TTL_MORE_THAN_ONE_YEAR = TTL_INFINITY - BigInt(1)
-export const TTL_LIQUIDATION = -BigInt(1)
-export const TTL_ERROR = -BigInt(2)
 
 export interface FormatTtlResult {
   display: string

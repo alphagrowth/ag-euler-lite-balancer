@@ -7,9 +7,6 @@ import type { Campaign, CampaignsRequest, MerkleProofRequest } from '~/entities/
 import type { TxPlan } from '~/entities/txPlan'
 import { CampaignAction } from '~/entities/brevis'
 
-const BREVIS_API_URL = 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns'
-const BREVIS_MERKLE_PROOF_URL = 'https://incentra-prd.brevis.network/v1/getMerkleProofsBatch'
-
 const address = ref('')
 
 const isLoaded = ref(false)
@@ -20,82 +17,6 @@ const isCampaignsLoading = ref(true)
 const isRewardsLoading = ref(true)
 
 let interval: NodeJS.Timeout | null = null
-
-const loadCampaigns = async (isInitialLoading = true) => {
-  try {
-    if (isInitialLoading) {
-      isCampaignsLoading.value = true
-    }
-
-    const request: CampaignsRequest = {
-      chain_id: [1],
-      action: [CampaignAction.LEND, CampaignAction.BORROW],
-      status: [3],
-    }
-
-    const res = await axios.post(BREVIS_API_URL, request)
-
-    if (res.data.err) {
-      console.warn('Brevis API error:', res.data.err)
-      return
-    }
-
-    const campaigns: Campaign[] = res.data.campaigns || []
-
-    const lends: Campaign[] = []
-    const borrows: Campaign[] = []
-
-    for (const campaign of campaigns) {
-      if (campaign.action === CampaignAction.LEND) {
-        lends.push(campaign)
-      }
-      else if (campaign.action === CampaignAction.BORROW) {
-        borrows.push(campaign)
-      }
-    }
-
-    lendCampaigns.value = lends
-    borrowCampaigns.value = borrows
-  }
-  catch (e) {
-    console.warn(e)
-  }
-  finally {
-    isCampaignsLoading.value = false
-  }
-}
-
-const loadRewards = async (isInitialLoading = true) => {
-  try {
-    if (!address.value) {
-      userRewards.value = []
-      return
-    }
-    if (isInitialLoading) {
-      isRewardsLoading.value = true
-    }
-
-    const request: CampaignsRequest = {
-      chain_id: [1],
-      user_address: [address.value],
-    }
-
-    const res = await axios.post(BREVIS_API_URL, request)
-
-    if (res.data.err) {
-      console.warn('Brevis API error:', res.data.err)
-      return
-    }
-
-    userRewards.value = res.data.campaigns || []
-  }
-  catch (e) {
-    console.warn(e)
-  }
-  finally {
-    isRewardsLoading.value = false
-  }
-}
 
 const getCampaignOfLendVault = (vaultAddress: string) => {
   return lendCampaigns.value.find(campaign => campaign.vault_address.toLowerCase() === vaultAddress.toLowerCase())
@@ -108,6 +29,83 @@ const getCampaignOfBorrowVault = (vaultAddress: string) => {
 export const useBrevis = () => {
   const { isConnected, address: wagmiAddress } = useAccount()
   const { writeContractAsync } = useWriteContract()
+  const { BREVIS_API_URL, BREVIS_MERKLE_PROOF_URL } = useEulerConfig()
+
+  const loadCampaigns = async (isInitialLoading = true) => {
+    try {
+      if (isInitialLoading) {
+        isCampaignsLoading.value = true
+      }
+
+      const request: CampaignsRequest = {
+        chain_id: [1],
+        action: [CampaignAction.LEND, CampaignAction.BORROW],
+        status: [3],
+      }
+
+      const res = await axios.post(BREVIS_API_URL, request)
+
+      if (res.data.err) {
+        console.warn('Brevis API error:', res.data.err)
+        return
+      }
+
+      const campaigns: Campaign[] = res.data.campaigns || []
+
+      const lends: Campaign[] = []
+      const borrows: Campaign[] = []
+
+      for (const campaign of campaigns) {
+        if (campaign.action === CampaignAction.LEND) {
+          lends.push(campaign)
+        }
+        else if (campaign.action === CampaignAction.BORROW) {
+          borrows.push(campaign)
+        }
+      }
+
+      lendCampaigns.value = lends
+      borrowCampaigns.value = borrows
+    }
+    catch (e) {
+      console.warn(e)
+    }
+    finally {
+      isCampaignsLoading.value = false
+    }
+  }
+
+  const loadRewards = async (isInitialLoading = true) => {
+    try {
+      if (!address.value) {
+        userRewards.value = []
+        return
+      }
+      if (isInitialLoading) {
+        isRewardsLoading.value = true
+      }
+
+      const request: CampaignsRequest = {
+        chain_id: [1],
+        user_address: [address.value],
+      }
+
+      const res = await axios.post(BREVIS_API_URL, request)
+
+      if (res.data.err) {
+        console.warn('Brevis API error:', res.data.err)
+        return
+      }
+
+      userRewards.value = res.data.campaigns || []
+    }
+    catch (e) {
+      console.warn(e)
+    }
+    finally {
+      isRewardsLoading.value = false
+    }
+  }
 
   const claimReward = async (campaign: Campaign) => {
     if (!wagmiAddress.value) {

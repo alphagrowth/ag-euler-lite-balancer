@@ -3,13 +3,15 @@ import axios from 'axios'
 import type {
   TokenData,
 } from '~/entities/token'
-import { CUSTOM_ICON_TOKENS } from '~/entities/customTokens'
+import { CUSTOM_ICON_TOKENS } from '~/entities/constants'
+import { useEulerConfig } from '~/composables/useEulerConfig'
 
 const isLoading = ref(false)
 const tokens: Record<string, TokenData> = shallowReactive({})
 
 export const useTokens = () => {
   const { getCurrentChainConfig, chainId } = useEulerAddresses()
+  const { EULER_API_URL } = useEulerConfig()
 
   const loadTokens = async () => {
     try {
@@ -18,7 +20,10 @@ export const useTokens = () => {
 
       await until(getCurrentChainConfig).toBeTruthy()
 
-      const res = await axios.get(`https://indexer-main.euler.finance/v1/tokens?chainId=${chainId.value}`)
+      if (!EULER_API_URL) {
+        throw new Error('Tokens API URL is not configured')
+      }
+      const res = await axios.get(`${EULER_API_URL}/v1/tokens?chainId=${chainId.value}`)
 
       const tokensArr = res.data as TokenData[]
 

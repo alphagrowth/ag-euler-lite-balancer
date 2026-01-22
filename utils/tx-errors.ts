@@ -1,29 +1,5 @@
 import { BaseError, ContractFunctionRevertedError } from 'viem'
-
-const ERROR_MESSAGE_MAP: Record<string, string> = {
-  E_SupplyCapExceeded: 'Supply cap reached for this vault.',
-  E_BorrowCapExceeded: 'Borrow cap reached for this vault.',
-  E_BadSupplyCap: 'Supply cap is invalid.',
-  E_BadBorrowCap: 'Borrow cap is invalid.',
-  E_AccountLiquidity: 'Account liquidity too low for this action.',
-  E_InsufficientCash: 'Not enough liquidity in the vault.',
-  E_NotEnoughLiquidity: 'Not enough liquidity in the vault.',
-  NotEnoughLiquidity: 'Not enough liquidity in the vault.',
-  E_TransferFromFailed: 'Token transfer failed.',
-  ERC4626ExceededMaxDeposit: 'Deposit exceeds vault limits.',
-  ERC4626ExceededMaxWithdraw: 'Withdraw exceeds vault limits.',
-  ERC4626ExceededMaxRedeem: 'Redeem exceeds vault limits.',
-  INSUFFICIENT_BALANCE: 'Insufficient balance.',
-  INSUFFICIENT_ALLOWANCE: 'Insufficient allowance.',
-  TRANSFER_FROM_FAILED: 'Token transfer failed.',
-  TRANSFER_FAILED: 'Token transfer failed.',
-  SAFE_TRANSFER_FAILED: 'Token transfer failed.',
-  SAFE_TRANSFER_FROM_FAILED: 'Token transfer failed.',
-}
-
-const ERROR_SIGNATURE_MAP: Record<string, string> = {
-  '0x9773bb71': 'E_TransferFromFailed',
-}
+import { ERROR_MESSAGE_MAP, ERROR_SIGNATURE_MAP, NON_BLOCKING_SIMULATION_ERRORS } from '~/entities/constants'
 
 const parseErrorCodeFromMessage = (message: string) => {
   const match = message.match(/execution reverted: (.+)$/i)
@@ -74,17 +50,6 @@ const extractErrorCode = (error: unknown) => {
 export const getTxErrorCode = (error: unknown) => {
   return extractErrorCode(error)
 }
-
-const NON_BLOCKING_SIMULATION_ERRORS = new Set([
-  'E_TransferFromFailed',
-  'INSUFFICIENT_ALLOWANCE',
-  'E_InsufficientAllowance',
-  'TRANSFER_FROM_FAILED',
-  'TRANSFER_FAILED',
-  'SAFE_TRANSFER_FAILED',
-  'SAFE_TRANSFER_FROM_FAILED',
-  '0x9773bb71',
-])
 
 export const isNonBlockingSimulationError = (error: unknown) => {
   const code = extractErrorCode(error)

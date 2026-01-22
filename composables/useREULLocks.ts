@@ -21,7 +21,12 @@ const loadReulTokenContractAddresses = async (chainId: number) => {
     isAddressesLoading.value = true
     addressLoadError.value = null
 
-    const response = await fetch(`https://raw.githubusercontent.com/euler-xyz/euler-interfaces/refs/heads/master/addresses/${chainId}/TokenAddresses.json`)
+    const { getEulerInterfacesTokenAddressesUrl } = useEulerConfig()
+    const url = getEulerInterfacesTokenAddressesUrl?.(chainId)
+    if (!url) {
+      throw new Error('Token addresses URL is not configured')
+    }
+    const response = await fetch(url)
     if (!response.ok) {
       throw new Error(`Failed to fetch Euler config: ${response.statusText}`)
     }

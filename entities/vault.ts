@@ -1,5 +1,6 @@
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
+import { SECONDS_IN_YEAR, TARGET_TIME_AGO, USD_ADDRESS } from '~/entities/constants'
 import {
   vaultConvertToAssetsAbi,
   vaultConvertToSharesAbi,
@@ -372,7 +373,6 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     data.vaultDecimals,
   )
 
-  const USD_ADDRESS = '0x0000000000000000000000000000000000000348' // USD unit of account
   let assetPriceInfo
   try {
     const priceInfo = await utilsLensContract.getAssetPriceInfo(data.asset, USD_ADDRESS)
@@ -444,7 +444,6 @@ export const fetchEscrowVault = async (vaultAddress: string): Promise<EscrowVaul
     provider,
   )
 
-  const USD_ADDRESS = '0x0000000000000000000000000000000000000348' // USD unit of account
   try {
     const priceInfo = await utilsLensContract.getAssetPriceInfo(vault.asset.address, USD_ADDRESS)
     const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
@@ -618,8 +617,6 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<VaultIteratorR
   )
 
   const verifiedVaults = earnVaults.value.length ? earnVaults.value : await governedPerspectiveContract.verifiedArray() as string[]
-  const USD_ADDRESS = '0x0000000000000000000000000000000000000348' // USD unit of account
-
   const batchSize = 5
 
   for (let i = 0; i < verifiedVaults.length; i += batchSize) {
@@ -861,7 +858,6 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<VaultIterato
     const validVaults = res.filter(o => !!o) as EscrowVault[]
     await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
 
-    const USD_ADDRESS = '0x0000000000000000000000000000000000000348'
     await Promise.all(
       validVaults.map(async (vault) => {
         if (!vault.liabilityPriceInfo || vault.liabilityPriceInfo.queryFailure || vault.liabilityPriceInfo.amountOutMid === 0n) {
@@ -1072,9 +1068,6 @@ const calculateEarnVaultAPYFromExchangeRate = async (
   decimals: bigint,
 ): Promise<number> => {
   try {
-    const SECONDS_IN_YEAR = 31_536_000
-    const TARGET_TIME_AGO = 3600 // 1 hour in seconds
-
     const currentBlock = await provider.getBlockNumber()
 
     const sampleDistance = 100

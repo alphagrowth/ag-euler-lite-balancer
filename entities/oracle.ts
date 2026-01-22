@@ -1,4 +1,10 @@
 import { decodeAbiParameters, type Address, type Hex, isHex, toHex } from 'viem'
+import {
+  CROSS_ADAPTER_COMPONENTS,
+  EULER_ROUTER_COMPONENTS,
+  ORACLE_DETAILED_INFO_COMPONENTS,
+  PYTH_ORACLE_COMPONENTS,
+} from '~/entities/constants'
 
 export type OracleDetailedInfo = {
   oracle: Address
@@ -53,42 +59,6 @@ type OracleAdapterOptions = {
   quote?: Address
   leafOnly?: boolean
 }
-
-const ORACLE_DETAILED_INFO_COMPONENTS = [
-  { name: 'oracle', type: 'address' },
-  { name: 'name', type: 'string' },
-  { name: 'oracleInfo', type: 'bytes' },
-] as const
-
-const EULER_ROUTER_COMPONENTS = [
-  { name: 'governor', type: 'address' },
-  { name: 'fallbackOracle', type: 'address' },
-  { name: 'fallbackOracleInfo', type: 'tuple', components: ORACLE_DETAILED_INFO_COMPONENTS },
-  { name: 'bases', type: 'address[]' },
-  { name: 'quotes', type: 'address[]' },
-  { name: 'resolvedAssets', type: 'address[][]' },
-  { name: 'resolvedOracles', type: 'address[]' },
-  { name: 'resolvedOraclesInfo', type: 'tuple[]', components: ORACLE_DETAILED_INFO_COMPONENTS },
-] as const
-
-const CROSS_ADAPTER_COMPONENTS = [
-  { name: 'base', type: 'address' },
-  { name: 'cross', type: 'address' },
-  { name: 'quote', type: 'address' },
-  { name: 'oracleBaseCross', type: 'address' },
-  { name: 'oracleCrossQuote', type: 'address' },
-  { name: 'oracleBaseCrossInfo', type: 'tuple', components: ORACLE_DETAILED_INFO_COMPONENTS },
-  { name: 'oracleCrossQuoteInfo', type: 'tuple', components: ORACLE_DETAILED_INFO_COMPONENTS },
-] as const
-
-const PYTH_ORACLE_COMPONENTS = [
-  { name: 'pyth', type: 'address' },
-  { name: 'base', type: 'address' },
-  { name: 'quote', type: 'address' },
-  { name: 'feedId', type: 'bytes32' },
-  { name: 'maxStaleness', type: 'uint256' },
-  { name: 'maxConfWidth', type: 'uint256' },
-] as const
 
 const normalizeHex = (value: Hex | string | Uint8Array): Hex => {
   if (typeof value === 'string') {
