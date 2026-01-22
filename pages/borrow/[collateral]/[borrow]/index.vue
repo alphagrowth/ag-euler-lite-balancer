@@ -92,7 +92,7 @@ const {
   requestQuotes: requestMultiplyQuotes,
   selectProvider: selectMultiplyQuote,
 } = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
-const multiplySlippage = ref(0.5)
+const { slippage: multiplySlippage } = useSlippage()
 const multiplySubAccount = ref<string | null>(null)
 const isMultiplySubAccountLoading = ref(false)
 let multiplySubAccountPromise: Promise<string> | null = null
@@ -1509,15 +1509,6 @@ watch(areVaultsReady, async (ready) => {
                 :max="multiplyMaxMultiplier"
                 :number-filter="(n: number) => `${n}x`"
                 @update:model-value="onMultiplierInput"
-              />
-
-              <UiRange
-                v-model="multiplySlippage"
-                label="Slippage tolerance"
-                :step="0.1"
-                :min="0"
-                :max="50"
-                :number-filter="(n: number) => `${n}%`"
               />
 
               <SwapRouteSelector
