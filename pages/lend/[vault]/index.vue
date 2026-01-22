@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import { ethers } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -14,7 +15,7 @@ const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
 const { supply, buildSupplyPlan } = useEulerOperations()
-const { getVault, updateVault } = useVaults()
+const { getVault, updateVault, escrowMap } = useVaults()
 const { isConnected } = useAccount()
 const { getBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -69,6 +70,10 @@ const load = async () => {
   isLoading.value = true
   try {
     estimateSupplyAPY.value = vault.value!.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
+
+    if (escrowMap.value.get(ethers.getAddress(vaultAddress))) {
+      vault.value = escrowMap.value.get(ethers.getAddress(vaultAddress))
+    }
 
     if (!vault.value?.verified) {
       modal.open(VaultUnverifiedDisclaimerModal, {
