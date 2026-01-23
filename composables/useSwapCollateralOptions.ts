@@ -12,7 +12,7 @@ export const useSwapCollateralOptions = ({
   currentVault: Ref<Vault | undefined>
   liabilityVault?: Ref<Vault | undefined>
 }) => {
-  const { list, map, escrowMap } = useVaults()
+  const { list, map, escrowMap, borrowList } = useVaults()
   const { getBalance } = useWallets()
   const { getOpportunityOfLendVault } = useMerkl()
   const { withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -36,10 +36,13 @@ export const useSwapCollateralOptions = ({
         .filter((vault): vault is Vault => Boolean(vault))
     }
     else {
-      candidates = [
-        ...list.value,
-        ...escrowMap.value.values(),
-      ]
+      const borrowable = new Set(
+        borrowList.value.map(pair => ethers.getAddress(pair.borrow.address)),
+      )
+      const baseVaults = list.value.filter(vault => borrowable.has(ethers.getAddress(vault.address)))
+      const escrowVaults = [...escrowMap.value.values()]
+
+      candidates = [...baseVaults, ...escrowVaults]
     }
 
     const unique = new Map<string, Vault>()
@@ -65,8 +68,10 @@ export const useSwapCollateralOptions = ({
       const opportunity = getOpportunityOfLendVault(vault.address)
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
 
+      const optionType = ('type' in vault && vault.type === 'escrow') ? 'escrow' : 'vault'
+
       return {
-        type: 'vault',
+        type: optionType,
         amount,
         price: getVaultPrice(amount, vault),
         apy,

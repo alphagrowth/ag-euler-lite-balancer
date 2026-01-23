@@ -47,6 +47,17 @@ const extractErrorCode = (error: unknown) => {
   return undefined
 }
 
+const formatErrorCode = (code: string) => {
+  const trimmed = code.replace(/^(EVC_|E_)/, '')
+  const spaced = trimmed
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return spaced || code
+}
+
 export const getTxErrorCode = (error: unknown) => {
   return extractErrorCode(error)
 }
@@ -59,7 +70,7 @@ export const isNonBlockingSimulationError = (error: unknown) => {
 export const getTxErrorMessage = (error: unknown) => {
   const code = extractErrorCode(error)
   if (code) {
-    return ERROR_MESSAGE_MAP[code] || `Transaction simulation failed: ${code}`
+    return ERROR_MESSAGE_MAP[code] || `Transaction simulation failed: ${formatErrorCode(code)}`
   }
   return 'Transaction simulation failed.'
 }
