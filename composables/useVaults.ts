@@ -32,7 +32,14 @@ const escrowMap: Ref<Map<string, EscrowVault>> = shallowRef(new Map())
 const list = computed(() => [...map.value.values()])
 const earnList = computed(() => [...earnMap.value.values()])
 const escrowList = computed(() => [...escrowMap.value.values()])
-const borrowList = computed(() => getBorrowVaultsByMap(map.value))
+const combinedVaultMap = computed(() => {
+  const combined = new Map<string, Vault>(map.value)
+  escrowMap.value.forEach((vault, address) => {
+    combined.set(address, vault)
+  })
+  return combined
+})
+const borrowList = computed(() => getBorrowVaultsByMap(combinedVaultMap.value))
 
 const resetVaultsState = () => {
   isReady.value = false

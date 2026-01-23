@@ -96,6 +96,24 @@ export const appDescription = "Short SEO description of your app.";
 
 These values are used in `nuxt.config.ts` for the document title, meta description, and Open Graph/Twitter tags.
 
+**Onboarding Page** - Customize the onboarding screen that appears when users first visit your app:
+
+```typescript
+export const onboardingInfo = {
+  logoUrl: "/logo.png", // Path to your logo image (relative to public/)
+  title: "The Lending Super App", // Main heading text
+  description: "Lend, borrow and build without limits.", // Subheading text
+};
+```
+
+**Configuration details**:
+
+- `logoUrl` - Path to your logo image file. Place the image in the `public/` directory and reference it with a path starting with `/` (e.g., `/logo.png` for `public/logo.png`)
+- `title` - The main heading displayed on the onboarding page
+- `description` - The descriptive text shown below the title
+
+The onboarding page is shown to users who haven't completed onboarding yet. Users can either connect their wallet or skip to continue without connecting.
+
 **Supported Networks** - Configure which blockchain networks your instance supports:
 
 ```typescript
@@ -366,6 +384,7 @@ Before deploying, ensure you've completed:
 - [ ] Updated app URL in `plugins/00.wagmi.ts`
 - [ ] Updated app metadata (name, description) in `plugins/00.wagmi.ts`
 - [ ] Set SEO title/description in `entities/custom.ts`
+- [ ] Configured onboarding page (logo, title, description) in `entities/custom.ts`
 - [ ] Replaced favicon files in `public/favicons/`
 - [ ] Updated theme color in `nuxt.config.ts`
 - [ ] Added custom token icons to `public/tokens/` (if needed)

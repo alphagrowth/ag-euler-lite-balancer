@@ -56,3 +56,9 @@ export const availableNetworkIds = [
 ] as const
 
 export const labelsRepo: string = 'euler-xyz/euler-labels' // https://github.com/euler-xyz/euler-labels
+
+export const onboardingInfo = {
+  logoUrl: '/logo.png',
+  title: 'The Lending Super App',
+  description: 'Lend, borrow and build without limits.',
+}
