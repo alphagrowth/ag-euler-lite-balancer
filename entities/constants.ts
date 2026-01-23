@@ -1,4 +1,5 @@
 import { CUSTOM_ICON_TOKENS } from './customTokens'
+import { EVC_ERROR_SIGNATURES } from './evc-error-signatures'
 
 export { CUSTOM_ICON_TOKENS }
 
@@ -24,7 +25,7 @@ export const ERROR_MESSAGE_MAP: Record<string, string> = {
 }
 
 export const ERROR_SIGNATURE_MAP: Record<string, string> = {
-  '0x9773bb71': 'E_TransferFromFailed',
+  ...EVC_ERROR_SIGNATURES,
 }
 
 export const NON_BLOCKING_SIMULATION_ERRORS = new Set([
