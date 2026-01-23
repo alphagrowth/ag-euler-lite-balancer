@@ -6,7 +6,7 @@ import { getNetAPY, getVaultPrice, type Vault } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
-import { VaultOverviewModal, OperationReviewModal } from '#components'
+import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 
@@ -17,7 +17,7 @@ const { error } = useToast()
 const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, borrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
 const { disableCollateral: disableCollateralOperation, buildDisableCollateralPlan } = useEulerOperations()
 const {
   runSimulation: runDisableCollateralSimulation,
@@ -67,12 +67,16 @@ const hasNoBorrow = computed(() => position.value!.borrow.borrow === 0n)
 
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
+const baseSupplyAPY = computed(() => nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25))
+const baseBorrowAPY = computed(() => nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25))
+const intrinsicSupplyAPY = computed(() => getIntrinsicApy(collateralVault.value?.asset.symbol))
+const intrinsicBorrowAPY = computed(() => getIntrinsicApy(borrowVault.value?.asset.symbol))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+  baseSupplyAPY.value,
   collateralVault.value?.asset.symbol,
 ))
 const borrowApy = computed(() => withIntrinsicBorrowApy(
-  nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+  baseBorrowAPY.value,
   borrowVault.value?.asset.symbol,
 ))
 const borrowApyWithRewards = computed(() => borrowApy.value - (opportunityInfoForBorrow.value?.apr || 0))
@@ -347,6 +351,28 @@ const openPairInfoModal = () => {
     },
   })
 }
+const onNetApyInfoIconClick = () => {
+  if (!position.value) return
+
+  const supplyUSD = getVaultPrice(position.value.supplied || 0n, collateralVault.value!)
+  const borrowUSD = getVaultPrice(position.value.borrowed || 0n, borrowVault.value!)
+
+  modal.open(VaultNetApyModal, {
+    props: {
+      supplyUSD,
+      borrowUSD,
+      baseSupplyAPY: baseSupplyAPY.value,
+      baseBorrowAPY: baseBorrowAPY.value,
+      intrinsicSupplyAPY: intrinsicSupplyAPY.value,
+      intrinsicBorrowAPY: intrinsicBorrowAPY.value,
+      supplyRewardAPY: opportunityInfoForCollateral.value?.apr || null,
+      borrowRewardAPY: opportunityInfoForBorrow.value?.apr || null,
+      netAPY: netAPY.value,
+      supplyOpportunityInfo: opportunityInfoForCollateral.value,
+      borrowOpportunityInfo: opportunityInfoForBorrow.value,
+    },
+  })
+}
 watch(isConnected, () => {
   load()
 }, { immediate: true })
@@ -374,8 +400,13 @@ watch(isConnected, () => {
           <div class="text-p2 text-euler-dark-900">
             Net APY
           </div>
-          <div class="text-h5 text-white">
+          <div class="text-h5 text-white flex justify-end items-center gap-4">
             {{ formatNumber(netAPY) }}%
+            <SvgIcon
+              class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
+              name="question-circle"
+              @click="onNetApyInfoIconClick"
+            />
           </div>
         </div>
         <div class="flex justify-between items-center">
