@@ -8,7 +8,7 @@ import {
   type EulerLabelPoint,
   type EulerLabelPointReward,
 } from '~/entities/euler/labels'
-import type { EarnVault } from '~/entities/vault'
+import type { EarnVault, Vault } from '~/entities/vault'
 import { labelsRepo } from '~/entities/custom'
 
 const isLoading = ref(false)
@@ -157,15 +157,11 @@ export const getProductByVault = (vaultAddress: string) => {
     || eulerLabelProductEmpty
 }
 
-export const getEntitiesByVault = (vaultAddress: string) => {
+export const getEntitiesByVault = (vault: Vault) => {
   const arr: EulerLabelEntity[] = []
-  let entityKeys = getVaultLabelByAddress(vaultAddress)?.entity
-  if (!Array.isArray(entityKeys)) {
-    entityKeys = [entityKeys]
-  }
-  entityKeys.forEach((key) => {
-    if (entities[key]) {
-      arr.push(entities[key])
+  Object.values(entities).forEach((entity) => {
+    if (Object.keys(entity.addresses).includes(vault.governorAdmin)) {
+      arr.push(entity)
     }
   })
   return arr
@@ -192,8 +188,8 @@ export const useEulerVaultLabelOfVault = (vaultAddress: string | Ref<string>) =>
   return toReactive(computed(() => getVaultLabelByAddress(unref(vaultAddress))))
 }
 
-export const useEulerEntitiesOfVault = (vaultAddress: string | Ref<string>) => {
-  return toReactive(computed(() => getEntitiesByVault(unref(vaultAddress))))
+export const useEulerEntitiesOfVault = (vault: Vault | Ref<Vault>) => {
+  return toReactive(computed(() => getEntitiesByVault(unref(vault))))
 }
 
 export const useEulerEntitiesOfEarnVault = (earnVault: EarnVault | Ref<EarnVault>) => {
