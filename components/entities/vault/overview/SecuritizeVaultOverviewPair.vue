@@ -13,5 +13,18 @@ defineProps<{ pair: SecuritizeBorrowVaultPair, desktopOverview?: boolean }>()
       :pair="pair"
       :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0' : '']"
     />
+    <!-- Statistics and Risk from borrow vault (EVK) -->
+    <VaultOverviewBlockStats
+      :vault="pair.borrow"
+      :class="[desktopOverview ? 'py-16 px-0' : '']"
+    />
+    <VaultOverviewBlockRiskParameters
+      :vault="pair.borrow"
+      :class="[desktopOverview ? 'py-16 px-0' : '']"
+    />
+    <VaultOverviewBlockAddresses
+      :vault="pair.borrow"
+      :class="[desktopOverview ? 'py-16 px-0' : '']"
+    />
   </div>
 </template>

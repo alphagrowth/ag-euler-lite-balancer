@@ -3,12 +3,24 @@ import { ethers } from 'ethers'
 import type { SecuritizeVault, Vault, VaultCollateralLTV } from '~/entities/vault'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
+import { getExplorerLink } from '~/utils/block-explorer'
 
 const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolean }>()
 
 const { EVM_PROVIDER_URL } = useEulerConfig()
+const { chainId } = useEulerAddresses()
 const product = useEulerProductOfVault(vault.address)
 const entities = useEulerEntitiesOfVault(vault.address)
+
+const shortenAddress = (address: string) => {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+const onCopyClick = (address: string) => {
+  navigator.clipboard.writeText(address)
+}
+
+const getExplorerAddressLink = (address: string) => getExplorerLink(address, chainId.value, true)
 
 const { list } = useVaults()
 
@@ -231,17 +243,75 @@ loadRiskParameters()
         Addresses
       </p>
       <div class="flex flex-col items-start gap-24">
-        <VaultOverviewLabelValue label="Vault">
-          <AddressChip :address="vault.address" />
+        <VaultOverviewLabelValue
+          label="Vault"
+          orientation="horizontal"
+        >
+          <div class="flex gap-4 items-center">
+            <NuxtLink
+              :to="getExplorerAddressLink(vault.address)"
+              class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+              target="_blank"
+            >
+              {{ shortenAddress(vault.address) }}
+            </NuxtLink>
+            <button
+              class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
+              @click="onCopyClick(vault.address)"
+            >
+              <SvgIcon
+                class="!w-18 !h-18"
+                name="copy"
+              />
+            </button>
+          </div>
         </VaultOverviewLabelValue>
-        <VaultOverviewLabelValue label="Underlying asset">
-          <AddressChip :address="vault.asset.address" />
+        <VaultOverviewLabelValue
+          label="Underlying asset"
+          orientation="horizontal"
+        >
+          <div class="flex gap-4 items-center">
+            <NuxtLink
+              :to="getExplorerAddressLink(vault.asset.address)"
+              class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+              target="_blank"
+            >
+              {{ shortenAddress(vault.asset.address) }}
+            </NuxtLink>
+            <button
+              class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
+              @click="onCopyClick(vault.asset.address)"
+            >
+              <SvgIcon
+                class="!w-18 !h-18"
+                name="copy"
+              />
+            </button>
+          </div>
         </VaultOverviewLabelValue>
         <VaultOverviewLabelValue
           v-if="vault.governorAdmin && vault.governorAdmin !== '0x0000000000000000000000000000000000000000'"
           label="Governor admin"
+          orientation="horizontal"
         >
-          <AddressChip :address="vault.governorAdmin" />
+          <div class="flex gap-4 items-center">
+            <NuxtLink
+              :to="getExplorerAddressLink(vault.governorAdmin)"
+              class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+              target="_blank"
+            >
+              {{ shortenAddress(vault.governorAdmin) }}
+            </NuxtLink>
+            <button
+              class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
+              @click="onCopyClick(vault.governorAdmin)"
+            >
+              <SvgIcon
+                class="!w-18 !h-18"
+                name="copy"
+              />
+            </button>
+          </div>
         </VaultOverviewLabelValue>
       </div>
     </div>

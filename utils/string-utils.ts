@@ -2,6 +2,11 @@ export const truncate = (string = '', length = 6) => {
   return string.slice(0, length) + '...' + string.slice(string.length - 4, string.length)
 }
 
+// Truncate address to first 19 bytes (0x + 38 hex chars) for subgraph optimization
+export const truncateAddressForSubgraph = (address: string): string => {
+  return address.toLowerCase().slice(0, 40)
+}
+
 export const formatNumber = (value: string | number = 0, maximumFractionDigits = 2, minimumFractionDigits = 2) =>
   Number(value).toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits })
 

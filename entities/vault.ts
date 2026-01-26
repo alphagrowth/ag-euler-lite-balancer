@@ -1,6 +1,7 @@
 import { ethers } from 'ethers'
 import axios from 'axios'
 import type { Hex } from 'viem'
+import { truncateAddressForSubgraph } from '~/utils/string-utils'
 import { collectPythFeedIdsForPair, type OracleDetailedInfo } from '~/entities/oracle'
 import {
   // eulerAccountLensABI,
@@ -34,9 +35,10 @@ export const fetchVaultFactory = async (vaultAddress: string, subgraphUrl?: stri
       return null
     }
 
+    const truncatedAddress = truncateAddressForSubgraph(normalizedAddress)
     const { data } = await axios.post(url, {
       query: `query VaultFactory {
-        vaults(where: { id: "${normalizedAddress}" }) {
+        vaults(where: { id_starts_with: "${truncatedAddress}" }) {
           id
           factory
         }
@@ -112,9 +114,13 @@ export const fetchVaultFactories = async (vaultAddresses: string[]): Promise<Map
     }
 
     const normalizedAddresses = uncachedAddresses.map(addr => addr.toLowerCase())
+    const truncatedAddresses = normalizedAddresses.map(truncateAddressForSubgraph)
+
+    // Build OR query with id_starts_with for each truncated address
+    const whereConditions = truncatedAddresses.map(addr => `{ id_starts_with: "${addr}" }`).join(', ')
     const { data } = await axios.post(SUBGRAPH_URL, {
       query: `query VaultFactories {
-        vaults(where: { id_in: ${JSON.stringify(normalizedAddresses)} }) {
+        vaults(where: { or: [${whereConditions}] }) {
           id
           factory
         }
