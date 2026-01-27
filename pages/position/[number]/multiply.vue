@@ -2,7 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { type Address } from 'viem'
-import { OperationReviewModal } from '#components'
+import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
@@ -30,6 +30,9 @@ const {
   simulationError: multiplySimulationError,
   clearSimulationError: clearMultiplySimulationError,
 } = useTxPlanSimulation()
+const openSlippageSettings = () => {
+  modal.open(SlippageSettingsModal)
+}
 
 type MultiplyPlanParams = {
   supplyVaultAddress: string
@@ -970,9 +973,17 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             <p class="text-euler-dark-900">
               Slippage tolerance
             </p>
-            <p class="text-p2">
-              {{ formatNumber(multiplySlippage, 2, 0) }}%
-            </p>
+            <button
+              type="button"
+              class="flex items-center gap-6 text-p2"
+              @click="openSlippageSettings"
+            >
+              <span>{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
+              <SvgIcon
+                name="edit"
+                class="!w-16 !h-16 text-aquamarine-700"
+              />
+            </button>
           </div>
           <div class="flex justify-between items-center">
             <p class="text-euler-dark-900">

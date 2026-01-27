@@ -2,7 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
-import { OperationReviewModal } from '#components'
+import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { type Vault, getVaultPrice } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
@@ -26,6 +26,9 @@ const { error: showError } = useToast()
 const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
+const openSlippageSettings = () => {
+  modal.open(SlippageSettingsModal)
+}
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -559,9 +562,17 @@ const send = async () => {
               <p class="text-euler-dark-900">
                 Slippage tolerance
               </p>
-              <p class="text-p2">
-                {{ formatNumber(slippage, 2, 0) }}%
-              </p>
+              <button
+                type="button"
+                class="flex items-center gap-6 text-p2"
+                @click="openSlippageSettings"
+              >
+                <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                <SvgIcon
+                  name="edit"
+                  class="!w-16 !h-16 text-aquamarine-700"
+                />
+              </button>
             </div>
             <div class="flex justify-between items-center">
               <p class="text-euler-dark-900">

@@ -3,7 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { ethers, FixedNumber } from 'ethers'
 import { type Address } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal, VaultUnverifiedDisclaimerModal } from '#components'
+import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, convertAssetsToShares } from '~/entities/vault'
 import { getNewSubAccount } from '~/entities/account'
@@ -26,6 +26,9 @@ const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
 const { getBalance } = useWallets()
+const openSlippageSettings = () => {
+  modal.open(SlippageSettingsModal)
+}
 const {
   runSimulation: runBorrowSimulation,
   simulationError: borrowSimulationError,
@@ -1676,9 +1679,17 @@ watch(areVaultsReady, async (ready) => {
                   <p class="text-euler-dark-900">
                     Slippage tolerance
                   </p>
-                  <p class="text-p2">
-                    {{ formatNumber(multiplySlippage, 2, 0) }}%
-                  </p>
+                  <button
+                    type="button"
+                    class="flex items-center gap-6 text-p2"
+                    @click="openSlippageSettings"
+                  >
+                    <span>{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
+                    <SvgIcon
+                      name="edit"
+                      class="!w-16 !h-16 text-aquamarine-700"
+                    />
+                  </button>
                 </div>
                 <div class="flex justify-between items-center">
                   <p class="text-euler-dark-900">
