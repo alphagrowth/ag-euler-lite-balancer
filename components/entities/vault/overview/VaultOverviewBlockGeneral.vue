@@ -8,7 +8,7 @@ const { vault } = defineProps<{ vault: Vault }>()
 const { list } = useVaults()
 
 const product = useEulerProductOfVault(vault.address)
-const entities = useEulerEntitiesOfVault(vault.address)
+const entities = useEulerEntitiesOfVault(vault)
 
 const collateralCount = computed(() => {
   return list.value.filter(v =>
