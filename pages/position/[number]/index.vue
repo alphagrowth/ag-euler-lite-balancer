@@ -490,6 +490,14 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary"
                 rounded
+                :to="`/position/${positionIndex}/multiply`"
+              >
+                Multiply
+              </UiButton>
+              <UiButton
+                size="medium"
+                variant="primary-stroke"
+                rounded
                 :to="`/position/${positionIndex}/borrow`"
               >
                 Borrow
