@@ -4,7 +4,7 @@ import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
+import { type Vault, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapDebtOptions } from '~/composables/useSwapDebtOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -231,7 +231,7 @@ const priceRatio = computed(() => {
   if (!collateralVault.value || !toVault.value) {
     return null
   }
-  const collateralPrice = getVaultPriceInfo(collateralVault.value)
+  const collateralPrice = getCollateralAssetPriceFromLiability(toVault.value, collateralVault.value)
   const borrowPrice = getVaultPriceInfo(toVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n

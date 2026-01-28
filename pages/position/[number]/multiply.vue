@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
-import { type Address } from 'viem'
+import type { Address } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault, type VaultAsset, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
+import { type Vault, type VaultAsset, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
@@ -403,7 +403,8 @@ const multiplyPriceRatio = computed(() => {
   if (!multiplyLongVault.value || !multiplyShortVault.value) {
     return null
   }
-  const collateralPrice = getVaultPriceInfo(multiplyLongVault.value)
+  // Use liability vault's (multiplyShortVault) view of collateral price (multiplyLongVault is the collateral)
+  const collateralPrice = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplyLongVault.value)
   const borrowPrice = getVaultPriceInfo(multiplyShortVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n

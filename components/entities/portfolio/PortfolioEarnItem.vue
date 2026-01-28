@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getEarnVaultPrice } from '~/entities/vault'
+import { getEarnVaultPrice, getEarnVaultPriceDisplay } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountEarnPosition } from '~/entities/account'
 import { VaultOverviewModal } from '#components'
@@ -17,11 +17,20 @@ const product = useEulerProductOfVault(computed(() => vault.value.address))
 const vaultLabel = useEulerVaultLabelOfVault(computed(() => vault.value.address))
 const displayName = computed(() => vaultLabel.name || product.name || vault.value.name)
 
+const supplyValueDisplay = computed(() => {
+  const price = getEarnVaultPriceDisplay(position.assets, vault.value)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
+
 const earnDisplay = computed(() => {
-  return compactNumber(getEarnVaultPrice(position.assets, vault.value) * (vault.value.supplyAPY || 0) * 90 / 365 / 100)
+  const price = getEarnVaultPrice(position.assets, vault.value)
+  if (price === 0) return '—'
+  return compactNumber(price * (vault.value.supplyAPY || 0) * 90 / 365 / 100)
 })
 const earnDisplayWithReward = computed(() => {
-  return compactNumber(getEarnVaultPrice(position.assets, vault.value) * (((vault.value.supplyAPY || 0) + (opportunityInfo.value?.apr || 0))) * 90 / 365 / 100)
+  const price = getEarnVaultPrice(position.assets, vault.value)
+  if (price === 0) return '—'
+  return compactNumber(price * (((vault.value.supplyAPY || 0) + (opportunityInfo.value?.apr || 0))) * 90 / 365 / 100)
 })
 
 const onClick = () => {
@@ -82,7 +91,7 @@ const onClick = () => {
           </div>
           <div class="flex justify-between gap-8 text-right">
             <div class="text-white text-p3">
-              ${{ compactNumber(getEarnVaultPrice(position.assets, vault)) }}
+              {{ supplyValueDisplay }}
             </div>
             <div class="text-euler-dark-900 text-p3">
               ~ {{ roundAndCompactTokens(position.assets, vault.asset.decimals) }} {{ vault.asset.symbol }}

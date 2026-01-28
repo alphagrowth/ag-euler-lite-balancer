@@ -2,7 +2,7 @@
 import type { AccountBorrowPosition } from '~/entities/account'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getNetAPY, getVaultPrice } from '~/entities/vault'
+import { getNetAPY, getVaultPrice, getVaultPriceDisplay, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 
 const { index, position } = defineProps<{ index: number, position: AccountBorrowPosition }>()
 
@@ -48,6 +48,84 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
+
+const collateralValueDisplay = computed(() => {
+  const { map } = useVaults()
+  const borrowVaultFromMap = map.value.get(position.borrow.address)
+  if (!borrowVaultFromMap) {
+    const price = getVaultPriceDisplay(position.supplied || 0n, collateralVault.value!)
+    return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+  }
+  const priceInfo = getCollateralAssetPriceFromLiability(borrowVaultFromMap, collateralVault.value!)
+  if (!priceInfo) {
+    const price = getVaultPriceDisplay(position.supplied || 0n, collateralVault.value!)
+    return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+  }
+  const amount = nanoToValue(position.supplied || 0n, collateralVault.value!.decimals)
+  const usdValue = amount * nanoToValue(priceInfo.amountOutMid, 18)
+  return `$${formatNumber(usdValue)}`
+})
+
+const borrowedValueDisplay = computed(() => {
+  const price = getVaultPriceDisplay(position.borrowed || 0n, borrowVault.value!)
+  return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+})
+
+const netAssetValueDisplay = computed(() => {
+  const { map } = useVaults()
+  const borrowVaultFromMap = map.value.get(position.borrow.address)
+
+  const borrowPrice = getVaultPriceDisplay(position.borrowed || 0n, borrowVault.value!)
+  if (!borrowPrice.hasPrice) {
+    return '—'
+  }
+
+  let collateralUsdValue: number | null = null
+
+  if (borrowVaultFromMap) {
+    const priceInfo = getCollateralAssetPriceFromLiability(borrowVaultFromMap, collateralVault.value!)
+    if (priceInfo && priceInfo.amountOutMid > 0n && priceInfo.amountIn && priceInfo.amountIn > 0n) {
+      const amount = nanoToValue(position.supplied || 0n, collateralVault.value!.decimals)
+      const usdValue = amount * nanoToValue(priceInfo.amountOutMid, 18)
+      collateralUsdValue = usdValue
+    }
+  }
+
+  if (collateralUsdValue === null) {
+    const price = getVaultPriceDisplay(position.supplied || 0n, collateralVault.value!)
+    if (!price.hasPrice) {
+      return '—'
+    }
+    collateralUsdValue = price.usdValue
+  }
+
+  if (!Number.isFinite(collateralUsdValue) || !Number.isFinite(borrowPrice.usdValue)) {
+    return '—'
+  }
+
+  const net = collateralUsdValue - borrowPrice.usdValue
+  if (!Number.isFinite(net)) {
+    return '—'
+  }
+
+  return `$${formatNumber(net)}`
+})
+
+const currentPriceDisplay = computed(() => {
+  const { map } = useVaults()
+  const borrowVaultFromMap = map.value.get(position.borrow.address)
+  if (!borrowVaultFromMap) {
+    const price = getVaultPriceDisplay(1, collateralVault.value!)
+    return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+  }
+  const priceInfo = getCollateralAssetPriceFromLiability(borrowVaultFromMap, collateralVault.value!)
+  if (!priceInfo) {
+    const price = getVaultPriceDisplay(1, collateralVault.value!)
+    return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+  }
+  const usdValue = nanoToValue(priceInfo.amountOutMid, 18)
+  return `$${formatNumber(usdValue)}`
+})
 
 const netAPY = computed(() => {
   return getNetAPY(
@@ -103,7 +181,7 @@ const netAPY = computed(() => {
           </div>
           <div class="flex justify-between gap-8 text-right">
             <div class="text-white text-p3">
-              ${{ formatNumber(getVaultPrice(position.supplied, position.collateral) - getVaultPrice(position.borrowed, position.borrow)) }}
+              {{ netAssetValueDisplay }}
             </div>
           </div>
         </div>
@@ -113,7 +191,7 @@ const netAPY = computed(() => {
           </div>
           <div class="flex justify-between gap-8 text-right">
             <div class="text-white text-p3">
-              ${{ formatNumber(getVaultPrice(position.borrowed, position.borrow)) }}
+              {{ borrowedValueDisplay }}
             </div>
             <div class="text-euler-dark-900 text-p3">
               ~ {{ roundAndCompactTokens(position.borrowed, position.borrow.decimals) }}
@@ -127,9 +205,7 @@ const netAPY = computed(() => {
           </div>
           <div class="flex justify-between gap-8 text-right">
             <div class="text-white text-p3">
-              ${{ formatNumber(getVaultPrice(
-                nanoToValue(position.supplied, position.collateral.decimals), position.collateral,
-              )) }}
+              {{ collateralValueDisplay }}
             </div>
             <div class="text-euler-dark-900 text-p3">
               ~ {{ roundAndCompactTokens(position.supplied, position.collateral.decimals) }}
@@ -162,7 +238,7 @@ const netAPY = computed(() => {
           </div>
           <div class="flex justify-between gap-8 text-right">
             <span class="text-white text-p3">
-              ${{ formatNumber(getVaultPrice(1, position.collateral)) }}
+              {{ currentPriceDisplay }}
             </span>
             <span class="text-euler-dark-900 text-p3">
               {{ position.collateral.asset.symbol }}

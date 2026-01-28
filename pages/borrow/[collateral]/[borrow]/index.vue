@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { ethers, FixedNumber } from 'ethers'
-import { type Address } from 'viem'
+import type { Address } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, convertAssetsToShares } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, convertAssetsToShares, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -141,7 +141,10 @@ const collateralVault = computed(() => pair.value?.collateral)
 const multiplyLongVault = computed(() => collateralVault.value)
 const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
 const priceFixed = computed(() => {
-  const collateralPrice = collateralVault.value ? getVaultPriceInfo(collateralVault.value) : undefined
+  // Use liability vault's view of collateral price
+  const collateralPrice = borrowVault.value && collateralVault.value
+    ? getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+    : undefined
   const borrowPrice = borrowVault.value ? getVaultPriceInfo(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
@@ -408,31 +411,6 @@ const multiplyBalance = computed(() => {
   }
   return getBalance(multiplySupplyVault.value.asset.address as `0x${string}`) || 0n
 })
-const getVaultAmountIn = (vault: Vault | undefined) => {
-  if (!vault) {
-    return 0n
-  }
-  return ethers.parseUnits('1', Number(vault.asset.decimals))
-}
-const getPythMid = (vault: Vault | undefined) => {
-  const mid = vault?.pythPriceInfo?.amountOutMid
-  return mid && mid > 0n ? mid : 0n
-}
-const isPriceInfoValid = (info?: { queryFailure?: boolean; amountIn?: bigint; amountOutMid?: bigint }) => {
-  if (!info) {
-    return false
-  }
-  if (info.queryFailure) {
-    return false
-  }
-  if (!info.amountIn || info.amountIn <= 0n) {
-    return false
-  }
-  if (!info.amountOutMid || info.amountOutMid <= 0n) {
-    return false
-  }
-  return true
-}
 const multiplyDebtAmountNano = computed(() => {
   if (!multiplySupplyVault.value || !multiplyShortVault.value) {
     return 0n
@@ -450,33 +428,14 @@ const multiplyDebtAmountNano = computed(() => {
   if (!suppliedCollateral) {
     return 0n
   }
-  const collateralPriceInfo = multiplyShortVault.value.collateralPrices.find(
-    price => normalizeAddress(price.asset) === normalizeAddress(multiplySupplyVault.value?.address)
-      || normalizeAddress(price.asset) === normalizeAddress(multiplySupplyVault.value?.asset.address),
-  )
+  // Use helper that applies Pyth-enhanced collateral pricing from the liability vault's perspective
+  const collateralPriceInfo = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplySupplyVault.value)
   const liabilityPrice = multiplyShortVault.value.liabilityPriceInfo
-  const unitOfAccountMatch = multiplySupplyVault.value.unitOfAccount
-    && multiplyShortVault.value.unitOfAccount
-    && normalizeAddress(multiplySupplyVault.value.unitOfAccount) === normalizeAddress(multiplyShortVault.value.unitOfAccount)
-  const collateralPythMid = unitOfAccountMatch ? getPythMid(multiplySupplyVault.value) : 0n
-  const liabilityPythMid = getPythMid(multiplyShortVault.value)
 
-  const hasCollateralPrice = isPriceInfoValid(collateralPriceInfo)
-  const hasLiabilityPrice = isPriceInfoValid(liabilityPrice)
-
-  const collateralOutBid = hasCollateralPrice
-    ? (collateralPriceInfo?.amountOutBid || collateralPriceInfo?.amountOutMid || 0n)
-    : (collateralPythMid || 0n)
-  const collateralIn = hasCollateralPrice
-    ? (collateralPriceInfo?.amountIn || 0n)
-    : getVaultAmountIn(multiplySupplyVault.value)
-  const liabilityOutBid = hasLiabilityPrice
-    ? (liabilityPrice?.amountOutBid || liabilityPrice?.amountOutMid || 0n)
-    : (liabilityPythMid || 0n)
-  const liabilityIn = hasLiabilityPrice
-    ? (liabilityPrice?.amountIn || 0n)
-    : getVaultAmountIn(multiplyShortVault.value)
-  if (!collateralIn || !collateralOutBid || !liabilityIn || !liabilityOutBid) {
+  if (!collateralPriceInfo || collateralPriceInfo.amountOutMid <= 0n || !collateralPriceInfo.amountIn || collateralPriceInfo.amountIn <= 0n) {
+    return 0n
+  }
+  if (!liabilityPrice || liabilityPrice.queryFailure || !liabilityPrice.amountOutBid || liabilityPrice.amountOutBid <= 0n || !liabilityPrice.amountIn || liabilityPrice.amountIn <= 0n) {
     return 0n
   }
   const totalAssets = multiplySupplyVault.value.totalAssets || 0n
@@ -484,6 +443,8 @@ const multiplyDebtAmountNano = computed(() => {
   const collateralAsShares = totalAssets > 0n && totalShares > 0n
     ? (suppliedCollateral * totalShares) / totalAssets
     : suppliedCollateral
+  const collateralOutBid = collateralPriceInfo.amountOutBid || collateralPriceInfo.amountOutMid
+  const collateralIn = collateralPriceInfo.amountIn
   const suppliedCollateralValue = (collateralAsShares * collateralOutBid) / collateralIn
   if (!suppliedCollateralValue) {
     return 0n
@@ -497,6 +458,8 @@ const multiplyDebtAmountNano = computed(() => {
     return 0n
   }
   const totalDebtValue = multipliedCollateral - suppliedCollateralValue
+  const liabilityOutBid = liabilityPrice.amountOutBid || liabilityPrice.amountOutMid
+  const liabilityIn = liabilityPrice.amountIn
   return (totalDebtValue * liabilityIn) / liabilityOutBid
 })
 const multiplyBorrowLtv = computed(() => {
@@ -705,7 +668,8 @@ const multiplyPriceRatio = computed(() => {
   if (!multiplyLongVault.value || !multiplyShortVault.value) {
     return null
   }
-  const collateralPrice = getVaultPriceInfo(multiplyLongVault.value)
+  // Use liability vault's (multiplyShortVault) view of collateral price
+  const collateralPrice = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplyLongVault.value)
   const borrowPrice = getVaultPriceInfo(multiplyShortVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
@@ -1116,20 +1080,20 @@ const submit = async () => {
   try {
     plan.value = isSavingCollateral.value
       ? await buildBorrowBySavingPlan(
-          collateralVault.value.address,
-          collateralAmountForPlan,
-          borrowVault.value.address,
-          borrowAmountNano,
-        )
+        collateralVault.value.address,
+        collateralAmountForPlan,
+        borrowVault.value.address,
+        borrowAmountNano,
+      )
       : await buildBorrowPlan(
-          collateralVault.value.address,
-          collateralVault.value.asset.address,
-          collateralAmountForPlan,
-          borrowVault.value.address,
-          borrowAmountNano,
-          undefined,
-          { includePermit2Call: false },
-        )
+        collateralVault.value.address,
+        collateralVault.value.asset.address,
+        collateralAmountForPlan,
+        borrowVault.value.address,
+        borrowAmountNano,
+        undefined,
+        { includePermit2Call: false },
+      )
   }
   catch (e) {
     console.warn('[OperationReviewModal] failed to build plan', e)

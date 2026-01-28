@@ -15,7 +15,7 @@ defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition, desktopOverview?: b
       :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0' : '']"
     />
     <VaultOverviewBlockOracleAdapters
-      :vaults="[pair.collateral, pair.borrow]"
+      :vault="pair.borrow"
       :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0' : '']"
     />
   </div>

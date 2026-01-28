@@ -5,7 +5,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { getNetAPY, getVaultPrice, getVaultPriceInfo, type Vault } from '~/entities/vault'
+import { getNetAPY, getVaultPrice, getVaultPriceInfo, type Vault, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -71,7 +71,9 @@ const borrowedFixed = computed(() => FixedNumber.fromValue(position.value?.borro
 const suppliedFixed = computed(() => FixedNumber.fromValue(collateralAssets.value, collateralVault.value?.decimals || 18))
 // Use the correct collateral/borrow price ratio for LTV calculations (not the liquidation price)
 const priceFixed = computed(() => {
-  const collateralPrice = collateralVault.value ? getVaultPriceInfo(collateralVault.value) : undefined
+  const collateralPrice = borrowVault.value && collateralVault.value
+    ? getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+    : undefined
   const borrowPrice = borrowVault.value ? getVaultPriceInfo(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n

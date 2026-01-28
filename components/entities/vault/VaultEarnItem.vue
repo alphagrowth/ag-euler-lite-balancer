@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getEarnVaultPrice, type EarnVault } from '~/entities/vault'
+import { getEarnVaultPrice, getEarnVaultPriceDisplay, type EarnVault } from '~/entities/vault'
 import { useEulerEntitiesOfEarnVault, useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
@@ -24,6 +24,16 @@ const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
 const displayName = computed(() => vaultLabel.name || product.name || vault.name)
+
+const totalSupplyPrice = computed(() => {
+  const price = getEarnVaultPriceDisplay(vault.totalAssets, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
+
+const walletBalancePrice = computed(() => {
+  const price = getEarnVaultPriceDisplay(balance.value, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
 </script>
 
 <template>
@@ -70,7 +80,7 @@ const displayName = computed(() => vaultLabel.name || product.name || vault.name
           Total supply
         </div>
         <div class="text-p2">
-          {{ `$${compactNumber(getEarnVaultPrice(vault.totalAssets, vault))}` }}
+          {{ totalSupplyPrice }}
         </div>
       </div>
       <div class="flex flex-col items-center flex-1">
@@ -95,7 +105,7 @@ const displayName = computed(() => vaultLabel.name || product.name || vault.name
             style="width: 70px; height: 20px"
           >
             <div class="text-p2">
-              ${{ compactNumber(getEarnVaultPrice(balance, vault)) }}
+              {{ walletBalancePrice }}
             </div>
           </BaseLoadableContent>
         </template>

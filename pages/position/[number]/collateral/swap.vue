@@ -5,7 +5,7 @@ import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { type Vault, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
+import { type Vault, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -287,7 +287,7 @@ const priceRatio = computed(() => {
   if (!toVault.value || !borrowVault.value) {
     return null
   }
-  const collateralPrice = getVaultPriceInfo(toVault.value)
+  const collateralPrice = getCollateralAssetPriceFromLiability(borrowVault.value, toVault.value)
   const borrowPrice = getVaultPriceInfo(borrowVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n

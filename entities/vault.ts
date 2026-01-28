@@ -16,6 +16,7 @@ import {
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
 import { fetchPythPrices } from '~/utils/pyth'
+import { nanoToValue } from '~/utils/crypto-utils'
 // import type { AccountBorrowPosition } from '~/entities/account'
 
 export interface VaultLiabilityPriceInfo {
@@ -89,6 +90,7 @@ export interface Vault {
   collateralLTVs: VaultCollateralLTV[]
   interestRateInfo: VaultInterestRateInfo
   collateralPrices: VaultCollateralPrice[]
+  collateralPythPrices?: Map<string, { amountOutMid: bigint }> // keyed by collateral address
   liabilityPriceInfo: VaultLiabilityPriceInfo
   pythPriceInfo?: {
     amountOutMid: bigint
@@ -248,6 +250,48 @@ const applyPythPriceInfo = async (vaults: Vault[], hermesEndpoint?: string) => {
   })
 }
 
+const applyCollateralPythPriceInfo = async (vault: Vault, hermesEndpoint?: string) => {
+  if (!vault.collateralPrices.length || !hermesEndpoint) return
+
+  const feedToCollateral = new Map<string, string>() // feedId → collateralAddress
+  const allFeedIds: Hex[] = []
+
+  for (const collateralPrice of vault.collateralPrices) {
+    const collateralAddress = collateralPrice.asset
+
+    const feeds = collectPythFeedIdsForPair(
+      vault.oracleDetailedInfo,
+      collateralAddress, // base: collateral asset
+      vault.unitOfAccount, // quote: vault's unit of account
+      3,
+    )
+
+    if (feeds.length === 1) {
+      const feedId = feeds[0].feedId
+      const key = feedId.toLowerCase()
+      if (!feedToCollateral.has(key)) {
+        feedToCollateral.set(key, collateralAddress.toLowerCase())
+        allFeedIds.push(feedId)
+      }
+    }
+  }
+
+  if (!allFeedIds.length) return
+
+  const prices = await fetchPythPrices(allFeedIds, hermesEndpoint)
+
+  const collateralPythPrices = new Map<string, { amountOutMid: bigint }>()
+
+  feedToCollateral.forEach((collateralAddress, feedIdKey) => {
+    const pythPrice = prices.get(feedIdKey)
+    if (pythPrice && pythPrice > 0n) {
+      collateralPythPrices.set(collateralAddress, { amountOutMid: pythPrice })
+    }
+  })
+
+  vault.collateralPythPrices = collateralPythPrices
+}
+
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { loadEulerConfig, isReady } = useEulerAddresses()
@@ -323,6 +367,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   } as Vault
 
   await applyPythPriceInfo([vault], PYTH_HERMES_URL)
+  await applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)
 
   return vault
 }
@@ -570,6 +615,7 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as Vault[]
     await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
+    await Promise.all(validVaults.map(vault => applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)))
     const isFinished = i + batchSize >= verifiedVaults.length
 
     yield {
@@ -857,6 +903,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<VaultIterato
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as EscrowVault[]
     await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
+    await Promise.all(validVaults.map(vault => applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)))
 
     await Promise.all(
       validVaults.map(async (vault) => {
@@ -949,31 +996,12 @@ export const getVaultPriceInfo = (vault: Vault) => {
   }
 
   if (!vault.liabilityPriceInfo || vault.liabilityPriceInfo.queryFailure) {
-    if (vault.collateralPrices && vault.collateralPrices.length > 0) {
-      const collateralPrice = vault.collateralPrices[0]
-      if (collateralPrice.amountOutMid && collateralPrice.amountOutMid > 0n) {
-        const mid = collateralPrice.amountOutMid
-        const ask = collateralPrice.amountOutAsk && collateralPrice.amountOutAsk > 0n ? collateralPrice.amountOutAsk : mid
-        const bid = collateralPrice.amountOutBid && collateralPrice.amountOutBid > 0n ? collateralPrice.amountOutBid : mid
-        return { amountOutAsk: ask, amountOutBid: bid, amountOutMid: mid }
-      }
-    }
-    return undefined
+    return undefined // No valid price available — DO NOT fall back to collateralPrices
   }
 
   const { amountOutAsk, amountOutBid, amountOutMid } = vault.liabilityPriceInfo
   if (!amountOutMid || amountOutMid === 0n) {
-    // Fallback to collateral price if available
-    if (vault.collateralPrices && vault.collateralPrices.length > 0) {
-      const collateralPrice = vault.collateralPrices[0]
-      if (collateralPrice.amountOutMid && collateralPrice.amountOutMid > 0n) {
-        const mid = collateralPrice.amountOutMid
-        const ask = collateralPrice.amountOutAsk && collateralPrice.amountOutAsk > 0n ? collateralPrice.amountOutAsk : mid
-        const bid = collateralPrice.amountOutBid && collateralPrice.amountOutBid > 0n ? collateralPrice.amountOutBid : mid
-        return { amountOutAsk: ask, amountOutBid: bid, amountOutMid: mid }
-      }
-    }
-    return undefined
+    return undefined // No valid price available
   }
 
   const ask = amountOutAsk && amountOutAsk > 0n ? amountOutAsk : amountOutMid
@@ -991,12 +1019,157 @@ export const getVaultPrice = (amount: number | bigint, vault: Vault) => {
   return actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
 }
 
+export const getCollateralPriceFromLiability = (
+  liabilityVault: Vault,
+  collateralVault: Vault,
+): VaultCollateralPrice | undefined => {
+  const collateralAddress = collateralVault.address.toLowerCase()
+
+  const priceInfo = liabilityVault.collateralPrices.find(
+    p => p.asset.toLowerCase() === collateralAddress,
+  )
+
+  if (!priceInfo) {
+    return undefined // Collateral not configured for this vault
+  }
+
+  const pythPrice = liabilityVault.collateralPythPrices?.get(collateralAddress)
+  if (pythPrice && pythPrice.amountOutMid > 0n) {
+    // Return Pyth price with lens metadata — works even if lens query failed
+    return {
+      ...priceInfo,
+      queryFailure: false, // Override since we have fresh Pyth price
+      amountOutMid: pythPrice.amountOutMid,
+      amountOutAsk: pythPrice.amountOutMid,
+      amountOutBid: pythPrice.amountOutMid,
+    }
+  }
+
+  if (priceInfo.queryFailure || !priceInfo.amountOutMid) {
+    return undefined
+  }
+
+  return priceInfo
+}
+
+export const getCollateralAssetPriceFromLiability = (
+  liabilityVault: Vault,
+  collateralVault: Vault,
+): VaultCollateralPrice | undefined => {
+  const sharePrice = getCollateralPriceFromLiability(liabilityVault, collateralVault)
+
+  if (!sharePrice) {
+    return undefined
+  }
+
+  const { totalAssets, totalShares } = collateralVault
+
+  if (totalAssets === 0n || totalShares === 0n) {
+    return undefined
+  }
+
+  // assetPrice = sharePrice × (totalShares / totalAssets)
+  return {
+    ...sharePrice,
+    amountOutMid: (sharePrice.amountOutMid * totalShares) / totalAssets,
+    amountOutAsk: (sharePrice.amountOutAsk * totalShares) / totalAssets,
+    amountOutBid: (sharePrice.amountOutBid * totalShares) / totalAssets,
+  }
+}
+
+export const getVaultValueUsd = (
+  amount: bigint,
+  vault: Vault,
+  liabilityContext?: Vault,
+): number => {
+  let priceInfo: { amountOutMid: bigint } | undefined
+
+  if (liabilityContext) {
+    priceInfo = getCollateralAssetPriceFromLiability(liabilityContext, vault)
+  }
+  else {
+    priceInfo = getVaultPriceInfo(vault)
+  }
+
+  if (!priceInfo) {
+    return 0
+  }
+
+  const actualAmount = nanoToValue(amount, vault.decimals)
+  return actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
+}
+
 export const getEarnVaultPrice = (amount: number | bigint, vault: EarnVault) => {
   if (!vault.assetPriceInfo?.amountOutMid) {
     return 0
   }
   const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.asset.decimals) : amount
   return actualAmount * nanoToValue(vault.assetPriceInfo.amountOutMid, 18)
+}
+
+export const getVaultPriceDisplay = (
+  amount: number | bigint,
+  vault: Vault,
+  options: { compact?: boolean, maxDecimals?: number, minDecimals?: number } = {},
+): { display: string, hasPrice: boolean, usdValue: number, assetAmount: number, assetSymbol: string } => {
+  const { compact = false, maxDecimals = 2, minDecimals = 2 } = options
+  const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.decimals) : amount
+  const priceInfo = getVaultPriceInfo(vault)
+
+  if (!priceInfo) {
+    const formattedAmount = actualAmount.toLocaleString('en-US', {
+      maximumFractionDigits: maxDecimals,
+      minimumFractionDigits: minDecimals,
+    })
+    return {
+      display: `${formattedAmount} ${vault.asset.symbol}`,
+      hasPrice: false,
+      usdValue: 0,
+      assetAmount: actualAmount,
+      assetSymbol: vault.asset.symbol,
+    }
+  }
+
+  const usdValue = actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
+  return {
+    display: '', // Empty - components will format USD themselves
+    hasPrice: true,
+    usdValue,
+    assetAmount: actualAmount,
+    assetSymbol: vault.asset.symbol,
+  }
+}
+
+export const getEarnVaultPriceDisplay = (
+  amount: number | bigint,
+  vault: EarnVault,
+  options: { compact?: boolean, maxDecimals?: number, minDecimals?: number } = {},
+): { display: string, hasPrice: boolean, usdValue: number, assetAmount: number, assetSymbol: string } => {
+  const { compact = false, maxDecimals = 2, minDecimals = 2 } = options
+  const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.asset.decimals) : amount
+
+  if (!vault.assetPriceInfo?.amountOutMid) {
+    const formattedAmount = actualAmount.toLocaleString('en-US', {
+      maximumFractionDigits: maxDecimals,
+      minimumFractionDigits: minDecimals,
+    })
+    return {
+      display: `${formattedAmount} ${vault.asset.symbol}`,
+      hasPrice: false,
+      usdValue: 0,
+      assetAmount: actualAmount,
+      assetSymbol: vault.asset.symbol,
+    }
+  }
+
+  const usdValue = actualAmount * nanoToValue(vault.assetPriceInfo.amountOutMid, 18)
+  return {
+    display: '', // Empty - components will format USD themselves
+    hasPrice: true,
+    usdValue,
+    assetAmount: actualAmount,
+    assetSymbol: vault.asset.symbol,
+  }
 }
 export const computeAPYs = (borrowSPY: bigint, cash: bigint, borrows: bigint, interestFee: bigint) => {
   const { EVM_PROVIDER_URL } = useEulerConfig()

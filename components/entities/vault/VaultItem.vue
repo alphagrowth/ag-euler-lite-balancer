@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getVaultPrice, getVaultUtilization, type Vault } from '~/entities/vault'
+import { getVaultPrice, getVaultPriceDisplay, getVaultUtilization, type Vault } from '~/entities/vault'
 import { useEulerEntitiesOfVault, useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
@@ -34,6 +34,16 @@ const supplyApy = computed(() => withIntrinsicSupplyApy(
 ))
 const supplyApyWithRewards = computed(() => supplyApy.value + totalRewardsAPY.value)
 const utilization = computed(() => getVaultUtilization(vault))
+
+const totalSupplyPrice = computed(() => {
+  const price = getVaultPriceDisplay(vault.totalAssets, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
+
+const walletBalancePrice = computed(() => {
+  const price = getVaultPriceDisplay(balance.value, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
 
 const onWarningClick = () => {
   modal.open(VaultUtilizationWarningModal)
@@ -84,7 +94,7 @@ const onWarningClick = () => {
           Total supply
         </div>
         <div class="text-p2">
-          {{ `$${compactNumber(getVaultPrice(vault.totalAssets, vault))}` }}
+          {{ totalSupplyPrice }}
         </div>
       </div>
       <div class="flex-1 flex flex-col items-center">
@@ -137,7 +147,7 @@ const onWarningClick = () => {
             style="width: 70px; height: 20px"
           >
             <div class="text-p2">
-              ${{ compactNumber(getVaultPrice(balance, vault)) }}
+              {{ walletBalancePrice }}
             </div>
           </BaseLoadableContent>
         </template>

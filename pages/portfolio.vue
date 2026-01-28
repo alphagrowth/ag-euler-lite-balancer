@@ -11,8 +11,8 @@ const {
   borrowPositions,
   depositPositions,
   earnPositions,
-  totalSuppliedValue,
-  totalBorrowedValue,
+  totalSuppliedValueInfo,
+  totalBorrowedValueInfo,
   isPositionsLoaded,
   isShowAllPositions,
   updateBorrowPositions,
@@ -94,7 +94,12 @@ onDeactivated(() => {
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
           <div class="text-h5 text-white">
-            {{ `$${compactNumber(totalSuppliedValue - totalBorrowedValue)}` }}
+            {{ (() => {
+              const netValue = totalSuppliedValueInfo.total - totalBorrowedValueInfo.total
+              const hasMissing = totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices
+              if (netValue === 0 && hasMissing) return '—'
+              return hasMissing ? `$${compactNumber(netValue)}+` : `$${compactNumber(netValue)}`
+            })() }}
           </div>
         </BaseLoadableContent>
       </div>
@@ -104,7 +109,11 @@ onDeactivated(() => {
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
           <div class="text-h5 text-white">
-            {{ `$${compactNumber(totalSuppliedValue)}` }}
+            {{ (() => {
+              const { total, hasMissingPrices } = totalSuppliedValueInfo
+              if (total === 0 && hasMissingPrices) return '—'
+              return hasMissingPrices ? `$${compactNumber(total)}+` : `$${compactNumber(total)}`
+            })() }}
           </div>
         </BaseLoadableContent>
       </div>
@@ -114,7 +123,11 @@ onDeactivated(() => {
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
           <div class="text-h5 text-white">
-            {{ `$${compactNumber(totalBorrowedValue)}` }}
+            {{ (() => {
+              const { total, hasMissingPrices } = totalBorrowedValueInfo
+              if (total === 0 && hasMissingPrices) return '—'
+              return hasMissingPrices ? `$${compactNumber(total)}+` : `$${compactNumber(total)}`
+            })() }}
           </div>
         </BaseLoadableContent>
       </div>

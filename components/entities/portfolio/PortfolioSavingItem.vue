@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getVaultPrice } from '~/entities/vault'
+import { getVaultPrice, getVaultPriceDisplay } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountDepositPosition } from '~/entities/account'
 import { VaultOverviewModal } from '#components'
@@ -23,11 +23,20 @@ const product = useEulerProductOfVault(computed(() => vault.value.address))
 const vaultLabel = useEulerVaultLabelOfVault(computed(() => vault.value.address))
 const displayName = computed(() => vaultLabel.name || product.name || vault.value.name)
 
+const supplyValueDisplay = computed(() => {
+  const price = getVaultPriceDisplay(position.assets, vault.value)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
+
 const earnDisplay = computed(() => {
-  return compactNumber(getVaultPrice(position.assets, vault.value) * supplyApy.value * 90 / 365 / 100)
+  const price = getVaultPrice(position.assets, vault.value)
+  if (price === 0) return '—'
+  return compactNumber(price * supplyApy.value * 90 / 365 / 100)
 })
 const earnDisplayWithReward = computed(() => {
-  return compactNumber(getVaultPrice(position.assets, vault.value) * supplyApyWithRewards.value * 90 / 365 / 100)
+  const price = getVaultPrice(position.assets, vault.value)
+  if (price === 0) return '—'
+  return compactNumber(price * supplyApyWithRewards.value * 90 / 365 / 100)
 })
 
 const onClick = () => {
@@ -88,7 +97,7 @@ const onClick = () => {
           </div>
           <div class="flex justify-between gap-8 text-right">
             <div class="text-white text-p3">
-              ${{ compactNumber(getVaultPrice(position.assets, vault)) }}
+              {{ supplyValueDisplay }}
             </div>
             <div class="text-euler-dark-900 text-p3">
               ~ {{ roundAndCompactTokens(position.assets, vault.decimals) }} {{ vault.asset.symbol }}
