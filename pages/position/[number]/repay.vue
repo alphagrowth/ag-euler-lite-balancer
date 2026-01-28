@@ -50,7 +50,7 @@ const estimateHealth = ref(0n)
 const estimatesError = ref('')
 
 const formTabs = computed(() => [
-  { label: 'Wallet repay', value: 'wallet' },
+  { label: 'From wallet', value: 'wallet' },
   { label: 'Swap collateral', value: 'collateral' },
 ])
 
