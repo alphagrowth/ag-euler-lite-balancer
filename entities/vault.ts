@@ -1,5 +1,6 @@
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
+import { labelsRepo } from './custom'
 import { SECONDS_IN_YEAR, TARGET_TIME_AGO, USD_ADDRESS } from '~/entities/constants'
 import {
   vaultConvertToAssetsAbi,
@@ -374,16 +375,21 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
 export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { earnVaults } = useEulerLabels()
-  const { loadEulerConfig, isReady } = useEulerAddresses()
+  const { loadEulerConfig, isReady, eulerPeripheryAddresses } = useEulerAddresses()
 
   if (!isReady.value) {
     loadEulerConfig()
-    await until(computed(() => isReady.value)).toBeTruthy()
+    await until(computed(() => isReady.value && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective)).toBeTruthy()
   }
 
   const { eulerLensAddresses } = useEulerAddresses()
 
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const governedPerspectiveContract = new ethers.Contract(
+    eulerPeripheryAddresses.value!.eulerEarnGovernedPerspective,
+    eulerPerspectiveABI,
+    provider,
+  )
   const earnVaultLensContract = new ethers.Contract(
     eulerLensAddresses.value!.eulerEarnVaultLens,
     eulerEarnVaultLensABI,
@@ -439,8 +445,11 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     assetPriceInfo = undefined
   }
 
+  const verifiedEarnVaults = await governedPerspectiveContract.verifiedArray() as string[]
+  const verified = labelsRepo !== 'euler-xyz/euler-labels' ? earnVaults.value.includes(vaultAddress) : verifiedEarnVaults.includes(vaultAddress)
+
   return {
-    verified: earnVaults.value.includes(vaultAddress),
+    verified,
     type: 'earn',
     address: data.vault,
     name: data.vaultName,
