@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getVaultPrice, getVaultUtilization, type Vault } from '~/entities/vault'
-import { useEulerEntitiesOfVault, useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
+import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
@@ -10,8 +10,7 @@ import { VaultUtilizationWarningModal } from '#components'
 const { isConnected } = useWagmi()
 const { vault } = defineProps<{ vault: Vault }>()
 const product = useEulerProductOfVault(vault.address)
-const vaultLabel = useEulerVaultLabelOfVault(vault.address)
-const displayName = computed(() => vaultLabel.name || product.name || vault.name)
+const displayName = computed(() => product.name || vault.name)
 const entities = useEulerEntitiesOfVault(vault.address)
 const { balances, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()

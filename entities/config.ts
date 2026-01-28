@@ -4,7 +4,6 @@ export default {
   testnet: {
     EULER_API_URL: 'https://indexer-main.euler.finance',
     SWAP_API_URL: 'https://swap.euler.finance',
-    getEulerLabelsVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/${chainId}/vaults.json`,
     getEulerLabelsEntitiesUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/${chainId}/entities.json`,
     getEulerLabelsProductsUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/${chainId}/products.json`,
     getEulerLabelsEarnVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/euler-xyz/euler-labels/refs/heads/tac-turin/test/${chainId}/earn-vaults.json`,
@@ -77,7 +76,6 @@ export default {
     // [optimism.id]: "0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae",
     // [mantle.id]: "0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae",
     // [137]: "0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae",
-    getEulerLabelsVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/vaults.json`,
     getEulerLabelsEntitiesUrl: (chainId: number) => `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/entities.json`,
     getEulerLabelsProductsUrl: (chainId: number) => `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/products.json`,
     getEulerLabelsEarnVaultsUrl: (chainId: number) => `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/earn-vaults.json`,

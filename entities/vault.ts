@@ -413,7 +413,7 @@ const applyPythPriceInfo = async (vaults: Vault[], hermesEndpoint?: string) => {
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { loadEulerConfig, isReady } = useEulerAddresses()
-  const { vaults } = useEulerLabels()
+  const { verifiedVaultAddresses } = useEulerLabels()
 
   if (!isReady.value) {
     loadEulerConfig()
@@ -431,7 +431,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const data = raw.toObject({ deep: true })
 
   const vault = {
-    verified: Object.keys(vaults).includes(vaultAddress),
+    verified: verifiedVaultAddresses.value.includes(vaultAddress),
     address: data.vault,
     name: data.vaultName,
     supply: data.totalAssets,
@@ -702,11 +702,11 @@ export const fetchEscrowVault = async (vaultAddress: string): Promise<EscrowVaul
 export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResult<Vault>, void, unknown> {
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { eulerLensAddresses, chainId } = useEulerAddresses()
-  const { vaults } = useEulerLabels()
+  const { verifiedVaultAddresses } = useEulerLabels()
 
   const startChainId = chainId.value
 
-  await until(computed(() => eulerLensAddresses.value?.vaultLens && Object.keys(vaults).length)).toBeTruthy()
+  await until(computed(() => eulerLensAddresses.value?.vaultLens && verifiedVaultAddresses.value.length)).toBeTruthy()
 
   if (!eulerLensAddresses.value?.vaultLens) {
     throw new Error('Euler addresses not loaded yet')
@@ -718,7 +718,7 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
     eulerVaultLensABI,
     provider,
   )
-  const verifiedVaults = Object.keys(vaults)
+  const verifiedVaults = verifiedVaultAddresses.value
   const batchSize = 5
 
   for (let i = 0; i < verifiedVaults.length; i += batchSize) {

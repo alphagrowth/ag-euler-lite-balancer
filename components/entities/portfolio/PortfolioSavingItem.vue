@@ -20,8 +20,7 @@ const supplyApy = computed(() => withIntrinsicSupplyApy(
 const supplyApyWithRewards = computed(() => supplyApy.value + (opportunityInfo.value?.apr || 0))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
-const vaultLabel = useEulerVaultLabelOfVault(computed(() => vault.value.address))
-const displayName = computed(() => vaultLabel.name || product.name || vault.value.name)
+const displayName = computed(() => product.name || vault.value.name)
 
 const earnDisplay = computed(() => {
   return compactNumber(getVaultPrice(position.assets, vault.value) * supplyApy.value * 90 / 365 / 100)

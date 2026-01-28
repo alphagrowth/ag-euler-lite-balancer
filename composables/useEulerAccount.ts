@@ -511,7 +511,7 @@ const updateEarnPositions = async (
   }
 
   const { earnList, getEarnVault, map } = useVaults()
-  const { vaults } = useEulerLabels()
+  const { verifiedVaultAddresses } = useEulerLabels()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -550,7 +550,7 @@ const updateEarnPositions = async (
 
           // Check if this is a regular vault, skip if it is (handled by updateDepositPositions)
           const normalizedVault = ethers.getAddress(vault)
-          if (Object.keys(vaults).includes(normalizedVault) || map.value.has(normalizedVault)) {
+          if (verifiedVaultAddresses.value.includes(normalizedVault) || map.value.has(normalizedVault)) {
             return undefined
           }
 
