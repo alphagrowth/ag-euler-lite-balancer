@@ -18,6 +18,11 @@ defineProps<{ pair: SecuritizeBorrowVaultPair, desktopOverview?: boolean }>()
       :vault="pair.borrow"
       :class="[desktopOverview ? 'py-16 px-0' : '']"
     />
+    <!-- Oracle adapters should always come from the liability (borrow) vault -->
+    <VaultOverviewBlockOracleAdapters
+      :vault="pair.borrow"
+      :class="[desktopOverview ? 'py-16 px-0' : '']"
+    />
     <VaultOverviewBlockRiskParameters
       :vault="pair.borrow"
       :class="[desktopOverview ? 'py-16 px-0' : '']"

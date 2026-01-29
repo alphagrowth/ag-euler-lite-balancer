@@ -9,7 +9,7 @@ import type {
   AccountEarnPosition,
 } from '~/entities/account'
 import type { Vault } from '~/entities/vault'
-import { convertSharesToAssets, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
+import { convertSharesToAssets, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability, getEarnVaultPrice } from '~/entities/vault'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const earnPositions: Ref<AccountEarnPosition[]> = ref([])
@@ -66,13 +66,43 @@ const resolvePositionCollaterals = (liquidityInfo: any, fallback: string[]) => {
   return fallbackNormalized
 }
 
-const totalSuppliedValue = computed(() =>
-  depositPositions.value
-    .filter(position => !position.isSecuritize) // Securitize vaults don't have price info
+const totalSuppliedValue = computed(() => {
+  const { map } = useVaults()
+
+  // 1. Deposit positions (standalone vault context) — excludes securitize vaults
+  const depositValue = depositPositions.value
+    .filter(position => !position.isSecuritize)
     .reduce((result, position) => result + getVaultPrice(position.assets, position.vault as Vault), 0)
-  + borrowPositions.value.reduce((result, position) => result + getVaultPrice(position.supplied, position.collateral), 0),
+
+  // 2. Borrow position collateral (liability vault context) — use borrow vault's collateral pricing
+  const collateralValue = borrowPositions.value.reduce((result, position) => {
+    const borrowVault = map.value.get(position.borrow.address)
+    if (!borrowVault) {
+      // Fallback to collateral's own price if borrow vault not loaded
+      return result + getVaultPrice(position.supplied, position.collateral)
+    }
+
+    const priceInfo = getCollateralAssetPriceFromLiability(borrowVault, position.collateral)
+    if (!priceInfo) {
+      // Fallback if no collateral price available
+      return result + getVaultPrice(position.supplied, position.collateral)
+    }
+
+    const amount = nanoToValue(position.supplied, position.collateral.decimals)
+    return result + amount * nanoToValue(priceInfo.amountOutMid, 18)
+  }, 0)
+
+  // 3. Earn positions — use earn vault's asset price
+  const earnValue = earnPositions.value.reduce((result, position) => {
+    return result + getEarnVaultPrice(position.assets, position.vault)
+  }, 0)
+
+  return depositValue + collateralValue + earnValue
+})
+
+const totalBorrowedValue = computed(() =>
+  borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0),
 )
-const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0))
 
 const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses, address: string) => {
   const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()

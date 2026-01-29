@@ -57,7 +57,7 @@ const onBorrowInfoIconClick = () => {
       <VaultOverviewLabelValue
         label="Price"
       >
-        ${{ formatNumber(price) }} <span class="text-euler-dark-900">
+        {{ formatNumber(price) }} <span class="text-euler-dark-900">
           {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
         </span>
       </VaultOverviewLabelValue>

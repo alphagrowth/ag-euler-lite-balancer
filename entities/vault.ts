@@ -453,8 +453,8 @@ const applyCollateralPythPriceInfo = async (vaults: Vault[], hermesEndpoint?: st
       // Get Pyth feed for this collateral from the vault's oracle config
       const feeds = collectPythFeedIdsForPair(
         vault.oracleDetailedInfo!,
-        collateralAddress, // base: collateral asset
-        vault.unitOfAccount, // quote: vault's unit of account
+        collateralAddress as Hex, // base: collateral asset
+        vault.unitOfAccount as Hex, // quote: vault's unit of account
         3,
       )
 
@@ -1496,8 +1496,7 @@ export const getVaultValueUsd = (
     return 0
   }
 
-  const decimals = 'decimals' in vault ? vault.decimals : vault.asset.decimals
-  const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, decimals) : amount
+  const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.decimals) : amount
   return actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
 }
 
