@@ -165,7 +165,6 @@ export const filterSecuritizeVaults = async (vaultAddresses: string[]): Promise<
       securitizeAddresses.push(address)
     }
   })
-  console.log({ securitizeAddresses })
 
   return securitizeAddresses
 }
@@ -286,6 +285,14 @@ export interface SecuritizeBorrowVaultPair {
   borrowLTV: bigint
   liquidationLTV: bigint
   initialLiquidationLTV: bigint
+}
+
+// Union type for combined borrow list (regular + securitize)
+export type AnyBorrowVaultPair = BorrowVaultPair | SecuritizeBorrowVaultPair
+
+// Type guard to check if a pair is a securitize pair
+export const isSecuritizeBorrowPair = (pair: AnyBorrowVaultPair): pair is SecuritizeBorrowVaultPair => {
+  return 'type' in pair.collateral && pair.collateral.type === 'securitize'
 }
 
 export interface VaultIteratorResult<T> {

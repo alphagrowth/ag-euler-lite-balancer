@@ -2,7 +2,7 @@
 import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultPrice } from '~/entities/vault'
-import type { BorrowVaultPair, SecuritizeBorrowVaultPair } from '~/entities/vault'
+import type { AnyBorrowVaultPair } from '~/entities/vault'
 import { getProductByVault } from '~/composables/useEulerLabels'
 
 defineOptions({
@@ -12,13 +12,19 @@ defineOptions({
 const { borrowList, securitizeBorrowList, isLoading } = useVaults()
 const { products, entities } = useEulerLabels()
 
+// Combined list of all borrow pairs (regular + securitize)
+const allBorrowList = computed((): AnyBorrowVaultPair[] => [
+  ...borrowList.value,
+  ...securitizeBorrowList.value,
+])
+
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Liquidity')
 
 const collateralAssetOptions = computed(() => {
-  return borrowList.value
+  return allBorrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.collateral.asset.address === item.collateral.asset.address))
     .map(pair => ({
       label: pair.collateral.asset.symbol,
@@ -31,7 +37,7 @@ const collateralAssetOptions = computed(() => {
 })
 
 const debtAssetOptions = computed(() => {
-  return borrowList.value
+  return allBorrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.borrow.asset.address === item.borrow.asset.address))
     .map(pair => ({
       label: pair.borrow.asset.symbol,
@@ -44,7 +50,7 @@ const debtAssetOptions = computed(() => {
 })
 
 const marketOptions = computed(() => {
-  return borrowList.value.reduce((result, pair) => {
+  return allBorrowList.value.reduce((result, pair) => {
     const market = Object.values(products).find(product => product.vaults.includes(pair.collateral.address))
     const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
     const entityObj = entityName ? entities[entityName] : null
@@ -58,7 +64,7 @@ const marketOptions = computed(() => {
 })
 
 const filteredBorrowList = computed(() => {
-  return borrowList.value
+  return allBorrowList.value
     .filter(pair =>
       selectedCollateral.value.length || selectedDebt.value.length
         ? ((!selectedCollateral.value.length || selectedCollateral.value.includes(pair.collateral.asset.address))
@@ -71,11 +77,11 @@ const filteredBorrowList = computed(() => {
 const sortedBorrowList = computed(() => {
   switch (sortBy.value) {
     case 'Liquidity':
-      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+      return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return getVaultPrice(b.borrow.supply - b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.supply - a.borrow.borrow, a.borrow)
       })
     case 'Borrow APY':
-      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+      return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return Number(b.borrow.interestRateInfo.borrowAPY) - Number(a.borrow.interestRateInfo.borrowAPY)
       })
     default:
@@ -140,29 +146,10 @@ const sortedBorrowList = computed(() => {
         class="flex-1 self-center justify-self-center"
       />
 
-      <template v-else-if="sortedBorrowList.length || securitizeBorrowList.length">
-        <VaultsBorrowList
-          v-if="sortedBorrowList.length"
-          :items="sortedBorrowList"
-        />
-
-        <!-- Securitize Borrow Pairs -->
-        <div
-          v-if="securitizeBorrowList.length"
-          class="mt-24"
-        >
-          <h3 class="text-h4 mb-16 text-euler-dark-900">
-            Securitize Markets
-          </h3>
-          <div class="flex flex-col gap-12">
-            <SecuritizeBorrowItem
-              v-for="pair in securitizeBorrowList"
-              :key="`${pair.collateral.address}-${pair.borrow.address}`"
-              :pair="pair"
-            />
-          </div>
-        </div>
-      </template>
+      <VaultsBorrowList
+        v-else-if="sortedBorrowList.length"
+        :items="sortedBorrowList"
+      />
 
       <div
         v-else

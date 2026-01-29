@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { type BorrowVaultPair, getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import { type AnyBorrowVaultPair, isSecuritizeBorrowPair, getVaultPrice, getVaultUtilization } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultUtilizationWarningModal } from '#components'
 
-const { pair } = defineProps<{ pair: BorrowVaultPair }>()
+const { pair } = defineProps<{ pair: AnyBorrowVaultPair }>()
+
+const isSecuritize = computed(() => isSecuritizeBorrowPair(pair))
 
 const { name: collateralName } = useEulerProductOfVault(pair.collateral.address)
 const { name: borrowName } = useEulerProductOfVault(pair.borrow.address)
@@ -27,10 +29,15 @@ const opportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.a
 const brevisInfo = computed(() => getCampaignOfBorrowVault(pair.borrow.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
-const supplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25),
-  pair.collateral.asset.symbol,
-))
+const supplyApy = computed(() => {
+  // Securitize vaults don't have interestRateInfo
+  if (isSecuritize.value) return 0
+  const collateral = pair.collateral as { interestRateInfo: { supplyAPY: bigint }, asset: { symbol: string } }
+  return withIntrinsicSupplyApy(
+    nanoToValue(collateral.interestRateInfo.supplyAPY, 25),
+    collateral.asset.symbol,
+  )
+})
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
   pair.borrow.asset.symbol,
@@ -61,16 +68,25 @@ const maxRoe = computed(() => {
   return base + (multiplier - 1) * net
 })
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2))
-const utilization = computed(() => getVaultUtilization(pair.collateral))
+// Securitize vaults use borrow vault utilization instead of collateral
+const utilization = computed(() => isSecuritize.value
+  ? getVaultUtilization(pair.borrow)
+  : getVaultUtilization(pair.collateral as { supply: bigint, borrow: bigint }),
+)
 
 const onWarningClick = () => {
   modal.open(VaultUtilizationWarningModal)
 }
+
+const linkPath = computed(() => isSecuritize.value
+  ? `/borrow-securitize/${pair.collateral.address}/${pair.borrow.address}`
+  : `/borrow/${pair.collateral.address}/${pair.borrow.address}`,
+)
 </script>
 
 <template>
   <NuxtLink
-    :to="`/borrow/${pair.collateral.address}/${pair.borrow.address}`"
+    :to="linkPath"
     class="block no-underline text-white bg-euler-dark-500 rounded-16"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
@@ -80,8 +96,12 @@ const onWarningClick = () => {
         class="icon--40"
       />
       <div class="flex-grow ml-12">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-euler-dark-900 text-p3 mb-4 flex items-center gap-8">
           {{ pairName }}
+          <span
+            v-if="isSecuritize"
+            class="bg-euler-dark-600 text-euler-dark-900 px-8 py-2 rounded-4 text-p4"
+          >Securitize</span>
         </div>
         <div class="text-h5">
           {{ [pair.collateral.asset.symbol, pair.borrow.asset.symbol].join('/') }}
@@ -111,7 +131,10 @@ const onWarningClick = () => {
           {{ `$${compactNumber(getVaultPrice(pair.borrow.supply - pair.borrow.borrow, pair.borrow))}` }}
         </div>
       </div>
-      <div class="text-center">
+      <div
+        v-if="!isSecuritize"
+        class="text-center"
+      >
         <div class="text-euler-dark-900 text-p3 mb-4">
           Supply APY
         </div>
@@ -119,7 +142,10 @@ const onWarningClick = () => {
           {{ formatNumber(supplyApyWithRewards) }}%
         </div>
       </div>
-      <div class="text-center mobile:!hidden">
+      <div
+        v-if="!isSecuritize"
+        class="text-center mobile:!hidden"
+      >
         <div class="text-euler-dark-900 text-p3 mb-4">
           Max ROE
         </div>
@@ -197,7 +223,10 @@ const onWarningClick = () => {
           </div>
         </div>
       </div>
-      <div class="flex w-full justify-between">
+      <div
+        v-if="!isSecuritize"
+        class="flex w-full justify-between"
+      >
         <div class="flex-1">
           <div class="text-euler-dark-900 text-p3">
             Max ROE
