@@ -143,12 +143,27 @@ const resolveUnknown = async (address: string): Promise<VaultEntry> => {
   // Query subgraph for factory
   const factory = await fetchVaultFactory(normalized)
 
-  if (!factory) {
-    throw new Error(`Could not find factory for vault ${address}`)
+  let type: VaultType
+  if (factory) {
+    // Detect type from factory
+    type = detectVaultType(factory)
   }
+  else {
+    // Factory not found - try to determine type by attempting fetches
+    // This can happen if vault is not yet indexed in subgraph
+    console.warn(`[resolveUnknown] Factory not found for ${address}, trying fetch methods`)
 
-  // Detect type from factory
-  const type = detectVaultType(factory)
+    // Try securitize first (has distinct structure), then fall back to EVK
+    try {
+      const vault = await fetchSecuritizeVault(normalized)
+      set(normalized, vault, 'securitize')
+      return { vault, type: 'securitize' }
+    }
+    catch {
+      // Not a securitize vault, default to EVK
+      type = 'evk'
+    }
+  }
 
   // Fetch vault with appropriate lens
   const vault = await fetchVaultByType(normalized, type)
