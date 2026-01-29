@@ -1353,6 +1353,7 @@ watch(areVaultsReady, async (ready) => {
         <VaultLabelsAndAssets
           v-if="collateralVault && borrowVault"
           :vault="collateralVault"
+          :pair-vault="borrowVault"
           :assets="pairAssets as VaultAsset[]"
           size="large"
         />

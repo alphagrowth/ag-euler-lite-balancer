@@ -74,6 +74,7 @@ const allCollateralPairs = computed(() => [
           >
             <VaultLabelsAndAssets
               :vault="pair.collateral"
+              :pair-vault="pair.borrow"
               :assets="[pair.collateral.asset]"
             />
           </div>

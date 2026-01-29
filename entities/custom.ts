@@ -59,6 +59,6 @@ export const labelsRepo: string = 'euler-xyz/euler-labels' // https://github.com
 
 export const onboardingInfo = {
   logoUrl: '/logo.png',
-  title: 'The Lending Super App',
+  title: 'The Modular Credit Layer',
   description: 'Lend, borrow and build without limits.',
 }

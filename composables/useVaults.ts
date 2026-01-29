@@ -245,11 +245,16 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
     collateralVault = await getEscrowVault(collateralAddr)
   }
   else {
-    try {
-      collateralVault = await fetchVault(collateralAddr)
-    }
-    catch {
-      collateralVault = await fetchEscrowVault(collateralAddr)
+    collateralVault = await fetchVault(collateralAddr)
+
+    // If unverified, it might be an escrow vault - try fetching as escrow
+    if (!collateralVault.verified) {
+      try {
+        collateralVault = await fetchEscrowVault(collateralAddr)
+      }
+      catch {
+        // Not an escrow vault either, keep the unverified regular vault
+      }
     }
   }
 

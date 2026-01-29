@@ -9,8 +9,8 @@ const { index, position } = defineProps<{ index: number, position: AccountBorrow
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 
-const { name: collateralName } = useEulerProductOfVault(position.collateral.address)
-const { name: borrowName } = useEulerProductOfVault(position.borrow.address)
+const { name: collateralProductName } = useEulerProductOfVault(position.collateral.address)
+const { name: borrowProductName } = useEulerProductOfVault(position.borrow.address)
 
 const borrowVault = computed(() => position.borrow)
 const collateralVault = computed(() => position.collateral)
@@ -20,14 +20,26 @@ const collateralSymbolLabel = computed(() => {
   return hasMultipleCollaterals.value ? `${symbol} & others` : symbol
 })
 const pairSymbols = computed(() => `${collateralSymbolLabel.value}/${position.borrow.asset.symbol}`)
+
+// Handle escrow vaults showing "Ungoverned"
+const collateralLabel = computed(() => {
+  if ('type' in position.collateral && position.collateral.type === 'escrow') {
+    return 'Ungoverned'
+  }
+  return collateralProductName || position.collateral.name
+})
+const borrowLabel = computed(() => {
+  if ('type' in position.borrow && position.borrow.type === 'escrow') {
+    return 'Ungoverned'
+  }
+  return borrowProductName || position.borrow.name
+})
+
 const pairName = computed(() => {
-  if (!collateralName || !borrowName) {
-    return `${position.collateral.name}/${position.borrow.name}`
+  if (collateralLabel.value === borrowLabel.value) {
+    return collateralLabel.value
   }
-  if (collateralName === borrowName) {
-    return collateralName
-  }
-  return `${collateralName}/${borrowName}`
+  return `${collateralLabel.value} / ${borrowLabel.value}`
 })
 const liquidationPrice = computed(() => {
   const price = position.price || 0n
