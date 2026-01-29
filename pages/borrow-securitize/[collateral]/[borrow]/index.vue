@@ -33,7 +33,6 @@ const borrowAddress = route.params.borrow as string
 const ltv = ref(0)
 const borrowAmount = ref('')
 const collateralAmount = ref('')
-const balance = ref(0n)
 const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
 
@@ -52,7 +51,7 @@ const liquidationPrice = ref()
 
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
-
+const balance = computed(() => getBalance(collateralVault.value?.asset?.address as `0x${string}`) || 0n)
 
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
 const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
@@ -115,14 +114,6 @@ const isSubmitDisabled = computed(() => {
     || ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals))
     || !valueToNano(borrowAmount.value, borrowVault.value?.decimals)
 })
-
-const updateBalance = async () => {
-  if (!isConnected.value || !collateralVault.value) {
-    balance.value = 0n
-    return
-  }
-  balance.value = getBalance(collateralVault.value.asset.address as `0x${string}`) || 0n
-}
 
 const onCollateralInput = async () => {
   await nextTick()
@@ -218,7 +209,6 @@ const send = async () => {
     )
 
     modal.close()
-    updateBalance()
     updateBorrowPositions(eulerLensAddresses.value, address.value || '')
     setTimeout(() => {
       router.replace('/portfolio')
@@ -281,11 +271,6 @@ const tabs = computed(() => {
     },
   ]
 })
-
-watch(pair, (val) => {
-  if (!val) return
-  updateBalance()
-}, { immediate: true })
 
 watch([collateralAmount, borrowAmount], async () => {
   if (!pair.value) return
