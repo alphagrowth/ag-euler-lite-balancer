@@ -154,30 +154,14 @@ const updateEscrowVaults = async () => {
 }
 
 const loadSecuritizeVaults = async () => {
-  // Wait for EVK vaults to be loaded first so we can check their collateral LTVs
-  await until(computed(() => map.value.size > 0)).toBeTruthy({ timeout: 30000 })
+  const { verifiedVaultAddresses } = useEulerLabels()
 
-  // Collect all unique collateral addresses from EVK vaults
-  const collateralAddresses = new Set<string>()
-  map.value.forEach((vault) => {
-    vault.collateralLTVs.forEach((ltv) => {
-      if (ltv.borrowLTV > 0n) {
-        collateralAddresses.add(ltv.collateral)
-      }
-    })
-  })
-
-  // Filter out collaterals that are already in map (EVK vaults) or escrowMap
-  const unknownCollaterals = [...collateralAddresses].filter(
-    (addr) => !map.value.has(addr) && !escrowMap.value.has(addr),
-  )
-
-  if (!unknownCollaterals.length) {
+  if (!verifiedVaultAddresses.value.length) {
     return
   }
 
-  // Query subgraph to find which collaterals are securitize vaults
-  const securitizeAddresses = await filterSecuritizeVaults(unknownCollaterals)
+  // Query subgraph for ALL addresses from products.json to find securitize vaults
+  const securitizeAddresses = await filterSecuritizeVaults(verifiedVaultAddresses.value)
 
   if (!securitizeAddresses.length) {
     return
@@ -193,6 +177,9 @@ const loadSecuritizeVaults = async () => {
       securitizeMap.value.set(result.value.address, result.value)
     }
   })
+
+  // Trigger reactivity
+  securitizeMap.value = new Map(securitizeMap.value)
 }
 
 const loadVaults = async () => {
@@ -247,28 +234,31 @@ const getVault = async (address: string): Promise<Vault> => {
 
   // Check if this is a securitize vault - if so, throw to trigger fallback
   const vaultType = getType(normalizedAddress)
-  if (vaultType === 'securitize') {
-    throw new Error('[getVault] Address is a securitize vault, use getSecuritizeVault instead')
+  if (vaultType === "securitize") {
+    throw new Error("[getVault] Address is a securitize vault, use getSecuritizeVault instead")
   }
 
   // If registry isn't populated yet, check securitizeMap directly or use async check
   if (!vaultType && securitizeMap.value.has(normalizedAddress)) {
-    throw new Error('[getVault] Address is a securitize vault, use getSecuritizeVault instead')
+    throw new Error("[getVault] Address is a securitize vault, use getSecuritizeVault instead")
   }
 
   // If still no type info and address is in verifiedVaultAddresses but not in map,
   // do an async check to avoid infinite wait on securitize vaults
-  if (!vaultType && verifiedVaultAddresses.value.includes(normalizedAddress) && !map.value.has(normalizedAddress)) {
+  if (
+    !vaultType &&
+    verifiedVaultAddresses.value.includes(normalizedAddress) &&
+    !map.value.has(normalizedAddress)
+  ) {
     const isSecuritize = await isSecuritizeVault(normalizedAddress)
     if (isSecuritize) {
-      throw new Error('[getVault] Address is a securitize vault, use getSecuritizeVault instead')
+      throw new Error("[getVault] Address is a securitize vault, use getSecuritizeVault instead")
     }
   }
 
   if (verifiedVaultAddresses.value.includes(normalizedAddress)) {
     await until(computed(() => map.value.get(normalizedAddress))).toBeTruthy()
-  }
-  else {
+  } else {
     return fetchVault(normalizedAddress)
   }
 

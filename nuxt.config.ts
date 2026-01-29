@@ -93,6 +93,10 @@ export default defineNuxtConfig({
     public: {
       network: process.env.NETWORK,
       pythHermesUrl: process.env.PYTH_HERMES_URL || "https://hermes.pyth.network",
+      productsLabelsRepo: process.env.PRODUCTS_LABELS_REPO || "",
+      entitiesLabelsRepo: process.env.ENTITIES_LABELS_REPO || "",
+      earnVaultsLabelsRepo: process.env.EARN_VAULTS_LABELS_REPO || "",
+      pointsLabelsRepo: process.env.POINTS_LABELS_REPO || "",
     },
   },
 

@@ -8,7 +8,7 @@ import {
   type EulerLabelPointReward,
 } from '~/entities/euler/labels'
 import type { EarnVault } from '~/entities/vault'
-import { labelsRepo, productsLabelsRepo, entitiesLabelsRepo, earnVaultsLabelsRepo, pointsLabelsRepo } from '~/entities/custom'
+import { labelsRepo } from '~/entities/custom'
 
 const getLabelsUrl = (repo: string | undefined, chainId: number, file: string) =>
   `https://raw.githubusercontent.com/${repo || labelsRepo}/refs/heads/master/${chainId}/${file}`
@@ -65,6 +65,12 @@ export const useEulerLabels = () => {
     try {
       isLoading.value = true
       const { getCurrentChainConfig, loadEulerConfig } = useEulerAddresses()
+      const {
+        productsLabelsRepo,
+        entitiesLabelsRepo,
+        earnVaultsLabelsRepo,
+        pointsLabelsRepo,
+      } = useRuntimeConfig().public
 
       if (!getCurrentChainConfig.value) {
         loadEulerConfig()
@@ -79,14 +85,16 @@ export const useEulerLabels = () => {
 
       const chainId = getCurrentChainConfig.value!.chainId
 
+      const productsUrl = getLabelsUrl(productsLabelsRepo || undefined, chainId, 'products.json')
+
       const [productRes, entitiesRes, pointsRes] = await Promise.all([
-        axios.get(getLabelsUrl(productsLabelsRepo, chainId, 'products.json')),
-        axios.get(getLabelsUrl(entitiesLabelsRepo, chainId, 'entities.json')),
-        axios.get(getLabelsUrl(pointsLabelsRepo, chainId, 'points.json')),
+        axios.get(productsUrl),
+        axios.get(getLabelsUrl(entitiesLabelsRepo || undefined, chainId, 'entities.json')),
+        axios.get(getLabelsUrl(pointsLabelsRepo || undefined, chainId, 'points.json')),
       ])
 
       if (labelsRepo !== 'euler-xyz/euler-labels') {
-        const earnRes = await axios.get(getLabelsUrl(earnVaultsLabelsRepo, chainId, 'earn-vaults.json'))
+        const earnRes = await axios.get(getLabelsUrl(earnVaultsLabelsRepo || undefined, chainId, 'earn-vaults.json'))
         earnVaults.value = earnRes.data.map(normalizeAddress)
       }
 
