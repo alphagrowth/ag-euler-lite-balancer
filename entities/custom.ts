@@ -56,7 +56,3 @@ export const availableNetworkIds = [
 ] as const
 
 export const labelsRepo: string = 'euler-xyz/euler-labels' // https://github.com/euler-xyz/euler-labels
-
-// Override repos for specific label files via environment variables:
-// PRODUCTS_LABELS_REPO, ENTITIES_LABELS_REPO, EARN_VAULTS_LABELS_REPO, POINTS_LABELS_REPO
-// These are configured in nuxt.config.ts runtimeConfig and accessed via useRuntimeConfig()

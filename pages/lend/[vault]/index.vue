@@ -288,145 +288,151 @@ watch(amount, async () => {
 
 <template>
   <div class="flex gap-32">
-    <VaultForm
-      title="Open lend position"
-      class="w-full"
-      @submit.prevent="submit"
-    >
-      <!-- Vault header -->
-      <div
-        v-if="isVaultLoaded && asset"
-        class="flex justify-between"
+    <div class="flex flex-col gap-16 w-full">
+      <span
+        v-if="vaultType === 'securitize'"
+        class="bg-euler-dark-600 text-euler-dark-900 px-12 py-4 rounded-8 text-p3 self-start"
+      >Securitize Digital Security Token</span>
+      <VaultForm
+        title="Open lend position"
+        class="w-full"
+        @submit.prevent="submit"
       >
-        <!-- EVK vaults use VaultLabelsAndAssets component -->
-        <VaultLabelsAndAssets
-          v-if="features.hasPoints && vault"
-          :vault="vault"
-          :assets="assets"
-          size="large"
-        />
-        <!-- Other vault types show simple name/symbol -->
+        <!-- Vault header -->
         <div
-          v-else
-          class="flex items-center gap-12"
+          v-if="isVaultLoaded && asset"
+          class="flex justify-between"
         >
-          <div>
-            <p class="text-h3">
-              {{ vaultName }}
-            </p>
-            <p class="text-euler-dark-900">
-              {{ asset.symbol }}
-            </p>
-          </div>
-        </div>
-
-        <div class="flex flex-col items-end justify-end">
-          <p class="mb-4 text-euler-dark-900">
-            Supply APY
-          </p>
-
-          <p class="flex justify-end gap-4 text-h3">
-            <VaultPoints
-              v-if="features.hasPoints && vault"
-              class="mr-4"
-              :vault="vault"
-            />
-            <SvgIcon
-              v-if="hasRewards"
-              class="!w-24 !h-24 text-aquamarine-700"
-              name="sparks"
-            />
-            <span>
-              {{ supplyAPYDisplay }}%
-            </span>
-            <SvgIcon
-              v-if="features.hasApyBreakdown"
-              class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
-              name="question-circle"
-              @click="onSupplyInfoIconClick"
-            />
-          </p>
-        </div>
-      </div>
-
-      <AssetInput
-        v-if="asset"
-        v-model="amount"
-        label="Deposit amount"
-        :desc="name"
-        :asset="asset"
-        :vault="vault"
-        :balance="balance"
-        maxable
-      />
-
-      <UiToast
-        v-show="errorText"
-        title="Error"
-        variant="error"
-        :description="errorText || ''"
-        size="compact"
-      />
-
-      <VaultFormInfoBlock
-        v-if="isVaultLoaded && asset"
-        :loading="isEstimatesLoading"
-      >
-        <div class="[&>*:not(:last-child)]:pb-16 [&>*:not(:last-child)]:mb-16 [&>*:not(:last-child)]:border-b [&>*:not(:last-child)]:border-white/10">
-          <div>
-            <p class="mb-8">
-              Projected Earnings per Month
-            </p>
-
-            <p class="text-euler-dark-900">
-              <span class="text-white text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
-                asset.symbol
-              }}
-              <template v-if="features.hasPriceInfo && vault">
-                ≈ ${{ compactNumber(getVaultPrice(monthlyEarnings, vault)) }}
-              </template>
-            </p>
+          <!-- EVK vaults use VaultLabelsAndAssets component -->
+          <VaultLabelsAndAssets
+            v-if="features.hasPoints && vault"
+            :vault="vault"
+            :assets="assets"
+            size="large"
+          />
+          <!-- Securitize and other vault types show simple name/symbol -->
+          <div
+            v-else
+            class="flex items-center gap-12"
+          >
+            <div>
+              <p class="text-h3">
+                {{ vaultName }}
+              </p>
+              <p class="text-euler-dark-900">
+                {{ asset.symbol }}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <p class="mb-8">
+          <div class="flex flex-col items-end justify-end">
+            <p class="mb-4 text-euler-dark-900">
               Supply APY
             </p>
 
-            <p
-              v-if="features.hasInterestRate && supplyAPYDisplay !== estimateSupplyAPYDisplay"
-              class="text-p2 text-euler-dark-900"
-            >
-              {{ supplyAPYDisplay }}%
-              <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
-                → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
-              </template>
-            </p>
-            <p
-              v-else
-              class="text-p2 text-white"
-            >
-              {{ supplyAPYDisplay }}%
+            <p class="flex justify-end gap-4 text-h3">
+              <VaultPoints
+                v-if="features.hasPoints && vault"
+                class="mr-4"
+                :vault="vault"
+              />
+              <SvgIcon
+                v-if="hasRewards"
+                class="!w-24 !h-24 text-aquamarine-700"
+                name="sparks"
+              />
+              <span>
+                {{ supplyAPYDisplay }}%
+              </span>
+              <SvgIcon
+                v-if="features.hasApyBreakdown"
+                class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
+                name="question-circle"
+                @click="onSupplyInfoIconClick"
+              />
             </p>
           </div>
         </div>
-      </VaultFormInfoBlock>
 
-      <template #buttons>
-        <VaultFormInfoButton
-          v-if="features.hasOverview && vault"
-          class="laptop:!hidden"
+        <AssetInput
+          v-if="asset"
+          v-model="amount"
+          label="Deposit amount"
+          :desc="name"
+          :asset="asset"
           :vault="vault"
-          :disabled="isLoading || isSubmitting"
+          :balance="balance"
+          maxable
         />
-        <VaultFormSubmit
-          :disabled="isSubmitDisabled"
-          :loading="isSubmitting"
+
+        <UiToast
+          v-show="errorText"
+          title="Error"
+          variant="error"
+          :description="errorText || ''"
+          size="compact"
+        />
+
+        <VaultFormInfoBlock
+          v-if="isVaultLoaded && asset"
+          :loading="isEstimatesLoading"
         >
-          Review Supply
-        </VaultFormSubmit>
-      </template>
-    </VaultForm>
+          <div class="[&>*:not(:last-child)]:pb-16 [&>*:not(:last-child)]:mb-16 [&>*:not(:last-child)]:border-b [&>*:not(:last-child)]:border-white/10">
+            <div>
+              <p class="mb-8">
+                Projected Earnings per Month
+              </p>
+
+              <p class="text-euler-dark-900">
+                <span class="text-white text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
+                  asset.symbol
+                }}
+                <template v-if="features.hasPriceInfo && vault">
+                  ≈ ${{ compactNumber(getVaultPrice(monthlyEarnings, vault)) }}
+                </template>
+              </p>
+            </div>
+
+            <div>
+              <p class="mb-8">
+                Supply APY
+              </p>
+
+              <p
+                v-if="features.hasInterestRate && supplyAPYDisplay !== estimateSupplyAPYDisplay"
+                class="text-p2 text-euler-dark-900"
+              >
+                {{ supplyAPYDisplay }}%
+                <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
+                  → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
+                </template>
+              </p>
+              <p
+                v-else
+                class="text-p2 text-white"
+              >
+                {{ supplyAPYDisplay }}%
+              </p>
+            </div>
+          </div>
+        </VaultFormInfoBlock>
+
+        <template #buttons>
+          <VaultFormInfoButton
+            v-if="features.hasOverview && vault"
+            class="laptop:!hidden"
+            :vault="vault"
+            :disabled="isLoading || isSubmitting"
+          />
+          <VaultFormSubmit
+            :disabled="isSubmitDisabled"
+            :loading="isSubmitting"
+          >
+            Review Supply
+          </VaultFormSubmit>
+        </template>
+      </VaultForm>
+    </div>
 
     <div class="w-full hidden laptop:!block">
       <!-- EVK Vault Overview -->

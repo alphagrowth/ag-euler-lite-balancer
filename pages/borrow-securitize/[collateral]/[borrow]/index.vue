@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers, FixedNumber } from 'ethers'
+import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   type SecuritizeBorrowVaultPair,
-  type SecuritizeVault,
-  type Vault,
-  type VaultAsset,
   getVaultPriceInfo,
 } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -55,8 +52,6 @@ const balance = computed(() => getBalance(collateralVault.value?.asset?.address 
 
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
 const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
-
-const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
 
 // For securitize vaults, we need to get price differently
 // Using the borrow vault's collateral prices to get the securitize vault price
@@ -294,136 +289,139 @@ watch(areVaultsReady, async (ready) => {
 
 <template>
   <div class="flex gap-32">
-    <VaultForm
-      title="Open borrow position"
-      class="flex flex-col gap-16 w-full min-w-0"
-      @submit.prevent="submit"
-    >
-      <template v-if="pair && collateralVault && borrowVault">
-        <!-- Header showing collateral and borrow assets -->
-        <div class="flex items-center gap-12">
-          <div class="flex items-center gap-8">
-            <BaseAvatar
-              :src="getAssetLogoUrl(collateralVault.asset.symbol)"
-              :label="collateralVault.asset.symbol"
-            />
-            <BaseAvatar
-              :src="getAssetLogoUrl(borrowVault.asset.symbol)"
-              :label="borrowVault.asset.symbol"
-            />
+    <div class="flex flex-col gap-16 w-full min-w-0">
+      <span class="bg-euler-dark-600 text-euler-dark-900 px-12 py-4 rounded-8 text-p3 self-start">Securitize Digital Security Token</span>
+      <VaultForm
+        title="Open borrow position"
+        class="flex flex-col gap-16 w-full min-w-0"
+        @submit.prevent="submit"
+      >
+        <template v-if="pair && collateralVault && borrowVault">
+          <!-- Header showing collateral and borrow assets -->
+          <div class="flex items-center gap-12">
+            <div class="flex items-center gap-8">
+              <BaseAvatar
+                :src="getAssetLogoUrl(collateralVault.asset.symbol)"
+                :label="collateralVault.asset.symbol"
+              />
+              <BaseAvatar
+                :src="getAssetLogoUrl(borrowVault.asset.symbol)"
+                :label="borrowVault.asset.symbol"
+              />
+            </div>
+            <div>
+              <p class="text-h3">
+                {{ collateralVault.name }}
+              </p>
+              <p class="text-euler-dark-900">
+                {{ collateralVault.asset.symbol }} / {{ borrowVault.asset.symbol }}
+              </p>
+            </div>
           </div>
-          <div>
-            <p class="text-h3">
-              {{ collateralVault.name }}
-            </p>
-            <p class="text-euler-dark-900">
-              {{ collateralVault.asset.symbol }} / {{ borrowVault.asset.symbol }}
-            </p>
-          </div>
-        </div>
 
-        <!-- Collateral Input -->
-        <AssetInput
-          v-model="collateralAmount"
-          :desc="collateralProduct.name"
-          :label="`Supply ${collateralVault.asset.symbol}`"
-          :asset="collateralVault.asset"
-          :balance="balance"
-          maxable
-          @input="onCollateralInput"
-        />
+          <!-- Collateral Input -->
+          <AssetInput
+            v-model="collateralAmount"
+            :desc="collateralProduct.name"
+            :label="`Supply ${collateralVault.asset.symbol}`"
+            :asset="collateralVault.asset"
+            :balance="balance"
+            maxable
+            @input="onCollateralInput"
+          />
 
-        <!-- LTV Slider -->
-        <UiRange
-          v-model="ltv"
-          label="LTV"
-          :step="0.1"
-          :max="Number(pair.borrowLTV / 100n)"
-          :number-filter="(n: number) => `${n}%`"
-          @update:model-value="onLtvInput"
-        />
+          <!-- LTV Slider -->
+          <UiRange
+            v-model="ltv"
+            label="LTV"
+            :step="0.1"
+            :max="Number(pair.borrowLTV / 100n)"
+            :number-filter="(n: number) => `${n}%`"
+            @update:model-value="onLtvInput"
+          />
 
-        <!-- Borrow Input -->
-        <AssetInput
-          v-model="borrowAmount"
-          :desc="borrowProduct.name"
-          :label="`Borrow ${borrowVault.asset.symbol}`"
-          :asset="borrowVault.asset"
-          :vault="borrowVault"
-          @input="onBorrowInput"
-        />
+          <!-- Borrow Input -->
+          <AssetInput
+            v-model="borrowAmount"
+            :desc="borrowProduct.name"
+            :label="`Borrow ${borrowVault.asset.symbol}`"
+            :asset="borrowVault.asset"
+            :vault="borrowVault"
+            @input="onBorrowInput"
+          />
 
-        <UiToast
-          v-show="errorText"
-          title="Error"
-          variant="error"
-          :description="errorText || ''"
-          size="compact"
-        />
+          <UiToast
+            v-show="errorText"
+            title="Error"
+            variant="error"
+            :description="errorText || ''"
+            size="compact"
+          />
 
-        <!-- Info Block -->
-        <VaultFormInfoBlock
-          :loading="isEstimatesLoading"
-          class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
-        >
-          <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
-              Current Price
-            </p>
-            <p class="text-p2">
-              {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-              <span class="text-euler-dark-900 text-p3">
-                {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
-              </span>
-            </p>
-          </div>
-          <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
-              Liquidation price
-            </p>
-            <p class="text-p2">
-              {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-              <span class="text-euler-dark-900 text-p3">
-                {{ collateralVault.asset.symbol }}
-              </span>
-            </p>
-          </div>
-          <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
-              Health
-            </p>
-            <p class="text-p2">
-              {{ health ? formatNumber(health, 2) : '-' }}
-            </p>
-          </div>
-          <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
-              Max LTV
-            </p>
-            <p class="text-p2">
-              {{ formatNumber(nanoToValue(pair.borrowLTV, 2), 2) }}%
-            </p>
-          </div>
-          <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
-              Liquidation LTV
-            </p>
-            <p class="text-p2">
-              {{ formatNumber(nanoToValue(pair.liquidationLTV, 2), 2) }}%
-            </p>
-          </div>
-        </VaultFormInfoBlock>
-      </template>
+          <!-- Info Block -->
+          <VaultFormInfoBlock
+            :loading="isEstimatesLoading"
+            class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
+          >
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Current Price
+              </p>
+              <p class="text-p2">
+                {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
+                <span class="text-euler-dark-900 text-p3">
+                  {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
+                </span>
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Liquidation price
+              </p>
+              <p class="text-p2">
+                {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
+                <span class="text-euler-dark-900 text-p3">
+                  {{ collateralVault.asset.symbol }}
+                </span>
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Health
+              </p>
+              <p class="text-p2">
+                {{ health ? formatNumber(health, 2) : '-' }}
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Max LTV
+              </p>
+              <p class="text-p2">
+                {{ formatNumber(nanoToValue(pair.borrowLTV, 2), 2) }}%
+              </p>
+            </div>
+            <div class="flex justify-between items-center">
+              <p class="text-euler-dark-900">
+                Liquidation LTV
+              </p>
+              <p class="text-p2">
+                {{ formatNumber(nanoToValue(pair.liquidationLTV, 2), 2) }}%
+              </p>
+            </div>
+          </VaultFormInfoBlock>
+        </template>
 
-      <template #buttons>
-        <VaultFormSubmit
-          :disabled="isSubmitDisabled"
-          :loading="isSubmitting"
-        >
-          Review Borrow
-        </VaultFormSubmit>
-      </template>
-    </VaultForm>
+        <template #buttons>
+          <VaultFormSubmit
+            :disabled="isSubmitDisabled"
+            :loading="isSubmitting"
+          >
+            Review Borrow
+          </VaultFormSubmit>
+        </template>
+      </VaultForm>
+    </div>
 
     <!-- Overview Panel -->
     <div

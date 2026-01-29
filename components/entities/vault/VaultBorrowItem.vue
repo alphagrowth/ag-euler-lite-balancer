@@ -100,8 +100,8 @@ const linkPath = computed(() => isSecuritize.value
           {{ pairName }}
           <span
             v-if="isSecuritize"
-            class="bg-euler-dark-600 text-euler-dark-900 px-8 py-2 rounded-4 text-p4"
-          >Securitize</span>
+            class="bg-euler-dark-600 text-euler-dark-900 px-8 py-2 rounded-8 text-p4"
+          >Securitize Digital Security Token</span>
         </div>
         <div class="text-h5">
           {{ [pair.collateral.asset.symbol, pair.borrow.asset.symbol].join('/') }}
