@@ -11,7 +11,6 @@ const {
   borrowPositions,
   depositPositions,
   earnPositions,
-  securitizePositions,
   totalSuppliedValue,
   totalBorrowedValue,
   isPositionsLoaded,
@@ -19,7 +18,6 @@ const {
   updateBorrowPositions,
   updateDepositPositions,
   updateEarnPositions,
-  updateSecuritizePositions,
 } = useEulerAccount()
 const { rewards } = useMerkl()
 const { locks } = useREULLocks()
@@ -40,7 +38,7 @@ const tabs = computed(() => [
   {
     label: 'Savings',
     value: 'portfolio-saving',
-    badge: depositPositions.value.length + earnPositions.value.length + securitizePositions.value.length || null,
+    badge: depositPositions.value.length + earnPositions.value.length || null,
   },
   {
     label: 'Rewards',
@@ -59,7 +57,6 @@ const updatePositions = async () => {
   updateDepositPositions(balances.value, eulerLensAddresses.value, address.value as string)
   updateEarnPositions(balances.value, eulerLensAddresses.value, address.value as string)
   updateBorrowPositions(eulerLensAddresses.value, address.value as string)
-  updateSecuritizePositions(balances.value, eulerLensAddresses.value, address.value as string)
 }
 
 watch(tabsModel, checkTab, { immediate: true })

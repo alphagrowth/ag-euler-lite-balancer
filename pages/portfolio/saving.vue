@@ -2,7 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 
 const { isConnected } = useAccount()
-const { depositPositions, earnPositions, securitizePositions, isDepositsLoaded } = useEulerAccount()
+const { depositPositions, earnPositions, isDepositsLoaded } = useEulerAccount()
 const { isReady } = useVaults()
 </script>
 
@@ -103,24 +103,5 @@ const { isReady } = useVaults()
         </div>
       </div>
     </div>
-
-    <template v-if="securitizePositions.length > 0">
-      <div class="flex justify-between items-center mb-8 mt-24">
-        <h3 class="text-h3 font-normal">
-          Securitize vaults
-        </h3>
-      </div>
-      <p class="text-p2 text-euler-dark-900 mb-16">
-        Positions in Securitize vaults that can be used as collateral for borrowing.
-      </p>
-      <div class="flex flex-1 p-8 rounded-16 border border-euler-dark-600">
-        <div class="flex-1">
-          <PortfolioList
-            :items="securitizePositions"
-            type="securitize"
-          />
-        </div>
-      </div>
-    </template>
   </div>
 </template>

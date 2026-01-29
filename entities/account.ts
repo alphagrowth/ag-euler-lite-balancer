@@ -66,17 +66,13 @@ export interface AccountBorrowPosition {
   collateralValueLiquidation: bigint
 }
 export interface AccountDepositPosition {
-  vault: Vault
+  vault: Vault | SecuritizeVault
   shares: bigint
   assets: bigint
+  isSecuritize?: boolean
 }
 export interface AccountEarnPosition {
   vault: EarnVault
-  shares: bigint
-  assets: bigint
-}
-export interface AccountSecuritizePosition {
-  vault: SecuritizeVault
   shares: bigint
   assets: bigint
 }
