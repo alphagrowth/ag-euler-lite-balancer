@@ -19,6 +19,7 @@ import {
   type Vault,
 } from '~/entities/vault'
 import { labelsRepo } from '~/entities/custom'
+import { useVaultRegistry, type AnyVault, type VaultType } from './useVaultRegistry'
 
 const isReady = ref(false)
 const isLoading = ref(false)
@@ -68,6 +69,8 @@ const securitizeBorrowList = computed((): SecuritizeBorrowVaultPair[] => {
 })
 
 const resetVaultsState = () => {
+  const { clear } = useVaultRegistry()
+
   isReady.value = false
   isLoading.value = true
   isEarnLoading.value = true
@@ -76,6 +79,7 @@ const resetVaultsState = () => {
   earnMap.value = new Map()
   securitizeMap.value = new Map()
   loadedChainId.value = null
+  clear() // Clear registry on reset
 }
 
 const updateVaults = async () => {
@@ -196,6 +200,7 @@ const loadSecuritizeVaults = async () => {
 
 const loadVaults = async () => {
   const { chainId } = useEulerAddresses()
+  const { setMany } = useVaultRegistry()
   const startChainId = chainId.value
 
   try {
@@ -206,6 +211,31 @@ const loadVaults = async () => {
       updateEscrowVaults(),
       loadSecuritizeVaults(),
     ])
+
+    // Populate the unified registry with all loaded vaults
+    const registryEntries: Array<{ address: string, vault: AnyVault, type: VaultType }> = []
+
+    // Add EVK vaults
+    map.value.forEach((vault, address) => {
+      registryEntries.push({ address, vault, type: 'evk' })
+    })
+
+    // Add Escrow vaults
+    escrowMap.value.forEach((vault, address) => {
+      registryEntries.push({ address, vault, type: 'escrow' })
+    })
+
+    // Add Earn vaults
+    earnMap.value.forEach((vault, address) => {
+      registryEntries.push({ address, vault, type: 'earn' })
+    })
+
+    // Add Securitize vaults
+    securitizeMap.value.forEach((vault, address) => {
+      registryEntries.push({ address, vault, type: 'securitize' })
+    })
+
+    setMany(registryEntries)
   }
   finally {
     if (chainId.value === startChainId) {
