@@ -260,6 +260,8 @@ export interface Vault {
   pythPriceInfo?: {
     amountOutMid: bigint
   }
+  // Pyth-enhanced collateral prices, keyed by collateral address (lowercase)
+  collateralPythPrices?: Map<string, { amountOutMid: bigint }>
   oracleDetailedInfo?: OracleDetailedInfo
   backupAssetOracleInfo?: OracleDetailedInfo
   dToken: string
@@ -431,6 +433,62 @@ const applyPythPriceInfo = async (vaults: Vault[], hermesEndpoint?: string) => {
   })
 }
 
+/**
+ * Apply Pyth prices for collateral assets of vaults.
+ * This enables real-time collateral pricing from the liability vault's perspective.
+ */
+const applyCollateralPythPriceInfo = async (vaults: Vault[], hermesEndpoint?: string) => {
+  if (!vaults.length || !hermesEndpoint) return
+
+  // Map: feedId -> { vaultAddress -> collateralAddress }
+  const feedToCollaterals = new Map<string, Array<{ vault: Vault, collateralAddress: string }>>()
+  const allFeedIds: Hex[] = []
+
+  vaults.forEach((vault) => {
+    if (!vault.collateralPrices?.length || !vault.oracleDetailedInfo) return
+
+    vault.collateralPrices.forEach((collateralPrice) => {
+      const collateralAddress = collateralPrice.asset
+
+      // Get Pyth feed for this collateral from the vault's oracle config
+      const feeds = collectPythFeedIdsForPair(
+        vault.oracleDetailedInfo!,
+        collateralAddress, // base: collateral asset
+        vault.unitOfAccount, // quote: vault's unit of account
+        3,
+      )
+
+      if (feeds.length === 1) {
+        const feedId = feeds[0].feedId
+        const key = feedId.toLowerCase()
+        if (!feedToCollaterals.has(key)) {
+          feedToCollaterals.set(key, [])
+          allFeedIds.push(feedId)
+        }
+        feedToCollaterals.get(key)?.push({ vault, collateralAddress: collateralAddress.toLowerCase() })
+      }
+    })
+  })
+
+  if (!allFeedIds.length) return
+
+  // Fetch all prices in one batch request
+  const prices = await fetchPythPrices(allFeedIds, hermesEndpoint)
+
+  // Map prices back to vaults and their collaterals
+  feedToCollaterals.forEach((entries, feedId) => {
+    const pythPrice = prices.get(feedId)
+    if (pythPrice === undefined || pythPrice === 0n) return
+
+    entries.forEach(({ vault, collateralAddress }) => {
+      if (!vault.collateralPythPrices) {
+        vault.collateralPythPrices = new Map()
+      }
+      vault.collateralPythPrices.set(collateralAddress, { amountOutMid: pythPrice })
+    })
+  })
+}
+
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { loadEulerConfig, isReady } = useEulerAddresses()
@@ -510,6 +568,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   } as Vault
 
   await applyPythPriceInfo([vault], PYTH_HERMES_URL)
+  await applyCollateralPythPriceInfo([vault], PYTH_HERMES_URL)
 
   return vault
 }
@@ -857,6 +916,7 @@ export const fetchVaults = async function* (): AsyncGenerator<
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as Vault[]
     await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
+    await applyCollateralPythPriceInfo(validVaults, PYTH_HERMES_URL)
     const isFinished = i + batchSize >= verifiedVaults.length
 
     yield {
@@ -1288,56 +1348,157 @@ export const getBorrowVaultPairByMapAndAddresses = (
 
   return obj
 }
-export const getVaultPriceInfo = (vault: Vault) => {
+// Common price info shape returned by price helpers
+export type PriceResult = {
+  amountOutAsk: bigint
+  amountOutBid: bigint
+  amountOutMid: bigint
+}
+
+/**
+ * Get price info for a vault's own asset (standalone context).
+ * Uses Pyth real-time price first, then falls back to liabilityPriceInfo.
+ *
+ * IMPORTANT: Does NOT fall back to collateralPrices - that would return a different asset's price.
+ */
+export const getVaultPriceInfo = (vault: Vault): PriceResult | undefined => {
+  // 1. Try Pyth real-time price first
   if (vault.pythPriceInfo?.amountOutMid && vault.pythPriceInfo.amountOutMid > 0n) {
     const mid = vault.pythPriceInfo.amountOutMid
     return { amountOutAsk: mid, amountOutBid: mid, amountOutMid: mid }
   }
 
+  // 2. Check liabilityPriceInfo from lens
   if (!vault.liabilityPriceInfo || vault.liabilityPriceInfo.queryFailure) {
-    if (vault.collateralPrices && vault.collateralPrices.length > 0) {
-      const collateralPrice = vault.collateralPrices[0]
-      if (collateralPrice.amountOutMid && collateralPrice.amountOutMid > 0n) {
-        const mid = collateralPrice.amountOutMid
-        const ask
-          = collateralPrice.amountOutAsk && collateralPrice.amountOutAsk > 0n
-            ? collateralPrice.amountOutAsk
-            : mid
-        const bid
-          = collateralPrice.amountOutBid && collateralPrice.amountOutBid > 0n
-            ? collateralPrice.amountOutBid
-            : mid
-        return { amountOutAsk: ask, amountOutBid: bid, amountOutMid: mid }
-      }
-    }
-    return undefined
+    return undefined // No valid price available — DO NOT fall back to collateralPrices
   }
 
   const { amountOutAsk, amountOutBid, amountOutMid } = vault.liabilityPriceInfo
   if (!amountOutMid || amountOutMid === 0n) {
-    // Fallback to collateral price if available
-    if (vault.collateralPrices && vault.collateralPrices.length > 0) {
-      const collateralPrice = vault.collateralPrices[0]
-      if (collateralPrice.amountOutMid && collateralPrice.amountOutMid > 0n) {
-        const mid = collateralPrice.amountOutMid
-        const ask
-          = collateralPrice.amountOutAsk && collateralPrice.amountOutAsk > 0n
-            ? collateralPrice.amountOutAsk
-            : mid
-        const bid
-          = collateralPrice.amountOutBid && collateralPrice.amountOutBid > 0n
-            ? collateralPrice.amountOutBid
-            : mid
-        return { amountOutAsk: ask, amountOutBid: bid, amountOutMid: mid }
-      }
-    }
-    return undefined
+    return undefined // No valid price available
   }
 
   const ask = amountOutAsk && amountOutAsk > 0n ? amountOutAsk : amountOutMid
   const bid = amountOutBid && amountOutBid > 0n ? amountOutBid : amountOutMid
 
   return { amountOutAsk: ask, amountOutBid: bid, amountOutMid }
+}
+
+/**
+ * Get collateral SHARE price from the liability vault's perspective.
+ * Uses Pyth price if available, otherwise falls back to lens collateralPrices.
+ *
+ * Use when: you have share amounts (e.g., position.shares)
+ *
+ * @param liabilityVault - The borrow vault that defines the collateral relationship
+ * @param collateralAddress - Address of the collateral vault
+ */
+export const getCollateralPriceFromLiability = (
+  liabilityVault: Vault,
+  collateralAddress: string,
+): PriceResult | undefined => {
+  const normalizedAddress = collateralAddress.toLowerCase()
+
+  // Find the base price info from collateralPrices (for metadata)
+  const priceInfo = liabilityVault.collateralPrices.find(
+    p => p.asset.toLowerCase() === normalizedAddress,
+  )
+
+  if (!priceInfo) {
+    return undefined // Collateral not configured for this vault
+  }
+
+  // Check for Pyth-enhanced price FIRST
+  const pythPrice = liabilityVault.collateralPythPrices?.get(normalizedAddress)
+  if (pythPrice && pythPrice.amountOutMid > 0n) {
+    // Return Pyth price — works even if lens query failed
+    return {
+      amountOutMid: pythPrice.amountOutMid,
+      amountOutAsk: pythPrice.amountOutMid,
+      amountOutBid: pythPrice.amountOutMid,
+    }
+  }
+
+  // Fall back to lens price — but only if query succeeded
+  if (priceInfo.queryFailure || !priceInfo.amountOutMid) {
+    return undefined
+  }
+
+  return {
+    amountOutMid: priceInfo.amountOutMid,
+    amountOutAsk: priceInfo.amountOutAsk || priceInfo.amountOutMid,
+    amountOutBid: priceInfo.amountOutBid || priceInfo.amountOutMid,
+  }
+}
+
+/**
+ * Get collateral ASSET price from the liability vault's perspective,
+ * adjusted for the collateral vault's exchange rate.
+ * Uses Pyth price if available.
+ *
+ * Use when: you have asset amounts (e.g., position.assets) or displaying price to user
+ *
+ * Formula: assetPrice = sharePrice × (totalShares / totalAssets)
+ *
+ * @param liabilityVault - The borrow vault that defines the collateral relationship
+ * @param collateralVault - The collateral vault (needed for exchange rate)
+ */
+export const getCollateralAssetPriceFromLiability = (
+  liabilityVault: Vault,
+  collateralVault: Vault | EscrowVault,
+): PriceResult | undefined => {
+  const sharePrice = getCollateralPriceFromLiability(liabilityVault, collateralVault.address)
+
+  if (!sharePrice) {
+    return undefined
+  }
+
+  const { totalAssets, totalShares } = collateralVault
+
+  if (totalAssets === 0n || totalShares === 0n) {
+    return undefined
+  }
+
+  // assetPrice = sharePrice × (totalShares / totalAssets)
+  return {
+    amountOutMid: (sharePrice.amountOutMid * totalShares) / totalAssets,
+    amountOutAsk: (sharePrice.amountOutAsk * totalShares) / totalAssets,
+    amountOutBid: (sharePrice.amountOutBid * totalShares) / totalAssets,
+  }
+}
+
+/**
+ * Get USD value of an amount in a vault, with context-aware pricing.
+ *
+ * @param amount - Amount in vault's asset decimals (bigint) or as number
+ * @param vault - The vault to price
+ * @param liabilityContext - Optional: liability vault for collateral context (borrow positions)
+ */
+export const getVaultValueUsd = (
+  amount: number | bigint,
+  vault: Vault | EscrowVault,
+  liabilityContext?: Vault,
+): number => {
+  let priceInfo: PriceResult | undefined
+
+  if (liabilityContext) {
+    // In borrow context: use liability vault's collateral price
+    priceInfo = getCollateralAssetPriceFromLiability(liabilityContext, vault)
+  }
+  else {
+    // Standalone context: use vault's own price (only works for Vault type)
+    if ('liabilityPriceInfo' in vault) {
+      priceInfo = getVaultPriceInfo(vault)
+    }
+  }
+
+  if (!priceInfo) {
+    return 0
+  }
+
+  const decimals = 'decimals' in vault ? vault.decimals : vault.asset.decimals
+  const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, decimals) : amount
+  return actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
 }
 
 export const getVaultPrice = (amount: number | bigint, vault: Vault) => {
