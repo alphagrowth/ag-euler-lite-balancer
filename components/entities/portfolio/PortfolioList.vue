@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { AccountBorrowPosition, AccountDepositPosition, AccountEarnPosition } from '~/entities/account'
+import type { AccountBorrowPosition, AccountDepositPosition, AccountEarnPosition, AccountSecuritizePosition } from '~/entities/account'
 import type { Reward } from '~/entities/merkl'
 import type { Campaign } from '~/entities/brevis'
 
 defineProps<{
-  type: 'lend' | 'borrow' | 'earn' | 'rewards' | 'brevis-rewards'
-  items: AccountDepositPosition[] | AccountBorrowPosition[] | AccountEarnPosition[] | Reward[] | Campaign[]
+  type: 'lend' | 'borrow' | 'earn' | 'securitize' | 'rewards' | 'brevis-rewards'
+  items: AccountDepositPosition[] | AccountBorrowPosition[] | AccountEarnPosition[] | AccountSecuritizePosition[] | Reward[] | Campaign[]
 }>()
 </script>
 
@@ -42,6 +42,13 @@ defineProps<{
         v-for="(position) in items"
         :key="(position as AccountEarnPosition).vault.address"
         :position="position as AccountEarnPosition"
+      />
+    </template>
+    <template v-else-if="type === 'securitize'">
+      <PortfolioSecuritizeItem
+        v-for="(position) in items"
+        :key="(position as AccountSecuritizePosition).vault.address"
+        :position="position as AccountSecuritizePosition"
       />
     </template>
     <template v-else-if="type === 'rewards'">

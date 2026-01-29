@@ -5,13 +5,14 @@ import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type { EulerLensAddresses } from '~/entities/euler/addresses'
 import type {
   AccountBorrowPosition, AccountDepositPosition,
-  AccountEarnPosition,
+  AccountEarnPosition, AccountSecuritizePosition,
 } from '~/entities/account'
 import { convertSharesToAssets, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const earnPositions: Ref<AccountEarnPosition[]> = ref([])
 const borrowPositions: Ref<AccountBorrowPosition[]> = ref([])
+const securitizePositions: Ref<AccountSecuritizePosition[]> = ref([])
 
 const isPositionsLoading = ref(true)
 const isPositionsLoaded = ref(false)
@@ -29,6 +30,12 @@ const normalizeAddress = (value?: string | null) => {
     return ''
   }
 }
+
+// Helper to get address prefix for simple subgraph queries (first 19 bytes = 0x + 38 hex chars)
+const getAddressPrefix = (address: string) => address.toLowerCase().slice(0, 40)
+
+// Hardcoded Securitize vault address for testing
+const SECURITIZE_VAULT_ADDRESS = '0xdB6856e8478DB159c383a0c4b274E259AF83cB15'
 const toBigInt = (value: unknown) => {
   try {
     return BigInt(value as bigint)
@@ -67,7 +74,7 @@ const totalSuppliedValue = computed(() =>
 const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0))
 
 const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses, address: string) => {
-  const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, SUBGRAPH_SIMPLE_URL } = useEulerConfig()
   const { map } = useVaults()
 
   if (!eulerLensAddresses?.accountLens) {
@@ -76,13 +83,13 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
 
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-  const { data } = await axios.post(SUBGRAPH_URL, {
+  const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
     query: `query AccountDeposits {
-      trackingActiveAccount(id: "${address}") {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         deposits
       }
     }`,
-    operationName: 'AccountBorrows',
+    operationName: 'AccountDeposits',
   })
 
   const depositEntries = data.data.trackingActiveAccount?.deposits || []
@@ -230,7 +237,7 @@ const updateBorrowPositions = async (
     return
   }
 
-  const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, SUBGRAPH_SIMPLE_URL } = useEulerConfig()
   const { map, getVault } = useVaults()
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -241,9 +248,10 @@ const updateBorrowPositions = async (
 
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-  const { data } = await axios.post(SUBGRAPH_URL, {
+
+  const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
     query: `query AccountBorrows {
-      trackingActiveAccount(id: "${address}") {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         borrows
       }
     }`,
@@ -412,7 +420,7 @@ const updateDepositPositions = async (
   const batchSize = 5
 
   if (shouldShowAllPositions) {
-    const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
+    const { SUBGRAPH_SIMPLE_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
     if (!eulerLensAddresses?.accountLens) {
       throw new Error('Euler addresses not loaded yet')
@@ -420,13 +428,13 @@ const updateDepositPositions = async (
 
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-    const { data } = await axios.post(SUBGRAPH_URL, {
+    const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
       query: `query AccountDeposits {
-      trackingActiveAccount(id: "${address}") {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         deposits
       }
     }`,
-      operationName: 'AccountBorrows',
+      operationName: 'AccountDeposits',
     })
     const depositEntries = data.data.trackingActiveAccount?.deposits || []
 
@@ -444,6 +452,11 @@ const updateDepositPositions = async (
           // Check if this is an earn vault, skip if it is (handled by updateEarnPositions)
           const normalizedVault = ethers.getAddress(vault)
           if (earnVaults.value.includes(normalizedVault) || earnMap.value.has(normalizedVault)) {
+            return undefined
+          }
+
+          // Check if this is a Securitize vault - skip for now (handled separately)
+          if (normalizedVault.toLowerCase() === SECURITIZE_VAULT_ADDRESS.toLowerCase()) {
             return undefined
           }
 
@@ -519,7 +532,7 @@ const updateEarnPositions = async (
   const batchSize = 5
 
   if (shouldShowAllPositions) {
-    const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
+    const { SUBGRAPH_SIMPLE_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
     if (!eulerLensAddresses?.accountLens) {
       throw new Error('Euler addresses not loaded yet')
@@ -527,13 +540,13 @@ const updateEarnPositions = async (
 
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-    const { data } = await axios.post(SUBGRAPH_URL, {
+    const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
       query: `query AccountDeposits {
-      trackingActiveAccount(id: "${address}") {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         deposits
       }
     }`,
-      operationName: 'AccountBorrows',
+      operationName: 'AccountDeposits',
     })
     const depositEntries = data.data.trackingActiveAccount?.deposits || []
 
@@ -551,6 +564,11 @@ const updateEarnPositions = async (
           // Check if this is a regular vault, skip if it is (handled by updateDepositPositions)
           const normalizedVault = ethers.getAddress(vault)
           if (verifiedVaultAddresses.value.includes(normalizedVault) || map.value.has(normalizedVault)) {
+            return undefined
+          }
+
+          // Check if this is a Securitize vault - skip (handled by updateDepositPositions)
+          if (normalizedVault.toLowerCase() === SECURITIZE_VAULT_ADDRESS.toLowerCase()) {
             return undefined
           }
 
@@ -598,6 +616,89 @@ const updateEarnPositions = async (
   }
 }
 
+const updateSecuritizePositions = async (
+  balances: Map<string, bigint>,
+  eulerLensAddresses: EulerLensAddresses,
+  address: string,
+  isInitialLoading = false,
+  options: { forceAllPositions?: boolean } = {},
+) => {
+  if (isInitialLoading) {
+    securitizePositions.value = []
+  }
+
+  if (!address) {
+    securitizePositions.value = []
+    return
+  }
+
+  const { getSecuritizeVault } = useVaults()
+  const { SUBGRAPH_SIMPLE_URL, EVM_PROVIDER_URL } = useEulerConfig()
+
+  const _shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
+  const securitize: AccountSecuritizePosition[] = []
+
+  if (!eulerLensAddresses?.accountLens) {
+    return
+  }
+
+  const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
+  const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+
+  // Query the simple subgraph for deposits
+  const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
+    query: `query AccountDeposits {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
+        deposits
+      }
+    }`,
+    operationName: 'AccountDeposits',
+  })
+
+  const depositEntries = data.data.trackingActiveAccount?.deposits || []
+
+  // Filter for the hardcoded Securitize vault
+  // Note: subaccounts share the same prefix as the main account, so we match on prefix
+  const securitizeEntries = depositEntries.filter((entry: string) => {
+    const vault = `0x${entry.substring(42)}`
+    const subAccount = entry.substring(0, 42)
+    try {
+      const normalizedVault = ethers.getAddress(vault)
+      const isSecuritizeVault = normalizedVault.toLowerCase() === SECURITIZE_VAULT_ADDRESS.toLowerCase()
+      // Match on address prefix (first 19 bytes) since subaccounts derive from main account
+      const subAccountPrefix = subAccount.toLowerCase().slice(0, 40)
+      const addrPrefix = address.toLowerCase().slice(0, 40)
+      const isMatchingAccount = subAccountPrefix === addrPrefix
+
+      return isSecuritizeVault && isMatchingAccount
+    }
+    catch {
+      return false
+    }
+  })
+
+  for (const entry of securitizeEntries) {
+    const vault = `0x${entry.substring(42)}`
+    const subAccount = entry.substring(0, 42)
+
+    try {
+      const res = await accountLensContract.getAccountInfo(subAccount, vault)
+      const securitizeVault = await getSecuritizeVault(vault)
+
+      securitize.push({
+        vault: securitizeVault,
+        shares: res.vaultAccountInfo.shares,
+        assets: res.vaultAccountInfo.assets,
+      } as AccountSecuritizePosition)
+    }
+    catch (e) {
+      console.warn(`Failed to fetch securitize vault ${vault}:`, e)
+    }
+  }
+
+  securitizePositions.value = securitize
+}
+
 export const useEulerAccount = () => {
   const { isLoaded: isBalancesLoaded, balances } = useWallets()
   const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
@@ -629,6 +730,13 @@ export const useEulerAccount = () => {
       false,
       { forceAllPositions: isDebugPortfolio.value },
     )
+    updateSecuritizePositions(
+      balances.value,
+      eulerLensAddresses.value,
+      targetAddress,
+      false,
+      { forceAllPositions: isDebugPortfolio.value },
+    )
   }
 
   watch([isBalancesLoaded, isEulerLensAddressesReady], async () => {
@@ -645,6 +753,7 @@ export const useEulerAccount = () => {
     borrowPositions,
     depositPositions,
     earnPositions,
+    securitizePositions,
     isPositionsLoading,
     isPositionsLoaded,
     isDepositsLoading,
@@ -656,6 +765,7 @@ export const useEulerAccount = () => {
     updateCollateralPositions,
     updateDepositPositions,
     updateEarnPositions,
+    updateSecuritizePositions,
     totalSuppliedValue,
     totalBorrowedValue,
   }

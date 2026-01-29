@@ -35,6 +35,7 @@ export default {
     NEXT_PUBLIC_RPC_HTTP_9745: 'https://quaint-yolo-isle.plasma-mainnet.quiknode.pro/f7cb88b87e7020548579d7980a52a13d2b114339',
     NEXT_PUBLIC_RPC_HTTP_999: 'https://quaint-yolo-isle.hype-mainnet.quiknode.pro/f7cb88b87e7020548579d7980a52a13d2b114339/evm',
     SUBGRAPH_URI_1: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-mainnet/latest/gn',
+    SUBGRAPH_SIMPLE_URI_1: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-simple-mainnet/1.0.2/gn',
     SUBGRAPH_URI_56: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-bsc/latest/gn',
     SUBGRAPH_URI_130: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-unichain/latest/gn',
     SUBGRAPH_URI_146: 'https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-sonic/latest/gn',
