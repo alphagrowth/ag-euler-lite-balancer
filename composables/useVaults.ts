@@ -242,14 +242,37 @@ const loadVaults = async () => {
 }
 const getVault = async (address: string): Promise<Vault> => {
   const { verifiedVaultAddresses } = useEulerLabels()
+  const { getType } = useVaultRegistry()
+  const normalizedAddress = ethers.getAddress(address)
 
-  if (verifiedVaultAddresses.value.includes(ethers.getAddress(address))) {
-    await until(computed(() => map.value.get(ethers.getAddress(address)))).toBeTruthy()
-  } else {
-    return fetchVault(ethers.getAddress(address))
+  // Check if this is a securitize vault - if so, throw to trigger fallback
+  const vaultType = getType(normalizedAddress)
+  if (vaultType === 'securitize') {
+    throw new Error('[getVault] Address is a securitize vault, use getSecuritizeVault instead')
   }
 
-  return map.value.get(ethers.getAddress(address))!
+  // If registry isn't populated yet, check securitizeMap directly or use async check
+  if (!vaultType && securitizeMap.value.has(normalizedAddress)) {
+    throw new Error('[getVault] Address is a securitize vault, use getSecuritizeVault instead')
+  }
+
+  // If still no type info and address is in verifiedVaultAddresses but not in map,
+  // do an async check to avoid infinite wait on securitize vaults
+  if (!vaultType && verifiedVaultAddresses.value.includes(normalizedAddress) && !map.value.has(normalizedAddress)) {
+    const isSecuritize = await isSecuritizeVault(normalizedAddress)
+    if (isSecuritize) {
+      throw new Error('[getVault] Address is a securitize vault, use getSecuritizeVault instead')
+    }
+  }
+
+  if (verifiedVaultAddresses.value.includes(normalizedAddress)) {
+    await until(computed(() => map.value.get(normalizedAddress))).toBeTruthy()
+  }
+  else {
+    return fetchVault(normalizedAddress)
+  }
+
+  return map.value.get(normalizedAddress)!
 }
 const getEarnVault = async (address: string): Promise<EarnVault> => {
   await until(computed(() => earnMap.value.size)).toBeTruthy()

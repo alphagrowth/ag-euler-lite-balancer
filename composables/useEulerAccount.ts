@@ -75,7 +75,7 @@ const totalSuppliedValue = computed(() =>
 const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0))
 
 const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses, address: string) => {
-  const { EVM_PROVIDER_URL, SUBGRAPH_SIMPLE_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
   const { map } = useVaults()
 
   if (!eulerLensAddresses?.accountLens) {
@@ -84,7 +84,7 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
 
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-  const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
+  const { data } = await axios.post(SUBGRAPH_URL, {
     query: `query AccountDeposits {
       trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         deposits
@@ -238,7 +238,7 @@ const updateBorrowPositions = async (
     return
   }
 
-  const { EVM_PROVIDER_URL, SUBGRAPH_SIMPLE_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
   const { map, getVault } = useVaults()
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -250,7 +250,7 @@ const updateBorrowPositions = async (
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
 
-  const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
+  const { data } = await axios.post(SUBGRAPH_URL, {
     query: `query AccountBorrows {
       trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         borrows
@@ -422,7 +422,7 @@ const updateDepositPositions = async (
   const batchSize = 5
 
   if (shouldShowAllPositions) {
-    const { SUBGRAPH_SIMPLE_URL, EVM_PROVIDER_URL } = useEulerConfig()
+    const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
     if (!eulerLensAddresses?.accountLens) {
       throw new Error('Euler addresses not loaded yet')
@@ -430,7 +430,7 @@ const updateDepositPositions = async (
 
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-    const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
+    const { data } = await axios.post(SUBGRAPH_URL, {
       query: `query AccountDeposits {
       trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         deposits
@@ -511,14 +511,14 @@ const updateDepositPositions = async (
     }
 
     // Also fetch non-EVK positions from subgraph (e.g., Securitize)
-    const { SUBGRAPH_SIMPLE_URL, EVM_PROVIDER_URL } = useEulerConfig()
+    const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
     if (eulerLensAddresses?.accountLens) {
       const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
       const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
 
       try {
-        const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
+        const { data } = await axios.post(SUBGRAPH_URL, {
           query: `query AccountDeposits {
             trackingActiveAccount(id: "${getAddressPrefix(address)}") {
               deposits
@@ -615,7 +615,7 @@ const updateEarnPositions = async (
   const batchSize = 5
 
   if (shouldShowAllPositions) {
-    const { SUBGRAPH_SIMPLE_URL, EVM_PROVIDER_URL } = useEulerConfig()
+    const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
     if (!eulerLensAddresses?.accountLens) {
       throw new Error('Euler addresses not loaded yet')
@@ -623,7 +623,7 @@ const updateEarnPositions = async (
 
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-    const { data } = await axios.post(SUBGRAPH_SIMPLE_URL, {
+    const { data } = await axios.post(SUBGRAPH_URL, {
       query: `query AccountDeposits {
       trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         deposits

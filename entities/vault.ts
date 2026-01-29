@@ -11,6 +11,7 @@ import {
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
 import { fetchPythPrices } from '~/utils/pyth'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 // import type { AccountBorrowPosition } from '~/entities/account'
 
 // Securitize factory address - vaults created by this factory are treated as securitize vaults
@@ -35,10 +36,9 @@ export const fetchVaultFactory = async (vaultAddress: string, subgraphUrl?: stri
       return null
     }
 
-    const truncatedAddress = truncateAddressForSubgraph(normalizedAddress)
     const { data } = await axios.post(url, {
       query: `query VaultFactory {
-        vaults(where: { id_starts_with: "${truncatedAddress}" }) {
+        vaults(where: { id: "${normalizedAddress}" }) {
           id
           factory
         }
@@ -59,12 +59,19 @@ export const fetchVaultFactory = async (vaultAddress: string, subgraphUrl?: stri
   }
 }
 
-// Check if vault is a securitize vault by querying the subgraph for its factory
+// Check if vault is a securitize vault - first checks registry, then falls back to subgraph
 export const isSecuritizeVault = async (address: string): Promise<boolean> => {
   try {
+    // First check the vault registry (if populated)
+    const { getType } = useVaultRegistry()
+    const registryType = getType(address)
+    if (registryType) {
+      return registryType === 'securitize'
+    }
+
+    // Fall back to subgraph query
     const factory = await fetchVaultFactory(address)
     if (!factory) {
-      // If fetch fails, treat as EVK vault
       return false
     }
     return factory.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()
@@ -114,13 +121,12 @@ export const fetchVaultFactories = async (vaultAddresses: string[]): Promise<Map
     }
 
     const normalizedAddresses = uncachedAddresses.map(addr => addr.toLowerCase())
-    const truncatedAddresses = normalizedAddresses.map(truncateAddressForSubgraph)
 
-    // Build OR query with id_starts_with for each truncated address
-    const whereConditions = truncatedAddresses.map(addr => `{ id_starts_with: "${addr}" }`).join(', ')
+    // Use id_in for batch query with exact matches
+    const addressList = normalizedAddresses.map(addr => `"${addr}"`).join(', ')
     const { data } = await axios.post(SUBGRAPH_URL, {
       query: `query VaultFactories {
-        vaults(where: { or: [${whereConditions}] }) {
+        vaults(where: { id_in: [${addressList}] }) {
           id
           factory
         }
@@ -718,7 +724,32 @@ export const fetchVaults = async function* (): AsyncGenerator<VaultIteratorResul
     eulerVaultLensABI,
     provider,
   )
-  const verifiedVaults = verifiedVaultAddresses.value
+
+  // Use utilsLens to check which vaults are EVaults before fetching
+  const utilsLensContract = new ethers.Contract(
+    eulerLensAddresses.value.utilsLens,
+    eulerUtilsLensABI,
+    provider,
+  )
+
+  // Filter out non-EVault addresses (like securitize vaults) by checking isEVault
+  const evaultChecks = await Promise.all(
+    verifiedVaultAddresses.value.map(async (addr) => {
+      try {
+        const info = await utilsLensContract.getVaultInfoERC4626(addr)
+        const data = info.toObject ? info.toObject({ deep: true }) : info
+        return { address: addr, isEVault: data.isEVault }
+      }
+      catch {
+        // If check fails, assume it's an EVault to be safe
+        return { address: addr, isEVault: true }
+      }
+    }),
+  )
+
+  const verifiedVaults = evaultChecks
+    .filter(v => v.isEVault)
+    .map(v => v.address)
   const batchSize = 5
 
   for (let i = 0; i < verifiedVaults.length; i += batchSize) {
