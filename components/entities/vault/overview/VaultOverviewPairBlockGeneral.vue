@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { type BorrowVaultPair, getVaultPrice } from '~/entities/vault'
+import { type BorrowVaultPair, getCollateralAssetPriceFromLiability, getVaultPriceInfo } from '~/entities/vault'
+import { nanoToValue } from '~/utils/crypto-utils'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
@@ -36,8 +37,14 @@ const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(pair.coll
 const borrowOpportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address))
 
 const price = computed(() => {
-  return getVaultPrice(1, pair.collateral)
-    / getVaultPrice(1, pair.borrow)
+  const collateralPrice = getCollateralAssetPriceFromLiability(pair.borrow, pair.collateral)
+  const borrowPrice = getVaultPriceInfo(pair.borrow)
+
+  if (!collateralPrice || !borrowPrice || borrowPrice.amountOutMid === 0n) {
+    return 0
+  }
+
+  return nanoToValue(collateralPrice.amountOutMid, 18) / nanoToValue(borrowPrice.amountOutMid, 18)
 })
 
 const onSupplyInfoIconClick = () => {

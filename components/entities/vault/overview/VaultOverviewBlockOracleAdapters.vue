@@ -1,10 +1,15 @@
 <script setup lang="ts">
+import type { Address } from 'viem'
 import type { Vault } from '~/entities/vault'
 import { EUR_ADDRESS, USD_ADDRESS } from '~/entities/constants'
 import { collectOracleAdapters, type OracleAdapterEntry } from '~/entities/oracle'
 import { getExplorerLink } from '~/utils/block-explorer'
 
-const props = defineProps<{ vault?: Vault, vaults?: Vault[] }>()
+const props = defineProps<{
+  vault?: Vault
+  vaults?: Vault[]
+  collateralAssets?: string[]
+}>()
 const { tokens, loadTokens } = useTokens()
 const { chainId } = useEulerAddresses()
 
@@ -30,6 +35,16 @@ const adapters = computed(() => {
       quote: vault.unitOfAccount,
       leafOnly: true,
     }))
+
+    if (props.collateralAssets?.length) {
+      props.collateralAssets.forEach((collateralAddress) => {
+        entries.push(...collectOracleAdapters(vault.oracleDetailedInfo, 3, {
+          base: collateralAddress as Address,
+          quote: vault.unitOfAccount,
+          leafOnly: true,
+        }))
+      })
+    }
   })
 
   entries.forEach((adapter) => {

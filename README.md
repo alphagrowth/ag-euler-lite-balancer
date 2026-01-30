@@ -101,7 +101,7 @@ These values are used in `nuxt.config.ts` for the document title, meta descripti
 ```typescript
 export const onboardingInfo = {
   logoUrl: "/logo.png", // Path to your logo image (relative to public/)
-  title: "The Lending Super App", // Main heading text
+  title: "The Modular Credit Layer", // Main heading text
   description: "Lend, borrow and build without limits.", // Subheading text
 };
 ```
