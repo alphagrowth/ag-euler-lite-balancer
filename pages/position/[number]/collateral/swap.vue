@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { type Vault, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
@@ -24,6 +25,8 @@ const { borrowPositions, isPositionsLoaded, isPositionsLoading } = useEulerAccou
 const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewSwapLabel = getSubmitLabel('Review Swap')
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -475,6 +478,7 @@ const isSubmitDisabled = computed(() => {
     || !(+fromAmount.value)
     || !toAmount.value
 })
+const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
 
 const onFromInput = async () => {
   clearSimulationError()
@@ -569,44 +573,46 @@ const onToVaultChange = (selectedIndex: number) => {
 }
 
 const submit = async () => {
-  if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
-    return
-  }
-
-  try {
-    plan.value = await buildSwapPlan({
-      quote: selectedQuote.value,
-      swapperMode: SwapperMode.EXACT_IN,
-      isRepay: false,
-      targetDebt: 0n,
-      currentDebt: 0n,
-      enableCollateral: true,
-    })
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
+  await guardWithTerms(async () => {
+    if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
       return
     }
-  }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'swap',
-      asset: fromVault.value.asset,
-      amount: fromAmount.value,
-      plan: plan.value || undefined,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    try {
+      plan.value = await buildSwapPlan({
+        quote: selectedQuote.value,
+        swapperMode: SwapperMode.EXACT_IN,
+        isRepay: false,
+        targetDebt: 0n,
+        currentDebt: 0n,
+        enableCollateral: true,
+      })
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'swap',
+        asset: fromVault.value.asset,
+        amount: fromAmount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 
@@ -707,10 +713,10 @@ const send = async () => {
 
             <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
               <VaultFormSubmit
-                :disabled="isSubmitDisabled"
+                :disabled="reviewSwapDisabled"
                 :loading="isSubmitting"
               >
-                Review Swap
+                {{ reviewSwapLabel }}
               </VaultFormSubmit>
             </div>
           </div>
