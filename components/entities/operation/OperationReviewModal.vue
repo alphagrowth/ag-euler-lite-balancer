@@ -128,10 +128,22 @@ const eulerOnlyRewardsAmount = computed(() => {
       return prev + nanoToValue(BigInt(curr.amount) - BigInt(curr.claimed), rewardInfo.token.decimals)
     }, 0)
 })
+const totalClaimAmount = computed(() => {
+  return Number(amount) < 0.01 ? '< 0.01' : formatNumber(amount)
+})
+const eulerClaimAmount = computed(() => {
+  const eulerAmount = eulerOnlyRewardsAmount.value || 0
+  return eulerAmount < 0.01 && eulerAmount > 0 ? '< 0.01' : formatNumber(eulerAmount)
+})
+const otherClaimAmount = computed(() => {
+  const eulerAmount = eulerOnlyRewardsAmount.value || 0
+  const otherAmount = Math.max(0, Number(amount) - eulerAmount)
+  return otherAmount < 0.01 && otherAmount > 0 ? '< 0.01' : formatNumber(otherAmount)
+})
 const disclaimerText = computed(() => {
   if (type !== 'reward') return
 
-  return `You're claiming ${formatNumber(amount)} tokens, ${formatNumber(eulerOnlyRewardsAmount.value || 0)} of them from Euler, ${formatNumber(Number(amount) - (eulerOnlyRewardsAmount.value || 0))} of them earned elsewhere`
+  return `You're claiming ${totalClaimAmount.value} tokens, ${eulerClaimAmount.value} of them from Euler, ${otherClaimAmount.value} of them earned elsewhere`
 })
 
 const feeDisplay = computed(() => {

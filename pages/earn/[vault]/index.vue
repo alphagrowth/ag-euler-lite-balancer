@@ -2,6 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { getEarnVaultPrice, type EarnVault, type VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
@@ -13,10 +14,13 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
 const { getEarnVault, updateEarnVault } = useVaults()
 const { isConnected } = useAccount()
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getOpportunityOfLendVault } = useMerkl()
@@ -46,6 +50,7 @@ const isSubmitDisabled = computed(() => {
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value)
 })
+const reviewSupplyDisabled = getSubmitDisabled(isSubmitDisabled)
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vaultAddress))
 const brevisInfo = computed(() => getCampaignOfLendVault(vaultAddress))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
@@ -87,37 +92,46 @@ const load = async () => {
   }
 }
 const submit = async () => {
-  if (!asset.value?.address) {
-    return
-  }
+  await guardWithTerms(async () => {
+    if (!asset.value?.address) {
+      return
+    }
 
-  try {
-    plan.value = await buildSupplyPlan(
-      vaultAddress,
-      asset.value.address,
-      valueToNano(amount.value || '0', asset.value.decimals),
-      asset.value.symbol,
-      undefined,
-      { includePermit2Call: false },
-    )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
+    try {
+      plan.value = await buildSupplyPlan(
+        vaultAddress,
+        asset.value.address,
+        valueToNano(amount.value || '0', asset.value.decimals),
+        asset.value.symbol,
+        undefined,
+        { includePermit2Call: false },
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'supply',
-      asset: asset.value,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'supply',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -177,6 +191,7 @@ const onSupplyInfoIconClick = () => {
 load()
 
 watch(amount, async () => {
+  clearSimulationError()
   if (!vault.value) {
     return
   }
@@ -248,6 +263,13 @@ watch(amount, async () => {
         :description="errorText || ''"
         size="compact"
       />
+      <UiToast
+        v-if="simulationError"
+        title="Error"
+        variant="error"
+        :description="simulationError"
+        size="compact"
+      />
 
       <VaultFormInfoBlock
         v-if="vault && asset"
@@ -297,10 +319,10 @@ watch(amount, async () => {
           :disabled="isLoading || isSubmitting"
         />
         <VaultFormSubmit
-          :disabled="isSubmitDisabled"
+          :disabled="reviewSupplyDisabled"
           :loading="isSubmitting"
         >
-          Review Supply
+          {{ reviewSupplyLabel }}
         </VaultFormSubmit>
       </template>
     </VaultForm>

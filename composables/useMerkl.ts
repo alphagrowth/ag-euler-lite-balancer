@@ -2,6 +2,7 @@ import { useAccount, useWriteContract } from '@wagmi/vue'
 import type { Address } from 'viem'
 import axios from 'axios'
 
+import { merklDistributorABI } from '~/abis/merkl'
 import type { Opportunity, Reward, RewardsResponseItem, RewardToken } from '~/entities/merkl'
 import type { TxPlan } from '~/entities/txPlan'
 
@@ -15,37 +16,6 @@ const endpoints = {
   rewards: (addr: string) => `${MERKL_API_BASE_URL}/users/${addr}/rewards`,
   campaignById: (id: string) => `${MERKL_API_BASE_URL}/campaigns/${id}`,
 }
-
-const merklDistributorABI = [
-  {
-    type: 'function',
-    name: 'claim',
-    inputs: [
-      {
-        name: 'users',
-        type: 'address[]',
-        internalType: 'address[]',
-      },
-      {
-        name: 'tokens',
-        type: 'address[]',
-        internalType: 'address[]',
-      },
-      {
-        name: 'amounts',
-        type: 'uint256[]',
-        internalType: 'uint256[]',
-      },
-      {
-        name: 'proofs',
-        type: 'bytes32[][]',
-        internalType: 'bytes32[][]',
-      },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-] as const
 
 const address = ref('')
 

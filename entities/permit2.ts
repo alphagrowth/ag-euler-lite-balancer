@@ -1,4 +1,5 @@
 import type { Address } from 'viem'
+import { MAX_UINT160, MAX_UINT48, PERMIT2_TYPES } from '~/entities/constants'
 
 export const permit2Abi = [
   {
@@ -48,22 +49,7 @@ export const permit2Abi = [
   },
 ] as const
 
-export const PERMIT2_TYPES = {
-  PermitDetails: [
-    { name: 'token', type: 'address' },
-    { name: 'amount', type: 'uint160' },
-    { name: 'expiration', type: 'uint48' },
-    { name: 'nonce', type: 'uint48' },
-  ],
-  PermitSingle: [
-    { name: 'details', type: 'PermitDetails' },
-    { name: 'spender', type: 'address' },
-    { name: 'sigDeadline', type: 'uint256' },
-  ],
-} as const
-
-export const MAX_UINT48 = (1n << 48n) - 1n
-export const MAX_UINT160 = (1n << 160n) - 1n
+export { PERMIT2_TYPES, MAX_UINT48, MAX_UINT160 }
 
 export type Permit2Details = {
   token: Address

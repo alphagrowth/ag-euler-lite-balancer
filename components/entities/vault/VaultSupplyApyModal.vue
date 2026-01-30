@@ -122,7 +122,7 @@ const handleClose = () => {
         <div class="flex">
           <img
             v-if="reward.rewardToken.icon"
-            class="w-20 h-20"
+            class="w-20 h-20 rounded-full"
             :src="reward.rewardToken.icon"
             alt="Reward token logo"
           >

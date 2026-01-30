@@ -26,6 +26,10 @@ const shortenAddress = (address: string) => {
 }
 
 const timelockDisplay = computed(() => {
+  if (vault.timelock === 0n) {
+    return '0 days'
+  }
+
   const timelockInSeconds = vault.timelock
   const timelockInDays = timelockInSeconds / 86400n
   return formatTtl(timelockInDays)?.display || 'Unknown'

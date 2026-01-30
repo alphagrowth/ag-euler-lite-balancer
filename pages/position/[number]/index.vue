@@ -6,7 +6,7 @@ import { getNetAPY, getVaultPrice, type Vault } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
-import { VaultOverviewModal, OperationReviewModal } from '#components'
+import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 
@@ -17,8 +17,13 @@ const { error } = useToast()
 const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, borrowPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
 const { disableCollateral: disableCollateralOperation, buildDisableCollateralPlan } = useEulerOperations()
+const {
+  runSimulation: runDisableCollateralSimulation,
+  simulationError: disableCollateralSimulationError,
+  clearSimulationError: clearDisableCollateralSimulationError,
+} = useTxPlanSimulation()
 
 const positionIndex = route.params.number as string
 
@@ -31,6 +36,7 @@ const position: Ref<AccountBorrowPosition | undefined> = ref()
 const isSubmitting = ref(false)
 const collateralItems = ref<PositionCollateral[]>([])
 const isCollateralsLoading = ref(false)
+const disableCollateralErrorVault = ref<string | null>(null)
 
 const { map, getVault, isReady: isVaultsReady } = useVaults()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
@@ -61,12 +67,16 @@ const hasNoBorrow = computed(() => position.value!.borrow.borrow === 0n)
 
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
+const baseSupplyAPY = computed(() => nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25))
+const baseBorrowAPY = computed(() => nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25))
+const intrinsicSupplyAPY = computed(() => getIntrinsicApy(collateralVault.value?.asset.symbol))
+const intrinsicBorrowAPY = computed(() => getIntrinsicApy(borrowVault.value?.asset.symbol))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
+  baseSupplyAPY.value,
   collateralVault.value?.asset.symbol,
 ))
 const borrowApy = computed(() => withIntrinsicBorrowApy(
-  nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
+  baseBorrowAPY.value,
   borrowVault.value?.asset.symbol,
 ))
 const borrowApyWithRewards = computed(() => borrowApy.value - (opportunityInfoForBorrow.value?.apr || 0))
@@ -158,6 +168,18 @@ const isPrimaryCollateral = (vault: Vault) => {
   return ethers.getAddress(vault.address) === primaryCollateralAddress.value
 }
 
+const isDisableCollateralError = (vault: Vault) => {
+  if (!disableCollateralErrorVault.value) {
+    return false
+  }
+  try {
+    return ethers.getAddress(vault.address) === disableCollateralErrorVault.value
+  }
+  catch {
+    return false
+  }
+}
+
 const loadCollaterals = async () => {
   if (!position.value) {
     collateralItems.value = []
@@ -235,6 +257,8 @@ const loadCollaterals = async () => {
 }
 
 const disableCollateral = async (vault: Vault) => {
+  clearDisableCollateralSimulationError()
+  disableCollateralErrorVault.value = null
   let plan: TxPlan | null = null
   try {
     plan = await buildDisableCollateralPlan(
@@ -244,6 +268,14 @@ const disableCollateral = async (vault: Vault) => {
   }
   catch (e) {
     console.warn('[OperationReviewModal] failed to build plan', e)
+  }
+
+  if (plan) {
+    const ok = await runDisableCollateralSimulation(plan)
+    if (!ok) {
+      disableCollateralErrorVault.value = ethers.getAddress(vault.address)
+      return
+    }
   }
 
   modal.open(OperationReviewModal, {
@@ -319,6 +351,28 @@ const openPairInfoModal = () => {
     },
   })
 }
+const onNetApyInfoIconClick = () => {
+  if (!position.value) return
+
+  const supplyUSD = getVaultPrice(position.value.supplied || 0n, collateralVault.value!)
+  const borrowUSD = getVaultPrice(position.value.borrowed || 0n, borrowVault.value!)
+
+  modal.open(VaultNetApyModal, {
+    props: {
+      supplyUSD,
+      borrowUSD,
+      baseSupplyAPY: baseSupplyAPY.value,
+      baseBorrowAPY: baseBorrowAPY.value,
+      intrinsicSupplyAPY: intrinsicSupplyAPY.value,
+      intrinsicBorrowAPY: intrinsicBorrowAPY.value,
+      supplyRewardAPY: opportunityInfoForCollateral.value?.apr || null,
+      borrowRewardAPY: opportunityInfoForBorrow.value?.apr || null,
+      netAPY: netAPY.value,
+      supplyOpportunityInfo: opportunityInfoForCollateral.value,
+      borrowOpportunityInfo: opportunityInfoForBorrow.value,
+    },
+  })
+}
 watch(isConnected, () => {
   load()
 }, { immediate: true })
@@ -346,8 +400,13 @@ watch(isConnected, () => {
           <div class="text-p2 text-euler-dark-900">
             Net APY
           </div>
-          <div class="text-h5 text-white">
+          <div class="text-h5 text-white flex justify-end items-center gap-4">
             {{ formatNumber(netAPY) }}%
+            <SvgIcon
+              class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
+              name="question-circle"
+              @click="onNetApyInfoIconClick"
+            />
           </div>
         </div>
         <div class="flex justify-between items-center">
@@ -355,7 +414,7 @@ watch(isConnected, () => {
             Net asset value
           </div>
           <div class="text-h5 text-white">
-            ${{ formatNumber(netAssetValueUsd) }}
+            ${{ isCollateralsLoading ? '-' : formatNumber(netAssetValueUsd) }}
           </div>
         </div>
       </div>
@@ -461,6 +520,14 @@ watch(isConnected, () => {
               <UiButton
                 size="medium"
                 variant="primary"
+                rounded
+                :to="`/position/${positionIndex}/multiply`"
+              >
+                Multiply
+              </UiButton>
+              <UiButton
+                size="medium"
+                variant="primary-stroke"
                 rounded
                 :to="`/position/${positionIndex}/borrow`"
               >
@@ -599,6 +666,14 @@ watch(isConnected, () => {
                 >
                   Disable collateral
                 </UiButton>
+                <UiToast
+                  v-if="disableCollateralSimulationError && isDisableCollateralError(collateral.vault)"
+                  class="mt-12"
+                  title="Error"
+                  variant="error"
+                  :description="disableCollateralSimulationError"
+                  size="compact"
+                />
               </div>
             </div>
           </div>

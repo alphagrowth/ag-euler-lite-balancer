@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import { ethers } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { computeAPYs, getVaultPrice, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
@@ -48,10 +50,13 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
-const { getVault, getSecuritizeVault, updateVault } = useVaults()
+const { getVault, getSecuritizeVault, updateVault, escrowMap } = useVaults()
 const { isConnected } = useAccount()
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getOpportunityOfLendVault } = useMerkl()
@@ -113,6 +118,7 @@ const isSubmitDisabled = computed(() => {
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value)
 })
+const reviewSupplyDisabled = getSubmitDisabled(isSubmitDisabled)
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vaultAddress))
 const brevisInfo = computed(() => getCampaignOfLendVault(vaultAddress))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
@@ -142,6 +148,11 @@ const load = async () => {
     if (features.value.hasInterestRate && evkVault.value) {
       estimateSupplyAPY.value = evkVault.value.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
 
+      // Check for escrow vault override
+      if (escrowMap.value.get(ethers.getAddress(vaultAddress))) {
+        evkVault.value = escrowMap.value.get(ethers.getAddress(vaultAddress))
+      }
+
       if (features.value.hasVerifiedStatus && !evkVault.value.verified) {
         modal.open(VaultUnverifiedDisclaimerModal, {
           isNotClosable: true,
@@ -168,37 +179,46 @@ const load = async () => {
 }
 
 const submit = async () => {
-  if (!asset.value?.address) {
-    return
-  }
+  await guardWithTerms(async () => {
+    if (!asset.value?.address) {
+      return
+    }
 
-  try {
-    plan.value = await buildSupplyPlan(
-      vaultAddress,
-      asset.value.address,
-      valueToNano(amount.value || '0', asset.value.decimals),
-      asset.value.symbol,
-      undefined,
-      { includePermit2Call: false },
-    )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
+    try {
+      plan.value = await buildSupplyPlan(
+        vaultAddress,
+        asset.value.address,
+        valueToNano(amount.value || '0', asset.value.decimals),
+        asset.value.symbol,
+        undefined,
+        { includePermit2Call: false },
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'supply',
-      asset: asset.value,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'supply',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 
@@ -276,6 +296,7 @@ const onSupplyInfoIconClick = () => {
 load()
 
 watch(amount, async () => {
+  clearSimulationError()
   if (!isVaultLoaded.value) {
     return
   }
@@ -372,6 +393,13 @@ watch(amount, async () => {
           :description="errorText || ''"
           size="compact"
         />
+        <UiToast
+          v-if="simulationError"
+          title="Error"
+          variant="error"
+          :description="simulationError"
+          size="compact"
+        />
 
         <VaultFormInfoBlock
           v-if="isVaultLoaded && asset"
@@ -425,10 +453,10 @@ watch(amount, async () => {
             :disabled="isLoading || isSubmitting"
           />
           <VaultFormSubmit
-            :disabled="isSubmitDisabled"
+            :disabled="reviewSupplyDisabled"
             :loading="isSubmitting"
           >
-            Review Supply
+            {{ reviewSupplyLabel }}
           </VaultFormSubmit>
         </template>
       </VaultForm>

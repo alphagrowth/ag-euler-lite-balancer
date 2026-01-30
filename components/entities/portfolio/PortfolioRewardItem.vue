@@ -11,6 +11,7 @@ const { isTokensLoading, rewardTokens, claimReward, loadRewards, buildClaimRewar
 const modal = useModal()
 const { error } = useToast()
 const { chainId } = useEulerAddresses()
+const { runSimulation, simulationError } = useTxPlanSimulation()
 
 const isClaiming = ref(false)
 const plan = ref<TxPlan | null>(null)
@@ -21,7 +22,10 @@ const amountToClaim = computed(() => amount.value - claimed.value)
 const amountInUsd = computed(() => amountToClaim.value * reward.token.price)
 const tokenIconUrl = computed(() => {
   if (isTokensLoading.value) return null
-  return rewardTokens.value.find(token => token.address === reward.token.address)?.icon || null
+  return ['rEUL', 'EUL'].includes(reward.token.symbol)
+    ? '/img/euler-default.png'
+    : rewardTokens.value.find(token => token.address === reward.token.address)?.icon
+      || null
 })
 
 const claim = async () => {
@@ -49,6 +53,13 @@ const onClaimClick = async () => {
     catch (e) {
       console.warn('[OperationReviewModal] failed to build plan', e)
       plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
     }
 
     modal.open(OperationReviewModal, {
@@ -81,9 +92,16 @@ const onClaimClick = async () => {
     >
       <div class="flex justify-between items-center mb-12">
         <BaseAvatar
-          :src="tokenIconUrl || '/img/euler-default.png'"
+          v-if="tokenIconUrl"
+          :src="tokenIconUrl"
           class="icon--40"
         />
+        <div
+          v-else
+          class="w-40 h-40 flex justify-center items-center bg-euler-dark-400 rounded-full text-h6"
+        >
+          {{ reward.token.symbol[0].toUpperCase() }}
+        </div>
         <h4 class="text-h5 ml-12">
           {{ reward.token.symbol === 'WTAC' ? 'TAC' : reward.token.symbol }}
         </h4>
@@ -103,6 +121,14 @@ const onClaimClick = async () => {
       >
         Claim
       </UiButton>
+      <UiToast
+        v-if="simulationError"
+        class="mt-12"
+        title="Error"
+        variant="error"
+        :description="simulationError"
+        size="compact"
+      />
     </div>
   </div>
 </template>

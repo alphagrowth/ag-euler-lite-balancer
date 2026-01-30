@@ -1,0 +1,1007 @@
+<script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
+import { ethers } from 'ethers'
+import type { Address } from 'viem'
+import { OperationReviewModal, SlippageSettingsModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
+import { useModal } from '~/components/ui/composables/useModal'
+import { useToast } from '~/components/ui/composables/useToast'
+import type { AccountBorrowPosition } from '~/entities/account'
+import { type Vault, type VaultAsset, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
+import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import { getQuoteAmount } from '~/utils/swapQuotes'
+import type { TxPlan } from '~/entities/txPlan'
+import { useMerkl } from '~/composables/useMerkl'
+import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+
+const route = useRoute()
+const router = useRouter()
+const modal = useModal()
+const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
+const { address, isConnected } = useAccount()
+const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
+const { buildMultiplyPlan, executeTxPlan } = useEulerOperations()
+const { eulerLensAddresses } = useEulerAddresses()
+const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const {
+  runSimulation: runMultiplySimulation,
+  simulationError: multiplySimulationError,
+  clearSimulationError: clearMultiplySimulationError,
+} = useTxPlanSimulation()
+const openSlippageSettings = () => {
+  modal.open(SlippageSettingsModal)
+}
+
+type MultiplyPlanParams = {
+  supplyVaultAddress: string
+  supplyAssetAddress: string
+  supplyAmount: bigint
+  supplySharesAmount?: bigint
+  supplyIsSavings?: boolean
+  longVaultAddress: string
+  longAssetAddress: string
+  borrowVaultAddress: string
+  debtAmount: bigint
+  quote?: SwapApiQuote
+  swapperMode: SwapperMode
+  subAccount: string
+}
+
+const positionIndex = route.params.number as string
+const position: Ref<AccountBorrowPosition | null> = ref(null)
+
+const isLoading = ref(false)
+const isSubmitting = ref(false)
+const plan = ref<TxPlan | null>(null)
+const planParams = ref<MultiplyPlanParams | null>(null)
+
+const multiplier = ref(1)
+const multiplyLongAmount = ref('')
+const multiplyShortAmount = ref('')
+const multiplySupplyVault: Ref<Vault | undefined> = ref()
+
+const { slippage: multiplySlippage } = useSlippage()
+const {
+  sortedQuoteCards: multiplyQuoteCardsSorted,
+  selectedProvider: multiplySelectedProvider,
+  selectedQuote: multiplySelectedQuote,
+  effectiveQuote: multiplyEffectiveQuote,
+  providersCount: multiplyProvidersCount,
+  isLoading: isMultiplyQuoteLoading,
+  quoteError: multiplyQuoteError,
+  statusLabel: multiplyQuotesStatusLabel,
+  getQuoteDiffPct,
+  reset: resetMultiplyQuoteStateInternal,
+  requestQuotes: requestMultiplyQuotes,
+  selectProvider: selectMultiplyQuote,
+} = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
+
+const multiplyLongVault = computed(() => position.value?.collateral)
+const multiplyShortVault = computed(() => position.value?.borrow)
+const multiplySubAccount = computed(() => position.value?.subAccount || null)
+
+const pairAssets = computed(() => {
+  if (!multiplyLongVault.value || !multiplyShortVault.value) {
+    return []
+  }
+  return [multiplyLongVault.value.asset, multiplyShortVault.value.asset]
+})
+
+const multiplyLongProduct = useEulerProductOfVault(computed(() => multiplyLongVault.value?.address || ''))
+const multiplyShortProduct = useEulerProductOfVault(computed(() => multiplyShortVault.value?.address || ''))
+
+const normalizeAddress = (address?: string) => {
+  if (!address) {
+    return ''
+  }
+  try {
+    return ethers.getAddress(address)
+  }
+  catch {
+    return ''
+  }
+}
+
+const multiplyRouteItems = computed(() => {
+  if (!multiplyLongVault.value) {
+    return []
+  }
+  const bestProvider = multiplyQuoteCardsSorted.value[0]?.provider
+  return multiplyQuoteCardsSorted.value.map((card) => {
+    const amountOut = getQuoteAmount(card.quote, 'amountOut')
+    const amount = formatNumber(
+      ethers.formatUnits(amountOut, Number(multiplyLongVault.value.asset.decimals)),
+    )
+    const diffPct = getQuoteDiffPct(card.quote)
+    const badge = card.provider === bestProvider
+      ? { label: 'Best', tone: 'best' as const }
+      : diffPct !== null
+        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
+        : undefined
+    return {
+      provider: card.provider,
+      amount,
+      symbol: multiplyLongVault.value.asset.symbol,
+      routeLabel: card.quote.route?.length
+        ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
+        : '-',
+      badge,
+    }
+  })
+})
+const multiplyRouteEmptyMessage = computed(() => {
+  if (!multiplyProvidersCount.value) {
+    return 'Increase multiplier to fetch quotes'
+  }
+  return 'No quotes found'
+})
+
+const multiplySupplyOpportunity = computed(() => {
+  return multiplySupplyVault.value ? getOpportunityOfLendVault(multiplySupplyVault.value.address) : null
+})
+const multiplyLongOpportunity = computed(() => {
+  return multiplyLongVault.value ? getOpportunityOfLendVault(multiplyLongVault.value.address) : null
+})
+const multiplyBorrowOpportunity = computed(() => {
+  return multiplyShortVault.value ? getOpportunityOfBorrowVault(multiplyShortVault.value.asset.address) : null
+})
+
+const multiplySupplyApy = computed(() => {
+  if (!multiplySupplyVault.value) {
+    return null
+  }
+  const base = nanoToValue(multiplySupplyVault.value.interestRateInfo.supplyAPY || 0n, 25)
+  return withIntrinsicSupplyApy(base, multiplySupplyVault.value.asset.symbol) + (multiplySupplyOpportunity.value?.apr || 0)
+})
+const multiplyLongApy = computed(() => {
+  if (!multiplyLongVault.value) {
+    return null
+  }
+  const base = nanoToValue(multiplyLongVault.value.interestRateInfo.supplyAPY || 0n, 25)
+  return withIntrinsicSupplyApy(base, multiplyLongVault.value.asset.symbol) + (multiplyLongOpportunity.value?.apr || 0)
+})
+const multiplyBorrowApy = computed(() => {
+  if (!multiplyShortVault.value) {
+    return null
+  }
+  const base = nanoToValue(multiplyShortVault.value.interestRateInfo.borrowAPY || 0n, 25)
+  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - (multiplyBorrowOpportunity.value?.apr || 0)
+})
+
+const multiplyDebtAmountNano = computed(() => {
+  const currentBorrowed = position.value?.borrowed || 0n
+  const currentMultiple = multiplyCurrentMultiple.value
+  const targetMultiple = multiplier.value
+  if (!currentBorrowed || !currentMultiple || targetMultiple <= currentMultiple) {
+    return 0n
+  }
+  const numerator = BigInt(Math.floor((targetMultiple - 1) * 100_000))
+  const denominator = Math.floor((currentMultiple - 1) * 100_000)
+  if (denominator <= 0) {
+    return (currentBorrowed * numerator) / 100_000n
+  }
+  const newLiability = (currentBorrowed * numerator) / BigInt(denominator)
+  if (newLiability <= currentBorrowed) {
+    return 0n
+  }
+  return newLiability - currentBorrowed
+})
+const multiplyBorrowLtv = computed(() => {
+  if (!multiplySupplyVault.value || !multiplyShortVault.value) {
+    return 0
+  }
+  const match = multiplyShortVault.value.collateralLTVs.find(
+    ltv => normalizeAddress(ltv.collateral) === normalizeAddress(multiplySupplyVault.value?.address),
+  )
+  return match ? nanoToValue(match.borrowLTV, 2) : 0
+})
+const multiplyMaxMultiplier = computed(() => {
+  const ltvPercent = multiplyBorrowLtv.value
+  if (!ltvPercent || !Number.isFinite(ltvPercent)) {
+    return 1
+  }
+  const ltv = ltvPercent / 100
+  if (ltv <= 0 || ltv >= 0.99) {
+    return 1
+  }
+  const max = 1 / (1 - ltv)
+  return Math.max(1, Math.floor(max * 100) / 100)
+})
+const multiplyCurrentMultiple = computed(() => {
+  if (!position.value) {
+    return 1
+  }
+  const ltvPercent = nanoToValue(position.value.userLTV, 18)
+  if (!Number.isFinite(ltvPercent) || ltvPercent <= 0) {
+    return 1
+  }
+  const ltv = ltvPercent / 100
+  if (!Number.isFinite(ltv) || ltv <= 0) {
+    return 1
+  }
+  const rawMultiple = ltv >= 0.9999 ? multiplyMaxMultiplier.value : 1 / (1 - ltv)
+  const rounded = Math.max(1, Math.round(rawMultiple * 100) / 100)
+  return Math.min(rounded, multiplyMaxMultiplier.value || rounded)
+})
+const multiplyMinMultiplier = computed(() => {
+  const current = multiplyCurrentMultiple.value
+  if (!current || !Number.isFinite(current)) {
+    return multiplyMaxMultiplier.value <= 1 ? 0 : 1
+  }
+  return Math.min(current, multiplyMaxMultiplier.value || current)
+})
+const multiplyIsSameAsset = computed(() => {
+  if (!multiplyShortVault.value || !multiplyLongVault.value) {
+    return false
+  }
+  return normalizeAddress(multiplyShortVault.value.asset.address) === normalizeAddress(multiplyLongVault.value.asset.address)
+})
+const multiplySwapAmountIn = computed(() => {
+  if (multiplyEffectiveQuote.value) {
+    return BigInt(multiplyEffectiveQuote.value.amountIn || 0)
+  }
+  if (multiplyIsSameAsset.value && multiplyDebtAmountNano.value > 0n) {
+    return multiplyDebtAmountNano.value
+  }
+  return 0n
+})
+const multiplySwapAmountOut = computed(() => {
+  if (multiplyEffectiveQuote.value) {
+    return BigInt(multiplyEffectiveQuote.value.amountOut || 0)
+  }
+  if (multiplyIsSameAsset.value && multiplyDebtAmountNano.value > 0n) {
+    return multiplyDebtAmountNano.value
+  }
+  return 0n
+})
+const multiplySwapReady = computed(() => {
+  if (isMultiplyQuoteLoading.value) {
+    return false
+  }
+  return Boolean(multiplyEffectiveQuote.value || (multiplyIsSameAsset.value && multiplyDebtAmountNano.value > 0n))
+})
+const multiplyLongValueUsd = computed(() => {
+  if (!multiplyLongVault.value) {
+    return null
+  }
+  if (!multiplySwapAmountOut.value) {
+    return null
+  }
+  return getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
+})
+const multiplyBorrowValueUsd = computed(() => {
+  if (!multiplyShortVault.value) {
+    return null
+  }
+  if (!multiplyDebtAmountNano.value) {
+    return null
+  }
+  return getVaultPrice(multiplyDebtAmountNano.value, multiplyShortVault.value)
+})
+const currentSupplyValueUsd = computed(() => {
+  if (!position.value || !multiplyLongVault.value) {
+    return null
+  }
+  return getVaultPrice(position.value.supplied, multiplyLongVault.value)
+})
+const currentBorrowValueUsd = computed(() => {
+  if (!position.value || !multiplyShortVault.value) {
+    return null
+  }
+  return getVaultPrice(position.value.borrowed, multiplyShortVault.value)
+})
+const nextSupplyValueUsd = computed(() => {
+  if (currentSupplyValueUsd.value === null) {
+    return null
+  }
+  return currentSupplyValueUsd.value + (multiplyLongValueUsd.value || 0)
+})
+const nextBorrowValueUsd = computed(() => {
+  if (currentBorrowValueUsd.value === null) {
+    return null
+  }
+  return currentBorrowValueUsd.value + (multiplyBorrowValueUsd.value || 0)
+})
+const multiplyWeightedSupplyApy = computed(() => {
+  if (currentSupplyValueUsd.value === null || multiplyLongApy.value === null) {
+    return null
+  }
+  const longUsd = multiplyLongValueUsd.value || 0
+  const total = currentSupplyValueUsd.value + longUsd
+  if (!Number.isFinite(total) || total <= 0) {
+    return null
+  }
+  const supplyApy = multiplySupplyApy.value ?? multiplyLongApy.value
+  return (currentSupplyValueUsd.value * supplyApy + longUsd * multiplyLongApy.value) / total
+})
+const calculateRoe = (
+  supplyUsd: number | null,
+  borrowUsd: number | null,
+  supplyApyValue: number | null,
+  borrowApyValue: number | null,
+) => {
+  if (supplyUsd === null || borrowUsd === null || supplyApyValue === null || borrowApyValue === null) {
+    return null
+  }
+  const equity = supplyUsd - borrowUsd
+  if (!Number.isFinite(equity) || equity <= 0) {
+    return null
+  }
+  const net = supplyUsd * supplyApyValue - borrowUsd * borrowApyValue
+  if (!Number.isFinite(net)) {
+    return null
+  }
+  return net / equity
+}
+const multiplyRoeBefore = computed(() => {
+  return calculateRoe(
+    currentSupplyValueUsd.value,
+    currentBorrowValueUsd.value,
+    multiplyLongApy.value,
+    multiplyBorrowApy.value,
+  )
+})
+const multiplyRoeAfter = computed(() => {
+  return calculateRoe(
+    nextSupplyValueUsd.value,
+    nextBorrowValueUsd.value,
+    multiplyWeightedSupplyApy.value,
+    multiplyBorrowApy.value,
+  )
+})
+const multiplyLiquidationLtv = computed(() => {
+  if (!multiplySupplyVault.value || !multiplyShortVault.value) {
+    return null
+  }
+  const match = multiplyShortVault.value.collateralLTVs.find(
+    ltv => normalizeAddress(ltv.collateral) === normalizeAddress(multiplySupplyVault.value?.address),
+  )
+  return match ? nanoToValue(match.liquidationLTV, 2) : null
+})
+const multiplyCurrentLtv = computed(() => {
+  if (!position.value) {
+    return null
+  }
+  return nanoToValue(position.value.userLTV, 18)
+})
+const multiplyNextLtv = computed(() => {
+  if (nextBorrowValueUsd.value === null || nextSupplyValueUsd.value === null) {
+    return null
+  }
+  if (nextSupplyValueUsd.value <= 0) {
+    return null
+  }
+  return (nextBorrowValueUsd.value / nextSupplyValueUsd.value) * 100
+})
+const multiplyCurrentLiquidationLtv = computed(() => {
+  if (!position.value) {
+    return null
+  }
+  return nanoToValue(position.value.liquidationLTV, 2)
+})
+const multiplyNextLiquidationLtv = computed(() => {
+  return multiplyLiquidationLtv.value ?? multiplyCurrentLiquidationLtv.value
+})
+const multiplyCurrentHealth = computed(() => {
+  if (!position.value) {
+    return null
+  }
+  return nanoToValue(position.value.health, 18)
+})
+const multiplyNextHealth = computed(() => {
+  if (!multiplyNextLiquidationLtv.value || !multiplyNextLtv.value) {
+    return null
+  }
+  if (multiplyNextLtv.value <= 0) {
+    return null
+  }
+  return multiplyNextLiquidationLtv.value / multiplyNextLtv.value
+})
+const multiplyPriceRatio = computed(() => {
+  if (!multiplyLongVault.value || !multiplyShortVault.value) {
+    return null
+  }
+  // Use liability vault's (multiplyShortVault) view of collateral price (multiplyLongVault is the collateral)
+  const collateralPrice = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplyLongVault.value)
+  const borrowPrice = getVaultPriceInfo(multiplyShortVault.value)
+  const ask = collateralPrice?.amountOutAsk || 0n
+  const bid = borrowPrice?.amountOutBid || 0n
+  if (!ask || !bid) {
+    return null
+  }
+  return nanoToValue(ask, 18) / nanoToValue(bid, 18)
+})
+const multiplyCurrentLiquidationPrice = computed(() => {
+  if (!position.value?.price) {
+    return null
+  }
+  const value = nanoToValue(position.value.price, 18)
+  return value > 0 ? value : null
+})
+const multiplyNextLiquidationPrice = computed(() => {
+  if (!multiplyPriceRatio.value || !multiplyNextHealth.value) {
+    return null
+  }
+  if (multiplyNextHealth.value <= 0) {
+    return null
+  }
+  return multiplyPriceRatio.value / multiplyNextHealth.value
+})
+const multiplyCurrentPrice = computed(() => {
+  if (isMultiplyQuoteLoading.value) {
+    return null
+  }
+  if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
+    return null
+  }
+  const amountIn = Number(ethers.formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals)))
+  const amountOut = Number(ethers.formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals)))
+  if (!amountIn || !amountOut) {
+    return null
+  }
+  return {
+    value: amountIn / amountOut,
+    symbol: `${multiplyShortVault.value.asset.symbol}/${multiplyLongVault.value.asset.symbol}`,
+  }
+})
+const multiplySwapSummary = computed(() => {
+  if (isMultiplyQuoteLoading.value) {
+    return null
+  }
+  if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
+    return null
+  }
+  const amountIn = ethers.formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals))
+  const amountOut = ethers.formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals))
+  return {
+    from: `${formatNumber(amountIn)} ${multiplyShortVault.value.asset.symbol}`,
+    to: `${formatNumber(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
+  }
+})
+const multiplyPriceImpact = computed(() => {
+  if (isMultiplyQuoteLoading.value) {
+    return null
+  }
+  if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
+    return null
+  }
+  const amountInUsd = getVaultPrice(multiplySwapAmountIn.value, multiplyShortVault.value)
+  const amountOutUsd = getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
+  if (!amountInUsd || !amountOutUsd) {
+    return null
+  }
+  const impact = (amountOutUsd / amountInUsd - 1) * 100
+  if (!Number.isFinite(impact)) {
+    return null
+  }
+  return impact
+})
+const multiplyRoutedVia = computed(() => {
+  if (isMultiplyQuoteLoading.value) {
+    return null
+  }
+  if (!multiplyEffectiveQuote.value?.route?.length) {
+    return null
+  }
+  return multiplyEffectiveQuote.value.route.map(route => route.providerName).join(', ')
+})
+const multiplyErrorText = computed(() => {
+  if (!multiplyShortVault.value) {
+    return null
+  }
+  if (multiplyDebtAmountNano.value > 0n && (multiplyShortVault.value.supply || 0n) < multiplyDebtAmountNano.value) {
+    return 'Not enough liquidity in the vault'
+  }
+  return null
+})
+
+const setMultiplyAmounts = (longDelta?: bigint | null, shortDelta?: bigint | null) => {
+  if (!position.value || !multiplyLongVault.value || !multiplyShortVault.value) {
+    multiplyLongAmount.value = ''
+    multiplyShortAmount.value = ''
+    return
+  }
+  const baseLong = position.value.supplied || 0n
+  const baseShort = position.value.borrowed || 0n
+  const totalLong = baseLong + (longDelta && longDelta > 0n ? longDelta : 0n)
+  const totalShort = baseShort + (shortDelta && shortDelta > 0n ? shortDelta : 0n)
+  multiplyLongAmount.value = totalLong > 0n
+    ? ethers.formatUnits(totalLong, Number(multiplyLongVault.value.asset.decimals))
+    : ''
+  multiplyShortAmount.value = totalShort > 0n
+    ? ethers.formatUnits(totalShort, Number(multiplyShortVault.value.asset.decimals))
+    : ''
+}
+
+watch(
+  [position, multiplyEffectiveQuote, multiplyIsSameAsset, multiplyDebtAmountNano, multiplyLongVault, multiplyShortVault],
+  () => {
+    if (multiplyIsSameAsset.value && multiplyDebtAmountNano.value > 0n) {
+      setMultiplyAmounts(multiplyDebtAmountNano.value, multiplyDebtAmountNano.value)
+      return
+    }
+    if (multiplyEffectiveQuote.value) {
+      const amountOut = BigInt(multiplyEffectiveQuote.value.amountOut || 0)
+      const amountIn = BigInt(multiplyEffectiveQuote.value.amountIn || 0)
+      setMultiplyAmounts(amountOut, amountIn)
+      return
+    }
+    setMultiplyAmounts(null, null)
+  },
+  { immediate: true },
+)
+
+const resetMultiplyQuoteState = () => {
+  resetMultiplyQuoteStateInternal()
+  setMultiplyAmounts(null, null)
+}
+
+const requestMultiplyQuote = useDebounceFn(async () => {
+  multiplyQuoteError.value = null
+
+  if (!multiplyLongVault.value || !multiplyShortVault.value) {
+    resetMultiplyQuoteState()
+    return
+  }
+
+  const debtAmount = multiplyDebtAmountNano.value
+  if (!debtAmount || debtAmount <= 0n) {
+    resetMultiplyQuoteState()
+    return
+  }
+
+  if (normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)) {
+    resetMultiplyQuoteState()
+    setMultiplyAmounts(debtAmount, debtAmount)
+    return
+  }
+
+  const subAccount = multiplySubAccount.value
+  if (!subAccount) {
+    resetMultiplyQuoteState()
+    multiplyQuoteError.value = 'Unable to resolve position'
+    return
+  }
+
+  setMultiplyAmounts(null, null)
+  const requestParams = {
+    tokenIn: multiplyShortVault.value.asset.address as Address,
+    tokenOut: multiplyLongVault.value.asset.address as Address,
+    accountIn: subAccount as Address,
+    accountOut: subAccount as Address,
+    amount: debtAmount,
+    vaultIn: multiplyShortVault.value.address as Address,
+    receiver: multiplyLongVault.value.address as Address,
+    slippage: multiplySlippage.value,
+    swapperMode: SwapperMode.EXACT_IN,
+    isRepay: false,
+    targetDebt: 0n,
+    currentDebt: 0n,
+  }
+  await requestMultiplyQuotes(requestParams, {
+    logContext: {
+      fromVault: multiplyShortVault.value?.address,
+      toVault: multiplyLongVault.value?.address,
+      amount: ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+      slippage: multiplySlippage.value,
+      swapperMode: SwapperMode.EXACT_IN,
+      isRepay: false,
+    },
+  })
+}, 500)
+
+const onMultiplierInput = () => {
+  clearMultiplySimulationError()
+  requestMultiplyQuote()
+}
+
+const submitMultiply = async () => {
+  await guardWithTerms(async () => {
+    if (isSubmitting.value || !isConnected.value) {
+      return
+    }
+    if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
+      return
+    }
+    const debtAmount = multiplyDebtAmountNano.value
+    if (debtAmount <= 0n) {
+      return
+    }
+    if (multiplyErrorText.value) {
+      return
+    }
+    const subAccount = multiplySubAccount.value
+    if (!subAccount) {
+      error('Unable to resolve position')
+      return
+    }
+
+    const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
+    const quote = isSameAsset ? null : multiplySelectedQuote.value
+    if (!isSameAsset && !quote) {
+      return
+    }
+
+    const nextPlanParams: MultiplyPlanParams = {
+      supplyVaultAddress: multiplySupplyVault.value.address,
+      supplyAssetAddress: multiplySupplyVault.value.asset.address,
+      supplyAmount: 0n,
+      longVaultAddress: multiplyLongVault.value.address,
+      longAssetAddress: multiplyLongVault.value.asset.address,
+      borrowVaultAddress: multiplyShortVault.value.address,
+      debtAmount,
+      quote: quote || undefined,
+      swapperMode: SwapperMode.EXACT_IN,
+      subAccount,
+    }
+    planParams.value = nextPlanParams
+
+    try {
+      plan.value = await buildMultiplyPlan({
+        ...nextPlanParams,
+        includePermit2Call: false,
+      })
+    }
+    catch (e) {
+      console.warn('[Multiply] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runMultiplySimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'borrow',
+        asset: multiplyShortVault.value.asset,
+        amount: multiplyShortAmount.value || ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+        plan: plan.value || undefined,
+        subAccount,
+        onConfirm: () => {
+          setTimeout(() => {
+            sendMultiply()
+          }, 400)
+        },
+      },
+    })
+  })
+}
+
+const sendMultiply = async () => {
+  if (!planParams.value) {
+    return
+  }
+  isSubmitting.value = true
+  try {
+    const nextPlan = await buildMultiplyPlan({
+      ...planParams.value,
+      includePermit2Call: true,
+    })
+    plan.value = nextPlan
+    await executeTxPlan(nextPlan)
+    modal.close()
+    updateBorrowPositions(eulerLensAddresses.value, address.value || '')
+    setTimeout(() => {
+      router.replace('/portfolio')
+    }, 400)
+  }
+  catch (e) {
+    console.warn(e)
+    error('Transaction failed')
+  }
+  finally {
+    isSubmitting.value = false
+  }
+}
+
+const isMultiplySubmitDisabled = computed(() => {
+  if (!isConnected.value) return false
+  if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
+    return true
+  }
+  if (multiplyDebtAmountNano.value <= 0n) {
+    return true
+  }
+  if (multiplyErrorText.value) {
+    return true
+  }
+  const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
+  if (!isSameAsset && !multiplySelectedQuote.value) {
+    return true
+  }
+  return false
+})
+const reviewMultiplyDisabled = getSubmitDisabled(isMultiplySubmitDisabled)
+
+const loadPosition = async () => {
+  isLoading.value = true
+  position.value = borrowPositions.value[+positionIndex - 1] || null
+  if (!position.value) {
+    multiplySupplyVault.value = undefined
+    resetMultiplyQuoteState()
+    isLoading.value = false
+    return
+  }
+  multiplySupplyVault.value = position.value.collateral
+  isLoading.value = false
+}
+
+watch([isPositionsLoaded, () => route.params.number], ([loaded]) => {
+  if (loaded) {
+    loadPosition()
+  }
+}, { immediate: true })
+
+watch([multiplySupplyVault, multiplyLongVault, multiplyShortVault], () => {
+  clearMultiplySimulationError()
+  resetMultiplyQuoteState()
+  if (multiplyDebtAmountNano.value > 0n) {
+    requestMultiplyQuote()
+  }
+})
+watch(multiplySelectedQuote, () => {
+  clearMultiplySimulationError()
+})
+watch(multiplySlippage, () => {
+  clearMultiplySimulationError()
+  if (multiplyDebtAmountNano.value <= 0n) {
+    resetMultiplyQuoteState()
+    return
+  }
+  requestMultiplyQuote()
+})
+watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
+  let next = multiplier.value
+  if (!max || max < min) {
+    next = min
+  }
+  else {
+    if (next > max) {
+      next = max
+    }
+    if (next < min) {
+      next = min
+    }
+  }
+  if (next !== multiplier.value) {
+    multiplier.value = next
+  }
+  if (multiplyDebtAmountNano.value <= 0n) {
+    resetMultiplyQuoteState()
+    return
+  }
+  requestMultiplyQuote()
+}, { immediate: true })
+</script>
+
+<template>
+  <VaultForm
+    title="Multiply"
+    :loading="isLoading || isPositionsLoading"
+    class="flex flex-col gap-16 w-full"
+    @submit.prevent="submitMultiply"
+  >
+    <template v-if="position && multiplySupplyVault && multiplyLongVault && multiplyShortVault">
+      <VaultLabelsAndAssets
+        :vault="multiplyLongVault"
+        :assets="pairAssets as VaultAsset[]"
+        size="large"
+      />
+
+      <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
+        <div class="flex flex-col gap-16 w-full">
+          <UiRange
+            v-model="multiplier"
+            label="Multiplier"
+            :step="0.1"
+            :min="multiplyMinMultiplier"
+            :max="multiplyMaxMultiplier"
+            :number-filter="(n: number) => `${n}x`"
+            @update:model-value="onMultiplierInput"
+          />
+
+          <SwapRouteSelector
+            :items="multiplyRouteItems"
+            :selected-provider="multiplySelectedProvider"
+            :status-label="multiplyQuotesStatusLabel"
+            :is-loading="isMultiplyQuoteLoading"
+            :empty-message="multiplyRouteEmptyMessage"
+            @select="selectMultiplyQuote"
+          />
+
+          <AssetInput
+            v-model="multiplyLongAmount"
+            :desc="multiplyLongProduct.name"
+            label="Long"
+            :asset="multiplyLongVault.asset"
+            :vault="multiplyLongVault"
+            :readonly="true"
+          />
+
+          <AssetInput
+            v-model="multiplyShortAmount"
+            :desc="multiplyShortProduct.name"
+            label="Short"
+            :asset="multiplyShortVault.asset"
+            :vault="multiplyShortVault"
+            :readonly="true"
+          />
+
+          <UiToast
+            v-show="multiplyErrorText"
+            title="Error"
+            variant="error"
+            :description="multiplyErrorText || ''"
+            size="compact"
+          />
+          <UiToast
+            v-if="multiplySimulationError"
+            title="Error"
+            variant="error"
+            :description="multiplySimulationError"
+            size="compact"
+          />
+
+          <UiToast
+            v-if="multiplyQuoteError"
+            title="Swap quote"
+            variant="warning"
+            :description="multiplyQuoteError"
+            size="compact"
+          />
+
+          <VaultFormSubmit
+            :disabled="reviewMultiplyDisabled"
+            :loading="isSubmitting"
+          >
+            {{ reviewMultiplyLabel }}
+          </VaultFormSubmit>
+        </div>
+
+        <VaultFormInfoBlock
+          :loading="isMultiplyQuoteLoading"
+          class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px]"
+        >
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
+              ROE
+            </p>
+            <p class="text-p2">
+              <template v-if="multiplyRoeBefore !== null && multiplyRoeAfter !== null && multiplySwapReady">
+                <span class="text-euler-dark-900">{{ formatNumber(multiplyRoeBefore) }}%</span>
+                → <span class="text-white">{{ formatNumber(multiplyRoeAfter) }}%</span>
+              </template>
+              <template v-else>
+                {{ multiplyRoeBefore !== null ? `${formatNumber(multiplyRoeBefore)}%` : '-' }}
+              </template>
+            </p>
+          </div>
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
+              Current price
+            </p>
+            <p class="text-p2">
+              {{ multiplyCurrentPrice ? `${formatNumber(multiplyCurrentPrice.value)} ${multiplyCurrentPrice.symbol}` : '-' }}
+            </p>
+          </div>
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
+              Liquidation price
+            </p>
+            <p class="text-p2">
+              <template v-if="multiplyCurrentLiquidationPrice !== null && multiplyNextLiquidationPrice !== null && multiplySwapReady">
+                <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentLiquidationPrice, 4) }}</span>
+                → <span class="text-white">{{ formatNumber(multiplyNextLiquidationPrice, 4) }}</span>
+              </template>
+              <template v-else>
+                {{ multiplyCurrentLiquidationPrice !== null ? formatNumber(multiplyCurrentLiquidationPrice, 4) : '-' }}
+              </template>
+              <span class="text-euler-dark-900 text-p3">
+                {{ multiplyLongVault?.asset.symbol }}
+              </span>
+            </p>
+          </div>
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
+              Your LTV (LLTV)
+            </p>
+            <p class="text-p2 text-right">
+              <template v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null && multiplyNextLtv !== null && multiplyNextLiquidationLtv !== null && multiplySwapReady">
+                <span class="text-euler-dark-900">
+                  {{ formatNumber(multiplyCurrentLtv) }}%
+                  <span class="text-euler-dark-900 text-p3">
+                    ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
+                  </span>
+                </span>
+                → <span class="text-white">
+                  {{ formatNumber(multiplyNextLtv) }}%
+                  <span class="text-euler-dark-900 text-p3">
+                    ({{ formatNumber(multiplyNextLiquidationLtv) }}%)
+                  </span>
+                </span>
+              </template>
+              <template v-else>
+                <span v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null">
+                  {{ formatNumber(multiplyCurrentLtv) }}%
+                  <span class="text-euler-dark-900 text-p3">
+                    ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
+                  </span>
+                </span>
+                <span v-else>-</span>
+              </template>
+            </p>
+          </div>
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
+              Your health
+            </p>
+            <p class="text-p2">
+              <template v-if="multiplyCurrentHealth !== null && multiplyNextHealth !== null && multiplySwapReady">
+                <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentHealth, 2) }}</span>
+                → <span class="text-white">{{ formatNumber(multiplyNextHealth, 2) }}</span>
+              </template>
+              <template v-else>
+                {{ multiplyCurrentHealth !== null ? formatNumber(multiplyCurrentHealth, 2) : '-' }}
+              </template>
+            </p>
+          </div>
+          <div class="flex justify-between items-start">
+            <p class="text-euler-dark-900">
+              Swap
+            </p>
+            <p class="text-p2 text-right flex flex-col items-end">
+              <span>{{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}</span>
+              <span
+                v-if="multiplySwapSummary"
+                class="text-euler-dark-900 text-p3"
+              >
+                {{ multiplySwapSummary.to }}
+              </span>
+            </p>
+          </div>
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
+              Price impact
+            </p>
+            <p class="text-p2">
+              {{ multiplyPriceImpact !== null ? `${formatNumber(multiplyPriceImpact, 2, 2)}%` : '-' }}
+            </p>
+          </div>
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
+              Slippage tolerance
+            </p>
+            <button
+              type="button"
+              class="flex items-center gap-6 text-p2"
+              @click="openSlippageSettings"
+            >
+              <span>{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
+              <SvgIcon
+                name="edit"
+                class="!w-16 !h-16 text-aquamarine-700"
+              />
+            </button>
+          </div>
+          <div class="flex justify-between items-center">
+            <p class="text-euler-dark-900">
+              Routed via
+            </p>
+            <p class="text-p2 text-right">
+              {{ multiplyRoutedVia || '-' }}
+            </p>
+          </div>
+        </VaultFormInfoBlock>
+      </div>
+    </template>
+  </VaultForm>
+</template>

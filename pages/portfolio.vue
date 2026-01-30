@@ -11,8 +11,8 @@ const {
   borrowPositions,
   depositPositions,
   earnPositions,
-  totalSuppliedValue,
-  totalBorrowedValue,
+  totalSuppliedValueInfo,
+  totalBorrowedValueInfo,
   isPositionsLoaded,
   isShowAllPositions,
   updateBorrowPositions,
@@ -22,7 +22,7 @@ const {
 const { rewards } = useMerkl()
 const { locks } = useREULLocks()
 const { isConnected, address } = useAccount()
-const { isLoaded: isBalancesLoaded, balances } = useWallets()
+const { isLoaded: isBalancesLoaded, balances, updateBalances } = useWallets()
 const { eulerLensAddresses } = useEulerAddresses()
 
 const interval: Ref<NodeJS.Timeout | null> = ref(null)
@@ -53,15 +53,16 @@ const checkTab = () => {
   }
 }
 
-const updatePositions = async () => {
+const updatePositions = () => {
   updateDepositPositions(balances.value, eulerLensAddresses.value, address.value as string)
   updateEarnPositions(balances.value, eulerLensAddresses.value, address.value as string)
   updateBorrowPositions(eulerLensAddresses.value, address.value as string)
 }
 
 watch(tabsModel, checkTab, { immediate: true })
-onActivated(() => {
+onActivated(async () => {
   checkTab()
+  await updateBalances()
   updatePositions()
   interval.value = setInterval(updatePositions, 10000)
 })
@@ -93,7 +94,12 @@ onDeactivated(() => {
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
           <div class="text-h5 text-white">
-            {{ `$${compactNumber(totalSuppliedValue - totalBorrowedValue)}` }}
+            {{ (() => {
+              const netValue = totalSuppliedValueInfo.total - totalBorrowedValueInfo.total
+              const hasMissing = totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices
+              if (netValue === 0 && hasMissing) return '—'
+              return hasMissing ? `$${compactNumber(netValue)}+` : `$${compactNumber(netValue)}`
+            })() }}
           </div>
         </BaseLoadableContent>
       </div>
@@ -103,7 +109,11 @@ onDeactivated(() => {
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
           <div class="text-h5 text-white">
-            {{ `$${compactNumber(totalSuppliedValue)}` }}
+            {{ (() => {
+              const { total, hasMissingPrices } = totalSuppliedValueInfo
+              if (total === 0 && hasMissingPrices) return '—'
+              return hasMissingPrices ? `$${compactNumber(total)}+` : `$${compactNumber(total)}`
+            })() }}
           </div>
         </BaseLoadableContent>
       </div>
@@ -113,7 +123,11 @@ onDeactivated(() => {
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
           <div class="text-h5 text-white">
-            {{ `$${compactNumber(totalBorrowedValue)}` }}
+            {{ (() => {
+              const { total, hasMissingPrices } = totalBorrowedValueInfo
+              if (total === 0 && hasMissingPrices) return '—'
+              return hasMissingPrices ? `$${compactNumber(total)}+` : `$${compactNumber(total)}`
+            })() }}
           </div>
         </BaseLoadableContent>
       </div>

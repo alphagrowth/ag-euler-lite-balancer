@@ -6,6 +6,7 @@ const props = withDefaults(
     label?: string
     helpText?: string
     type?: string
+    inputMode?: string
     disabled?: boolean
     error?: boolean
     fullWidth?: boolean
@@ -48,6 +49,7 @@ const classes = computed(() => {
       ref="inputRef"
       v-model="model"
       :type="type"
+      :inputmode="inputMode"
       :disabled="disabled"
       :name="name"
       :placeholder="placeholder"

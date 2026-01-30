@@ -2,10 +2,11 @@
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
-import { OperationReviewModal } from '#components'
+import { OperationReviewModal, SlippageSettingsModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { type Vault, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
+import { type Vault, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -24,11 +25,18 @@ const { borrowPositions, isPositionsLoaded, isPositionsLoading } = useEulerAccou
 const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewSwapLabel = getSubmitLabel('Review Swap')
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { map, getVault, isReady: isVaultsReady } = useVaults()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
+
+const openSlippageSettings = () => {
+  modal.open(SlippageSettingsModal)
+}
 
 const positionIndex = route.params.number as string
 
@@ -37,7 +45,7 @@ const isSubmitting = ref(false)
 const plan = ref<TxPlan | null>(null)
 const fromAmount = ref('')
 const toAmount = ref('')
-const slippage = ref(0.5)
+const { slippage } = useSlippage()
 const {
   sortedQuoteCards: quoteCardsSorted,
   selectedProvider,
@@ -282,7 +290,7 @@ const priceRatio = computed(() => {
   if (!toVault.value || !borrowVault.value) {
     return null
   }
-  const collateralPrice = getVaultPriceInfo(toVault.value)
+  const collateralPrice = getCollateralAssetPriceFromLiability(borrowVault.value, toVault.value)
   const borrowPrice = getVaultPriceInfo(borrowVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
@@ -470,8 +478,10 @@ const isSubmitDisabled = computed(() => {
     || !(+fromAmount.value)
     || !toAmount.value
 })
+const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
 
 const onFromInput = async () => {
+  clearSimulationError()
   if (!fromVault.value || !toVault.value || !fromAmount.value) {
     toAmount.value = ''
     resetQuoteState()
@@ -530,6 +540,7 @@ const requestQuote = useDebounceFn(async () => {
 }, 500)
 
 watch(toVault, () => {
+  clearSimulationError()
   if (!toVault.value) {
     toAmount.value = ''
     resetQuoteState()
@@ -541,12 +552,17 @@ watch(toVault, () => {
 })
 
 watch([fromVault, slippage], () => {
+  clearSimulationError()
   if (fromAmount.value) {
     requestQuote()
   }
 })
+watch(selectedQuote, () => {
+  clearSimulationError()
+})
 
 const onToVaultChange = (selectedIndex: number) => {
+  clearSimulationError()
   const nextVault = collateralVaults.value[selectedIndex]
   if (!nextVault) {
     return
@@ -557,37 +573,46 @@ const onToVaultChange = (selectedIndex: number) => {
 }
 
 const submit = async () => {
-  if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
-    return
-  }
+  await guardWithTerms(async () => {
+    if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
+      return
+    }
 
-  try {
-    plan.value = await buildSwapPlan({
-      quote: selectedQuote.value,
-      swapperMode: SwapperMode.EXACT_IN,
-      isRepay: false,
-      targetDebt: 0n,
-      currentDebt: 0n,
-      enableCollateral: true,
-    })
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
+    try {
+      plan.value = await buildSwapPlan({
+        quote: selectedQuote.value,
+        swapperMode: SwapperMode.EXACT_IN,
+        isRepay: false,
+        targetDebt: 0n,
+        currentDebt: 0n,
+        enableCollateral: true,
+      })
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'swap',
-      asset: fromVault.value.asset,
-      amount: fromAmount.value,
-      plan: plan.value || undefined,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'swap',
+        asset: fromVault.value.asset,
+        amount: fromAmount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 
@@ -643,15 +668,6 @@ const send = async () => {
               @input="onFromInput"
             />
 
-            <UiRange
-              v-model="slippage"
-              label="Slippage tolerance"
-              :step="0.1"
-              :min="0"
-              :max="50"
-              :number-filter="(n: number) => `${n}%`"
-            />
-
             <SwapRouteSelector
               :items="swapRouteItems"
               :selected-provider="selectedProvider"
@@ -679,6 +695,13 @@ const send = async () => {
               :description="errorText || ''"
               size="compact"
             />
+            <UiToast
+              v-if="simulationError"
+              title="Error"
+              variant="error"
+              :description="simulationError"
+              size="compact"
+            />
 
             <UiToast
               v-if="quoteError"
@@ -690,10 +713,10 @@ const send = async () => {
 
             <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
               <VaultFormSubmit
-                :disabled="isSubmitDisabled"
+                :disabled="reviewSwapDisabled"
                 :loading="isSubmitting"
               >
-                Review Swap
+                {{ reviewSwapLabel }}
               </VaultFormSubmit>
             </div>
           </div>
@@ -811,9 +834,17 @@ const send = async () => {
               <p class="text-euler-dark-900">
                 Slippage tolerance
               </p>
-              <p class="text-p2">
-                {{ formatNumber(slippage, 2, 0) }}%
-              </p>
+              <button
+                type="button"
+                class="flex items-center gap-6 text-p2"
+                @click="openSlippageSettings"
+              >
+                <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                <SvgIcon
+                  name="edit"
+                  class="!w-16 !h-16 text-aquamarine-700"
+                />
+              </button>
             </div>
             <div class="flex justify-between items-center">
               <p class="text-euler-dark-900">

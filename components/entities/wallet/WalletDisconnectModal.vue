@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useAccount, useDisconnect } from '@wagmi/vue'
-
 const emits = defineEmits(['close'])
 
 const { address } = useAccount()
@@ -37,6 +36,7 @@ const onDisconnectClick = () => {
         />
       </div>
     </div>
+    <SlippageSettings />
     <UiButton
       variant="primary-stroke"
       size="xlarge"

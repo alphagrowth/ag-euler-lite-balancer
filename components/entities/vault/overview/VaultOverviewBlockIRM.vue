@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import * as echarts from 'echarts'
 import { ethers } from 'ethers'
+import { INTEREST_RATE_MODEL_TYPE } from '~/entities/constants'
 import type { Vault } from '~/entities/vault'
 import { getVaultUtilization } from '~/entities/vault'
 import { eulerVaultLensABI } from '~/entities/euler/abis'
@@ -20,12 +21,6 @@ const hasValidIRM = computed(() => {
   return vault.interestRateModelAddress
     && vault.interestRateModelAddress !== '0x0000000000000000000000000000000000000000'
 })
-
-// Interest Rate Model Types
-const INTEREST_RATE_MODEL_TYPE = {
-  KINK: 1,
-  ADAPTIVE_CURVE: 2,
-}
 
 const irmTypeLabel = computed(() => {
   const modelType = Number(vault.irmInfo?.interestRateModelInfo?.interestRateModelType)

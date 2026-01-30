@@ -56,6 +56,12 @@ const handleClose = () => {
           >
             Saving
           </div>
+          <div
+            v-else-if="option.type === 'escrow'"
+            class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[var(--c-aquamarine-opaque-200)] text-aquamarine-600"
+          >
+            Escrow
+          </div>
         </div>
       </div>
       <div class="text-right grow-1">

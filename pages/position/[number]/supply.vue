@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { ethers, FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
@@ -13,6 +14,8 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
@@ -20,6 +23,7 @@ const { borrowPositions, isPositionsLoaded } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { map, getVault, isReady: isVaultsReady } = useVaults()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
@@ -84,6 +88,7 @@ const isSubmitDisabled = computed(() => {
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
+const reviewSupplyDisabled = getSubmitDisabled(computed(() => isLoading.value || isSubmitDisabled.value))
 const { name } = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
 
 const normalizeAddress = (address?: string) => {
@@ -176,39 +181,48 @@ const updateBalance = async () => {
   balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
 }
 const submit = async () => {
-  if (!collateralVault.value?.asset.address) {
-    return
-  }
+  await guardWithTerms(async () => {
+    if (!collateralVault.value?.asset.address) {
+      return
+    }
 
-  try {
-    plan.value = await buildSupplyPlan(
-      collateralVault.value.address,
-      collateralVault.value.asset.address,
-      valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
-      collateralVault.value.asset.symbol,
-      position.value?.subAccount,
-      { includePermit2Call: false },
-    )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
+    try {
+      plan.value = await buildSupplyPlan(
+        collateralVault.value.address,
+        collateralVault.value.asset.address,
+        valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
+        collateralVault.value.asset.symbol,
+        position.value?.subAccount,
+        { includePermit2Call: false },
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'supply',
-      asset: asset.value,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'supply',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -241,6 +255,7 @@ const send = async () => {
   }
 }
 const updateEstimates = useDebounceFn(async () => {
+  clearSimulationError()
   estimatesError.value = ''
   if (!collateralVault.value) {
     return
@@ -286,6 +301,7 @@ watch(isPositionsLoaded, (val) => {
   }
 }, { immediate: true })
 watch(() => route.query.collateral, async () => {
+  clearSimulationError()
   if (!isPositionLoaded.value) {
     return
   }
@@ -352,6 +368,13 @@ onUnmounted(() => {
         title="Error"
         variant="error"
         :description="estimatesError"
+        size="compact"
+      />
+      <UiToast
+        v-if="simulationError"
+        title="Error"
+        variant="error"
+        :description="simulationError"
         size="compact"
       />
 
@@ -456,10 +479,10 @@ onUnmounted(() => {
         :vault="collateralVault"
       />
       <VaultFormSubmit
-        :disabled="isLoading || isSubmitDisabled"
+        :disabled="reviewSupplyDisabled"
         :loading="isSubmitting"
       >
-        Review Supply
+        {{ reviewSupplyLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

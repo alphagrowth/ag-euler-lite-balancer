@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import type { Vault } from '~/entities/vault'
+import { EUR_ADDRESS, USD_ADDRESS } from '~/entities/constants'
 import { collectOracleAdapters, type OracleAdapterEntry } from '~/entities/oracle'
 import { getExplorerLink } from '~/utils/block-explorer'
 
 const props = defineProps<{ vault?: Vault, vaults?: Vault[] }>()
 const { tokens, loadTokens } = useTokens()
 const { chainId } = useEulerAddresses()
-
-const USD_ADDRESS = '0x0000000000000000000000000000000000000348'
-const EUR_ADDRESS = '0x00000000000000000000000000000000000003d2'
 
 const sourceVaults = computed(() => {
   if (props.vaults?.length) {
@@ -43,7 +41,6 @@ const adapters = computed(() => {
 
   return [...deduped.values()]
 })
-
 onMounted(() => {
   if (!Object.keys(tokens).length) {
     loadTokens()

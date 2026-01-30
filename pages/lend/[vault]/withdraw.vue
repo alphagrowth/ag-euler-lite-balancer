@@ -4,6 +4,7 @@ import { FixedNumber } from 'ethers'
 import { createPublicClient, http, type Address } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
@@ -18,10 +19,13 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { withdraw, redeem, buildWithdrawPlan, buildRedeemPlan } = useEulerOperations()
 const { getVault } = useVaults()
 const { isConnected, chain, address } = useAccount()
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -59,6 +63,7 @@ const isSubmitDisabled = computed(() => {
     || amountFixed.value.isZero() || amountFixed.value.isNegative()
     || !!(estimatesError.value)
 })
+const reviewWithdrawDisabled = getSubmitDisabled(isSubmitDisabled)
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
   const base = withIntrinsicSupplyApy(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25), vault.value.asset.symbol)
@@ -124,34 +129,43 @@ const updateBalance = async () => {
   delta.value = assetsBalance.value
 }
 const submit = async () => {
-  if (!asset.value?.address) {
-    return
-  }
+  await guardWithTerms(async () => {
+    if (!asset.value?.address) {
+      return
+    }
 
-  const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+    const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
 
-  try {
-    plan.value = isMax
-      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
-      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
+    try {
+      plan.value = isMax
+        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
+        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'withdraw',
-      asset: asset.value,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'withdraw',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -188,6 +202,7 @@ const send = async () => {
   }
 }
 const updateEstimates = useDebounceFn(async () => {
+  clearSimulationError()
   estimatesError.value = ''
   if (!vault.value) {
     return
@@ -221,6 +236,7 @@ watch(isConnected, () => {
   updateBalance()
 })
 watch(amount, async () => {
+  clearSimulationError()
   if (!vault.value) {
     return
   }
@@ -262,6 +278,13 @@ watch(amount, async () => {
         title="Error"
         variant="error"
         :description="estimatesError"
+        size="compact"
+      />
+      <UiToast
+        v-if="simulationError"
+        title="Error"
+        variant="error"
+        :description="simulationError"
         size="compact"
       />
 
@@ -314,9 +337,9 @@ watch(amount, async () => {
     <template #buttons>
       <VaultFormSubmit
         :loading="isSubmitting"
-        :disabled="isSubmitDisabled"
+        :disabled="reviewWithdrawDisabled"
       >
-        Withdraw review
+        {{ reviewWithdrawLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

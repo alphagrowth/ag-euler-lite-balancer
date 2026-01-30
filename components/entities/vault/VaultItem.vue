@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { getVaultPrice, getVaultUtilization, type Vault } from '~/entities/vault'
-import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useAccount } from '@wagmi/vue'
+import { getVaultPrice, getVaultPriceDisplay, getVaultUtilization, type Vault } from '~/entities/vault'
+import { useEulerEntitiesOfVault, useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultUtilizationWarningModal } from '#components'
 
-const { isConnected } = useWagmi()
+const { isConnected } = useAccount()
 const { vault } = defineProps<{ vault: Vault }>()
 const product = useEulerProductOfVault(vault.address)
-const displayName = computed(() => product.name || vault.name)
-const entities = useEulerEntitiesOfVault(vault.address)
+const vaultLabel = useEulerVaultLabelOfVault(vault.address)
+const displayName = computed(() => vaultLabel.name || product.name || vault.name)
+const entities = useEulerEntitiesOfVault(vault)
 const { balances, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
@@ -32,6 +34,16 @@ const supplyApy = computed(() => withIntrinsicSupplyApy(
 ))
 const supplyApyWithRewards = computed(() => supplyApy.value + totalRewardsAPY.value)
 const utilization = computed(() => getVaultUtilization(vault))
+
+const totalSupplyPrice = computed(() => {
+  const price = getVaultPriceDisplay(vault.totalAssets, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
+
+const walletBalancePrice = computed(() => {
+  const price = getVaultPriceDisplay(balance.value, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
 
 const onWarningClick = () => {
   modal.open(VaultUtilizationWarningModal)
@@ -82,7 +94,7 @@ const onWarningClick = () => {
           Total supply
         </div>
         <div class="text-p2">
-          {{ `$${compactNumber(getVaultPrice(vault.totalAssets, vault))}` }}
+          {{ totalSupplyPrice }}
         </div>
       </div>
       <div class="flex-1 flex flex-col items-center">
@@ -135,7 +147,7 @@ const onWarningClick = () => {
             style="width: 70px; height: 20px"
           >
             <div class="text-p2">
-              ${{ compactNumber(getVaultPrice(balance, vault)) }}
+              {{ walletBalancePrice }}
             </div>
           </BaseLoadableContent>
         </template>

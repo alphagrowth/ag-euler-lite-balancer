@@ -2,6 +2,7 @@ import { useAccount, useWriteContract } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import type { Address, Abi } from 'viem'
 
+import { reulLockAbi, reulWithdrawABI } from '~/abis/reul'
 import type { REULLock } from '~/entities/reul'
 import type { TxPlan } from '~/entities/txPlan'
 
@@ -13,38 +14,6 @@ const locks: Ref<REULLock[]> = ref([])
 const reulTokenContractAddress = ref('')
 const eulTokenContractAddress = ref('')
 
-const reulWithdrawABI = [
-  {
-    type: 'function',
-    name: 'withdrawToByLockTimestamp',
-    inputs: [
-      {
-        name: 'account',
-        type: 'address',
-        internalType: 'address',
-      },
-      {
-        name: 'lockTimestamp',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'allowRemainderLoss',
-        type: 'bool',
-        internalType: 'bool',
-      },
-    ],
-    outputs: [
-      {
-        name: 'success',
-        type: 'bool',
-        internalType: 'bool',
-      },
-    ],
-    stateMutability: 'nonpayable',
-  },
-] as const
-
 let interval: NodeJS.Timeout | null = null
 
 const loadReulTokenContractAddresses = async (chainId: number) => {
@@ -52,7 +21,12 @@ const loadReulTokenContractAddresses = async (chainId: number) => {
     isAddressesLoading.value = true
     addressLoadError.value = null
 
-    const response = await fetch(`https://raw.githubusercontent.com/euler-xyz/euler-interfaces/refs/heads/master/addresses/${chainId}/TokenAddresses.json`)
+    const { getEulerInterfacesTokenAddressesUrl } = useEulerConfig()
+    const url = getEulerInterfacesTokenAddressesUrl?.(chainId)
+    if (!url) {
+      throw new Error('Token addresses URL is not configured')
+    }
+    const response = await fetch(url)
     if (!response.ok) {
       throw new Error(`Failed to fetch Euler config: ${response.statusText}`)
     }
@@ -84,11 +58,7 @@ const loadREULLocksInfo = async (userAddress: string, isInitialLoading = true) =
 
     const { EVM_PROVIDER_URL } = useEulerConfig()
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const contract = new ethers.Contract(reulTokenContractAddress.value, [
-      'function getLockedAmounts(address account) view returns (uint256[], uint256[])',
-      'function getWithdrawAmountsByLockTimestamp(address account, uint256 lockTimestamp) view returns (uint256, uint256)',
-      'function withdrawToByLockTimestamp(address account, uint256 lockTimestamp, bool allowRemainderLoss) external',
-    ], provider)
+    const contract = new ethers.Contract(reulTokenContractAddress.value, reulLockAbi, provider)
 
     const [lockTimestamps, amounts] = await contract.getLockedAmounts(userAddress)
     const withdrawAmountsData: { unlockableAmount: bigint, amountToBeBurned: bigint }[] = []

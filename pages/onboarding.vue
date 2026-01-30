@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { useAppKit } from '@reown/appkit/vue'
+import { onboardingInfo } from '~/entities/custom'
 
 const { isConnected } = useAccount()
 
@@ -37,15 +38,15 @@ watch(isConnected, (value) => {
       />
       <div class="flex flex-col items-center gap-24 w-full px-16">
         <img
-          src="/logo.png"
+          :src="onboardingInfo.logoUrl"
           alt="Euler Logo"
           class="w-[75px] h-[75px]"
         >
         <div class="text-h1 text-center w-[240px]">
-          The Lending Super App
+          {{ onboardingInfo.title }}
         </div>
         <div class="text-euler-dark-900 text-center">
-          Lend, borrow and build without limits.
+          {{ onboardingInfo.description }}
         </div>
         <div class="flex flex-col gap-8 w-full">
           <UiButton

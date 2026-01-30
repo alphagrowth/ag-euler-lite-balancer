@@ -12,6 +12,7 @@ const { getVault } = useVaults()
 const { claimReward, loadRewards, buildClaimRewardPlan } = useBrevis()
 const modal = useModal()
 const { error } = useToast()
+const { runSimulation, simulationError } = useTxPlanSimulation()
 
 const vault = ref(await getVault(campaign.vault_address))
 const isClaiming = ref(false)
@@ -45,6 +46,13 @@ const onClaimClick = async () => {
     catch (e) {
       console.warn('[OperationReviewModal] failed to build plan', e)
       plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
     }
 
     modal.open(OperationReviewModal, {
@@ -111,6 +119,14 @@ const onClaimClick = async () => {
       >
         Claim
       </UiButton>
+      <UiToast
+        v-if="simulationError"
+        class="mt-12"
+        title="Error"
+        variant="error"
+        :description="simulationError"
+        size="compact"
+      />
     </div>
   </div>
 </template>

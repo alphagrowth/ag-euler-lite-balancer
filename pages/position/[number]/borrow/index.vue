@@ -3,8 +3,9 @@ import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
@@ -13,12 +14,15 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const { borrow, buildBorrowPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected } = useAccount()
 const { borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
 const positionIndex = route.params.number as string
 const { getBalance } = useWallets()
+const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 
@@ -70,11 +74,14 @@ const isSubmitDisabled = computed(() => {
     || isLoading.value || !(+collateralAmount.value)
     || ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals))
 })
+const reviewBorrowDisabled = getSubmitDisabled(isSubmitDisabled)
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
 const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
 const priceFixed = computed(() => {
-  const collateralPrice = collateralVault.value ? getVaultPriceInfo(collateralVault.value) : undefined
+  const collateralPrice = borrowVault.value && collateralVault.value
+    ? getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+    : undefined
   const borrowPrice = borrowVault.value ? getVaultPriceInfo(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
@@ -139,40 +146,49 @@ const updateBalance = async () => {
   isBalanceLoading.value = false
 }
 const submit = async () => {
-  if (!borrowVault.value || !collateralVault.value) {
-    return
-  }
+  await guardWithTerms(async () => {
+    if (!borrowVault.value || !collateralVault.value) {
+      return
+    }
 
-  try {
-    plan.value = await buildBorrowPlan(
-      collateralVault.value.address,
-      collateralVault.value.asset.address,
-      0n,
-      borrowVault.value.address,
-      valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
-      position.value?.subAccount,
-      { includePermit2Call: false },
-    )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
+    try {
+      plan.value = await buildBorrowPlan(
+        collateralVault.value.address,
+        collateralVault.value.asset.address,
+        0n,
+        borrowVault.value.address,
+        valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
+        position.value?.subAccount,
+        { includePermit2Call: false },
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'borrow',
-      asset: borrowVault.value?.asset,
-      amount: borrowAmount.value,
-      plan: plan.value || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'borrow',
+        asset: borrowVault.value?.asset,
+        amount: borrowAmount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -271,6 +287,7 @@ watch(isConnected, () => {
   updateBalance()
 })
 watch([collateralAmount, borrowAmount], async () => {
+  clearSimulationError()
   if (!pair.value) {
     return
   }
@@ -324,6 +341,13 @@ onUnmounted(() => {
         :description="errorText || ''"
         size="compact"
       />
+      <UiToast
+        v-if="simulationError"
+        title="Error"
+        variant="error"
+        :description="simulationError"
+        size="compact"
+      />
 
       <VaultFormInfoBlock
         v-if="pair"
@@ -373,10 +397,10 @@ onUnmounted(() => {
 
     <template #buttons>
       <VaultFormSubmit
-        :disabled="isSubmitDisabled"
+        :disabled="reviewBorrowDisabled"
         :loading="isSubmitting"
       >
-        Review Borrow
+        {{ reviewBorrowLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

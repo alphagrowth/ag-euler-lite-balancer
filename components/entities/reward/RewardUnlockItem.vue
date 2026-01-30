@@ -10,6 +10,7 @@ const modal = useModal()
 const { error } = useToast()
 const { rewardTokens, isTokensLoading } = useMerkl()
 const { unlockREUL, buildUnlockREULPlan, reulTokenContractAddress } = useREULLocks()
+const { runSimulation, simulationError } = useTxPlanSimulation()
 const { item } = defineProps<{ item: REULLock }>()
 
 const isUnlocking = ref(false)
@@ -67,6 +68,13 @@ const onUnlockClick = async () => {
     catch (e) {
       console.warn('[OperationReviewModal] failed to build plan', e)
       plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
     }
 
     // Open the operation review modal (same pattern as Merkl/Brevis)
@@ -145,6 +153,14 @@ const onUnlockClick = async () => {
       >
         Unlock
       </UiButton>
+      <UiToast
+        v-if="simulationError"
+        class="mt-12"
+        title="Error"
+        variant="error"
+        :description="simulationError"
+        size="compact"
+      />
     </div>
   </div>
 </template>

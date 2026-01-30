@@ -1,31 +1,14 @@
 import { PriceServiceConnection } from '@pythnetwork/price-service-client'
 import { ethers } from 'ethers'
 import type { Address, Hex } from 'viem'
+import { PYTH_ABI } from '~/abis/pyth'
+import { DEFAULT_PRICE_CACHE_TTL_MS } from '~/entities/constants'
 import { collectPythFeedIds, type PythFeed } from '~/entities/oracle'
 import type { Vault } from '~/entities/vault'
 import type { EVCCall } from './evc-converter'
 
-const PYTH_ABI = [
-  {
-    type: 'function',
-    name: 'getUpdateFee',
-    inputs: [{ name: 'updateData', type: 'bytes[]' }],
-    outputs: [{ name: 'feeAmount', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'updatePriceFeeds',
-    inputs: [{ name: 'updateData', type: 'bytes[]' }],
-    outputs: [],
-    stateMutability: 'payable',
-  },
-] as const
-
 const normalizeHex = (value: string): Hex => (value.startsWith('0x') ? value : (`0x${value}` as Hex))
 const normalizeFeedId = (value: string): Hex => normalizeHex(value).toLowerCase() as Hex
-
-const DEFAULT_PRICE_CACHE_TTL_MS = 15_000
 
 type PriceFeedLike = {
   id: string

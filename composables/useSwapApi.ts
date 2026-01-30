@@ -6,8 +6,7 @@ import {
   type SwapApiResponse,
   SwapperMode,
 } from '~/entities/swap'
-
-const SWAP_DEFAULT_DEADLINE_SECONDS = 1800
+import { SWAP_DEFAULT_DEADLINE_SECONDS } from '~/entities/constants'
 
 export interface SwapApiRequestInput {
   chainId?: number
@@ -83,11 +82,11 @@ const parseSwapProvidersResponse = (payload: { success?: boolean; data?: string[
 }
 
 export const useSwapApi = () => {
-  const { SWAP_API_URL } = useEulerConfig()
+  const { SWAP_API_URL, SWAP_API_FALLBACK_URL } = useEulerConfig()
   const { chainId } = useEulerAddresses()
   const { address } = useWagmi()
 
-  const baseUrl = SWAP_API_URL || 'https://swap.euler.finance/swap'
+  const baseUrl = SWAP_API_URL || SWAP_API_FALLBACK_URL
 
   const getSwapQuotes = async (
     params: SwapApiRequestInput,

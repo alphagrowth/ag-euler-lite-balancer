@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getVaultPrice, type Vault } from '~/entities/vault'
+import { getVaultPrice, getVaultPriceDisplay, type Vault } from '~/entities/vault'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
@@ -8,7 +8,7 @@ const { vault } = defineProps<{ vault: Vault }>()
 const { list } = useVaults()
 
 const product = useEulerProductOfVault(vault.address)
-const entities = useEulerEntitiesOfVault(vault.address)
+const entities = useEulerEntitiesOfVault(vault)
 
 const collateralCount = computed(() => {
   return list.value.filter(v =>
@@ -21,6 +21,11 @@ const borrowCount = computed(() => {
     v.address === vault.address && v.collateralLTVs.some(ltv => ltv.borrowLTV > 0n),
   ).length
 })
+
+const priceDisplay = computed(() => {
+  const price = getVaultPriceDisplay(1, vault)
+  return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+})
 </script>
 
 <template>
@@ -31,10 +36,8 @@ const borrowCount = computed(() => {
     <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue
         label="Price"
-        value="$0.00"
-      >
-        ${{ formatNumber(getVaultPrice(1, vault)) }}
-      </VaultOverviewLabelValue>
+        :value="priceDisplay"
+      />
       <VaultOverviewLabelValue
         label="Market"
         :value="product.name"
