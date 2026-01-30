@@ -722,11 +722,6 @@ export const useEulerOperations = () => {
       evcCalls.unshift(permitCall)
     }
 
-    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
-    }
-
     const totalValue = sumCallValues(evcCalls)
 
     steps.push({
@@ -749,6 +744,7 @@ export const useEulerOperations = () => {
     vaultAddress: string,
     assetsAmount: bigint,
     subAccount?: string,
+    options: { includePythUpdate?: boolean } = {},
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -790,9 +786,11 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
-    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
+    if (options.includePythUpdate) {
+      const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+      if (pythCalls.length) {
+        evcCalls.unshift(...pythCalls as EVCCall[])
+      }
     }
 
     const totalValue = sumCallValues(evcCalls)
@@ -861,11 +859,6 @@ export const useEulerOperations = () => {
         data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
       }
       evcCalls.unshift(tosCall)
-    }
-
-    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
     }
 
     const totalValue = sumCallValues(evcCalls)
@@ -1518,11 +1511,6 @@ export const useEulerOperations = () => {
       evcCalls.unshift(permitCall)
     }
 
-    const { calls: pythCalls } = await preparePythUpdates([borrowVaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
-    }
-
     const totalValue = sumCallValues(evcCalls)
 
     steps.push({
@@ -1672,11 +1660,6 @@ export const useEulerOperations = () => {
     }
 
     evcCalls.push(repayCall, disableControllerCall, disableCollateralCall, redeemCall, depositCall)
-
-    const { calls: pythCalls } = await preparePythUpdates([vaultAddr, borrowVaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
-    }
 
     const totalValue = sumCallValues(evcCalls)
 
@@ -1921,11 +1904,6 @@ export const useEulerOperations = () => {
       evcCalls.unshift(approveCall)
     }
 
-    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
-    }
-
     const totalValue = sumCallValues(evcCalls)
 
     const depositHash = await writeContractAsync({
@@ -1948,6 +1926,7 @@ export const useEulerOperations = () => {
     subAccount?: string,
     _maxSharesAmount?: bigint,
     _isMax?: boolean,
+    options: { includePythUpdate?: boolean } = {},
   ) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -1989,9 +1968,11 @@ export const useEulerOperations = () => {
       evcCalls.unshift(tosCall)
     }
 
-    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
+    if (options.includePythUpdate) {
+      const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
+      if (pythCalls.length) {
+        evcCalls.unshift(...pythCalls as EVCCall[])
+      }
     }
 
     const totalValue = sumCallValues(evcCalls)
@@ -2059,11 +2040,6 @@ export const useEulerOperations = () => {
         data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
       }
       evcCalls.unshift(tosCall)
-    }
-
-    const { calls: pythCalls } = await preparePythUpdates([vaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
     }
 
     const totalValue = sumCallValues(evcCalls)
@@ -2391,11 +2367,6 @@ export const useEulerOperations = () => {
       evcCalls.unshift(permitCall)
     }
 
-    const { calls: pythCalls } = await preparePythUpdates([borrowVaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
-    }
-
     const totalValue = sumCallValues(evcCalls)
 
     const repayHash = await writeContractAsync({
@@ -2535,11 +2506,6 @@ export const useEulerOperations = () => {
     }
 
     evcCalls.push(repayCall, disableControllerCall, disableCollateralCall, redeemCall, depositCall)
-
-    const { calls: pythCalls } = await preparePythUpdates([vaultAddr, borrowVaultAddr], userAddr)
-    if (pythCalls.length) {
-      evcCalls.unshift(...pythCalls as EVCCall[])
-    }
 
     const totalValue = sumCallValues(evcCalls)
 

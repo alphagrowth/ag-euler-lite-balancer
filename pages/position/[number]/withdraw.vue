@@ -188,6 +188,7 @@ const submit = async () => {
         collateralVault.value.address,
         valueToNano(amount.value || '0', asset.value.decimals),
         position.value?.subAccount,
+        { includePythUpdate: (position.value?.borrowed || 0n) > 0n },
       )
     }
     catch (e) {
@@ -234,6 +235,7 @@ const send = async () => {
       position.value?.subAccount,
       undefined,
       undefined,
+      { includePythUpdate: (position.value?.borrowed || 0n) > 0n },
     )
 
     modal.close()
