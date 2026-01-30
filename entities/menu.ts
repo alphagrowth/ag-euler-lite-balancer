@@ -7,6 +7,12 @@ export interface MenuItem {
 
 export const menuItems: MenuItem[] = [
   {
+    name: 'portfolio',
+    label: 'Portfolio',
+    icon: 'portfolio-outline',
+    activeIcon: 'portfolio-filled',
+  },
+  {
     name: 'earn',
     label: 'Earn',
     icon: 'earn-outline',
@@ -23,11 +29,5 @@ export const menuItems: MenuItem[] = [
     label: 'Borrow',
     icon: 'borrow-outline',
     activeIcon: 'borrow-filled',
-  },
-  {
-    name: 'portfolio',
-    label: 'Portfolio',
-    icon: 'portfolio-outline',
-    activeIcon: 'portfolio-filled',
   },
 ]
