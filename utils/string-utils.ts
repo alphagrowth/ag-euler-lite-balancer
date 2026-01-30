@@ -10,6 +10,17 @@ export const truncateAddressForSubgraph = (address: string): string => {
 export const formatNumber = (value: string | number = 0, maximumFractionDigits = 2, minimumFractionDigits = 2) =>
   Number(value).toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits })
 
+export const formatSignificant = (value: string | number = 0, maximumSignificantDigits = 2) => {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    return '0'
+  }
+  return new Intl.NumberFormat('en-US', {
+    maximumSignificantDigits,
+    useGrouping: false,
+  }).format(numericValue)
+}
+
 export const compactNumber = (value: string | number = 0, maximumFractionDigits = 2, minimumFractionDigits = 0) => {
   return Intl.NumberFormat('en-US', {
     notation: 'compact',

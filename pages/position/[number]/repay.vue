@@ -461,7 +461,7 @@ const swapSummary = computed(() => {
   const amountOut = ethers.formatUnits(BigInt(swapQuote.value.amountOut), Number(borrowVault.value.asset.decimals))
   return {
     from: `${formatNumber(amountIn)} ${swapCollateralVault.value.asset.symbol}`,
-    to: `${formatNumber(amountOut)} ${borrowVault.value.asset.symbol}`,
+    to: `${formatSignificant(amountOut)} ${borrowVault.value.asset.symbol}`,
   }
 })
 const swapPriceImpact = computed(() => {
@@ -516,7 +516,7 @@ const swapRouteItems = computed(() => {
   return swapQuoteCardsSorted.value.map((card) => {
     const amount = getQuoteAmount(card.quote, isExactIn ? 'amountOut' : 'amountIn')
     const symbol = isExactIn ? borrowVault.value.asset.symbol : swapCollateralVault.value.asset.symbol
-    const amountLabel = formatNumber(
+    const amountLabel = formatSignificant(
       ethers.formatUnits(amount, Number(isExactIn ? borrowVault.value.asset.decimals : swapCollateralVault.value.asset.decimals)),
     )
     const diffPct = (isExactIn ? exactInQuotes.getQuoteDiffPct : targetDebtQuotes.getQuoteDiffPct)(card.quote)
@@ -708,12 +708,14 @@ watch([swapEffectiveQuote, repaySwapDirection], () => {
       BigInt(swapEffectiveQuote.value.amountOut || 0),
       Number(borrowVault.value.asset.decimals),
     )
+    debtAmount.value = formatSignificant(debtAmount.value)
   }
   else {
     collateralAmount.value = ethers.formatUnits(
       BigInt(swapEffectiveQuote.value.amountIn || 0),
       Number(swapCollateralVault.value.asset.decimals),
     )
+    collateralAmount.value = formatSignificant(collateralAmount.value)
   }
 })
 const updateBalance = async () => {

@@ -114,7 +114,7 @@ const multiplyRouteItems = computed(() => {
   const bestProvider = multiplyQuoteCardsSorted.value[0]?.provider
   return multiplyQuoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amount = formatNumber(
+    const amount = formatSignificant(
       ethers.formatUnits(amountOut, Number(multiplyLongVault.value.asset.decimals)),
     )
     const diffPct = getQuoteDiffPct(card.quote)
@@ -460,7 +460,7 @@ const multiplySwapSummary = computed(() => {
   const amountOut = ethers.formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals))
   return {
     from: `${formatNumber(amountIn)} ${multiplyShortVault.value.asset.symbol}`,
-    to: `${formatNumber(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
+    to: `${formatSignificant(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
   }
 })
 const multiplyPriceImpact = computed(() => {

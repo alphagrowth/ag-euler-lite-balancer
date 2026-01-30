@@ -77,7 +77,7 @@ watch([quote, toVault], () => {
   }
   const amountIn = getQuoteAmount(quote.value, 'amountIn')
   toAmount.value = amountIn > 0n
-    ? ethers.formatUnits(amountIn, Number(toVault.value.decimals))
+    ? formatSignificant(ethers.formatUnits(amountIn, Number(toVault.value.decimals)))
     : ''
 }, { immediate: true })
 const currentDebt = computed(() => position.value?.borrowed || 0n)
@@ -342,7 +342,7 @@ const swapSummary = computed(() => {
   const amountIn = ethers.formatUnits(BigInt(quote.value.amountIn), Number(toVault.value.asset.decimals))
   return {
     from: `${formatNumber(amountOut)} ${fromVault.value.asset.symbol}`,
-    to: `${formatNumber(amountIn)} ${toVault.value.asset.symbol}`,
+    to: `${formatSignificant(amountIn)} ${toVault.value.asset.symbol}`,
   }
 })
 
@@ -375,7 +375,7 @@ const swapRouteItems = computed(() => {
   const bestProvider = quoteCardsSorted.value[0]?.provider
   return quoteCardsSorted.value.map((card) => {
     const amountIn = getQuoteAmount(card.quote, 'amountIn')
-    const amount = formatNumber(
+    const amount = formatSignificant(
       ethers.formatUnits(amountIn, Number(toVault.value.decimals)),
     )
     const diffPct = getQuoteDiffPct(card.quote)
