@@ -38,36 +38,36 @@ const walletBalancePrice = computed(() => {
 
 <template>
   <NuxtLink
-    class="block no-underline text-white bg-euler-dark-500 rounded-16"
+    class="block no-underline bg-surface rounded-xl border border-line-subtle shadow-card transition-all duration-default ease-default hover:shadow-card-hover hover:border-line-emphasis"
     :to="`/earn/${vault.address}`"
   >
-    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
+    <div class="flex py-16 px-16 pb-12 border-b border-line-default">
       <BaseAvatar
         class="icon--40"
         :src="getAssetLogoUrl(vault.asset.symbol)"
         :label="vault.asset.symbol"
       />
       <div class="flex-grow ml-12">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           {{ displayName }}
         </div>
-        <div class="text-h5">
+        <div class="text-h5 text-content-primary">
           {{ vault.asset.symbol }}
         </div>
       </div>
       <div class="flex flex-col items-end">
-        <div class="text-euler-dark-900 text-p3 mb-4 text-right">
+        <div class="text-content-tertiary text-p3 mb-4 text-right">
           Supply APY
         </div>
         <div
-          class="text-p2 flex items-center text-aquamarine-700"
+          class="text-p2 flex items-center text-accent-600"
         >
           <div class="mr-6">
             <VaultPoints :vault="vault" />
           </div>
           <SvgIcon
             v-if="hasRewards"
-            class="!w-20 !h-20 text-aquamarine-700 mr-4"
+            class="!w-20 !h-20 text-accent-600 mr-4"
             name="sparks"
           />
           {{ formatNumber((vault.supplyAPY || 0) + totalRewardsAPY) }}%
@@ -76,15 +76,15 @@ const walletBalancePrice = computed(() => {
     </div>
     <div class="flex py-12 px-16 pb-16">
       <div class="flex-1">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Total supply
         </div>
-        <div class="text-p2">
+        <div class="text-p2 text-content-primary">
           {{ totalSupplyPrice }}
         </div>
       </div>
       <div class="flex flex-col items-center flex-1">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Capital allocator
         </div>
         <BaseAvatar
@@ -97,14 +97,14 @@ const walletBalancePrice = computed(() => {
         class="flex flex-col flex-1 items-end text-right"
       >
         <template v-if="isConnected">
-          <div class="text-euler-dark-900 text-p3 mb-4">
+          <div class="text-content-tertiary text-p3 mb-4">
             In wallet
           </div>
           <BaseLoadableContent
             :loading="isBalancesLoading"
             style="width: 70px; height: 20px"
           >
-            <div class="text-p2">
+            <div class="text-p2 text-content-primary">
               {{ walletBalancePrice }}
             </div>
           </BaseLoadableContent>

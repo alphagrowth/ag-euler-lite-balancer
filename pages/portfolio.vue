@@ -76,24 +76,24 @@ onDeactivated(() => {
 <template>
   <section class="flex flex-col gap-16 min-h-[calc(100dvh-178px)] mobile:-mx-16">
     <div class="flex items-center justify-between px-16">
-      <h2 class="text-h2">
+      <h2 class="text-h2 text-content-primary">
         Your Portfolio
       </h2>
       <div class="flex items-center gap-8">
-        <span class="text-h6">All positions/savings</span>
+        <span class="text-h6 text-content-secondary">All positions/savings</span>
         <UiSwitch
           v-model="isShowAllPositions"
         />
       </div>
     </div>
 
-    <div class="flex flex-col gap-16 p-16 rounded-16 mx-16 border border-euler-dark-600">
+    <div class="flex flex-col gap-16 p-16 rounded-12 mx-16 border border-line-default bg-card shadow-card">
       <div class="flex justify-between items-center">
-        <div class="text-p2 text-euler-dark-900">
+        <div class="text-p2 text-content-secondary">
           Net asset value
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
-          <div class="text-h5 text-white">
+          <div class="text-h5 text-content-primary">
             {{ (() => {
               const netValue = totalSuppliedValueInfo.total - totalBorrowedValueInfo.total
               const hasMissing = totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices
@@ -104,11 +104,11 @@ onDeactivated(() => {
         </BaseLoadableContent>
       </div>
       <div class="flex justify-between items-center">
-        <div class="text-p2 text-euler-dark-900">
+        <div class="text-p2 text-content-secondary">
           Total supplied value
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
-          <div class="text-h5 text-white">
+          <div class="text-h5 text-content-primary">
             {{ (() => {
               const { total, hasMissingPrices } = totalSuppliedValueInfo
               if (total === 0 && hasMissingPrices) return '—'
@@ -118,11 +118,11 @@ onDeactivated(() => {
         </BaseLoadableContent>
       </div>
       <div class="flex justify-between items-center">
-        <div class="text-p2 text-euler-dark-900">
+        <div class="text-p2 text-content-secondary">
           Total borrowed value
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
-          <div class="text-h5 text-white">
+          <div class="text-h5 text-content-primary">
             {{ (() => {
               const { total, hasMissingPrices } = totalBorrowedValueInfo
               if (total === 0 && hasMissingPrices) return '—'

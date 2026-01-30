@@ -83,11 +83,11 @@ load()
       title="Earn"
       description="Deposit once, earn passive yield across multiple professionally curated strategies."
       class="mb-24"
-      arrow-down
+      arrow-right
     />
 
     <div class="mb-16 -mx-16">
-      <h3 class="text-h3 mb-16 pl-16">
+      <h3 class="text-h3 mb-16 pl-16 text-neutral-900">
         Discover vaults
       </h3>
       <div class="flex items-center overflow-auto [scrollbar-width:none] gap-8 px-16">
@@ -123,7 +123,7 @@ load()
 
       <div
         v-else
-        class="flex flex-col flex-1 gap-3 items-center justify-center text-euler-dark-900"
+        class="flex flex-col flex-1 gap-3 items-center justify-center text-neutral-500"
       >
         <UiIcon
           name="search"

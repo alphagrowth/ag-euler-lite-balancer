@@ -75,18 +75,18 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
       </p>
       <p
         v-else-if="'type' in vault && vault.type === 'escrow'"
-        class="text-euler-dark-900 mb-4"
+        class="text-content-tertiary mb-4"
       >
         {{ displayLabel }}
       </p>
       <p
         v-else
-        class="text-euler-dark-900 mb-4"
+        class="text-content-tertiary mb-4"
       >
         {{ displayName }}
       </p>
 
-      <p class="text-p2 font-semibold">
+      <p class="text-p2 font-semibold text-content-primary">
         {{ displayAssetsLabel }}
       </p>
     </div>

@@ -28,17 +28,17 @@ const open = () => {
 
 <template>
   <div
-    class="relative flex items-center gap-6 flex-shrink-0 min-h-36 text-white py-6 px-16 bg-euler-dark-500 rounded-[100px] cursor-pointer"
+    class="relative flex items-center gap-6 flex-shrink-0 min-h-36 text-content-secondary py-6 px-16 bg-surface border border-line-default rounded-[100px] cursor-pointer hover:border-line-emphasis hover:bg-surface-secondary transition-all"
     @click="open"
   >
     <UiIcon
       name="sort"
-      class="!w-16 !h-16"
+      class="!w-16 !h-16 text-content-tertiary"
     />
     <span class="whitespace-nowrap overflow-hidden text-ellipsis">{{ placeholder }}</span>
     <span
       v-if="model"
-      class="inline-flex justify-center items-center text-aquamarine-700 text-[14px] font-normal py-2 px-6 ml-auto -mr-10 bg-[var(--c-aquamarine-opaque-300)] rounded-[100px]"
+      class="inline-flex justify-center items-center text-accent-700 text-[14px] font-medium py-2 px-8 ml-auto -mr-10 bg-accent-300/30 rounded-[100px]"
     >{{ model }}</span>
   </div>
 </template>

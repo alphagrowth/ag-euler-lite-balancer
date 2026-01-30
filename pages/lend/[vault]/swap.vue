@@ -510,10 +510,10 @@ const send = async () => {
 
           <VaultFormInfoBlock
             :loading="isQuoteLoading"
-            class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px]"
+            class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px] shadow-card"
           >
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 {{ fromVault.asset.symbol || 'Token1' }} supply APY
               </p>
               <p class="text-p2">
@@ -521,7 +521,7 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 {{ toVault.asset.symbol || 'Token2' }} supply APY
               </p>
               <p class="text-p2">
@@ -529,7 +529,7 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Current price
               </p>
               <p class="text-p2">
@@ -537,21 +537,21 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-start">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Swap
               </p>
               <p class="text-p2 text-right flex flex-col items-end">
                 <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
                 <span
                   v-if="swapSummary"
-                  class="text-euler-dark-900 text-p3"
+                  class="text-content-tertiary text-p3"
                 >
                   {{ swapSummary.to }}
                 </span>
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Price impact
               </p>
               <p class="text-p2">
@@ -559,7 +559,7 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Slippage tolerance
               </p>
               <button
@@ -570,12 +570,12 @@ const send = async () => {
                 <span>{{ formatNumber(slippage, 2, 0) }}%</span>
                 <SvgIcon
                   name="edit"
-                  class="!w-16 !h-16 text-aquamarine-700"
+                  class="!w-16 !h-16 text-accent-600"
                 />
               </button>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Routed via
               </p>
               <p class="text-p2 text-right">

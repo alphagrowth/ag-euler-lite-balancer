@@ -13,8 +13,8 @@ const feeDisplay = computed(() => {
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
-    <p class="text-h3 text-white">
+  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-20 shadow-card">
+    <p class="text-h3 text-content-primary">
       Overview
     </p>
     <div class="flex flex-col items-start gap-24">
@@ -38,7 +38,7 @@ const feeDisplay = computed(() => {
             <a
               :href="entity.url"
               target="_blank"
-              class="text-p2 text-white underline"
+              class="text-p2 text-neutral-800 hover:text-accent-600 underline transition-colors"
             >{{ entity.name }}</a>
           </div>
         </div>

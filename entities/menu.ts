@@ -9,8 +9,8 @@ export const menuItems: MenuItem[] = [
   {
     name: 'earn',
     label: 'Earn',
-    icon: 'lend-outline',
-    activeIcon: 'lend-filled',
+    icon: 'earn-outline',
+    activeIcon: 'earn-filled',
   },
   {
     name: 'index',

@@ -346,10 +346,10 @@ onUnmounted(() => {
       <VaultFormInfoBlock
         v-if="pair"
         :loading="isEstimatesLoading"
-        class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
+        class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 shadow-card"
       >
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Net APY
           </p>
           <p class="text-p2">
@@ -357,29 +357,29 @@ onUnmounted(() => {
           </p>
         </div>
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Current Price
           </p>
           <p class="text-p2">
             {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
             </span>
           </p>
         </div>
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Liquidation price
           </p>
           <p class="text-p2">
             {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ collateralVault?.asset.symbol }}
             </span>
           </p>
         </div>
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Health
           </p>
           <p class="text-p2">

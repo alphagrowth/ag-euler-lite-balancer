@@ -7,20 +7,20 @@ const { isReady } = useVaults()
 </script>
 
 <template>
-  <div class="flex flex-1 mx-16 p-8 rounded-16 border border-euler-dark-600">
+  <div class="flex flex-1 mx-16 p-8 rounded-12 border border-line-default bg-surface shadow-card">
     <div
       v-if="isConnected && (!isPositionsLoaded || (!isReady && borrowPositions.length === 0))"
       class="flex flex-1 justify-center items-center"
     >
-      <UiLoader class="text-euler-dark-900" />
+      <UiLoader class="text-content-tertiary" />
     </div>
 
     <div
       v-else-if="borrowPositions.length === 0"
       class="flex flex-1 justify-center items-center"
     >
-      <div class="flex flex-col gap-8 items-center text-euler-dark-900">
-        <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-euler-dark-500">
+      <div class="flex flex-col gap-8 items-center text-content-tertiary">
+        <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-surface-secondary">
           <SvgIcon name="search" />
         </div>
         <template v-if="isConnected">
@@ -44,7 +44,7 @@ const { isReady } = useVaults()
         v-if="!isReady"
         class="flex justify-center items-center mt-12"
       >
-        <UiLoader class="text-euler-dark-900" />
+        <UiLoader class="text-content-tertiary" />
       </div>
     </div>
   </div>

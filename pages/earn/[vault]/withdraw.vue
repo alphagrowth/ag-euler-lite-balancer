@@ -251,42 +251,42 @@ watch(amount, async () => {
         class="flex flex-col gap-16"
       >
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Supply APY
           </p>
           <p
             v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay"
-            class="text-p2 text-euler-dark-900"
+            class="text-p2 text-content-tertiary"
           >
-            {{ supplyAPYDisplay }}% → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
+            {{ supplyAPYDisplay }}% → <span class="text-content-primary">{{ estimateSupplyAPYDisplay }}%</span>
           </p>
           <p
             v-else
-            class="text-p2 text-white"
+            class="text-p2 text-content-primary"
           >
             {{ supplyAPYDisplay }}%
           </p>
         </div>
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Deposit
           </p>
-          <p class="text-p2 text-euler-dark-900">
+          <p class="text-p2 text-content-tertiary">
             ${{ formatNumber(getEarnVaultPrice(assetsBalance, vault)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
-              → <span class="text-white">${{ formatNumber(getEarnVaultPrice(delta, vault)) }}</span>
+              → <span class="text-content-primary">${{ formatNumber(getEarnVaultPrice(delta, vault)) }}</span>
             </template>
           </p>
         </div>
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Available for withdraw
           </p>
           <p
             v-if="asset"
             class="text-p2 flex items-center gap-4"
           >
-            {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="text-p3 text-euler-dark-900">{{ asset.symbol }}</span>
-            <span class="text-p3 text-euler-dark-900">≈ ${{ formatNumber(getEarnVaultPrice(assetsBalance, vault)) }}</span>
+            {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="text-p3 text-content-tertiary">{{ asset.symbol }}</span>
+            <span class="text-p3 text-content-tertiary">≈ ${{ formatNumber(getEarnVaultPrice(assetsBalance, vault)) }}</span>
           </p>
         </div>
       </VaultFormInfoBlock>

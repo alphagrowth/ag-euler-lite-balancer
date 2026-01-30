@@ -1099,60 +1099,60 @@ onUnmounted(() => {
           class="flex flex-col gap-16"
         >
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Net APY
             </p>
 
             <p
               v-if="netAPY !== estimateNetAPY"
-              class="text-p2 text-euler-dark-900"
+              class="text-p2 text-content-tertiary"
             >
-              {{ formatNumber(netAPY) }}% → <span class="text-white">{{ formatNumber(estimateNetAPY) }}%</span>
+              {{ formatNumber(netAPY) }}% → <span class="text-content-primary">{{ formatNumber(estimateNetAPY) }}%</span>
             </p>
             <p
               v-else
-              class="text-p2 text-white"
+              class="text-p2 text-content-primary"
             >
               {{ formatNumber(netAPY) }}%
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Current price
             </p>
             <p class="text-p2 flex items-center gap-4">
               ${{ formatNumber(nanoToValue(position.price, 18)) }}
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Liquidation price
             </p>
             <p class="text-p2 flex items-center gap-4">
               ${{ formatNumber(liquidationPrice) }}
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 {{ collateralVault.asset.symbol }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your LTV (LLTV)
             </p>
             <p
               v-if="position.userLTV !== estimateUserLTV"
-              class="text-p2 text-euler-dark-900"
+              class="text-p2 text-content-tertiary"
             >
               {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
               <span class="text-p3">
                 ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
               </span>
-              → <span class="text-white">
+              → <span class="text-content-primary">
                 {{ formatNumber(nanoToValue(estimateUserLTV, 18)) }}%
-                <span class="text-euler-dark-900 text-p3">
+                <span class="text-content-tertiary text-p3">
                   ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
                 </span>
               </span>
@@ -1162,25 +1162,25 @@ onUnmounted(() => {
               class="text-p2 flex items-center gap-4"
             >
               {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your health
             </p>
 
             <p
               v-if="position.health !== estimateHealth"
-              class="text-p2 text-euler-dark-900"
+              class="text-p2 text-content-tertiary"
             >
-              {{ formatNumber(nanoToValue(position.health, 18)) }} → <span class="text-white">{{ formatNumber(nanoToValue(estimateHealth, 18)) }}</span>
+              {{ formatNumber(nanoToValue(position.health, 18)) }} → <span class="text-content-primary">{{ formatNumber(nanoToValue(estimateHealth, 18)) }}</span>
             </p>
             <p
               v-else
-              class="text-p2 text-white"
+              class="text-p2 text-content-primary"
             >
               {{ formatNumber(nanoToValue(position.health, 18)) }}
             </p>
@@ -1250,16 +1250,16 @@ onUnmounted(() => {
 
         <VaultFormInfoBlock
           :loading="swapIsQuoteLoading"
-          class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full"
+          class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full shadow-card"
         >
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               ROE
             </p>
             <p class="text-p2">
               <template v-if="swapRoeBefore !== null && swapRoeAfter !== null && swapQuote">
-                <span class="text-euler-dark-900">{{ formatNumber(swapRoeBefore) }}%</span>
-                → <span class="text-white">{{ formatNumber(swapRoeAfter) }}%</span>
+                <span class="text-content-tertiary">{{ formatNumber(swapRoeBefore) }}%</span>
+                → <span class="text-content-primary">{{ formatNumber(swapRoeAfter) }}%</span>
               </template>
               <template v-else>
                 {{ swapRoeBefore !== null ? `${formatNumber(swapRoeBefore)}%` : '-' }}
@@ -1267,7 +1267,7 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Current price
             </p>
             <p class="text-p2">
@@ -1275,37 +1275,37 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Liquidation price
             </p>
             <p class="text-p2">
               <template v-if="swapCurrentLiquidationPrice !== null && swapNextLiquidationPrice !== null && swapQuote">
-                <span class="text-euler-dark-900">{{ formatNumber(swapCurrentLiquidationPrice, 4) }}</span>
-                → <span class="text-white">{{ formatNumber(swapNextLiquidationPrice, 4) }}</span>
+                <span class="text-content-tertiary">{{ formatNumber(swapCurrentLiquidationPrice, 4) }}</span>
+                → <span class="text-content-primary">{{ formatNumber(swapNextLiquidationPrice, 4) }}</span>
               </template>
               <template v-else>
                 {{ swapCurrentLiquidationPrice !== null ? `${formatNumber(swapCurrentLiquidationPrice, 4)} ` : '-' }}
               </template>
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 {{ swapCollateralVault?.asset.symbol }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your LTV (LLTV)
             </p>
             <p class="text-p2 text-right">
               <template v-if="swapCurrentLtv !== null && swapCurrentLiquidationLtv !== null && swapNextLtv !== null && swapNextLiquidationLtv !== null && swapQuote">
-                <span class="text-euler-dark-900">
+                <span class="text-content-tertiary">
                   {{ formatNumber(swapCurrentLtv) }}%
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     ({{ formatNumber(swapCurrentLiquidationLtv) }}%)
                   </span>
                 </span>
-                → <span class="text-white">
+                → <span class="text-content-primary">
                   {{ formatNumber(swapNextLtv) }}%
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     ({{ formatNumber(swapNextLiquidationLtv) }}%)
                   </span>
                 </span>
@@ -1313,7 +1313,7 @@ onUnmounted(() => {
               <template v-else>
                 <span v-if="swapCurrentLtv !== null && swapCurrentLiquidationLtv !== null">
                   {{ formatNumber(swapCurrentLtv) }}%
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     ({{ formatNumber(swapCurrentLiquidationLtv) }}%)
                   </span>
                 </span>
@@ -1322,13 +1322,13 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your health
             </p>
             <p class="text-p2">
               <template v-if="swapCurrentHealth !== null && swapNextHealth !== null && swapQuote">
-                <span class="text-euler-dark-900">{{ formatNumber(swapCurrentHealth, 2) }}</span>
-                → <span class="text-white">{{ formatNumber(swapNextHealth, 2) }}</span>
+                <span class="text-content-tertiary">{{ formatNumber(swapCurrentHealth, 2) }}</span>
+                → <span class="text-content-primary">{{ formatNumber(swapNextHealth, 2) }}</span>
               </template>
               <template v-else>
                 {{ swapCurrentHealth !== null ? formatNumber(swapCurrentHealth, 2) : '-' }}
@@ -1336,21 +1336,21 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-start">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Swap
             </p>
             <p class="text-p2 text-right flex flex-col items-end">
               <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
               <span
                 v-if="swapSummary"
-                class="text-euler-dark-900 text-p3"
+                class="text-content-tertiary text-p3"
               >
                 {{ swapSummary.to }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Price impact
             </p>
             <p class="text-p2">
@@ -1358,7 +1358,7 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Leveraged price impact
             </p>
             <p class="text-p2">
@@ -1366,7 +1366,7 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Slippage tolerance
             </p>
             <button
@@ -1377,12 +1377,12 @@ onUnmounted(() => {
               <span>{{ formatNumber(slippage, 2, 0) }}%</span>
               <SvgIcon
                 name="edit"
-                class="!w-16 !h-16 text-aquamarine-700"
+                class="!w-16 !h-16 text-accent-600"
               />
             </button>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Routed via
             </p>
             <p class="text-p2 text-right">

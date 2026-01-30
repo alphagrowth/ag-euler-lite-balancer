@@ -71,84 +71,84 @@ const onWarningClick = () => {
 <template>
   <NuxtLink
     :to="`/borrow/${pair.collateral.address}/${pair.borrow.address}`"
-    class="block no-underline text-white bg-euler-dark-500 rounded-16"
+    class="block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
   >
-    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
+    <div class="flex py-16 px-16 pb-12 border-b border-line-subtle">
       <BaseAvatar
         :src="[pair.collateral.asset.symbol, pair.borrow.asset.symbol].map(s => getAssetLogoUrl(s))"
         :label="[pair.collateral.asset.symbol, pair.borrow.asset.symbol]"
         class="icon--40"
       />
       <div class="flex-grow ml-12">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           {{ pairName }}
         </div>
-        <div class="text-h5">
+        <div class="text-h5 text-content-primary">
           {{ [pair.collateral.asset.symbol, pair.borrow.asset.symbol].join('/') }}
         </div>
       </div>
       <div class="flex flex-col items-end">
-        <div class="text-euler-dark-900 text-p3 mb-4 text-right">
+        <div class="text-content-tertiary text-p3 mb-4 text-right">
           Borrow APY
         </div>
         <div
-          class="text-p2 flex text-aquamarine-700"
+          class="text-p2 flex text-accent-600 font-semibold"
         >
           <SvgIcon
             v-if="hasRewards"
-            class="!w-20 !h-20 text-aquamarine-700 mr-4"
+            class="!w-20 !h-20 text-accent-500 mr-4"
             name="sparks"
           />{{ formatNumber(borrowApyWithRewards) }}%
         </div>
       </div>
     </div>
-    <div class="flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-border-primary">
+    <div class="flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-line-subtle">
       <div>
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Liquidity
         </div>
-        <div class="text-p2">
+        <div class="text-p2 text-content-primary">
           {{ `$${compactNumber(getVaultPrice(pair.borrow.supply - pair.borrow.borrow, pair.borrow))}` }}
         </div>
       </div>
       <div class="text-center">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Supply APY
         </div>
-        <div class="text-p2">
+        <div class="text-p2 text-content-primary">
           {{ formatNumber(supplyApyWithRewards) }}%
         </div>
       </div>
       <div class="text-center mobile:!hidden">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Max ROE
         </div>
-        <div class="text-p2">
+        <div class="text-p2 text-content-primary">
           {{ formatNumber(maxRoe, 2, 2) }}%
         </div>
       </div>
       <div class="text-center mobile:!hidden">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Max Multiplier
         </div>
-        <div class="text-p2">
+        <div class="text-p2 text-content-primary">
           {{ formatNumber(maxMultiplier, 2, 2) }}x
         </div>
       </div>
       <div
         class="flex flex-col justify-center items-center mobile:!hidden"
       >
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Max LTV
         </div>
-        <div class="text-p2">
+        <div class="text-p2 text-content-primary">
           {{ compactNumber(maxLTV, 2, 2) }}%
         </div>
       </div>
       <div
         class="flex flex-col justify-center items-center mobile:!hidden"
       >
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Utilization
         </div>
         <div
@@ -156,7 +156,7 @@ const onWarningClick = () => {
         >
           <button
             v-if="utilization >= 95"
-            class="flex justify-center items-center w-20 h-20 bg-[#3e4540] text-yellow-600 rounded-4 cursor-pointer"
+            class="flex justify-center items-center w-20 h-20 bg-warning-100 text-warning-500 rounded-4 cursor-pointer"
             @click.stop.prevent="onWarningClick"
           >
             <SvgIcon
@@ -168,16 +168,16 @@ const onWarningClick = () => {
             :value="utilization"
             :max="100"
           />
-          <div class="text-p2">
+          <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
           </div>
         </div>
       </div>
       <div class="text-right">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           LLTV
         </div>
-        <div class="text-p2">
+        <div class="text-p2 text-content-primary">
           {{ pair.liquidationLTV / 100n }}%
         </div>
       </div>
@@ -185,49 +185,49 @@ const onWarningClick = () => {
     <div class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
       <div class="flex w-full justify-between">
         <div class="flex-1">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Max LTV
           </div>
         </div>
         <div
           class="flex gap-8 justify-end items-center text-right flex-1"
         >
-          <div class="text-p2">
+          <div class="text-p2 text-content-primary">
             {{ compactNumber(maxLTV, 2, 2) }}%
           </div>
         </div>
       </div>
       <div class="flex w-full justify-between">
         <div class="flex-1">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Max ROE
           </div>
         </div>
         <div
           class="flex gap-8 justify-end items-center text-right flex-1"
         >
-          <div class="text-p2">
+          <div class="text-p2 text-content-primary">
             {{ formatNumber(maxRoe, 2, 2) }}%
           </div>
         </div>
       </div>
       <div class="flex w-full justify-between">
         <div class="flex-1">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Max Multiplier
           </div>
         </div>
         <div
           class="flex gap-8 justify-end items-center text-right flex-1"
         >
-          <div class="text-p2">
+          <div class="text-p2 text-content-primary">
             {{ formatNumber(maxMultiplier, 2, 2) }}x
           </div>
         </div>
       </div>
       <div class="flex w-full justify-between">
         <div class="flex-1">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Utilization
           </div>
         </div>
@@ -236,7 +236,7 @@ const onWarningClick = () => {
         >
           <button
             v-if="utilization >= 95"
-            class="flex justify-center items-center w-20 h-20 bg-[#3e4540] text-yellow-600 rounded-4 cursor-pointer"
+            class="flex justify-center items-center w-20 h-20 bg-warning-100 text-warning-500 rounded-4 cursor-pointer"
             @click.stop.prevent="onWarningClick"
           >
             <SvgIcon
@@ -248,7 +248,7 @@ const onWarningClick = () => {
             :value="utilization"
             :max="100"
           />
-          <div class="text-p2">
+          <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
           </div>
         </div>

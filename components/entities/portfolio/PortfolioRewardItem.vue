@@ -85,7 +85,7 @@ const onClaimClick = async () => {
 
 <template>
   <div
-    class="text-white bg-euler-dark-500 rounded-16 p-16"
+    class="bg-surface rounded-xl border border-line-subtle shadow-card p-16"
   >
     <div
       class="flex flex-col gap-12"
@@ -98,18 +98,18 @@ const onClaimClick = async () => {
         />
         <div
           v-else
-          class="w-40 h-40 flex justify-center items-center bg-euler-dark-400 rounded-full text-h6"
+          class="w-40 h-40 flex justify-center items-center bg-surface-secondary rounded-full text-h6 text-content-secondary"
         >
           {{ reward.token.symbol[0].toUpperCase() }}
         </div>
-        <h4 class="text-h5 ml-12">
+        <h4 class="text-h5 ml-12 text-content-primary">
           {{ reward.token.symbol === 'WTAC' ? 'TAC' : reward.token.symbol }}
         </h4>
         <div class="flex flex-col gap-8 ml-auto text-right">
-          <p class="text-p2">
+          <p class="text-p2 text-content-primary">
             {{ amountInUsd < 0.01 ? ' < $0.01' : `$${formatNumber(amountInUsd, 2)}` }}
           </p>
-          <p class="text-p3 text-euler-dark-900">
+          <p class="text-p3 text-content-tertiary">
             ~ {{ amountToClaim < 0.01 ? '< 0.01' : formatNumber(amountToClaim, 2) }} {{ reward.token.symbol }}
           </p>
         </div>

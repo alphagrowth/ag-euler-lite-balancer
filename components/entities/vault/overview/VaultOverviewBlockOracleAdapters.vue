@@ -101,13 +101,13 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
-    <p class="text-h3 text-white">
+  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-20 shadow-card">
+    <p class="text-h3 text-content-primary">
       Oracles
     </p>
     <div
       v-if="!adapters.length"
-      class="text-p3 text-euler-dark-900"
+      class="text-p3 text-content-tertiary"
     >
       No oracle adapters found
     </div>
@@ -122,7 +122,7 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
       >
         <template #label>
           <div class="flex gap-4 items-center">
-            <div class="p2">
+            <div class="p2 text-content-primary">
               {{ resolveSymbol(adapter.base) }}/{{ resolveSymbol(adapter.quote) }}
             </div>
           </div>
@@ -130,14 +130,14 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
         <div class="flex gap-4 items-center">
           <NuxtLink
             :to="getExplorerAddressLink(adapter.oracle)"
-            class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+            class="text-accent-600 underline cursor-pointer hover:text-accent-500"
             target="_blank"
           >
             {{ shortenAddress(adapter.oracle) }}
           </NuxtLink>
           <button
             :class="$style.copyBtn"
-            class="text-euler-dark-900"
+            class="text-content-muted"
             @click="onCopyClick(adapter.oracle)"
           >
             <SvgIcon
@@ -145,7 +145,6 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
               name="copy"
             />
           </button>
-          <!-- <span class="text-euler-dark-900">({{ adapter.name }})</span> -->
         </div>
       </VaultOverviewLabelValue>
     </div>
@@ -158,11 +157,11 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
   outline: none;
 
   &:hover {
-    color: var(--c-euler-dark-800);
+    color: var(--text-secondary);
   }
 
   &:active {
-    color: var(--c-euler-dark-700);
+    color: var(--text-primary);
   }
 }
 </style>

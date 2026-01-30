@@ -131,8 +131,15 @@ const open = () => {
     font-weight: 400;
     padding: 6px 16px;
     background: var(--ui-select-field-background-color);
+    border: 1px solid var(--neutral-200);
     border-radius: 100px;
     cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: var(--neutral-300);
+      background: var(--neutral-50);
+    }
   }
 
   &__icon {
@@ -175,14 +182,27 @@ const open = () => {
     font-size: 14px;
     font-weight: 400;
     background: var(--ui-select-chip-background-color);
+    border: 1px solid var(--neutral-200);
     border-radius: 100px;
     cursor: pointer;
     white-space: nowrap;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: var(--neutral-300);
+      background: var(--neutral-50);
+    }
 
     &--active {
       font-weight: 600;
       background: var(--ui-select-chip-active-background-color);
       color: var(--ui-select-chip-active-color);
+      border-color: transparent;
+
+      &:hover {
+        background: var(--accent-600);
+        border-color: transparent;
+      }
     }
   }
 

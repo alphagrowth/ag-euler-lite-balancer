@@ -35,10 +35,10 @@ const label = computed(() => {
 <template>
   <template v-if="'verified' in vault && !vault.verified">
     <div
-      class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-yellow-opaque-200)] text-yellow-700"
+      class="vault-type-chip flex gap-8 items-center py-8 px-12 rounded-8 vault-type-chip--warning"
     >
       <UiIcon
-        class="mr-2 !w-20 !h-20 text-yellow-600"
+        class="mr-2 !w-20 !h-20"
         name="warning"
       />
       Unverified
@@ -46,7 +46,7 @@ const label = computed(() => {
   </template>
   <template v-else>
     <div
-      class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-aquamarine-opaque-300)]"
+      class="vault-type-chip flex gap-8 items-center py-8 px-12 rounded-8"
     >
       <UiIcon
         class="mr-2 !w-20 !h-20"
@@ -56,3 +56,20 @@ const label = computed(() => {
     </div>
   </template>
 </template>
+
+<style scoped lang="scss">
+.vault-type-chip {
+  background-color: rgba(196, 155, 100, 0.15);
+  color: var(--accent-600);
+
+  [data-theme="dark"] & {
+    background-color: rgba(212, 169, 90, 0.2);
+    color: var(--accent-500);
+  }
+
+  &--warning {
+    background-color: var(--warning-100);
+    color: var(--warning-500);
+  }
+}
+</style>

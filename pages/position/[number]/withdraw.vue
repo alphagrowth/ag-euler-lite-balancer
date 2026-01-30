@@ -364,60 +364,60 @@ watch(amount, async () => {
         class="flex flex-col gap-16"
       >
         <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Net APY
           </p>
 
           <p
             v-if="netAPY !== estimateNetAPY"
-            class="text-p2 text-euler-dark-900"
+            class="text-p2 text-content-tertiary"
           >
-            {{ formatNumber(netAPY) }}% → <span class="text-white">{{ formatNumber(estimateNetAPY) }}%</span>
+            {{ formatNumber(netAPY) }}% → <span class="text-content-primary">{{ formatNumber(estimateNetAPY) }}%</span>
           </p>
           <p
             v-else
-            class="text-p2 text-white"
+            class="text-p2 text-content-primary"
           >
             {{ formatNumber(netAPY) }}%
           </p>
         </div>
         <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Current price
           </p>
           <p class="text-p2 flex items-center gap-4">
             ${{ formatNumber(nanoToValue(position.price, 18)) }}
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
             </span>
           </p>
         </div>
         <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Liquidation price
           </p>
           <p class="text-p2 flex items-center gap-4">
             ${{ formatNumber(liquidationPrice) }}
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ collateralVault.asset.symbol }}
             </span>
           </p>
         </div>
         <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Your LTV (LLTV)
           </p>
           <p
             v-if="position.userLTV !== estimateUserLTV"
-            class="text-p2 text-euler-dark-900"
+            class="text-p2 text-content-tertiary"
           >
             {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
             <span class="text-p3">
               ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
             </span>
-            → <span class="text-white">
+            → <span class="text-content-primary">
               {{ formatNumber(nanoToValue(estimateUserLTV, 18)) }}%
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
               </span>
             </span>
@@ -427,25 +427,25 @@ watch(amount, async () => {
             class="text-p2 flex items-center gap-4"
           >
             {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
             </span>
           </p>
         </div>
         <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Your health
           </p>
 
           <p
             v-if="position.health !== estimateHealth"
-            class="text-p2 text-euler-dark-900"
+            class="text-p2 text-content-tertiary"
           >
-            {{ formatNumber(nanoToValue(position.health, 18)) }} → <span class="text-white">{{ formatNumber(nanoToValue(estimateHealth, 18)) }}</span>
+            {{ formatNumber(nanoToValue(position.health, 18)) }} → <span class="text-content-primary">{{ formatNumber(nanoToValue(estimateHealth, 18)) }}</span>
           </p>
           <p
             v-else
-            class="text-p2 text-white"
+            class="text-p2 text-content-primary"
           >
             {{ formatNumber(nanoToValue(position.health, 18)) }}
           </p>

@@ -93,7 +93,7 @@ const sortedBorrowList = computed(() => {
     />
 
     <div class="mb-16">
-      <h3 class="text-h3 mb-16">
+      <h3 class="text-h3 mb-16 text-neutral-900">
         Discover vaults
       </h3>
       <div class="flex justify-start items-center w-full gap-8 mobile:flex-wrap">
@@ -147,7 +147,7 @@ const sortedBorrowList = computed(() => {
 
       <div
         v-else
-        class="flex flex-col flex-1 gap-3 items-center justify-center text-euler-dark-900"
+        class="flex flex-col flex-1 gap-3 items-center justify-center text-neutral-500"
       >
         <UiIcon
           name="search"

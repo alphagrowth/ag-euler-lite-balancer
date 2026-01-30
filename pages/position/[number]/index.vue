@@ -382,7 +382,7 @@ watch(isConnected, () => {
   <section class="flex flex-col gap-16 min-h-[calc(100dvh-178px)]">
     <template v-if="isPositionsLoading">
       <div class="h-[calc(100dvh-178px)] flex items-center justify-center">
-        <UiLoader class="text-euler-dark-900" />
+        <UiLoader class="text-neutral-500" />
       </div>
     </template>
     <template v-else-if="position">
@@ -394,62 +394,62 @@ watch(isConnected, () => {
 
       <div
         v-if="!hasNoBorrow"
-        class="flex flex-col gap-16 p-16 rounded-16 border border-euler-dark-600"
+        class="flex flex-col gap-16 p-16 rounded-12 border border-line-default bg-card shadow-card"
       >
         <div class="flex justify-between items-center">
-          <div class="text-p2 text-euler-dark-900">
+          <div class="text-p2 text-neutral-500">
             Net APY
           </div>
-          <div class="text-h5 text-white flex justify-end items-center gap-4">
+          <div class="text-h5 text-neutral-800 flex justify-end items-center gap-4">
             {{ formatNumber(netAPY) }}%
             <SvgIcon
-              class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
+              class="!w-24 !h-24 text-neutral-400 cursor-pointer"
               name="question-circle"
               @click="onNetApyInfoIconClick"
             />
           </div>
         </div>
         <div class="flex justify-between items-center">
-          <div class="text-p2 text-euler-dark-900">
+          <div class="text-p2 text-neutral-500">
             Net asset value
           </div>
-          <div class="text-h5 text-white">
+          <div class="text-h5 text-neutral-800">
             ${{ formatNumber(netAssetValueUsd) }}
           </div>
         </div>
       </div>
       <div
         v-if="!hasNoBorrow"
-        class="rounded-16 bg-euler-dark-500 p-16"
+        class="rounded-12 bg-card border border-line-default shadow-card p-16"
       >
-        <div class="text-h4 flex items-center flex-wrap gap-12 mb-16">
+        <div class="text-h4 text-neutral-800 flex items-center flex-wrap gap-12 mb-16">
           Position risk
 
-          <div class="text-h6 text-euler-dark-900 bg-euler-dark-600 py-4 px-12 rounded-8 border border-euler-dark-700">
+          <div class="text-h6 text-content-secondary bg-surface-elevated py-4 px-12 rounded-8 border border-line-default">
             Position {{ positionIndex }}
           </div>
         </div>
         <div class="flex justify-between gap-8 flex-wrap mb-16">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-neutral-500 text-p3">
             Health score
           </div>
-          <div class="text-white text-p3">
+          <div class="text-neutral-800 text-p3">
             {{ formatNumber(nanoToValue(position.health, 18)) }}
           </div>
         </div>
         <div class="flex justify-between gap-8 flex-wrap mb-16">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-neutral-500 text-p3">
             Time to liquidation
           </div>
-          <div class="text-white text-p3">
+          <div class="text-neutral-800 text-p3">
             {{ timeToLiquidationDisplay }}
           </div>
         </div>
         <div class="flex justify-between gap-8 flex-wrap mb-12">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-neutral-500 text-p3">
             Your LTV
           </div>
-          <div class="text-white text-p3">
+          <div class="text-neutral-800 text-p3">
             {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
           </div>
         </div>
@@ -465,11 +465,11 @@ watch(isConnected, () => {
         class="cursor-pointer"
         @click="openPairInfoModal"
       >
-        <div class="mb-12 text-h4">
+        <div class="mb-12 text-h4 text-neutral-800">
           Borrow
         </div>
-        <div class="rounded-16 bg-euler-dark-500">
-          <div class="flex gap-16 p-16 pb-12 border-b border-border-primary">
+        <div class="rounded-12 bg-card border border-line-default shadow-card">
+          <div class="flex gap-16 p-16 pb-12 border-b border-line-default">
             <VaultLabelsAndAssets
               :vault="position.borrow"
               :assets="[position.borrow.asset]"
@@ -477,39 +477,39 @@ watch(isConnected, () => {
           </div>
           <div class="pt-12 px-16 pb-16">
             <div class="flex justify-between gap-8 flex-wrap mb-16">
-              <div class="text-euler-dark-900 text-p3">
+              <div class="text-neutral-500 text-p3">
                 Market value
               </div>
               <div class="flex justify-between gap-8 justify-self-end">
-                <div class="text-white text-p3">
+                <div class="text-neutral-800 text-p3">
                   ${{ formatNumber(getVaultPrice(position.borrowed, borrowVault)) }}
                 </div>
-                <div class="text-euler-dark-900 text-p3">
+                <div class="text-neutral-500 text-p3">
                   ~ {{ roundAndCompactTokens(position.borrowed, borrowVault.decimals) }} {{ borrowVault.asset.symbol }}
                 </div>
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-16">
-              <div class="text-euler-dark-900 text-p3">
+              <div class="text-neutral-500 text-p3">
                 Borrow APY
               </div>
-              <div class="text-white text-p3">
+              <div class="text-neutral-800 text-p3">
                 {{ formatNumber(borrowApyWithRewards) }}%
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
-              <div class="text-euler-dark-900 text-p3">
+              <div class="text-neutral-500 text-p3">
                 Oracle price
               </div>
-              <div class="text-white text-p3">
+              <div class="text-neutral-800 text-p3">
                 ${{ formatNumber(getVaultPrice(1, position.borrow)) }}
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
-              <div class="text-euler-dark-900 text-p3">
+              <div class="text-neutral-500 text-p3">
                 Liquidation price
               </div>
-              <div class="text-white text-p3">
+              <div class="text-neutral-800 text-p3">
                 ${{ borrowLiquidationPrice ? formatNumber(borrowLiquidationPrice) : '-' }}
               </div>
             </div>
@@ -554,17 +554,17 @@ watch(isConnected, () => {
         </div>
       </div>
       <div>
-        <div class="mb-12 text-h4">
+        <div class="mb-12 text-h4 text-neutral-800">
           {{ !hasNoBorrow ? 'Collateral' : 'Deposit' }}
         </div>
         <div class="flex flex-col gap-12">
           <div
             v-for="collateral in collateralRows"
             :key="collateral.vault.address"
-            class="rounded-16 bg-euler-dark-500 cursor-pointer"
+            class="rounded-12 bg-card border border-line-default shadow-card cursor-pointer"
             @click="openCollateralInfoModal(collateral.vault)"
           >
-            <div class="flex gap-16 p-16 pb-12 border-b border-border-primary">
+            <div class="flex gap-16 p-16 pb-12 border-b border-line-default">
               <VaultLabelsAndAssets
                 :vault="collateral.vault"
                 :assets="[collateral.vault.asset]"
@@ -572,32 +572,32 @@ watch(isConnected, () => {
             </div>
             <div class="pt-12 px-16 pb-16">
               <div class="flex justify-between gap-8 flex-wrap mb-16">
-                <div class="text-euler-dark-900 text-p3">
+                <div class="text-neutral-500 text-p3">
                   {{ !hasNoBorrow ? 'Market value' : 'Supply value' }}
                 </div>
                 <div class="flex justify-between gap-8 justify-self-end">
-                  <div class="text-white text-p3">
+                  <div class="text-neutral-800 text-p3">
                     ${{ formatNumber(getVaultPrice(collateral.assets, collateral.vault)) }}
                   </div>
-                  <div class="text-euler-dark-900 text-p3">
+                  <div class="text-neutral-500 text-p3">
                     ~ {{ roundAndCompactTokens(collateral.assets, collateral.vault.decimals) }}
                     {{ collateral.vault.asset.symbol }}
                   </div>
                 </div>
               </div>
               <div class="flex justify-between gap-8 flex-wrap mb-16">
-                <div class="text-euler-dark-900 text-p3">
+                <div class="text-neutral-500 text-p3">
                   Supply APY
                 </div>
-                <div class="text-white text-p3">
+                <div class="text-neutral-800 text-p3">
                   {{ formatNumber(collateral.supplyApyWithRewards) }}%
                 </div>
               </div>
               <div class="flex justify-between gap-8 flex-wrap mb-16">
-                <div class="text-euler-dark-900 text-p3">
+                <div class="text-neutral-500 text-p3">
                   Oracle price
                 </div>
-                <div class="text-white text-p3">
+                <div class="text-neutral-800 text-p3">
                   ${{ formatNumber(getVaultPrice(1, collateral.vault)) }}
                 </div>
               </div>
@@ -605,10 +605,10 @@ watch(isConnected, () => {
                 v-if="!hasNoBorrow && isPrimaryCollateral(collateral.vault)"
                 class="flex justify-between gap-8 flex-wrap mb-16"
               >
-                <div class="text-euler-dark-900 text-p3">
+                <div class="text-neutral-500 text-p3">
                   Liquidation price
                 </div>
-                <div class="text-white text-p3">
+                <div class="text-neutral-800 text-p3">
                   ${{ liquidationPrice ? formatNumber(liquidationPrice) : '-' }}
                 </div>
               </div>
@@ -616,10 +616,10 @@ watch(isConnected, () => {
                 v-if="!hasNoBorrow && isPrimaryCollateral(collateral.vault)"
                 class="flex justify-between gap-8 flex-wrap mb-16"
               >
-                <div class="text-euler-dark-900 text-p3">
+                <div class="text-neutral-500 text-p3">
                   LLTV
                 </div>
-                <div class="text-white text-p3">
+                <div class="text-neutral-800 text-p3">
                   {{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%
                 </div>
               </div>
@@ -679,9 +679,9 @@ watch(isConnected, () => {
           </div>
           <div
             v-if="!collateralRows.length && isCollateralsLoading"
-            class="flex items-center justify-center rounded-16 bg-euler-dark-500 p-16"
+            class="flex items-center justify-center rounded-12 bg-card border border-line-default p-16"
           >
-            <UiLoader class="text-euler-dark-900" />
+            <UiLoader class="text-neutral-500" />
           </div>
         </div>
       </div>

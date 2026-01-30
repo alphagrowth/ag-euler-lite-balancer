@@ -17,8 +17,8 @@ export const socials = {
 } as const
 
 // SEO defaults for the app (used in nuxt.config.ts).
-export const appTitle = 'Euler Lite'
-export const appDescription = 'Lightweight interface for Euler Finance lending and borrowing.'
+export const appTitle = 'Euler Institutional'
+export const appDescription = 'Institutional-grade lending and borrowing powered by Euler.'
 
 // Base hue for the app theme in degrees (0-360). Change to shift the brand palette.
 export const themeHue = 150

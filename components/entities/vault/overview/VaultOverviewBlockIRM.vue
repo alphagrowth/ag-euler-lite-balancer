@@ -13,6 +13,37 @@ const chartInstance = ref<echarts.ECharts | null>(null)
 const isLoading = ref(true)
 const hasError = ref(false)
 
+// Theme detection
+const theme = useLocalStorage('theme', 'light')
+const isDark = computed(() => theme.value === 'dark')
+
+// Theme-aware colors
+const chartColors = computed(() => isDark.value ? {
+  text: '#a3a3a3',
+  textMuted: '#737373',
+  gridLine: '#262626',
+  axisLine: '#404040',
+  tooltip: {
+    bg: 'rgba(26, 26, 26, 0.95)',
+    border: '#404040',
+    text: '#fafafa',
+    textMuted: '#a3a3a3',
+  },
+  currentLine: '#a3a3a3',
+} : {
+  text: '#737373',
+  textMuted: '#525252',
+  gridLine: '#f5f5f5',
+  axisLine: '#e5e5e5',
+  tooltip: {
+    bg: 'rgba(255, 255, 255, 0.95)',
+    border: '#e5e5e5',
+    text: '#262626',
+    textMuted: '#525252',
+  },
+  currentLine: '#262626',
+})
+
 const { EVM_PROVIDER_URL } = useEulerConfig()
 const { eulerLensAddresses } = useEulerAddresses()
 
@@ -140,11 +171,14 @@ const renderChart = async () => {
         label: {
           formatter: `Current (${currentUtilization.toFixed(2)}%)`,
           position: 'insideEndTop',
+          color: chartColors.value.currentLine,
+          fontWeight: 500,
+          fontSize: 11,
         },
         lineStyle: {
-          color: '#FFFFFF',
+          color: chartColors.value.currentLine,
           type: 'dashed' as const,
-          width: 1,
+          width: 1.5,
         },
       },
     ]
@@ -165,12 +199,14 @@ const renderChart = async () => {
           label: {
             formatter: `Kink (${kinkUtilization.toFixed(2)}%)`,
             position: 'insideStartTop',
-            color: '#23C09B',
+            color: '#059669',
+            fontWeight: 500,
+            fontSize: 11,
           },
           lineStyle: {
-            color: '#23C09B',
+            color: '#059669',
             type: 'dashed' as const,
-            width: 1,
+            width: 1.5,
           },
         })
       }
@@ -178,7 +214,7 @@ const renderChart = async () => {
 
     // Initialize or get chart instance
     if (!chartInstance.value) {
-      chartInstance.value = echarts.init(chartRef.value, 'dark', {
+      chartInstance.value = echarts.init(chartRef.value, undefined, {
         renderer: 'canvas',
       })
     }
@@ -197,17 +233,19 @@ const renderChart = async () => {
         show: true,
         trigger: 'axis',
         confine: true,
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        borderColor: '#333',
+        backgroundColor: chartColors.value.tooltip.bg,
+        borderColor: chartColors.value.tooltip.border,
         borderWidth: 1,
         textStyle: {
-          color: '#fff',
+          color: chartColors.value.tooltip.text,
+          fontSize: 13,
         },
+        extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.2); border-radius: 8px;',
         axisPointer: {
           type: 'cross',
           axis: 'x',
           lineStyle: {
-            color: '#888',
+            color: chartColors.value.text,
             type: 'dashed',
             width: 1,
           },
@@ -231,19 +269,22 @@ const renderChart = async () => {
 
           const borrowAPY = borrowSeries.value[1]
           const supplyAPY = supplySeries.value[1]
+          const colors = chartColors.value
 
           return `
-            <div style="padding: 8px;">
-              <div style="margin-bottom: 8px;">
-                <strong>Utilization:</strong> ${utilization}%
+            <div style="padding: 4px 0;">
+              <div style="margin-bottom: 8px; font-weight: 600; color: ${colors.tooltip.text};">
+                Utilization: ${utilization}%
               </div>
-              <div style="margin-bottom: 4px;">
-                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#E15241;margin-right:5px;"></span>
-                <strong>Borrow APY:</strong> ${borrowAPY.toFixed(2)}%
+              <div style="margin-bottom: 6px; display: flex; align-items: center;">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#059669;margin-right:8px;"></span>
+                <span style="color: ${colors.tooltip.textMuted};">Borrow APY:</span>
+                <span style="margin-left: 4px; font-weight: 500;">${borrowAPY.toFixed(2)}%</span>
               </div>
-              <div>
-                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#23C09B;margin-right:5px;"></span>
-                <strong>Supply APY:</strong> ${supplyAPY.toFixed(2)}%
+              <div style="display: flex; align-items: center;">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c49b64;margin-right:8px;"></span>
+                <span style="color: ${colors.tooltip.textMuted};">Supply APY:</span>
+                <span style="margin-left: 4px; font-weight: 500;">${supplyAPY.toFixed(2)}%</span>
               </div>
             </div>
           `
@@ -255,25 +296,27 @@ const renderChart = async () => {
         nameLocation: 'middle',
         nameGap: 30,
         nameTextStyle: {
-          color: '#888',
+          color: chartColors.value.text,
           fontSize: 12,
+          fontWeight: 500,
         },
         min: 0,
         max: 100,
         interval: 10,
         axisLabel: {
           formatter: '{value}%',
-          color: '#888',
+          color: chartColors.value.text,
+          fontSize: 11,
         },
         axisLine: {
           lineStyle: {
-            color: '#333',
+            color: chartColors.value.axisLine,
           },
         },
         splitLine: {
           show: true,
           lineStyle: {
-            color: '#222',
+            color: chartColors.value.gridLine,
           },
         },
       },
@@ -283,22 +326,24 @@ const renderChart = async () => {
         nameLocation: 'middle',
         nameGap: 50,
         nameTextStyle: {
-          color: '#888',
+          color: chartColors.value.text,
           fontSize: 12,
+          fontWeight: 500,
         },
         axisLabel: {
           formatter: '{value}%',
-          color: '#888',
+          color: chartColors.value.text,
+          fontSize: 11,
         },
         axisLine: {
           lineStyle: {
-            color: '#333',
+            color: chartColors.value.axisLine,
           },
         },
         splitLine: {
           show: true,
           lineStyle: {
-            color: '#222',
+            color: chartColors.value.gridLine,
           },
         },
       },
@@ -312,11 +357,24 @@ const renderChart = async () => {
           symbol: 'circle',
           symbolSize: 6,
           lineStyle: {
-            color: '#23C09B',
-            width: 2,
+            color: '#059669',
+            width: 2.5,
           },
           itemStyle: {
-            color: '#23C09B',
+            color: '#059669',
+          },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(5, 150, 105, 0.15)' },
+                { offset: 1, color: 'rgba(5, 150, 105, 0)' },
+              ],
+            },
           },
           emphasis: {
             focus: 'series',
@@ -340,11 +398,24 @@ const renderChart = async () => {
           symbol: 'circle',
           symbolSize: 6,
           lineStyle: {
-            color: '#f7772c',
-            width: 2,
+            color: '#c49b64',
+            width: 2.5,
           },
           itemStyle: {
-            color: '#f7772c',
+            color: '#c49b64',
+          },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(196, 155, 100, 0.15)' },
+                { offset: 1, color: 'rgba(196, 155, 100, 0)' },
+              ],
+            },
           },
           emphasis: {
             focus: 'series',
@@ -392,19 +463,29 @@ onMounted(async () => {
     window.addEventListener('resize', handleResize)
   }
 })
+
+// Re-render chart when theme changes
+watch(theme, async () => {
+  if (chartInstance.value && hasValidIRM.value) {
+    chartInstance.value.dispose()
+    chartInstance.value = null
+    await nextTick()
+    await renderChart()
+  }
+})
 </script>
 
 <template>
   <div
     v-if="hasValidIRM"
-    class="bg-euler-dark-300 rounded-16 flex flex-col gap-16 p-24"
+    class="bg-surface-secondary rounded-xl flex flex-col gap-16 p-20 shadow-card"
   >
     <div class="flex justify-between items-center flex-wrap gap-12">
       <div class="flex items-center gap-8">
-        <p class="text-h3 text-white">
+        <p class="text-h3 text-content-primary">
           Interest rate model
         </p>
-        <div class="inline-flex items-center py-0 px-4 rounded-4 bg-[rgba(var(--aquamarine-700),0.3)] text-aquamarine-700 text-[12px] font-medium capitalize">
+        <div class="inline-flex items-center py-0 px-4 rounded-4 bg-accent-300/30 text-accent-700 text-[12px] font-medium capitalize">
           {{ irmTypeLabel }}
         </div>
       </div>

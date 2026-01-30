@@ -47,10 +47,10 @@ load()
 <template>
   <div
     v-if="exposureList.length"
-    class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
+    class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-20 shadow-card"
   >
     <div>
-      <p class="text-h3 text-white mb-12">
+      <p class="text-h3 text-content-primary mb-12">
         Exposure
       </p>
     </div>
@@ -65,12 +65,11 @@ load()
         @click="emits('vault-click')"
       >
         <NuxtLink
-          class="bg-euler-dark-500 rounded-16 text-white block no-underline"
+          class="bg-card rounded-xl text-content-primary block no-underline shadow-card hover:shadow-card-hover transition-shadow border border-line-default"
           :to="`/lend/${exposure.info.vault}`"
         >
           <div
-            class="px-16 pt-16 pb-12"
-            style="border-bottom: 1px solid var(--c-euler-dark-600)"
+            class="px-16 pt-16 pb-12 border-b border-line-subtle"
           >
             <VaultLabelsAndAssets
               :vault="exposureVaults.find((vlt) => exposure.info.vault === vlt.address) as Vault"
@@ -93,7 +92,7 @@ load()
               orientation="horizontal"
             >
               {{ `$${compactNumber(getVaultPrice(exposure.allocatedAssets, getExposureVaultByAddress(exposure.info.vault) as Vault), 2)}` }}
-              <span class="text-euler-dark-900">{{ `${roundAndCompactTokens(exposure.allocatedAssets, exposure.info.assetDecimals)}` }} {{ exposure.info.assetSymbol }}</span>
+              <span class="text-content-tertiary">{{ `${roundAndCompactTokens(exposure.allocatedAssets, exposure.info.assetDecimals)}` }} {{ exposure.info.assetSymbol }}</span>
             </VaultOverviewLabelValue>
           </div>
         </NuxtLink>

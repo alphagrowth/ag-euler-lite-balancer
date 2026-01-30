@@ -227,7 +227,7 @@ watch(amount, async () => {
         />
 
         <div class="flex flex-col items-end justify-end">
-          <p class="mb-4 text-euler-dark-900">
+          <p class="mb-4 text-content-tertiary">
             Supply APY
           </p>
 
@@ -289,8 +289,8 @@ watch(amount, async () => {
               Projected Earnings per Month
             </p>
 
-            <p class="text-euler-dark-900">
-              <span class="text-white text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
+            <p class="text-content-tertiary">
+              <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
                 asset.symbol
               }}
               ≈ ${{ vault ? compactNumber(getVaultPrice(monthlyEarnings, vault)) : 0 }}
@@ -304,15 +304,15 @@ watch(amount, async () => {
 
             <p
               v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay"
-              class="text-p2 text-euler-dark-900"
+              class="text-p2 text-content-tertiary"
             >
               {{ supplyAPYDisplay }}% <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
-                → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
+                → <span class="text-content-primary">{{ estimateSupplyAPYDisplay }}%</span>
               </template>
             </p>
             <p
               v-else
-              class="text-p2 text-white"
+              class="text-p2 text-content-primary"
             >
               {{ supplyAPYDisplay }}%
             </p>
