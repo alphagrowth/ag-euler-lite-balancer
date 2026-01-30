@@ -1,8 +1,3 @@
-export type EulerLabelVault = {
-  name: string
-  description: string
-  entity: string | string[]
-}
 export type EulerLabelEntity = {
   name: string
   logo: string
@@ -36,6 +31,16 @@ export type EulerLabelPointReward = {
   name: string
   logo: string
 }
+
+export type EulerLabelVaultLabel = {
+  name: string
+  description?: string
+}
+
+export const eulerLabelVaultLabelEmpty = {
+  name: '',
+  description: '',
+} as EulerLabelVaultLabel
 
 export const eulerLabelEntityEmpty = {
   name: '',

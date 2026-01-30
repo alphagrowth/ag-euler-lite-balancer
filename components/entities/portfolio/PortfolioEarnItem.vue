@@ -14,8 +14,7 @@ const vault = computed(() => position.vault)
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
-const vaultLabel = useEulerVaultLabelOfVault(computed(() => vault.value.address))
-const displayName = computed(() => vaultLabel.name || product.name || vault.value.name)
+const displayName = computed(() => product.name || vault.value.name)
 
 const supplyValueDisplay = computed(() => {
   const price = getEarnVaultPriceDisplay(position.assets, vault.value)

@@ -11,7 +11,7 @@ let interval: NodeJS.Timeout
 let isChainWatchInitialized = false
 
 export const useWallets = () => {
-  const { map, earnMap, isReady, loadedChainId } = useVaults()
+  const { map, earnMap, securitizeMap, isReady, loadedChainId } = useVaults()
   const { address, isConnected, chain } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
   const { chainId } = useEulerAddresses()
@@ -42,6 +42,12 @@ export const useWallets = () => {
     })
 
     earnMap.value.forEach((vault) => {
+      tokenAddresses.push(vault.address as Address)
+      tokenAddresses.push(vault.asset.address as Address)
+    })
+
+    // Add securitize vault addresses and their underlying assets
+    securitizeMap.value.forEach((vault) => {
       tokenAddresses.push(vault.address as Address)
       tokenAddresses.push(vault.asset.address as Address)
     })
@@ -91,7 +97,7 @@ export const useWallets = () => {
     }
   }
 
-  watch([map, earnMap], () => {
+  watch([map, earnMap, securitizeMap], () => {
     isVaultsUpdated.value = true
   })
 

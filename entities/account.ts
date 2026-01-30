@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 import { evcGetControllersAbi } from '~/abis/evc'
 import axios from 'axios'
-import type { EarnVault, Vault } from '~/entities/vault'
+import type { EarnVault, SecuritizeVault, Vault } from '~/entities/vault'
 
 export type AccountVaultLiquidityCollateral = {
   collateral: string
@@ -67,9 +67,10 @@ export interface AccountBorrowPosition {
   collateralValueLiquidation: bigint
 }
 export interface AccountDepositPosition {
-  vault: Vault
+  vault: Vault | SecuritizeVault
   shares: bigint
   assets: bigint
+  isSecuritize?: boolean
 }
 export interface AccountEarnPosition {
   vault: EarnVault

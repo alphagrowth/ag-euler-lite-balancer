@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getVaultPrice, getVaultPriceDisplay } from '~/entities/vault'
+import { getVaultPrice, getVaultPriceDisplay, type Vault } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountDepositPosition } from '~/entities/account'
 import { VaultOverviewModal } from '#components'
@@ -12,34 +12,51 @@ const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const vault = computed(() => position.vault)
+const isSecuritize = computed(() => position.isSecuritize || false)
+
+// Type guard for regular vault properties - cast to Vault type when not securitize
+const regularVault = computed(() => (isSecuritize.value ? null : (vault.value as Vault)))
+
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
-const supplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
-  vault.value.asset.symbol,
-))
+const supplyApy = computed(() => {
+  if (isSecuritize.value || !regularVault.value) return 0
+  return withIntrinsicSupplyApy(
+    nanoToValue(regularVault.value.interestRateInfo.supplyAPY, 25),
+    vault.value.asset.symbol,
+  )
+})
 const supplyApyWithRewards = computed(() => supplyApy.value + (opportunityInfo.value?.apr || 0))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
-const vaultLabel = useEulerVaultLabelOfVault(computed(() => vault.value.address))
-const displayName = computed(() => vaultLabel.name || product.name || vault.value.name)
+const displayName = computed(() => product.name || vault.value.name)
 
 const supplyValueDisplay = computed(() => {
-  const price = getVaultPriceDisplay(position.assets, vault.value)
+  if (!regularVault.value)
+    return `${formatNumber(nanoToValue(position.assets, vault.value.asset.decimals))} ${vault.value.asset.symbol}`
+  const price = getVaultPriceDisplay(position.assets, regularVault.value)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
 const earnDisplay = computed(() => {
-  const price = getVaultPrice(position.assets, vault.value)
+  if (!regularVault.value) return '—'
+  const price = getVaultPrice(position.assets, regularVault.value)
   if (price === 0) return '—'
-  return compactNumber(price * supplyApy.value * 90 / 365 / 100)
+  return compactNumber((price * supplyApy.value * 90) / 365 / 100)
 })
 const earnDisplayWithReward = computed(() => {
-  const price = getVaultPrice(position.assets, vault.value)
+  if (!regularVault.value) return '—'
+  const price = getVaultPrice(position.assets, regularVault.value)
   if (price === 0) return '—'
-  return compactNumber(price * supplyApyWithRewards.value * 90 / 365 / 100)
+  return compactNumber((price * supplyApyWithRewards.value * 90) / 365 / 100)
+})
+
+// Securitize-specific computed properties
+const assetAmount = computed(() => {
+  return nanoToValue(position.assets, vault.value.asset.decimals)
 })
 
 const onClick = () => {
+  if (isSecuritize.value) return // No modal for Securitize vaults
   modal.open(VaultOverviewModal, {
     props: {
       vault: vault,
@@ -49,14 +66,70 @@ const onClick = () => {
 </script>
 
 <template>
+  <!-- Securitize vault display -->
   <div
+    v-if="isSecuritize"
+    class="block no-underline text-white bg-euler-dark-500 rounded-16"
+  >
+    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
+      <div class="flex w-full">
+        <BaseAvatar
+          class="icon--40"
+          :src="getAssetLogoUrl(vault.asset.symbol)"
+          :label="vault.asset.symbol"
+        />
+        <div class="flex-grow ml-12">
+          <div class="text-euler-dark-900 text-p3 mb-4">
+            {{ displayName }}
+          </div>
+          <div class="text-h5">
+            {{ vault.asset.symbol }}
+          </div>
+        </div>
+        <div class="flex flex-col items-end">
+          <div class="text-euler-dark-900 text-p3 mb-4">
+            Type
+          </div>
+          <div class="text-p2 text-aquamarine-700">
+            Securitize
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flex py-12 px-16 pb-16">
+      <div class="flex flex-col gap-12 w-full">
+        <div class="flex justify-between">
+          <div class="text-euler-dark-900 text-p3">
+            Supply value
+          </div>
+          <div class="flex justify-between gap-8 text-right">
+            <div class="text-white text-p3">
+              {{ formatNumber(assetAmount) }} {{ vault.asset.symbol }}
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between">
+          <div class="text-euler-dark-900 text-p3">
+            Shares
+          </div>
+          <div class="flex justify-between gap-8 text-right">
+            <div class="text-white text-p3">
+              {{ formatNumber(nanoToValue(position.shares, vault.decimals)) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regular vault display -->
+  <div
+    v-else
     class="block no-underline text-white bg-euler-dark-500 rounded-16 cursor-pointer"
     @click="onClick"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
-      <div
-        class="flex w-full"
-      >
+      <div class="flex w-full">
         <BaseAvatar
           class="icon--40"
           :src="getAssetLogoUrl(vault.asset.symbol)"
@@ -74,9 +147,7 @@ const onClick = () => {
           <div class="text-euler-dark-900 text-p3 mb-4">
             Supply APY
           </div>
-          <div
-            class="text-p2 flex text-aquamarine-700"
-          >
+          <div class="text-p2 flex text-aquamarine-700">
             <SvgIcon
               v-if="opportunityInfo?.apr"
               name="sparks"
@@ -88,9 +159,7 @@ const onClick = () => {
       </div>
     </div>
     <div class="flex py-12 px-16 pb-16">
-      <div
-        class="flex flex-col gap-12 w-full"
-      >
+      <div class="flex flex-col gap-12 w-full">
         <div class="flex justify-between">
           <div class="text-euler-dark-900 text-p3">
             Supply value
@@ -99,8 +168,12 @@ const onClick = () => {
             <div class="text-white text-p3">
               {{ supplyValueDisplay }}
             </div>
-            <div class="text-euler-dark-900 text-p3">
-              ~ {{ roundAndCompactTokens(position.assets, vault.decimals) }} {{ vault.asset.symbol }}
+            <div
+              v-if="regularVault"
+              class="text-euler-dark-900 text-p3"
+            >
+              ~ {{ roundAndCompactTokens(position.assets, regularVault.decimals) }}
+              {{ vault.asset.symbol }}
             </div>
           </div>
         </div>
@@ -119,7 +192,9 @@ const onClick = () => {
               + <SvgIcon
                 name="sparks"
                 class="!w-18 !h-18 text-aquamarine-700"
-              /> ${{ earnDisplayWithReward }}
+              /> ${{
+                earnDisplayWithReward
+              }}
             </div>
           </div>
         </div>

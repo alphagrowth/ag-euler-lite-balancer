@@ -1,54 +1,41 @@
 <script setup lang="ts">
-import { type BorrowVaultPair, getVaultPrice } from '~/entities/vault'
-import type { AccountBorrowPosition } from '~/entities/account'
+import { type SecuritizeBorrowVaultPair, getVaultPriceInfo } from '~/entities/vault'
 import { useModal } from '~/components/ui/composables/useModal'
-import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
+import { VaultBorrowApyModal } from '#components'
 
-const { pair } = defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition }>()
+const { pair } = defineProps<{ pair: SecuritizeBorrowVaultPair }>()
 
 const modal = useModal()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { borrowList } = useVaults()
-
-const borrowCount = computed(() => {
-  return borrowList.value.filter(p => p.borrow.address === pair.borrow.address).length
-})
-
-const isBorrowable = computed(() => borrowCount.value > 0)
+const { getOpportunityOfBorrowVault } = useMerkl()
+const { getCampaignOfBorrowVault } = useBrevis()
+const { withIntrinsicBorrowApy, getIntrinsicApy } = useIntrinsicApy()
 
 const borrowRewardAPY = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address)?.apr)
-const collateralRewardAPY = computed(() => getOpportunityOfLendVault(pair.collateral.address)?.apr)
-const supplyApyWithRewards = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25),
-  pair.collateral.asset.symbol,
-) + (collateralRewardAPY.value || 0))
+const brevisInfo = computed(() => getCampaignOfBorrowVault(pair.borrow.address))
+const totalRewardsAPY = computed(() => (borrowRewardAPY.value || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
+
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
   pair.borrow.asset.symbol,
-) - (borrowRewardAPY.value || 0))
+) - totalRewardsAPY.value)
 
-const baseSupplyApy = computed(() => nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25))
 const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25))
-const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol))
 const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.symbol))
-const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(pair.collateral.address))
 const borrowOpportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address))
 
+// Calculate price using collateral prices from borrow vault
 const price = computed(() => {
-  return getVaultPrice(1, pair.collateral)
-    / getVaultPrice(1, pair.borrow)
-})
+  const collateralPrice = pair.borrow.collateralPrices.find(
+    p => p.asset === pair.collateral.address,
+  )
+  const borrowPrice = getVaultPriceInfo(pair.borrow)
 
-const onSupplyInfoIconClick = () => {
-  modal.open(VaultSupplyApyModal, {
-    props: {
-      lendingAPY: baseSupplyApy.value,
-      intrinsicAPY: intrinsicSupplyApy.value,
-      opportunityInfo: supplyOpportunityInfo.value,
-    },
-  })
-}
+  const ask = collateralPrice?.amountOutAsk || collateralPrice?.amountOutMid || 0n
+  const bid = borrowPrice?.amountOutBid || 1n
+
+  if (!ask || !bid) return 0
+  return Number(ask) / Number(bid)
+})
 
 const onBorrowInfoIconClick = () => {
   modal.open(VaultBorrowApyModal, {
@@ -75,21 +62,11 @@ const onBorrowInfoIconClick = () => {
         </span>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
-        label="Supply APY"
+        label="Collateral type"
       >
-        <p class="flex items-center gap-4">
-          <span>
-            {{ formatNumber(supplyApyWithRewards) }}%
-          </span>
-          <SvgIcon
-            class="!w-20 !h-20 text-euler-dark-800 cursor-pointer"
-            name="question-circle"
-            @click="onSupplyInfoIconClick"
-          />
-        </p>
+        <span class="bg-euler-dark-600 text-euler-dark-900 px-8 py-2 rounded-4 text-p4">Securitize</span>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
-        v-if="isBorrowable"
         label="Borrow APY"
       >
         <p class="flex items-center gap-4">

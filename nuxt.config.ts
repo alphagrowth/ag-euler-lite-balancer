@@ -102,10 +102,10 @@ export default defineNuxtConfig({
   },
 
   devServer: {
-    https: {
-      key: process.env.HTTPS_KEY,
-      cert: process.env.HTTPS_CERT,
-    },
+    // https: {
+    //   key: process.env.HTTPS_KEY,
+    //   cert: process.env.HTTPS_CERT,
+    // },
   },
 
   compatibilityDate: '2024-08-29',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
 import type { EarnVault, EscrowVault, Vault, VaultAsset } from '~/entities/vault'
-import { useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
+import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { vault, assets, size, assetsLabel } = defineProps<{
@@ -12,8 +12,7 @@ const { vault, assets, size, assetsLabel } = defineProps<{
 }>()
 const vaultAddress = computed(() => ethers.getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
-const vaultLabel = useEulerVaultLabelOfVault(vaultAddress)
-const displayName = computed(() => vaultLabel.name || product.name || vault.name)
+const displayName = computed(() => product.name || vault.name)
 
 const displayAssetsLabel = computed(() => assetsLabel || assets.map(asset => asset.symbol).join('/'))
 const avatarSrcs = computed(() => assets.map(asset => getAssetLogoUrl(asset.symbol)))

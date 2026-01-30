@@ -1,6 +1,7 @@
 import { ethers, FixedNumber } from 'ethers'
 import axios from 'axios'
 import { useAccount } from '@wagmi/vue'
+import { useVaultRegistry } from './useVaultRegistry'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type { EulerLensAddresses } from '~/entities/euler/addresses'
 import type {
@@ -30,6 +31,10 @@ const normalizeAddress = (value?: string | null) => {
     return ''
   }
 }
+
+// Helper to get address prefix for simple subgraph queries (first 19 bytes = 0x + 38 hex chars)
+const getAddressPrefix = (address: string) => address.toLowerCase().slice(0, 40)
+
 const toBigInt = (value: unknown) => {
   try {
     return BigInt(value as bigint)
@@ -38,7 +43,7 @@ const toBigInt = (value: unknown) => {
     return 0n
   }
 }
-const resolvePositionCollaterals = (liquidityInfo: any, fallback: string[]) => {
+const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>, fallback: string[]) => {
   const fallbackNormalized = fallback.map(addr => normalizeAddress(addr)).filter(Boolean)
   const infoCollaterals = (liquidityInfo?.collaterals || [])
     .map((addr: string) => normalizeAddress(addr))
@@ -64,11 +69,12 @@ const resolvePositionCollaterals = (liquidityInfo: any, fallback: string[]) => {
 const totalSuppliedValue = computed(() => {
   const { map } = useVaults()
 
-  const depositValue = depositPositions.value.reduce(
-    (result, position) => result + getVaultPrice(position.assets, position.vault),
-    0,
-  )
+  // Deposit positions (standalone vault context) — excludes securitize vaults
+  const depositValue = depositPositions.value
+    .filter(position => !position.isSecuritize)
+    .reduce((result, position) => result + getVaultPrice(position.assets, position.vault), 0)
 
+  // Borrow position collateral (liability vault context) — use borrow vault's collateral pricing
   const collateralValue = borrowPositions.value.reduce((result, position) => {
     const borrowVault = map.value.get(position.borrow.address)
     if (!borrowVault) return result
@@ -80,6 +86,7 @@ const totalSuppliedValue = computed(() => {
     return result + amount * nanoToValue(priceInfo.amountOutMid, 18)
   }, 0)
 
+  // Earn positions — use earn vault's asset price
   const earnValue = earnPositions.value.reduce(
     (result, position) => result + getEarnVaultPrice(position.assets, position.vault),
     0,
@@ -158,11 +165,11 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
   const { data } = await axios.post(SUBGRAPH_URL, {
     query: `query AccountDeposits {
-      trackingActiveAccount(id: "${address}") {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         deposits
       }
     }`,
-    operationName: 'AccountBorrows',
+    operationName: 'AccountDeposits',
   })
 
   const depositEntries = data.data.trackingActiveAccount?.deposits || []
@@ -321,9 +328,10 @@ const updateBorrowPositions = async (
 
   const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+
   const { data } = await axios.post(SUBGRAPH_URL, {
     query: `query AccountBorrows {
-      trackingActiveAccount(id: "${address}") {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         borrows
       }
     }`,
@@ -490,8 +498,9 @@ const updateDepositPositions = async (
     return
   }
 
-  const { list, getVault, earnMap } = useVaults()
+  const { list, earnMap } = useVaults()
   const { earnVaults } = useEulerLabels()
+  const { getOrResolve } = useVaultRegistry()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -509,11 +518,11 @@ const updateDepositPositions = async (
     const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
     const { data } = await axios.post(SUBGRAPH_URL, {
       query: `query AccountDeposits {
-      trackingActiveAccount(id: "${address}") {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         deposits
       }
     }`,
-      operationName: 'AccountBorrows',
+      operationName: 'AccountDeposits',
     })
     const depositEntries = data.data.trackingActiveAccount?.deposits || []
 
@@ -521,30 +530,49 @@ const updateDepositPositions = async (
       const batch = depositEntries
         .slice(i, i + batchSize)
         .map(async (entry: string) => {
-          const vault = `0x${entry.substring(42)}`
+          const vaultAddress = `0x${entry.substring(42)}`
           const subAccount = entry.substring(0, 42)
 
-          if (ethers.getAddress(subAccount) !== ethers.getAddress(address)) {
+          // Resolve vault from registry (fetches from subgraph if unknown)
+          const vaultEntry = await getOrResolve(vaultAddress)
+          if (!vaultEntry) {
             return undefined
           }
 
-          // Check if this is an earn vault, skip if it is (handled by updateEarnPositions)
-          const normalizedVault = ethers.getAddress(vault)
-          if (earnVaults.value.includes(normalizedVault) || earnMap.value.has(normalizedVault)) {
+          // Skip earn vaults (handled by updateEarnPositions)
+          if (vaultEntry.type === 'earn') {
             return undefined
+          }
+
+          const isSecuritize = vaultEntry.type === 'securitize'
+
+          // For Securitize vaults, match on address prefix (subaccounts derive from main account)
+          // For regular vaults, match exact address
+          if (isSecuritize) {
+            const subAccountPrefix = subAccount.toLowerCase().slice(0, 40)
+            const addrPrefix = address.toLowerCase().slice(0, 40)
+            if (subAccountPrefix !== addrPrefix) {
+              return undefined
+            }
+          }
+          else {
+            if (ethers.getAddress(subAccount) !== ethers.getAddress(address)) {
+              return undefined
+            }
           }
 
           try {
-            const res = await accountLensContract.getAccountInfo(subAccount, vault)
+            const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
 
             return {
-              vault: await getVault(vault),
+              vault: vaultEntry.vault,
               shares: res.vaultAccountInfo.shares,
               assets: res.vaultAccountInfo.assets,
+              isSecuritize,
             } as AccountDepositPosition
           }
           catch (e) {
-            console.warn(`Failed to fetch regular vault ${vault}:`, e)
+            console.warn(`Failed to fetch vault ${vaultAddress}:`, e)
             return undefined
           }
         })
@@ -552,6 +580,7 @@ const updateDepositPositions = async (
     }
   }
   else {
+    // Fetch regular deposit positions from verified vault list
     for (let i = 0; i < list.value.length; i += batchSize) {
       const batch = list.value
         .slice(i, i + batchSize)
@@ -565,6 +594,72 @@ const updateDepositPositions = async (
         })
 
       deposits = [...deposits, ...(await Promise.all(batch)).filter(o => o.shares > 0n)] as AccountDepositPosition[]
+    }
+
+    // Also fetch non-EVK positions from subgraph (e.g., Securitize)
+    const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
+
+    if (eulerLensAddresses?.accountLens) {
+      const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
+      const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+
+      try {
+        const { data } = await axios.post(SUBGRAPH_URL, {
+          query: `query AccountDeposits {
+            trackingActiveAccount(id: "${getAddressPrefix(address)}") {
+              deposits
+            }
+          }`,
+          operationName: 'AccountDeposits',
+        })
+
+        const depositEntries = data.data.trackingActiveAccount?.deposits || []
+
+        for (const entry of depositEntries) {
+          const vaultAddress = `0x${entry.substring(42)}`
+          const subAccount = entry.substring(0, 42)
+
+          // Skip vaults already in EVK list or earn vaults
+          const normalizedVault = ethers.getAddress(vaultAddress)
+          if (list.value.some(v => v.address === normalizedVault)) continue
+          if (earnVaults.value.includes(normalizedVault) || earnMap.value.has(normalizedVault)) continue
+
+          // Resolve vault from registry
+          const vaultEntry = await getOrResolve(vaultAddress)
+          if (!vaultEntry) continue
+
+          // Skip earn vaults
+          if (vaultEntry.type === 'earn') continue
+
+          const isSecuritize = vaultEntry.type === 'securitize'
+
+          // Match on address prefix for securitize, exact for others
+          if (isSecuritize) {
+            const subAccountPrefix = subAccount.toLowerCase().slice(0, 40)
+            const addrPrefix = address.toLowerCase().slice(0, 40)
+            if (subAccountPrefix !== addrPrefix) continue
+          }
+          else {
+            if (ethers.getAddress(subAccount) !== ethers.getAddress(address)) continue
+          }
+
+          try {
+            const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
+            deposits.push({
+              vault: vaultEntry.vault,
+              shares: res.vaultAccountInfo.shares,
+              assets: res.vaultAccountInfo.assets,
+              isSecuritize,
+            } as AccountDepositPosition)
+          }
+          catch (e) {
+            console.warn(`Failed to fetch vault ${vaultAddress}:`, e)
+          }
+        }
+      }
+      catch (e) {
+        console.warn('Failed to fetch deposits from subgraph:', e)
+      }
     }
   }
 
@@ -597,8 +692,8 @@ const updateEarnPositions = async (
     return
   }
 
-  const { earnList, getEarnVault, map } = useVaults()
-  const { vaults } = useEulerLabels()
+  const { earnList } = useVaults()
+  const { getOrResolve } = useVaultRegistry()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -616,11 +711,11 @@ const updateEarnPositions = async (
     const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
     const { data } = await axios.post(SUBGRAPH_URL, {
       query: `query AccountDeposits {
-      trackingActiveAccount(id: "${address}") {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
         deposits
       }
     }`,
-      operationName: 'AccountBorrows',
+      operationName: 'AccountDeposits',
     })
     const depositEntries = data.data.trackingActiveAccount?.deposits || []
 
@@ -628,30 +723,35 @@ const updateEarnPositions = async (
       const batch = depositEntries
         .slice(i, i + batchSize)
         .map(async (entry: string) => {
-          const vault = `0x${entry.substring(42)}`
+          const vaultAddress = `0x${entry.substring(42)}`
           const subAccount = entry.substring(0, 42)
 
           if (ethers.getAddress(subAccount) !== ethers.getAddress(address)) {
             return undefined
           }
 
-          // Check if this is a regular vault, skip if it is (handled by updateDepositPositions)
-          const normalizedVault = ethers.getAddress(vault)
-          if (Object.keys(vaults).includes(normalizedVault) || map.value.has(normalizedVault)) {
+          // Resolve vault from registry
+          const vaultEntry = await getOrResolve(vaultAddress)
+          if (!vaultEntry) {
+            return undefined
+          }
+
+          // Only process earn vaults (others handled by updateDepositPositions)
+          if (vaultEntry.type !== 'earn') {
             return undefined
           }
 
           try {
-            const res = await accountLensContract.getAccountInfo(subAccount, vault)
+            const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
 
             return {
-              vault: await getEarnVault(vault),
+              vault: vaultEntry.vault,
               shares: res.vaultAccountInfo.shares,
               assets: res.vaultAccountInfo.assets,
             } as AccountEarnPosition
           }
           catch (e) {
-            console.warn(`Failed to fetch earn vault ${vault}:`, e)
+            console.warn(`Failed to fetch earn vault ${vaultAddress}:`, e)
             return undefined
           }
         })
