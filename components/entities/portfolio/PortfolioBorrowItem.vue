@@ -259,8 +259,8 @@ onMounted(() => {
               {{ collateralValueDisplay }}
             </div>
             <div class="text-euler-dark-900 text-p3">
-              ~ {{ roundAndCompactTokens(collateralItems.reduce((a, b) => a + b.assets, 0n), position.collateral.decimals) }}
-              {{ position.collateral.asset.symbol }}
+              ~ {{ roundAndCompactTokens(collateralItems[0].assets, position.collateral.decimals) }}
+              {{ position.collateral.asset.symbol }} {{ collateralItems.length > 1 ? '& others' : '' }}
             </div>
           </div>
         </div>
