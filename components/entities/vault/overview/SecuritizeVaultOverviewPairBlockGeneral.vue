@@ -1,27 +1,34 @@
 <script setup lang="ts">
 import { type SecuritizeBorrowVaultPair, getVaultPriceInfo } from '~/entities/vault'
 import { useModal } from '~/components/ui/composables/useModal'
-import { VaultBorrowApyModal } from '#components'
+import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
 
 const { pair } = defineProps<{ pair: SecuritizeBorrowVaultPair }>()
 
 const modal = useModal()
-const { getOpportunityOfBorrowVault } = useMerkl()
+const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfBorrowVault } = useBrevis()
 const { withIntrinsicBorrowApy, getIntrinsicApy } = useIntrinsicApy()
 
+// Borrow APY (from EVK borrow vault)
 const borrowRewardAPY = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address)?.apr)
 const brevisInfo = computed(() => getCampaignOfBorrowVault(pair.borrow.address))
-const totalRewardsAPY = computed(() => (borrowRewardAPY.value || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
+const totalBorrowRewardsAPY = computed(() => (borrowRewardAPY.value || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
   pair.borrow.asset.symbol,
-) - totalRewardsAPY.value)
+) - totalBorrowRewardsAPY.value)
 
 const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25))
 const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.symbol))
 const borrowOpportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address))
+
+// Supply APY (for securitize collateral - intrinsic + rewards only, no interest rate)
+const collateralRewardAPY = computed(() => getOpportunityOfLendVault(pair.collateral.address)?.apr || 0)
+const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol, 'supply'))
+const supplyApyWithRewards = computed(() => intrinsicSupplyApy.value + collateralRewardAPY.value)
+const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(pair.collateral.address))
 
 // Calculate price using collateral prices from borrow vault
 const price = computed(() => {
@@ -36,6 +43,16 @@ const price = computed(() => {
   if (!ask || !bid) return 0
   return Number(ask) / Number(bid)
 })
+
+const onSupplyInfoIconClick = () => {
+  modal.open(VaultSupplyApyModal, {
+    props: {
+      lendingAPY: 0, // Securitize vaults don't have interest rates
+      intrinsicAPY: intrinsicSupplyApy.value,
+      opportunityInfo: supplyOpportunityInfo.value,
+    },
+  })
+}
 
 const onBorrowInfoIconClick = () => {
   modal.open(VaultBorrowApyModal, {
@@ -62,9 +79,18 @@ const onBorrowInfoIconClick = () => {
         </span>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
-        label="Collateral type"
+        label="Supply APY"
       >
-        <span class="bg-euler-dark-600 text-euler-dark-900 px-8 py-2 rounded-4 text-p4">Securitize</span>
+        <p class="flex items-center gap-4">
+          <span>
+            {{ formatNumber(supplyApyWithRewards) }}%
+          </span>
+          <SvgIcon
+            class="!w-20 !h-20 text-euler-dark-800 cursor-pointer"
+            name="question-circle"
+            @click="onSupplyInfoIconClick"
+          />
+        </p>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Borrow APY"

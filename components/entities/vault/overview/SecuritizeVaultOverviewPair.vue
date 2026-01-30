@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SecuritizeBorrowVaultPair } from '~/entities/vault'
+import type { SecuritizeBorrowVaultPair, Vault } from '~/entities/vault'
 
 defineProps<{ pair: SecuritizeBorrowVaultPair, desktopOverview?: boolean }>()
 </script>
@@ -13,23 +13,11 @@ defineProps<{ pair: SecuritizeBorrowVaultPair, desktopOverview?: boolean }>()
       :pair="pair"
       :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0' : '']"
     />
-    <!-- Statistics and Risk from borrow vault (EVK) -->
-    <VaultOverviewBlockStats
-      :vault="pair.borrow"
-      :class="[desktopOverview ? 'py-16 px-0' : '']"
-    />
     <!-- Oracle adapters should always come from the liability (borrow) vault -->
     <VaultOverviewBlockOracleAdapters
       :vault="pair.borrow"
-      :class="[desktopOverview ? 'py-16 px-0' : '']"
-    />
-    <VaultOverviewBlockRiskParameters
-      :vault="pair.borrow"
-      :class="[desktopOverview ? 'py-16 px-0' : '']"
-    />
-    <VaultOverviewBlockAddresses
-      :vault="pair.borrow"
-      :class="[desktopOverview ? 'py-16 px-0' : '']"
+      :collateral-vaults="[pair.collateral as unknown as Vault]"
+      :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0' : '']"
     />
   </div>
 </template>

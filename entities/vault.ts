@@ -242,7 +242,9 @@ export interface Erc4626Vault {
 }
 export interface SecuritizeVault extends Erc4626Vault {
   type: 'securitize'
+  verified: boolean
   governorAdmin: string
+  supplyCap: bigint
 }
 export interface Vault {
   verified: boolean
@@ -574,6 +576,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
 export const fetchSecuritizeVault = async (vaultAddress: string): Promise<SecuritizeVault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { loadEulerConfig, isReady } = useEulerAddresses()
+  const { verifiedVaultAddresses } = useEulerLabels()
 
   if (!isReady.value) {
     loadEulerConfig()
@@ -591,7 +594,7 @@ export const fetchSecuritizeVault = async (vaultAddress: string): Promise<Securi
   const raw = await utilsLensContract.getVaultInfoERC4626(vaultAddress)
   const data = raw.toObject({ deep: true })
 
-  // Fetch governor admin from the vault contract
+  // Fetch governor admin and supply cap from the vault contract
   const vaultContract = new ethers.Contract(
     vaultAddress,
     [
@@ -602,20 +605,35 @@ export const fetchSecuritizeVault = async (vaultAddress: string): Promise<Securi
         stateMutability: 'view',
         type: 'function',
       },
+      {
+        inputs: [],
+        name: 'supplyCapResolved',
+        outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+        stateMutability: 'view',
+        type: 'function',
+      },
     ],
     provider,
   )
 
   let governorAdmin = ethers.ZeroAddress
+  let supplyCap = 0n
   try {
     governorAdmin = await vaultContract.governorAdmin()
   }
   catch {
     // governorAdmin may not exist on all vaults
   }
+  try {
+    supplyCap = await vaultContract.supplyCapResolved()
+  }
+  catch {
+    // supplyCapResolved may not exist on all vaults
+  }
 
   return {
     type: 'securitize',
+    verified: verifiedVaultAddresses.value.includes(vaultAddress),
     address: data.vault,
     name: data.vaultName,
     symbol: data.vaultSymbol,
@@ -630,6 +648,7 @@ export const fetchSecuritizeVault = async (vaultAddress: string): Promise<Securi
       decimals: data.assetDecimals,
     },
     governorAdmin,
+    supplyCap,
   }
 }
 

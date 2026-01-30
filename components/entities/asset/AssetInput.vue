@@ -5,7 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
-const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false, collateralOptions = [], readonly = false } = defineProps<{
+const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false, collateralOptions = [], readonly = false, priceOverride } = defineProps<{
   label?: string
   desc?: string
   maxable?: boolean
@@ -15,6 +15,7 @@ const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false
   balanceLoading?: boolean
   collateralOptions?: CollateralOption[]
   readonly?: boolean
+  priceOverride?: number // For vaults without standard price info (e.g., securitize)
 }>()
 const emits = defineEmits(['input', 'change-collateral'])
 const model = defineModel<string>({ default: '' })
@@ -26,6 +27,11 @@ const isFocused = ref(false)
 const selectedIdx = ref(0)
 const friendlyBalance = computed(() => nanoToValue(balance, asset?.decimals || 18))
 const price = computed(() => {
+  // Use priceOverride if provided (for securitize vaults etc.)
+  if (priceOverride !== undefined) {
+    return priceOverride * (+model.value || 0)
+  }
+
   if (!vault) {
     return 0
   }
@@ -37,6 +43,8 @@ const price = computed(() => {
     return getVaultPrice(+model.value || 0, vault as Vault)
   }
 })
+
+const hasPrice = computed(() => vault !== undefined || priceOverride !== undefined)
 const setMax = () => {
   model.value = ethers.formatUnits(balance, Number(asset.decimals))
   emits('input')
@@ -137,7 +145,7 @@ const openChooseCollateralModal = () => {
       class="flex justify-between"
     >
       <p
-        v-if="vault"
+        v-if="hasPrice"
         class="text-euler-dark-800"
       >
         <template v-if="price > 10 ** 18">

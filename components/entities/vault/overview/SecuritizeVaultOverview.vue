@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ethers } from 'ethers'
+import { MaxUint256, ethers } from 'ethers'
 import type { SecuritizeVault, Vault, VaultCollateralLTV } from '~/entities/vault'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
@@ -9,7 +9,9 @@ const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolea
 
 const { EVM_PROVIDER_URL } = useEulerConfig()
 const { chainId } = useEulerAddresses()
-const { isVaultGovernorVerified } = useVaults()
+const { list, borrowList, isVaultGovernorVerified } = useVaults()
+const { getOpportunityOfLendVault } = useMerkl()
+const { getIntrinsicApy } = useIntrinsicApy()
 const product = useEulerProductOfVault(vault.address)
 const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault as unknown as Vault))
@@ -24,7 +26,8 @@ const onCopyClick = (address: string) => {
 
 const getExplorerAddressLink = (address: string) => getExplorerLink(address, chainId.value, true)
 
-const { list } = useVaults()
+// Count markets where this can be borrowed (securitize vaults cannot be borrow destinations)
+const borrowCount = computed(() => 0)
 
 // Find EVK vaults where this securitize vault can be used as collateral
 const borrowMarkets = computed(() => {
@@ -44,6 +47,11 @@ const borrowMarkets = computed(() => {
 })
 
 const collateralCount = computed(() => borrowMarkets.value.length)
+
+// Supply APY calculation (intrinsic + rewards, no base interest for securitize vaults)
+const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?.apr || 0)
+const intrinsicApy = computed(() => getIntrinsicApy(vault.asset.symbol, 'supply'))
+const supplyApyWithRewards = computed(() => intrinsicApy.value + rewardSupplyAPY.value)
 
 // Risk parameters - fetch share token exchange rate (ERC4626 standard)
 const shareTokenExchangeRate: Ref<bigint | undefined> = ref()
@@ -70,6 +78,23 @@ const loadRiskParameters = async () => {
 }
 
 loadRiskParameters()
+
+// Supply cap display - supplyCap is in shares denomination (vault.decimals), same as regular vaults
+const supplyCapDisplay = computed(() => {
+  if (!vault.supplyCap || vault.supplyCap === 0n || vault.supplyCap >= MaxUint256) {
+    return '∞'
+  }
+  // Display in shares (like regular vaults, but without USD conversion since we don't have price info)
+  return `${compactNumber(nanoToValue(vault.supplyCap, vault.decimals))} ${vault.symbol}`
+})
+
+const supplyCapPercentageDisplay = computed(() => {
+  if (!vault.supplyCap || vault.supplyCap >= MaxUint256 || vault.supplyCap === 0n) return 0
+  const scale = 10n ** 2n
+  // Compare totalShares to supplyCap (both in shares denomination)
+  const fraction = (vault.totalShares * scale * 100n) / vault.supplyCap
+  return parseFloat(`${fraction / scale}.${fraction % scale}`)
+})
 </script>
 
 <template>
@@ -77,7 +102,7 @@ loadRiskParameters()
     class="flex flex-col"
     :class="[!desktopOverview ? 'gap-12' : '']"
   >
-    <!-- General Overview -->
+    <!-- Overview -->
     <div
       class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
       :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0 bg-transparent' : '']"
@@ -87,15 +112,6 @@ loadRiskParameters()
       </p>
       <div class="flex flex-col items-start gap-24">
         <VaultOverviewLabelValue
-          label="Vault"
-          :value="vault.name"
-        />
-        <VaultOverviewLabelValue
-          label="Asset"
-          :value="vault.asset.symbol"
-        />
-        <VaultOverviewLabelValue
-          v-if="product.name"
           label="Market"
           :value="product.name"
         />
@@ -135,7 +151,20 @@ loadRiskParameters()
           </div>
         </VaultOverviewLabelValue>
         <VaultOverviewLabelValue label="Vault type">
-          <span class="text-p2 text-white">Securitize</span>
+          <VaultTypeChip
+            :vault="vault as unknown as Vault"
+            type="securitize"
+          />
+        </VaultOverviewLabelValue>
+        <VaultOverviewLabelValue label="Can be borrowed">
+          <div class="flex items-center gap-8">
+            <div>
+              <UiIcon :name="borrowCount ? 'green-tick' : 'red-cross'" />
+            </div>
+            <span class="text-p2 text-white">
+              {{ borrowCount ? `Yes in ${borrowCount} markets` : 'No' }}
+            </span>
+          </div>
         </VaultOverviewLabelValue>
         <VaultOverviewLabelValue label="Can be used as collateral">
           <div class="flex items-center gap-8">
@@ -159,12 +188,16 @@ loadRiskParameters()
         Statistics
       </p>
       <div class="flex flex-col items-start gap-24">
-        <VaultOverviewLabelValue label="Total shares">
-          {{ compactNumber(nanoToValue(vault.totalShares, vault.decimals)) }} {{ vault.symbol }}
-        </VaultOverviewLabelValue>
-        <VaultOverviewLabelValue label="Total assets">
-          {{ compactNumber(nanoToValue(vault.totalAssets, vault.asset.decimals)) }} {{ vault.asset.symbol }}
-        </VaultOverviewLabelValue>
+        <VaultOverviewLabelValue
+          label="Total supply"
+          :value="`${compactNumber(nanoToValue(vault.totalAssets, vault.asset.decimals))} ${vault.asset.symbol}`"
+          orientation="horizontal"
+        />
+        <VaultOverviewLabelValue
+          label="Supply APY"
+          :value="`${formatNumber(supplyApyWithRewards)}%`"
+          orientation="horizontal"
+        />
       </div>
     </div>
 
@@ -178,6 +211,24 @@ loadRiskParameters()
       </p>
       <div class="flex flex-col items-start gap-24">
         <VaultOverviewLabelValue
+          label="Supply cap"
+          orientation="horizontal"
+        >
+          <div class="flex gap-4 items-center">
+            <span>
+              {{ supplyCapDisplay }}
+              <span v-if="vault.supplyCap && vault.supplyCap < MaxUint256 && vault.supplyCap > 0n">
+                ({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)
+              </span>
+            </span>
+            <UiRadialProgress
+              v-if="vault.supplyCap && vault.supplyCap < MaxUint256 && vault.supplyCap > 0n"
+              :value="supplyCapPercentageDisplay"
+              :max="100"
+            />
+          </div>
+        </VaultOverviewLabelValue>
+        <VaultOverviewLabelValue
           label="Share token exchange rate"
           orientation="horizontal"
         >
@@ -188,11 +239,6 @@ loadRiskParameters()
             -
           </template>
         </VaultOverviewLabelValue>
-        <VaultOverviewLabelValue
-          label="Is EVault"
-          :value="vault.isEVault ? 'Yes' : 'No'"
-          orientation="horizontal"
-        />
       </div>
     </div>
 
@@ -256,30 +302,7 @@ loadRiskParameters()
       </p>
       <div class="flex flex-col items-start gap-24">
         <VaultOverviewLabelValue
-          label="Vault"
-          orientation="horizontal"
-        >
-          <div class="flex gap-4 items-center">
-            <NuxtLink
-              :to="getExplorerAddressLink(vault.address)"
-              class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
-              target="_blank"
-            >
-              {{ shortenAddress(vault.address) }}
-            </NuxtLink>
-            <button
-              class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
-              @click="onCopyClick(vault.address)"
-            >
-              <SvgIcon
-                class="!w-18 !h-18"
-                name="copy"
-              />
-            </button>
-          </div>
-        </VaultOverviewLabelValue>
-        <VaultOverviewLabelValue
-          label="Underlying asset"
+          :label="`Underlying ${vault.asset.symbol} token`"
           orientation="horizontal"
         >
           <div class="flex gap-4 items-center">
@@ -302,8 +325,31 @@ loadRiskParameters()
           </div>
         </VaultOverviewLabelValue>
         <VaultOverviewLabelValue
+          :label="`${vault.symbol} vault`"
+          orientation="horizontal"
+        >
+          <div class="flex gap-4 items-center">
+            <NuxtLink
+              :to="getExplorerAddressLink(vault.address)"
+              class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+              target="_blank"
+            >
+              {{ shortenAddress(vault.address) }}
+            </NuxtLink>
+            <button
+              class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
+              @click="onCopyClick(vault.address)"
+            >
+              <SvgIcon
+                class="!w-18 !h-18"
+                name="copy"
+              />
+            </button>
+          </div>
+        </VaultOverviewLabelValue>
+        <VaultOverviewLabelValue
           v-if="vault.governorAdmin && vault.governorAdmin !== '0x0000000000000000000000000000000000000000'"
-          label="Governor admin"
+          label="Risk manager"
           orientation="horizontal"
         >
           <div class="flex gap-4 items-center">

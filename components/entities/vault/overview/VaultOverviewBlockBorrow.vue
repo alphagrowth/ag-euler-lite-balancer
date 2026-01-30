@@ -1,57 +1,51 @@
 <script setup lang="ts">
-import type { Vault, EscrowVault } from '~/entities/vault'
+import type { Vault, EscrowVault, SecuritizeVault } from '~/entities/vault'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 
 const emits = defineEmits(['vault-click'])
 const { vault } = defineProps<{ vault: Vault }>()
-const { list, escrowMap } = useVaults()
+const { list, escrowMap, securitizeMap } = useVaults()
 
 // Build collateral pairs from ALL collateralLTVs where currentLiquidationLTV > 0
 // This includes collaterals that are ramping down (borrowLTV == 0 but currentLiquidationLTV > 0)
 const allCollateralPairs = computed(() => {
   const pairs: Array<{
-    borrow: Vault
-    collateral: Vault | EscrowVault
+    collateral: Vault | EscrowVault | SecuritizeVault
     borrowLTV: bigint
     liquidationLTV: bigint
     initialLiquidationLTV: bigint
     targetTimestamp: bigint
     rampDuration: bigint
-    isEscrow: boolean
   }> = []
 
   vault.collateralLTVs.forEach((ltv) => {
     // Check if current liquidation LTV > 0 (not yet fully ramped down)
     if (getCurrentLiquidationLTV(ltv) <= 0n) return
 
-    // Try to find the collateral vault - first in escrow map, then in regular vault list
+    const pairData = {
+      borrowLTV: ltv.borrowLTV,
+      liquidationLTV: ltv.liquidationLTV,
+      initialLiquidationLTV: ltv.initialLiquidationLTV,
+      targetTimestamp: ltv.targetTimestamp,
+      rampDuration: ltv.rampDuration,
+    }
+
+    // Try to find the collateral vault - check escrow, securitize, then regular vault list
     const escrowVault = escrowMap.value.get(ltv.collateral)
     if (escrowVault) {
-      pairs.push({
-        borrow: vault,
-        collateral: escrowVault,
-        borrowLTV: ltv.borrowLTV,
-        liquidationLTV: ltv.liquidationLTV,
-        initialLiquidationLTV: ltv.initialLiquidationLTV,
-        targetTimestamp: ltv.targetTimestamp,
-        rampDuration: ltv.rampDuration,
-        isEscrow: true,
-      })
+      pairs.push({ collateral: escrowVault, ...pairData })
+      return
+    }
+
+    const securitizeVault = securitizeMap.value.get(ltv.collateral)
+    if (securitizeVault) {
+      pairs.push({ collateral: securitizeVault, ...pairData })
       return
     }
 
     const regularVault = list.value.find(v => v.address === ltv.collateral)
     if (regularVault) {
-      pairs.push({
-        borrow: vault,
-        collateral: regularVault,
-        borrowLTV: ltv.borrowLTV,
-        liquidationLTV: ltv.liquidationLTV,
-        initialLiquidationLTV: ltv.initialLiquidationLTV,
-        targetTimestamp: ltv.targetTimestamp,
-        rampDuration: ltv.rampDuration,
-        isEscrow: false,
-      })
+      pairs.push({ collateral: regularVault, ...pairData })
     }
   })
 

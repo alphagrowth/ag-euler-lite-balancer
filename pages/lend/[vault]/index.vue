@@ -5,7 +5,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { computeAPYs, getVaultPrice, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
+import { computeAPYs, getCurrentLiquidationLTV, getVaultPrice, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
@@ -103,7 +103,40 @@ else {
     }
     // Escrow vaults loaded and address not in escrowMap - regular vault
     else {
-    evkVault.value = await getVault(vaultAddress)
+      evkVault.value = await getVault(vaultAddress)
+    }
+
+    // Load any collateral vaults that aren't already in our maps
+    if (evkVault.value) {
+      const { list, escrowMap: escrowMapRef, securitizeMap: securitizeMapRef } = useVaults()
+
+      const collateralAddresses = evkVault.value.collateralLTVs
+        .filter(ltv => getCurrentLiquidationLTV(ltv) > 0n)
+        .map(ltv => ltv.collateral)
+
+      // Check and load missing collaterals in parallel
+      await Promise.all(
+        collateralAddresses.map(async (collateralAddr) => {
+          // Skip if already loaded in any map
+          if (list.value.some(v => v.address === collateralAddr)) return
+          if (escrowMapRef.value.has(collateralAddr)) return
+          if (securitizeMapRef.value.has(collateralAddr)) return
+
+          try {
+            // Try regular vault first, then securitize
+            await getVault(collateralAddr)
+          }
+          catch {
+            // If regular vault fails, try securitize
+            try {
+              await getSecuritizeVault(collateralAddr)
+            }
+            catch {
+              // Ignore - collateral vault might not be accessible
+            }
+          }
+        }),
+      )
     }
   }
   catch (e) {
@@ -162,26 +195,32 @@ const estimateSupplyAPYDisplay = computed(() => {
 // Check if vault data is loaded
 const isVaultLoaded = computed(() => !!evkVault.value || !!securitizeVault.value)
 
+// Check if vault is verified - both EVK and securitize vaults have verified field
+const isVaultVerified = computed(() => {
+  return evkVault.value?.verified ?? securitizeVault.value?.verified ?? true
+})
+
 const load = async () => {
   isLoading.value = true
   try {
     if (features.value.hasInterestRate && evkVault.value) {
       estimateSupplyAPY.value = evkVault.value.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
-
-      if (features.value.hasVerifiedStatus && !evkVault.value.verified) {
-        modal.open(VaultUnverifiedDisclaimerModal, {
-          isNotClosable: true,
-          props: {
-            onCancel: () => {
-              router.replace('/')
-            },
-          },
-        })
-      }
     }
     else {
       // For vaults without interest rate info, just use rewards
       estimateSupplyAPY.value = valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
+    }
+
+    // Show warning modal for any unverified vault
+    if (!isVaultVerified.value) {
+      modal.open(VaultUnverifiedDisclaimerModal, {
+        isNotClosable: true,
+        props: {
+          onCancel: () => {
+            router.replace('/')
+          },
+        },
+      })
     }
   }
   catch (e) {
@@ -325,10 +364,6 @@ watch(amount, async () => {
 <template>
   <div class="flex gap-32">
     <div class="flex flex-col gap-16 w-full">
-      <span
-        v-if="vaultType === 'securitize'"
-        class="bg-euler-dark-600 text-euler-dark-900 px-12 py-4 rounded-8 text-p3 self-start"
-      >Securitize Digital Security Token</span>
       <VaultForm
         title="Open lend position"
         class="w-full"
@@ -339,27 +374,13 @@ watch(amount, async () => {
           v-if="isVaultLoaded && asset"
           class="flex justify-between"
         >
-          <!-- EVK vaults use VaultLabelsAndAssets component -->
+          <!-- Use VaultLabelsAndAssets for both EVK and Securitize vaults -->
           <VaultLabelsAndAssets
-            v-if="features.hasPoints && vault"
-            :vault="vault"
+            v-if="vault || securitizeVault"
+            :vault="(vault || securitizeVault)!"
             :assets="assets"
             size="large"
           />
-          <!-- Securitize and other vault types show simple name/symbol -->
-          <div
-            v-else
-            class="flex items-center gap-12"
-          >
-            <div>
-              <p class="text-h3">
-                {{ vaultName }}
-              </p>
-              <p class="text-euler-dark-900">
-                {{ asset.symbol }}
-              </p>
-            </div>
-          </div>
 
           <div class="flex flex-col items-end justify-end">
             <p class="mb-4 text-euler-dark-900">

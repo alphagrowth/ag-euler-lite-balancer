@@ -189,6 +189,15 @@ const priceFixed = computed(() => {
   const bid = borrowPrice?.amountOutBid || 1n
   return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
 })
+
+// USD price per unit of collateral from liability vault's perspective (for AssetInput display)
+const collateralUnitPrice = computed(() => {
+  if (!borrowVault.value || !collateralVault.value) return undefined
+  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+  if (!priceInfo) return undefined
+  // amountOutMid is the price in unit of account (18 decimals) for 1 unit of collateral
+  return nanoToValue(priceInfo.amountOutMid, 18)
+})
 const collateralAmountFixed = computed(() => FixedNumber.fromValue(
   valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals),
   Number(collateralVault.value?.decimals),
@@ -1419,7 +1428,7 @@ watch(areVaultsReady, async (ready) => {
             :desc="collateralProduct.name"
             :label="`Supply ${collateralVault.asset.symbol}`"
             :asset="collateralVault.asset"
-            :vault="collateralVault"
+            :price-override="collateralUnitPrice"
             :balance="computedBalance"
             :collateral-options="collateralOptions as CollateralOption[]"
             maxable

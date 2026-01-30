@@ -6,6 +6,7 @@ import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   type SecuritizeBorrowVaultPair,
+  type VaultAsset,
   getVaultPriceInfo,
 } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -53,6 +54,12 @@ const balance = computed(() => getBalance(collateralVault.value?.asset?.address 
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
 const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
 
+// Assets for VaultLabelsAndAssets
+const pairAssets = computed(() => {
+  if (!collateralVault.value || !borrowVault.value) return []
+  return [collateralVault.value.asset, borrowVault.value.asset]
+})
+
 // For securitize vaults, we need to get price differently
 // Using the borrow vault's collateral prices to get the securitize vault price
 const collateralPriceInfo = computed(() => {
@@ -65,6 +72,14 @@ const collateralPriceInfo = computed(() => {
 const borrowPriceInfo = computed(() => {
   if (!borrowVault.value) return null
   return getVaultPriceInfo(borrowVault.value)
+})
+
+// USD price per unit of collateral (for AssetInput display)
+const collateralUnitPrice = computed(() => {
+  const priceInfo = collateralPriceInfo.value
+  if (!priceInfo) return undefined
+  // amountOutMid is the price in unit of account (18 decimals) for 1 unit of collateral
+  return nanoToValue(priceInfo.amountOutMid, 18)
 })
 
 const priceFixed = computed(() => {
@@ -290,7 +305,6 @@ watch(areVaultsReady, async (ready) => {
 <template>
   <div class="flex gap-32">
     <div class="flex flex-col gap-16 w-full min-w-0">
-      <span class="bg-euler-dark-600 text-euler-dark-900 px-12 py-4 rounded-8 text-p3 self-start">Securitize Digital Security Token</span>
       <VaultForm
         title="Open borrow position"
         class="flex flex-col gap-16 w-full min-w-0"
@@ -298,26 +312,12 @@ watch(areVaultsReady, async (ready) => {
       >
         <template v-if="pair && collateralVault && borrowVault">
           <!-- Header showing collateral and borrow assets -->
-          <div class="flex items-center gap-12">
-            <div class="flex items-center gap-8">
-              <BaseAvatar
-                :src="getAssetLogoUrl(collateralVault.asset.symbol)"
-                :label="collateralVault.asset.symbol"
-              />
-              <BaseAvatar
-                :src="getAssetLogoUrl(borrowVault.asset.symbol)"
-                :label="borrowVault.asset.symbol"
-              />
-            </div>
-            <div>
-              <p class="text-h3">
-                {{ collateralVault.name }}
-              </p>
-              <p class="text-euler-dark-900">
-                {{ collateralVault.asset.symbol }} / {{ borrowVault.asset.symbol }}
-              </p>
-            </div>
-          </div>
+          <VaultLabelsAndAssets
+            :vault="collateralVault"
+            :pair-vault="borrowVault"
+            :assets="pairAssets as VaultAsset[]"
+            size="large"
+          />
 
           <!-- Collateral Input -->
           <AssetInput
@@ -326,6 +326,7 @@ watch(areVaultsReady, async (ready) => {
             :label="`Supply ${collateralVault.asset.symbol}`"
             :asset="collateralVault.asset"
             :balance="balance"
+            :price-override="collateralUnitPrice"
             maxable
             @input="onCollateralInput"
           />

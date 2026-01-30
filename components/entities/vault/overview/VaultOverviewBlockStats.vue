@@ -5,13 +5,7 @@ const { vault } = defineProps<{ vault: Vault }>()
 
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
-const { borrowList } = useVaults()
-
-const borrowCount = computed(() => {
-  return borrowList.value.filter(pair => pair.borrow.address === vault.address).length
-})
-
-const isBorrowable = computed(() => borrowCount.value > 0)
+const isBorrowable = computed(() => vault.collateralLTVs.some(ltv => ltv.borrowLTV > 0n))
 
 const rewardBorrowAPY = computed(() => getOpportunityOfBorrowVault(vault.asset.address)?.apr)
 const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?.apr)

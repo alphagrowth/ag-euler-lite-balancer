@@ -5,7 +5,7 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
-const { list, borrowList, isVaultGovernorVerified } = useVaults()
+const { borrowList, isVaultGovernorVerified } = useVaults()
 
 const product = useEulerProductOfVault(vault.address)
 const entities = useEulerEntitiesOfVault(vault)
@@ -18,7 +18,7 @@ const collateralCount = computed(() => {
 
 // Count how many borrow pairs have this vault as the liability (borrow) side
 const borrowCount = computed(() => {
-  return borrowList.value.filter(pair => pair.borrow.address === vault.address).length
+  return vault.collateralLTVs.filter(ltv => ltv.borrowLTV > 0n).length
 })
 
 const priceDisplay = computed(() => {
