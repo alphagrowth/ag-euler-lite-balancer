@@ -14,6 +14,7 @@ defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition, desktopOverview?: b
       :pair="pair"
       :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0' : '']"
     />
+    <!-- Oracle adapters should always come from the liability (borrow) vault -->
     <VaultOverviewBlockOracleAdapters
       :vault="pair.borrow"
       :collateral-assets="[pair.collateral.address]"

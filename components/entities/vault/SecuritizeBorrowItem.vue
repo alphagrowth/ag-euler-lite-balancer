@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import { type AnyBorrowVaultPair, isSecuritizeBorrowPair, getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import { type SecuritizeBorrowVaultPair, getVaultPrice, getVaultUtilization } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultUtilizationWarningModal } from '#components'
 
-const { pair } = defineProps<{ pair: AnyBorrowVaultPair }>()
-
-const isSecuritize = computed(() => isSecuritizeBorrowPair(pair))
+const { pair } = defineProps<{ pair: SecuritizeBorrowVaultPair }>()
 
 const { name: collateralName } = useEulerProductOfVault(pair.collateral.address)
 const { name: borrowName } = useEulerProductOfVault(pair.borrow.address)
 const { getOpportunityOfBorrowVault } = useMerkl()
 const { getCampaignOfBorrowVault } = useBrevis()
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { withIntrinsicBorrowApy } = useIntrinsicApy()
 const modal = useModal()
 
 const pairName = computed(() => {
@@ -25,25 +23,19 @@ const pairName = computed(() => {
   }
   return `${collateralName}/${borrowName}`
 })
+
 const opportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address))
 const brevisInfo = computed(() => getCampaignOfBorrowVault(pair.borrow.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
-const supplyApy = computed(() => {
-  // Securitize vaults don't have interestRateInfo
-  if (isSecuritize.value) return 0
-  const collateral = pair.collateral as { interestRateInfo: { supplyAPY: bigint }, asset: { symbol: string } }
-  return withIntrinsicSupplyApy(
-    nanoToValue(collateral.interestRateInfo.supplyAPY, 25),
-    collateral.asset.symbol,
-  )
-})
+
+// Securitize collateral doesn't have supply APY
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
   pair.borrow.asset.symbol,
 ))
-const supplyApyWithRewards = computed(() => supplyApy.value + totalRewardsAPY.value)
 const borrowApyWithRewards = computed(() => borrowApy.value - totalRewardsAPY.value)
+
 const maxMultiplier = computed(() => {
   const ltv = pair.borrowLTV || 0n
   const base = 10000n
@@ -57,36 +49,18 @@ const maxMultiplier = computed(() => {
   }
   return Math.max(1, Math.floor(value * 100) / 100)
 })
-const netApy = computed(() => supplyApyWithRewards.value - borrowApyWithRewards.value)
-const maxRoe = computed(() => {
-  const multiplier = maxMultiplier.value
-  const base = supplyApyWithRewards.value
-  const net = netApy.value
-  if (!Number.isFinite(multiplier) || !Number.isFinite(base) || !Number.isFinite(net)) {
-    return 0
-  }
-  return base + (multiplier - 1) * net
-})
+
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2))
-// Securitize vaults use borrow vault utilization instead of collateral
-const utilization = computed(() => isSecuritize.value
-  ? getVaultUtilization(pair.borrow)
-  : getVaultUtilization(pair.collateral as { supply: bigint, borrow: bigint }),
-)
+const utilization = computed(() => getVaultUtilization(pair.borrow))
 
 const onWarningClick = () => {
   modal.open(VaultUtilizationWarningModal)
 }
-
-const linkPath = computed(() => isSecuritize.value
-  ? `/borrow-securitize/${pair.collateral.address}/${pair.borrow.address}`
-  : `/borrow/${pair.collateral.address}/${pair.borrow.address}`,
-)
 </script>
 
 <template>
   <NuxtLink
-    :to="linkPath"
+    :to="`/borrow-securitize/${pair.collateral.address}/${pair.borrow.address}`"
     class="block no-underline text-white bg-euler-dark-500 rounded-16"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
@@ -98,10 +72,7 @@ const linkPath = computed(() => isSecuritize.value
       <div class="flex-grow ml-12">
         <div class="text-euler-dark-900 text-p3 mb-4 flex items-center gap-8">
           {{ pairName }}
-          <span
-            v-if="isSecuritize"
-            class="bg-euler-dark-600 text-euler-dark-900 px-8 py-2 rounded-8 text-p4"
-          >Securitize Digital Security Token</span>
+          <span class="bg-euler-dark-600 text-euler-dark-900 px-8 py-2 rounded-4 text-p4">Securitize</span>
         </div>
         <div class="text-h5">
           {{ [pair.collateral.asset.symbol, pair.borrow.asset.symbol].join('/') }}
@@ -129,28 +100,6 @@ const linkPath = computed(() => isSecuritize.value
         </div>
         <div class="text-p2">
           {{ `$${compactNumber(getVaultPrice(pair.borrow.supply - pair.borrow.borrow, pair.borrow))}` }}
-        </div>
-      </div>
-      <div
-        v-if="!isSecuritize"
-        class="text-center"
-      >
-        <div class="text-euler-dark-900 text-p3 mb-4">
-          Supply APY
-        </div>
-        <div class="text-p2">
-          {{ formatNumber(supplyApyWithRewards) }}%
-        </div>
-      </div>
-      <div
-        v-if="!isSecuritize"
-        class="text-center mobile:!hidden"
-      >
-        <div class="text-euler-dark-900 text-p3 mb-4">
-          Max ROE
-        </div>
-        <div class="text-p2">
-          {{ formatNumber(maxRoe, 2, 2) }}%
         </div>
       </div>
       <div class="text-center mobile:!hidden">
@@ -220,23 +169,6 @@ const linkPath = computed(() => isSecuritize.value
         >
           <div class="text-p2">
             {{ compactNumber(maxLTV, 2, 2) }}%
-          </div>
-        </div>
-      </div>
-      <div
-        v-if="!isSecuritize"
-        class="flex w-full justify-between"
-      >
-        <div class="flex-1">
-          <div class="text-euler-dark-900 text-p3">
-            Max ROE
-          </div>
-        </div>
-        <div
-          class="flex gap-8 justify-end items-center text-right flex-1"
-        >
-          <div class="text-p2">
-            {{ formatNumber(maxRoe, 2, 2) }}%
           </div>
         </div>
       </div>

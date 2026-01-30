@@ -4,6 +4,7 @@ import type { Address, Hash, Hex, Abi, StateOverride } from 'viem'
 import { encodeFunctionData, encodePacked, hexToBigInt, keccak256, maxUint256, toHex } from 'viem'
 import { ethers } from 'ethers'
 import { ALLOWANCE_SLOT_CANDIDATES, FINAL_HASH, FINAL_MESSAGE, PERMIT2_SIG_WINDOW } from '~/entities/constants'
+import { enableTermsOfUseSignature } from '~/entities/custom'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { erc20ApproveAbi, erc20BalanceOfAbi, erc20TransferAbi } from '~/abis/erc20'
 import { EVC_ABI, evcDisableCollateralAbi, evcDisableControllerAbi, evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
@@ -474,13 +475,13 @@ export const useEulerOperations = () => {
       hooks.addContractInterface(evcAddress, evcEnableCollateralAbi)
     }
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const evcCalls: EVCCall[] = []
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       evcCalls.push({
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -694,7 +695,7 @@ export const useEulerOperations = () => {
     hooks.addContractInterface(assetAddr, erc20ApproveAbi)
     hooks.addContractInterface(vaultAddr, vaultDepositAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -703,7 +704,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, depositToAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -765,7 +766,7 @@ export const useEulerOperations = () => {
 
     hooks.addContractInterface(vaultAddr, vaultWithdrawAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -779,7 +780,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, withdrawFromAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -843,7 +844,7 @@ export const useEulerOperations = () => {
 
     hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -852,7 +853,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -963,14 +964,14 @@ export const useEulerOperations = () => {
     hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
     hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -1064,7 +1065,7 @@ export const useEulerOperations = () => {
     hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
     hooks.addContractInterface(evcAddress, [...evcEnableCollateralAbi, ...evcEnableControllerAbi])
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -1073,7 +1074,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -1288,14 +1289,14 @@ export const useEulerOperations = () => {
     hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
     hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -1494,7 +1495,7 @@ export const useEulerOperations = () => {
 
     hooks.addContractInterface(borrowVaultAddr, vaultRepayAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -1503,7 +1504,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, subAccountAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -1615,13 +1616,13 @@ export const useEulerOperations = () => {
     hooks.addContractInterface(vaultAddr, [...vaultRedeemAbi, ...vaultDepositAbi])
     hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const evcCalls = []
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -1755,7 +1756,7 @@ export const useEulerOperations = () => {
 
     hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -1768,7 +1769,7 @@ export const useEulerOperations = () => {
 
     const evcCalls = [redeemCall]
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -1886,7 +1887,7 @@ export const useEulerOperations = () => {
     hooks.addContractInterface(assetAddr, erc20ApproveAbi)
     hooks.addContractInterface(vaultAddr, vaultDepositAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -1895,7 +1896,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, depositToAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -1964,7 +1965,7 @@ export const useEulerOperations = () => {
 
     hooks.addContractInterface(vaultAddr, vaultWithdrawAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -1978,7 +1979,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, withdrawFromAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -2041,7 +2042,7 @@ export const useEulerOperations = () => {
 
     hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -2050,7 +2051,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -2146,14 +2147,14 @@ export const useEulerOperations = () => {
     hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
     hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -2247,7 +2248,7 @@ export const useEulerOperations = () => {
     hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
     hooks.addContractInterface(evcAddress, [...evcEnableCollateralAbi, ...evcEnableControllerAbi])
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -2258,7 +2259,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -2367,7 +2368,7 @@ export const useEulerOperations = () => {
 
     hooks.addContractInterface(borrowVaultAddr, vaultRepayAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -2376,7 +2377,7 @@ export const useEulerOperations = () => {
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, subAccountAddr)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -2478,13 +2479,13 @@ export const useEulerOperations = () => {
     hooks.addContractInterface(vaultAddr, [...vaultRedeemAbi, ...vaultDepositAbi])
     hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const evcCalls = []
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
@@ -2575,7 +2576,7 @@ export const useEulerOperations = () => {
 
     hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
@@ -2588,7 +2589,7 @@ export const useEulerOperations = () => {
 
     const evcCalls = [redeemCall]
 
-    if (!hasSigned) {
+    if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,

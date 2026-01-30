@@ -12,6 +12,7 @@ import { SwapperMode } from '~/entities/swap'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { type Address, zeroAddress } from 'viem'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 
@@ -31,6 +32,7 @@ const { address } = useAccount()
 const { getBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { slippage } = useSlippage()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -81,6 +83,10 @@ const isSwapSubmitDisabled = computed(() => {
   }
   return false
 })
+const reviewRepayLabel = getSubmitLabel('Review Repay')
+const reviewRepayDisabled = getSubmitDisabled(computed(() => {
+  return formTab.value === 'wallet' ? isSubmitDisabled.value : isSwapSubmitDisabled.value
+}))
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
@@ -778,13 +784,15 @@ const submit = async () => {
   })
 }
 
-const onSubmitForm = () => {
-  if (formTab.value === 'wallet') {
-    submit()
-  }
-  else {
-    submitSwap()
-  }
+const onSubmitForm = async () => {
+  await guardWithTerms(async () => {
+    if (formTab.value === 'wallet') {
+      await submit()
+    }
+    else {
+      await submitSwap()
+    }
+  })
 }
 
 const submitSwap = async () => {
@@ -1402,17 +1410,17 @@ onUnmounted(() => {
       </VaultFormInfoButton>
       <VaultFormSubmit
         v-if="formTab === 'wallet'"
-        :disabled="isSubmitDisabled"
+        :disabled="reviewRepayDisabled"
         :loading="isSubmitting"
       >
-        Review Repay
+        {{ reviewRepayLabel }}
       </VaultFormSubmit>
       <VaultFormSubmit
         v-else
-        :disabled="isSwapSubmitDisabled"
+        :disabled="reviewRepayDisabled"
         :loading="isSubmitting"
       >
-        Review Repay
+        {{ reviewRepayLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

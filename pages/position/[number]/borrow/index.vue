@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -13,6 +14,8 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const { borrow, buildBorrowPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected } = useAccount()
@@ -71,6 +74,7 @@ const isSubmitDisabled = computed(() => {
     || isLoading.value || !(+collateralAmount.value)
     || ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals))
 })
+const reviewBorrowDisabled = getSubmitDisabled(isSubmitDisabled)
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
 const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
@@ -142,47 +146,49 @@ const updateBalance = async () => {
   isBalanceLoading.value = false
 }
 const submit = async () => {
-  if (!borrowVault.value || !collateralVault.value) {
-    return
-  }
-
-  try {
-    plan.value = await buildBorrowPlan(
-      collateralVault.value.address,
-      collateralVault.value.asset.address,
-      0n,
-      borrowVault.value.address,
-      valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
-      position.value?.subAccount,
-      { includePermit2Call: false },
-    )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
+  await guardWithTerms(async () => {
+    if (!borrowVault.value || !collateralVault.value) {
       return
     }
-  }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'borrow',
-      asset: borrowVault.value?.asset,
-      amount: borrowAmount.value,
-      plan: plan.value || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    try {
+      plan.value = await buildBorrowPlan(
+        collateralVault.value.address,
+        collateralVault.value.asset.address,
+        0n,
+        borrowVault.value.address,
+        valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
+        position.value?.subAccount,
+        { includePermit2Call: false },
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'borrow',
+        asset: borrowVault.value?.asset,
+        amount: borrowAmount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -391,10 +397,10 @@ onUnmounted(() => {
 
     <template #buttons>
       <VaultFormSubmit
-        :disabled="isSubmitDisabled"
+        :disabled="reviewBorrowDisabled"
         :loading="isSubmitting"
       >
-        Review Borrow
+        {{ reviewBorrowLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

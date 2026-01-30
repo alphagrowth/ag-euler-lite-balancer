@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { ethers, FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { getNetAPY, getVaultPrice, getVaultPriceInfo, type Vault, getCollateralAssetPriceFromLiability } from '~/entities/vault'
@@ -12,6 +13,8 @@ const router = useRouter()
 const route = useRoute()
 const { withdraw, buildWithdrawPlan } = useEulerOperations()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const modal = useModal()
 const { isPositionsLoaded, borrowPositions, updateBorrowPositions } = useEulerAccount()
 const { isConnected, address } = useAccount()
@@ -92,6 +95,7 @@ const isSubmitDisabled = computed(() => {
   return collateralAssets.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
+const reviewWithdrawDisabled = getSubmitDisabled(computed(() => isLoading.value || isSubmitDisabled.value))
 
 const normalizeAddress = (address?: string) => {
   if (!address) {
@@ -174,43 +178,45 @@ const load = async () => {
   }
 }
 const submit = async () => {
-  if (!asset.value?.address || !collateralVault.value?.address) {
-    return
-  }
-
-  try {
-    plan.value = await buildWithdrawPlan(
-      collateralVault.value.address,
-      valueToNano(amount.value || '0', asset.value.decimals),
-      position.value?.subAccount,
-    )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
+  await guardWithTerms(async () => {
+    if (!asset.value?.address || !collateralVault.value?.address) {
       return
     }
-  }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'withdraw',
-      asset: asset.value,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    try {
+      plan.value = await buildWithdrawPlan(
+        collateralVault.value.address,
+        valueToNano(amount.value || '0', asset.value.decimals),
+        position.value?.subAccount,
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'withdraw',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -459,10 +465,10 @@ watch(amount, async () => {
         :vault="collateralVault"
       />
       <VaultFormSubmit
-        :disabled="isLoading || isSubmitDisabled"
+        :disabled="reviewWithdrawDisabled"
         :loading="isSubmitting"
       >
-        Review Withdraw
+        {{ reviewWithdrawLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

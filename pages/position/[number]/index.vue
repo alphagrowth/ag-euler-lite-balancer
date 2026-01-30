@@ -414,7 +414,7 @@ watch(isConnected, () => {
             Net asset value
           </div>
           <div class="text-h5 text-white">
-            ${{ formatNumber(netAssetValueUsd) }}
+            ${{ isCollateralsLoading ? '-' : formatNumber(netAssetValueUsd) }}
           </div>
         </div>
       </div>

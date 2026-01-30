@@ -62,3 +62,7 @@ export const onboardingInfo = {
   title: 'The Modular Credit Layer',
   description: 'Lend, borrow and build without limits.',
 }
+
+// Toggle Terms of Use signature flow in transactions.
+// Modal content lives at: components/entities/operation/AcknowledgeTermsModal.vue
+export const enableTermsOfUseSignature = false

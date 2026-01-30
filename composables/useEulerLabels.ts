@@ -4,26 +4,26 @@ import { ethers } from 'ethers'
 import {
   type EulerLabelEntity,
   type EulerLabelProduct, eulerLabelProductEmpty,
-  type EulerLabelVault,
   type EulerLabelPoint,
   type EulerLabelPointReward,
+  type EulerLabelVaultLabel,
+  eulerLabelVaultLabelEmpty,
 } from '~/entities/euler/labels'
 import type { EarnVault, Vault } from '~/entities/vault'
 import { labelsRepo } from '~/entities/custom'
 
+const getLabelsUrl = (chainId: number, file: string) =>
+  `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/${file}`
+
 const isLoading = ref(false)
 
-const vaults: Record<string, EulerLabelVault> = shallowReactive({})
 const products: Record<string, EulerLabelProduct> = shallowReactive({})
 const entities: Record<string, EulerLabelEntity> = shallowReactive({})
 const points: Record<string, EulerLabelPointReward[]> = shallowReactive({})
+const vaultLabels: Record<string, EulerLabelVaultLabel> = shallowReactive({})
 const earnVaults: Ref<string[]> = ref([]) // string of earn vault addresses
-
-const eulerLabelVaultEmpty = {
-  name: '',
-  description: '',
-  entity: '',
-} as EulerLabelVault
+// Derived from products - all unique vault addresses across all products
+const verifiedVaultAddresses: Ref<string[]> = ref([])
 
 const normalizeAddress = (address: string) => {
   try {
@@ -34,23 +34,18 @@ const normalizeAddress = (address: string) => {
   }
 }
 
-const normalizeVaults = (data: Record<string, EulerLabelVault>) => {
-  const normalized: Record<string, EulerLabelVault> = {}
-  Object.entries(data).forEach(([address, vault]) => {
-    normalized[normalizeAddress(address)] = vault
-  })
-  return normalized
-}
-
-const normalizeProducts = (data: Record<string, EulerLabelProduct>) => {
+const normalizeProducts = (data: Record<string, EulerLabelProduct>): { products: Record<string, EulerLabelProduct>, vaultAddresses: string[] } => {
   const normalized: Record<string, EulerLabelProduct> = {}
+  const allVaults = new Set<string>()
   Object.entries(data).forEach(([key, product]) => {
+    const normalizedVaults = product.vaults.map(normalizeAddress)
     normalized[key] = {
       ...product,
-      vaults: product.vaults.map(normalizeAddress),
+      vaults: normalizedVaults,
     }
+    normalizedVaults.forEach(v => allVaults.add(v))
   })
-  return normalized
+  return { products: normalized, vaultAddresses: [...allVaults] }
 }
 
 const normalizeEntities = (data: Record<string, EulerLabelEntity>) => {
@@ -68,20 +63,15 @@ const normalizeEntities = (data: Record<string, EulerLabelEntity>) => {
   return normalized
 }
 
-const getVaultLabelByAddress = (vaultAddress: string) => {
-  const normalized = normalizeAddress(vaultAddress)
-  return vaults[normalized] || eulerLabelVaultEmpty
+const normalizeVaultLabels = (data: Record<string, EulerLabelVaultLabel>) => {
+  const normalized: Record<string, EulerLabelVaultLabel> = {}
+  Object.entries(data).forEach(([key, label]) => {
+    normalized[normalizeAddress(key)] = label
+  })
+  return normalized
 }
 
 export const useEulerLabels = () => {
-  const {
-    getEulerLabelsVaultsUrl,
-    getEulerLabelsProductsUrl,
-    getEulerLabelsEntitiesUrl,
-    getEulerLabelsEarnVaultsUrl,
-    getEulerLabelsPointsUrl,
-  } = useEulerConfig()
-
   const loadLabels = async () => {
     try {
       isLoading.value = true
@@ -92,27 +82,32 @@ export const useEulerLabels = () => {
       }
       await until(getCurrentChainConfig).toBeTruthy()
 
-      Object.keys(vaults).forEach(key => delete vaults[key])
       Object.keys(products).forEach(key => delete products[key])
       Object.keys(entities).forEach(key => delete entities[key])
       Object.keys(points).forEach(key => delete points[key])
+      Object.keys(vaultLabels).forEach(key => delete vaultLabels[key])
       earnVaults.value = []
+      verifiedVaultAddresses.value = []
 
-      const [vaultsRes, productRes, entitiesRes, pointsRes] = await Promise.all([
-        axios.get(getEulerLabelsVaultsUrl(getCurrentChainConfig.value!.chainId)),
-        axios.get(getEulerLabelsProductsUrl(getCurrentChainConfig.value!.chainId)),
-        axios.get(getEulerLabelsEntitiesUrl(getCurrentChainConfig.value!.chainId)),
-        axios.get(getEulerLabelsPointsUrl(getCurrentChainConfig.value!.chainId)),
+      const chainId = getCurrentChainConfig.value!.chainId
+
+      const [productRes, entitiesRes, pointsRes, vaultLabelsRes] = await Promise.all([
+        axios.get(getLabelsUrl(chainId, 'products.json')),
+        axios.get(getLabelsUrl(chainId, 'entities.json')),
+        axios.get(getLabelsUrl(chainId, 'points.json')),
+        axios.get(getLabelsUrl(chainId, 'vaults.json')).catch(() => ({ data: {} })),
       ])
 
       if (labelsRepo !== 'euler-xyz/euler-labels') {
-        const earnRes = await axios.get(getEulerLabelsEarnVaultsUrl(getCurrentChainConfig.value!.chainId))
+        const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
         earnVaults.value = earnRes.data.map(normalizeAddress)
       }
 
-      Object.assign(vaults, normalizeVaults(vaultsRes.data))
-      Object.assign(products, normalizeProducts(productRes.data))
+      const normalizedProducts = normalizeProducts(productRes.data)
+      Object.assign(products, normalizedProducts.products)
+      verifiedVaultAddresses.value = normalizedProducts.vaultAddresses
       Object.assign(entities, normalizeEntities(entitiesRes.data))
+      Object.assign(vaultLabels, normalizeVaultLabels(vaultLabelsRes.data))
 
       const pointsData = pointsRes.data as EulerLabelPoint[]
       pointsData.forEach((point) => {
@@ -142,10 +137,11 @@ export const useEulerLabels = () => {
 
   return {
     isLoading,
-    vaults,
+    verifiedVaultAddresses,
     products,
     entities,
     points,
+    vaultLabels,
     earnVaults,
     loadLabels,
   }
@@ -155,6 +151,11 @@ export const getProductByVault = (vaultAddress: string) => {
   const normalized = normalizeAddress(vaultAddress)
   return Object.values(products).find(product => product.vaults.includes(normalized))
     || eulerLabelProductEmpty
+}
+
+export const getVaultLabelByAddress = (vaultAddress: string) => {
+  const normalized = normalizeAddress(vaultAddress)
+  return vaultLabels[normalized] || eulerLabelVaultLabelEmpty
 }
 
 export const getEntitiesByVault = (vault: Vault) => {
