@@ -9,14 +9,17 @@ const { pair } = defineProps<{ pair: AnyBorrowVaultPair }>()
 
 const isSecuritize = computed(() => isSecuritizeBorrowPair(pair))
 
-const { name: collateralName } = useEulerProductOfVault(pair.collateral.address)
-const { name: borrowName } = useEulerProductOfVault(pair.borrow.address)
 const { getOpportunityOfBorrowVault } = useMerkl()
 const { getCampaignOfBorrowVault } = useBrevis()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const modal = useModal()
 
+const collateralProduct = useEulerProductOfVault(computed(() => pair.collateral.address))
+const borrowProduct = useEulerProductOfVault(computed(() => pair.borrow.address))
+
 const pairName = computed(() => {
+  const collateralName = collateralProduct.name
+  const borrowName = borrowProduct.name
   if (!collateralName || !borrowName) {
     return `${pair.collateral.name}/${pair.borrow.name}`
   }
@@ -68,11 +71,7 @@ const maxRoe = computed(() => {
   return base + (multiplier - 1) * net
 })
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2))
-// Securitize vaults use borrow vault utilization instead of collateral
-const utilization = computed(() => isSecuritize.value
-  ? getVaultUtilization(pair.borrow)
-  : getVaultUtilization(pair.collateral as { supply: bigint, borrow: bigint }),
-)
+const utilization = computed(() => getVaultUtilization(pair.borrow))
 
 const onWarningClick = () => {
   modal.open(VaultUtilizationWarningModal)

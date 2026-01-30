@@ -8,7 +8,7 @@ defineOptions({
   name: 'EarnPage',
 })
 
-const { earnList: list, isLoading } = useVaults()
+const { earnList: list, isEarnUpdating: isLoading } = useVaults()
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])
@@ -60,6 +60,10 @@ const sortedList = computed(() => {
       return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
         return Number(b.supplyAPY) - Number(a.supplyAPY)
       })
+    case 'Liquidity':
+      return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+        return getEarnVaultPrice(b.availableAssets, b) - getEarnVaultPrice(a.availableAssets, a)
+      })
     default:
       return filteredList.value
   }
@@ -93,7 +97,7 @@ load()
       <div class="flex items-center overflow-auto [scrollbar-width:none] gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"
-          :options="['Total Supply', 'Supply APY']"
+          :options="['Total Supply', 'Liquidity', 'Supply APY']"
           placeholder="Sort By"
           title="Sorting type"
         />
@@ -112,7 +116,7 @@ load()
     <div class="flex flex-col flex-1">
       <UiLoader
         v-if="isLoading"
-        class="my-16 mx-auto"
+        class="flex-1 self-center justify-self-center"
       />
 
       <VaultsEarnList

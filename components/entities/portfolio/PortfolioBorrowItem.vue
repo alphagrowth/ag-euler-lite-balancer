@@ -32,19 +32,13 @@ const collateralSymbolLabel = computed(() => {
 })
 const pairSymbols = computed(() => `${collateralSymbolLabel.value}/${position.borrow.asset.symbol}`)
 
-// Handle escrow vaults showing "Ungoverned"
 const collateralLabel = computed(() => {
   if ('type' in position.collateral && position.collateral.type === 'escrow') {
-    return 'Ungoverned'
+    return 'Escrowed collateral'
   }
   return collateralProductName || position.collateral.name
 })
-const borrowLabel = computed(() => {
-  if ('type' in position.borrow && position.borrow.type === 'escrow') {
-    return 'Ungoverned'
-  }
-  return borrowProductName || position.borrow.name
-})
+const borrowLabel = computed(() => borrowProductName || position.borrow.name)
 
 const pairName = computed(() => {
   if (collateralLabel.value === borrowLabel.value) {

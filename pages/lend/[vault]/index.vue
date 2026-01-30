@@ -53,7 +53,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
-const { getVault, getSecuritizeVault, updateVault, escrowMap } = useVaults()
+const { getVault, getSecuritizeVault, updateVault, escrowMap, isEscrowLoadedOnce } = useVaults()
 const { isConnected } = useAccount()
 const { getBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -62,10 +62,6 @@ const { name } = useEulerProductOfVault(vaultAddress)
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
 const { getIntrinsicApy } = useIntrinsicApy()
-
-// Initial async check for vault type
-const isSecuritize = await isSecuritizeVault(vaultAddress)
-const features = computed(() => VAULT_FEATURES[vaultType.value])
 
 // State
 const isLoading = ref(false)
@@ -80,13 +76,35 @@ const monthlyEarnings = ref(0)
 const evkVault: Ref<Vault | undefined> = ref(undefined)
 const securitizeVault: Ref<SecuritizeVault | undefined> = ref(undefined)
 
-// Load vault data based on type, with fallback if detection fails
+// Check if securitize vault first
+const isSecuritize = await isSecuritizeVault(vaultAddress)
+
+// Load vault data based on type
 if (isSecuritize) {
   securitizeVault.value = await getSecuritizeVault(vaultAddress)
 }
 else {
   try {
+    const normalizedAddress = ethers.getAddress(vaultAddress)
+
+    // Fast path: escrow vaults already loaded and address is in escrowMap
+    if (escrowMap.value.has(normalizedAddress)) {
+      evkVault.value = escrowMap.value.get(normalizedAddress)
+    }
+    // Escrow vaults haven't loaded yet - wait for them
+    else if (!isEscrowLoadedOnce.value) {
+      await until(isEscrowLoadedOnce).toBe(true)
+      if (escrowMap.value.has(normalizedAddress)) {
+        evkVault.value = escrowMap.value.get(normalizedAddress)
+      }
+      else {
+        evkVault.value = await getVault(vaultAddress)
+      }
+    }
+    // Escrow vaults loaded and address not in escrowMap - regular vault
+    else {
     evkVault.value = await getVault(vaultAddress)
+    }
   }
   catch (e) {
     // If EVK vault load fails, try as securitize vault
@@ -95,12 +113,14 @@ else {
   }
 }
 
+const features = computed(() => VAULT_FEATURES[vaultType.value])
+
 // Determine vault type based on which vault was loaded
 const vaultType = computed<VaultType>(() => securitizeVault.value ? 'securitize' : 'evk')
 
 // Unified accessors - these provide a common interface regardless of vault type
 const vaultName = computed(() => evkVault.value?.name || securitizeVault.value?.name || '')
-const asset: Ref<VaultAsset | undefined> = ref(evkVault.value?.asset || securitizeVault.value?.asset)
+const asset = computed(() => evkVault.value?.asset || securitizeVault.value?.asset)
 
 // For components that need the EVK Vault type (VaultLabelsAndAssets, VaultPoints, etc.)
 const vault = computed(() => evkVault.value)
@@ -147,11 +167,6 @@ const load = async () => {
   try {
     if (features.value.hasInterestRate && evkVault.value) {
       estimateSupplyAPY.value = evkVault.value.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
-
-      // Check for escrow vault override
-      if (escrowMap.value.get(ethers.getAddress(vaultAddress))) {
-        evkVault.value = escrowMap.value.get(ethers.getAddress(vaultAddress))
-      }
 
       if (features.value.hasVerifiedStatus && !evkVault.value.verified) {
         modal.open(VaultUnverifiedDisclaimerModal, {

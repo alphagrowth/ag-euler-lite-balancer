@@ -37,6 +37,27 @@ const asset: Ref<VaultAsset | undefined> = ref(undefined)
 const estimateSupplyAPY = ref(0)
 const monthlyEarnings = ref(0)
 
+// Load vault data with top-level await
+try {
+  vault.value = await getEarnVault(vaultAddress)
+  asset.value = vault.value?.asset
+
+  if (!vault.value?.verified) {
+    modal.open(VaultUnverifiedDisclaimerModal, {
+      isNotClosable: true,
+      props: {
+        onCancel: () => {
+          router.replace('/')
+        },
+      },
+    })
+  }
+}
+catch (e) {
+  showError('Unable to load Vault')
+  console.warn(e)
+}
+
 const balance = computed(() => getBalance(asset.value?.address as `0x${string}`) || 0n)
 const errorText = computed(() => {
   if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
@@ -63,34 +84,6 @@ const supplyAPYDisplay = computed(() => {
 const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(estimateSupplyAPY.value)
 })
-
-const load = async () => {
-  isLoading.value = true
-  try {
-    vault.value = await getEarnVault(vaultAddress)
-    asset.value = vault.value?.asset
-
-    estimateSupplyAPY.value = (vault.value.supplyAPY || 0) + totalRewardsAPY.value
-
-    if (!vault.value?.verified) {
-      modal.open(VaultUnverifiedDisclaimerModal, {
-        isNotClosable: true,
-        props: {
-          onCancel: () => {
-            router.replace('/')
-          },
-        },
-      })
-    }
-  }
-  catch (e) {
-    showError('Unable to load Vault')
-    console.warn(e)
-  }
-  finally {
-    isLoading.value = false
-  }
-}
 const submit = async () => {
   await guardWithTerms(async () => {
     if (!asset.value?.address) {
@@ -188,7 +181,8 @@ const onSupplyInfoIconClick = () => {
   })
 }
 
-load()
+// Initialize estimateSupplyAPY after vault is loaded
+estimateSupplyAPY.value = (vault.value?.supplyAPY || 0) + totalRewardsAPY.value
 
 watch(amount, async () => {
   clearSimulationError()

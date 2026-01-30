@@ -65,7 +65,7 @@ const calcPrice = (amount: bigint) => {
       />
       <VaultOverviewLabelValue
         v-if="isBorrowable"
-        label="Utilisation"
+        label="Utilization"
         orientation="horizontal"
       >
         <div class="flex gap-4 items-center">

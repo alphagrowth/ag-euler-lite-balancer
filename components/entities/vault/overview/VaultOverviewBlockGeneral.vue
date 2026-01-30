@@ -5,21 +5,20 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
-const { list } = useVaults()
+const { list, borrowList, isVaultGovernorVerified } = useVaults()
 
 const product = useEulerProductOfVault(vault.address)
 const entities = useEulerEntitiesOfVault(vault)
+const isGovernorVerified = computed(() => isVaultGovernorVerified(vault))
 
+// Count how many borrow pairs have this vault as collateral
 const collateralCount = computed(() => {
-  return list.value.filter(v =>
-    v.collateralLTVs.some(ltv => ltv.collateral === vault.address && ltv.borrowLTV > 0n),
-  ).length
+  return borrowList.value.filter(pair => pair.collateral.address === vault.address).length
 })
 
+// Count how many borrow pairs have this vault as the liability (borrow) side
 const borrowCount = computed(() => {
-  return list.value.filter(v =>
-    v.address === vault.address && v.collateralLTVs.some(ltv => ltv.borrowLTV > 0n),
-  ).length
+  return borrowList.value.filter(pair => pair.borrow.address === vault.address).length
 })
 
 const priceDisplay = computed(() => {
@@ -42,9 +41,9 @@ const priceDisplay = computed(() => {
         label="Market"
         :value="product.name"
       />
-      <VaultOverviewLabelValue label="Risk curator(s)">
+      <VaultOverviewLabelValue label="Risk manager(s)">
         <div
-          v-if="entities.length"
+          v-if="entities.length && isGovernorVerified"
           class="flex flex-col gap-16"
         >
           <div
@@ -63,11 +62,21 @@ const priceDisplay = computed(() => {
             >{{ entity.name }}</a>
           </div>
         </div>
+        <div
+          v-else-if="!isGovernorVerified"
+          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-yellow-opaque-200)] text-yellow-700"
+        >
+          <UiIcon
+            class="mr-2 !w-20 !h-20 text-yellow-600"
+            name="warning"
+          />
+          Unknown
+        </div>
         <div v-else>
           -
         </div>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue label="Market type">
+      <VaultOverviewLabelValue label="Vault type">
         <VaultTypeChip
           :vault="vault"
           :type="entities.length ? 'governed' : 'type' in vault ? vault.type as string : ''"

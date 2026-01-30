@@ -25,7 +25,7 @@ const label = computed(() => {
     case 'managed':
       return 'Managed'
     case 'escrow':
-      return 'Escrow'
+      return 'Escrowed collateral'
   }
 
   return 'Edge'
@@ -41,7 +41,7 @@ const label = computed(() => {
         class="mr-2 !w-20 !h-20 text-yellow-600"
         name="warning"
       />
-      Unverified
+      Unknown
     </div>
   </template>
   <template v-else>

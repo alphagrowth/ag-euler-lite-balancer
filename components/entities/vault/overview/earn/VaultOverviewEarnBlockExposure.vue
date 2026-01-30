@@ -41,6 +41,16 @@ const getExposureVaultByAddress = (address: string) => {
   return exposureVaults.value.find(vlt => address === vlt.address)
 }
 
+const getExposureUsdPrice = (exposure: typeof exposureList.value[0]) => {
+  const exposureVault = getExposureVaultByAddress(exposure.info.vault)
+  if (!exposureVault) return 0
+  return getVaultPrice(exposure.allocatedAssets, exposureVault)
+}
+
+const getExposureAssetAmount = (exposure: typeof exposureList.value[0]) => {
+  return `${roundAndCompactTokens(exposure.allocatedAssets, exposure.info.assetDecimals)} ${exposure.info.assetSymbol}`
+}
+
 load()
 </script>
 
@@ -56,7 +66,14 @@ load()
     </div>
 
     <div
-      v-if="!isLoading"
+      v-if="isLoading"
+      class="flex items-center justify-center py-32"
+    >
+      <UiLoader class="icon--48" />
+    </div>
+
+    <div
+      v-else
       class="flex flex-col gap-12"
     >
       <div
@@ -92,8 +109,21 @@ load()
               label="Allocation ($)"
               orientation="horizontal"
             >
-              {{ `$${compactNumber(getVaultPrice(exposure.allocatedAssets, getExposureVaultByAddress(exposure.info.vault) as Vault), 2)}` }}
-              <span class="text-euler-dark-900">{{ `${roundAndCompactTokens(exposure.allocatedAssets, exposure.info.assetDecimals)}` }} {{ exposure.info.assetSymbol }}</span>
+              <div class="flex items-center gap-4">
+                <template v-if="getExposureUsdPrice(exposure) > 0">
+                  {{ `$${compactNumber(getExposureUsdPrice(exposure), 2)}` }}
+                  <span @click.stop.prevent>
+                    <UiFootnote
+                      title="Amount in assets"
+                      :text="getExposureAssetAmount(exposure)"
+                      class="[--ui-footnote-icon-color:var(--c-euler-dark-900)]"
+                    />
+                  </span>
+                </template>
+                <template v-else>
+                  {{ getExposureAssetAmount(exposure) }}
+                </template>
+              </div>
             </VaultOverviewLabelValue>
           </div>
         </NuxtLink>

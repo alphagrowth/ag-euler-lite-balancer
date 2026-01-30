@@ -36,7 +36,7 @@ const vaultAddresesInfo = computed(() => {
 
   baseAddresses.push(
     {
-      title: `Risk curator`,
+      title: `Risk manager`,
       address: vault.governorAdmin,
     },
   )

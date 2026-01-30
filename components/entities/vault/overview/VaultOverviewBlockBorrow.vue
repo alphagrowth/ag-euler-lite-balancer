@@ -1,25 +1,30 @@
 <script setup lang="ts">
 import type { Vault, EscrowVault } from '~/entities/vault'
+import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 
 const emits = defineEmits(['vault-click'])
 const { vault } = defineProps<{ vault: Vault }>()
-const { borrowList, escrowMap } = useVaults()
+const { list, escrowMap } = useVaults()
 
-const borrowVaultPairs = computed(() => borrowList.value.filter(pair => pair.borrow.address === vault.address))
-
-const escrowCollateralPairs = computed(() => {
+// Build collateral pairs from ALL collateralLTVs where currentLiquidationLTV > 0
+// This includes collaterals that are ramping down (borrowLTV == 0 but currentLiquidationLTV > 0)
+const allCollateralPairs = computed(() => {
   const pairs: Array<{
     borrow: Vault
-    collateral: EscrowVault
+    collateral: Vault | EscrowVault
     borrowLTV: bigint
     liquidationLTV: bigint
     initialLiquidationLTV: bigint
-    isEscrow: true
+    targetTimestamp: bigint
+    rampDuration: bigint
+    isEscrow: boolean
   }> = []
 
   vault.collateralLTVs.forEach((ltv) => {
-    if (ltv.borrowLTV <= 0n) return
+    // Check if current liquidation LTV > 0 (not yet fully ramped down)
+    if (getCurrentLiquidationLTV(ltv) <= 0n) return
 
+    // Try to find the collateral vault - first in escrow map, then in regular vault list
     const escrowVault = escrowMap.value.get(ltv.collateral)
     if (escrowVault) {
       pairs.push({
@@ -28,18 +33,45 @@ const escrowCollateralPairs = computed(() => {
         borrowLTV: ltv.borrowLTV,
         liquidationLTV: ltv.liquidationLTV,
         initialLiquidationLTV: ltv.initialLiquidationLTV,
+        targetTimestamp: ltv.targetTimestamp,
+        rampDuration: ltv.rampDuration,
         isEscrow: true,
+      })
+      return
+    }
+
+    const regularVault = list.value.find(v => v.address === ltv.collateral)
+    if (regularVault) {
+      pairs.push({
+        borrow: vault,
+        collateral: regularVault,
+        borrowLTV: ltv.borrowLTV,
+        liquidationLTV: ltv.liquidationLTV,
+        initialLiquidationLTV: ltv.initialLiquidationLTV,
+        targetTimestamp: ltv.targetTimestamp,
+        rampDuration: ltv.rampDuration,
+        isEscrow: false,
       })
     }
   })
 
-  return pairs
+  // Sort by borrow LTV descending (highest first)
+  return pairs.sort((a, b) => (b.borrowLTV > a.borrowLTV ? 1 : b.borrowLTV < a.borrowLTV ? -1 : 0))
 })
 
-const allCollateralPairs = computed(() => [
-  ...escrowCollateralPairs.value,
-  ...borrowVaultPairs.value.map(pair => ({ ...pair, isEscrow: false })),
-])
+// Helper to format time remaining
+const formatTimeRemaining = (seconds: bigint): string => {
+  const days = Number(seconds) / 86400
+  if (days >= 1) {
+    return `${Math.ceil(days)} day${Math.ceil(days) > 1 ? 's' : ''}`
+  }
+  const hours = Number(seconds) / 3600
+  if (hours >= 1) {
+    return `${Math.ceil(hours)} hour${Math.ceil(hours) > 1 ? 's' : ''}`
+  }
+  const minutes = Number(seconds) / 60
+  return `${Math.ceil(minutes)} minute${Math.ceil(minutes) > 1 ? 's' : ''}`
+}
 </script>
 
 <template>
@@ -74,7 +106,6 @@ const allCollateralPairs = computed(() => [
           >
             <VaultLabelsAndAssets
               :vault="pair.collateral"
-              :pair-vault="pair.borrow"
               :assets="[pair.collateral.asset]"
             />
           </div>
@@ -87,8 +118,20 @@ const allCollateralPairs = computed(() => [
             <VaultOverviewLabelValue
               label="LLTV"
               orientation="horizontal"
-              :value="`${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%`"
-            />
+            >
+              <div class="flex items-center gap-8">
+                <span>{{ `${formatNumber(nanoToValue(getCurrentLiquidationLTV(pair), 2), 2)}%` }}</span>
+                <template v-if="isLiquidationLTVRamping(pair)">
+                  <span @click.stop.prevent>
+                <UiFootnote
+                  title="LTV Ramping"
+                      :text="`The LLTV for this collateral is currently being reduced. Target LLTV: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair))}.`"
+                      class="[--ui-footnote-icon-color:var(--c-euler-dark-900)]"
+                />
+                  </span>
+                </template>
+              </div>
+            </VaultOverviewLabelValue>
           </div>
         </NuxtLink>
       </div>

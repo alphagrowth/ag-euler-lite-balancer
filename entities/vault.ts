@@ -289,6 +289,8 @@ export interface BorrowVaultPair {
   borrowLTV: bigint
   liquidationLTV: bigint
   initialLiquidationLTV: bigint
+  targetTimestamp: bigint
+  rampDuration: bigint
 }
 
 export interface SecuritizeBorrowVaultPair {
@@ -297,6 +299,8 @@ export interface SecuritizeBorrowVaultPair {
   borrowLTV: bigint
   liquidationLTV: bigint
   initialLiquidationLTV: bigint
+  targetTimestamp: bigint
+  rampDuration: bigint
 }
 
 // Union type for combined borrow list (regular + securitize)
@@ -1276,6 +1280,51 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
   }
 }
 
+/** Shared LTV ramp config fields used by both VaultCollateralLTV and BorrowVaultPair */
+type LTVRampConfig = Pick<VaultCollateralLTV, 'liquidationLTV' | 'initialLiquidationLTV' | 'targetTimestamp' | 'rampDuration'>
+
+/**
+ * Calculate the current liquidation LTV, taking into account ramping.
+ * When liquidation LTV is lowered, it ramps down linearly from initialLiquidationLTV
+ * to liquidationLTV (target) over rampDuration, reaching target at targetTimestamp.
+ */
+export const getCurrentLiquidationLTV = (ltv: LTVRampConfig): bigint => {
+  const now = BigInt(Math.floor(Date.now() / 1000))
+
+  // If ramping is complete or LTV is ramping UP (not down), return target
+  if (now >= ltv.targetTimestamp || ltv.liquidationLTV >= ltv.initialLiquidationLTV) {
+    return ltv.liquidationLTV
+  }
+
+  // Calculate interpolated value during ramp down
+  const timeRemaining = ltv.targetTimestamp - now
+  const currentLTV = ltv.liquidationLTV
+    + ((ltv.initialLiquidationLTV - ltv.liquidationLTV) * timeRemaining) / ltv.rampDuration
+
+  return currentLTV
+}
+
+/**
+ * Check if the liquidation LTV is currently ramping down
+ */
+export const isLiquidationLTVRamping = (ltv: LTVRampConfig): boolean => {
+  const now = BigInt(Math.floor(Date.now() / 1000))
+
+  // Ramping down if: not yet at target timestamp AND target is less than initial (ramping DOWN)
+  return now < ltv.targetTimestamp && ltv.liquidationLTV < ltv.initialLiquidationLTV
+}
+
+/**
+ * Get the time remaining until ramping completes (in seconds)
+ */
+export const getRampTimeRemaining = (ltv: LTVRampConfig): bigint => {
+  const now = BigInt(Math.floor(Date.now() / 1000))
+  if (now >= ltv.targetTimestamp) {
+    return 0n
+  }
+  return ltv.targetTimestamp - now
+}
+
 export const getBorrowVaultsByMap = (vaultsMap: Map<string, Vault>) => {
   const arr: BorrowVaultPair[] = []
   const list = [...vaultsMap.values()]
@@ -1291,6 +1340,8 @@ export const getBorrowVaultsByMap = (vaultsMap: Map<string, Vault>) => {
         borrowLTV: c.borrowLTV,
         liquidationLTV: c.liquidationLTV,
         initialLiquidationLTV: c.initialLiquidationLTV,
+        targetTimestamp: c.targetTimestamp,
+        rampDuration: c.rampDuration,
       })
     })
   })
@@ -1317,6 +1368,8 @@ export const getBorrowVaultPairByMapAndAddresses = (
       borrowLTV: c.borrowLTV,
       liquidationLTV: c.liquidationLTV,
       initialLiquidationLTV: c.initialLiquidationLTV,
+      targetTimestamp: c.targetTimestamp,
+      rampDuration: c.rampDuration,
     } as BorrowVaultPair
   })
 

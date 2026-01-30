@@ -21,6 +21,7 @@ import {
   type Vault,
 } from '~/entities/vault'
 import { labelsRepo } from '~/entities/custom'
+import { getProductByVault } from '~/composables/useEulerLabels'
 
 const isReady = ref(false)
 const isLoading = ref(false)
@@ -34,6 +35,7 @@ const loadedChainId = ref<number | null>(null)
 
 const isEscrowLoading = ref(false)
 const isEscrowUpdating = ref(false)
+const isEscrowLoadedOnce = ref(false)
 const escrowMap: Ref<Map<string, EscrowVault>> = shallowRef(new Map())
 
 const securitizeMap: Ref<Map<string, SecuritizeVault>> = shallowRef(new Map())
@@ -68,6 +70,8 @@ const securitizeBorrowList = computed((): SecuritizeBorrowVaultPair[] => {
           borrowLTV: ltv.borrowLTV,
           liquidationLTV: ltv.liquidationLTV,
           initialLiquidationLTV: ltv.initialLiquidationLTV,
+          targetTimestamp: ltv.targetTimestamp,
+          rampDuration: ltv.rampDuration,
         })
       }
     })
@@ -82,6 +86,7 @@ const resetVaultsState = () => {
   isReady.value = false
   isLoading.value = true
   isEarnLoading.value = true
+  isEscrowLoadedOnce.value = false
   escrowMap.value = new Map()
   map.value = new Map()
   earnMap.value = new Map()
@@ -161,6 +166,7 @@ const updateEscrowVaults = async () => {
   }
   finally {
     isEscrowUpdating.value = false
+    isEscrowLoadedOnce.value = true
   }
 }
 
@@ -359,6 +365,11 @@ const getBorrowVaultPair = async (
   const collateralAddr = ethers.getAddress(collateralAddress)
   const borrowAddr = ethers.getAddress(borrowAddress)
 
+  // Wait for escrow vaults to load before checking escrowMap
+  if (!isEscrowLoadedOnce.value) {
+    await until(isEscrowLoadedOnce).toBe(true)
+  }
+
   if (map.value.has(borrowAddr)) {
     if (map.value.has(collateralAddr)) {
       return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddr, borrowAddr)
@@ -378,6 +389,8 @@ const getBorrowVaultPair = async (
         borrowLTV: ltv.borrowLTV,
         liquidationLTV: ltv.liquidationLTV,
         initialLiquidationLTV: ltv.initialLiquidationLTV,
+        targetTimestamp: ltv.targetTimestamp,
+        rampDuration: ltv.rampDuration,
       }
     }
   }
@@ -402,7 +415,7 @@ const getBorrowVaultPair = async (
   }
   else {
     try {
-      collateralVault = await fetchVault(collateralAddr)
+    collateralVault = await fetchVault(collateralAddr)
     }
     catch {
       // Try escrow vault first
@@ -427,6 +440,8 @@ const getBorrowVaultPair = async (
     borrowLTV: collateralLTV.borrowLTV,
     liquidationLTV: collateralLTV.liquidationLTV,
     initialLiquidationLTV: collateralLTV.initialLiquidationLTV,
+    targetTimestamp: collateralLTV.targetTimestamp,
+    rampDuration: collateralLTV.rampDuration,
   }
 }
 
@@ -461,10 +476,74 @@ const getSecuritizeBorrowVaultPair = async (
     borrowLTV: collateralLTV.borrowLTV,
     liquidationLTV: collateralLTV.liquidationLTV,
     initialLiquidationLTV: collateralLTV.initialLiquidationLTV,
+    targetTimestamp: collateralLTV.targetTimestamp,
+    rampDuration: collateralLTV.rampDuration,
   }
 }
 
 export const useVaults = () => {
+  // Check if vault's on-chain governorAdmin matches any of the product's declared entities
+  const isVaultGovernorVerified = (vault: Vault): boolean => {
+    const { entities } = useEulerLabels()
+
+    // Escrow vaults don't have a risk manager - show "-" not "Unknown"
+    if ('type' in vault && (vault as { type: string }).type === 'escrow') {
+      return true
+    }
+
+    // Unverified vaults (not in products.json) show unknown risk manager
+    if (!vault.verified) {
+      return false
+    }
+
+    const product = getProductByVault(vault.address)
+    if (!product.name) {
+      // Vault marked verified but not in products.json - shouldn't happen, but treat as unknown
+      return false
+    }
+
+    const declaredEntityKeys = Array.isArray(product.entity) ? product.entity : [product.entity].filter(Boolean)
+    if (declaredEntityKeys.length === 0) {
+      // No entities declared in product, nothing to verify against
+      return true
+    }
+
+    // Check if governorAdmin matches any address in any of the declared entities
+    for (const entityKey of declaredEntityKeys) {
+      const entity = entities[entityKey]
+      if (entity && Object.keys(entity.addresses).includes(vault.governorAdmin)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  // Check if earn vault's on-chain owner matches any of the product's declared entities
+  const isEarnVaultOwnerVerified = (earnVault: EarnVault): boolean => {
+    const { entities } = useEulerLabels()
+
+    const product = getProductByVault(earnVault.address)
+    if (!product.name) {
+      return true
+    }
+
+    const declaredEntityKeys = Array.isArray(product.entity) ? product.entity : [product.entity].filter(Boolean)
+    if (declaredEntityKeys.length === 0) {
+      return true
+    }
+
+    const ownerAddress = ethers.getAddress(earnVault.owner)
+    for (const entityKey of declaredEntityKeys) {
+      const entity = entities[entityKey]
+      if (entity && Object.keys(entity.addresses).includes(ownerAddress)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
   return {
     map,
     list,
@@ -478,6 +557,8 @@ export const useVaults = () => {
     getEscrowVault,
     getSecuritizeVault,
     isSecuritizeVault,
+    isVaultGovernorVerified,
+    isEarnVaultOwnerVerified,
     loadVaults,
     resetVaultsState,
     updateVault,
@@ -496,6 +577,7 @@ export const useVaults = () => {
     escrowList,
     isEscrowLoading,
     isEscrowUpdating,
+    isEscrowLoadedOnce,
     securitizeMap,
     securitizeBorrowList,
   }

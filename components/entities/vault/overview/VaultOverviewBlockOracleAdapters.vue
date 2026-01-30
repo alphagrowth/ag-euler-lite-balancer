@@ -8,7 +8,7 @@ import { getExplorerLink } from '~/utils/block-explorer'
 const props = defineProps<{
   vault?: Vault
   vaults?: Vault[]
-  collateralAssets?: string[]
+  collateralVaults?: Vault[]
 }>()
 const { tokens, loadTokens } = useTokens()
 const { chainId } = useEulerAddresses()
@@ -36,10 +36,10 @@ const adapters = computed(() => {
       leafOnly: true,
     }))
 
-    if (props.collateralAssets?.length) {
-      props.collateralAssets.forEach((collateralAddress) => {
+    if (props.collateralVaults?.length) {
+      props.collateralVaults.forEach((collateralVault) => {
         entries.push(...collectOracleAdapters(vault.oracleDetailedInfo, 3, {
-          base: collateralAddress as Address,
+          base: collateralVault.address,
           quote: vault.unitOfAccount,
           leafOnly: true,
         }))
@@ -82,6 +82,11 @@ const tokenSymbolsByAddress = computed(() => {
     if (vault.unitOfAccountSymbol) {
       map.set(vault.unitOfAccount.toLowerCase(), vault.unitOfAccountSymbol)
     }
+  })
+
+  // Map collateral vault addresses to their underlying asset symbols
+  props.collateralVaults?.forEach((vault) => {
+    map.set(vault.address.toLowerCase(), vault.asset.symbol)
   })
 
   return map

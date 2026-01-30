@@ -9,8 +9,10 @@ const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolea
 
 const { EVM_PROVIDER_URL } = useEulerConfig()
 const { chainId } = useEulerAddresses()
+const { isVaultGovernorVerified } = useVaults()
 const product = useEulerProductOfVault(vault.address)
-const entities = useEulerEntitiesOfVault(vault.address)
+const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
+const isGovernorVerified = computed(() => isVaultGovernorVerified(vault as unknown as Vault))
 
 const shortenAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -97,9 +99,9 @@ loadRiskParameters()
           label="Market"
           :value="product.name"
         />
-        <VaultOverviewLabelValue label="Risk curator(s)">
+        <VaultOverviewLabelValue label="Risk manager(s)">
           <div
-            v-if="entities.length"
+            v-if="entities.length && isGovernorVerified"
             class="flex flex-col gap-16"
           >
             <div
@@ -118,11 +120,21 @@ loadRiskParameters()
               >{{ entity.name }}</a>
             </div>
           </div>
+          <div
+            v-else-if="!isGovernorVerified"
+            class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-yellow-opaque-200)] text-yellow-700"
+          >
+            <UiIcon
+              class="mr-2 !w-20 !h-20 text-yellow-600"
+              name="warning"
+            />
+            Unknown
+          </div>
           <div v-else>
             -
           </div>
         </VaultOverviewLabelValue>
-        <VaultOverviewLabelValue label="Market type">
+        <VaultOverviewLabelValue label="Vault type">
           <span class="text-p2 text-white">Securitize</span>
         </VaultOverviewLabelValue>
         <VaultOverviewLabelValue label="Can be used as collateral">

@@ -13,14 +13,19 @@ const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
 }>()
 const vaultAddress = computed(() => ethers.getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
-const displayName = computed(() => product.name || vault.name)
+const displayName = computed(() => {
+  if ('type' in vault && vault.type === 'escrow') {
+    return 'Escrowed collateral'
+  }
+  return product.name || vault.name
+})
 
 const pairVaultAddress = computed(() => pairVault ? ethers.getAddress(pairVault.address) : '')
 const pairProduct = useEulerProductOfVault(pairVaultAddress)
 
 const getVaultLabel = (v: Vault | EarnVault | EscrowVault) => {
   if ('type' in v && v.type === 'escrow') {
-    return 'Ungoverned'
+    return 'Escrowed collateral'
   }
   const addr = ethers.getAddress(v.address)
   if (addr === vaultAddress.value) {
@@ -70,19 +75,13 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
           name="warning"
           class="!w-20 !h-20"
         />
-        Unknown vault
-      </p>
-      <p
-        v-else-if="'type' in vault && vault.type === 'escrow'"
-        class="text-euler-dark-900 mb-4"
-      >
-        {{ displayLabel }}
+        Unknown
       </p>
       <p
         v-else
         class="text-euler-dark-900 mb-4"
       >
-        {{ displayName }}
+        {{ pairVault ? displayLabel : displayName }}
       </p>
 
       <p class="text-p2 font-semibold">
