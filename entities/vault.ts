@@ -787,11 +787,13 @@ export const fetchEscrowVault = async (vaultAddress: string): Promise<EscrowVaul
   } as EscrowVault
 }
 
-export const fetchVaults = async function* (): AsyncGenerator<
-  VaultIteratorResult<Vault>,
-  void,
-  unknown
-> {
+export const fetchVaults = async function* (
+  vaultAddresses?: string[],
+): AsyncGenerator<
+    VaultIteratorResult<Vault>,
+    void,
+    unknown
+  > {
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { eulerLensAddresses, chainId } = useEulerAddresses()
   const { verifiedVaultAddresses } = useEulerLabels()
@@ -799,7 +801,7 @@ export const fetchVaults = async function* (): AsyncGenerator<
   const startChainId = chainId.value
 
   await until(
-    computed(() => eulerLensAddresses.value?.vaultLens && verifiedVaultAddresses.value.length),
+    computed(() => eulerLensAddresses.value?.vaultLens),
   ).toBeTruthy()
 
   if (!eulerLensAddresses.value?.vaultLens) {
@@ -813,29 +815,9 @@ export const fetchVaults = async function* (): AsyncGenerator<
     provider,
   )
 
-  // Use utilsLens to check which vaults are EVaults before fetching
-  const utilsLensContract = new ethers.Contract(
-    eulerLensAddresses.value.utilsLens,
-    eulerUtilsLensABI,
-    provider,
-  )
-
-  // Filter out non-EVault addresses (like securitize vaults) by checking isEVault
-  const evaultChecks = await Promise.all(
-    verifiedVaultAddresses.value.map(async (addr) => {
-      try {
-        const info = await utilsLensContract.getVaultInfoERC4626(addr)
-        const data = info.toObject ? info.toObject({ deep: true }) : info
-        return { address: addr, isEVault: data.isEVault }
-      }
-      catch {
-        // If check fails, assume it's an EVault to be safe
-        return { address: addr, isEVault: true }
-      }
-    }),
-  )
-
-  const verifiedVaults = evaultChecks.filter(v => v.isEVault).map(v => v.address)
+  // Use provided addresses if available, otherwise fall back to verifiedVaultAddresses
+  // (pre-categorization by caller is preferred to eliminate per-vault RPC calls)
+  const verifiedVaults = vaultAddresses || verifiedVaultAddresses.value
   const batchSize = 5
 
   for (let i = 0; i < verifiedVaults.length; i += batchSize) {

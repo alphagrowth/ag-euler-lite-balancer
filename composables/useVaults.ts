@@ -13,10 +13,11 @@ import {
   fetchEscrowVaults,
   fetchSecuritizeVault,
   fetchVaults,
-  filterSecuritizeVaults,
+  fetchVaultFactories,
   getBorrowVaultPairByMapAndAddresses,
   getBorrowVaultsByMap,
   isSecuritizeVault,
+  SECURITIZE_FACTORY_ADDRESS,
   type Vault,
 } from '~/entities/vault'
 import { labelsRepo } from '~/entities/custom'
@@ -82,14 +83,14 @@ const resetVaultsState = () => {
   clear() // Clear registry on reset
 }
 
-const updateVaults = async () => {
+const updateVaults = async (vaultAddresses?: string[]) => {
   try {
     map.value = new Map()
     isUpdating.value = true
     isLoading.value = true
     const currentMap = new Map(map.value)
 
-    for await (const result of fetchVaults()) {
+    for await (const result of fetchVaults(vaultAddresses)) {
       result.vaults.forEach((vault) => {
         currentMap.set(vault.address, vault)
       })
@@ -156,16 +157,7 @@ const updateEscrowVaults = async () => {
   }
 }
 
-const loadSecuritizeVaults = async () => {
-  const { verifiedVaultAddresses } = useEulerLabels()
-
-  if (!verifiedVaultAddresses.value.length) {
-    return
-  }
-
-  // Query subgraph for ALL addresses from products.json to find securitize vaults
-  const securitizeAddresses = await filterSecuritizeVaults(verifiedVaultAddresses.value)
-
+const updateSecuritizeVaults = async (securitizeAddresses: string[]) => {
   if (!securitizeAddresses.length) {
     return
   }
@@ -188,15 +180,40 @@ const loadSecuritizeVaults = async () => {
 const loadVaults = async () => {
   const { chainId } = useEulerAddresses()
   const { setMany } = useVaultRegistry()
+  const { verifiedVaultAddresses } = useEulerLabels()
   const startChainId = chainId.value
 
   try {
     resetVaultsState()
+
+    // Step 1: Categorize all vault addresses upfront using subgraph (single batch query)
+    // This replaces N individual RPC calls with 1 subgraph query
+    const factories = await fetchVaultFactories(verifiedVaultAddresses.value)
+
+    // Separate EVK vaults from Securitize vaults based on factory
+    const evkAddresses: string[] = []
+    const securitizeAddresses: string[] = []
+
+    verifiedVaultAddresses.value.forEach((addr) => {
+      const normalizedAddr = addr.toLowerCase()
+      const factory = factories.get(normalizedAddr)
+
+      if (factory?.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()) {
+        // Securitize vault - use original case from verifiedVaultAddresses
+        securitizeAddresses.push(addr)
+      }
+      else {
+        // EVK vault (or unknown factory - treat as EVK to be safe)
+        evkAddresses.push(addr)
+      }
+    })
+
+    // Step 2: Fetch vaults in parallel with pre-categorized addresses
     await Promise.all([
       updateEarnVaults(),
-      updateVaults(),
+      updateVaults(evkAddresses),
       updateEscrowVaults(),
-      loadSecuritizeVaults(),
+      updateSecuritizeVaults(securitizeAddresses),
     ])
 
     // Populate the unified registry with all loaded vaults
