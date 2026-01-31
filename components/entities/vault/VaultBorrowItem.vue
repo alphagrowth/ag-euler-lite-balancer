@@ -17,12 +17,15 @@ const modal = useModal()
 const collateralProduct = useEulerProductOfVault(computed(() => pair.collateral.address))
 const borrowProduct = useEulerProductOfVault(computed(() => pair.borrow.address))
 
+const isEscrowCollateral = computed(() => 'type' in pair.collateral && pair.collateral.type === 'escrow')
+
 const pairName = computed(() => {
-  const collateralName = collateralProduct.name
-  const borrowName = borrowProduct.name
-  if (!collateralName || !borrowName) {
-    return `${pair.collateral.name}/${pair.borrow.name}`
-  }
+  // Handle escrow collateral specially
+  const collateralName = isEscrowCollateral.value
+    ? 'Escrowed collateral'
+    : (collateralProduct.name || pair.collateral.name)
+  const borrowName = borrowProduct.name || pair.borrow.name
+  
   if (collateralName === borrowName) {
     return collateralName
   }
@@ -77,10 +80,7 @@ const onWarningClick = () => {
   modal.open(VaultUtilizationWarningModal)
 }
 
-const linkPath = computed(() => isSecuritize.value
-  ? `/borrow-securitize/${pair.collateral.address}/${pair.borrow.address}`
-  : `/borrow/${pair.collateral.address}/${pair.borrow.address}`,
-)
+const linkPath = computed(() => `/borrow/${pair.collateral.address}/${pair.borrow.address}`)
 </script>
 
 <template>

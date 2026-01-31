@@ -23,7 +23,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
 const { address, isConnected } = useAccount()
-const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { buildMultiplyPlan, executeTxPlan } = useEulerOperations()
 const { eulerLensAddresses } = useEulerAddresses()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
@@ -724,7 +724,7 @@ const reviewMultiplyDisabled = getSubmitDisabled(isMultiplySubmitDisabled)
 
 const loadPosition = async () => {
   isLoading.value = true
-  position.value = borrowPositions.value[+positionIndex - 1] || null
+  position.value = getPositionBySubAccountIndex(+positionIndex) || null
   if (!position.value) {
     multiplySupplyVault.value = undefined
     resetMultiplyQuoteState()

@@ -1,22 +1,37 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import { getSubAccountIndex } from '~/entities/account'
 
-const { isConnected } = useAccount()
-const { borrowPositions, isPositionsLoaded } = useEulerAccount()
+const { isConnected, address } = useAccount()
+const { borrowPositions, isPositionsLoaded, portfolioAddress } = useEulerAccount()
 const { isReady } = useVaults()
+
+const ownerAddress = computed(() => portfolioAddress.value || address.value || '')
+
+const sortedBorrowPositions = computed(() => {
+  if (!ownerAddress.value) return borrowPositions.value
+  return [...borrowPositions.value].sort((a, b) => {
+    const indexA = getSubAccountIndex(ownerAddress.value, a.subAccount)
+    const indexB = getSubAccountIndex(ownerAddress.value, b.subAccount)
+    return indexA - indexB
+  })
+})
 </script>
 
 <template>
-  <div class="flex flex-1 mx-16 p-8 rounded-16 border border-euler-dark-600">
+  <div
+    class="flex mx-16 p-8 rounded-16 border border-euler-dark-600"
+    :class="sortedBorrowPositions.length === 0 ? 'flex-1' : ''"
+  >
     <div
-      v-if="isConnected && (!isPositionsLoaded || (!isReady && borrowPositions.length === 0))"
+      v-if="isConnected && (!isPositionsLoaded || (!isReady && sortedBorrowPositions.length === 0))"
       class="flex flex-1 justify-center items-center"
     >
       <UiLoader class="text-euler-dark-900" />
     </div>
 
     <div
-      v-else-if="borrowPositions.length === 0"
+      v-else-if="sortedBorrowPositions.length === 0"
       class="flex flex-1 justify-center items-center"
     >
       <div class="flex flex-col gap-8 items-center text-euler-dark-900">
@@ -34,10 +49,10 @@ const { isReady } = useVaults()
 
     <div
       v-else
-      class="flex-1"
+      class="w-full"
     >
       <PortfolioList
-        :items="borrowPositions"
+        :items="sortedBorrowPositions"
         type="borrow"
       />
       <div

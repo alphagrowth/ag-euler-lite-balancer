@@ -264,7 +264,7 @@ const supplyCapPercentageDisplay = computed(() => {
         >
           <NuxtLink
             class="bg-euler-dark-500 rounded-16 text-white block no-underline"
-            :to="`/borrow-securitize/${vault.address}/${market.borrowVault.address}`"
+            :to="`/borrow/${vault.address}/${market.borrowVault.address}`"
           >
             <div
               class="px-16 pt-16 pb-12"

@@ -6,7 +6,16 @@ import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { getNetAPY, getVaultPrice, getVaultPriceInfo, type Vault, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import {
+  getNetAPY,
+  getVaultPrice,
+  getVaultPriceInfo,
+  getCollateralAssetPriceFromLiability,
+  isSecuritizeVault,
+  fetchSecuritizeVault,
+  type Vault,
+  type SecuritizeVault,
+} from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -16,7 +25,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const modal = useModal()
-const { isPositionsLoaded, borrowPositions, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { isConnected, address } = useAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -36,11 +45,11 @@ const estimateNetAPY = ref(0)
 const estimateUserLTV = ref(0n)
 const estimateHealth = ref(0n)
 const estimatesError = ref('')
-const selectedCollateral = ref<Vault | null>(null)
+const selectedCollateral = ref<Vault | SecuritizeVault | null>(null)
 const selectedCollateralAssets = ref(0n)
 const lastCollateralAddress = ref('')
 
-const position = computed(() => borrowPositions.value[+positionIndex - 1])
+const position = computed(() => getPositionBySubAccountIndex(+positionIndex))
 const isPositionLoaded = computed(() => !!position.value)
 const collateralVault = computed(() => selectedCollateral.value || position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
@@ -48,17 +57,27 @@ const asset = computed(() => collateralVault.value?.asset)
 const collateralAssets = computed(() => selectedCollateralAssets.value)
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
-const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
-  collateralVault.value?.asset.symbol,
-))
+const collateralSupplyApy = computed(() => {
+  if (!collateralVault.value) return 0
+  return withIntrinsicSupplyApy(
+    nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
+    collateralVault.value?.asset.symbol,
+  )
+})
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
+// Get collateral USD value using liability vault's price perspective
+const getCollateralValueUsd = (amount: bigint) => {
+  if (!borrowVault.value || !collateralVault.value) return 0
+  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+  if (!priceInfo?.amountOutMid) return 0
+  return nanoToValue(amount, collateralVault.value.decimals) * nanoToValue(priceInfo.amountOutMid, 18)
+}
 const netAPY = computed(() => {
   return getNetAPY(
-    getVaultPrice(collateralAssets.value, collateralVault.value!),
+    getCollateralValueUsd(collateralAssets.value),
     collateralSupplyApy.value,
     getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
     borrowApy.value,
@@ -136,7 +155,17 @@ const loadSelectedCollateral = async () => {
 
     await until(isVaultsReady).toBe(true)
 
-    const vault = map.value.get(targetAddress) || await getVault(targetAddress)
+    // Try loading as regular vault first, then as securitize
+    let vault: Vault | SecuritizeVault | undefined = map.value.get(targetAddress)
+    if (!vault) {
+      const isSecuritize = await isSecuritizeVault(targetAddress)
+      if (isSecuritize) {
+        vault = await fetchSecuritizeVault(targetAddress)
+      }
+      else {
+        vault = await getVault(targetAddress)
+      }
+    }
     selectedCollateral.value = vault
 
     const lensAddress = eulerLensAddresses.value?.accountLens
@@ -263,7 +292,7 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('Not enough liquidity in your position')
     }
     estimateNetAPY.value = getNetAPY(
-      getVaultPrice(collateralAssets.value - valueToNano(amount.value, collateralVault.value.decimals), collateralVault.value!),
+      getCollateralValueUsd(collateralAssets.value - valueToNano(amount.value, collateralVault.value.decimals)),
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
       getVaultPrice(position.value!.borrowed || 0n || 0, borrowVault.value!),
       borrowApy.value,

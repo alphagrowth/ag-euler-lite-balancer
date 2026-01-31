@@ -6,7 +6,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, convertAssetsToShares, isSecuritizeVault, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -23,7 +23,7 @@ const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate(
 const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
 const { borrowBySaving, borrow, buildBorrowPlan, buildBorrowBySavingPlan, buildMultiplyPlan, executeTxPlan } = useEulerOperations()
-const { getBorrowVaultPair, updateVault, isReady: areVaultsReady } = useVaults()
+const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
 const { updateBorrowPositions, depositPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
@@ -62,12 +62,6 @@ type MultiplyPlanParams = {
 const collateralAddress = route.params.collateral as string
 const borrowAddress = route.params.borrow as string
 
-// Check if collateral is a securitize vault - if so, redirect to securitize borrow page
-const isSecuritizeCollateral = await isSecuritizeVault(collateralAddress)
-if (isSecuritizeCollateral) {
-  navigateTo(`/borrow-securitize/${collateralAddress}/${borrowAddress}`, { replace: true })
-}
-
 const ltv = ref(0)
 const borrowAmount = ref('')
 const collateralAmount = ref('')
@@ -81,30 +75,12 @@ const plan = ref<TxPlan | null>(null)
 const multiplyPlan = ref<TxPlan | null>(null)
 const multiplyPlanParams = ref<MultiplyPlanParams | null>(null)
 
-// Load vault pair with fallback for securitize detection
-let initialPair: BorrowVaultPair | undefined
-try {
-  initialPair = await getBorrowVaultPair(collateralAddress, borrowAddress)
-}
-catch (e) {
-  // If getBorrowVaultPair fails due to securitize collateral, redirect
-  const errorMsg = String(e)
-  if (errorMsg.includes('securitize vault')) {
-    navigateTo(`/borrow-securitize/${collateralAddress}/${borrowAddress}`, { replace: true })
-  }
-  else {
-    // Try one more time to check if it's a securitize vault
-    const isSecuritize = await isSecuritizeVault(collateralAddress)
-    if (isSecuritize) {
-      navigateTo(`/borrow-securitize/${collateralAddress}/${borrowAddress}`, { replace: true })
-    }
-    else {
-      console.error('[borrow] Failed to load vault pair:', e)
-      throw e
-    }
-  }
-}
-const pair: Ref<BorrowVaultPair | undefined> = ref(initialPair)
+// Load vault pair (handles regular, escrow, and securitize collateral)
+const initialPair = await getBorrowVaultPair(collateralAddress, borrowAddress)
+const pair: Ref<AnyBorrowVaultPair | undefined> = ref(initialPair)
+
+// Check if collateral is securitize for conditional rendering
+const isSecuritizeCollateral = computed(() => pair.value ? isSecuritizeBorrowPair(pair.value) : false)
 const health = ref()
 const netAPY = ref()
 const liquidationPrice = ref()
@@ -448,7 +424,8 @@ const resolveMultiplySubAccount = async () => {
 }
 const computedBalance = computed(() => {
   if (isSavingCollateral.value) return savingAssets.value || 0n
-  return balance.value
+  // Use getBalance directly to get latest balance (handles dynamically loaded vaults like securitize)
+  return getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
 })
 const multiplyBalance = computed(() => {
   if (!multiplySupplyVault.value) {
@@ -1370,31 +1347,6 @@ watch(formTab, () => {
   clearMultiplySimulationError()
 })
 
-watch(areVaultsReady, async (ready) => {
-  if (ready && route.params.collateral && route.params.borrow) {
-    try {
-      const refreshedPair = await getBorrowVaultPair(
-        route.params.collateral as string,
-        route.params.borrow as string,
-      )
-      pair.value = refreshedPair
-    }
-    catch (e) {
-      // Check if it's a securitize vault and redirect
-      const errorMsg = String(e)
-      if (errorMsg.includes('securitize vault')) {
-        navigateTo(`/borrow-securitize/${route.params.collateral}/${route.params.borrow}`, { replace: true })
-        return
-      }
-      const isSecuritize = await isSecuritizeVault(route.params.collateral as string)
-      if (isSecuritize) {
-        navigateTo(`/borrow-securitize/${route.params.collateral}/${route.params.borrow}`, { replace: true })
-        return
-      }
-      console.error('Error refreshing vault pair:', e)
-    }
-  }
-}, { immediate: false })
 </script>
 
 <template>
@@ -1783,9 +1735,14 @@ watch(areVaultsReady, async (ready) => {
           style="flex-grow: 1"
           desktop-overview
         />
+        <SecuritizeVaultOverview
+          v-else-if="tab === 'collateral' && isSecuritizeCollateral"
+          :vault="(pair.collateral as SecuritizeVault)"
+          desktop-overview
+        />
         <VaultOverview
           v-else-if="tab === 'collateral'"
-          :vault="pair.collateral"
+          :vault="(pair.collateral as Vault)"
           desktop-overview
         />
         <VaultOverview

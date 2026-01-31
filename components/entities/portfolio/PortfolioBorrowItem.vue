@@ -1,18 +1,29 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import type { AccountBorrowPosition } from '~/entities/account'
+import { getSubAccountIndex } from '~/entities/account'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, getVaultPrice, getVaultPriceDisplay, getCollateralAssetPriceFromLiability, type Vault } from '~/entities/vault'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 
-const { index, position } = defineProps<{ index: number, position: AccountBorrowPosition }>()
+const { position } = defineProps<{ position: AccountBorrowPosition }>()
+
+const { address } = useAccount()
+const { portfolioAddress } = useEulerAccount()
+const ownerAddress = computed(() => portfolioAddress.value || address.value || '')
+const subAccountIndex = computed(() => {
+  if (!ownerAddress.value || !position.subAccount) return 0
+  return getSubAccountIndex(ownerAddress.value, position.subAccount)
+})
 
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const { name: collateralProductName } = useEulerProductOfVault(position.collateral.address)
 const { name: borrowProductName } = useEulerProductOfVault(position.borrow.address)
+
 type PositionCollateral = {
   vault: Vault
   assets: bigint
@@ -57,21 +68,33 @@ const liquidationPrice = computed(() => {
 })
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
-const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
-  collateralVault.value?.asset.symbol,
-))
+const collateralSupplyApy = computed(() => {
+  return withIntrinsicSupplyApy(
+    nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
+    collateralVault.value?.asset.symbol,
+  )
+})
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
 
 const collateralValueUsd = computed(() => {
+  // Collateral price ALWAYS comes from liability vault's oracle
   if (!collateralItems.value.length) {
-    return getVaultPrice(position.supplied, position.collateral)
+    const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, position.collateral)
+    if (!priceInfo) return 0
+    const amount = nanoToValue(position.supplied, position.collateral.decimals)
+    return amount * nanoToValue(priceInfo.amountOutMid, 18)
   }
 
-  return collateralItems.value.reduce((total, item) => total + getVaultPrice(item.assets, item.vault), 0)
+  // For multiple collaterals, sum up using liability vault's oracle for each
+  return collateralItems.value.reduce((total, item) => {
+    const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, item.vault)
+    if (!priceInfo) return total
+    const amount = nanoToValue(item.assets, item.vault.decimals)
+    return total + amount * nanoToValue(priceInfo.amountOutMid, 18)
+  }, 0)
 })
 
 const collateralValueDisplay = computed(() => {
@@ -92,17 +115,9 @@ const netAssetValueDisplay = computed(() => {
 })
 
 const currentPriceDisplay = computed(() => {
-  const { map } = useVaults()
-  const borrowVaultFromMap = map.value.get(position.borrow.address)
-  if (!borrowVaultFromMap) {
-    const price = getVaultPriceDisplay(1, collateralVault.value!)
-    return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
-  }
-  const priceInfo = getCollateralAssetPriceFromLiability(borrowVaultFromMap, collateralVault.value!)
-  if (!priceInfo) {
-    const price = getVaultPriceDisplay(1, collateralVault.value!)
-    return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
-  }
+  // Collateral price ALWAYS comes from liability vault's oracle
+  const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, collateralVault.value)
+  if (!priceInfo) return '-'
   const usdValue = nanoToValue(priceInfo.amountOutMid, 18)
   return `$${formatNumber(usdValue)}`
 })
@@ -119,6 +134,9 @@ const netAPY = computed(() => {
 })
 
 const loadCollaterals = async () => {
+  // Only load additional collaterals if position has multiple
+  if (!position.collaterals?.length || position.collaterals.length <= 1) return
+
   const collateralAddresses = position.collaterals?.length
     ? position.collaterals
     : [position.collateral.address]
@@ -185,8 +203,9 @@ const loadCollaterals = async () => {
   }
 }
 
+// Initialize collateralItems - for securitize, we won't load additional collaterals
 collateralItems.value = [{
-  vault: position.collateral,
+  vault: position.collateral as Vault,
   assets: position.supplied,
 }]
 
@@ -197,7 +216,7 @@ onMounted(() => {
 
 <template>
   <NuxtLink
-    :to="`/position/${index + 1}`"
+    :to="`/position/${subAccountIndex}`"
     class="block no-underline text-white bg-euler-dark-500 rounded-16"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
@@ -207,7 +226,7 @@ onMounted(() => {
         <div
           class="text-h6 text-euler-dark-900 bg-euler-dark-600 py-4 px-12 rounded-8 border border-euler-dark-700"
         >
-          Position {{ index + 1 }}
+          Position {{ subAccountIndex }}
         </div>
         <div class="flex gap-12">
           <BaseAvatar

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { BorrowVaultPair } from '~/entities/vault'
+import type { AnyBorrowVaultPair } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 
-defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition, desktopOverview?: boolean }>()
+defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition, desktopOverview?: boolean }>()
 </script>
 
 <template>

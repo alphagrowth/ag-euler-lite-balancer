@@ -12,16 +12,15 @@ const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const vault = computed(() => position.vault)
-const isSecuritize = computed(() => position.isSecuritize || false)
 
-// Type guard for regular vault properties - cast to Vault type when not securitize
-const regularVault = computed(() => (isSecuritize.value ? null : (vault.value as Vault)))
+// Check if securitize vault by type field
+const isSecuritize = computed(() => 'type' in vault.value && vault.value.type === 'securitize')
+const regularVault = computed(() => isSecuritize.value ? null : vault.value as Vault)
 
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
 const supplyApy = computed(() => {
-  if (isSecuritize.value || !regularVault.value) return 0
   return withIntrinsicSupplyApy(
-    nanoToValue(regularVault.value.interestRateInfo.supplyAPY, 25),
+    nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
     vault.value.asset.symbol,
   )
 })
@@ -37,17 +36,17 @@ const supplyValueDisplay = computed(() => {
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
-const earnDisplay = computed(() => {
-  if (!regularVault.value) return '—'
-  const price = getVaultPrice(position.assets, regularVault.value)
-  if (price === 0) return '—'
-  return compactNumber((price * supplyApy.value * 90) / 365 / 100)
+const hasPrice = computed(() => {
+  if (!regularVault.value) return false
+  return getVaultPrice(position.assets, regularVault.value) > 0
 })
-const earnDisplayWithReward = computed(() => {
+
+const projectedEarningsPerMonth = computed(() => {
   if (!regularVault.value) return '—'
   const price = getVaultPrice(position.assets, regularVault.value)
   if (price === 0) return '—'
-  return compactNumber((price * supplyApyWithRewards.value * 90) / 365 / 100)
+  // Monthly earnings = (value * APY%) / 12
+  return compactNumber((price * supplyApyWithRewards.value) / 12 / 100)
 })
 
 // Securitize-specific computed properties
@@ -88,10 +87,15 @@ const onClick = () => {
         </div>
         <div class="flex flex-col items-end">
           <div class="text-euler-dark-900 text-p3 mb-4">
-            Type
+            Supply APY
           </div>
-          <div class="text-p2 text-aquamarine-700">
-            Securitize
+          <div class="text-p2 flex text-aquamarine-700">
+            <SvgIcon
+              v-if="opportunityInfo?.apr"
+              name="sparks"
+              class="!w-20 !h-20 text-aquamarine-700 mr-4"
+            />
+            {{ formatNumber(supplyApyWithRewards) }}%
           </div>
         </div>
       </div>
@@ -108,15 +112,27 @@ const onClick = () => {
             </div>
           </div>
         </div>
-        <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
-            Shares
-          </div>
-          <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
-              {{ formatNumber(nanoToValue(position.shares, vault.decimals)) }}
-            </div>
-          </div>
+        <div class="flex flex-wrap items-center gap-8">
+          <UiButton
+            :to="`/lend/${vault.address}/`"
+            rounded
+          >
+            Supply
+          </UiButton>
+          <UiButton
+            variant="primary-stroke"
+            :to="`/lend/${vault.address}/withdraw`"
+            rounded
+          >
+            Withdraw
+          </UiButton>
+          <UiButton
+            variant="primary-stroke"
+            :to="`/lend/${vault.address}/swap`"
+            rounded
+          >
+            Asset swap
+          </UiButton>
         </div>
       </div>
     </div>
@@ -177,24 +193,21 @@ const onClick = () => {
             </div>
           </div>
         </div>
-        <div class="flex justify-between">
+        <div
+          v-if="hasPrice"
+          class="flex justify-between"
+        >
           <div class="text-euler-dark-900 text-p3">
-            Earn in 90 days
+            Projected Earnings per Month
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
-              ${{ earnDisplay }}
-            </div>
-            <div
-              v-if="opportunityInfo?.apr"
-              class="text-white text-p3 flex gap-2 items-center"
-            >
-              + <SvgIcon
+            <div class="text-white text-p3 flex items-center gap-4">
+              <SvgIcon
+                v-if="opportunityInfo?.apr"
                 name="sparks"
                 class="!w-18 !h-18 text-aquamarine-700"
-              /> ${{
-                earnDisplayWithReward
-              }}
+              />
+              ${{ projectedEarningsPerMonth }}
             </div>
           </div>
         </div>

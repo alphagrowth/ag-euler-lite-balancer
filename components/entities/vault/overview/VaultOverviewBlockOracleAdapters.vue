@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Address } from 'viem'
-import type { Vault } from '~/entities/vault'
+import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { EUR_ADDRESS, USD_ADDRESS } from '~/entities/constants'
 import { collectOracleAdapters, type OracleAdapterEntry } from '~/entities/oracle'
 import { getExplorerLink } from '~/utils/block-explorer'
@@ -8,7 +8,7 @@ import { getExplorerLink } from '~/utils/block-explorer'
 const props = defineProps<{
   vault?: Vault
   vaults?: Vault[]
-  collateralVaults?: Vault[]
+  collateralVaults?: (Vault | SecuritizeVault)[]
 }>()
 const { tokens, loadTokens } = useTokens()
 const { chainId } = useEulerAddresses()

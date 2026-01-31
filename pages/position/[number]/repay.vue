@@ -23,7 +23,7 @@ const { error } = useToast()
 const { repay, fullRepay, buildRepayPlan, buildFullRepayPlan, buildSwapPlan, swap: executeSwap } = useEulerOperations()
 const { isConnected } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
@@ -137,7 +137,7 @@ const load = async () => {
   await until(isPositionsLoaded).toBe(true)
 
   try {
-    position.value = borrowPositions.value[+positionIndex - 1]
+    position.value = getPositionBySubAccountIndex(+positionIndex)
     await updateBalance()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value?.userLTV || 0n

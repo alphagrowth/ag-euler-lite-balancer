@@ -20,7 +20,7 @@ import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 const route = useRoute()
 const router = useRouter()
 const { isConnected, address } = useAccount()
-const { borrowPositions, isPositionsLoaded, isPositionsLoading } = useEulerAccount()
+const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
 const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
@@ -95,7 +95,7 @@ const loadPosition = async () => {
   isLoading.value = true
   await until(isPositionsLoaded).toBe(true)
 
-  position.value = borrowPositions.value[+positionIndex - 1] || null
+  position.value = getPositionBySubAccountIndex(+positionIndex) || null
   if (position.value) {
     setFromAmountToMax()
   }

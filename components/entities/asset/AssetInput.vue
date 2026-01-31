@@ -142,7 +142,8 @@ const openChooseCollateralModal = () => {
       </div>
     </div>
     <div
-      class="flex justify-between"
+      class="flex"
+      :class="hasPrice ? 'justify-between' : 'justify-end'"
     >
       <p
         v-if="hasPrice"

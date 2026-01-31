@@ -9,7 +9,10 @@ import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
   getVaultPrice,
+  isSecuritizeVault,
+  fetchSecuritizeVault,
   type Vault,
+  type SecuritizeVault,
   type VaultAsset,
 } from '~/entities/vault'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
@@ -36,8 +39,11 @@ const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
 const plan = ref<TxPlan | null>(null)
-const vault: Ref<Vault | undefined> = ref()
+const vault: Ref<Vault | SecuritizeVault | undefined> = ref()
 const asset: Ref<VaultAsset | undefined> = ref()
+
+// Check if vault is securitize (for things like supply/borrow which securitize doesn't have)
+const isSecuritizeVaultType = computed(() => vault.value && 'type' in vault.value && vault.value.type === 'securitize')
 const assetsBalance = ref(0n)
 const sharesBalance = ref(0n)
 const delta = ref(0n)
@@ -74,11 +80,26 @@ const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(base + (opportunityInfo.value?.apr || 0))
 })
 
+// Helper to get vault price - returns 0 for securitize vaults (no USD price available)
+const getPrice = (amount: bigint) => {
+  if (!vault.value || isSecuritizeVaultType.value) return 0
+  return getVaultPrice(amount, vault.value as Vault)
+}
+
 const load = async () => {
   isLoading.value = true
   try {
-    vault.value = await getVault(vaultAddress)
-    estimateSupplyAPY.value = vault.value.interestRateInfo.supplyAPY
+    // Check if securitize vault first
+    const isSecuritize = await isSecuritizeVault(vaultAddress)
+    if (isSecuritize) {
+      vault.value = await fetchSecuritizeVault(vaultAddress)
+      estimateSupplyAPY.value = 0n // Securitize vaults don't have interest rate
+    }
+    else {
+      vault.value = await getVault(vaultAddress)
+      estimateSupplyAPY.value = (vault.value as Vault).interestRateInfo.supplyAPY
+    }
+
     asset.value = vault.value?.asset
 
     if (!vault.value.verified) {
@@ -212,7 +233,10 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('Not enough balance')
     }
 
-    if ((vault.value.supply - vault.value.borrow) < amountFixed.value.value) {
+    // Check liquidity (securitize: borrow is always 0)
+    const liquidity = vault.value.supply - vault.value.borrow
+
+    if (liquidity < amountFixed.value.value) {
       throw new Error('Not enough liquidity in vault')
     }
 
@@ -222,7 +246,7 @@ const updateEstimates = useDebounceFn(async () => {
   catch (e) {
     console.warn(e)
     delta.value = assetsBalance.value || 0n
-    estimateSupplyAPY.value = vault.value.interestRateInfo.supplyAPY
+    estimateSupplyAPY.value = vault.value?.interestRateInfo.supplyAPY || 0n
     estimatesError.value = (e as { message: string }).message
   }
   finally {
@@ -309,13 +333,16 @@ watch(amount, async () => {
             {{ supplyAPYDisplay }}%
           </p>
         </div>
-        <div class="flex justify-between items-center">
+        <div
+          v-if="!isSecuritizeVaultType"
+          class="flex justify-between items-center"
+        >
           <p class="text-euler-dark-900">
             Deposit
           </p>
           <p class="text-p2 text-euler-dark-900">
-            ${{ formatNumber(getVaultPrice(assetsBalance, vault)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
-              → <span class="text-white">${{ formatNumber(getVaultPrice(delta, vault)) }}</span>
+            ${{ formatNumber(getPrice(assetsBalance)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
+              → <span class="text-white">${{ formatNumber(getPrice(delta)) }}</span>
             </template>
           </p>
         </div>
@@ -328,7 +355,10 @@ watch(amount, async () => {
             class="text-p2 flex items-center gap-4"
           >
             {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="text-p3 text-euler-dark-900">{{ asset.symbol }}</span>
-            <span class="text-p3 text-euler-dark-900">≈ ${{ formatNumber(getVaultPrice(assetsBalance, vault)) }}</span>
+            <span
+              v-if="!isSecuritizeVaultType"
+              class="text-p3 text-euler-dark-900"
+            >≈ ${{ formatNumber(getPrice(assetsBalance)) }}</span>
           </p>
         </div>
       </VaultFormInfoBlock>

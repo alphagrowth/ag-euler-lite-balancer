@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { type BorrowVaultPair, getCollateralAssetPriceFromLiability, getVaultPriceInfo } from '~/entities/vault'
+import { type AnyBorrowVaultPair, getCollateralAssetPriceFromLiability, getVaultPriceInfo } from '~/entities/vault'
 import { nanoToValue } from '~/utils/crypto-utils'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
 
-const { pair } = defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition }>()
+const { pair } = defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition }>()
 
 const modal = useModal()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()

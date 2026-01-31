@@ -1,10 +1,20 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import type { AccountBorrowPosition } from '~/entities/account'
+import { getSubAccountIndex } from '~/entities/account'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getNetAPY, getVaultPrice } from '~/entities/vault'
+import { getNetAPY, getVaultPrice, getCollateralAssetPriceFromLiability, type Vault } from '~/entities/vault'
 
-const { index, position } = defineProps<{ index: number, position: AccountBorrowPosition }>()
+const { position } = defineProps<{ position: AccountBorrowPosition }>()
+
+const { address } = useAccount()
+const { portfolioAddress } = useEulerAccount()
+const ownerAddress = computed(() => portfolioAddress.value || address.value || '')
+const subAccountIndex = computed(() => {
+  if (!ownerAddress.value || !position.subAccount) return 0
+  return getSubAccountIndex(ownerAddress.value, position.subAccount)
+})
 
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -31,19 +41,29 @@ const pairName = computed(() => {
 })
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
-const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
-  collateralVault.value?.asset.symbol,
-))
+const collateralSupplyApy = computed(() => {
+  return withIntrinsicSupplyApy(
+    nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
+    collateralVault.value?.asset.symbol,
+  )
+})
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
 const collateralSupplyApyWithRewards = computed(() => collateralSupplyApy.value + (opportunityInfoForCollateral.value?.apr || 0))
 
+const collateralValueUsd = computed(() => {
+  // Collateral price ALWAYS comes from liability vault's oracle
+  const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, position.collateral)
+  if (!priceInfo) return 0
+  const amount = nanoToValue(position.supplied, position.collateral.decimals)
+  return amount * nanoToValue(priceInfo.amountOutMid, 18)
+})
+
 const netAPY = computed(() => {
   return getNetAPY(
-    getVaultPrice(position.supplied || 0n, collateralVault.value!),
+    collateralValueUsd.value,
     collateralSupplyApy.value,
     getVaultPrice(position.borrowed || 0n || 0, borrowVault.value!),
     borrowApy.value,
@@ -55,7 +75,7 @@ const netAPY = computed(() => {
 
 <template>
   <NuxtLink
-    :to="`/position/${index + 1}`"
+    :to="`/position/${subAccountIndex}`"
     class="block no-underline text-white bg-euler-dark-500 rounded-16"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
@@ -65,7 +85,7 @@ const netAPY = computed(() => {
         <div
           class="text-h6 text-euler-dark-900 bg-euler-dark-600 py-4 px-12 rounded-8 border border-euler-dark-700"
         >
-          Position {{ index + 1 }}
+          Position {{ subAccountIndex }}
         </div>
         <div class="flex gap-12">
           <BaseAvatar
@@ -95,13 +115,11 @@ const netAPY = computed(() => {
           </div>
           <div class="flex justify-between gap-8 text-right">
             <div class="text-white text-p3">
-              ${{ formatNumber(getVaultPrice(
-                nanoToValue(position.supplied, position.collateral.decimals), position.collateral,
-              )) }}
+              ${{ formatNumber(collateralValueUsd) }}
             </div>
             <div class="text-euler-dark-900 text-p3">
               ~ {{ roundAndCompactTokens(position.supplied, position.collateral.decimals) }}
-              {{ position.borrow.asset.symbol }}
+              {{ position.collateral.asset.symbol }}
             </div>
           </div>
         </div>

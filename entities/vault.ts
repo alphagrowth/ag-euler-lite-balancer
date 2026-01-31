@@ -245,6 +245,10 @@ export interface SecuritizeVault extends Erc4626Vault {
   verified: boolean
   governorAdmin: string
   supplyCap: bigint
+  // Compatibility fields with Vault type
+  supply: bigint // Same as totalAssets (no borrowing)
+  borrow: bigint // Always 0 (securitize vaults can't be borrowed from)
+  interestRateInfo: VaultInterestRateInfo // Zero-valued
 }
 export interface Vault {
   verified: boolean
@@ -649,6 +653,16 @@ export const fetchSecuritizeVault = async (vaultAddress: string): Promise<Securi
     },
     governorAdmin,
     supplyCap,
+    // Compatibility fields with Vault type
+    supply: data.totalAssets, // Same as totalAssets
+    borrow: 0n, // Securitize vaults can't be borrowed from
+    interestRateInfo: {
+      borrowAPY: 0n,
+      borrowSPY: 0n,
+      borrows: 0n,
+      cash: data.totalAssets,
+      supplyAPY: 0n,
+    },
   }
 }
 

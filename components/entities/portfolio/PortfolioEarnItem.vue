@@ -21,15 +21,15 @@ const supplyValueDisplay = computed(() => {
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
-const earnDisplay = computed(() => {
+const supplyApyWithRewards = computed(() => (vault.value.supplyAPY || 0) + (opportunityInfo.value?.apr || 0))
+
+const hasPrice = computed(() => getEarnVaultPrice(position.assets, vault.value) > 0)
+
+const projectedEarningsPerMonth = computed(() => {
   const price = getEarnVaultPrice(position.assets, vault.value)
   if (price === 0) return '—'
-  return compactNumber(price * (vault.value.supplyAPY || 0) * 90 / 365 / 100)
-})
-const earnDisplayWithReward = computed(() => {
-  const price = getEarnVaultPrice(position.assets, vault.value)
-  if (price === 0) return '—'
-  return compactNumber(price * (((vault.value.supplyAPY || 0) + (opportunityInfo.value?.apr || 0))) * 90 / 365 / 100)
+  // Monthly earnings = (value * APY%) / 12
+  return compactNumber((price * supplyApyWithRewards.value) / 12 / 100)
 })
 
 const onClick = () => {
@@ -75,7 +75,7 @@ const onClick = () => {
               name="sparks"
               class="!w-20 !h-20 text-aquamarine-700 mr-4"
             />
-            {{ formatNumber((vault.supplyAPY || 0) + (opportunityInfo?.apr || 0)) }}%
+            {{ formatNumber(supplyApyWithRewards) }}%
           </div>
         </div>
       </div>
@@ -97,22 +97,21 @@ const onClick = () => {
             </div>
           </div>
         </div>
-        <div class="flex justify-between">
+        <div
+          v-if="hasPrice"
+          class="flex justify-between"
+        >
           <div class="text-euler-dark-900 text-p3">
-            Earn in 90 days
+            Projected Earnings per Month
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
-              ${{ earnDisplay }}
-            </div>
-            <div
-              v-if="opportunityInfo?.apr"
-              class="text-white text-p3 flex gap-2 items-center"
-            >
-              + <SvgIcon
+            <div class="text-white text-p3 flex items-center gap-4">
+              <SvgIcon
+                v-if="opportunityInfo?.apr"
                 name="sparks"
                 class="!w-18 !h-18 text-aquamarine-700"
-              /> ${{ earnDisplayWithReward }}
+              />
+              ${{ projectedEarningsPerMonth }}
             </div>
           </div>
         </div>

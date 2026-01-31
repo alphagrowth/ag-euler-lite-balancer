@@ -101,6 +101,13 @@ export const useWallets = () => {
     isVaultsUpdated.value = true
   })
 
+  // Trigger balance update when vault maps change (including dynamically added vaults)
+  watch([map, earnMap, securitizeMap], async () => {
+    if (isReady.value) {
+      await updateBalances()
+    }
+  }, { deep: false })
+
   if (!isReady.value && !interval) {
     interval = setInterval(async () => {
       if (isReady.value) {

@@ -19,7 +19,7 @@ const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const { borrow, buildBorrowPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected } = useAccount()
-const { borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
 const positionIndex = route.params.number as string
 const { getBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -118,7 +118,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 
 const load = async () => {
   isLoading.value = true
-  position.value = borrowPositions.value[+positionIndex - 1]
+  position.value = getPositionBySubAccountIndex(+positionIndex)
   const collateralAddress = position.value.collateral.address
   const borrowAddress = position.value.borrow.address
   collateralAmount.value = `${nanoToValue(position.value.supplied, position.value.collateral.decimals)}`

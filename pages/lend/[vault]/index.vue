@@ -103,7 +103,7 @@ else {
     }
     // Escrow vaults loaded and address not in escrowMap - regular vault
     else {
-      evkVault.value = await getVault(vaultAddress)
+    evkVault.value = await getVault(vaultAddress)
     }
 
     // Load any collateral vaults that aren't already in our maps
@@ -209,18 +209,18 @@ const load = async () => {
     else {
       // For vaults without interest rate info, just use rewards
       estimateSupplyAPY.value = valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
-    }
+      }
 
     // Show warning modal for any unverified vault
     if (!isVaultVerified.value) {
-      modal.open(VaultUnverifiedDisclaimerModal, {
-        isNotClosable: true,
-        props: {
-          onCancel: () => {
-            router.replace('/')
+        modal.open(VaultUnverifiedDisclaimerModal, {
+          isNotClosable: true,
+          props: {
+            onCancel: () => {
+              router.replace('/')
+            },
           },
-        },
-      })
+        })
     }
   }
   catch (e) {

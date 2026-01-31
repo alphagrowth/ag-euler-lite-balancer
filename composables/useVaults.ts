@@ -1,6 +1,7 @@
 import { ethers } from 'ethers'
 import { useVaultRegistry, type AnyVault, type VaultType } from './useVaultRegistry'
 import {
+  type AnyBorrowVaultPair,
   type BorrowVaultPair,
   type EarnVault,
   type EscrowVault,
@@ -361,7 +362,7 @@ const getSecuritizeVault = async (address: string): Promise<SecuritizeVault> => 
 const getBorrowVaultPair = async (
   collateralAddress: string,
   borrowAddress: string,
-): Promise<BorrowVaultPair> => {
+): Promise<AnyBorrowVaultPair> => {
   const collateralAddr = ethers.getAddress(collateralAddress)
   const borrowAddr = ethers.getAddress(borrowAddress)
 
@@ -393,6 +394,25 @@ const getBorrowVaultPair = async (
         rampDuration: ltv.rampDuration,
       }
     }
+    else if (securitizeMap.value.has(collateralAddr)) {
+      const borrowVault = map.value.get(borrowAddr)!
+      const securitizeVault = securitizeMap.value.get(collateralAddr)!
+      const ltv = borrowVault.collateralLTVs.find(c => c.collateral === collateralAddr)
+
+      if (!ltv) {
+        throw '[getBorrowVaultPair]: Collateral LTV not found for securitize vault'
+      }
+
+      return {
+        borrow: borrowVault,
+        collateral: securitizeVault,
+        borrowLTV: ltv.borrowLTV,
+        liquidationLTV: ltv.liquidationLTV,
+        initialLiquidationLTV: ltv.initialLiquidationLTV,
+        targetTimestamp: ltv.targetTimestamp,
+        rampDuration: ltv.rampDuration,
+      }
+    }
   }
 
   const borrowVault = await fetchVault(borrowAddr)
@@ -405,17 +425,16 @@ const getBorrowVaultPair = async (
     throw '[getBorrowVaultPair]: Collateral not configured for this borrow vault'
   }
 
-  let collateralVault
+  let collateralVault: Vault | EscrowVault | SecuritizeVault | undefined
   if (escrowMap.value.has(collateralAddr)) {
     collateralVault = await getEscrowVault(collateralAddr)
   }
   else if (securitizeMap.value.has(collateralAddr)) {
-    // This is a securitize vault - redirect to securitize borrow page
-    throw '[getBorrowVaultPair]: Collateral is a securitize vault, use getSecuritizeBorrowVaultPair instead'
+    collateralVault = securitizeMap.value.get(collateralAddr)!
   }
   else {
     try {
-    collateralVault = await fetchVault(collateralAddr)
+      collateralVault = await fetchVault(collateralAddr)
     }
     catch {
       // Try escrow vault first
@@ -426,10 +445,13 @@ const getBorrowVaultPair = async (
         // Check if it's a securitize vault
         const isSecuritize = await isSecuritizeVault(collateralAddr)
         if (isSecuritize) {
-          throw '[getBorrowVaultPair]: Collateral is a securitize vault, use getSecuritizeBorrowVaultPair instead'
+          collateralVault = await fetchSecuritizeVault(collateralAddr)
+          // Add to securitizeMap so balances can be fetched
+          securitizeMap.value.set(collateralAddr, collateralVault)
         }
-        // Re-throw original error
-        throw '[getBorrowVaultPair]: Failed to fetch collateral vault'
+        else {
+          throw '[getBorrowVaultPair]: Failed to fetch collateral vault'
+        }
       }
     }
   }
@@ -442,43 +464,7 @@ const getBorrowVaultPair = async (
     initialLiquidationLTV: collateralLTV.initialLiquidationLTV,
     targetTimestamp: collateralLTV.targetTimestamp,
     rampDuration: collateralLTV.rampDuration,
-  }
-}
-
-const getSecuritizeBorrowVaultPair = async (
-  collateralAddress: string,
-  borrowAddress: string,
-): Promise<SecuritizeBorrowVaultPair> => {
-  const collateralAddr = ethers.getAddress(collateralAddress)
-  const borrowAddr = ethers.getAddress(borrowAddress)
-
-  // Get or fetch the borrow vault (must be EVK)
-  let borrowVault = map.value.get(borrowAddr)
-  if (!borrowVault) {
-    borrowVault = await fetchVault(borrowAddr)
-  }
-  if (!borrowVault) {
-    throw '[getSecuritizeBorrowVaultPair]: Borrow vault not found'
-  }
-
-  // Check collateral LTV exists for this securitize vault
-  const collateralLTV = borrowVault.collateralLTVs.find(c => c.collateral === collateralAddr)
-  if (!collateralLTV) {
-    throw '[getSecuritizeBorrowVaultPair]: Securitize collateral not configured for this borrow vault'
-  }
-
-  // Get or fetch the securitize collateral vault
-  const collateralVault = await getSecuritizeVault(collateralAddr)
-
-  return {
-    borrow: borrowVault,
-    collateral: collateralVault,
-    borrowLTV: collateralLTV.borrowLTV,
-    liquidationLTV: collateralLTV.liquidationLTV,
-    initialLiquidationLTV: collateralLTV.initialLiquidationLTV,
-    targetTimestamp: collateralLTV.targetTimestamp,
-    rampDuration: collateralLTV.rampDuration,
-  }
+  } as AnyBorrowVaultPair
 }
 
 export const useVaults = () => {
@@ -568,7 +554,6 @@ export const useVaults = () => {
     updateEarnVaults,
     updateEscrowVaults,
     getBorrowVaultPair,
-    getSecuritizeBorrowVaultPair,
     earnMap,
     earnList,
     isEarnLoading,
