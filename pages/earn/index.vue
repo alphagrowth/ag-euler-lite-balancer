@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getEarnVaultPrice } from '~/entities/vault'
 import type { EarnVault } from '~/entities/vault'
@@ -8,7 +9,9 @@ defineOptions({
   name: 'EarnPage',
 })
 
-const { earnList: list, isEarnUpdating: isLoading } = useVaults()
+const { isEarnUpdating: isLoading } = useVaults()
+const { getEarnVaults } = useVaultRegistry()
+const list = computed(() => getEarnVaults())
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])

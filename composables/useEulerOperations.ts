@@ -16,6 +16,7 @@ import { erc20ABI, swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
 import { buildPythUpdateCalls, sumCallValues } from '~/utils/pyth'
 import { useVaults } from '~/composables/useVaults'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { MAX_UINT48, MAX_UINT160, PERMIT2_TYPES, permit2Abi } from '~/entities/permit2'
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { isNonBlockingSimulationError } from '~/utils/tx-errors'
@@ -29,7 +30,7 @@ export const useEulerOperations = () => {
   const config = useConfig()
   const { eulerCoreAddresses, eulerPeripheryAddresses } = useEulerAddresses()
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
-  const { map, earnMap, securitizeMap } = useVaults()
+  const { get: registryGet } = useVaultRegistry()
 
   const rpcProvider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const resolvePermit2Address = (): Address | undefined => {
@@ -199,12 +200,11 @@ export const useEulerOperations = () => {
           if (!target) {
             continue
           }
-          // Check EVK vaults, earn vaults, and securitize vaults
-          const evkVault = map.value.get(normalizeAddress(target))
-          const earnVault = earnMap.value.get(normalizeAddress(target))
-          const secVault = securitizeMap.value.get(normalizeAddress(target))
-          const vaultAddress = evkVault?.address || earnVault?.address || secVault?.address
-          const assetAddress = evkVault?.asset?.address || earnVault?.asset?.address || secVault?.asset?.address
+          // Check all vault types via registry
+          const vaultEntry = registryGet(normalizeAddress(target))
+          const vault = vaultEntry?.vault
+          const vaultAddress = vault?.address
+          const assetAddress = vault?.asset?.address
           if (!assetAddress || !vaultAddress) {
             continue
           }
@@ -317,7 +317,8 @@ export const useEulerOperations = () => {
 
   const preparePythUpdates = async (vaultAddresses: string[], sender: Address) => {
     try {
-      const vaults = vaultAddresses.map(addr => map.value.get(ethers.getAddress(addr)))
+      const { getVault: registryGetVault } = useVaultRegistry()
+      const vaults = vaultAddresses.map(addr => registryGetVault(ethers.getAddress(addr)))
       return await buildPythUpdateCalls(vaults, EVM_PROVIDER_URL, PYTH_HERMES_URL, sender)
     }
     catch (err) {

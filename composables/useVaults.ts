@@ -41,9 +41,7 @@ const escrowMap: Ref<Map<string, EscrowVault>> = shallowRef(new Map())
 
 const securitizeMap: Ref<Map<string, SecuritizeVault>> = shallowRef(new Map())
 
-const list = computed(() => [...map.value.values()])
-const earnList = computed(() => [...earnMap.value.values()])
-const escrowList = computed(() => [...escrowMap.value.values()])
+// Combined map for borrow pair lookups (EVK + Escrow vaults)
 const combinedVaultMap = computed(() => {
   const combined = new Map<string, Vault>(map.value)
   escrowMap.value.forEach((vault, address) => {
@@ -531,39 +529,45 @@ export const useVaults = () => {
   }
 
   return {
-    map,
-    list,
-    borrowList,
+    // State
     isReady,
     loadedChainId,
     isLoading,
     isUpdating,
+    isEarnLoading,
+    isEarnUpdating,
+    isEscrowLoading,
+    isEscrowUpdating,
+    isEscrowLoadedOnce,
+
+    // Loading
+    loadVaults,
+    resetVaultsState,
+
+    // Async getters (with wait-for-load logic)
     getVault,
     getEarnVault,
     getEscrowVault,
     getSecuritizeVault,
-    isSecuritizeVault,
-    isVaultGovernorVerified,
-    isEarnVaultOwnerVerified,
-    loadVaults,
-    resetVaultsState,
+    getBorrowVaultPair,
+
+    // Update single vault
     updateVault,
     updateEarnVault,
     updateEscrowVault,
+
+    // Bulk updates (internal use)
     updateVaults,
     updateEarnVaults,
     updateEscrowVaults,
-    getBorrowVaultPair,
-    earnMap,
-    earnList,
-    isEarnLoading,
-    isEarnUpdating,
-    escrowMap,
-    escrowList,
-    isEscrowLoading,
-    isEscrowUpdating,
-    isEscrowLoadedOnce,
-    securitizeMap,
+
+    // Verification
+    isSecuritizeVault,
+    isVaultGovernorVerified,
+    isEarnVaultOwnerVerified,
+
+    // Business logic computed (kept for complex queries)
+    borrowList,
     securitizeBorrowList,
   }
 }

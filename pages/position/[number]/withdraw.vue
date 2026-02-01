@@ -17,6 +17,7 @@ import {
   type SecuritizeVault,
 } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const router = useRouter()
 const route = useRoute()
@@ -31,7 +32,8 @@ const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { getVault, isReady: isVaultsReady } = useVaults()
+const { getVault: registryGetVault } = useVaultRegistry()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const positionIndex = route.params.number as string
@@ -155,11 +157,11 @@ const loadSelectedCollateral = async () => {
 
     await until(isVaultsReady).toBe(true)
 
-    // Try loading as regular vault first, then as securitize
-    let vault: Vault | SecuritizeVault | undefined = map.value.get(targetAddress)
+    // Try loading from registry first, then as securitize or regular vault
+    let vault: Vault | SecuritizeVault | undefined = registryGetVault(targetAddress) as Vault | SecuritizeVault | undefined
     if (!vault) {
-      const isSecuritize = await isSecuritizeVault(targetAddress)
-      if (isSecuritize) {
+      const isSecuritizeResult = await isSecuritizeVault(targetAddress)
+      if (isSecuritizeResult) {
         vault = await fetchSecuritizeVault(targetAddress)
       }
       else {

@@ -1,5 +1,6 @@
 import { type Address, createPublicClient, http } from 'viem'
 import { useEulerConfig } from '~/composables/useEulerConfig'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
 
 const isLoaded = ref(false)
@@ -11,7 +12,8 @@ let interval: NodeJS.Timeout
 let isChainWatchInitialized = false
 
 export const useWallets = () => {
-  const { map, earnMap, securitizeMap, isReady, loadedChainId } = useVaults()
+  const { isReady, loadedChainId } = useVaults()
+  const { registry, getByType } = useVaultRegistry()
   const { address, isConnected, chain } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
   const { chainId } = useEulerAddresses()
@@ -36,18 +38,10 @@ export const useWallets = () => {
     }
 
     const tokenAddresses: Address[] = []
-    map.value.forEach((vault) => {
-      tokenAddresses.push(vault.address as Address)
-      tokenAddresses.push(vault.asset.address as Address)
-    })
 
-    earnMap.value.forEach((vault) => {
-      tokenAddresses.push(vault.address as Address)
-      tokenAddresses.push(vault.asset.address as Address)
-    })
-
-    // Add securitize vault addresses and their underlying assets
-    securitizeMap.value.forEach((vault) => {
+    // Get all vaults from registry (EVK, Earn, Securitize) for balance fetching
+    const allVaults = [...getByType('evk'), ...getByType('earn'), ...getByType('securitize')]
+    allVaults.forEach((vault) => {
       tokenAddresses.push(vault.address as Address)
       tokenAddresses.push(vault.asset.address as Address)
     })
@@ -97,12 +91,12 @@ export const useWallets = () => {
     }
   }
 
-  watch([map, earnMap, securitizeMap], () => {
+  watch(registry, () => {
     isVaultsUpdated.value = true
   })
 
-  // Trigger balance update when vault maps change (including dynamically added vaults)
-  watch([map, earnMap, securitizeMap], async () => {
+  // Trigger balance update when vault registry changes (including dynamically added vaults)
+  watch(registry, async () => {
     if (isReady.value) {
       await updateBalances()
     }

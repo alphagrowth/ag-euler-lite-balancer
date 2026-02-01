@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
@@ -9,7 +10,9 @@ defineOptions({
   name: 'IndexPage',
 })
 
-const { list, borrowList, isUpdating } = useVaults()
+const { borrowList, isUpdating } = useVaults()
+const { getEvkVaults } = useVaultRegistry()
+const list = computed(() => getEvkVaults())
 
 const isLoading = computed(() => isUpdating.value)
 const { products, entities } = useEulerLabels()

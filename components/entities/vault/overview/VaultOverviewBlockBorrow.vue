@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { Vault, EscrowVault, SecuritizeVault } from '~/entities/vault'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const emits = defineEmits(['vault-click'])
 const { vault } = defineProps<{ vault: Vault }>()
-const { list, escrowMap, securitizeMap } = useVaults()
+const { get: registryGet, getEvkVaults } = useVaultRegistry()
 
 // Build collateral pairs from ALL collateralLTVs where currentLiquidationLTV > 0
 // This includes collaterals that are ramping down (borrowLTV == 0 but currentLiquidationLTV > 0)
@@ -30,22 +31,10 @@ const allCollateralPairs = computed(() => {
       rampDuration: ltv.rampDuration,
     }
 
-    // Try to find the collateral vault - check escrow, securitize, then regular vault list
-    const escrowVault = escrowMap.value.get(ltv.collateral)
-    if (escrowVault) {
-      pairs.push({ collateral: escrowVault, ...pairData })
-      return
-    }
-
-    const securitizeVault = securitizeMap.value.get(ltv.collateral)
-    if (securitizeVault) {
-      pairs.push({ collateral: securitizeVault, ...pairData })
-      return
-    }
-
-    const regularVault = list.value.find(v => v.address === ltv.collateral)
-    if (regularVault) {
-      pairs.push({ collateral: regularVault, ...pairData })
+    // Try to find the collateral vault from registry
+    const collateralEntry = registryGet(ltv.collateral)
+    if (collateralEntry) {
+      pairs.push({ collateral: collateralEntry.vault as Vault | EscrowVault | SecuritizeVault, ...pairData })
     }
   })
 

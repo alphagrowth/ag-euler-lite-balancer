@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { type EarnVault, type Vault, getVaultPrice } from '~/entities/vault'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const emits = defineEmits(['vault-click'])
 const { vault } = defineProps<{ vault: EarnVault }>()
 
-const { getVault, getEscrowVault, escrowList } = useVaults()
+const { getVault, getEscrowVault } = useVaults()
+const { getType: registryGetType } = useVaultRegistry()
 
 const exposureVaults: Ref<Vault[]> = ref([])
 const isLoading = ref(false)
@@ -25,7 +27,7 @@ const load = async () => {
   try {
     isLoading.value = true
     const promises = exposureList.value.map((exposure) => {
-      return escrowList.value.find(escrow => escrow.address === exposure.info.vault) ? getEscrowVault(exposure.info.vault) : getVault(exposure.info.vault)
+      return registryGetType(exposure.info.vault) === 'escrow' ? getEscrowVault(exposure.info.vault) : getVault(exposure.info.vault)
     })
     exposureVaults.value = await Promise.all(promises)
   }

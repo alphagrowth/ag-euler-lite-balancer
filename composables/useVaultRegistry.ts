@@ -85,6 +85,22 @@ const getAll = (): VaultEntry[] => {
   return [...registry.value.values()]
 }
 
+// Get vaults matching multiple types (e.g., ['evk', 'escrow'] for combined lookups)
+const getByTypes = (types: VaultType[]): AnyVault[] => {
+  return [...registry.value.values()]
+    .filter(entry => types.includes(entry.type))
+    .map(entry => entry.vault)
+}
+
+// Typed getters for each vault type
+const getEvkVaults = (): Vault[] => getByType('evk') as Vault[]
+const getEarnVaults = (): EarnVault[] => getByType('earn') as EarnVault[]
+const getEscrowVaults = (): EscrowVault[] => getByType('escrow') as EscrowVault[]
+const getSecuritizeVaults = (): SecuritizeVault[] => getByType('securitize') as SecuritizeVault[]
+
+// Reactive size for watchers
+const size = computed(() => registry.value.size)
+
 /**
  * Detect vault type from factory address.
  *
@@ -200,6 +216,7 @@ export const useVaultRegistry = () => {
     // State
     registry,
     isLoading,
+    size,
 
     // Basic operations
     get,
@@ -212,7 +229,14 @@ export const useVaultRegistry = () => {
 
     // Queries
     getByType,
+    getByTypes,
     getAll,
+
+    // Typed getters
+    getEvkVaults,
+    getEarnVaults,
+    getEscrowVaults,
+    getSecuritizeVaults,
 
     // Type detection & fetching
     detectVaultType,

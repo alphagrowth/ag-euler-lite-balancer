@@ -2,6 +2,7 @@
 import { MaxUint256, ethers } from 'ethers'
 import type { SecuritizeVault, Vault, VaultCollateralLTV } from '~/entities/vault'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getExplorerLink } from '~/utils/block-explorer'
 
@@ -9,7 +10,8 @@ const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolea
 
 const { EVM_PROVIDER_URL } = useEulerConfig()
 const { chainId } = useEulerAddresses()
-const { list, borrowList, isVaultGovernorVerified } = useVaults()
+const { borrowList, isVaultGovernorVerified } = useVaults()
+const { getEvkVaults } = useVaultRegistry()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getIntrinsicApy } = useIntrinsicApy()
 const product = useEulerProductOfVault(vault.address)
@@ -36,7 +38,7 @@ const borrowMarkets = computed(() => {
     ltv: VaultCollateralLTV
   }> = []
 
-  list.value.forEach((v) => {
+  getEvkVaults().forEach((v) => {
     const ltv = v.collateralLTVs.find(l => l.collateral === vault.address && l.borrowLTV > 0n)
     if (ltv) {
       markets.push({ borrowVault: v, ltv })

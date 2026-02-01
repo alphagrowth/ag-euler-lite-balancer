@@ -71,7 +71,7 @@ const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>, fall
 }
 
 const totalSuppliedValue = computed(() => {
-  const { map } = useVaults()
+  const { getVault: registryGetVault } = useVaultRegistry()
 
   // Deposit positions (standalone vault context) — only vaults with price info
   const depositValue = depositPositions.value
@@ -80,7 +80,7 @@ const totalSuppliedValue = computed(() => {
 
   // Borrow position collateral (liability vault context) — use borrow vault's collateral pricing
   const collateralValue = borrowPositions.value.reduce((result, position) => {
-    const borrowVault = map.value.get(position.borrow.address)
+    const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) return result
 
     const priceInfo = getCollateralAssetPriceFromLiability(borrowVault, position.collateral)
@@ -100,7 +100,7 @@ const totalSuppliedValue = computed(() => {
 })
 
 const totalSuppliedValueInfo = computed(() => {
-  const { map } = useVaults()
+  const { getVault: registryGetVault } = useVaultRegistry()
   let total = 0
   let hasMissingPrices = false
 
@@ -113,7 +113,7 @@ const totalSuppliedValueInfo = computed(() => {
   })
 
   borrowPositions.value.forEach((position) => {
-    const borrowVault = map.value.get(position.borrow.address)
+    const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) {
       if (position.supplied > 0n) hasMissingPrices = true
       return
@@ -159,7 +159,7 @@ const totalBorrowedValueInfo = computed(() => {
 
 const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses, address: string) => {
   const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
-  const { map } = useVaults()
+  const { getVault: registryGetVault } = useVaultRegistry()
 
   if (!eulerLensAddresses?.accountLens) {
     throw new Error('Euler addresses not loaded yet')
@@ -211,7 +211,7 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
         const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
 
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
-        const borrow = map.value.get(borrowAddress)
+        const borrow = registryGetVault(borrowAddress) as Vault | undefined
         if (!borrow) {
           return undefined
         }
@@ -229,7 +229,7 @@ const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses,
           collateralAddress = collateralCandidates[0]
         }
 
-        const collateral = map.value.get(collateralAddress)
+        const collateral = registryGetVault(collateralAddress) as Vault | undefined
         if (!collateral) {
           return undefined
         }
@@ -322,7 +322,8 @@ const updateBorrowPositions = async (
   }
 
   const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
-  const { map, securitizeMap, getVault, getSecuritizeVault } = useVaults()
+  const { getVault, getSecuritizeVault } = useVaults()
+  const { getVault: registryGetVault } = useVaultRegistry()
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
 
@@ -369,7 +370,7 @@ const updateBorrowPositions = async (
         const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
 
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
-        const borrow = shouldShowAllPositions ? await getVault(borrowAddress) : map.value.get(borrowAddress)
+        const borrow = shouldShowAllPositions ? await getVault(borrowAddress) : registryGetVault(borrowAddress) as Vault | undefined
         if (!borrow) {
           return undefined
         }
@@ -387,15 +388,8 @@ const updateBorrowPositions = async (
           collateralAddress = collateralCandidates[0]
         }
 
-        // Check EVK vaults first, then securitize vaults
-        let collateral = map.value.get(collateralAddress)
-
-        if (!collateral) {
-          const securitizeCollateral = securitizeMap.value.get(collateralAddress)
-          if (securitizeCollateral) {
-            collateral = securitizeCollateral as unknown as Vault
-          }
-        }
+        // Check registry for collateral vault (handles EVK, escrow, and securitize)
+        let collateral = registryGetVault(collateralAddress) as Vault | undefined
 
         // If still not found and shouldShowAllPositions, try fetching
         if (!collateral && shouldShowAllPositions) {
@@ -536,9 +530,8 @@ const updateDepositPositions = async (
     return
   }
 
-  const { list, earnMap } = useVaults()
   const { earnVaults } = useEulerLabels()
-  const { getOrResolve } = useVaultRegistry()
+  const { getOrResolve, has: registryHas, getType: registryGetType, getEvkVaults } = useVaultRegistry()
   const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
@@ -579,7 +572,7 @@ const updateDepositPositions = async (
           }
 
           // Skip earn vaults (handled by updateEarnPositions)
-    if (earnVaults.value.includes(normalizedVaultAddress) || earnMap.value.has(normalizedVaultAddress)) {
+    if (earnVaults.value.includes(normalizedVaultAddress) || registryGetType(normalizedVaultAddress) === 'earn') {
       continue
     }
 
@@ -622,7 +615,7 @@ const updateDepositPositions = async (
   // Also include deposits from wallet balances for verified EVK vaults
   // (some deposits might not be tracked in subgraph if balance forwarding is disabled)
   const normalizedAddress = ethers.getAddress(address)
-  for (const vault of list.value) {
+  for (const vault of getEvkVaults()) {
     const balance = balances.get(ethers.getAddress(vault.address))
     if (!balance || balance === 0n) continue
 
@@ -674,8 +667,7 @@ const updateEarnPositions = async (
     return
   }
 
-  const { earnList } = useVaults()
-  const { getOrResolve } = useVaultRegistry()
+  const { getOrResolve, getEarnVaults } = useVaultRegistry()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -741,8 +733,9 @@ const updateEarnPositions = async (
     }
   }
   else {
-    for (let i = 0; i < earnList.value.length; i += batchSize) {
-      const batch = earnList.value
+    const earnVaultsList = getEarnVaults()
+    for (let i = 0; i < earnVaultsList.length; i += batchSize) {
+      const batch = earnVaultsList
         .slice(i, i + batchSize)
         .map(async (vault) => {
           const balance = balances.get(ethers.getAddress(vault.address))

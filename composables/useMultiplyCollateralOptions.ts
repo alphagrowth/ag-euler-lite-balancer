@@ -3,6 +3,7 @@ import type { Address } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, getVaultPrice, type Vault } from '~/entities/vault'
 
 type CollateralItem = {
@@ -17,15 +18,14 @@ export const useMultiplyCollateralOptions = ({
   currentVault: Ref<Vault | undefined>
   liabilityVault?: Ref<Vault | undefined>
 }) => {
-  const { map, escrowMap } = useVaults()
+  const { getVault: registryGetVault } = useVaultRegistry()
   const { getBalance } = useWallets()
   const { depositPositions } = useEulerAccount()
   const { getOpportunityOfLendVault } = useMerkl()
   const { withIntrinsicSupplyApy } = useIntrinsicApy()
 
-  const resolveVault = (address: string) => {
-    const normalized = ethers.getAddress(address)
-    return map.value.get(normalized) || escrowMap.value.get(normalized)
+  const resolveVault = (address: string): Vault | undefined => {
+    return registryGetVault(address) as Vault | undefined
   }
 
   const currentVaultAddress = computed(() => {

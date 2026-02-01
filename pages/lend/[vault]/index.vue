@@ -8,6 +8,7 @@ import { useToast } from '~/components/ui/composables/useToast'
 import { computeAPYs, getCurrentLiquidationLTV, getVaultPrice, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
 import SecuritizeVaultOverview from '~/components/entities/vault/overview/SecuritizeVaultOverview.vue'
@@ -53,7 +54,8 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
-const { getVault, getSecuritizeVault, updateVault, escrowMap, isEscrowLoadedOnce } = useVaults()
+const { getVault, getSecuritizeVault, updateVault, isEscrowLoadedOnce } = useVaults()
+const { get: registryGet, getVault: registryGetVault } = useVaultRegistry()
 const { isConnected } = useAccount()
 const { getBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -87,28 +89,30 @@ else {
   try {
     const normalizedAddress = ethers.getAddress(vaultAddress)
 
-    // Fast path: escrow vaults already loaded and address is in escrowMap
-    if (escrowMap.value.has(normalizedAddress)) {
-      evkVault.value = escrowMap.value.get(normalizedAddress)
+    // Fast path: vault already in registry
+    const registryEntry = registryGet(normalizedAddress)
+    if (registryEntry?.type === 'escrow' || registryEntry?.type === 'evk') {
+      evkVault.value = registryEntry.vault as Vault
     }
     // Escrow vaults haven't loaded yet - wait for them
     else if (!isEscrowLoadedOnce.value) {
       await until(isEscrowLoadedOnce).toBe(true)
-      if (escrowMap.value.has(normalizedAddress)) {
-        evkVault.value = escrowMap.value.get(normalizedAddress)
+      const entryAfterLoad = registryGet(normalizedAddress)
+      if (entryAfterLoad?.type === 'escrow' || entryAfterLoad?.type === 'evk') {
+        evkVault.value = entryAfterLoad.vault as Vault
       }
       else {
         evkVault.value = await getVault(vaultAddress)
       }
     }
-    // Escrow vaults loaded and address not in escrowMap - regular vault
+    // Escrow vaults loaded and address not in registry as escrow - regular vault
     else {
-    evkVault.value = await getVault(vaultAddress)
+      evkVault.value = await getVault(vaultAddress)
     }
 
-    // Load any collateral vaults that aren't already in our maps
+    // Load any collateral vaults that aren't already in registry
     if (evkVault.value) {
-      const { list, escrowMap: escrowMapRef, securitizeMap: securitizeMapRef } = useVaults()
+      const { has: registryHas } = useVaultRegistry()
 
       const collateralAddresses = evkVault.value.collateralLTVs
         .filter(ltv => getCurrentLiquidationLTV(ltv) > 0n)
@@ -117,10 +121,8 @@ else {
       // Check and load missing collaterals in parallel
       await Promise.all(
         collateralAddresses.map(async (collateralAddr) => {
-          // Skip if already loaded in any map
-          if (list.value.some(v => v.address === collateralAddr)) return
-          if (escrowMapRef.value.has(collateralAddr)) return
-          if (securitizeMapRef.value.has(collateralAddr)) return
+          // Skip if already loaded in registry
+          if (registryHas(collateralAddr)) return
 
           try {
             // Try regular vault first, then securitize

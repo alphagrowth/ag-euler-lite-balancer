@@ -7,6 +7,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, getVaultPrice, getVaultPriceDisplay, getCollateralAssetPriceFromLiability, type Vault } from '~/entities/vault'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const { position } = defineProps<{ position: AccountBorrowPosition }>()
 
@@ -30,7 +31,8 @@ type PositionCollateral = {
 }
 
 const collateralItems = ref<PositionCollateral[]>([])
-const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { getVault, isReady: isVaultsReady } = useVaults()
+const { getVault: registryGetVault } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
@@ -173,13 +175,12 @@ const loadCollaterals = async () => {
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {
         try {
-          const vault = map.value.get(address) || await getVault(address)
+          const vault = registryGetVault(address) as Vault | undefined || await getVault(address)
           let assets = 0n
 
           try {
             const res = await accountLensContract.getAccountInfo(position.subAccount, address)
             assets = res.vaultAccountInfo.assets
-            console.log(assets)
           }
           catch {
             if (address === primaryAddress) {

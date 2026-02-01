@@ -25,6 +25,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,7 +39,8 @@ const reviewSwapLabel = getSubmitLabel('Review Swap')
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
-const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { getVault, isReady: isVaultsReady } = useVaults()
+const { getVault: registryGetVault } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
@@ -153,11 +155,11 @@ const loadSelectedCollateral = async () => {
 
     await until(isVaultsReady).toBe(true)
 
-    // Try loading as regular vault first, then as securitize
-    let vault: Vault | SecuritizeVault | undefined = map.value.get(targetAddress)
+    // Try loading from registry first, then as securitize or regular vault
+    let vault: Vault | SecuritizeVault | undefined = registryGetVault(targetAddress) as Vault | SecuritizeVault | undefined
     if (!vault) {
-      const isSecuritize = await isSecuritizeVault(targetAddress)
-      if (isSecuritize) {
+      const isSecuritizeResult = await isSecuritizeVault(targetAddress)
+      if (isSecuritizeResult) {
         vault = await fetchSecuritizeVault(targetAddress)
       }
       else {
