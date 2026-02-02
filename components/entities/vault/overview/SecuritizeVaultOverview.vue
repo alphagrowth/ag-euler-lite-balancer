@@ -102,13 +102,12 @@ const supplyCapPercentageDisplay = computed(() => {
 <template>
   <div
     class="flex flex-col"
-    :class="[!desktopOverview ? 'gap-12' : '']"
+    :class="[desktopOverview ? 'gap-16' : 'gap-12']"
   >
     <!-- Overview -->
     <div
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-      :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0 bg-transparent shadow-none' : '']"
-    >
+          >
       <p class="text-h3 text-content-primary">
         Overview
       </p>
@@ -184,8 +183,7 @@ const supplyCapPercentageDisplay = computed(() => {
     <!-- Statistics -->
     <div
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-      :class="[desktopOverview ? 'py-16 px-0 bg-transparent shadow-none' : '']"
-    >
+          >
       <p class="text-h3 text-content-primary">
         Statistics
       </p>
@@ -206,8 +204,7 @@ const supplyCapPercentageDisplay = computed(() => {
     <!-- Risk Parameters -->
     <div
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-      :class="[desktopOverview ? 'py-16 px-0 bg-transparent shadow-none' : '']"
-    >
+          >
       <p class="text-h3 text-content-primary">
         Risk parameters
       </p>
@@ -248,8 +245,7 @@ const supplyCapPercentageDisplay = computed(() => {
     <div
       v-if="borrowMarkets.length"
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-      :class="[desktopOverview ? 'py-16 px-0 bg-transparent shadow-none' : '']"
-    >
+          >
       <div>
         <p class="text-h3 text-content-primary mb-12">
           Borrow Markets
@@ -296,8 +292,7 @@ const supplyCapPercentageDisplay = computed(() => {
     <!-- Addresses -->
     <div
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-      :class="[desktopOverview ? 'py-16 px-0 bg-transparent shadow-none' : '']"
-    >
+          >
       <p class="text-h3 text-content-primary">
         Addresses
       </p>

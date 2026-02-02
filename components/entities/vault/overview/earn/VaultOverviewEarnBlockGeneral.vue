@@ -21,7 +21,7 @@ const feeDisplay = computed(() => {
 </script>
 
 <template>
-  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-20 shadow-card">
+  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card">
     <p class="text-h3 text-content-primary">
       Overview
     </p>
