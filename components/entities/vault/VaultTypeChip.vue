@@ -15,7 +15,12 @@ const isVerified = computed(() => {
   return true
 })
 
+const isWarning = computed(() => !isVerified.value || type === 'unknown')
+
 const icon = computed(() => {
+  if (isWarning.value) {
+    return 'warning'
+  }
   switch (type) {
     case 'governed':
     case 'managed':
@@ -23,11 +28,17 @@ const icon = computed(() => {
     case 'escrow':
     case 'securitize':
       return 'shield'
+    case 'ungoverned':
+      return 'pulse'
   }
 
   return 'pulse'
 })
+
 const label = computed(() => {
+  if (!isVerified.value) {
+    return 'Unknown'
+  }
   switch (type) {
     case 'governed':
       return 'Governed'
@@ -37,35 +48,27 @@ const label = computed(() => {
       return 'Escrowed collateral'
     case 'securitize':
       return 'Securitize Digital Security'
+    case 'ungoverned':
+      return 'Ungoverned'
+    case 'unknown':
+      return 'Unknown'
   }
 
-  return 'Edge'
+  return 'Unknown'
 })
 </script>
 
 <template>
-  <template v-if="!isVerified">
-    <div
-      class="vault-type-chip flex gap-8 items-center py-8 px-12 rounded-8 vault-type-chip--warning"
-    >
-      <UiIcon
-        class="mr-2 !w-20 !h-20"
-        name="warning"
-      />
-      Unknown
-    </div>
-  </template>
-  <template v-else>
-    <div
-      class="vault-type-chip flex gap-8 items-center py-8 px-12 rounded-8"
-    >
-      <UiIcon
-        class="mr-2 !w-20 !h-20"
-        :name="icon"
-      />
-      {{ label }}
-    </div>
-  </template>
+  <div
+    class="vault-type-chip flex gap-8 items-center py-8 px-12 rounded-8"
+    :class="{ 'vault-type-chip--warning': isWarning }"
+  >
+    <UiIcon
+      class="mr-2 !w-20 !h-20"
+      :name="icon"
+    />
+    {{ label }}
+  </div>
 </template>
 
 <style scoped lang="scss">

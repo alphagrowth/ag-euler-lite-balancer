@@ -72,8 +72,8 @@ const feeDisplay = computed(() => {
       <VaultOverviewLabelValue label="Vault type">
         <VaultTypeChip
           :vault="vault"
-          :type="entities.length ? 'managed' : ''"
-      />
+          :type="entities.length ? 'managed' : 'unknown'"
+        />
       </VaultOverviewLabelValue>
     </div>
   </div>

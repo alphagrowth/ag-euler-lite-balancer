@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ethers } from 'ethers'
 import { getVaultPrice, getVaultPriceDisplay, type Vault } from '~/entities/vault'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
@@ -24,6 +25,23 @@ const borrowCount = computed(() => {
 const priceDisplay = computed(() => {
   const price = getVaultPriceDisplay(1, vault)
   return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+})
+
+const vaultGovernanceType = computed(() => {
+  // Escrow vault
+  if ('type' in vault && vault.type === 'escrow') {
+    return 'escrow'
+  }
+  // Has matching entity → governed
+  if (entities.value.length) {
+    return 'governed'
+  }
+  // Zero governorAdmin → ungoverned
+  if (!vault.governorAdmin || vault.governorAdmin === ethers.ZeroAddress) {
+    return 'ungoverned'
+  }
+  // Non-zero but no matching entity → unknown
+  return 'unknown'
 })
 </script>
 
@@ -79,7 +97,7 @@ const priceDisplay = computed(() => {
       <VaultOverviewLabelValue label="Vault type">
         <VaultTypeChip
           :vault="vault"
-          :type="entities.length ? 'governed' : 'type' in vault ? vault.type as string : ''"
+          :type="vaultGovernanceType"
         />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Can be borrowed">
