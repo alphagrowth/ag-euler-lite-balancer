@@ -7,8 +7,8 @@ import {
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { availableNetworkIds } from '~/entities/custom'
 
-const projectId = 'b4d5f74af3e208693c5c26a4eb041592' // https://reown.com/
-const url = 'https://beta-lite.boostcult.fun'
+const projectId = 'ccadfcc776ee01803789bf564a9c4a30' // https://reown.com/
+const url = 'https://euler-securitize-production.up.railway.app/'
 
 const metadata = {
   name: 'Euler Lite',
