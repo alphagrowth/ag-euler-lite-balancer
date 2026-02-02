@@ -618,15 +618,11 @@ const multiplyRoeBefore = computed(() => {
   if (isMultiplyQuoteLoading.value) {
     return null
   }
-  if (multiplySupplyValueUsd.value === null || multiplySupplyApy.value === null) {
+  if (multiplySupplyValueUsd.value === null) {
     return null
   }
-  return calculateRoe(
-    multiplySupplyValueUsd.value,
-    0,
-    multiplySupplyApy.value,
-    multiplyBorrowApy.value || 0,
-  )
+  // New position: no existing ROE yet
+  return 0
 })
 const multiplyRoeAfter = computed(() => {
   if (isMultiplyQuoteLoading.value) {
@@ -699,7 +695,7 @@ const multiplyCurrentHealth = computed(() => {
     return null
   }
   if (multiplyCurrentLtv.value <= 0) {
-    return multiplyNextHealth.value
+    return Number.POSITIVE_INFINITY
   }
   return multiplyLiquidationLtv.value / multiplyCurrentLtv.value
 })
@@ -723,6 +719,9 @@ const multiplyCurrentLiquidationPrice = computed(() => {
   }
   if (!multiplyPriceRatio.value || !multiplyCurrentHealth.value) {
     return null
+  }
+  if (!Number.isFinite(multiplyCurrentHealth.value)) {
+    return Number.POSITIVE_INFINITY
   }
   if (multiplyCurrentHealth.value <= 0) {
     return null
