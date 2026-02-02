@@ -84,6 +84,11 @@ const label = computed(() => {
   &--warning {
     background-color: var(--warning-100);
     color: var(--warning-500);
+
+    [data-theme="dark"] & {
+      background-color: var(--warning-100);
+      color: var(--warning-500);
+    }
   }
 }
 </style>
