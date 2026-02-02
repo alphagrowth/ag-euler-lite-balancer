@@ -2,7 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { getNetAPY, getVaultPrice, type Vault } from '~/entities/vault'
+import { getNetAPY, getUnitOfAccountUsdPrice, getVaultOraclePrice, getVaultPrice, type Vault } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
@@ -115,6 +115,13 @@ const netAssetValueUsd = computed(() => {
 
   return collateralValueUsd.value - getVaultPrice(position.value.borrowed, borrowVault.value)
 })
+const unitOfAccountUsdPrice = computed(() => {
+  if (!position.value) {
+    return 0
+  }
+
+  return getUnitOfAccountUsdPrice(borrowVault.value)
+})
 const liquidationPrice = computed(() => {
   if (!position.value) return undefined
 
@@ -124,7 +131,12 @@ const liquidationPrice = computed(() => {
     return undefined
   }
 
-  return nanoToValue(price, 18)
+  const unitPrice = unitOfAccountUsdPrice.value
+  if (!unitPrice) {
+    return undefined
+  }
+
+  return nanoToValue(price, 18) * unitPrice
 })
 const borrowLiquidationPrice = computed(() => {
   if (!position.value) return undefined
@@ -137,7 +149,11 @@ const borrowLiquidationPrice = computed(() => {
   }
 
   const multiplier = nanoToValue(collateralValueLiquidation, 18) / nanoToValue(liabilityValue, 18)
-  const currentBorrowPrice = getVaultPrice(1, borrowVault.value)
+  const currentBorrowPrice = getVaultOraclePrice(1, borrowVault.value)
+
+  if (!currentBorrowPrice) {
+    return undefined
+  }
 
   return currentBorrowPrice * multiplier
 })
@@ -499,10 +515,22 @@ watch(isConnected, () => {
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
               <div class="text-euler-dark-900 text-p3">
-                Oracle price
+                Current price
               </div>
               <div class="text-white text-p3">
                 ${{ formatNumber(getVaultPrice(1, position.borrow)) }}
+              </div>
+            </div>
+            <div class="flex justify-between gap-8 flex-wrap mb-12">
+              <div class="text-euler-dark-900 text-p3">
+                Oracle price
+              </div>
+              <div class="text-white text-p3">
+                {{
+                  getVaultOraclePrice(1, position.borrow)
+                    ? `$${formatNumber(getVaultOraclePrice(1, position.borrow))}`
+                    : '-'
+                }}
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
@@ -595,10 +623,26 @@ watch(isConnected, () => {
               </div>
               <div class="flex justify-between gap-8 flex-wrap mb-16">
                 <div class="text-euler-dark-900 text-p3">
-                  Oracle price
+                  Current price
                 </div>
                 <div class="text-white text-p3">
                   ${{ formatNumber(getVaultPrice(1, collateral.vault)) }}
+                </div>
+              </div>
+              <div class="flex justify-between gap-8 flex-wrap mb-16">
+                <div class="text-euler-dark-900 text-p3">
+                  Oracle price
+                </div>
+                <div class="text-white text-p3">
+                  {{
+                    hasNoBorrow
+                      ? (getVaultOraclePrice(1, collateral.vault)
+                          ? `$${formatNumber(getVaultOraclePrice(1, collateral.vault))}`
+                          : '-')
+                      : (getVaultOraclePrice(1, collateral.vault, borrowVault)
+                          ? `$${formatNumber(getVaultOraclePrice(1, collateral.vault, borrowVault))}`
+                          : '-')
+                  }}
                 </div>
               </div>
               <div
