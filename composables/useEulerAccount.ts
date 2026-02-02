@@ -736,7 +736,7 @@ const updateEarnPositions = async (
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
 
-    const earnVaultsList = getEarnVaults()
+    const earnVaultsList = getEarnVaults().filter(v => v.verified)
     for (let i = 0; i < earnVaultsList.length; i += batchSize) {
       const batch = earnVaultsList
         .slice(i, i + batchSize)

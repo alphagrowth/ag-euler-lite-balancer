@@ -317,13 +317,11 @@ const getEarnVault = async (address: string): Promise<EarnVault> => {
   const { getEarnVaults, getVault: registryGetVault, set: registrySet } = useVaultRegistry()
   const normalizedAddress = ethers.getAddress(address)
 
-  // Wait for earn vaults to be loaded
-  await until(computed(() => getEarnVaults().length > 0)).toBeTruthy()
-
+  // For custom labels repo, skip waiting and fetch directly
   if (labelsRepo !== 'euler-xyz/euler-labels') {
     const { earnVaults } = useEulerLabels()
 
-    if (Object.keys(earnVaults).includes(normalizedAddress)) {
+    if (earnVaults.value.includes(normalizedAddress)) {
       await until(computed(() => registryGetVault(normalizedAddress))).toBeTruthy()
     }
     else {
@@ -331,6 +329,10 @@ const getEarnVault = async (address: string): Promise<EarnVault> => {
       registrySet(normalizedAddress, vault, 'earn')
       return vault
     }
+  }
+  else {
+    // Wait for earn vaults to be loaded from governed perspective
+    await until(computed(() => getEarnVaults().length > 0)).toBeTruthy()
   }
 
   const existingVault = registryGetVault(normalizedAddress)

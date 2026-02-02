@@ -11,7 +11,7 @@ defineOptions({
 
 const { isEarnUpdating: isLoading } = useVaults()
 const { getEarnVaults } = useVaultRegistry()
-const list = computed(() => getEarnVaults())
+const list = computed(() => getEarnVaults().filter(v => v.verified))
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])

@@ -1195,7 +1195,9 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
     provider,
   )
 
-  const verifiedVaults = earnVaults.value.length ? earnVaults.value : await governedPerspectiveContract.verifiedArray() as string[]
+  const verifiedVaults = labelsRepo !== 'euler-xyz/euler-labels'
+    ? earnVaults.value
+    : await governedPerspectiveContract.verifiedArray() as string[]
 
   // Start block prefetch in parallel - will be awaited when needed for APY calculation
   const blockCachePromise = fetchBlockDataForAPY(provider)
