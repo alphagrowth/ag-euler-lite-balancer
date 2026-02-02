@@ -76,9 +76,16 @@ watch([quote, toVault], () => {
     return
   }
   const amountIn = getQuoteAmount(quote.value, 'amountIn')
-  toAmount.value = amountIn > 0n
-    ? formatSignificant(ethers.formatUnits(amountIn, Number(toVault.value.decimals)))
-    : ''
+  if (amountIn <= 0n) {
+    toAmount.value = ''
+    return
+  }
+  const formatted = ethers.formatUnits(amountIn, Number(toVault.value.decimals))
+  const numericValue = Number(formatted)
+  // Use more precision for very small amounts
+  toAmount.value = numericValue < 0.01
+    ? numericValue.toExponential(2)
+    : formatSignificant(formatted)
 }, { immediate: true })
 const currentDebt = computed(() => position.value?.borrowed || 0n)
 const balance = computed(() => currentDebt.value)
@@ -368,6 +375,14 @@ const routedVia = computed(() => {
   }
   return quote.value.route.map(route => route.providerName).join(', ')
 })
+const formatSmallAmount = (value: bigint, decimals: number) => {
+  const formatted = ethers.formatUnits(value, decimals)
+  const numericValue = Number(formatted)
+  return numericValue < 0.01 && numericValue > 0
+    ? numericValue.toExponential(2)
+    : formatSignificant(formatted)
+}
+
 const swapRouteItems = computed(() => {
   if (!toVault.value) {
     return []
@@ -375,9 +390,7 @@ const swapRouteItems = computed(() => {
   const bestProvider = quoteCardsSorted.value[0]?.provider
   return quoteCardsSorted.value.map((card) => {
     const amountIn = getQuoteAmount(card.quote, 'amountIn')
-    const amount = formatSignificant(
-      ethers.formatUnits(amountIn, Number(toVault.value.decimals)),
-    )
+    const amount = formatSmallAmount(amountIn, Number(toVault.value.decimals))
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
       ? { label: 'Best', tone: 'best' as const }
@@ -415,6 +428,12 @@ const errorText = computed(() => {
   catch {
     return null
   }
+  if (selectedQuote.value && +fromAmount.value > 0) {
+    const amountOut = getQuoteAmount(selectedQuote.value, 'amountOut')
+    if (amountOut <= 0n) {
+      return 'Output amount is below minimum'
+    }
+  }
   return null
 })
 const healthError = computed(() => {
@@ -432,10 +451,11 @@ const isSubmitDisabled = computed(() => {
   if (!fromVault.value?.asset || !toVault.value?.asset || !selectedQuote.value) {
     return true
   }
+  const amountOut = getQuoteAmount(selectedQuote.value, 'amountOut')
   return isLoading.value
     || isQuoteLoading.value
     || !(+fromAmount.value)
-    || !toAmount.value
+    || amountOut <= 0n
     || !!errorText.value
     || !!healthError.value
 })
