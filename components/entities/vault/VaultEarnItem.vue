@@ -30,6 +30,7 @@ const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
 const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
+const isUnverified = computed(() => !vault.verified)
 const displayName = computed(() => product.name || vault.name)
 
 const totalSupplyPrice = computed(() => {
@@ -56,7 +57,10 @@ const walletBalancePrice = computed(() => {
       />
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4">
-          {{ displayName }}
+          <VaultDisplayName
+            :name="displayName"
+            :is-unverified="isUnverified"
+          />
         </div>
         <div class="text-h5 text-content-primary">
           {{ vault.asset.symbol }}

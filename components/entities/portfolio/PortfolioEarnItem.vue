@@ -14,6 +14,7 @@ const vault = computed(() => position.vault)
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
+const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
 const displayName = computed(() => product.name || vault.value.name)
 
 const supplyValueDisplay = computed(() => {
@@ -57,7 +58,10 @@ const onClick = () => {
         />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4">
-            {{ displayName }}
+            <VaultDisplayName
+              :name="displayName"
+              :is-unverified="isUnverified"
+            />
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}

@@ -67,27 +67,11 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
     />
 
     <div>
-      <p
-        v-if="'verified' in vault && !vault.verified"
-        class="flex text-warning-500 mb-4 items-center gap-4"
-      >
-        <SvgIcon
-          name="warning"
-          class="!w-20 !h-20"
+      <p class="text-content-tertiary mb-4">
+        <VaultDisplayName
+          :name="pairVault ? displayLabel : displayName"
+          :is-unverified="('verified' in vault && !vault.verified) || (pairVault && 'verified' in pairVault && !pairVault.verified)"
         />
-        Unknown
-      </p>
-      <p
-        v-else-if="'type' in vault && vault.type === 'escrow'"
-        class="text-content-tertiary mb-4"
-      >
-        {{ displayLabel }}
-      </p>
-      <p
-        v-else
-        class="text-content-tertiary mb-4"
-      >
-        {{ pairVault ? displayLabel : displayName }}
       </p>
 
       <p class="text-p2 font-semibold text-content-primary">

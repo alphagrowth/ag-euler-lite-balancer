@@ -45,6 +45,12 @@ const collateralSymbolLabel = computed(() => {
 })
 const pairSymbols = computed(() => `${collateralSymbolLabel.value}/${position.borrow.asset.symbol}`)
 
+const isAnyUnverified = computed(() => {
+  const collateralUnverified = 'verified' in position.collateral && !position.collateral.verified
+  const borrowUnverified = 'verified' in position.borrow && !position.borrow.verified
+  return collateralUnverified || borrowUnverified
+})
+
 const collateralLabel = computed(() => {
   if ('type' in position.collateral && position.collateral.type === 'escrow') {
     return 'Escrowed collateral'
@@ -242,7 +248,10 @@ onMounted(() => {
           />
           <div>
             <div class="text-content-tertiary text-p3 mb-4">
-              {{ pairName }}
+              <VaultDisplayName
+                :name="pairName"
+                :is-unverified="isAnyUnverified"
+              />
             </div>
             <div class="text-h5 text-content-primary">
               {{ pairSymbols }}

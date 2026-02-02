@@ -12,6 +12,7 @@ const { isConnected } = useAccount()
 const { vault } = defineProps<{ vault: Vault }>()
 const { isVaultGovernorVerified } = useVaults()
 const product = useEulerProductOfVault(vault.address)
+const isUnverified = computed(() => !vault.verified)
 const displayName = computed(() => product.name || vault.name)
 const entities = useEulerEntitiesOfVault(vault)
 const { getBalance, isLoading: isBalancesLoading } = useWallets()
@@ -70,7 +71,10 @@ const onWarningClick = () => {
       />
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4">
-          {{ displayName }}
+          <VaultDisplayName
+            :name="displayName"
+            :is-unverified="isUnverified"
+          />
         </div>
         <div class="text-h5 text-content-primary">
           {{ vault.asset.symbol }}

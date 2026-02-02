@@ -19,6 +19,12 @@ const borrowProduct = useEulerProductOfVault(computed(() => pair.borrow.address)
 
 const isEscrowCollateral = computed(() => 'type' in pair.collateral && pair.collateral.type === 'escrow')
 
+const isAnyUnverified = computed(() => {
+  const collateralUnverified = 'verified' in pair.collateral && !pair.collateral.verified
+  const borrowUnverified = 'verified' in pair.borrow && !pair.borrow.verified
+  return collateralUnverified || borrowUnverified
+})
+
 const pairName = computed(() => {
   // Handle escrow collateral specially
   const collateralName = isEscrowCollateral.value
@@ -96,7 +102,10 @@ const linkPath = computed(() => `/borrow/${pair.collateral.address}/${pair.borro
       />
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
-          {{ pairName }}
+          <VaultDisplayName
+            :name="pairName"
+            :is-unverified="isAnyUnverified"
+          />
           <span
             v-if="isSecuritize"
             class="bg-surface-secondary text-content-tertiary px-8 py-2 rounded-8 text-p4"

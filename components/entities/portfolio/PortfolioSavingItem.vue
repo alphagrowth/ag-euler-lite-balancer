@@ -27,7 +27,12 @@ const supplyApy = computed(() => {
 const supplyApyWithRewards = computed(() => supplyApy.value + (opportunityInfo.value?.apr || 0))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
-const displayName = computed(() => product.name || vault.value.name)
+const isEscrow = computed(() => 'type' in vault.value && vault.value.type === 'escrow')
+const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
+const displayName = computed(() => {
+  if (isEscrow.value) return 'Escrowed collateral'
+  return product.name || vault.value.name
+})
 
 const supplyValueDisplay = computed(() => {
   if (!regularVault.value)
@@ -79,7 +84,10 @@ const onClick = () => {
         />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4">
-            {{ displayName }}
+            <VaultDisplayName
+              :name="displayName"
+              :is-unverified="isUnverified"
+            />
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
@@ -156,7 +164,10 @@ const onClick = () => {
         />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4">
-            {{ displayName }}
+            <VaultDisplayName
+              :name="displayName"
+              :is-unverified="isUnverified"
+            />
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
