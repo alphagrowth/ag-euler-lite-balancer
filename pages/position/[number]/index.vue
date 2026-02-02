@@ -2,7 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { getNetAPY, getVaultPrice, getCollateralAssetPriceFromLiability, type Vault, type SecuritizeVault } from '~/entities/vault'
+import { getNetAPY, getVaultPrice, getVaultOraclePrice, getCollateralAssetPriceFromLiability, type Vault, type SecuritizeVault } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
@@ -667,14 +667,10 @@ watch(isConnected, () => {
                   Oracle price
                 </div>
                 <div class="text-neutral-800 text-p3">
-                  {{
-                    hasNoBorrow
-                      ? (getVaultOraclePrice(1, collateral.vault)
-                          ? `$${formatNumber(getVaultOraclePrice(1, collateral.vault))}`
-                          : '-')
-                      : (getVaultOraclePrice(1, collateral.vault, borrowVault)
-                          ? `$${formatNumber(getVaultOraclePrice(1, collateral.vault, borrowVault))}`
-                          : '-')
+  {{
+                    getVaultOraclePrice(1, collateral.vault, borrowVault)
+                      ? `$${formatNumber(getVaultOraclePrice(1, collateral.vault, borrowVault))}`
+                      : '-'
                   }}
                 </div>
               </div>
