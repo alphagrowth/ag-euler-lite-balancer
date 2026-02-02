@@ -94,6 +94,7 @@ const multiplyInputAmount = ref('')
 const multiplier = ref(1)
 const multiplyLongAmount = ref('')
 const multiplyShortAmount = ref('')
+const multiplyAssetBalance: Ref<bigint> = ref(0n)
 const {
   sortedQuoteCards: multiplyQuoteCardsSorted,
   selectedProvider: multiplySelectedProvider,
@@ -376,10 +377,7 @@ const multiplySavingPosition = computed(() => {
   ) || null
 })
 const multiplySavingBalance = computed(() => {
-  if (!multiplySupplyVault.value) {
-    return 0n
-  }
-  return getBalance(multiplySupplyVault.value.address as `0x${string}`) || 0n
+  return multiplySavingPosition.value?.shares || 0n
 })
 const collateralOptions = computed(() => {
   const options = [
@@ -424,9 +422,9 @@ const resolveMultiplySubAccount = async () => {
 }
 const computedBalance = computed(() => {
   if (isSavingCollateral.value) return savingAssets.value || 0n
-  // Use getBalance directly to get latest balance (handles dynamically loaded vaults like securitize)
-  return getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
+  return balance.value
 })
+// Use local ref instead of getBalance() - vaults loaded after initial fetch are missing from global Map
 const multiplyBalance = computed(() => {
   if (!multiplySupplyVault.value) {
     return 0n
@@ -434,7 +432,7 @@ const multiplyBalance = computed(() => {
   if (isMultiplySavingCollateral.value) {
     return multiplySavingPosition.value?.assets || 0n
   }
-  return getBalance(multiplySupplyVault.value.asset.address as `0x${string}`) || 0n
+  return multiplyAssetBalance.value
 })
 const multiplyDebtAmountNano = computed(() => {
   if (!multiplySupplyVault.value || !multiplyShortVault.value) {
@@ -800,6 +798,7 @@ const updateBalance = async () => {
   if (!isConnected.value) {
     balance.value = 0n
     savingBalance.value = 0n
+    multiplyAssetBalance.value = 0n
     return
   }
 
@@ -817,6 +816,14 @@ const updateBalance = async () => {
   }
   else {
     savingBalance.value = 0n
+  }
+
+  // Fetch multiply supply vault's underlying asset balance
+  if (multiplySupplyVault.value?.asset.address) {
+    multiplyAssetBalance.value = await fetchSingleBalance(multiplySupplyVault.value.asset.address)
+  }
+  else {
+    multiplyAssetBalance.value = 0n
   }
 }
 const setMultiplyAmounts = (longAmount?: bigint | null, shortAmount?: bigint | null) => {
@@ -1329,6 +1336,14 @@ watch([multiplySupplyVault, multiplyLongVault, multiplyShortVault, isMultiplySav
   resetMultiplyQuoteState()
   if (multiplyInputAmount.value) {
     requestMultiplyQuote()
+  }
+})
+watch(multiplySupplyVault, async (newVault) => {
+  if (newVault?.asset.address && isConnected.value) {
+    multiplyAssetBalance.value = await fetchSingleBalance(newVault.asset.address)
+  }
+  else {
+    multiplyAssetBalance.value = 0n
   }
 })
 watch(multiplySelectedQuote, () => {
