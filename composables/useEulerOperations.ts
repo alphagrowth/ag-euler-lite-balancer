@@ -29,7 +29,7 @@ export const useEulerOperations = () => {
   const config = useConfig()
   const { eulerCoreAddresses, eulerPeripheryAddresses } = useEulerAddresses()
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
-  const { map } = useVaults()
+  const { map, earnMap } = useVaults()
 
   const rpcProvider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const resolvePermit2Address = (vaultAddr?: Address): Address | undefined => {
@@ -38,7 +38,8 @@ export const useEulerOperations = () => {
       return fallback && fallback !== ethers.ZeroAddress ? fallback : undefined
     }
 
-    const vault = map.value.get(ethers.getAddress(vaultAddr))
+    const normalized = ethers.getAddress(vaultAddr)
+    const vault = map.value.get(normalized) || earnMap.value.get(normalized)
     const vaultPermit2 = vault?.permit2 as Address | undefined
     const resolved = vaultPermit2 && vaultPermit2 !== ethers.ZeroAddress ? vaultPermit2 : fallback
 
@@ -207,7 +208,8 @@ export const useEulerOperations = () => {
           if (!target) {
             continue
           }
-          const vault = map.value.get(normalizeAddress(target))
+          const normalized = normalizeAddress(target)
+          const vault = map.value.get(normalized) || earnMap.value.get(normalized)
           if (!vault?.asset?.address) {
             continue
           }
