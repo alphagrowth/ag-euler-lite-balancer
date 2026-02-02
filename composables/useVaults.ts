@@ -34,9 +34,9 @@ const isEscrowLoadedOnce = ref(false)
 
 // Borrow pairs computed from registry (EVK + Escrow + Securitize collaterals)
 const borrowList = computed((): AnyBorrowVaultPair[] => {
-  const { getEvkVaults, getVault: registryGetVault } = useVaultRegistry()
+  const { getVerifiedEvkVaults, getVault: registryGetVault } = useVaultRegistry()
   const pairs: AnyBorrowVaultPair[] = []
-  const evkVaults = getEvkVaults()
+  const evkVaults = getVerifiedEvkVaults()
 
   evkVaults.forEach((borrowVault) => {
     borrowVault.collateralLTVs.forEach((ltv) => {

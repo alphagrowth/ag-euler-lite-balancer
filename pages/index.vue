@@ -11,8 +11,8 @@ defineOptions({
 })
 
 const { borrowList, isUpdating } = useVaults()
-const { getEvkVaults } = useVaultRegistry()
-const list = computed(() => getEvkVaults())
+const { getVerifiedEvkVaults } = useVaultRegistry()
+const list = computed(() => getVerifiedEvkVaults())
 
 const isLoading = computed(() => isUpdating.value)
 const { products, entities } = useEulerLabels()

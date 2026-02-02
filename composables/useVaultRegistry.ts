@@ -123,6 +123,11 @@ const getStandardEvkVaults = (): Vault[] => {
   return getEvkVaults().filter(v => v.vaultCategory !== 'escrow')
 }
 
+// Verified EVK vaults (for display in tables) - excludes dynamically fetched unknown vaults
+const getVerifiedEvkVaults = (): Vault[] => {
+  return getEvkVaults().filter(v => v.verified === true)
+}
+
 // Type checker convenience methods
 const isEscrowVault = (address: string): boolean => {
   const entry = get(address)
@@ -320,6 +325,7 @@ export const useVaultRegistry = () => {
     getEscrowVaults,
     getSecuritizeVaults,
     getStandardEvkVaults,
+    getVerifiedEvkVaults,
 
     // Type checkers
     isEscrowVault,
