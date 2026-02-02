@@ -1,69 +1,88 @@
 import { ethers } from 'ethers'
+import { useVaultRegistry } from './useVaultRegistry'
 import {
-  type BorrowVaultPair,
+  type AnyBorrowVaultPair,
   type EarnVault,
   type EscrowVault,
+  type SecuritizeVault,
   fetchEarnVaults,
   fetchVault,
   fetchEarnVault,
   fetchEscrowVault,
-  fetchEscrowVaults,
+  fetchEscrowAddresses,
+  fetchSecuritizeVault,
   fetchVaults,
-  getBorrowVaultPairByMapAndAddresses,
-  getBorrowVaultsByMap,
+  fetchVaultFactories,
+  isSecuritizeVault,
+  SECURITIZE_FACTORY_ADDRESS,
   type Vault,
 } from '~/entities/vault'
 import { labelsRepo } from '~/entities/custom'
+import { getProductByVault } from '~/composables/useEulerLabels'
 
 const isReady = ref(false)
 const isLoading = ref(false)
 const isUpdating = ref(false)
-const map: Ref<Map<string, Vault>> = shallowRef(new Map())
+const loadedChainId = ref<number | null>(null)
 
 const isEarnLoading = ref(false)
 const isEarnUpdating = ref(false)
-const earnMap: Ref<Map<string, EarnVault>> = shallowRef(new Map())
-const loadedChainId = ref<number | null>(null)
 
 const isEscrowLoading = ref(false)
 const isEscrowUpdating = ref(false)
-const escrowMap: Ref<Map<string, EscrowVault>> = shallowRef(new Map())
+const isEscrowLoadedOnce = ref(false)
 
-const list = computed(() => [...map.value.values()])
-const earnList = computed(() => [...earnMap.value.values()])
-const escrowList = computed(() => [...escrowMap.value.values()])
-const combinedVaultMap = computed(() => {
-  const combined = new Map<string, Vault>(map.value)
-  escrowMap.value.forEach((vault, address) => {
-    combined.set(address, vault)
+// Borrow pairs computed from registry (EVK + Escrow + Securitize collaterals)
+const borrowList = computed((): AnyBorrowVaultPair[] => {
+  const { getEvkVaults, getVault: registryGetVault } = useVaultRegistry()
+  const pairs: AnyBorrowVaultPair[] = []
+  const evkVaults = getEvkVaults()
+
+  evkVaults.forEach((borrowVault) => {
+    borrowVault.collateralLTVs.forEach((ltv) => {
+      if (ltv.borrowLTV <= 0n) return
+
+      const collateralVault = registryGetVault(ltv.collateral)
+      if (!collateralVault) return
+
+      pairs.push({
+        borrow: borrowVault,
+        collateral: collateralVault,
+        borrowLTV: ltv.borrowLTV,
+        liquidationLTV: ltv.liquidationLTV,
+        initialLiquidationLTV: ltv.initialLiquidationLTV,
+        targetTimestamp: ltv.targetTimestamp,
+        rampDuration: ltv.rampDuration,
+      } as AnyBorrowVaultPair)
+    })
   })
-  return combined
+
+  return pairs
 })
-const borrowList = computed(() => getBorrowVaultsByMap(combinedVaultMap.value))
 
 const resetVaultsState = () => {
+  const { clear } = useVaultRegistry()
+
   isReady.value = false
   isLoading.value = true
   isEarnLoading.value = true
-  escrowMap.value = new Map()
-  map.value = new Map()
-  earnMap.value = new Map()
+  isEscrowLoadedOnce.value = false
   loadedChainId.value = null
+  clear()
 }
 
-const updateVaults = async () => {
+const updateVaults = async (vaultAddresses?: string[]) => {
+  const { set: registrySet } = useVaultRegistry()
+
   try {
-    map.value = new Map()
     isUpdating.value = true
     isLoading.value = true
-    const currentMap = new Map(map.value)
 
-    for await (const result of fetchVaults()) {
+    for await (const result of fetchVaults(vaultAddresses)) {
       result.vaults.forEach((vault) => {
-        currentMap.set(vault.address, vault)
+        registrySet(vault.address, vault, 'evk')
       })
 
-      map.value = new Map(currentMap)
       isLoading.value = false
 
       if (result.isFinished) {
@@ -76,18 +95,17 @@ const updateVaults = async () => {
   }
 }
 const updateEarnVaults = async () => {
+  const { set: registrySet } = useVaultRegistry()
+
   try {
-    earnMap.value = new Map()
     isEarnUpdating.value = true
     isEarnLoading.value = true
-    const currentMap = new Map(earnMap.value)
 
     for await (const result of fetchEarnVaults()) {
       result.vaults.forEach((vault) => {
-        currentMap.set(vault.address, vault)
+        registrySet(vault.address, vault, 'earn')
       })
 
-      earnMap.value = new Map(currentMap)
       isEarnLoading.value = false
 
       if (result.isFinished) {
@@ -95,47 +113,157 @@ const updateEarnVaults = async () => {
       }
     }
   }
-  finally {
+  catch (e) {
+    // On error, set updating to false here since loadVaults won't complete
     isEarnUpdating.value = false
+    throw e
   }
+  // Note: isEarnUpdating is set to false in loadVaults() after all vaults are loaded
 }
 
-const updateEscrowVaults = async () => {
-  try {
-    escrowMap.value = new Map()
-    isEscrowUpdating.value = true
-    isEscrowLoading.value = true
-    const currentMap = new Map(escrowMap.value)
+/**
+ * Extract escrow vault addresses that are needed (used as collateral in EVK vaults
+ * or as strategies in Earn vaults).
+ */
+const extractNeededEscrowAddresses = (): string[] => {
+  const { getEvkVaults, getEarnVaults, isKnownEscrowAddress } = useVaultRegistry()
+  const needed = new Set<string>()
 
-    for await (const result of fetchEscrowVaults()) {
-      result.vaults.forEach((vault) => {
-        currentMap.set(vault.address, vault)
-      })
-
-      escrowMap.value = new Map(currentMap)
-      isEscrowLoading.value = false
-
-      if (result.isFinished) {
-        break
+  // 1. Escrow vaults used as collateral in EVK vaults
+  getEvkVaults().forEach((vault) => {
+    vault.collateralLTVs.forEach((ltv) => {
+      if (ltv.borrowLTV > 0n && isKnownEscrowAddress(ltv.collateral)) {
+        needed.add(ethers.getAddress(ltv.collateral))
       }
+    })
+  })
+
+  // 2. Escrow vaults used as strategies in Earn vaults
+  getEarnVaults().forEach((earnVault) => {
+    earnVault.strategies.forEach((strategyInfo) => {
+      if (isKnownEscrowAddress(strategyInfo.strategy)) {
+        needed.add(ethers.getAddress(strategyInfo.strategy))
+      }
+    })
+  })
+
+  return [...needed]
+}
+
+/**
+ * Fetch vault info only for the specified escrow addresses.
+ * Used for lazy loading - only fetch info for escrow vaults actually used as collateral.
+ */
+const fetchNeededEscrowVaults = async (addresses: string[]): Promise<void> => {
+  const { set: registrySet } = useVaultRegistry()
+
+  if (!addresses.length) {
+    return
+  }
+
+  const results = await Promise.allSettled(
+    addresses.map(addr => fetchEscrowVault(addr)),
+  )
+
+  results.forEach((result) => {
+    if (result.status === 'fulfilled') {
+      registrySet(result.value.address, result.value, 'evk')
     }
+    else {
+      console.warn('Failed to fetch escrow vault:', result.reason)
+    }
+  })
+}
+
+const updateSecuritizeVaults = async (securitizeAddresses: string[]) => {
+  const { set: registrySet } = useVaultRegistry()
+
+  if (!securitizeAddresses.length) {
+    return
   }
-  finally {
-    isEscrowUpdating.value = false
-  }
+
+  // Fetch securitize vault details
+  const results = await Promise.allSettled(
+    securitizeAddresses.map(addr => fetchSecuritizeVault(addr)),
+  )
+
+  results.forEach((result) => {
+    if (result.status === 'fulfilled') {
+      registrySet(result.value.address, result.value, 'securitize')
+    }
+  })
 }
 
 const loadVaults = async () => {
   const { chainId } = useEulerAddresses()
+  const { verifiedVaultAddresses } = useEulerLabels()
+  const { setEscrowAddresses } = useVaultRegistry()
   const startChainId = chainId.value
 
   try {
     resetVaultsState()
+    isEscrowUpdating.value = true
+    isEscrowLoading.value = true
+
+    // Phase 1: Fetch vault factories (escrow addresses fetched in Phase 2)
+    const factories = await fetchVaultFactories(verifiedVaultAddresses.value)
+
+    // Separate EVK vaults from Securitize vaults based on factory
+    const evkAddresses: string[] = []
+    const securitizeAddresses: string[] = []
+
+    verifiedVaultAddresses.value.forEach((addr) => {
+      const normalizedAddr = addr.toLowerCase()
+      const factory = factories.get(normalizedAddr)
+
+      if (factory?.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()) {
+        securitizeAddresses.push(addr)
+      }
+      else {
+        evkAddresses.push(addr)
+      }
+    })
+
+    // Phase 2: Fetch all vault types + escrow addresses in parallel
+    // Escrow vault info fetch starts when EVK, Earn, AND escrow addresses are all ready
+    // (need EVK collateralLTVs + Earn strategies to know which escrow vaults are needed)
+
+    // Signals for coordination
+    let evkResolve: () => void
+    let earnResolve: () => void
+    let escrowAddrsResolve: (addrs: string[]) => void
+    const evkLoaded = new Promise<void>(resolve => { evkResolve = resolve })
+    const earnLoaded = new Promise<void>(resolve => { earnResolve = resolve })
+    const escrowAddrsLoaded = new Promise<string[]>(resolve => { escrowAddrsResolve = resolve })
+
     await Promise.all([
-      updateEarnVaults(),
-      updateVaults(),
-      updateEscrowVaults(),
+      (async () => {
+        await updateEarnVaults()
+        earnResolve()
+      })(),
+      (async () => {
+        await updateVaults(evkAddresses)
+        evkResolve()
+      })(),
+      updateSecuritizeVaults(securitizeAddresses),
+      // Escrow addresses - fetch in parallel, populate set when ready
+      (async () => {
+        const addrs = await fetchEscrowAddresses()
+        setEscrowAddresses(addrs)
+        escrowAddrsResolve(addrs)
+      })(),
+      // Escrow vault info - waits for EVK, Earn, AND escrow addresses
+      Promise.all([evkLoaded, earnLoaded, escrowAddrsLoaded]).then(async () => {
+        const neededEscrowAddresses = extractNeededEscrowAddresses()
+        await fetchNeededEscrowVaults(neededEscrowAddresses)
+      }),
     ])
+
+    // Set loading flags AFTER all needed escrow vaults are loaded
+    isEarnUpdating.value = false
+    isEscrowUpdating.value = false
+    isEscrowLoading.value = false
+    isEscrowLoadedOnce.value = true
   }
   finally {
     if (chainId.value === startChainId) {
@@ -145,91 +273,185 @@ const loadVaults = async () => {
   }
 }
 const getVault = async (address: string): Promise<Vault> => {
-  const { vaults } = useEulerLabels()
+  const { verifiedVaultAddresses } = useEulerLabels()
+  const { getType, getVault: registryGetVault, has: registryHas, set: registrySet } = useVaultRegistry()
+  const normalizedAddress = ethers.getAddress(address)
 
-  if (Object.keys(vaults).includes(ethers.getAddress(address))) {
-    await until(computed(() => map.value.get(ethers.getAddress(address)))).toBeTruthy()
+  // Check if this is a securitize vault - if so, throw to trigger fallback
+  const vaultType = getType(normalizedAddress)
+  if (vaultType === 'securitize') {
+    throw new Error('[getVault] Address is a securitize vault, use getSecuritizeVault instead')
+  }
+
+  // If vault is already in registry as EVK, return it directly
+  // This prevents overwriting escrow vaults (which have verified: true) with fetchVault results
+  if (vaultType === 'evk') {
+    return registryGetVault(normalizedAddress) as Vault
+  }
+
+  // If still no type info and address is in verifiedVaultAddresses but not in registry,
+  // do an async check to avoid infinite wait on securitize vaults
+  if (
+    !vaultType
+    && verifiedVaultAddresses.value.includes(normalizedAddress)
+    && !registryHas(normalizedAddress)
+  ) {
+    const isSecuritize = await isSecuritizeVault(normalizedAddress)
+    if (isSecuritize) {
+      throw new Error('[getVault] Address is a securitize vault, use getSecuritizeVault instead')
+    }
+  }
+
+  if (verifiedVaultAddresses.value.includes(normalizedAddress)) {
+    await until(computed(() => registryGetVault(normalizedAddress))).toBeTruthy()
   }
   else {
-    return fetchVault(ethers.getAddress(address))
+    const vault = await fetchVault(normalizedAddress)
+    registrySet(normalizedAddress, vault, 'evk')
+    return vault
   }
 
-  return map.value.get(ethers.getAddress(address))!
+  return registryGetVault(normalizedAddress) as Vault
 }
 const getEarnVault = async (address: string): Promise<EarnVault> => {
-  await until(computed(() => earnMap.value.size)).toBeTruthy()
+  const { getEarnVaults, getVault: registryGetVault, set: registrySet } = useVaultRegistry()
+  const normalizedAddress = ethers.getAddress(address)
+
+  // Wait for earn vaults to be loaded
+  await until(computed(() => getEarnVaults().length > 0)).toBeTruthy()
 
   if (labelsRepo !== 'euler-xyz/euler-labels') {
     const { earnVaults } = useEulerLabels()
 
-    if (Object.keys(earnVaults).includes(ethers.getAddress(address))) {
-      await until(computed(() => earnMap.value.get(ethers.getAddress(address)))).toBeTruthy()
+    if (Object.keys(earnVaults).includes(normalizedAddress)) {
+      await until(computed(() => registryGetVault(normalizedAddress))).toBeTruthy()
     }
     else {
-      return fetchEarnVault(ethers.getAddress(address))
+      const vault = await fetchEarnVault(normalizedAddress)
+      registrySet(normalizedAddress, vault, 'earn')
+      return vault
     }
   }
 
-  return earnMap.value.get(ethers.getAddress(address)) || fetchEarnVault(ethers.getAddress(address))
+  const existingVault = registryGetVault(normalizedAddress)
+  if (existingVault) {
+    return existingVault as EarnVault
+  }
+
+  const vault = await fetchEarnVault(normalizedAddress)
+  registrySet(normalizedAddress, vault, 'earn')
+  return vault
 }
 const updateVault = async (vaultAddress: string): Promise<Vault> => {
+  const { set: registrySet } = useVaultRegistry()
   const address = ethers.getAddress(vaultAddress)
   const vault = await fetchVault(address)
-  map.value.set(address, vault)
+  registrySet(address, vault, 'evk')
   return vault
 }
 const updateEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
+  const { set: registrySet } = useVaultRegistry()
   const address = ethers.getAddress(vaultAddress)
   const vault = await fetchEarnVault(address)
-  earnMap.value.set(address, vault)
+  registrySet(address, vault, 'earn')
   return vault
 }
 
 const getEscrowVault = async (address: string): Promise<EscrowVault> => {
-  await until(computed(() => escrowMap.value.size)).toBeTruthy()
+  const { getVault: registryGetVault, isEscrowVault: registryIsEscrow, isKnownEscrowAddress, set: registrySet } = useVaultRegistry()
+  const normalizedAddress = ethers.getAddress(address)
 
-  if (escrowMap.value.has(ethers.getAddress(address))) {
-    return escrowMap.value.get(ethers.getAddress(address))!
+  // Wait for escrow loading to complete (address set populated, needed vaults loaded)
+  if (!isEscrowLoadedOnce.value) {
+    await until(isEscrowLoadedOnce).toBe(true)
   }
-  else {
-    return fetchEscrowVault(ethers.getAddress(address))
-  }
-}
 
-const updateEscrowVault = async (vaultAddress: string): Promise<EscrowVault> => {
-  const address = ethers.getAddress(vaultAddress)
-  const vault = await fetchEscrowVault(address)
-  escrowMap.value.set(address, vault)
+  // Check if already in registry with full vault info
+  const existingVault = registryGetVault(normalizedAddress)
+  if (existingVault && registryIsEscrow(normalizedAddress)) {
+    return existingVault as EscrowVault
+  }
+
+  // If it's a known escrow address but not in registry (wasn't needed during initial load),
+  // fetch on-demand
+  if (isKnownEscrowAddress(normalizedAddress)) {
+    const vault = await fetchEscrowVault(normalizedAddress)
+    registrySet(normalizedAddress, vault, 'evk')
+    return vault
+  }
+
+  // Last resort: try fetching anyway (might be an escrow vault not in perspective yet)
+  const vault = await fetchEscrowVault(normalizedAddress)
+  registrySet(normalizedAddress, vault, 'evk')
   return vault
 }
 
-const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: string): Promise<BorrowVaultPair> => {
+const updateEscrowVault = async (vaultAddress: string): Promise<EscrowVault> => {
+  const { set: registrySet } = useVaultRegistry()
+  const address = ethers.getAddress(vaultAddress)
+  const vault = await fetchEscrowVault(address)
+  registrySet(address, vault, 'evk')
+  return vault
+}
+
+const getSecuritizeVault = async (address: string): Promise<SecuritizeVault> => {
+  const normalizedAddress = ethers.getAddress(address)
+  const { getVault: registryGetVault, getType, set: registrySet } = useVaultRegistry()
+
+  if (getType(normalizedAddress) === 'securitize') {
+    return registryGetVault(normalizedAddress) as SecuritizeVault
+  }
+
+  const vault = await fetchSecuritizeVault(normalizedAddress)
+  registrySet(normalizedAddress, vault, 'securitize')
+  return vault
+}
+
+const getBorrowVaultPair = async (
+  collateralAddress: string,
+  borrowAddress: string,
+): Promise<AnyBorrowVaultPair> => {
+  const {
+    getVault: registryGetVault,
+    getType,
+    isEscrowVault: registryIsEscrow,
+    set: registrySet,
+  } = useVaultRegistry()
   const collateralAddr = ethers.getAddress(collateralAddress)
   const borrowAddr = ethers.getAddress(borrowAddress)
 
-  if (map.value.has(borrowAddr)) {
-    if (map.value.has(collateralAddr)) {
-      return getBorrowVaultPairByMapAndAddresses(map.value, collateralAddr, borrowAddr)
-    }
-    else if (escrowMap.value.has(collateralAddr)) {
-      const borrowVault = map.value.get(borrowAddr)!
-      const escrowVault = escrowMap.value.get(collateralAddr)!
+  // Wait for escrow vaults to load before checking registry
+  if (!isEscrowLoadedOnce.value) {
+    await until(isEscrowLoadedOnce).toBe(true)
+  }
+
+  const borrowType = getType(borrowAddr)
+  if (borrowType === 'evk') {
+    const borrowVault = registryGetVault(borrowAddr) as Vault
+    const collateralType = getType(collateralAddr)
+
+    if (collateralType === 'evk' || collateralType === 'securitize') {
+      const collateralVault = registryGetVault(collateralAddr)!
       const ltv = borrowVault.collateralLTVs.find(c => c.collateral === collateralAddr)
 
       if (!ltv) {
-        throw '[getBorrowVaultPair]: Collateral LTV not found for escrow vault'
+        const vaultTypeLabel = collateralType === 'securitize' ? 'securitize vault' : (registryIsEscrow(collateralAddr) ? 'escrow vault' : 'vault')
+        throw `[getBorrowVaultPair]: Collateral LTV not found for ${vaultTypeLabel}`
       }
 
       return {
         borrow: borrowVault,
-        collateral: escrowVault,
+        collateral: collateralVault,
         borrowLTV: ltv.borrowLTV,
         liquidationLTV: ltv.liquidationLTV,
         initialLiquidationLTV: ltv.initialLiquidationLTV,
-      }
+        targetTimestamp: ltv.targetTimestamp,
+        rampDuration: ltv.rampDuration,
+      } as AnyBorrowVaultPair
     }
   }
 
+  // Fallback: fetch borrow vault if not in registry
   const borrowVault = await fetchVault(borrowAddr)
   if (!borrowVault) {
     throw '[getBorrowVaultPair]: Borrow vault not found'
@@ -240,20 +462,36 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
     throw '[getBorrowVaultPair]: Collateral not configured for this borrow vault'
   }
 
-  let collateralVault
-  if (escrowMap.value.has(collateralAddr)) {
+  // Check collateral type from registry
+  const collateralType = getType(collateralAddr)
+  let collateralVault: Vault | EscrowVault | SecuritizeVault | undefined
+
+  if (registryIsEscrow(collateralAddr)) {
     collateralVault = await getEscrowVault(collateralAddr)
   }
+  else if (collateralType === 'securitize') {
+    collateralVault = registryGetVault(collateralAddr) as SecuritizeVault
+  }
   else {
-    collateralVault = await fetchVault(collateralAddr)
-
-    // If unverified, it might be an escrow vault - try fetching as escrow
-    if (!collateralVault.verified) {
+    try {
+      collateralVault = await fetchVault(collateralAddr)
+    }
+    catch {
+      // Try escrow vault first
       try {
         collateralVault = await fetchEscrowVault(collateralAddr)
       }
       catch {
-        // Not an escrow vault either, keep the unverified regular vault
+        // Check if it's a securitize vault
+        const isSecuritize = await isSecuritizeVault(collateralAddr)
+        if (isSecuritize) {
+          collateralVault = await fetchSecuritizeVault(collateralAddr)
+          // Add to registry so balances can be fetched
+          registrySet(collateralAddr, collateralVault, 'securitize')
+        }
+        else {
+          throw '[getBorrowVaultPair]: Failed to fetch collateral vault'
+        }
       }
     }
   }
@@ -264,37 +502,112 @@ const getBorrowVaultPair = async (collateralAddress: string, borrowAddress: stri
     borrowLTV: collateralLTV.borrowLTV,
     liquidationLTV: collateralLTV.liquidationLTV,
     initialLiquidationLTV: collateralLTV.initialLiquidationLTV,
-  }
+    targetTimestamp: collateralLTV.targetTimestamp,
+    rampDuration: collateralLTV.rampDuration,
+  } as AnyBorrowVaultPair
 }
 
 export const useVaults = () => {
+  // Check if vault's on-chain governorAdmin matches any of the product's declared entities
+  const isVaultGovernorVerified = (vault: Vault): boolean => {
+    const { entities } = useEulerLabels()
+
+    // Escrow vaults don't have a risk manager - show "-" not "Unknown"
+    if ('type' in vault && (vault as { type: string }).type === 'escrow') {
+      return true
+    }
+
+    // Unverified vaults (not in products.json) show unknown risk manager
+    if (!vault.verified) {
+      return false
+    }
+
+    const product = getProductByVault(vault.address)
+    if (!product.name) {
+      // Vault marked verified but not in products.json - shouldn't happen, but treat as unknown
+      return false
+    }
+
+    const declaredEntityKeys = Array.isArray(product.entity) ? product.entity : [product.entity].filter(Boolean)
+    if (declaredEntityKeys.length === 0) {
+      // No entities declared in product, nothing to verify against
+      return true
+    }
+
+    // Check if governorAdmin matches any address in any of the declared entities
+    for (const entityKey of declaredEntityKeys) {
+      const entity = entities[entityKey]
+      if (entity && Object.keys(entity.addresses).includes(vault.governorAdmin)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  // Check if earn vault's on-chain owner matches any of the product's declared entities
+  const isEarnVaultOwnerVerified = (earnVault: EarnVault): boolean => {
+    const { entities } = useEulerLabels()
+
+    const product = getProductByVault(earnVault.address)
+    if (!product.name) {
+      return true
+    }
+
+    const declaredEntityKeys = Array.isArray(product.entity) ? product.entity : [product.entity].filter(Boolean)
+    if (declaredEntityKeys.length === 0) {
+      return true
+    }
+
+    const ownerAddress = ethers.getAddress(earnVault.owner)
+    for (const entityKey of declaredEntityKeys) {
+      const entity = entities[entityKey]
+      if (entity && Object.keys(entity.addresses).includes(ownerAddress)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
   return {
-    map,
-    list,
-    borrowList,
+    // State
     isReady,
     loadedChainId,
     isLoading,
     isUpdating,
+    isEarnLoading,
+    isEarnUpdating,
+    isEscrowLoading,
+    isEscrowUpdating,
+    isEscrowLoadedOnce,
+
+    // Loading
+    loadVaults,
+    resetVaultsState,
+
+    // Async getters (with wait-for-load logic)
     getVault,
     getEarnVault,
     getEscrowVault,
-    loadVaults,
-    resetVaultsState,
+    getSecuritizeVault,
+    getBorrowVaultPair,
+
+    // Update single vault
     updateVault,
     updateEarnVault,
     updateEscrowVault,
+
+    // Bulk updates (internal use)
     updateVaults,
     updateEarnVaults,
-    updateEscrowVaults,
-    getBorrowVaultPair,
-    earnMap,
-    earnList,
-    isEarnLoading,
-    isEarnUpdating,
-    escrowMap,
-    escrowList,
-    isEscrowLoading,
-    isEscrowUpdating,
+
+    // Verification
+    isSecuritizeVault,
+    isVaultGovernorVerified,
+    isEarnVaultOwnerVerified,
+
+    // Business logic computed (kept for complex queries)
+    borrowList,
   }
 }

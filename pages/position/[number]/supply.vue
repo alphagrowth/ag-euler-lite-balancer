@@ -3,25 +3,36 @@ import { useAccount } from '@wagmi/vue'
 import { ethers, FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { getNetAPY, getVaultPrice, type Vault } from '~/entities/vault'
+import {
+  getNetAPY,
+  getVaultPrice,
+  getCollateralAssetPriceFromLiability,
+  type Vault,
+  type SecuritizeVault,
+} from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
 const { isConnected } = useAccount()
+const { fetchSingleBalance } = useWallets()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoaded } = useEulerAccount()
+const { isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
-const { getBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
-const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { isReady: isVaultsReady } = useVaults()
+const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
@@ -35,28 +46,38 @@ const estimateNetAPY = ref(0)
 const estimateUserLTV = ref(0n)
 const estimateHealth = ref(0n)
 const estimatesError = ref('')
-const selectedCollateral = ref<Vault | null>(null)
+const selectedCollateral = ref<Vault | SecuritizeVault | null>(null)
 const selectedCollateralAssets = ref(0n)
 const lastCollateralAddress = ref('')
 
-const position = computed(() => borrowPositions.value[+positionIndex - 1])
+const position = computed(() => getPositionBySubAccountIndex(+positionIndex))
 const isPositionLoaded = computed(() => !!position.value)
 const collateralVault = computed(() => selectedCollateral.value || position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
 const collateralAssets = computed(() => selectedCollateralAssets.value)
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
-const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
-  collateralVault.value?.asset.symbol,
-))
+const collateralSupplyApy = computed(() => {
+  if (!collateralVault.value) return 0
+  return withIntrinsicSupplyApy(
+    nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
+    collateralVault.value?.asset.symbol,
+  )
+})
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
+// Get collateral USD value using liability vault's price perspective
+const getCollateralValueUsd = (amount: bigint) => {
+  if (!borrowVault.value || !collateralVault.value) return 0
+  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+  if (!priceInfo?.amountOutMid) return 0
+  return nanoToValue(amount, collateralVault.value.decimals) * nanoToValue(priceInfo.amountOutMid, 18)
+}
 const netAPY = computed(() => {
   return getNetAPY(
-    getVaultPrice(collateralAssets.value, collateralVault.value!),
+    getCollateralValueUsd(collateralAssets.value),
     collateralSupplyApy.value,
     getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
     borrowApy.value,
@@ -85,6 +106,7 @@ const isSubmitDisabled = computed(() => {
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
+const reviewSupplyDisabled = getSubmitDisabled(computed(() => isLoading.value || isSubmitDisabled.value))
 const { name } = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
 
 const normalizeAddress = (address?: string) => {
@@ -126,8 +148,9 @@ const loadSelectedCollateral = async () => {
 
     await until(isVaultsReady).toBe(true)
 
-    const vault = map.value.get(targetAddress) || await getVault(targetAddress)
-    selectedCollateral.value = vault
+    // Use unified vault resolution - handles EVK, escrow, and securitize vaults
+    const vault = await getOrFetch(targetAddress) as Vault | SecuritizeVault | undefined
+    selectedCollateral.value = vault || null
 
     const lensAddress = eulerLensAddresses.value?.accountLens
     if (!lensAddress) {
@@ -155,6 +178,7 @@ const load = async () => {
   await until(isPositionLoaded).toBe(true)
   try {
     await loadSelectedCollateral()
+    // Fetch fresh underlying asset balance for this specific vault
     await updateBalance()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value.userLTV
@@ -169,54 +193,55 @@ const load = async () => {
   }
 }
 const updateBalance = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value || !collateralVault.value?.asset.address) {
     balance.value = 0n
     return
   }
-
-  balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
+  balance.value = await fetchSingleBalance(collateralVault.value.asset.address)
 }
 const submit = async () => {
-  if (!collateralVault.value?.asset.address) {
-    return
-  }
-
-  try {
-    plan.value = await buildSupplyPlan(
-      collateralVault.value.address,
-      collateralVault.value.asset.address,
-      valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
-      collateralVault.value.asset.symbol,
-      position.value?.subAccount,
-      { includePermit2Call: false },
-    )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
+  await guardWithTerms(async () => {
+    if (!collateralVault.value?.asset.address) {
       return
     }
-  }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'supply',
-      asset: asset.value,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    try {
+      plan.value = await buildSupplyPlan(
+        collateralVault.value.address,
+        collateralVault.value.asset.address,
+        valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
+        collateralVault.value.asset.symbol,
+        position.value?.subAccount,
+        { includePermit2Call: false },
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'supply',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -259,7 +284,7 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('Not enough balance')
     }
     estimateNetAPY.value = getNetAPY(
-      getVaultPrice(collateralAssets.value + valueToNano(amount.value, collateralVault.value.decimals), collateralVault.value!),
+      getCollateralValueUsd(collateralAssets.value + valueToNano(amount.value, collateralVault.value.decimals)),
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
       getVaultPrice(position.value!.borrowed || 0n, borrowVault.value!),
       borrowApy.value,
@@ -473,10 +498,10 @@ onUnmounted(() => {
         :vault="collateralVault"
       />
       <VaultFormSubmit
-        :disabled="isLoading || isSubmitDisabled"
+        :disabled="reviewSupplyDisabled"
         :loading="isSubmitting"
       >
-        Review Supply
+        {{ reviewSupplyLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

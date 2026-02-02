@@ -1,23 +1,31 @@
 <script setup lang="ts">
-import { type BorrowVaultPair, getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import { type AnyBorrowVaultPair, isSecuritizeBorrowPair, getVaultPrice, getVaultUtilization } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultUtilizationWarningModal } from '#components'
 
-const { pair } = defineProps<{ pair: BorrowVaultPair }>()
+const { pair } = defineProps<{ pair: AnyBorrowVaultPair }>()
 
-const { name: collateralName } = useEulerProductOfVault(pair.collateral.address)
-const { name: borrowName } = useEulerProductOfVault(pair.borrow.address)
+const isSecuritize = computed(() => isSecuritizeBorrowPair(pair))
+
 const { getOpportunityOfBorrowVault } = useMerkl()
 const { getCampaignOfBorrowVault } = useBrevis()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const modal = useModal()
 
+const collateralProduct = useEulerProductOfVault(computed(() => pair.collateral.address))
+const borrowProduct = useEulerProductOfVault(computed(() => pair.borrow.address))
+
+const isEscrowCollateral = computed(() => 'type' in pair.collateral && pair.collateral.type === 'escrow')
+
 const pairName = computed(() => {
-  if (!collateralName || !borrowName) {
-    return `${pair.collateral.name}/${pair.borrow.name}`
-  }
+  // Handle escrow collateral specially
+  const collateralName = isEscrowCollateral.value
+    ? 'Escrowed collateral'
+    : (collateralProduct.name || pair.collateral.name)
+  const borrowName = borrowProduct.name || pair.borrow.name
+  
   if (collateralName === borrowName) {
     return collateralName
   }
@@ -27,10 +35,15 @@ const opportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.a
 const brevisInfo = computed(() => getCampaignOfBorrowVault(pair.borrow.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
-const supplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25),
-  pair.collateral.asset.symbol,
-))
+const supplyApy = computed(() => {
+  // Securitize vaults don't have interestRateInfo
+  if (isSecuritize.value) return 0
+  const collateral = pair.collateral as { interestRateInfo: { supplyAPY: bigint }, asset: { symbol: string } }
+  return withIntrinsicSupplyApy(
+    nanoToValue(collateral.interestRateInfo.supplyAPY, 25),
+    collateral.asset.symbol,
+  )
+})
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
   pair.borrow.asset.symbol,
@@ -61,16 +74,18 @@ const maxRoe = computed(() => {
   return base + (multiplier - 1) * net
 })
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2))
-const utilization = computed(() => getVaultUtilization(pair.collateral))
+const utilization = computed(() => getVaultUtilization(pair.borrow))
 
 const onWarningClick = () => {
   modal.open(VaultUtilizationWarningModal)
 }
+
+const linkPath = computed(() => `/borrow/${pair.collateral.address}/${pair.borrow.address}`)
 </script>
 
 <template>
   <NuxtLink
-    :to="`/borrow/${pair.collateral.address}/${pair.borrow.address}`"
+    :to="linkPath"
     class="block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-line-subtle">
@@ -80,8 +95,12 @@ const onWarningClick = () => {
         class="icon--40"
       />
       <div class="flex-grow ml-12">
-        <div class="text-content-tertiary text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
           {{ pairName }}
+          <span
+            v-if="isSecuritize"
+            class="bg-surface-secondary text-content-tertiary px-8 py-2 rounded-8 text-p4"
+          >Securitize Digital Security</span>
         </div>
         <div class="text-h5 text-content-primary">
           {{ [pair.collateral.asset.symbol, pair.borrow.asset.symbol].join('/') }}
@@ -111,7 +130,10 @@ const onWarningClick = () => {
           {{ `$${compactNumber(getVaultPrice(pair.borrow.supply - pair.borrow.borrow, pair.borrow))}` }}
         </div>
       </div>
-      <div class="text-center">
+      <div
+        v-if="!isSecuritize"
+        class="text-center"
+      >
         <div class="text-content-tertiary text-p3 mb-4">
           Supply APY
         </div>
@@ -119,7 +141,10 @@ const onWarningClick = () => {
           {{ formatNumber(supplyApyWithRewards) }}%
         </div>
       </div>
-      <div class="text-center mobile:!hidden">
+      <div
+        v-if="!isSecuritize"
+        class="text-center mobile:!hidden"
+      >
         <div class="text-content-tertiary text-p3 mb-4">
           Max ROE
         </div>
@@ -197,7 +222,10 @@ const onWarningClick = () => {
           </div>
         </div>
       </div>
-      <div class="flex w-full justify-between">
+      <div
+        v-if="!isSecuritize"
+        class="flex w-full justify-between"
+      >
         <div class="flex-1">
           <div class="text-content-tertiary text-p3">
             Max ROE

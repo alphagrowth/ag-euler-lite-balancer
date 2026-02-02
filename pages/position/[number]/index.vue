@@ -2,20 +2,21 @@
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { getNetAPY, getVaultPrice, type Vault } from '~/entities/vault'
+import { getNetAPY, getVaultPrice, getCollateralAssetPriceFromLiability, type Vault, type SecuritizeVault } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
 import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
 const { isConnected } = useAccount()
-const { isPositionsLoaded, isPositionsLoading, borrowPositions } = useEulerAccount()
+const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
 const { disableCollateral: disableCollateralOperation, buildDisableCollateralPlan } = useEulerOperations()
@@ -28,7 +29,7 @@ const {
 const positionIndex = route.params.number as string
 
 type PositionCollateral = {
-  vault: Vault
+  vault: Vault | SecuritizeVault
   assets: bigint
 }
 
@@ -38,7 +39,8 @@ const collateralItems = ref<PositionCollateral[]>([])
 const isCollateralsLoading = ref(false)
 const disableCollateralErrorVault = ref<string | null>(null)
 
-const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { isReady: isVaultsReady } = useVaults()
+const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
@@ -67,7 +69,9 @@ const hasNoBorrow = computed(() => position.value!.borrow.borrow === 0n)
 
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
-const baseSupplyAPY = computed(() => nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25))
+const baseSupplyAPY = computed(() => {
+  return nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25)
+})
 const baseBorrowAPY = computed(() => nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25))
 const intrinsicSupplyAPY = computed(() => getIntrinsicApy(collateralVault.value?.asset.symbol))
 const intrinsicBorrowAPY = computed(() => getIntrinsicApy(borrowVault.value?.asset.symbol))
@@ -88,10 +92,25 @@ const collateralRows = computed(() => {
       nanoToValue(item.vault.interestRateInfo.supplyAPY || 0n, 25),
       item.vault.asset.symbol,
     )
+
+    // Collateral price ALWAYS comes from liability vault's oracle
+    let valueUsd = 0
+    let unitPriceUsd = 0
+    if (position.value) {
+      const priceInfo = getCollateralAssetPriceFromLiability(position.value.borrow, item.vault)
+      if (priceInfo) {
+        const amount = nanoToValue(item.assets, item.vault.decimals)
+        valueUsd = amount * nanoToValue(priceInfo.amountOutMid, 18)
+        unitPriceUsd = nanoToValue(priceInfo.amountOutMid, 18)
+      }
+    }
+
     return {
       ...item,
       supplyApy,
       supplyApyWithRewards: supplyApy + (opportunity?.apr || 0),
+      valueUsd,
+      unitPriceUsd,
     }
   })
 })
@@ -101,11 +120,21 @@ const collateralValueUsd = computed(() => {
     return 0
   }
 
+  // Collateral price ALWAYS comes from liability vault's oracle
   if (!collateralItems.value.length) {
-    return getVaultPrice(position.value.supplied, position.value.collateral)
+    const priceInfo = getCollateralAssetPriceFromLiability(position.value.borrow, position.value.collateral)
+    if (!priceInfo) return 0
+    const amount = nanoToValue(position.value.supplied, position.value.collateral.decimals)
+    return amount * nanoToValue(priceInfo.amountOutMid, 18)
   }
 
-  return collateralItems.value.reduce((total, item) => total + getVaultPrice(item.assets, item.vault), 0)
+  // For multiple collaterals, sum up using liability vault's oracle for each
+  return collateralItems.value.reduce((total, item) => {
+    const priceInfo = getCollateralAssetPriceFromLiability(position.value!.borrow, item.vault)
+    if (!priceInfo) return total
+    const amount = nanoToValue(item.assets, item.vault.decimals)
+    return total + amount * nanoToValue(priceInfo.amountOutMid, 18)
+  }, 0)
 })
 
 const netAssetValueUsd = computed(() => {
@@ -114,6 +143,13 @@ const netAssetValueUsd = computed(() => {
   }
 
   return collateralValueUsd.value - getVaultPrice(position.value.borrowed, borrowVault.value)
+})
+const unitOfAccountUsdPrice = computed(() => {
+  if (!position.value) {
+    return 0
+  }
+
+  return getUnitOfAccountUsdPrice(borrowVault.value)
 })
 const liquidationPrice = computed(() => {
   if (!position.value) return undefined
@@ -124,7 +160,12 @@ const liquidationPrice = computed(() => {
     return undefined
   }
 
-  return nanoToValue(price, 18)
+  const unitPrice = unitOfAccountUsdPrice.value
+  if (!unitPrice) {
+    return undefined
+  }
+
+  return nanoToValue(price, 18) * unitPrice
 })
 const borrowLiquidationPrice = computed(() => {
   if (!position.value) return undefined
@@ -137,7 +178,11 @@ const borrowLiquidationPrice = computed(() => {
   }
 
   const multiplier = nanoToValue(collateralValueLiquidation, 18) / nanoToValue(liabilityValue, 18)
-  const currentBorrowPrice = getVaultPrice(1, borrowVault.value)
+  const currentBorrowPrice = getVaultOraclePrice(1, borrowVault.value)
+
+  if (!currentBorrowPrice) {
+    return undefined
+  }
 
   return currentBorrowPrice * multiplier
 })
@@ -151,7 +196,7 @@ const timeToLiquidationDisplay = computed(() => {
 })
 const netAPY = computed(() => {
   return getNetAPY(
-    getVaultPrice(position.value?.supplied || 0n, collateralVault.value!),
+    collateralValueUsd.value,
     collateralSupplyApy.value,
     getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
     borrowApy.value,
@@ -224,7 +269,7 @@ const loadCollaterals = async () => {
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {
         try {
-          const vault = map.value.get(address) || await getVault(address)
+          const vault = await getOrFetch(address) as Vault | SecuritizeVault | undefined
           let assets = 0n
 
           try {
@@ -320,13 +365,16 @@ const send = async (collateralAddress: string) => {
 const load = async () => {
   try {
     await until(isPositionsLoaded).toBe(true)
-    position.value = borrowPositions.value[+positionIndex - 1]
+    position.value = getPositionBySubAccountIndex(+positionIndex)
     if (position.value) {
       collateralItems.value = [{
-        vault: position.value.collateral,
+        vault: position.value.collateral as Vault,
         assets: position.value.supplied,
       }]
-      await loadCollaterals()
+      // Only load additional collaterals if position has multiple
+      if (position.value.collaterals?.length && position.value.collaterals.length > 1) {
+        await loadCollaterals()
+      }
     }
     else {
       collateralItems.value = []
@@ -337,11 +385,12 @@ const load = async () => {
     console.warn(e)
   }
 }
-const openCollateralInfoModal = (vault: Vault) => {
+const openCollateralInfoModal = (vault: Vault | SecuritizeVault) => {
+  const isSecuritize = 'type' in vault && vault.type === 'securitize'
   modal.open(VaultOverviewModal, {
-    props: {
-      vault,
-    },
+    props: isSecuritize
+      ? { securitizeVault: vault as SecuritizeVault }
+      : { vault: vault as Vault },
   })
 }
 const openPairInfoModal = () => {
@@ -414,7 +463,7 @@ watch(isConnected, () => {
             Net asset value
           </div>
           <div class="text-h5 text-neutral-800">
-            ${{ formatNumber(netAssetValueUsd) }}
+            ${{ isCollateralsLoading ? '-' : formatNumber(netAssetValueUsd) }}
           </div>
         </div>
       </div>
@@ -499,10 +548,22 @@ watch(isConnected, () => {
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
               <div class="text-neutral-500 text-p3">
-                Oracle price
+                Current price
               </div>
               <div class="text-neutral-800 text-p3">
                 ${{ formatNumber(getVaultPrice(1, position.borrow)) }}
+              </div>
+            </div>
+            <div class="flex justify-between gap-8 flex-wrap mb-12">
+              <div class="text-neutral-500 text-p3">
+                Oracle price
+              </div>
+              <div class="text-neutral-800 text-p3">
+                {{
+                  getVaultOraclePrice(1, position.borrow)
+                    ? `$${formatNumber(getVaultOraclePrice(1, position.borrow))}`
+                    : '-'
+                }}
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
@@ -577,7 +638,7 @@ watch(isConnected, () => {
                 </div>
                 <div class="flex justify-between gap-8 justify-self-end">
                   <div class="text-neutral-800 text-p3">
-                    ${{ formatNumber(getVaultPrice(collateral.assets, collateral.vault)) }}
+                    ${{ formatNumber(collateral.valueUsd) }}
                   </div>
                   <div class="text-neutral-500 text-p3">
                     ~ {{ roundAndCompactTokens(collateral.assets, collateral.vault.decimals) }}
@@ -595,10 +656,26 @@ watch(isConnected, () => {
               </div>
               <div class="flex justify-between gap-8 flex-wrap mb-16">
                 <div class="text-neutral-500 text-p3">
+                  Current price
+                </div>
+                <div class="text-neutral-800 text-p3">
+                  ${{ formatNumber(collateral.unitPriceUsd) }}
+                </div>
+              </div>
+              <div class="flex justify-between gap-8 flex-wrap mb-16">
+                <div class="text-neutral-500 text-p3">
                   Oracle price
                 </div>
                 <div class="text-neutral-800 text-p3">
-                  ${{ formatNumber(getVaultPrice(1, collateral.vault)) }}
+                  {{
+                    hasNoBorrow
+                      ? (getVaultOraclePrice(1, collateral.vault)
+                          ? `$${formatNumber(getVaultOraclePrice(1, collateral.vault))}`
+                          : '-')
+                      : (getVaultOraclePrice(1, collateral.vault, borrowVault)
+                          ? `$${formatNumber(getVaultOraclePrice(1, collateral.vault, borrowVault))}`
+                          : '-')
+                  }}
                 </div>
               </div>
               <div

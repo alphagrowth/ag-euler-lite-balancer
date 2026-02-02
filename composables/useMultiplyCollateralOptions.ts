@@ -3,6 +3,7 @@ import type { Address } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, getVaultPrice, type Vault } from '~/entities/vault'
 
 type CollateralItem = {
@@ -17,16 +18,11 @@ export const useMultiplyCollateralOptions = ({
   currentVault: Ref<Vault | undefined>
   liabilityVault?: Ref<Vault | undefined>
 }) => {
-  const { map, escrowMap } = useVaults()
+  const { getVault } = useVaultRegistry()
   const { getBalance } = useWallets()
   const { depositPositions } = useEulerAccount()
   const { getOpportunityOfLendVault } = useMerkl()
   const { withIntrinsicSupplyApy } = useIntrinsicApy()
-
-  const resolveVault = (address: string) => {
-    const normalized = ethers.getAddress(address)
-    return map.value.get(normalized) || escrowMap.value.get(normalized)
-  }
 
   const currentVaultAddress = computed(() => {
     const current = currentVault.value
@@ -43,7 +39,7 @@ export const useMultiplyCollateralOptions = ({
     liability.collateralLTVs
       .filter(ltv => ltv.borrowLTV > 0n)
       .forEach((ltv) => {
-        const vault = resolveVault(ltv.collateral)
+        const vault = getVault(ltv.collateral) as Vault | undefined
         if (!vault) return
 
         const balance = getBalance(vault.asset.address as Address)

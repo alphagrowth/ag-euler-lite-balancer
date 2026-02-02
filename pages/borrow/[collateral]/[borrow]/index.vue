@@ -4,8 +4,9 @@ import { ethers, FixedNumber } from 'ethers'
 import type { Address } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, convertAssetsToShares, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair, getCollateralAssetPriceFromLiability } from '~/entities/vault'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -18,14 +19,17 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewBorrowLabel = getSubmitLabel('Review Borrow')
+const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
 const { borrowBySaving, borrow, buildBorrowPlan, buildBorrowBySavingPlan, buildMultiplyPlan, executeTxPlan } = useEulerOperations()
-const { getBorrowVaultPair, updateVault, isReady: areVaultsReady } = useVaults()
+const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
 const { updateBorrowPositions, depositPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
-const { getBalance } = useWallets()
+const { getBalance, fetchSingleBalance, fetchVaultShareBalance } = useWallets()
 const openSlippageSettings = () => {
   modal.open(SlippageSettingsModal)
 }
@@ -55,6 +59,9 @@ type MultiplyPlanParams = {
   subAccount: string
 }
 
+const collateralAddress = route.params.collateral as string
+const borrowAddress = route.params.borrow as string
+
 const ltv = ref(0)
 const borrowAmount = ref('')
 const collateralAmount = ref('')
@@ -67,7 +74,13 @@ const isEstimatesLoading = ref(false)
 const plan = ref<TxPlan | null>(null)
 const multiplyPlan = ref<TxPlan | null>(null)
 const multiplyPlanParams = ref<MultiplyPlanParams | null>(null)
-const pair: Ref<BorrowVaultPair | undefined> = ref(await getBorrowVaultPair(route.params.collateral as string, route.params.borrow as string))
+
+// Load vault pair (handles regular, escrow, and securitize collateral)
+const initialPair = await getBorrowVaultPair(collateralAddress, borrowAddress)
+const pair: Ref<AnyBorrowVaultPair | undefined> = ref(initialPair)
+
+// Check if collateral is securitize for conditional rendering
+const isSecuritizeCollateral = computed(() => pair.value ? isSecuritizeBorrowPair(pair.value) : false)
 const health = ref()
 const netAPY = ref()
 const liquidationPrice = ref()
@@ -81,6 +94,7 @@ const multiplyInputAmount = ref('')
 const multiplier = ref(1)
 const multiplyLongAmount = ref('')
 const multiplyShortAmount = ref('')
+const multiplyAssetBalance: Ref<bigint> = ref(0n)
 const {
   sortedQuoteCards: multiplyQuoteCardsSorted,
   selectedProvider: multiplySelectedProvider,
@@ -136,6 +150,8 @@ const isMultiplySubmitDisabled = computed(() => {
   }
   return false
 })
+const reviewBorrowDisabled = getSubmitDisabled(isSubmitDisabled)
+const reviewMultiplyDisabled = getSubmitDisabled(isMultiplySubmitDisabled)
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
 const multiplyLongVault = computed(() => collateralVault.value)
@@ -149,6 +165,15 @@ const priceFixed = computed(() => {
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
   return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
+})
+
+// USD price per unit of collateral from liability vault's perspective (for AssetInput display)
+const collateralUnitPrice = computed(() => {
+  if (!borrowVault.value || !collateralVault.value) return undefined
+  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+  if (!priceInfo) return undefined
+  // amountOutMid is the price in unit of account (18 decimals) for 1 unit of collateral
+  return nanoToValue(priceInfo.amountOutMid, 18)
 })
 const collateralAmountFixed = computed(() => FixedNumber.fromValue(
   valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals),
@@ -352,10 +377,7 @@ const multiplySavingPosition = computed(() => {
   ) || null
 })
 const multiplySavingBalance = computed(() => {
-  if (!multiplySupplyVault.value) {
-    return 0n
-  }
-  return getBalance(multiplySupplyVault.value.address as `0x${string}`) || 0n
+  return multiplySavingPosition.value?.shares || 0n
 })
 const collateralOptions = computed(() => {
   const options = [
@@ -402,6 +424,7 @@ const computedBalance = computed(() => {
   if (isSavingCollateral.value) return savingAssets.value || 0n
   return balance.value
 })
+// Use local ref instead of getBalance() - vaults loaded after initial fetch are missing from global Map
 const multiplyBalance = computed(() => {
   if (!multiplySupplyVault.value) {
     return 0n
@@ -409,7 +432,7 @@ const multiplyBalance = computed(() => {
   if (isMultiplySavingCollateral.value) {
     return multiplySavingPosition.value?.assets || 0n
   }
-  return getBalance(multiplySupplyVault.value.asset.address as `0x${string}`) || 0n
+  return multiplyAssetBalance.value
 })
 const multiplyDebtAmountNano = computed(() => {
   if (!multiplySupplyVault.value || !multiplyShortVault.value) {
@@ -579,15 +602,11 @@ const multiplyRoeBefore = computed(() => {
   if (isMultiplyQuoteLoading.value) {
     return null
   }
-  if (multiplySupplyValueUsd.value === null || multiplySupplyApy.value === null) {
+  if (multiplySupplyValueUsd.value === null) {
     return null
   }
-  return calculateRoe(
-    multiplySupplyValueUsd.value,
-    0,
-    multiplySupplyApy.value,
-    multiplyBorrowApy.value || 0,
-  )
+  // New position: no existing ROE yet
+  return 0
 })
 const multiplyRoeAfter = computed(() => {
   if (isMultiplyQuoteLoading.value) {
@@ -660,7 +679,7 @@ const multiplyCurrentHealth = computed(() => {
     return null
   }
   if (multiplyCurrentLtv.value <= 0) {
-    return multiplyNextHealth.value
+    return Number.POSITIVE_INFINITY
   }
   return multiplyLiquidationLtv.value / multiplyCurrentLtv.value
 })
@@ -684,6 +703,9 @@ const multiplyCurrentLiquidationPrice = computed(() => {
   }
   if (!multiplyPriceRatio.value || !multiplyCurrentHealth.value) {
     return null
+  }
+  if (!Number.isFinite(multiplyCurrentHealth.value)) {
+    return Number.POSITIVE_INFINITY
   }
   if (multiplyCurrentHealth.value <= 0) {
     return null
@@ -775,10 +797,34 @@ const multiplyErrorText = computed(() => {
 const updateBalance = async () => {
   if (!isConnected.value) {
     balance.value = 0n
+    savingBalance.value = 0n
+    multiplyAssetBalance.value = 0n
     return
   }
-  balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
-  savingBalance.value = getBalance(collateralVault.value?.address as `0x${string}`) || 0n
+
+  // Fetch underlying asset balance
+  if (collateralVault.value?.asset.address) {
+    balance.value = await fetchSingleBalance(collateralVault.value.asset.address)
+  }
+  else {
+    balance.value = 0n
+  }
+
+  // Fetch vault share balance (for savings positions)
+  if (collateralVault.value?.address) {
+    savingBalance.value = await fetchVaultShareBalance(collateralVault.value.address)
+  }
+  else {
+    savingBalance.value = 0n
+  }
+
+  // Fetch multiply supply vault's underlying asset balance
+  if (multiplySupplyVault.value?.asset.address) {
+    multiplyAssetBalance.value = await fetchSingleBalance(multiplySupplyVault.value.asset.address)
+  }
+  else {
+    multiplyAssetBalance.value = 0n
+  }
 }
 const setMultiplyAmounts = (longAmount?: bigint | null, shortAmount?: bigint | null) => {
   if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value || !multiplyInputAmount.value) {
@@ -923,107 +969,109 @@ const onMultiplyCollateralChange = (selectedIndex: number) => {
   }
 }
 const submitMultiply = async () => {
-  if (isMultiplySubmitting.value || !isConnected.value) {
-    return
-  }
-  if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
-    return
-  }
-  if (!multiplyInputAmount.value || multiplyDebtAmountNano.value <= 0n) {
-    return
-  }
-  if (multiplyErrorText.value) {
-    return
-  }
-
-  const supplyAmountNano = valueToNano(multiplyInputAmount.value || '0', multiplySupplyVault.value.asset.decimals)
-  let supplySharesAmount: bigint | undefined
-  if (isMultiplySavingCollateral.value) {
-    if (!multiplySavingPosition.value) {
-      error('No savings balance for selected collateral')
+  await guardWithTerms(async () => {
+    if (isMultiplySubmitting.value || !isConnected.value) {
       return
     }
-    if (multiplySavingPosition.value.assets === supplyAmountNano) {
-      supplySharesAmount = multiplySavingBalance.value
-    }
-    else {
-      supplySharesAmount = await convertAssetsToShares(multiplySupplyVault.value.address, supplyAmountNano)
-    }
-    if (!supplySharesAmount || supplySharesAmount <= 0n) {
-      error('Unable to resolve savings amount')
+    if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
       return
     }
-  }
-  const debtAmount = multiplyDebtAmountNano.value
-  if (!supplyAmountNano || debtAmount <= 0n) {
-    return
-  }
-
-  const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
-  const quote = isSameAsset ? null : multiplySelectedQuote.value
-  if (!isSameAsset && !quote) {
-    return
-  }
-
-  let subAccount: string
-  try {
-    subAccount = await resolveMultiplySubAccount()
-  }
-  catch (e) {
-    console.warn('[Multiply] failed to resolve subaccount', e)
-    error('Unable to resolve position')
-    return
-  }
-
-  const planParams: MultiplyPlanParams = {
-    supplyVaultAddress: multiplySupplyVault.value.address,
-    supplyAssetAddress: multiplySupplyVault.value.asset.address,
-    supplyAmount: supplyAmountNano,
-    supplySharesAmount,
-    supplyIsSavings: isMultiplySavingCollateral.value,
-    longVaultAddress: multiplyLongVault.value.address,
-    longAssetAddress: multiplyLongVault.value.asset.address,
-    borrowVaultAddress: multiplyShortVault.value.address,
-    debtAmount,
-    quote: quote || undefined,
-    swapperMode: SwapperMode.EXACT_IN,
-    subAccount,
-  }
-  multiplyPlanParams.value = planParams
-
-  try {
-    multiplyPlan.value = await buildMultiplyPlan({
-      ...planParams,
-      includePermit2Call: false,
-    })
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    multiplyPlan.value = null
-  }
-
-  if (multiplyPlan.value) {
-    const ok = await runMultiplySimulation(multiplyPlan.value)
-    if (!ok) {
+    if (!multiplyInputAmount.value || multiplyDebtAmountNano.value <= 0n) {
       return
     }
-  }
+    if (multiplyErrorText.value) {
+      return
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'borrow',
-      asset: multiplyShortVault.value.asset,
-      amount: multiplyShortAmount.value || ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
-      plan: multiplyPlan.value || undefined,
-      supplyingAssetForBorrow: multiplySupplyVault.value.asset,
-      supplyingAmount: multiplyInputAmount.value,
+    const supplyAmountNano = valueToNano(multiplyInputAmount.value || '0', multiplySupplyVault.value.asset.decimals)
+    let supplySharesAmount: bigint | undefined
+    if (isMultiplySavingCollateral.value) {
+      if (!multiplySavingPosition.value) {
+        error('No savings balance for selected collateral')
+        return
+      }
+      if (multiplySavingPosition.value.assets === supplyAmountNano) {
+        supplySharesAmount = multiplySavingBalance.value
+      }
+      else {
+        supplySharesAmount = await convertAssetsToShares(multiplySupplyVault.value.address, supplyAmountNano)
+      }
+      if (!supplySharesAmount || supplySharesAmount <= 0n) {
+        error('Unable to resolve savings amount')
+        return
+      }
+    }
+    const debtAmount = multiplyDebtAmountNano.value
+    if (!supplyAmountNano || debtAmount <= 0n) {
+      return
+    }
+
+    const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
+    const quote = isSameAsset ? null : multiplySelectedQuote.value
+    if (!isSameAsset && !quote) {
+      return
+    }
+
+    let subAccount: string
+    try {
+      subAccount = await resolveMultiplySubAccount()
+    }
+    catch (e) {
+      console.warn('[Multiply] failed to resolve subaccount', e)
+      error('Unable to resolve position')
+      return
+    }
+
+    const planParams: MultiplyPlanParams = {
+      supplyVaultAddress: multiplySupplyVault.value.address,
+      supplyAssetAddress: multiplySupplyVault.value.asset.address,
+      supplyAmount: supplyAmountNano,
+      supplySharesAmount,
+      supplyIsSavings: isMultiplySavingCollateral.value,
+      longVaultAddress: multiplyLongVault.value.address,
+      longAssetAddress: multiplyLongVault.value.asset.address,
+      borrowVaultAddress: multiplyShortVault.value.address,
+      debtAmount,
+      quote: quote || undefined,
+      swapperMode: SwapperMode.EXACT_IN,
       subAccount,
-      onConfirm: () => {
-        setTimeout(() => {
-          sendMultiply()
-        }, 400)
+    }
+    multiplyPlanParams.value = planParams
+
+    try {
+      multiplyPlan.value = await buildMultiplyPlan({
+        ...planParams,
+        includePermit2Call: false,
+      })
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      multiplyPlan.value = null
+    }
+
+    if (multiplyPlan.value) {
+      const ok = await runMultiplySimulation(multiplyPlan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'borrow',
+        asset: multiplyShortVault.value.asset,
+        amount: multiplyShortAmount.value || ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+        plan: multiplyPlan.value || undefined,
+        supplyingAssetForBorrow: multiplySupplyVault.value.asset,
+        supplyingAmount: multiplyInputAmount.value,
+        subAccount,
+        onConfirm: () => {
+          setTimeout(() => {
+            sendMultiply()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const sendMultiply = async () => {
@@ -1054,73 +1102,75 @@ const sendMultiply = async () => {
   }
 }
 const submit = async () => {
-  // TODO: Validate
-  if (!isConnected.value) {
-    isSubmitting.value = false
-    return
-  }
-
-  if (!borrowVault.value || !collateralVault.value) {
-    return
-  }
-
-  const collateralAmountNano = valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals)
-  const borrowAmountNano = valueToNano(borrowAmount.value || '0', borrowVault.value?.decimals)
-  let collateralAmountForPlan = collateralAmountNano
-
-  if (isSavingCollateral.value) {
-    if (savingCollateral.value?.assets === collateralAmountNano) {
-      collateralAmountForPlan = savingBalance.value
-    }
-    else {
-      collateralAmountForPlan = await convertAssetsToShares(collateralVault.value.address, collateralAmountNano)
-    }
-  }
-
-  try {
-    plan.value = isSavingCollateral.value
-      ? await buildBorrowBySavingPlan(
-        collateralVault.value.address,
-        collateralAmountForPlan,
-        borrowVault.value.address,
-        borrowAmountNano,
-      )
-      : await buildBorrowPlan(
-        collateralVault.value.address,
-        collateralVault.value.asset.address,
-        collateralAmountForPlan,
-        borrowVault.value.address,
-        borrowAmountNano,
-        undefined,
-        { includePermit2Call: false },
-      )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runBorrowSimulation(plan.value)
-    if (!ok) {
+  await guardWithTerms(async () => {
+    // TODO: Validate
+    if (!isConnected.value) {
+      isSubmitting.value = false
       return
     }
-  }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'borrow',
-      asset: borrowVault.value?.asset,
-      amount: borrowAmount.value,
-      plan: plan.value || undefined,
-      supplyingAssetForBorrow: collateralVault.value?.asset,
-      supplyingAmount: collateralAmount.value,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    if (!borrowVault.value || !collateralVault.value) {
+      return
+    }
+
+    const collateralAmountNano = valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals)
+    const borrowAmountNano = valueToNano(borrowAmount.value || '0', borrowVault.value?.decimals)
+    let collateralAmountForPlan = collateralAmountNano
+
+    if (isSavingCollateral.value) {
+      if (savingCollateral.value?.assets === collateralAmountNano) {
+        collateralAmountForPlan = savingBalance.value
+      }
+      else {
+        collateralAmountForPlan = await convertAssetsToShares(collateralVault.value.address, collateralAmountNano)
+      }
+    }
+
+    try {
+      plan.value = isSavingCollateral.value
+        ? await buildBorrowBySavingPlan(
+          collateralVault.value.address,
+          collateralAmountForPlan,
+          borrowVault.value.address,
+          borrowAmountNano,
+        )
+        : await buildBorrowPlan(
+          collateralVault.value.address,
+          collateralVault.value.asset.address,
+          collateralAmountForPlan,
+          borrowVault.value.address,
+          borrowAmountNano,
+          undefined,
+          { includePermit2Call: false },
+        )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runBorrowSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'borrow',
+        asset: borrowVault.value?.asset,
+        amount: borrowAmount.value,
+        plan: plan.value || undefined,
+        supplyingAssetForBorrow: collateralVault.value?.asset,
+        supplyingAmount: collateralAmount.value,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -1237,7 +1287,7 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 1000)
 
-watch(pair, (val) => {
+watch(pair, async (val) => {
   if (!val) {
     return
   }
@@ -1259,7 +1309,8 @@ watch(pair, (val) => {
       },
     })
   }
-  updateBalance()
+  // Fetch fresh underlying asset balance for this specific vault
+  await updateBalance()
 }, { immediate: true })
 watch(address, () => {
   multiplySubAccount.value = null
@@ -1285,6 +1336,14 @@ watch([multiplySupplyVault, multiplyLongVault, multiplyShortVault, isMultiplySav
   resetMultiplyQuoteState()
   if (multiplyInputAmount.value) {
     requestMultiplyQuote()
+  }
+})
+watch(multiplySupplyVault, async (newVault) => {
+  if (newVault?.asset.address && isConnected.value) {
+    multiplyAssetBalance.value = await fetchSingleBalance(newVault.asset.address)
+  }
+  else {
+    multiplyAssetBalance.value = 0n
   }
 })
 watch(multiplySelectedQuote, () => {
@@ -1318,20 +1377,6 @@ watch(formTab, () => {
   clearMultiplySimulationError()
 })
 
-watch(areVaultsReady, async (ready) => {
-  if (ready && route.params.collateral && route.params.borrow) {
-    try {
-      const refreshedPair = await getBorrowVaultPair(
-        route.params.collateral as string,
-        route.params.borrow as string,
-      )
-      pair.value = refreshedPair
-    }
-    catch (e) {
-      console.error('Error refreshing vault pair:', e)
-    }
-  }
-}, { immediate: false })
 </script>
 
 <template>
@@ -1365,7 +1410,7 @@ watch(areVaultsReady, async (ready) => {
             :desc="collateralProduct.name"
             :label="`Supply ${collateralVault.asset.symbol}`"
             :asset="collateralVault.asset"
-            :vault="collateralVault"
+            :price-override="collateralUnitPrice"
             :balance="computedBalance"
             :collateral-options="collateralOptions as CollateralOption[]"
             maxable
@@ -1678,17 +1723,17 @@ watch(areVaultsReady, async (ready) => {
         />
         <VaultFormSubmit
           v-if="formTab === 'borrow'"
-          :disabled="isSubmitDisabled"
+          :disabled="reviewBorrowDisabled"
           :loading="isSubmitting"
         >
-          Review Borrow
+          {{ reviewBorrowLabel }}
         </VaultFormSubmit>
         <VaultFormSubmit
           v-else-if="formTab === 'multiply'"
-          :disabled="isMultiplySubmitDisabled"
+          :disabled="reviewMultiplyDisabled"
           :loading="isMultiplySubmitting"
         >
-          Review Multiply
+          {{ reviewMultiplyLabel }}
         </VaultFormSubmit>
       </template>
     </VaultForm>
@@ -1720,9 +1765,14 @@ watch(areVaultsReady, async (ready) => {
           style="flex-grow: 1"
           desktop-overview
         />
+        <SecuritizeVaultOverview
+          v-else-if="tab === 'collateral' && isSecuritizeCollateral"
+          :vault="(pair.collateral as SecuritizeVault)"
+          desktop-overview
+        />
         <VaultOverview
           v-else-if="tab === 'collateral'"
-          :vault="pair.collateral"
+          :vault="(pair.collateral as Vault)"
           desktop-overview
         />
         <VaultOverview

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import type { EarnVault, EscrowVault, Vault, VaultAsset } from '~/entities/vault'
-import { useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
+import type { EarnVault, EscrowVault, SecuritizeVault, Vault, VaultAsset } from '~/entities/vault'
+import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
-  vault: Vault | EarnVault | EscrowVault
+  vault: Vault | EarnVault | EscrowVault | SecuritizeVault
   assets: VaultAsset[]
   size?: 'large'
   assetsLabel?: string
@@ -13,15 +13,19 @@ const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
 }>()
 const vaultAddress = computed(() => ethers.getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
-const vaultLabel = useEulerVaultLabelOfVault(vaultAddress)
-const displayName = computed(() => vaultLabel.name || product.name || vault.name)
+const displayName = computed(() => {
+  if ('type' in vault && vault.type === 'escrow') {
+    return 'Escrowed collateral'
+  }
+  return product.name || vault.name
+})
 
 const pairVaultAddress = computed(() => pairVault ? ethers.getAddress(pairVault.address) : '')
 const pairProduct = useEulerProductOfVault(pairVaultAddress)
 
-const getVaultLabel = (v: Vault | EarnVault | EscrowVault) => {
+const getVaultLabel = (v: Vault | EarnVault | EscrowVault | SecuritizeVault) => {
   if ('type' in v && v.type === 'escrow') {
-    return 'Ungoverned'
+    return 'Escrowed collateral'
   }
   const addr = ethers.getAddress(v.address)
   if (addr === vaultAddress.value) {
@@ -83,7 +87,7 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
         v-else
         class="text-content-tertiary mb-4"
       >
-        {{ displayName }}
+        {{ pairVault ? displayLabel : displayName }}
       </p>
 
       <p class="text-p2 font-semibold text-content-primary">

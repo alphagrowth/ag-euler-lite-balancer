@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import type { Address } from 'viem'
-import type { Vault } from '~/entities/vault'
+import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { EUR_ADDRESS, USD_ADDRESS } from '~/entities/constants'
-import { collectOracleAdapters, type OracleAdapterEntry } from '~/entities/oracle'
+import { collectOracleAdapters, type OracleAdapterEntry, type OracleAdapterMeta } from '~/entities/oracle'
 import { getExplorerLink } from '~/utils/block-explorer'
 
 const props = defineProps<{
   vault?: Vault
   vaults?: Vault[]
-  collateralAssets?: string[]
+  collateralVaults?: (Vault | SecuritizeVault)[]
 }>()
 const { tokens, loadTokens } = useTokens()
+const { oracleAdapters, loadOracleAdapters } = useEulerLabels()
 const { chainId } = useEulerAddresses()
 
 const sourceVaults = computed(() => {
@@ -36,10 +37,10 @@ const adapters = computed(() => {
       leafOnly: true,
     }))
 
-    if (props.collateralAssets?.length) {
-      props.collateralAssets.forEach((collateralAddress) => {
+    if (props.collateralVaults?.length) {
+      props.collateralVaults.forEach((collateralVault) => {
         entries.push(...collectOracleAdapters(vault.oracleDetailedInfo, 3, {
-          base: collateralAddress as Address,
+          base: collateralVault.address,
           quote: vault.unitOfAccount,
           leafOnly: true,
         }))
@@ -56,9 +57,28 @@ const adapters = computed(() => {
 
   return [...deduped.values()]
 })
+
+const adapterViews = computed(() => adapters.value.map((adapter) => {
+  const base = adapter.base.toLowerCase()
+  const quote = adapter.quote.toLowerCase()
+  const oracle = adapter.oracle.toLowerCase()
+  const key = `${oracle}:${base}:${quote}`
+  const meta: OracleAdapterMeta | undefined = oracleAdapters[key] || oracleAdapters[oracle]
+
+  return {
+    ...adapter,
+    name: meta?.name || adapter.name,
+    provider: meta?.provider,
+    methodology: meta?.methodology,
+  }
+}))
+
 onMounted(() => {
   if (!Object.keys(tokens).length) {
     loadTokens()
+  }
+  if (!Object.keys(oracleAdapters).length && chainId.value) {
+    loadOracleAdapters(chainId.value)
   }
 })
 
@@ -84,6 +104,11 @@ const tokenSymbolsByAddress = computed(() => {
     }
   })
 
+  // Map collateral vault addresses to their underlying asset symbols
+  props.collateralVaults?.forEach((vault) => {
+    map.set(vault.address.toLowerCase(), vault.asset.symbol)
+  })
+
   return map
 })
 
@@ -106,7 +131,7 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
       Oracles
     </p>
     <div
-      v-if="!adapters.length"
+      v-if="!adapterViews.length"
       class="text-p3 text-content-tertiary"
     >
       No oracle adapters found
@@ -115,19 +140,15 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
       v-else
       class="flex flex-col items-start gap-16"
     >
-      <VaultOverviewLabelValue
-        v-for="adapter in adapters"
+      <div
+        v-for="adapter in adapterViews"
         :key="getAdapterKey(adapter)"
-        orientation="horizontal"
+        class="w-full rounded-xl bg-surface p-16 flex flex-col gap-12 border border-line-subtle"
       >
-        <template #label>
-          <div class="flex gap-4 items-center">
-            <div class="p2 text-content-primary">
-              {{ resolveSymbol(adapter.base) }}/{{ resolveSymbol(adapter.quote) }}
-            </div>
+        <div class="flex flex-wrap items-center gap-8">
+          <div class="p2 text-content-primary">
+            {{ resolveSymbol(adapter.base) }}/{{ resolveSymbol(adapter.quote) }}
           </div>
-        </template>
-        <div class="flex gap-4 items-center">
           <NuxtLink
             :to="getExplorerAddressLink(adapter.oracle)"
             class="text-accent-600 underline cursor-pointer hover:text-accent-500"
@@ -146,7 +167,17 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
             />
           </button>
         </div>
-      </VaultOverviewLabelValue>
+        <div class="grid grid-cols-2 gap-12 text-p4">
+          <div class="flex flex-col gap-4">
+            <span class="text-content-tertiary">Provider</span>
+            <span class="text-content-primary">{{ adapter.provider || '-' }}</span>
+          </div>
+          <div class="flex flex-col gap-4">
+            <span class="text-content-tertiary">Methodology</span>
+            <span class="text-content-primary">{{ adapter.methodology || '-' }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

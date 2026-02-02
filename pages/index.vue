@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getVaultPrice } from '~/entities/vault'
+import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
 import { getProductByVault } from '~/composables/useEulerLabels'
 
@@ -9,7 +10,11 @@ defineOptions({
   name: 'IndexPage',
 })
 
-const { list, borrowList, isLoading } = useVaults()
+const { borrowList, isUpdating } = useVaults()
+const { getEvkVaults } = useVaultRegistry()
+const list = computed(() => getEvkVaults())
+
+const isLoading = computed(() => isUpdating.value)
 const { products, entities } = useEulerLabels()
 const route = useRoute()
 
@@ -82,6 +87,10 @@ const sortedList = computed(() => {
       return [...filteredList.value].sort((a: Vault, b: Vault) => {
         return Number(b.interestRateInfo.supplyAPY) - Number(a.interestRateInfo.supplyAPY)
       })
+    case 'Utilization':
+      return [...filteredList.value].sort((a: Vault, b: Vault) => {
+        return getVaultUtilization(b) - getVaultUtilization(a)
+      })
     default:
       return filteredList.value
   }
@@ -115,7 +124,7 @@ load()
       <div class="flex items-center overflow-auto [scrollbar-width:none] gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"
-          :options="['Total Supply', 'Supply APY']"
+          :options="['Total Supply', 'Utilization', 'Supply APY']"
           placeholder="Sort By"
           title="Sorting type"
         />
@@ -142,7 +151,7 @@ load()
     <div class="flex flex-col flex-1">
       <UiLoader
         v-if="isLoading"
-        class="my-4 mx-auto"
+        class="flex-1 self-center justify-self-center"
       />
 
       <VaultsList

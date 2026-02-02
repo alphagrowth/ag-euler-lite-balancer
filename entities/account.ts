@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 import { evcGetControllersAbi } from '~/abis/evc'
 import axios from 'axios'
-import type { EarnVault, Vault } from '~/entities/vault'
+import type { EarnVault, SecuritizeVault, Vault } from '~/entities/vault'
 
 export type AccountVaultLiquidityCollateral = {
   collateral: string
@@ -51,7 +51,7 @@ export interface Account {
 }
 export interface AccountBorrowPosition {
   borrow: Vault
-  collateral: Vault
+  collateral: Vault | SecuritizeVault
   collaterals?: string[]
   subAccount: string
   health: bigint
@@ -67,7 +67,8 @@ export interface AccountBorrowPosition {
   collateralValueLiquidation: bigint
 }
 export interface AccountDepositPosition {
-  vault: Vault
+  vault: Vault | SecuritizeVault
+  subAccount: string
   shares: bigint
   assets: bigint
 }
@@ -102,6 +103,17 @@ const checkGetController = async (subAccount: string) => {
     console.error('[checkGetController] Error:', e)
     return true
   }
+}
+
+/**
+ * Derives the subaccount index by XORing the owner address with the subaccount address.
+ * The subaccount address is created as: ownerAddress XOR index
+ * So: index = ownerAddress XOR subAccountAddress
+ */
+export const getSubAccountIndex = (ownerAddress: string, subAccountAddress: string): number => {
+  const owner = BigInt(ethers.getAddress(ownerAddress))
+  const subAccount = BigInt(ethers.getAddress(subAccountAddress))
+  return Number(owner ^ subAccount)
 }
 
 export const getNewSubAccount = async (ownerAddress: string) => {

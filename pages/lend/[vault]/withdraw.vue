@@ -1,31 +1,34 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
-import { createPublicClient, http, type Address } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
   getVaultPrice,
+  isSecuritizeVault,
+  fetchSecuritizeVault,
   type Vault,
+  type SecuritizeVault,
   type VaultAsset,
 } from '~/entities/vault'
-import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { withdraw, redeem, buildWithdrawPlan, buildRedeemPlan } = useEulerOperations()
 const { getVault } = useVaults()
-const { isConnected, chain, address } = useAccount()
-const { getBalance } = useWallets()
+const { isConnected } = useAccount()
+const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
-const { eulerLensAddresses } = useEulerAddresses()
 const vaultAddress = route.params.vault as string
 
 const isLoading = ref(false)
@@ -33,14 +36,16 @@ const isSubmitting = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
 const plan = ref<TxPlan | null>(null)
-const vault: Ref<Vault | undefined> = ref()
+const vault: Ref<Vault | SecuritizeVault | undefined> = ref()
 const asset: Ref<VaultAsset | undefined> = ref()
+
+// Check if vault is securitize (for things like supply/borrow which securitize doesn't have)
+const isSecuritizeVaultType = computed(() => vault.value && 'type' in vault.value && vault.value.type === 'securitize')
 const assetsBalance = ref(0n)
 const sharesBalance = ref(0n)
 const delta = ref(0n)
 const estimateSupplyAPY = ref(0n)
 const estimatesError = ref('')
-const balanceFromContract = ref(0n)
 
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value?.address || ''))
 const amountFixed = computed(() => {
@@ -50,9 +55,6 @@ const amountFixed = computed(() => {
     { decimals: Number(asset.value?.decimals || 0) },
   )
 })
-const balance = computed(() => {
-  return getBalance(vault.value?.address as `0x${string}`) || 0n
-})
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   return assetsBalance.value < amountFixed.value.value
@@ -60,6 +62,7 @@ const isSubmitDisabled = computed(() => {
     || amountFixed.value.isZero() || amountFixed.value.isNegative()
     || !!(estimatesError.value)
 })
+const reviewWithdrawDisabled = getSubmitDisabled(isSubmitDisabled)
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
   const base = withIntrinsicSupplyApy(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25), vault.value.asset.symbol)
@@ -70,17 +73,31 @@ const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(base + (opportunityInfo.value?.apr || 0))
 })
 
+// Helper to get vault price - returns 0 for securitize vaults (no USD price available)
+const getPrice = (amount: bigint) => {
+  if (!vault.value || isSecuritizeVaultType.value) return 0
+  return getVaultPrice(amount, vault.value as Vault)
+}
+
 const load = async () => {
   isLoading.value = true
   try {
-    vault.value = await getVault(vaultAddress)
-    estimateSupplyAPY.value = vault.value.interestRateInfo.supplyAPY
+    // Check if securitize vault first
+    const isSecuritize = await isSecuritizeVault(vaultAddress)
+    if (isSecuritize) {
+      vault.value = await fetchSecuritizeVault(vaultAddress)
+      estimateSupplyAPY.value = 0n // Securitize vaults don't have interest rate
+    }
+    else {
+      vault.value = await getVault(vaultAddress)
+      estimateSupplyAPY.value = (vault.value as Vault).interestRateInfo.supplyAPY
+    }
+
     asset.value = vault.value?.asset
 
-    if (!vault.value.verified) {
-      await getBalanceFromContract()
-    }
-    updateBalance()
+    // Always fetch fresh share balance directly from contract
+    await fetchShareBalance()
+    await updateBalance()
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -90,34 +107,21 @@ const load = async () => {
     isLoading.value = false
   }
 }
-const getBalanceFromContract = async () => {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const client = createPublicClient({
-    chain: chain.value,
-    transport: http(EVM_PROVIDER_URL),
-  })
-
-  const utilsLensAddress = eulerLensAddresses.value?.utilsLens as Address
-
-  const tokenBalancesResult = await client.readContract({
-    address: utilsLensAddress,
-    abi: eulerUtilsLensABI,
-    functionName: 'tokenBalances',
-    args: [address.value as Address, [vault.value?.address]],
-  }) as bigint[]
-
-  tokenBalancesResult.forEach((balance: bigint) => {
-    balanceFromContract.value = balance
-  })
-}
-const updateBalance = async () => {
-  if (!isConnected.value) {
-    assetsBalance.value = 0n
+const fetchShareBalance = async () => {
+  if (!vault.value?.address) {
     sharesBalance.value = 0n
     return
   }
+  sharesBalance.value = await fetchVaultShareBalance(vault.value.address)
+}
+const updateBalance = async () => {
+  if (!isConnected.value || sharesBalance.value === 0n) {
+    assetsBalance.value = 0n
+    delta.value = 0n
+    return
+  }
 
-  sharesBalance.value = vault.value?.verified ? balance.value : balanceFromContract.value
+  // Convert shares to assets
   assetsBalance.value = await convertSharesToAssets(
     vaultAddress,
     sharesBalance.value,
@@ -125,41 +129,43 @@ const updateBalance = async () => {
   delta.value = assetsBalance.value
 }
 const submit = async () => {
-  if (!asset.value?.address) {
-    return
-  }
-
-  const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
-
-  try {
-    plan.value = isMax
-      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
-      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
+  await guardWithTerms(async () => {
+    if (!asset.value?.address) {
       return
     }
-  }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'withdraw',
-      asset: asset.value,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+
+    try {
+      plan.value = isMax
+        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
+        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'withdraw',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -206,7 +212,10 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('Not enough balance')
     }
 
-    if ((vault.value.supply - vault.value.borrow) < amountFixed.value.value) {
+    // Check liquidity (securitize: borrow is always 0)
+    const liquidity = vault.value.supply - vault.value.borrow
+
+    if (liquidity < amountFixed.value.value) {
       throw new Error('Not enough liquidity in vault')
     }
 
@@ -216,7 +225,7 @@ const updateEstimates = useDebounceFn(async () => {
   catch (e) {
     console.warn(e)
     delta.value = assetsBalance.value || 0n
-    estimateSupplyAPY.value = vault.value.interestRateInfo.supplyAPY
+    estimateSupplyAPY.value = vault.value?.interestRateInfo.supplyAPY || 0n
     estimatesError.value = (e as { message: string }).message
   }
   finally {
@@ -226,8 +235,11 @@ const updateEstimates = useDebounceFn(async () => {
 
 load()
 
-watch(isConnected, () => {
-  updateBalance()
+watch(isConnected, async () => {
+  if (vault.value) {
+    await fetchShareBalance()
+    await updateBalance()
+  }
 })
 watch(amount, async () => {
   clearSimulationError()
@@ -303,13 +315,16 @@ watch(amount, async () => {
             {{ supplyAPYDisplay }}%
           </p>
         </div>
-        <div class="flex justify-between items-center">
+        <div
+          v-if="!isSecuritizeVaultType"
+          class="flex justify-between items-center"
+        >
           <p class="text-content-tertiary">
             Deposit
           </p>
           <p class="text-p2 text-content-tertiary">
-            ${{ formatNumber(getVaultPrice(assetsBalance, vault)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
-              → <span class="text-content-primary">${{ formatNumber(getVaultPrice(delta, vault)) }}</span>
+            ${{ formatNumber(getPrice(assetsBalance)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
+              → <span class="text-content-primary">${{ formatNumber(getPrice(delta)) }}</span>
             </template>
           </p>
         </div>
@@ -322,7 +337,10 @@ watch(amount, async () => {
             class="text-p2 flex items-center gap-4"
           >
             {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="text-p3 text-content-tertiary">{{ asset.symbol }}</span>
-            <span class="text-p3 text-content-tertiary">≈ ${{ formatNumber(getVaultPrice(assetsBalance, vault)) }}</span>
+            <span
+              v-if="!isSecuritizeVaultType"
+              class="text-p3 text-content-tertiary"
+            >≈ ${{ formatNumber(getPrice(assetsBalance)) }}</span>
           </p>
         </div>
       </VaultFormInfoBlock>
@@ -331,9 +349,9 @@ watch(amount, async () => {
     <template #buttons>
       <VaultFormSubmit
         :loading="isSubmitting"
-        :disabled="isSubmitDisabled"
+        :disabled="reviewWithdrawDisabled"
       >
-        Withdraw review
+        {{ reviewWithdrawLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

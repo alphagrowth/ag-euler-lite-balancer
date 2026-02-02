@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { BorrowVaultPair } from '~/entities/vault'
+import type { AnyBorrowVaultPair } from '~/entities/vault'
 
-defineProps<{ items: BorrowVaultPair[] }>()
+defineProps<{ items: AnyBorrowVaultPair[] }>()
 </script>
 
 <template>

@@ -2,6 +2,7 @@ import { ethers } from 'ethers'
 import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, getVaultPrice, type Vault } from '~/entities/vault'
 
 export const useSwapDebtOptions = ({
@@ -11,7 +12,7 @@ export const useSwapDebtOptions = ({
   collateralVault: Ref<Vault | undefined>
   currentBorrowVault?: Ref<Vault | undefined>
 }) => {
-  const { list } = useVaults()
+  const { getEvkVaults } = useVaultRegistry()
   const { getOpportunityOfBorrowVault } = useMerkl()
   const { withIntrinsicBorrowApy } = useIntrinsicApy()
 
@@ -26,7 +27,7 @@ export const useSwapDebtOptions = ({
       ? ethers.getAddress(currentBorrowVault.value.address)
       : null
 
-    return list.value.filter((vault) => {
+    return getEvkVaults().filter((vault) => {
       if (!vault.collateralLTVs?.length) {
         return false
       }

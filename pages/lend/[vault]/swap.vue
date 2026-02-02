@@ -3,7 +3,8 @@ import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
-import { type Vault, getVaultPrice } from '~/entities/vault'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
+import { type Vault, type SecuritizeVault, getVaultPrice, isSecuritizeVault, fetchSecuritizeVault } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -23,6 +24,8 @@ const { depositPositions } = useEulerAccount()
 const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewSwapLabel = getSubmitLabel('Review Swap')
 const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -51,12 +54,16 @@ const {
   selectProvider,
 } = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
 
-const fromVault: Ref<Vault | undefined> = ref()
+const fromVault: Ref<Vault | SecuritizeVault | undefined> = ref()
 const toVault: Ref<Vault | undefined> = ref()
 
 const fromProduct = useEulerProductOfVault(computed(() => fromVault.value?.address || ''))
 const toProduct = useEulerProductOfVault(computed(() => toVault.value?.address || ''))
-const { collateralOptions, collateralVaults } = useSwapCollateralOptions({ currentVault: fromVault })
+// Check if from vault is securitize type
+const isFromSecuritizeVault = computed(() => fromVault.value && 'type' in fromVault.value && fromVault.value.type === 'securitize')
+// For swap options, treat securitize as regular vault (has compatible fields now)
+const fromVaultAsRegular = computed(() => fromVault.value as Vault | undefined)
+const { collateralOptions, collateralVaults } = useSwapCollateralOptions({ currentVault: fromVaultAsRegular })
 
 const getVaultAddress = () => route.params.vault as string
 const getTargetAddress = () => (typeof route.query.to === 'string' ? route.query.to : '')
@@ -67,12 +74,20 @@ const loadVaults = async () => {
     const baseAddress = getVaultAddress()
     const targetAddress = getTargetAddress()
 
-    fromVault.value = await getVault(baseAddress)
+    // Check if from vault is securitize
+    const isFromSecuritize = await isSecuritizeVault(baseAddress)
+    if (isFromSecuritize) {
+      fromVault.value = await fetchSecuritizeVault(baseAddress)
+    }
+    else {
+      fromVault.value = await getVault(baseAddress)
+    }
+
     if (targetAddress && ethers.isAddress(targetAddress) && ethers.getAddress(targetAddress) !== ethers.getAddress(baseAddress)) {
       toVault.value = await getVault(targetAddress)
     }
-    else {
-      toVault.value = fromVault.value
+    else if (!isFromSecuritize) {
+      toVault.value = fromVault.value as Vault
     }
   }
   catch (e) {
@@ -133,7 +148,7 @@ watch([quote, toVault], () => {
   }
   const amountOut = getQuoteAmount(quote.value, 'amountOut')
   toAmount.value = amountOut > 0n
-    ? ethers.formatUnits(amountOut, Number(toVault.value.decimals))
+    ? formatSignificant(ethers.formatUnits(amountOut, Number(toVault.value.decimals)))
     : ''
 }, { immediate: true })
 
@@ -201,7 +216,7 @@ const swapSummary = computed(() => {
   const amountOut = ethers.formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals))
   return {
     from: `${formatNumber(amountIn)} ${fromVault.value.asset.symbol}`,
-    to: `${formatNumber(amountOut)} ${toVault.value.asset.symbol}`,
+    to: `${formatSignificant(amountOut)} ${toVault.value.asset.symbol}`,
   }
 })
 
@@ -234,7 +249,7 @@ const swapRouteItems = computed(() => {
   const bestProvider = quoteCardsSorted.value[0]?.provider
   return quoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amount = formatNumber(
+    const amount = formatSignificant(
       ethers.formatUnits(amountOut, Number(toVault.value.decimals)),
     )
     const diffPct = getQuoteDiffPct(card.quote)
@@ -281,6 +296,7 @@ const isSubmitDisabled = computed(() => {
     || !(+fromAmount.value)
     || !toAmount.value
 })
+const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
 
 const onFromInput = async () => {
   clearSimulationError()
@@ -373,43 +389,45 @@ const onToVaultChange = (selectedIndex: number) => {
 }
 
 const submit = async () => {
-  if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
-    return
-  }
-
-  try {
-    plan.value = await buildSwapPlan({
-      quote: selectedQuote.value,
-      swapperMode: SwapperMode.EXACT_IN,
-      isRepay: false,
-      targetDebt: 0n,
-      currentDebt: 0n,
-    })
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
+  await guardWithTerms(async () => {
+    if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
       return
     }
-  }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'swap',
-      asset: fromVault.value.asset,
-      amount: fromAmount.value,
-      plan: plan.value || undefined,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    try {
+      plan.value = await buildSwapPlan({
+        quote: selectedQuote.value,
+        swapperMode: SwapperMode.EXACT_IN,
+        isRepay: false,
+        targetDebt: 0n,
+        currentDebt: 0n,
+      })
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'swap',
+        asset: fromVault.value.asset,
+        amount: fromAmount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 
@@ -450,7 +468,7 @@ const send = async () => {
       :loading="isLoading"
       @submit.prevent="submit"
     >
-      <template v-if="fromVault && toVault">
+      <template v-if="fromVault">
         <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
           <div class="flex flex-col gap-16 w-full">
             <AssetInput
@@ -458,7 +476,7 @@ const send = async () => {
               :desc="fromProduct.name"
               label="From"
               :asset="fromVault.asset"
-              :vault="fromVault"
+              :vault="isFromSecuritizeVault ? undefined : (fromVault as Vault)"
               :balance="balance"
               maxable
               @input="onFromInput"
@@ -474,6 +492,7 @@ const send = async () => {
             />
 
             <AssetInput
+              v-if="toVault"
               v-model="toAmount"
               :desc="toProduct.name"
               label="To"
@@ -483,6 +502,12 @@ const send = async () => {
               :readonly="true"
               @change-collateral="onToVaultChange"
             />
+            <div
+              v-else
+              class="bg-euler-dark-400 rounded-16 p-16 text-euler-dark-900"
+            >
+              No asset swap options available
+            </div>
 
             <UiToast
               v-show="errorText"
@@ -586,10 +611,10 @@ const send = async () => {
 
           <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
             <VaultFormSubmit
-              :disabled="isSubmitDisabled"
+              :disabled="reviewSwapDisabled"
               :loading="isSubmitting"
             >
-              Review Swap
+              {{ reviewSwapLabel }}
             </VaultFormSubmit>
           </div>
         </div>

@@ -1,29 +1,36 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getEarnVaultPrice, getEarnVaultPriceDisplay, type EarnVault } from '~/entities/vault'
-import { useEulerEntitiesOfEarnVault, useEulerProductOfVault, useEulerVaultLabelOfVault } from '~/composables/useEulerLabels'
+import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 
 const { isConnected } = useAccount()
 const { vault } = defineProps<{ vault: EarnVault }>()
+const { isEarnVaultOwnerVerified } = useVaults()
 const entities = useEulerEntitiesOfEarnVault(vault)
 const product = useEulerProductOfVault(vault.address)
-const vaultLabel = useEulerVaultLabelOfVault(vault.address)
-const { balances, isLoading: isBalancesLoading } = useWallets()
+const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
+const { getBalance, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
 
-const entitiesLabels = computed(() => entities.map(e => e.name))
-const entitiesLogos = computed(() => entities.map(e => getEulerLabelEntityLogo(e.logo)))
+const entitiesLabels = computed(() => {
+  if (!isOwnerVerified.value) return ['Unknown']
+  return entities.map(e => e.name)
+})
+const entitiesLogos = computed(() => {
+  if (!isOwnerVerified.value) return []
+  return entities.map(e => getEulerLabelEntityLogo(e.logo))
+})
 
-const balance = computed(() => balances.value.get(vault.asset.address) || 0n)
+const balance = computed(() => getBalance(vault.asset.address as `0x${string}`))
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
 const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
-const displayName = computed(() => vaultLabel.name || product.name || vault.name)
+const displayName = computed(() => product.name || vault.name)
 
 const totalSupplyPrice = computed(() => {
   const price = getEarnVaultPriceDisplay(vault.totalAssets, vault)

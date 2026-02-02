@@ -9,10 +9,6 @@ const { open } = useAppKit()
 
 const isOnboardingCompleted = useLocalStorage('is-onboarding-completed', false)
 
-if (isOnboardingCompleted.value) {
-  navigateTo('/')
-}
-
 const onConnectWalletClick = () => {
   open()
 }
@@ -32,7 +28,7 @@ watch(isConnected, (value) => {
 
 <template>
   <section class="w-full h-dvh -mt-16 -mb-[98px]">
-    <div class="relative flex flex-col items-center justify-between gap-24 h-full pb-16 mobile:-mx-16">
+    <div class="relative flex flex-col items-center justify-between gap-24 h-full pb-64 mobile:-mx-16">
       <div
         class="flex-1 w-full h-full bg-[url('/onboarding-pattern.png')] bg-cover bg-bottom bg-no-repeat -z-10"
       />

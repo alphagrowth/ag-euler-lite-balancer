@@ -66,7 +66,7 @@ const { isReady } = useVaults()
     </p>
     <div class="flex flex-1 p-8 rounded-12 border border-line-default bg-card">
       <div
-        v-if="isConnected && (!isDepositsLoaded || (!isReady && depositPositions.length === 0))"
+        v-if="isConnected && (!isDepositsLoaded || !isReady)"
         class="flex flex-1 justify-center items-center"
       >
         <UiLoader class="text-neutral-500 my-8" />
@@ -95,12 +95,6 @@ const { isReady } = useVaults()
           :items="depositPositions"
           type="lend"
         />
-        <div
-          v-if="!isReady"
-          class="flex justify-center items-center mt-12"
-        >
-          <UiLoader class="text-neutral-500" />
-        </div>
       </div>
     </div>
   </div>

@@ -3,23 +3,35 @@ import { useAccount } from '@wagmi/vue'
 import { ethers, FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { getNetAPY, getVaultPrice, getVaultPriceInfo, type Vault, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import {
+  getNetAPY,
+  getVaultPrice,
+  getVaultPriceInfo,
+  getCollateralAssetPriceFromLiability,
+  type Vault,
+  type SecuritizeVault,
+} from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const router = useRouter()
 const route = useRoute()
 const { withdraw, buildWithdrawPlan } = useEulerOperations()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const modal = useModal()
-const { isPositionsLoaded, borrowPositions, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { isConnected, address } = useAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { isReady: isVaultsReady } = useVaults()
+const { getOrFetch } = useVaultRegistry()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const positionIndex = route.params.number as string
@@ -33,11 +45,11 @@ const estimateNetAPY = ref(0)
 const estimateUserLTV = ref(0n)
 const estimateHealth = ref(0n)
 const estimatesError = ref('')
-const selectedCollateral = ref<Vault | null>(null)
+const selectedCollateral = ref<Vault | SecuritizeVault | null>(null)
 const selectedCollateralAssets = ref(0n)
 const lastCollateralAddress = ref('')
 
-const position = computed(() => borrowPositions.value[+positionIndex - 1])
+const position = computed(() => getPositionBySubAccountIndex(+positionIndex))
 const isPositionLoaded = computed(() => !!position.value)
 const collateralVault = computed(() => selectedCollateral.value || position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
@@ -45,17 +57,27 @@ const asset = computed(() => collateralVault.value?.asset)
 const collateralAssets = computed(() => selectedCollateralAssets.value)
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
-const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
-  collateralVault.value?.asset.symbol,
-))
+const collateralSupplyApy = computed(() => {
+  if (!collateralVault.value) return 0
+  return withIntrinsicSupplyApy(
+    nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
+    collateralVault.value?.asset.symbol,
+  )
+})
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
+// Get collateral USD value using liability vault's price perspective
+const getCollateralValueUsd = (amount: bigint) => {
+  if (!borrowVault.value || !collateralVault.value) return 0
+  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+  if (!priceInfo?.amountOutMid) return 0
+  return nanoToValue(amount, collateralVault.value.decimals) * nanoToValue(priceInfo.amountOutMid, 18)
+}
 const netAPY = computed(() => {
   return getNetAPY(
-    getVaultPrice(collateralAssets.value, collateralVault.value!),
+    getCollateralValueUsd(collateralAssets.value),
     collateralSupplyApy.value,
     getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
     borrowApy.value,
@@ -92,6 +114,7 @@ const isSubmitDisabled = computed(() => {
   return collateralAssets.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
+const reviewWithdrawDisabled = getSubmitDisabled(computed(() => isLoading.value || isSubmitDisabled.value))
 
 const normalizeAddress = (address?: string) => {
   if (!address) {
@@ -132,8 +155,9 @@ const loadSelectedCollateral = async () => {
 
     await until(isVaultsReady).toBe(true)
 
-    const vault = map.value.get(targetAddress) || await getVault(targetAddress)
-    selectedCollateral.value = vault
+    // Use unified vault resolution - handles EVK, escrow, and securitize vaults
+    const vault = await getOrFetch(targetAddress) as Vault | SecuritizeVault | undefined
+    selectedCollateral.value = vault || null
 
     const lensAddress = eulerLensAddresses.value?.accountLens
     if (!lensAddress) {
@@ -174,43 +198,46 @@ const load = async () => {
   }
 }
 const submit = async () => {
-  if (!asset.value?.address || !collateralVault.value?.address) {
-    return
-  }
-
-  try {
-    plan.value = await buildWithdrawPlan(
-      collateralVault.value.address,
-      valueToNano(amount.value || '0', asset.value.decimals),
-      position.value?.subAccount,
-    )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
+  await guardWithTerms(async () => {
+    if (!asset.value?.address || !collateralVault.value?.address) {
       return
     }
-  }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'withdraw',
-      asset: asset.value,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    try {
+      plan.value = await buildWithdrawPlan(
+        collateralVault.value.address,
+        valueToNano(amount.value || '0', asset.value.decimals),
+        position.value?.subAccount,
+        { includePythUpdate: (position.value?.borrowed || 0n) > 0n },
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'withdraw',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -228,6 +255,7 @@ const send = async () => {
       position.value?.subAccount,
       undefined,
       undefined,
+      { includePythUpdate: (position.value?.borrowed || 0n) > 0n },
     )
 
     modal.close()
@@ -255,7 +283,7 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('Not enough liquidity in your position')
     }
     estimateNetAPY.value = getNetAPY(
-      getVaultPrice(collateralAssets.value - valueToNano(amount.value, collateralVault.value.decimals), collateralVault.value!),
+      getCollateralValueUsd(collateralAssets.value - valueToNano(amount.value, collateralVault.value.decimals)),
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
       getVaultPrice(position.value!.borrowed || 0n || 0, borrowVault.value!),
       borrowApy.value,
@@ -459,10 +487,10 @@ watch(amount, async () => {
         :vault="collateralVault"
       />
       <VaultFormSubmit
-        :disabled="isLoading || isSubmitDisabled"
+        :disabled="reviewWithdrawDisabled"
         :loading="isSubmitting"
       >
-        Review Withdraw
+        {{ reviewWithdrawLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

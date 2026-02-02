@@ -38,7 +38,7 @@ const tabs = computed(() => [
   {
     label: 'Savings',
     value: 'portfolio-saving',
-    badge: depositPositions.value.length || earnPositions.value.length ? depositPositions.value.length + earnPositions.value.length : null,
+    badge: depositPositions.value.length + earnPositions.value.length || null,
   },
   {
     label: 'Rewards',

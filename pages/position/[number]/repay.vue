@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import { type Address, zeroAddress } from 'viem'
 import { FixedNumber, ethers } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
@@ -12,7 +13,7 @@ import { SwapperMode } from '~/entities/swap'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
-import { type Address, zeroAddress } from 'viem'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 
 const route = useRoute()
@@ -20,17 +21,18 @@ const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
 const { repay, fullRepay, buildRepayPlan, buildFullRepayPlan, buildSwapPlan, swap: executeSwap } = useEulerOperations()
-const { isConnected } = useAccount()
+const { isConnected, address } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
-const { address } = useAccount()
-const { getBalance } = useWallets()
+const { fetchSingleBalance } = useWallets()
+const walletBalance = ref(0n)
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { slippage } = useSlippage()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -81,6 +83,10 @@ const isSwapSubmitDisabled = computed(() => {
   }
   return false
 })
+const reviewRepayLabel = getSubmitLabel('Review Repay')
+const reviewRepayDisabled = getSubmitDisabled(computed(() => {
+  return formTab.value === 'wallet' ? isSubmitDisabled.value : isSwapSubmitDisabled.value
+}))
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
@@ -123,6 +129,14 @@ const liquidationPrice = computed(() => {
 const { name } = useEulerProductOfVault(borrowVault.value?.address || '')
 const swapCollateralProduct = useEulerProductOfVault(computed(() => swapCollateralVault.value?.address || ''))
 
+const fetchWalletBalance = async () => {
+  if (!isConnected.value || !borrowVault.value?.asset.address) {
+    walletBalance.value = 0n
+    return
+  }
+  walletBalance.value = await fetchSingleBalance(borrowVault.value.asset.address)
+}
+
 const load = async () => {
   if (!isConnected.value) {
     showError('Wallet is not connected.')
@@ -131,7 +145,9 @@ const load = async () => {
   await until(isPositionsLoaded).toBe(true)
 
   try {
-    position.value = borrowPositions.value[+positionIndex - 1]
+    position.value = getPositionBySubAccountIndex(+positionIndex)
+    // Fetch fresh wallet balance for this specific asset
+    await fetchWalletBalance()
     await updateBalance()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value?.userLTV || 0n
@@ -455,7 +471,7 @@ const swapSummary = computed(() => {
   const amountOut = ethers.formatUnits(BigInt(swapQuote.value.amountOut), Number(borrowVault.value.asset.decimals))
   return {
     from: `${formatNumber(amountIn)} ${swapCollateralVault.value.asset.symbol}`,
-    to: `${formatNumber(amountOut)} ${borrowVault.value.asset.symbol}`,
+    to: `${formatSignificant(amountOut)} ${borrowVault.value.asset.symbol}`,
   }
 })
 const swapPriceImpact = computed(() => {
@@ -510,7 +526,7 @@ const swapRouteItems = computed(() => {
   return swapQuoteCardsSorted.value.map((card) => {
     const amount = getQuoteAmount(card.quote, isExactIn ? 'amountOut' : 'amountIn')
     const symbol = isExactIn ? borrowVault.value.asset.symbol : swapCollateralVault.value.asset.symbol
-    const amountLabel = formatNumber(
+    const amountLabel = formatSignificant(
       ethers.formatUnits(amount, Number(isExactIn ? borrowVault.value.asset.decimals : swapCollateralVault.value.asset.decimals)),
     )
     const diffPct = (isExactIn ? exactInQuotes.getQuoteDiffPct : targetDebtQuotes.getQuoteDiffPct)(card.quote)
@@ -702,12 +718,14 @@ watch([swapEffectiveQuote, repaySwapDirection], () => {
       BigInt(swapEffectiveQuote.value.amountOut || 0),
       Number(borrowVault.value.asset.decimals),
     )
+    debtAmount.value = formatSignificant(debtAmount.value)
   }
   else {
     collateralAmount.value = ethers.formatUnits(
       BigInt(swapEffectiveQuote.value.amountIn || 0),
       Number(swapCollateralVault.value.asset.decimals),
     )
+    collateralAmount.value = formatSignificant(collateralAmount.value)
   }
 })
 const updateBalance = async () => {
@@ -778,13 +796,15 @@ const submit = async () => {
   })
 }
 
-const onSubmitForm = () => {
-  if (formTab.value === 'wallet') {
-    submit()
-  }
-  else {
-    submitSwap()
-  }
+const onSubmitForm = async () => {
+  await guardWithTerms(async () => {
+    if (formTab.value === 'wallet') {
+      await submit()
+    }
+    else {
+      await submitSwap()
+    }
+  })
 }
 
 const submitSwap = async () => {
@@ -920,8 +940,7 @@ const updateEstimates = useDebounceFn(async () => {
     return
   }
   try {
-    const walletBalance = getBalance(borrowVault.value.asset.address as Address)
-    if (walletBalance < valueToNano(amount.value, borrowVault.value.decimals)) {
+    if (walletBalance.value < valueToNano(amount.value, borrowVault.value.decimals)) {
       throw new Error('Not enough balance')
     }
     if (balanceFixed.value.lt(amountFixed.value)) {
@@ -1402,17 +1421,17 @@ onUnmounted(() => {
       </VaultFormInfoButton>
       <VaultFormSubmit
         v-if="formTab === 'wallet'"
-        :disabled="isSubmitDisabled"
+        :disabled="reviewRepayDisabled"
         :loading="isSubmitting"
       >
-        Review Repay
+        {{ reviewRepayLabel }}
       </VaultFormSubmit>
       <VaultFormSubmit
         v-else
-        :disabled="isSwapSubmitDisabled"
+        :disabled="reviewRepayDisabled"
         :loading="isSubmitting"
       >
-        Review Repay
+        {{ reviewRepayLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

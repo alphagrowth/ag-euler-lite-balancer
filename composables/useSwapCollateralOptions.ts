@@ -3,6 +3,7 @@ import type { Address } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, getVaultPrice, type Vault } from '~/entities/vault'
 
 export const useSwapCollateralOptions = ({
@@ -12,15 +13,11 @@ export const useSwapCollateralOptions = ({
   currentVault: Ref<Vault | undefined>
   liabilityVault?: Ref<Vault | undefined>
 }) => {
-  const { list, map, escrowMap, borrowList } = useVaults()
+  const { borrowList } = useVaults()
+  const { getVault: registryGetVault, getEvkVaults, getStandardEvkVaults, getEscrowVaults } = useVaultRegistry()
   const { getBalance } = useWallets()
   const { getOpportunityOfLendVault } = useMerkl()
   const { withIntrinsicSupplyApy } = useIntrinsicApy()
-
-  const resolveVault = (address: string) => {
-    const normalized = ethers.getAddress(address)
-    return map.value.get(normalized) || escrowMap.value.get(normalized)
-  }
 
   const collateralVaults = computed(() => {
     const current = currentVault.value
@@ -30,19 +27,23 @@ export const useSwapCollateralOptions = ({
     let candidates: Vault[] = []
 
     if (liability) {
+      // When we have a liability vault, get collaterals from LTV configuration
       candidates = liability.collateralLTVs
         .filter(ltv => ltv.borrowLTV > 0n)
-        .map(ltv => resolveVault(ltv.collateral))
+        .map(ltv => registryGetVault(ltv.collateral) as Vault | undefined)
         .filter((vault): vault is Vault => Boolean(vault))
     }
     else {
+      // Without liability vault, show borrowable vaults + all escrow vaults
       const borrowable = new Set(
         borrowList.value.map(pair => ethers.getAddress(pair.borrow.address)),
       )
-      const baseVaults = list.value.filter(vault => borrowable.has(ethers.getAddress(vault.address)))
-      const escrowVaults = [...escrowMap.value.values()]
+      // Get standard EVK vaults that are borrowable (can be used as collateral for some pair)
+      const standardVaults = getStandardEvkVaults().filter(vault => borrowable.has(ethers.getAddress(vault.address)))
+      // Get all escrow vaults (always valid as collateral)
+      const escrowVaults = getEscrowVaults()
 
-      candidates = [...baseVaults, ...escrowVaults]
+      candidates = [...standardVaults, ...escrowVaults]
     }
 
     const unique = new Map<string, Vault>()
@@ -68,7 +69,7 @@ export const useSwapCollateralOptions = ({
       const opportunity = getOpportunityOfLendVault(vault.address)
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
 
-      const optionType = ('type' in vault && vault.type === 'escrow') ? 'escrow' : 'vault'
+      const optionType = vault.vaultCategory === 'escrow' ? 'escrow' : 'vault'
 
       return {
         type: optionType,

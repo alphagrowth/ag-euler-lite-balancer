@@ -10,6 +10,8 @@ const modal = useModal()
 const { error } = useToast()
 const { rewardTokens, isTokensLoading } = useMerkl()
 const { unlockREUL, buildUnlockREULPlan, reulTokenContractAddress } = useREULLocks()
+const { chainId: siteChainId } = useEulerAddresses()
+const { chainId: walletChainId, switchChain } = useWagmi()
 const { runSimulation, simulationError } = useTxPlanSimulation()
 const { item } = defineProps<{ item: REULLock }>()
 
@@ -43,6 +45,20 @@ const daysUntilMaturity = computed(() => {
   return Math.max(0, Math.floor(DateTime.fromSeconds(Number(item.timestamp)).plus({ days: 180 }).diffNow('days').days))
 })
 
+const ensureWalletOnSiteChain = async () => {
+  const targetChainId = siteChainId.value
+  if (!targetChainId) {
+    return
+  }
+
+  if (walletChainId.value === targetChainId) {
+    return
+  }
+
+  await switchChain({ chainId: targetChainId })
+  await until(walletChainId).toBe(targetChainId, { timeout: 8000, throwOnTimeout: false })
+}
+
 const unlock = async () => {
   try {
     isUnlocking.value = true
@@ -61,6 +77,8 @@ const unlock = async () => {
 
 const onUnlockClick = async () => {
   try {
+    await ensureWalletOnSiteChain()
+
     // Build the transaction plan
     try {
       plan.value = await buildUnlockREULPlan([item.timestamp])
@@ -127,7 +145,7 @@ const onUnlockClick = async () => {
           {{ reulToken ? `${formatNumber(unlockableAmount, 6)} rEUL` : '...' }}
         </p>
         <p class="text-p3 text-euler-dark-900">
-          {{ reulToken ? `OF ${formatNumber(amount, 6)} rEUL` : '...' }}
+          {{ reulToken ? `of ${formatNumber(amount, 6)} rEUL` : '...' }}
         </p>
       </div>
     </div>

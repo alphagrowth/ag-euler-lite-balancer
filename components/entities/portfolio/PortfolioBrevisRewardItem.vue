@@ -12,6 +12,8 @@ const { getVault } = useVaults()
 const { claimReward, loadRewards, buildClaimRewardPlan } = useBrevis()
 const modal = useModal()
 const { error } = useToast()
+const { chainId: siteChainId } = useEulerAddresses()
+const { chainId: walletChainId, switchChain } = useWagmi()
 const { runSimulation, simulationError } = useTxPlanSimulation()
 
 const vault = ref(await getVault(campaign.vault_address))
@@ -20,6 +22,20 @@ const plan = ref<TxPlan | null>(null)
 const rewardAmount = computed(() => Number.parseFloat(campaign.reward_info.reward_amt))
 const rewardUsdValue = computed(() => rewardAmount.value * Number.parseFloat(campaign.reward_info.reward_usd_price))
 const actionLabel = computed(() => campaign.action === 2001 ? 'Borrow' : 'Lend')
+
+const ensureWalletOnSiteChain = async () => {
+  const targetChainId = siteChainId.value
+  if (!targetChainId) {
+    return
+  }
+
+  if (walletChainId.value === targetChainId) {
+    return
+  }
+
+  await switchChain({ chainId: targetChainId })
+  await until(walletChainId).toBe(targetChainId, { timeout: 8000, throwOnTimeout: false })
+}
 
 const claim = async () => {
   try {
@@ -40,6 +56,8 @@ const claim = async () => {
 
 const onClaimClick = async () => {
   try {
+    await ensureWalletOnSiteChain()
+
     try {
       plan.value = await buildClaimRewardPlan(campaign)
     }

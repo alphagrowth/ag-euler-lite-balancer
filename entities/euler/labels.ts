@@ -1,8 +1,3 @@
-export type EulerLabelVault = {
-  name: string
-  description: string
-  entity: string | string[]
-}
 export type EulerLabelEntity = {
   name: string
   logo: string

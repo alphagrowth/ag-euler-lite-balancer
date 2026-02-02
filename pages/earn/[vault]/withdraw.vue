@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
+import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
@@ -16,10 +17,12 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
+const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { withdraw, redeem, buildWithdrawPlan, buildRedeemPlan } = useEulerOperations()
 const { getEarnVault } = useVaults()
 const { isConnected } = useAccount()
-const { getBalance } = useWallets()
+const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfLendVault } = useMerkl()
 const vaultAddress = route.params.vault as string
@@ -45,9 +48,6 @@ const amountFixed = computed(() => {
     { decimals: Number(asset.value?.decimals || 0) },
   )
 })
-const balance = computed(() => {
-  return getBalance(vault.value?.address as `0x${string}`) || 0n
-})
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   return assetsBalance.value < amountFixed.value.value
@@ -55,6 +55,7 @@ const isSubmitDisabled = computed(() => {
     || amountFixed.value.isZero() || amountFixed.value.isNegative()
     || !!(estimatesError.value)
 })
+const reviewWithdrawDisabled = getSubmitDisabled(isSubmitDisabled)
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
   return formatNumber(vault.value.supplyAPY || 0 + (opportunityInfo.value?.apr || 0))
@@ -69,7 +70,10 @@ const load = async () => {
     vault.value = await getEarnVault(vaultAddress)
     estimateSupplyAPY.value = vault.value?.supplyAPY || 0
     asset.value = vault.value?.asset
-    updateBalance()
+
+    // Fetch fresh share balance and convert to assets
+    await fetchShareBalance()
+    await updateBalance()
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -79,14 +83,23 @@ const load = async () => {
     isLoading.value = false
   }
 }
-const updateBalance = async () => {
-  if (!isConnected.value) {
-    assetsBalance.value = 0n
+
+const fetchShareBalance = async () => {
+  if (!vault.value?.address) {
     sharesBalance.value = 0n
     return
   }
+  sharesBalance.value = await fetchVaultShareBalance(vault.value.address)
+}
 
-  sharesBalance.value = balance.value
+const updateBalance = async () => {
+  if (!isConnected.value || sharesBalance.value === 0n) {
+    assetsBalance.value = 0n
+    delta.value = 0n
+    return
+  }
+
+  // Convert shares to assets
   assetsBalance.value = await convertSharesToAssets(
     vaultAddress,
     sharesBalance.value,
@@ -94,41 +107,43 @@ const updateBalance = async () => {
   delta.value = assetsBalance.value
 }
 const submit = async () => {
-  if (!asset.value?.address) {
-    return
-  }
-
-  const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
-
-  try {
-    plan.value = isMax
-      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
-      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
+  await guardWithTerms(async () => {
+    if (!asset.value?.address) {
       return
     }
-  }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'withdraw',
-      asset: asset.value,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+
+    try {
+      plan.value = isMax
+        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
+        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'withdraw',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
+    })
   })
 }
 const send = async () => {
@@ -190,8 +205,11 @@ const updateEstimates = useDebounceFn(async () => {
 
 load()
 
-watch(isConnected, () => {
-  updateBalance()
+watch(isConnected, async () => {
+  if (vault.value) {
+    await fetchShareBalance()
+    await updateBalance()
+  }
 })
 watch(amount, async () => {
   clearSimulationError()
@@ -295,9 +313,9 @@ watch(amount, async () => {
     <template #buttons>
       <VaultFormSubmit
         :loading="isSubmitting"
-        :disabled="isSubmitDisabled"
+        :disabled="reviewWithdrawDisabled"
       >
-        Withdraw review
+        {{ reviewWithdrawLabel }}
       </VaultFormSubmit>
     </template>
   </VaultForm>

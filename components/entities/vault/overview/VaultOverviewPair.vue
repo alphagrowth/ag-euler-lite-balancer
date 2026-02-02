@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { BorrowVaultPair } from '~/entities/vault'
+import type { AnyBorrowVaultPair } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 
-defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition, desktopOverview?: boolean }>()
+defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition, desktopOverview?: boolean }>()
 </script>
 
 <template>
@@ -13,9 +13,11 @@ defineProps<{ pair: BorrowVaultPair | AccountBorrowPosition, desktopOverview?: b
     <VaultOverviewPairBlockGeneral
       :pair="pair"
     />
+    <!-- Oracle adapters should always come from the liability (borrow) vault -->
     <VaultOverviewBlockOracleAdapters
       :vault="pair.borrow"
-      :collateral-assets="[pair.collateral.address]"
+      :collateral-vaults="[pair.collateral]"
+      :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0' : '']"
     />
   </div>
 </template>

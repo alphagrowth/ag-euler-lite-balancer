@@ -60,7 +60,7 @@ const handleClose = () => {
             v-else-if="option.type === 'escrow'"
             class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[var(--c-aquamarine-opaque-200)] text-aquamarine-600"
           >
-            Escrow
+            Escrowed collateral
           </div>
         </div>
       </div>

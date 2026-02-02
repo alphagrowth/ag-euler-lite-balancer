@@ -1,15 +1,26 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getVaultPrice } from '~/entities/vault'
-import type { BorrowVaultPair } from '~/entities/vault'
+import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getProductByVault } from '~/composables/useEulerLabels'
+
+const getMaxRoe = (pair: BorrowVaultPair) => {
+  const borrowLTV = nanoToValue(pair.borrowLTV, 2)
+  const maxMultiplier = Math.max(1, Math.floor(100 / (100 - borrowLTV) * 100) / 100)
+  const supplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
+  const borrowApy = nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25)
+  const netApy = supplyApy - borrowApy
+  return supplyApy + (maxMultiplier - 1) * netApy
+}
 
 defineOptions({
   name: 'BorrowPage',
 })
 
-const { borrowList, isLoading } = useVaults()
+const { borrowList, isUpdating, isEscrowUpdating } = useVaults()
+
+const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value)
 const { products, entities } = useEulerLabels()
 
 const selectedCollateral = ref<string[]>([])
@@ -71,12 +82,24 @@ const filteredBorrowList = computed(() => {
 const sortedBorrowList = computed(() => {
   switch (sortBy.value) {
     case 'Liquidity':
-      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+      return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return getVaultPrice(b.borrow.supply - b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.supply - a.borrow.borrow, a.borrow)
       })
     case 'Borrow APY':
+      return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+        return Number(a.borrow.interestRateInfo.borrowAPY) - Number(b.borrow.interestRateInfo.borrowAPY)
+      })
+    case 'Utilization':
       return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-        return Number(b.borrow.interestRateInfo.borrowAPY) - Number(a.borrow.interestRateInfo.borrowAPY)
+        return getVaultUtilization(b.borrow) - getVaultUtilization(a.borrow)
+      })
+    case 'Total Borrowed':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return getVaultPrice(b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.borrow, a.borrow)
+      })
+    case 'Max ROE':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return getMaxRoe(b) - getMaxRoe(a)
       })
     default:
       return filteredBorrowList.value
@@ -100,7 +123,7 @@ const sortedBorrowList = computed(() => {
         <VaultSortButton
           v-model="sortBy"
           class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
-          :options="['Liquidity', 'Borrow APY']"
+          :options="['Liquidity', 'Total Borrowed', 'Utilization', 'Borrow APY', 'Max ROE']"
           placeholder="Sort By"
           title="Sorting type"
         />
