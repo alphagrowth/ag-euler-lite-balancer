@@ -417,6 +417,15 @@ const errorText = computed(() => {
   }
   return null
 })
+const healthError = computed(() => {
+  if (!quote.value || nextHealth.value === null) {
+    return null
+  }
+  if (!Number.isFinite(nextHealth.value)) {
+    return null
+  }
+  return nextHealth.value <= 1 ? 'Swap would make position unhealthy' : null
+})
 
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
@@ -428,6 +437,7 @@ const isSubmitDisabled = computed(() => {
     || !(+fromAmount.value)
     || !toAmount.value
     || !!errorText.value
+    || !!healthError.value
 })
 const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
 
@@ -657,6 +667,13 @@ const send = async () => {
               title="Error"
               variant="error"
               :description="errorText || ''"
+              size="compact"
+            />
+            <UiToast
+              v-if="healthError"
+              title="Unhealthy position"
+              variant="error"
+              :description="healthError"
               size="compact"
             />
             <UiToast
