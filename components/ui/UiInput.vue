@@ -69,9 +69,16 @@ const classes = computed(() => {
   background-color: var(--ui-input-background-color);
   border: 1px solid var(--ui-input-border-color);
   border-radius: 8px;
+  box-shadow: var(--ui-input-shadow);
+  transition: border-color var(--trs-fast), box-shadow var(--trs-fast);
 
   &:not(.is-full-width) {
     width: fit-content;
+  }
+
+  &:focus-within {
+    border-color: var(--ui-input-focus-border-color);
+    box-shadow: var(--ui-input-focus-shadow);
   }
 
   &__field {
@@ -93,10 +100,6 @@ const classes = computed(() => {
       color: var(--ui-input-placeholder-color);
     }
 
-    &:focus {
-      border-color: var(--ui-input-focus-border-color);
-    }
-
     &:-webkit-autofill,
     &:-webkit-autofill:hover,
     &:-webkit-autofill:focus {
@@ -107,9 +110,8 @@ const classes = computed(() => {
   }
 
   &.is-error {
-    #{$block}__field {
-      border-color: var(--ui-input-error-border-color);
-    }
+    border-color: var(--ui-input-error-border-color);
+    box-shadow: var(--ui-input-error-shadow);
 
     #{$block}__help {
       color: var(--ui-input-error-color);
@@ -117,6 +119,8 @@ const classes = computed(() => {
   }
 
   &.is-disabled {
+    box-shadow: none;
+    
     #{$block}__label {
       color: var(--ui-input-disabled-color);
     }

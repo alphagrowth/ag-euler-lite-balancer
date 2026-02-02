@@ -131,14 +131,21 @@ const open = () => {
     font-weight: 400;
     padding: 6px 16px;
     background: var(--ui-select-field-background-color);
-    border: 1px solid var(--neutral-200);
+    border: 1px solid var(--neutral-300);
     border-radius: 100px;
     cursor: pointer;
     transition: all 0.15s ease;
+    box-shadow: var(--ui-input-shadow);
 
     &:hover {
-      border-color: var(--neutral-300);
+      border-color: var(--neutral-400);
       background: var(--neutral-50);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    &:focus {
+      border-color: var(--accent-500);
+      box-shadow: var(--ui-input-focus-shadow);
     }
   }
 
@@ -182,15 +189,17 @@ const open = () => {
     font-size: 14px;
     font-weight: 400;
     background: var(--ui-select-chip-background-color);
-    border: 1px solid var(--neutral-200);
+    border: 1px solid var(--neutral-300);
     border-radius: 100px;
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
     &:hover {
-      border-color: var(--neutral-300);
+      border-color: var(--neutral-400);
       background: var(--neutral-50);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
     }
 
     &--active {
@@ -198,10 +207,12 @@ const open = () => {
       background: var(--ui-select-chip-active-background-color);
       color: var(--ui-select-chip-active-color);
       border-color: transparent;
+      box-shadow: 0 1px 3px rgba(196, 155, 100, 0.3);
 
       &:hover {
         background: var(--accent-600);
         border-color: transparent;
+        box-shadow: 0 2px 6px rgba(196, 155, 100, 0.4);
       }
     }
   }

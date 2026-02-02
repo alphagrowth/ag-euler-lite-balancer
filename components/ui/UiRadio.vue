@@ -148,8 +148,10 @@ const onClick = () => {
     min-width: 22px;
     height: 22px;
     background-color: var(--ui-radio-field-background-color);
-    border: 1px solid var(--ui-radio-field-border-color);
+    border: 1.5px solid var(--ui-radio-field-border-color);
     border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
     &::after {
       content: "";
@@ -159,6 +161,8 @@ const onClick = () => {
       background-color: var(--ui-radio-checked-background-color);
       border-radius: 50%;
       transform: scale(0);
+      transition: transform 0.15s ease;
+      box-shadow: 0 1px 2px rgba(196, 155, 100, 0.3);
     }
 
     svg {

@@ -201,6 +201,10 @@ module.exports = {
         'button-hover': 'var(--shadow-button-hover)',
         'card': 'var(--shadow-card)',
         'card-hover': 'var(--shadow-card-hover)',
+        'input': 'var(--ui-input-shadow)',
+        'input-focus': 'var(--ui-input-focus-shadow)',
+        'form-field': 'var(--ui-form-field-shadow)',
+        'form-field-focus': 'var(--ui-form-field-focus-shadow)',
       },
 
       backdropBlur: {
