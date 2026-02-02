@@ -10,7 +10,8 @@ const { reward } = defineProps<{ reward: Reward }>()
 const { isTokensLoading, rewardTokens, claimReward, loadRewards, buildClaimRewardPlan } = useMerkl()
 const modal = useModal()
 const { error } = useToast()
-const { chainId } = useEulerAddresses()
+const { chainId: siteChainId } = useEulerAddresses()
+const { chainId: walletChainId, switchChain } = useWagmi()
 const { runSimulation, simulationError } = useTxPlanSimulation()
 
 const isClaiming = ref(false)
@@ -28,13 +29,27 @@ const tokenIconUrl = computed(() => {
       || null
 })
 
+const ensureWalletOnSiteChain = async () => {
+  const targetChainId = siteChainId.value
+  if (!targetChainId) {
+    return
+  }
+
+  if (walletChainId.value === targetChainId) {
+    return
+  }
+
+  await switchChain({ chainId: targetChainId })
+  await until(walletChainId).toBe(targetChainId, { timeout: 8000, throwOnTimeout: false })
+}
+
 const claim = async () => {
   try {
     isClaiming.value = true
 
     await claimReward(reward)
     modal.close()
-    loadRewards(chainId.value)
+    loadRewards(siteChainId.value)
   }
   catch (e) {
     error('Transaction failed')
@@ -47,6 +62,8 @@ const claim = async () => {
 
 const onClaimClick = async () => {
   try {
+    await ensureWalletOnSiteChain()
+
     try {
       plan.value = await buildClaimRewardPlan(reward)
     }

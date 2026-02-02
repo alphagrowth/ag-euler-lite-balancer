@@ -1,4 +1,4 @@
-import { useAccount, useWriteContract } from '@wagmi/vue'
+import { useAccount, useSwitchChain, useWriteContract } from '@wagmi/vue'
 import type { Address } from 'viem'
 import axios from 'axios'
 
@@ -27,9 +27,25 @@ const getCampaignOfBorrowVault = (vaultAddress: string) => {
 }
 
 export const useBrevis = () => {
-  const { isConnected, address: wagmiAddress } = useAccount()
+  const { isConnected, address: wagmiAddress, chain: wagmiChain } = useAccount()
+  const { switchChain } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
   const { BREVIS_API_URL, BREVIS_MERKLE_PROOF_URL } = useEulerConfig()
+  const { chainId } = useEulerAddresses()
+
+  const ensureWalletOnCurrentChain = async () => {
+    const targetChainId = chainId.value
+    if (!targetChainId) {
+      return
+    }
+
+    const walletChainId = wagmiChain.value?.id
+    if (walletChainId === targetChainId) {
+      return
+    }
+
+    await switchChain({ chainId: targetChainId })
+  }
 
   const loadCampaigns = async (isInitialLoading = true) => {
     try {
@@ -111,6 +127,8 @@ export const useBrevis = () => {
     if (!wagmiAddress.value) {
       throw new Error('Wallet not connected')
     }
+
+    await ensureWalletOnCurrentChain()
 
     const request: MerkleProofRequest = {
       user_addr: wagmiAddress.value,
