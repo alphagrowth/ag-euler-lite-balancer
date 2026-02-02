@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type AnyBorrowVaultPair, isSecuritizeBorrowPair, getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import { type AnyBorrowVaultPair, type Vault, isSecuritizeBorrowPair, getVaultPrice, getVaultUtilization } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -7,7 +7,12 @@ import { VaultUtilizationWarningModal } from '#components'
 
 const { pair } = defineProps<{ pair: AnyBorrowVaultPair }>()
 
+const { isVaultGovernorVerified } = useVaults()
 const isSecuritize = computed(() => isSecuritizeBorrowPair(pair))
+const isSecuritizeVerified = computed(() => {
+  if (!isSecuritize.value) return true
+  return isVaultGovernorVerified(pair.collateral as unknown as Vault)
+})
 
 const { getOpportunityOfBorrowVault } = useMerkl()
 const { getCampaignOfBorrowVault } = useBrevis()
@@ -107,9 +112,19 @@ const linkPath = computed(() => `/borrow/${pair.collateral.address}/${pair.borro
             :is-unverified="isAnyUnverified"
           />
           <span
-            v-if="isSecuritize"
+            v-if="isSecuritize && isSecuritizeVerified"
             class="bg-surface-secondary text-content-tertiary px-8 py-2 rounded-8 text-p4"
           >Securitize Digital Security</span>
+          <span
+            v-else-if="isSecuritize && !isSecuritizeVerified"
+            class="flex items-center gap-4 bg-warning-100 text-warning-500 px-8 py-2 rounded-8 text-p4"
+          >
+            <SvgIcon
+              name="warning"
+              class="!w-16 !h-16"
+            />
+            Unknown
+          </span>
         </div>
         <div class="text-h5 text-content-primary">
           {{ [pair.collateral.asset.symbol, pair.borrow.asset.symbol].join('/') }}

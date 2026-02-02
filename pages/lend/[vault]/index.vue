@@ -54,8 +54,8 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
-const { getVault, getSecuritizeVault, updateVault, isEscrowLoadedOnce } = useVaults()
-const { get: registryGet, getVault: registryGetVault } = useVaultRegistry()
+const { getVault, getSecuritizeVault, getEscrowVault, updateVault, isEscrowLoadedOnce } = useVaults()
+const { get: registryGet, getVault: registryGetVault, isKnownEscrowAddress } = useVaultRegistry()
 const { isConnected } = useAccount()
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -102,11 +102,18 @@ else {
       if (entryAfterLoad?.type === 'evk') {
         evkVault.value = entryAfterLoad.vault as Vault
       }
+      else if (isKnownEscrowAddress(normalizedAddress)) {
+        evkVault.value = await getEscrowVault(vaultAddress) as Vault
+      }
       else {
         evkVault.value = await getVault(vaultAddress)
       }
     }
-    // Escrow vaults loaded and address not in registry as escrow - regular vault
+    // Escrow vaults loaded - check if known escrow address
+    else if (isKnownEscrowAddress(normalizedAddress)) {
+      evkVault.value = await getEscrowVault(vaultAddress) as Vault
+    }
+    // Regular vault
     else {
       evkVault.value = await getVault(vaultAddress)
     }

@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import type { Vault, EarnVault, EscrowVault, SecuritizeVault } from '~/entities/vault'
 
-// TODO: More types
 const { type, vault } = defineProps<{
   type: string
   vault: Vault | EarnVault | EscrowVault | SecuritizeVault
 }>()
 
-// Check if vault is verified - EVK, Earn, and Securitize vaults have a verified field
+const { isVaultGovernorVerified, isEarnVaultOwnerVerified } = useVaults()
+
+// Check if vault is verified by checking governorAdmin/owner matches declared entities
 const isVerified = computed(() => {
-  if ('verified' in vault) {
-    return vault.verified
+  if (type === 'escrow') {
+    return true
   }
-  return true
+
+  if (type === 'managed') {
+    return isEarnVaultOwnerVerified(vault as EarnVault)
+  }
+
+  // governed, ungoverned, securitize
+  return isVaultGovernorVerified(vault as Vault)
 })
 
 const isWarning = computed(() => !isVerified.value || type === 'unknown')
