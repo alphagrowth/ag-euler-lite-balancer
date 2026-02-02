@@ -1,15 +1,42 @@
 <script setup lang="ts">
-import * as echarts from 'echarts'
+import { Line } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  type ChartOptions,
+  type ChartData,
+} from 'chart.js'
+import annotationPlugin from 'chartjs-plugin-annotation'
 import { ethers } from 'ethers'
 import { INTEREST_RATE_MODEL_TYPE } from '~/entities/constants'
 import type { Vault } from '~/entities/vault'
 import { getVaultUtilization } from '~/entities/vault'
 import { eulerVaultLensABI } from '~/entities/euler/abis'
 
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  annotationPlugin,
+)
+
 const { vault } = defineProps<{ vault: Vault }>()
 
-const chartRef = ref<HTMLDivElement | null>(null)
-const chartInstance = ref<echarts.ECharts | null>(null)
+const chartData = ref<ChartData<'line'> | null>(null)
+const chartOptions = ref<ChartOptions<'line'> | null>(null)
 const isLoading = ref(true)
 const hasError = ref(false)
 
@@ -103,7 +130,7 @@ const fetchIRMData = async () => {
 
 // Initialize and render chart
 const renderChart = async () => {
-  if (!chartRef.value || !hasValidIRM.value) return
+  if (!hasValidIRM.value) return
 
   isLoading.value = true
   hasError.value = false
@@ -120,246 +147,197 @@ const renderChart = async () => {
     const { irmData, kinkData } = data
 
     // Prepare chart data
-    const borrowAPYData: [number, number][] = []
-    const supplyAPYData: [number, number][] = []
+    const labels: string[] = []
+    const borrowAPYValues: number[] = []
+    const supplyAPYValues: number[] = []
 
     irmData.interestRateInfo.forEach((rate: { borrowAPY: bigint, supplyAPY: bigint }, i: number) => {
-      borrowAPYData.push([i, parseAPY(rate.borrowAPY)])
-      supplyAPYData.push([i, parseAPY(rate.supplyAPY)])
+      const utilization = ((i / (irmData.interestRateInfo.length - 1)) * 100).toFixed(0)
+      labels.push(utilization)
+      borrowAPYValues.push(parseAPY(rate.borrowAPY))
+      supplyAPYValues.push(parseAPY(rate.supplyAPY))
     })
 
     // Current utilization
     const currentUtilization = getVaultUtilization(vault)
 
-    // Mark lines for vertical indicators
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const markLines: any[] = [
-      {
-        name: 'Current',
-        xAxis: currentUtilization,
-        label: {
-          formatter: `Current (${currentUtilization.toFixed(2)}%)`,
-          position: 'insideEndTop',
-        },
-        lineStyle: {
-          color: '#FFFFFF',
-          type: 'dashed' as const,
-          width: 1,
-        },
-      },
-    ]
-
-    // Add kink line if available
+    // Kink utilization if available
+    let kinkUtilization: number | null = null
     if (kinkData?.interestRateInfo && kinkData.interestRateInfo.length > 1) {
       const kinkInfo = kinkData.interestRateInfo[1]
       const kinkCash = kinkData.interestRateInfo[0]?.cash || 0n
       const kinkBorrows = kinkInfo?.borrows || 0n
-
       if (kinkCash > 0n) {
-        // Kink utilization is calculated as borrows / cash (not borrows / (cash + borrows))
-        const kinkUtilization = Number((kinkBorrows * 10000n) / kinkCash) / 100
-
-        markLines.push({
-          name: 'Kink',
-          xAxis: kinkUtilization,
-          label: {
-            formatter: `Kink (${kinkUtilization.toFixed(2)}%)`,
-            position: 'insideStartTop',
-            color: '#23C09B',
-          },
-          lineStyle: {
-            color: '#23C09B',
-            type: 'dashed' as const,
-            width: 1,
-          },
-        })
+        kinkUtilization = Number((kinkBorrows * 10000n) / kinkCash) / 100
       }
     }
 
-    // Initialize or get chart instance
-    if (!chartInstance.value) {
-      chartInstance.value = echarts.init(chartRef.value, 'dark', {
-        renderer: 'canvas',
-      })
-    }
-
-    const option: echarts.EChartsOption = {
-      animation: true,
-      backgroundColor: 'transparent',
-      grid: {
-        left: '60px',
-        right: '20px',
-        top: '40px',
-        bottom: '50px',
-        containLabel: false,
-      },
-      tooltip: {
-        show: true,
-        trigger: 'axis',
-        confine: true,
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        borderColor: '#333',
-        borderWidth: 1,
-        textStyle: {
-          color: '#fff',
-        },
-        axisPointer: {
-          type: 'cross',
-          axis: 'x',
-          lineStyle: {
-            color: '#888',
-            type: 'dashed',
-            width: 1,
-          },
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        formatter: (params: any): string => {
-          if (!Array.isArray(params) || params.length === 0) {
-            return ''
-          }
-
-          // Get utilization from x-axis value, rounded to nearest integer
-          const utilization = Math.round(params[0].axisValue)
-
-          // Find the closest data point for accurate APY values
-          const borrowSeries = params.find((p: { seriesName: string }) => p.seriesName === 'Borrow APY')
-          const supplySeries = params.find((p: { seriesName: string }) => p.seriesName === 'Supply APY')
-
-          if (!borrowSeries || !supplySeries) {
-            return ''
-          }
-
-          const borrowAPY = borrowSeries.value[1]
-          const supplyAPY = supplySeries.value[1]
-
-          return `
-            <div style="padding: 8px;">
-              <div style="margin-bottom: 8px;">
-                <strong>Utilization:</strong> ${utilization}%
-              </div>
-              <div style="margin-bottom: 4px;">
-                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#E15241;margin-right:5px;"></span>
-                <strong>Borrow APY:</strong> ${borrowAPY.toFixed(2)}%
-              </div>
-              <div>
-                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#23C09B;margin-right:5px;"></span>
-                <strong>Supply APY:</strong> ${supplyAPY.toFixed(2)}%
-              </div>
-            </div>
-          `
-        },
-      },
-      xAxis: {
-        type: 'value',
-        name: 'Utilization %',
-        nameLocation: 'middle',
-        nameGap: 30,
-        nameTextStyle: {
-          color: '#888',
-          fontSize: 12,
-        },
-        min: 0,
-        max: 100,
-        interval: 10,
-        axisLabel: {
-          formatter: '{value}%',
-          color: '#888',
-        },
-        axisLine: {
-          lineStyle: {
-            color: '#333',
-          },
-        },
-        splitLine: {
-          show: true,
-          lineStyle: {
-            color: '#222',
-          },
-        },
-      },
-      yAxis: {
-        type: 'value',
-        name: 'APY %',
-        nameLocation: 'middle',
-        nameGap: 50,
-        nameTextStyle: {
-          color: '#888',
-          fontSize: 12,
-        },
-        axisLabel: {
-          formatter: '{value}%',
-          color: '#888',
-        },
-        axisLine: {
-          lineStyle: {
-            color: '#333',
-          },
-        },
-        splitLine: {
-          show: true,
-          lineStyle: {
-            color: '#222',
-          },
-        },
-      },
-      series: [
+    // Set chart data
+    chartData.value = {
+      labels,
+      datasets: [
         {
-          name: 'Borrow APY',
-          type: 'line',
-          data: borrowAPYData,
-          smooth: true,
-          showSymbol: false,
-          symbol: 'circle',
-          symbolSize: 6,
-          lineStyle: {
-            color: '#23C09B',
-            width: 2,
-          },
-          itemStyle: {
-            color: '#23C09B',
-          },
-          emphasis: {
-            focus: 'series',
-            lineStyle: {
-              width: 3,
-            },
-          },
-          markLine: {
-            symbol: 'none',
-            animation: false,
-            silent: true,
-            data: markLines,
-          },
+          label: 'Borrow APY',
+          data: borrowAPYValues,
+          borderColor: '#23C09B',
+          backgroundColor: 'rgba(35, 192, 155, 0.1)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointHitRadius: 30,
+          tension: 0.4,
         },
         {
-          name: 'Supply APY',
-          type: 'line',
-          data: supplyAPYData,
-          smooth: true,
-          showSymbol: false,
-          symbol: 'circle',
-          symbolSize: 6,
-          lineStyle: {
-            color: '#f7772c',
-            width: 2,
-          },
-          itemStyle: {
-            color: '#f7772c',
-          },
-          emphasis: {
-            focus: 'series',
-            lineStyle: {
-              width: 3,
-            },
-          },
+          label: 'Supply APY',
+          data: supplyAPYValues,
+          borderColor: '#f7772c',
+          backgroundColor: 'rgba(247, 119, 44, 0.1)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointHitRadius: 30,
+          tension: 0.4,
         },
       ],
     }
 
-    chartInstance.value?.setOption(option, {
-      notMerge: true,
-      lazyUpdate: false,
-    })
+    // Prepare annotations (vertical lines)
+    const annotations: any = {
+      currentLine: {
+        type: 'line',
+        xMin: currentUtilization.toFixed(0),
+        xMax: currentUtilization.toFixed(0),
+        borderColor: '#FFFFFF',
+        borderWidth: 1,
+        borderDash: [5, 5],
+        label: {
+          display: false,
+        },
+      },
+    }
+
+    if (kinkUtilization !== null) {
+      annotations.kinkLine = {
+        type: 'line',
+        xMin: kinkUtilization.toFixed(0),
+        xMax: kinkUtilization.toFixed(0),
+        borderColor: '#23C09B',
+        borderWidth: 1,
+        borderDash: [5, 5],
+        label: {
+          display: true,
+          content: `Kink (${kinkUtilization.toFixed(2)}%)`,
+          position: 'end',
+          backgroundColor: 'rgba(35, 192, 155, 0.8)',
+          color: '#FFFFFF',
+          font: {
+            size: 11,
+          },
+          padding: 4,
+        },
+      }
+    }
+
+    // Set chart options
+    chartOptions.value = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+        axis: 'x',
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          enabled: true,
+          mode: 'index',
+          intersect: false,
+          position: 'nearest',
+          backgroundColor: 'rgb(31, 33, 40)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: '#444',
+          borderWidth: 1,
+          padding: 12,
+          displayColors: true,
+          boxWidth: 10,
+          boxHeight: 10,
+          boxPadding: 4,
+          callbacks: {
+            title: (context) => {
+              return `Utilization: ${context[0].label}%`
+            },
+            label: (context) => {
+              const value = typeof context.parsed.y === 'number' ? context.parsed.y.toFixed(2) : 'N/A'
+              return `${context.dataset.label}: ${value}%`
+            },
+            labelColor: (context) => {
+              return {
+                borderColor: context.dataset.borderColor as string,
+                backgroundColor: context.dataset.borderColor as string,
+                borderWidth: 0,
+              }
+            },
+          },
+        },
+        annotation: {
+          annotations,
+        },
+      },
+      hover: {
+        mode: 'index',
+        intersect: false,
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Utilization %',
+            color: '#888',
+            font: {
+              size: 12,
+            },
+          },
+          ticks: {
+            color: '#888',
+            callback: function (value, index) {
+              // Show every 10th label
+              const label = this.getLabelForValue(Number(value))
+              return Number(label) % 10 === 0 ? `${label}%` : ''
+            },
+          },
+          grid: {
+            color: '#222',
+          },
+          border: {
+            color: '#333',
+          },
+        },
+        y: {
+          title: {
+            display: true,
+            text: 'APY %',
+            color: '#888',
+            font: {
+              size: 12,
+            },
+          },
+          ticks: {
+            color: '#888',
+            callback: (value) => `${value}%`,
+          },
+          grid: {
+            color: '#222',
+          },
+          border: {
+            color: '#333',
+          },
+        },
+      },
+    }
   }
   catch (error) {
     console.error('Failed to render chart:', error)
@@ -370,26 +348,10 @@ const renderChart = async () => {
   }
 }
 
-const handleResize = () => {
-  window.removeEventListener('resize', handleResize)
-  chartInstance.value?.dispose()
-  chartInstance.value = null
-  setTimeout(() => {
-    renderChart()
-    window.addEventListener('resize', handleResize)
-  }, 1000)
-}
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
-  chartInstance.value?.dispose()
-})
-
 onMounted(async () => {
   if (hasValidIRM.value) {
     await nextTick()
     await renderChart()
-    window.addEventListener('resize', handleResize)
   }
 })
 </script>
@@ -413,20 +375,25 @@ onMounted(async () => {
     <div class="relative w-full min-h-400">
       <div
         v-if="isLoading"
-        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#888] text-center pointer-events-none"
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#888] text-center pointer-events-none z-10"
       >
         Loading chart...
       </div>
       <div
         v-else-if="hasError"
-        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#e15241] text-center pointer-events-none"
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#e15241] text-center pointer-events-none z-10"
       >
         Failed to load interest rate data
       </div>
       <div
-        ref="chartRef"
+        v-if="chartData && chartOptions"
         class="w-full h-[400px]"
-      />
+      >
+        <Line
+          :data="chartData"
+          :options="chartOptions"
+        />
+      </div>
     </div>
   </div>
 </template>
