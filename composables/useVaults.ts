@@ -9,7 +9,7 @@ import {
   fetchVault,
   fetchEarnVault,
   fetchEscrowVault,
-  fetchEscrowVaults,
+  fetchEscrowAddresses,
   fetchSecuritizeVault,
   fetchVaults,
   fetchVaultFactories,
@@ -121,31 +121,58 @@ const updateEarnVaults = async () => {
   // Note: isEarnUpdating is set to false in loadVaults() after all vaults are loaded
 }
 
-const updateEscrowVaults = async () => {
+/**
+ * Extract escrow vault addresses that are needed (used as collateral in EVK vaults
+ * or as strategies in Earn vaults).
+ */
+const extractNeededEscrowAddresses = (): string[] => {
+  const { getEvkVaults, getEarnVaults, isKnownEscrowAddress } = useVaultRegistry()
+  const needed = new Set<string>()
+
+  // 1. Escrow vaults used as collateral in EVK vaults
+  getEvkVaults().forEach((vault) => {
+    vault.collateralLTVs.forEach((ltv) => {
+      if (ltv.borrowLTV > 0n && isKnownEscrowAddress(ltv.collateral)) {
+        needed.add(ethers.getAddress(ltv.collateral))
+      }
+    })
+  })
+
+  // 2. Escrow vaults used as strategies in Earn vaults
+  getEarnVaults().forEach((earnVault) => {
+    earnVault.strategies.forEach((strategyInfo) => {
+      if (isKnownEscrowAddress(strategyInfo.strategy)) {
+        needed.add(ethers.getAddress(strategyInfo.strategy))
+      }
+    })
+  })
+
+  return [...needed]
+}
+
+/**
+ * Fetch vault info only for the specified escrow addresses.
+ * Used for lazy loading - only fetch info for escrow vaults actually used as collateral.
+ */
+const fetchNeededEscrowVaults = async (addresses: string[]): Promise<void> => {
   const { set: registrySet } = useVaultRegistry()
 
-  try {
-    isEscrowUpdating.value = true
-    isEscrowLoading.value = true
+  if (!addresses.length) {
+    return
+  }
 
-    for await (const result of fetchEscrowVaults()) {
-      result.vaults.forEach((vault) => {
-        registrySet(vault.address, vault, 'evk')
-      })
+  const results = await Promise.allSettled(
+    addresses.map(addr => fetchEscrowVault(addr)),
+  )
 
-      isEscrowLoading.value = false
-
-      if (result.isFinished) {
-        break
-      }
+  results.forEach((result) => {
+    if (result.status === 'fulfilled') {
+      registrySet(result.value.address, result.value, 'evk')
     }
-  }
-  catch (e) {
-    // On error, set updating to false here since loadVaults won't complete
-    isEscrowUpdating.value = false
-    throw e
-  }
-  // Note: isEscrowUpdating is set to false in loadVaults() after all vaults are loaded
+    else {
+      console.warn('Failed to fetch escrow vault:', result.reason)
+    }
+  })
 }
 
 const updateSecuritizeVaults = async (securitizeAddresses: string[]) => {
@@ -170,13 +197,15 @@ const updateSecuritizeVaults = async (securitizeAddresses: string[]) => {
 const loadVaults = async () => {
   const { chainId } = useEulerAddresses()
   const { verifiedVaultAddresses } = useEulerLabels()
+  const { setEscrowAddresses } = useVaultRegistry()
   const startChainId = chainId.value
 
   try {
     resetVaultsState()
+    isEscrowUpdating.value = true
+    isEscrowLoading.value = true
 
-    // Step 1: Categorize all vault addresses upfront using subgraph (single batch query)
-    // This replaces N individual RPC calls with 1 subgraph query
+    // Phase 1: Fetch vault factories (escrow addresses fetched in Phase 2)
     const factories = await fetchVaultFactories(verifiedVaultAddresses.value)
 
     // Separate EVK vaults from Securitize vaults based on factory
@@ -188,31 +217,52 @@ const loadVaults = async () => {
       const factory = factories.get(normalizedAddr)
 
       if (factory?.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()) {
-        // Securitize vault - use original case from verifiedVaultAddresses
         securitizeAddresses.push(addr)
       }
       else {
-        // EVK vault (or unknown factory - treat as EVK to be safe)
         evkAddresses.push(addr)
       }
     })
 
-    // Step 2: Fetch vaults in parallel with pre-categorized addresses
-    // Each update function directly populates the registry
+    // Phase 2: Fetch all vault types + escrow addresses in parallel
+    // Escrow vault info fetch starts when EVK, Earn, AND escrow addresses are all ready
+    // (need EVK collateralLTVs + Earn strategies to know which escrow vaults are needed)
+
+    // Signals for coordination
+    let evkResolve: () => void
+    let earnResolve: () => void
+    let escrowAddrsResolve: (addrs: string[]) => void
+    const evkLoaded = new Promise<void>(resolve => { evkResolve = resolve })
+    const earnLoaded = new Promise<void>(resolve => { earnResolve = resolve })
+    const escrowAddrsLoaded = new Promise<string[]>(resolve => { escrowAddrsResolve = resolve })
+
     await Promise.all([
-      updateEarnVaults(),
-      updateVaults(evkAddresses),
-      updateEscrowVaults(),
+      (async () => {
+        await updateEarnVaults()
+        earnResolve()
+      })(),
+      (async () => {
+        await updateVaults(evkAddresses)
+        evkResolve()
+      })(),
       updateSecuritizeVaults(securitizeAddresses),
+      // Escrow addresses - fetch in parallel, populate set when ready
+      (async () => {
+        const addrs = await fetchEscrowAddresses()
+        setEscrowAddresses(addrs)
+        escrowAddrsResolve(addrs)
+      })(),
+      // Escrow vault info - waits for EVK, Earn, AND escrow addresses
+      Promise.all([evkLoaded, earnLoaded, escrowAddrsLoaded]).then(async () => {
+        const neededEscrowAddresses = extractNeededEscrowAddresses()
+        await fetchNeededEscrowVaults(neededEscrowAddresses)
+      }),
     ])
 
-    // Set loading flags to false AFTER all vaults are loaded
-    // This ensures consumers waiting on these flags can safely access the registry
+    // Set loading flags AFTER all needed escrow vaults are loaded
     isEarnUpdating.value = false
     isEscrowUpdating.value = false
-
-    // Set isEscrowLoadedOnce AFTER registry is populated, so that consumers
-    // waiting on this flag can safely check the registry
+    isEscrowLoading.value = false
     isEscrowLoadedOnce.value = true
   }
   finally {
@@ -308,20 +358,32 @@ const updateEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
 }
 
 const getEscrowVault = async (address: string): Promise<EscrowVault> => {
-  const { getEscrowVaults, getVault: registryGetVault, isEscrowVault: registryIsEscrow, set: registrySet } = useVaultRegistry()
+  const { getVault: registryGetVault, isEscrowVault: registryIsEscrow, isKnownEscrowAddress, set: registrySet } = useVaultRegistry()
   const normalizedAddress = ethers.getAddress(address)
 
-  // Wait for escrow vaults to be loaded
-  await until(computed(() => getEscrowVaults().length > 0)).toBeTruthy()
-
-  if (registryIsEscrow(normalizedAddress)) {
-    return registryGetVault(normalizedAddress) as EscrowVault
+  // Wait for escrow loading to complete (address set populated, needed vaults loaded)
+  if (!isEscrowLoadedOnce.value) {
+    await until(isEscrowLoadedOnce).toBe(true)
   }
-  else {
+
+  // Check if already in registry with full vault info
+  const existingVault = registryGetVault(normalizedAddress)
+  if (existingVault && registryIsEscrow(normalizedAddress)) {
+    return existingVault as EscrowVault
+  }
+
+  // If it's a known escrow address but not in registry (wasn't needed during initial load),
+  // fetch on-demand
+  if (isKnownEscrowAddress(normalizedAddress)) {
     const vault = await fetchEscrowVault(normalizedAddress)
     registrySet(normalizedAddress, vault, 'evk')
     return vault
   }
+
+  // Last resort: try fetching anyway (might be an escrow vault not in perspective yet)
+  const vault = await fetchEscrowVault(normalizedAddress)
+  registrySet(normalizedAddress, vault, 'evk')
+  return vault
 }
 
 const updateEscrowVault = async (vaultAddress: string): Promise<EscrowVault> => {
@@ -539,7 +601,6 @@ export const useVaults = () => {
     // Bulk updates (internal use)
     updateVaults,
     updateEarnVaults,
-    updateEscrowVaults,
 
     // Verification
     isSecuritizeVault,

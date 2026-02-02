@@ -28,6 +28,10 @@ export interface VaultEntry {
 const registry: Ref<Map<string, VaultEntry>> = shallowRef(new Map())
 const isLoading = ref(false)
 
+// Escrow address set - populated early, before full vault info is loaded
+// Used for O(1) lookups to determine if an address is an escrow vault
+const escrowAddresses: Ref<Set<string>> = shallowRef(new Set())
+
 // Normalize address for consistent lookups
 const normalizeAddress = (address: string): string => {
   return ethers.getAddress(address)
@@ -71,6 +75,18 @@ const setMany = (entries: Array<{ address: string, vault: AnyVault, type: VaultT
 // Clear registry (for chain switching)
 const clear = (): void => {
   registry.value = new Map()
+  escrowAddresses.value = new Set()
+}
+
+// Set escrow addresses (populated early, before vault info is loaded)
+const setEscrowAddresses = (addresses: string[]): void => {
+  const normalizedSet = new Set(addresses.map(addr => normalizeAddress(addr)))
+  escrowAddresses.value = normalizedSet
+}
+
+// Check if an address is a known escrow address (O(1) lookup)
+const isKnownEscrowAddress = (address: string): boolean => {
+  return escrowAddresses.value.has(normalizeAddress(address))
 }
 
 // Get all vaults of a specific type
@@ -110,10 +126,13 @@ const getStandardEvkVaults = (): Vault[] => {
 // Type checker convenience methods
 const isEscrowVault = (address: string): boolean => {
   const entry = get(address)
-  if (!entry) return false
-  if (entry.type !== 'evk') return false
-  const vault = entry.vault as Vault
-  return vault.vaultCategory === 'escrow'
+  if (entry) {
+    if (entry.type !== 'evk') return false
+    const vault = entry.vault as Vault
+    return vault.vaultCategory === 'escrow'
+  }
+  // Fallback: check escrow addresses set (vault info not loaded yet)
+  return isKnownEscrowAddress(address)
 }
 
 const isEarnVault = (address: string): boolean => getType(address) === 'earn'
@@ -275,6 +294,7 @@ export const useVaultRegistry = () => {
     registry,
     isLoading,
     size,
+    escrowAddresses,
 
     // Basic operations
     get,
@@ -284,6 +304,10 @@ export const useVaultRegistry = () => {
     set,
     setMany,
     clear,
+
+    // Escrow address set operations (for lazy loading optimization)
+    setEscrowAddresses,
+    isKnownEscrowAddress,
 
     // Queries
     getByType,
