@@ -66,7 +66,7 @@ const formatTimeRemaining = (seconds: bigint): string => {
 <template>
   <div
     v-if="allCollateralPairs.length"
-    class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-20 shadow-card"
+    class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
   >
     <div>
       <p class="text-h3 text-content-primary mb-12">
