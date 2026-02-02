@@ -69,7 +69,7 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
     <div>
       <p
         v-if="'verified' in vault && !vault.verified"
-        class="flex text-yellow-600 mb-4 items-center gap-4"
+        class="flex text-warning-500 mb-4 items-center gap-4"
       >
         <SvgIcon
           name="warning"

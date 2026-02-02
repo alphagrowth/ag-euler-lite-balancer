@@ -64,10 +64,10 @@ const priceDisplay = computed(() => {
         </div>
         <div
           v-else-if="!isGovernorVerified"
-          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-yellow-opaque-200)] text-yellow-700"
+          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500"
         >
           <UiIcon
-            class="mr-2 !w-20 !h-20 text-yellow-600"
+            class="mr-2 !w-20 !h-20"
             name="warning"
           />
           Unknown
