@@ -500,6 +500,15 @@ const errorText = computed(() => {
   }
   return null
 })
+const isSameVault = computed(() => {
+  if (!fromVault.value || !toVault.value) {
+    return false
+  }
+  return normalizeAddress(fromVault.value.address) === normalizeAddress(toVault.value.address)
+})
+const sameVaultError = computed(() => {
+  return isSameVault.value ? 'Select a different vault' : null
+})
 
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
@@ -511,12 +520,13 @@ const isSubmitDisabled = computed(() => {
     || balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)
     || !(+fromAmount.value)
     || !toAmount.value
+    || isSameVault.value
 })
 const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
 
 const onFromInput = async () => {
   clearSimulationError()
-  if (!fromVault.value || !toVault.value || !fromAmount.value) {
+  if (!fromVault.value || !toVault.value || !fromAmount.value || isSameVault.value) {
     toAmount.value = ''
     resetQuoteState()
     return
@@ -528,7 +538,7 @@ const onFromInput = async () => {
 const requestQuote = useDebounceFn(async () => {
   quoteError.value = null
 
-  if (!fromVault.value || !toVault.value || !fromAmount.value || !position.value) {
+  if (!fromVault.value || !toVault.value || !fromAmount.value || !position.value || isSameVault.value) {
     resetQuoteState()
     return
   }
@@ -576,6 +586,11 @@ const requestQuote = useDebounceFn(async () => {
 watch(toVault, () => {
   clearSimulationError()
   if (!toVault.value) {
+    toAmount.value = ''
+    resetQuoteState()
+    return
+  }
+  if (isSameVault.value) {
     toAmount.value = ''
     resetQuoteState()
     return
@@ -735,6 +750,13 @@ const send = async () => {
               title="Error"
               variant="error"
               :description="errorText || ''"
+              size="compact"
+            />
+            <UiToast
+              v-if="sameVaultError"
+              title="Error"
+              variant="error"
+              :description="sameVaultError"
               size="compact"
             />
             <UiToast
