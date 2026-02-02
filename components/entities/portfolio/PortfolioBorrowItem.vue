@@ -5,7 +5,7 @@ import type { AccountBorrowPosition } from '~/entities/account'
 import { getSubAccountIndex } from '~/entities/account'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getNetAPY, getVaultPrice, getVaultPriceDisplay, getCollateralAssetPriceFromLiability, type Vault } from '~/entities/vault'
+import { getNetAPY, getUnitOfAccountUsdPrice, getVaultPrice, getVaultPriceDisplay, getCollateralAssetPriceFromLiability, type Vault } from '~/entities/vault'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
@@ -59,14 +59,19 @@ const pairName = computed(() => {
   }
   return `${collateralLabel.value} / ${borrowLabel.value}`
 })
-const liquidationPrice = computed(() => {
+const liquidationPriceUsd = computed(() => {
   const price = position.price || 0n
 
   if (price <= 0n) {
     return undefined
   }
 
-  return price
+  const unitPrice = getUnitOfAccountUsdPrice(borrowVault.value)
+  if (!unitPrice) {
+    return undefined
+  }
+
+  return nanoToValue(price, 18) * unitPrice
 })
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
@@ -327,7 +332,7 @@ onMounted(() => {
           </div>
           <div class="flex justify-between gap-8 text-right">
             <span class="text-white text-p3">
-              ${{ liquidationPrice ? formatNumber(nanoToValue(liquidationPrice, 18)) : '-' }}
+              ${{ liquidationPriceUsd ? formatNumber(liquidationPriceUsd) : '-' }}
             </span>
             <span class="text-euler-dark-900 text-p3">
               {{ position.collateral.asset.symbol }}

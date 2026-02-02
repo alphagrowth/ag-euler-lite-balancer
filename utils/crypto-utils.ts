@@ -34,7 +34,7 @@ export function formatTtl(ttl?: bigint): FormatTtlResult | undefined {
   }
 
   if (ttl === TTL_LIQUIDATION) {
-    return { display: 'Liquidated', type: 'error' }
+    return { display: 'Eligible for Liquidation', type: 'error' }
   }
 
   if (ttl === TTL_ERROR) {

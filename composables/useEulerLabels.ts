@@ -8,6 +8,7 @@ import {
   type EulerLabelPointReward,
 } from '~/entities/euler/labels'
 import type { EarnVault, Vault } from '~/entities/vault'
+import type { OracleAdapterMeta } from '~/entities/oracle'
 import { labelsRepo } from '~/entities/custom'
 
 const getLabelsUrl = (chainId: number, file: string) =>
@@ -21,6 +22,7 @@ const points: Record<string, EulerLabelPointReward[]> = shallowReactive({})
 const earnVaults: Ref<string[]> = ref([]) // string of earn vault addresses
 // Derived from products - all unique vault addresses across all products
 const verifiedVaultAddresses: Ref<string[]> = ref([])
+const oracleAdapters: Record<string, OracleAdapterMeta> = shallowReactive({})
 
 const normalizeAddress = (address: string) => {
   try {
@@ -60,6 +62,62 @@ const normalizeEntities = (data: Record<string, EulerLabelEntity>) => {
   return normalized
 }
 
+const getOracleAdaptersUrl = (chainId: number) => getLabelsUrl(chainId, 'adapters/all.json')
+const getOracleAdaptersFallbackUrl = (chainId: number) =>
+  `https://oracle-checks-data.euler.finance/${chainId}/adapters/all.json`
+
+const normalizeOracleAdapters = (data: unknown) => {
+  const normalized: Record<string, OracleAdapterMeta> = {}
+  const list = Array.isArray(data) ? data : ((data as { adapters?: unknown[] })?.adapters || [])
+
+  list.forEach((item) => {
+    if (!item || typeof item !== 'object') return
+    const raw = item as Record<string, unknown>
+    const oracle = raw.oracle || raw.adapter || raw.address
+    if (typeof oracle !== 'string') return
+
+    const base = raw.base || raw.baseAsset || raw.base_asset
+    const quote = raw.quote || raw.quoteAsset || raw.quote_asset
+    const baseAddress = typeof base === 'string' ? normalizeAddress(base) : undefined
+    const quoteAddress = typeof quote === 'string' ? normalizeAddress(quote) : undefined
+
+    const meta: OracleAdapterMeta = {
+      oracle: normalizeAddress(oracle),
+      base: baseAddress,
+      quote: quoteAddress,
+      name: typeof raw.name === 'string' ? raw.name : undefined,
+      provider: typeof raw.provider === 'string' ? raw.provider : undefined,
+      methodology: typeof raw.methodology === 'string' ? raw.methodology : undefined,
+      label: typeof raw.label === 'string' ? raw.label : undefined,
+      checks: Array.isArray(raw.checks) ? raw.checks.filter(v => typeof v === 'string') : undefined,
+    }
+
+    const key = baseAddress && quoteAddress
+      ? `${meta.oracle.toLowerCase()}:${baseAddress.toLowerCase()}:${quoteAddress.toLowerCase()}`
+      : meta.oracle.toLowerCase()
+    normalized[key] = meta
+  })
+
+  return normalized
+}
+
+const loadOracleAdapters = async (chainId: number) => {
+  try {
+    const adaptersRes = await axios.get(getOracleAdaptersUrl(chainId))
+    Object.assign(oracleAdapters, normalizeOracleAdapters(adaptersRes.data))
+    return
+  }
+  catch {}
+
+  try {
+    const adaptersRes = await axios.get(getOracleAdaptersFallbackUrl(chainId))
+    Object.assign(oracleAdapters, normalizeOracleAdapters(adaptersRes.data))
+  }
+  catch (e) {
+    console.warn('[oracle adapters] failed to load adapters', e)
+  }
+}
+
 export const useEulerLabels = () => {
   const loadLabels = async () => {
     try {
@@ -74,6 +132,7 @@ export const useEulerLabels = () => {
       Object.keys(products).forEach(key => delete products[key])
       Object.keys(entities).forEach(key => delete entities[key])
       Object.keys(points).forEach(key => delete points[key])
+      Object.keys(oracleAdapters).forEach(key => delete oracleAdapters[key])
       earnVaults.value = []
       verifiedVaultAddresses.value = []
 
@@ -112,6 +171,8 @@ export const useEulerLabels = () => {
           })
         })
       })
+
+      await loadOracleAdapters(chainId)
     }
     catch (e) {
       console.warn(e)
@@ -127,8 +188,10 @@ export const useEulerLabels = () => {
     products,
     entities,
     points,
+    oracleAdapters,
     earnVaults,
     loadLabels,
+    loadOracleAdapters,
   }
 }
 

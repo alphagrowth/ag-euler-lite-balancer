@@ -2,7 +2,7 @@
 import type { Address } from 'viem'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { EUR_ADDRESS, USD_ADDRESS } from '~/entities/constants'
-import { collectOracleAdapters, type OracleAdapterEntry } from '~/entities/oracle'
+import { collectOracleAdapters, type OracleAdapterEntry, type OracleAdapterMeta } from '~/entities/oracle'
 import { getExplorerLink } from '~/utils/block-explorer'
 
 const props = defineProps<{
@@ -11,6 +11,7 @@ const props = defineProps<{
   collateralVaults?: (Vault | SecuritizeVault)[]
 }>()
 const { tokens, loadTokens } = useTokens()
+const { oracleAdapters, loadOracleAdapters } = useEulerLabels()
 const { chainId } = useEulerAddresses()
 
 const sourceVaults = computed(() => {
@@ -56,9 +57,28 @@ const adapters = computed(() => {
 
   return [...deduped.values()]
 })
+
+const adapterViews = computed(() => adapters.value.map((adapter) => {
+  const base = adapter.base.toLowerCase()
+  const quote = adapter.quote.toLowerCase()
+  const oracle = adapter.oracle.toLowerCase()
+  const key = `${oracle}:${base}:${quote}`
+  const meta: OracleAdapterMeta | undefined = oracleAdapters[key] || oracleAdapters[oracle]
+
+  return {
+    ...adapter,
+    name: meta?.name || adapter.name,
+    provider: meta?.provider,
+    methodology: meta?.methodology,
+  }
+}))
+
 onMounted(() => {
   if (!Object.keys(tokens).length) {
     loadTokens()
+  }
+  if (!Object.keys(oracleAdapters).length && chainId.value) {
+    loadOracleAdapters(chainId.value)
   }
 })
 
@@ -111,7 +131,7 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
       Oracles
     </p>
     <div
-      v-if="!adapters.length"
+      v-if="!adapterViews.length"
       class="text-p3 text-euler-dark-900"
     >
       No oracle adapters found
@@ -120,19 +140,15 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
       v-else
       class="flex flex-col items-start gap-16"
     >
-      <VaultOverviewLabelValue
-        v-for="adapter in adapters"
+      <div
+        v-for="adapter in adapterViews"
         :key="getAdapterKey(adapter)"
-        orientation="horizontal"
+        class="w-full rounded-16 bg-euler-dark-500 p-16 flex flex-col gap-12"
       >
-        <template #label>
-          <div class="flex gap-4 items-center">
-            <div class="p2">
-              {{ resolveSymbol(adapter.base) }}/{{ resolveSymbol(adapter.quote) }}
-            </div>
+        <div class="flex flex-wrap items-center gap-8">
+          <div class="p2 text-white">
+            {{ resolveSymbol(adapter.base) }}/{{ resolveSymbol(adapter.quote) }}
           </div>
-        </template>
-        <div class="flex gap-4 items-center">
           <NuxtLink
             :to="getExplorerAddressLink(adapter.oracle)"
             class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
@@ -150,9 +166,18 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
               name="copy"
             />
           </button>
-          <!-- <span class="text-euler-dark-900">({{ adapter.name }})</span> -->
         </div>
-      </VaultOverviewLabelValue>
+        <div class="grid grid-cols-2 gap-12 text-p4">
+          <div class="flex flex-col gap-4">
+            <span class="text-euler-dark-900">Provider</span>
+            <span class="text-white">{{ adapter.provider || '-' }}</span>
+          </div>
+          <div class="flex flex-col gap-4">
+            <span class="text-euler-dark-900">Methodology</span>
+            <span class="text-white">{{ adapter.methodology || '-' }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

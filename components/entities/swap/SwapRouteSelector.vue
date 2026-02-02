@@ -58,21 +58,19 @@ const onSelect = (provider: string) => {
             : 'border-euler-dark-500 bg-euler-dark-400 hover:bg-euler-dark-500'"
           @click="onSelect(item.provider)"
         >
-          <div class="flex items-start justify-between gap-8">
+          <div class="flex items-center justify-between gap-8">
             <p class="text-p2 text-white">
               {{ item.amount }} {{ item.symbol }}
             </p>
-            <p
-              v-if="item.badge"
-              class="text-p3"
-              :class="item.badge.tone === 'best' ? 'text-green-600' : 'text-red-600'"
-            >
-              {{ item.badge.label }}
-            </p>
-          </div>
-          <div class="flex items-center justify-between gap-8 text-p3 text-euler-dark-900">
-            <span class="truncate">{{ item.provider }}</span>
-            <span class="truncate">{{ item.routeLabel || '-' }}</span>
+            <div class="flex flex-col items-end gap-2 text-p3 text-euler-dark-900">
+              <p
+                v-if="item.badge"
+                :class="item.badge.tone === 'best' ? 'text-green-600' : 'text-red-600'"
+              >
+                {{ item.badge.label }}
+              </p>
+              <span class="truncate">{{ item.routeLabel || '-' }}</span>
+            </div>
           </div>
         </button>
       </template>

@@ -2440,9 +2440,6 @@ export const useEulerOperations = () => {
     const subAccountShares = await vaultContract.balanceOf(subAccountAddr).catch(() => 0n)
     const subAccountAssets = await vaultContract.convertToAssets(subAccountShares).catch(() => 0n)
 
-    console.log('subAccountShares', subAccountShares)
-    console.log('subAccountAssets', subAccountAssets)
-
     const hooks = new SaHooksBuilder()
 
     hooks.addContractInterface(borrowVaultAddr, [...vaultRepayAbi, ...evcDisableControllerAbi])

@@ -54,6 +54,17 @@ export type OracleAdapterEntry = {
   quote: Address
 }
 
+export type OracleAdapterMeta = {
+  oracle: Address
+  base?: Address
+  quote?: Address
+  name?: string
+  provider?: string
+  methodology?: string
+  label?: string
+  checks?: string[]
+}
+
 type OracleAdapterOptions = {
   base?: Address
   quote?: Address
