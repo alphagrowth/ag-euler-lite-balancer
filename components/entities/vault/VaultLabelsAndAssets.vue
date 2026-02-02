@@ -75,7 +75,7 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
           name="warning"
           class="!w-20 !h-20"
         />
-        Unknown vault
+        Unknown
       </p>
       <p
         v-else-if="'type' in vault && vault.type === 'escrow'"
