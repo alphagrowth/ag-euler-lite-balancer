@@ -241,54 +241,6 @@ const supplyCapPercentageDisplay = computed(() => {
       </div>
     </div>
 
-    <!-- Borrow Markets - shows which EVK vaults accept this as collateral -->
-    <div
-      v-if="borrowMarkets.length"
-      class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-          >
-      <div>
-        <p class="text-h3 text-content-primary mb-12">
-          Borrow Markets
-        </p>
-        <p class="text-content-secondary">
-          This vault can be used as collateral to borrow from the following markets.
-        </p>
-      </div>
-
-      <div class="flex flex-col gap-12">
-        <div
-          v-for="market in borrowMarkets"
-          :key="market.borrowVault.address"
-        >
-          <NuxtLink
-            class="bg-surface rounded-xl text-content-primary block no-underline border border-line-subtle"
-            :to="`/borrow/${vault.address}/${market.borrowVault.address}`"
-          >
-            <div
-              class="px-16 pt-16 pb-12 border-b border-line-subtle"
-            >
-              <VaultLabelsAndAssets
-                :vault="market.borrowVault"
-                :assets="[market.borrowVault.asset]"
-              />
-            </div>
-            <div class="flex flex-col gap-12 px-16 pt-12 pb-16">
-              <VaultOverviewLabelValue
-                label="Max LTV"
-                orientation="horizontal"
-                :value="`${formatNumber(nanoToValue(market.ltv.borrowLTV, 2), 2)}%`"
-              />
-              <VaultOverviewLabelValue
-                label="LLTV"
-                orientation="horizontal"
-                :value="`${formatNumber(nanoToValue(market.ltv.liquidationLTV, 2), 2)}%`"
-              />
-            </div>
-          </NuxtLink>
-        </div>
-      </div>
-    </div>
-
     <!-- Addresses -->
     <div
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"

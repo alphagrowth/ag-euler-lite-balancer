@@ -69,6 +69,7 @@ load()
             <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress
+            v-if="vault.supplyCap < MaxUint256"
             :value="supplyCapPercentageDisplay"
             :max="100"
           />
@@ -82,9 +83,10 @@ load()
         <div class="flex gap-4 items-center">
           <span>
             {{ vault.borrowCap >= MaxUint256 ? '∞' :`$${compactNumber(calcPrice(vault.borrowCap))}` }}
-            <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
+            <span v-if="vault.borrowCap < MaxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress
+            v-if="vault.borrowCap < MaxUint256"
             :value="borrowCapPercentageDisplay"
             :max="100"
           />
