@@ -483,6 +483,84 @@ const applyCollateralPythPriceInfo = async (vault: Vault, hermesEndpoint?: strin
   vault.collateralPythPrices = collateralPythPrices
 }
 
+/**
+ * WORKAROUND: Override prices for specific vaults with problematic configurations.
+ *
+ * Context: Some vaults have non-standard unitOfAccount settings (e.g., USDC vault using EUL as unitOfAccount)
+ * which causes pricing issues where pythPriceInfo fetches the wrong price pair.
+ */
+const applyVaultPriceOverrides = (vaults: Vault[]) => {
+  const VAULT_PRICE_OVERRIDES: Array<{
+    address: string
+    symbol: string
+    priceUSD: bigint | 'fetch_from_pair'
+    fetchFrom?: string
+    reason: string
+  }> = [
+    {
+      address: '0xBEf0c894aB4020DCD533FD753BF427662F3F7ABe', // USDC vault (eUSDC-71) with EUL unitOfAccount
+      symbol: 'USDC',
+      priceUSD: ethers.parseUnits('1', 18), // $1.00
+      reason: 'Vault uses EUL as unitOfAccount instead of USD',
+    },
+    {
+      address: '0x74034eb8d5B2E480825263A975E4CF82A081c959', // EUL vault (eEUL-2) with EUL unitOfAccount
+      symbol: 'EUL',
+      priceUSD: 'fetch_from_pair', // Special value: fetch from USDC vault's pythPriceInfo
+      fetchFrom: '0xBEf0c894aB4020DCD533FD753BF427662F3F7ABe', // USDC vault address
+      reason: 'Vault uses EUL as unitOfAccount (self), so liabilityPriceInfo shows 1.0 instead of actual USD price',
+    },
+  ]
+
+  // First pass: Capture prices from vaults that will be overridden (before we lose them)
+  const capturedPrices = new Map<string, bigint>()
+
+  VAULT_PRICE_OVERRIDES.forEach((override) => {
+    if (override.priceUSD === 'fetch_from_pair' && override.fetchFrom) {
+      const sourceVault = vaults.find(
+        v => v.address.toLowerCase() === override.fetchFrom?.toLowerCase(),
+      )
+
+      if (sourceVault?.pythPriceInfo?.amountOutMid && sourceVault.pythPriceInfo.amountOutMid > 0n) {
+        capturedPrices.set(override.address.toLowerCase(), sourceVault.pythPriceInfo.amountOutMid)
+        console.info(
+          `[Vault Price Override] Captured $${Number(sourceVault.pythPriceInfo.amountOutMid) / 1e18} price for ${override.symbol} from ${override.fetchFrom}`,
+        )
+      }
+    }
+  })
+
+  // Second pass: Apply all overrides
+  vaults.forEach((vault) => {
+    const override = VAULT_PRICE_OVERRIDES.find(
+      p => p.address.toLowerCase() === vault.address.toLowerCase(),
+    )
+
+    if (!override) return
+
+    let priceToApply: bigint | undefined
+
+    if (typeof override.priceUSD === 'bigint') {
+      priceToApply = override.priceUSD
+    }
+    else if (override.priceUSD === 'fetch_from_pair') {
+      priceToApply = capturedPrices.get(vault.address.toLowerCase())
+    }
+
+    if (priceToApply) {
+      console.info(
+        `[Vault Price Override] Applying $${Number(priceToApply) / 1e18} price for ${override.symbol} (${vault.address}). Reason: ${override.reason}`,
+      )
+      vault.pythPriceInfo = { amountOutMid: priceToApply }
+    }
+    else {
+      console.warn(
+        `[Vault Price Override] Could not apply price override for ${override.symbol} (${vault.address}). Reason: ${override.reason}`,
+      )
+    }
+  })
+}
+
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { loadEulerConfig, isReady } = useEulerAddresses()
@@ -562,6 +640,7 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   } as Vault
 
   await applyPythPriceInfo([vault], PYTH_HERMES_URL)
+  applyVaultPriceOverrides([vault])
   await applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)
 
   return vault
@@ -898,6 +977,7 @@ export const fetchVaults = async function* (
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as Vault[]
     await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
+    applyVaultPriceOverrides(validVaults)
     await Promise.all(validVaults.map(vault => applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)))
     const isFinished = i + batchSize >= verifiedVaults.length
 
@@ -1228,6 +1308,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as EscrowVault[]
     await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
+    applyVaultPriceOverrides(validVaults)
     await Promise.all(validVaults.map(vault => applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)))
 
     await Promise.all(
