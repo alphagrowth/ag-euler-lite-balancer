@@ -106,10 +106,10 @@ const supplyCapPercentageDisplay = computed(() => {
   >
     <!-- Overview -->
     <div
-      class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
-      :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0 bg-transparent' : '']"
+      class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
+      :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0 bg-transparent shadow-none' : '']"
     >
-      <p class="text-h3 text-white">
+      <p class="text-h3 text-content-primary">
         Overview
       </p>
       <div class="flex flex-col items-start gap-24">
@@ -134,7 +134,7 @@ const supplyCapPercentageDisplay = computed(() => {
               <a
                 :href="entity.url"
                 target="_blank"
-                class="text-p2 text-white underline"
+                class="text-p2 text-content-primary underline"
               >{{ entity.name }}</a>
             </div>
           </div>
@@ -163,7 +163,7 @@ const supplyCapPercentageDisplay = computed(() => {
             <div>
               <UiIcon :name="borrowCount ? 'green-tick' : 'red-cross'" />
             </div>
-            <span class="text-p2 text-white">
+            <span class="text-p2 text-content-primary">
               {{ borrowCount ? `Yes in ${borrowCount} markets` : 'No' }}
             </span>
           </div>
@@ -173,7 +173,7 @@ const supplyCapPercentageDisplay = computed(() => {
             <div>
               <UiIcon :name="collateralCount ? 'green-tick' : 'red-cross'" />
             </div>
-            <span class="text-p2 text-white">
+            <span class="text-p2 text-content-primary">
               {{ collateralCount ? `Yes in ${collateralCount} markets` : 'No' }}
             </span>
           </div>
@@ -183,10 +183,10 @@ const supplyCapPercentageDisplay = computed(() => {
 
     <!-- Statistics -->
     <div
-      class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
-      :class="[desktopOverview ? 'py-16 px-0 bg-transparent' : '']"
+      class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
+      :class="[desktopOverview ? 'py-16 px-0 bg-transparent shadow-none' : '']"
     >
-      <p class="text-h3 text-white">
+      <p class="text-h3 text-content-primary">
         Statistics
       </p>
       <div class="flex flex-col items-start gap-24">
@@ -205,10 +205,10 @@ const supplyCapPercentageDisplay = computed(() => {
 
     <!-- Risk Parameters -->
     <div
-      class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
-      :class="[desktopOverview ? 'py-16 px-0 bg-transparent' : '']"
+      class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
+      :class="[desktopOverview ? 'py-16 px-0 bg-transparent shadow-none' : '']"
     >
-      <p class="text-h3 text-white">
+      <p class="text-h3 text-content-primary">
         Risk parameters
       </p>
       <div class="flex flex-col items-start gap-24">
@@ -247,14 +247,14 @@ const supplyCapPercentageDisplay = computed(() => {
     <!-- Borrow Markets - shows which EVK vaults accept this as collateral -->
     <div
       v-if="borrowMarkets.length"
-      class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
-      :class="[desktopOverview ? 'py-16 px-0 bg-transparent' : '']"
+      class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
+      :class="[desktopOverview ? 'py-16 px-0 bg-transparent shadow-none' : '']"
     >
       <div>
-        <p class="text-h3 text-white mb-12">
+        <p class="text-h3 text-content-primary mb-12">
           Borrow Markets
         </p>
-        <p class="text-euler-dark-900">
+        <p class="text-content-secondary">
           This vault can be used as collateral to borrow from the following markets.
         </p>
       </div>
@@ -265,12 +265,11 @@ const supplyCapPercentageDisplay = computed(() => {
           :key="market.borrowVault.address"
         >
           <NuxtLink
-            class="bg-euler-dark-500 rounded-16 text-white block no-underline"
+            class="bg-surface rounded-xl text-content-primary block no-underline border border-line-subtle"
             :to="`/borrow/${vault.address}/${market.borrowVault.address}`"
           >
             <div
-              class="px-16 pt-16 pb-12"
-              style="border-bottom: 1px solid var(--c-euler-dark-600)"
+              class="px-16 pt-16 pb-12 border-b border-line-subtle"
             >
               <VaultLabelsAndAssets
                 :vault="market.borrowVault"
@@ -296,10 +295,10 @@ const supplyCapPercentageDisplay = computed(() => {
 
     <!-- Addresses -->
     <div
-      class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
-      :class="[desktopOverview ? 'py-16 px-0 bg-transparent' : '']"
+      class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
+      :class="[desktopOverview ? 'py-16 px-0 bg-transparent shadow-none' : '']"
     >
-      <p class="text-h3 text-white">
+      <p class="text-h3 text-content-primary">
         Addresses
       </p>
       <div class="flex flex-col items-start gap-24">
@@ -310,13 +309,13 @@ const supplyCapPercentageDisplay = computed(() => {
           <div class="flex gap-4 items-center">
             <NuxtLink
               :to="getExplorerAddressLink(vault.asset.address)"
-              class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+              class="text-accent-600 underline cursor-pointer hover:text-accent-500"
               target="_blank"
             >
               {{ shortenAddress(vault.asset.address) }}
             </NuxtLink>
             <button
-              class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
+              class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"
               @click="onCopyClick(vault.asset.address)"
             >
               <SvgIcon
@@ -333,13 +332,13 @@ const supplyCapPercentageDisplay = computed(() => {
           <div class="flex gap-4 items-center">
             <NuxtLink
               :to="getExplorerAddressLink(vault.address)"
-              class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+              class="text-accent-600 underline cursor-pointer hover:text-accent-500"
               target="_blank"
             >
               {{ shortenAddress(vault.address) }}
             </NuxtLink>
             <button
-              class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
+              class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"
               @click="onCopyClick(vault.address)"
             >
               <SvgIcon
@@ -357,13 +356,13 @@ const supplyCapPercentageDisplay = computed(() => {
           <div class="flex gap-4 items-center">
             <NuxtLink
               :to="getExplorerAddressLink(vault.governorAdmin)"
-              class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+              class="text-accent-600 underline cursor-pointer hover:text-accent-500"
               target="_blank"
             >
               {{ shortenAddress(vault.governorAdmin) }}
             </NuxtLink>
             <button
-              class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
+              class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"
               @click="onCopyClick(vault.governorAdmin)"
             >
               <SvgIcon

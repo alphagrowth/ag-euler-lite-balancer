@@ -22,7 +22,6 @@ const { vault } = defineProps<{ vault: EarnVault, desktopOverview?: boolean }>()
 
     <VaultOverviewEarnBlockExposure
       :vault="vault"
-      :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0' : '']"
       @vault-click="(address: string) => emits('vault-click', address)"
     />
 
