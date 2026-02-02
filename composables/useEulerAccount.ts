@@ -395,6 +395,11 @@ const updateBorrowPositions = async (
           return undefined
         }
 
+        // Skip positions where both vaults are unverified (unless showing all positions)
+        if (!shouldShowAllPositions && !borrow.verified && !collateral.verified) {
+          return undefined
+        }
+
         const cLTV = borrow.collateralLTVs.find(ltv => ethers.getAddress(ltv.collateral) === collateral.address)
 
         const liquidityInfo = res.vaultAccountInfo.liquidityInfo
