@@ -6,6 +6,9 @@ ARG APP_PORT
 ENV PORT=${APP_PORT}
 EXPOSE ${APP_PORT}
 
+ARG NETWORK=mainnet
+ENV NETWORK=${NETWORK}
+
 # Create app directory
 WORKDIR /usr/src/app
 # Copy package.json for installing dependencies
