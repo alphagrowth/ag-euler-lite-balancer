@@ -33,7 +33,7 @@ const vaultGovernanceType = computed(() => {
     return 'escrow'
   }
   // Has matching entity → governed
-  if (entities.value.length) {
+  if (entities.length) {
     return 'governed'
   }
   // Zero governorAdmin → ungoverned
