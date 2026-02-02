@@ -29,7 +29,7 @@ const { updateBorrowPositions, depositPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
-const { getBalance } = useWallets()
+const { getBalance, fetchSingleBalance, fetchVaultShareBalance } = useWallets()
 const openSlippageSettings = () => {
   modal.open(SlippageSettingsModal)
 }
@@ -800,10 +800,25 @@ const multiplyErrorText = computed(() => {
 const updateBalance = async () => {
   if (!isConnected.value) {
     balance.value = 0n
+    savingBalance.value = 0n
     return
   }
-  balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
-  savingBalance.value = getBalance(collateralVault.value?.address as `0x${string}`) || 0n
+
+  // Fetch underlying asset balance
+  if (collateralVault.value?.asset.address) {
+    balance.value = await fetchSingleBalance(collateralVault.value.asset.address)
+  }
+  else {
+    balance.value = 0n
+  }
+
+  // Fetch vault share balance (for savings positions)
+  if (collateralVault.value?.address) {
+    savingBalance.value = await fetchVaultShareBalance(collateralVault.value.address)
+  }
+  else {
+    savingBalance.value = 0n
+  }
 }
 const setMultiplyAmounts = (longAmount?: bigint | null, shortAmount?: bigint | null) => {
   if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value || !multiplyInputAmount.value) {
@@ -1266,7 +1281,7 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 1000)
 
-watch(pair, (val) => {
+watch(pair, async (val) => {
   if (!val) {
     return
   }
@@ -1288,7 +1303,8 @@ watch(pair, (val) => {
       },
     })
   }
-  updateBalance()
+  // Fetch fresh underlying asset balance for this specific vault
+  await updateBalance()
 }, { immediate: true })
 watch(address, () => {
   multiplySubAccount.value = null

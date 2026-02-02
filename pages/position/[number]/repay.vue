@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import { type Address, zeroAddress } from 'viem'
 import { FixedNumber, ethers } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
@@ -13,7 +14,6 @@ import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
-import { type Address, zeroAddress } from 'viem'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 
 const route = useRoute()
@@ -21,15 +21,15 @@ const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
 const { repay, fullRepay, buildRepayPlan, buildFullRepayPlan, buildSwapPlan, swap: executeSwap } = useEulerOperations()
-const { isConnected } = useAccount()
+const { isConnected, address } = useAccount()
 const positionIndex = route.params.number as string
 const { isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
-const { address } = useAccount()
-const { getBalance } = useWallets()
+const { fetchSingleBalance } = useWallets()
+const walletBalance = ref(0n)
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { slippage } = useSlippage()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
@@ -129,6 +129,14 @@ const liquidationPrice = computed(() => {
 const { name } = useEulerProductOfVault(borrowVault.value?.address || '')
 const swapCollateralProduct = useEulerProductOfVault(computed(() => swapCollateralVault.value?.address || ''))
 
+const fetchWalletBalance = async () => {
+  if (!isConnected.value || !borrowVault.value?.asset.address) {
+    walletBalance.value = 0n
+    return
+  }
+  walletBalance.value = await fetchSingleBalance(borrowVault.value.asset.address)
+}
+
 const load = async () => {
   if (!isConnected.value) {
     showError('Wallet is not connected.')
@@ -138,6 +146,8 @@ const load = async () => {
 
   try {
     position.value = getPositionBySubAccountIndex(+positionIndex)
+    // Fetch fresh wallet balance for this specific asset
+    await fetchWalletBalance()
     await updateBalance()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value?.userLTV || 0n
@@ -930,8 +940,7 @@ const updateEstimates = useDebounceFn(async () => {
     return
   }
   try {
-    const walletBalance = getBalance(borrowVault.value.asset.address as Address)
-    if (walletBalance < valueToNano(amount.value, borrowVault.value.decimals)) {
+    if (walletBalance.value < valueToNano(amount.value, borrowVault.value.decimals)) {
       throw new Error('Not enough balance')
     }
     if (balanceFixed.value.lt(amountFixed.value)) {

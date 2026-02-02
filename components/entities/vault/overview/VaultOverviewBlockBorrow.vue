@@ -3,9 +3,15 @@ import type { Vault, EscrowVault, SecuritizeVault } from '~/entities/vault'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
-const emits = defineEmits(['vault-click'])
+const emits = defineEmits<{
+  'vault-click': [address: string]
+}>()
 const { vault } = defineProps<{ vault: Vault }>()
-const { get: registryGet, getEvkVaults } = useVaultRegistry()
+const { get: registryGet } = useVaultRegistry()
+
+const onCollateralClick = (address: string) => {
+  emits('vault-click', address)
+}
 
 // Build collateral pairs from ALL collateralLTVs where currentLiquidationLTV > 0
 // This includes collaterals that are ramping down (borrowLTV == 0 but currentLiquidationLTV > 0)
@@ -77,46 +83,42 @@ const formatTimeRemaining = (seconds: bigint): string => {
       <div
         v-for="pair in allCollateralPairs"
         :key="pair.collateral.address"
-        @click="emits('vault-click')"
+        class="bg-euler-dark-500 rounded-16 text-white block no-underline cursor-pointer"
+        @click="onCollateralClick(pair.collateral.address)"
       >
-        <NuxtLink
-          class="bg-euler-dark-500 rounded-16 text-white block no-underline"
-          :to="`/lend/${pair.collateral.address}`"
+        <div
+          class="px-16 pt-16 pb-12"
+          style="border-bottom: 1px solid var(--c-euler-dark-600)"
         >
-          <div
-            class="px-16 pt-16 pb-12"
-            style="border-bottom: 1px solid var(--c-euler-dark-600)"
+          <VaultLabelsAndAssets
+            :vault="pair.collateral"
+            :assets="[pair.collateral.asset]"
+          />
+        </div>
+        <div class="flex flex-col gap-12 px-16 pt-12 pb-16">
+          <VaultOverviewLabelValue
+            label="Max LTV"
+            orientation="horizontal"
+            :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
+          />
+          <VaultOverviewLabelValue
+            label="LLTV"
+            orientation="horizontal"
           >
-            <VaultLabelsAndAssets
-              :vault="pair.collateral"
-              :assets="[pair.collateral.asset]"
-            />
-          </div>
-          <div class="flex flex-col gap-12 px-16 pt-12 pb-16">
-            <VaultOverviewLabelValue
-              label="Max LTV"
-              orientation="horizontal"
-              :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
-            />
-            <VaultOverviewLabelValue
-              label="LLTV"
-              orientation="horizontal"
-            >
-              <div class="flex items-center gap-8">
-                <span>{{ `${formatNumber(nanoToValue(getCurrentLiquidationLTV(pair), 2), 2)}%` }}</span>
-                <template v-if="isLiquidationLTVRamping(pair)">
-                  <span @click.stop.prevent>
-                <UiFootnote
-                  title="LTV Ramping"
-                      :text="`The LLTV for this collateral is currently being reduced. Target LLTV: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair))}.`"
-                      class="[--ui-footnote-icon-color:var(--c-euler-dark-900)]"
-                />
-                  </span>
-                </template>
-              </div>
-            </VaultOverviewLabelValue>
-          </div>
-        </NuxtLink>
+            <div class="flex items-center gap-8">
+              <span>{{ `${formatNumber(nanoToValue(getCurrentLiquidationLTV(pair), 2), 2)}%` }}</span>
+              <template v-if="isLiquidationLTVRamping(pair)">
+                <span @click.stop.prevent>
+                  <UiFootnote
+                    title="LTV Ramping"
+                    :text="`The LLTV for this collateral is currently being reduced. Target LLTV: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair))}.`"
+                    class="[--ui-footnote-icon-color:var(--c-euler-dark-900)]"
+                  />
+                </span>
+              </template>
+            </div>
+          </VaultOverviewLabelValue>
+        </div>
       </div>
     </div>
   </div>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { FixedNumber } from 'ethers'
-import { createPublicClient, http, type Address } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -15,7 +14,6 @@ import {
   type SecuritizeVault,
   type VaultAsset,
 } from '~/entities/vault'
-import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -26,12 +24,11 @@ const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate(
 const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { withdraw, redeem, buildWithdrawPlan, buildRedeemPlan } = useEulerOperations()
 const { getVault } = useVaults()
-const { isConnected, chain, address } = useAccount()
-const { getBalance } = useWallets()
+const { isConnected } = useAccount()
+const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
-const { eulerLensAddresses } = useEulerAddresses()
 const vaultAddress = route.params.vault as string
 
 const isLoading = ref(false)
@@ -49,7 +46,6 @@ const sharesBalance = ref(0n)
 const delta = ref(0n)
 const estimateSupplyAPY = ref(0n)
 const estimatesError = ref('')
-const balanceFromContract = ref(0n)
 
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value?.address || ''))
 const amountFixed = computed(() => {
@@ -58,9 +54,6 @@ const amountFixed = computed(() => {
     Number(asset.value?.decimals || 0),
     { decimals: Number(asset.value?.decimals || 0) },
   )
-})
-const balance = computed(() => {
-  return getBalance(vault.value?.address as `0x${string}`) || 0n
 })
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
@@ -102,10 +95,9 @@ const load = async () => {
 
     asset.value = vault.value?.asset
 
-    if (!vault.value.verified) {
-      await getBalanceFromContract()
-    }
-    updateBalance()
+    // Always fetch fresh share balance directly from contract
+    await fetchShareBalance()
+    await updateBalance()
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -115,34 +107,21 @@ const load = async () => {
     isLoading.value = false
   }
 }
-const getBalanceFromContract = async () => {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const client = createPublicClient({
-    chain: chain.value,
-    transport: http(EVM_PROVIDER_URL),
-  })
-
-  const utilsLensAddress = eulerLensAddresses.value?.utilsLens as Address
-
-  const tokenBalancesResult = await client.readContract({
-    address: utilsLensAddress,
-    abi: eulerUtilsLensABI,
-    functionName: 'tokenBalances',
-    args: [address.value as Address, [vault.value?.address]],
-  }) as bigint[]
-
-  tokenBalancesResult.forEach((balance: bigint) => {
-    balanceFromContract.value = balance
-  })
-}
-const updateBalance = async () => {
-  if (!isConnected.value) {
-    assetsBalance.value = 0n
+const fetchShareBalance = async () => {
+  if (!vault.value?.address) {
     sharesBalance.value = 0n
     return
   }
+  sharesBalance.value = await fetchVaultShareBalance(vault.value.address)
+}
+const updateBalance = async () => {
+  if (!isConnected.value || sharesBalance.value === 0n) {
+    assetsBalance.value = 0n
+    delta.value = 0n
+    return
+  }
 
-  sharesBalance.value = vault.value?.verified ? balance.value : balanceFromContract.value
+  // Convert shares to assets
   assetsBalance.value = await convertSharesToAssets(
     vaultAddress,
     sharesBalance.value,
@@ -256,8 +235,11 @@ const updateEstimates = useDebounceFn(async () => {
 
 load()
 
-watch(isConnected, () => {
-  updateBalance()
+watch(isConnected, async () => {
+  if (vault.value) {
+    await fetchShareBalance()
+    await updateBalance()
+  }
 })
 watch(amount, async () => {
   clearSimulationError()

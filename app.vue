@@ -56,6 +56,12 @@ watch(chainId, () => {
 }, { immediate: true })
 
 watch([isConnected, isVaultsReady], ([val]) => {
+  // Clear existing interval before setting a new one
+  if (interval) {
+    clearInterval(interval)
+    interval = null
+  }
+
   if (val && isVaultsReady.value) {
     updateBalances()
     interval = setInterval(async () => {

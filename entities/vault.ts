@@ -288,6 +288,8 @@ export interface Vault {
   interestRateModelAddress: string
   hookTarget: string
   irmInfo?: VaultIRMInfo
+  // Vault category: 'escrow' for escrow vaults, undefined/'standard' for regular EVK vaults
+  vaultCategory?: 'standard' | 'escrow'
 }
 export interface BorrowVaultPair {
   borrow: Vault
@@ -820,6 +822,7 @@ export const fetchEscrowVault = async (vaultAddress: string): Promise<EscrowVaul
   return {
     ...vault,
     type: 'escrow',
+    vaultCategory: 'escrow',
     verified: true,
   } as EscrowVault
 }
@@ -1209,6 +1212,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
         return {
           verified: true,
           type: 'escrow',
+          vaultCategory: 'escrow',
           address: data.vault,
           name: data.vaultName,
           supply: data.totalAssets,

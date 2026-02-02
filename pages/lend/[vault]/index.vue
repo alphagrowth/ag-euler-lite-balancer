@@ -57,7 +57,7 @@ const { supply, buildSupplyPlan } = useEulerOperations()
 const { getVault, getSecuritizeVault, updateVault, isEscrowLoadedOnce } = useVaults()
 const { get: registryGet, getVault: registryGetVault } = useVaultRegistry()
 const { isConnected } = useAccount()
-const { getBalance } = useWallets()
+const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
@@ -77,6 +77,7 @@ const monthlyEarnings = ref(0)
 // Vault data - only one will be populated based on type
 const evkVault: Ref<Vault | undefined> = ref(undefined)
 const securitizeVault: Ref<SecuritizeVault | undefined> = ref(undefined)
+const balance = ref(0n)
 
 // Check if securitize vault first
 const isSecuritize = await isSecuritizeVault(vaultAddress)
@@ -91,14 +92,14 @@ else {
 
     // Fast path: vault already in registry
     const registryEntry = registryGet(normalizedAddress)
-    if (registryEntry?.type === 'escrow' || registryEntry?.type === 'evk') {
+    if (registryEntry?.type === 'evk') {
       evkVault.value = registryEntry.vault as Vault
     }
     // Escrow vaults haven't loaded yet - wait for them
     else if (!isEscrowLoadedOnce.value) {
       await until(isEscrowLoadedOnce).toBe(true)
       const entryAfterLoad = registryGet(normalizedAddress)
-      if (entryAfterLoad?.type === 'escrow' || entryAfterLoad?.type === 'evk') {
+      if (entryAfterLoad?.type === 'evk') {
         evkVault.value = entryAfterLoad.vault as Vault
       }
       else {
@@ -160,7 +161,13 @@ const asset = computed(() => evkVault.value?.asset || securitizeVault.value?.ass
 // For components that need the EVK Vault type (VaultLabelsAndAssets, VaultPoints, etc.)
 const vault = computed(() => evkVault.value)
 
-const balance = computed(() => getBalance(asset.value?.address as `0x${string}`) || 0n)
+const fetchBalance = async () => {
+  if (!asset.value?.address) {
+    balance.value = 0n
+    return
+  }
+  balance.value = await fetchSingleBalance(asset.value.address)
+}
 const errorText = computed(() => {
   if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
     return 'Not enough balance'
@@ -205,24 +212,27 @@ const isVaultVerified = computed(() => {
 const load = async () => {
   isLoading.value = true
   try {
+    // Fetch fresh underlying asset balance for this specific vault
+    await fetchBalance()
+
     if (features.value.hasInterestRate && evkVault.value) {
       estimateSupplyAPY.value = evkVault.value.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
     }
     else {
       // For vaults without interest rate info, just use rewards
       estimateSupplyAPY.value = valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
-      }
+    }
 
     // Show warning modal for any unverified vault
     if (!isVaultVerified.value) {
-        modal.open(VaultUnverifiedDisclaimerModal, {
-          isNotClosable: true,
-          props: {
-            onCancel: () => {
-              router.replace('/')
-            },
+      modal.open(VaultUnverifiedDisclaimerModal, {
+        isNotClosable: true,
+        props: {
+          onCancel: () => {
+            router.replace('/')
           },
-        })
+        },
+      })
     }
   }
   catch (e) {
@@ -506,6 +516,7 @@ watch(amount, async () => {
         v-if="features.hasOverview && vault && vaultType === 'evk'"
         :vault="vault"
         desktop-overview
+        @vault-click="(address: string) => router.push(`/lend/${address}`)"
       />
       <!-- Securitize Vault Overview -->
       <SecuritizeVaultOverview

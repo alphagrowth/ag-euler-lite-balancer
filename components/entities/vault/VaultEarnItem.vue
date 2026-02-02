@@ -12,7 +12,7 @@ const { isEarnVaultOwnerVerified } = useVaults()
 const entities = useEulerEntitiesOfEarnVault(vault)
 const product = useEulerProductOfVault(vault.address)
 const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
-const { balances, isLoading: isBalancesLoading } = useWallets()
+const { getBalance, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
 
@@ -25,7 +25,7 @@ const entitiesLogos = computed(() => {
   return entities.map(e => getEulerLabelEntityLogo(e.logo))
 })
 
-const balance = computed(() => balances.value.get(vault.asset.address) || 0n)
+const balance = computed(() => getBalance(vault.asset.address as `0x${string}`))
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
 const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)

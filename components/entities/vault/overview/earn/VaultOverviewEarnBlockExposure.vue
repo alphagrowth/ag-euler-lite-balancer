@@ -1,12 +1,19 @@
 <script setup lang="ts">
+import { ethers } from 'ethers'
 import { type EarnVault, type Vault, getVaultPrice } from '~/entities/vault'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
-const emits = defineEmits(['vault-click'])
+const emits = defineEmits<{
+  'vault-click': [address: string]
+}>()
+
+const onExposureClick = (address: string) => {
+  emits('vault-click', address)
+}
 const { vault } = defineProps<{ vault: EarnVault }>()
 
-const { getVault, getEscrowVault } = useVaults()
-const { getType: registryGetType } = useVaultRegistry()
+const { getOrFetch } = useVaultRegistry()
+const { isEscrowLoadedOnce } = useVaults()
 
 const exposureVaults: Ref<Vault[]> = ref([])
 const isLoading = ref(false)
@@ -26,10 +33,12 @@ const totalAllocatedAssets = computed(() => {
 const load = async () => {
   try {
     isLoading.value = true
+    // Wait for escrow vaults to load first, so they're properly identified in registry
+    await until(isEscrowLoadedOnce).toBe(true)
     const promises = exposureList.value.map((exposure) => {
-      return registryGetType(exposure.info.vault) === 'escrow' ? getEscrowVault(exposure.info.vault) : getVault(exposure.info.vault)
+      return getOrFetch(exposure.info.vault) as Promise<Vault>
     })
-    exposureVaults.value = await Promise.all(promises)
+    exposureVaults.value = (await Promise.all(promises)).filter(Boolean)
   }
   catch (e) {
     console.warn(e)
@@ -40,7 +49,8 @@ const load = async () => {
 }
 
 const getExposureVaultByAddress = (address: string) => {
-  return exposureVaults.value.find(vlt => address === vlt.address)
+  const normalized = ethers.getAddress(address)
+  return exposureVaults.value.find(vlt => normalized === ethers.getAddress(vlt.address))
 }
 
 const getExposureUsdPrice = (exposure: typeof exposureList.value[0]) => {
@@ -81,54 +91,50 @@ load()
       <div
         v-for="exposure in exposureList"
         :key="exposure.strategy"
-        @click="emits('vault-click')"
+        class="bg-euler-dark-500 rounded-16 text-white block no-underline cursor-pointer"
+        @click="onExposureClick(exposure.info.vault)"
       >
-        <NuxtLink
-          class="bg-euler-dark-500 rounded-16 text-white block no-underline"
-          :to="`/lend/${exposure.info.vault}`"
+        <div
+          class="px-16 pt-16 pb-12"
+          style="border-bottom: 1px solid var(--c-euler-dark-600)"
         >
-          <div
-            class="px-16 pt-16 pb-12"
-            style="border-bottom: 1px solid var(--c-euler-dark-600)"
+          <VaultLabelsAndAssets
+            :vault="getExposureVaultByAddress(exposure.info.vault) as Vault"
+            :assets="[{
+              address: exposure.info.vault,
+              decimals: exposure.info.assetDecimals,
+              name: exposure.info.assetName,
+              symbol: exposure.info.assetSymbol,
+            }]"
+          />
+        </div>
+        <div class="flex flex-col gap-12 px-16 pt-12 pb-16">
+          <VaultOverviewLabelValue
+            label="Allocation (%)"
+            orientation="horizontal"
+            :value="`${formatNumber(Number(exposure.allocatedAssets) / Number(totalAllocatedAssets) * 100, 2)}%`"
+          />
+          <VaultOverviewLabelValue
+            label="Allocation ($)"
+            orientation="horizontal"
           >
-            <VaultLabelsAndAssets
-              :vault="exposureVaults.find((vlt) => exposure.info.vault === vlt.address) as Vault"
-              :assets="[{
-                address: exposure.info.vault,
-                decimals: exposure.info.assetDecimals,
-                name: exposure.info.assetName,
-                symbol: exposure.info.assetSymbol,
-              }]"
-            />
-          </div>
-          <div class="flex flex-col gap-12 px-16 pt-12 pb-16">
-            <VaultOverviewLabelValue
-              label="Allocation (%)"
-              orientation="horizontal"
-              :value="`${formatNumber(Number(exposure.allocatedAssets) / Number(totalAllocatedAssets) * 100, 2)}%`"
-            />
-            <VaultOverviewLabelValue
-              label="Allocation ($)"
-              orientation="horizontal"
-            >
-              <div class="flex items-center gap-4">
-                <template v-if="getExposureUsdPrice(exposure) > 0">
-                  {{ `$${compactNumber(getExposureUsdPrice(exposure), 2)}` }}
-                  <span @click.stop.prevent>
-                    <UiFootnote
-                      title="Amount in assets"
-                      :text="getExposureAssetAmount(exposure)"
-                      class="[--ui-footnote-icon-color:var(--c-euler-dark-900)]"
-                    />
-                  </span>
-                </template>
-                <template v-else>
-                  {{ getExposureAssetAmount(exposure) }}
-                </template>
-              </div>
-            </VaultOverviewLabelValue>
-          </div>
-        </NuxtLink>
+            <div class="flex items-center gap-4">
+              <template v-if="getExposureUsdPrice(exposure) > 0">
+                {{ `$${compactNumber(getExposureUsdPrice(exposure), 2)}` }}
+                <span @click.stop.prevent>
+                  <UiFootnote
+                    title="Amount in assets"
+                    :text="getExposureAssetAmount(exposure)"
+                    class="[--ui-footnote-icon-color:var(--c-euler-dark-900)]"
+                  />
+                </span>
+              </template>
+              <template v-else>
+                {{ getExposureAssetAmount(exposure) }}
+              </template>
+            </div>
+          </VaultOverviewLabelValue>
+        </div>
       </div>
     </div>
   </div>

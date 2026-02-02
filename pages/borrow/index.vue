@@ -18,16 +18,10 @@ defineOptions({
   name: 'BorrowPage',
 })
 
-const { borrowList, securitizeBorrowList, isUpdating, isEscrowUpdating } = useVaults()
+const { borrowList, isUpdating, isEscrowUpdating } = useVaults()
 
 const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value)
 const { products, entities } = useEulerLabels()
-
-// Combined list of all borrow pairs (regular + securitize)
-const allBorrowList = computed((): AnyBorrowVaultPair[] => [
-  ...borrowList.value,
-  ...securitizeBorrowList.value,
-])
 
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
@@ -35,7 +29,7 @@ const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Liquidity')
 
 const collateralAssetOptions = computed(() => {
-  return allBorrowList.value
+  return borrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.collateral.asset.address === item.collateral.asset.address))
     .map(pair => ({
       label: pair.collateral.asset.symbol,
@@ -48,7 +42,7 @@ const collateralAssetOptions = computed(() => {
 })
 
 const debtAssetOptions = computed(() => {
-  return allBorrowList.value
+  return borrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.borrow.asset.address === item.borrow.asset.address))
     .map(pair => ({
       label: pair.borrow.asset.symbol,
@@ -61,7 +55,7 @@ const debtAssetOptions = computed(() => {
 })
 
 const marketOptions = computed(() => {
-  return allBorrowList.value.reduce((result, pair) => {
+  return borrowList.value.reduce((result, pair) => {
     const market = Object.values(products).find(product => product.vaults.includes(pair.collateral.address))
     const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
     const entityObj = entityName ? entities[entityName] : null
@@ -75,7 +69,7 @@ const marketOptions = computed(() => {
 })
 
 const filteredBorrowList = computed(() => {
-  return allBorrowList.value
+  return borrowList.value
     .filter(pair =>
       selectedCollateral.value.length || selectedDebt.value.length
         ? ((!selectedCollateral.value.length || selectedCollateral.value.includes(pair.collateral.asset.address))

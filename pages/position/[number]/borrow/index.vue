@@ -21,7 +21,7 @@ const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected } = useAccount()
 const { isPositionsLoading, isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
 const positionIndex = route.params.number as string
-const { getBalance } = useWallets()
+const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -126,7 +126,8 @@ const load = async () => {
   ltv.value = userLTV.value
   try {
     pair.value = await getBorrowVaultPair(collateralAddress as string, borrowAddress as string)
-    updateBalance()
+    // Fetch fresh underlying asset balance for this specific vault
+    await updateBalance()
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -137,12 +138,13 @@ const load = async () => {
   }
 }
 const updateBalance = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value || !collateralVault.value?.asset.address) {
     balance.value = 0n
+    isBalanceLoading.value = false
     return
   }
 
-  balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
+  balance.value = await fetchSingleBalance(collateralVault.value.asset.address)
   isBalanceLoading.value = false
 }
 const submit = async () => {

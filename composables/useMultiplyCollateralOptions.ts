@@ -18,15 +18,11 @@ export const useMultiplyCollateralOptions = ({
   currentVault: Ref<Vault | undefined>
   liabilityVault?: Ref<Vault | undefined>
 }) => {
-  const { getVault: registryGetVault } = useVaultRegistry()
+  const { getVault } = useVaultRegistry()
   const { getBalance } = useWallets()
   const { depositPositions } = useEulerAccount()
   const { getOpportunityOfLendVault } = useMerkl()
   const { withIntrinsicSupplyApy } = useIntrinsicApy()
-
-  const resolveVault = (address: string): Vault | undefined => {
-    return registryGetVault(address) as Vault | undefined
-  }
 
   const currentVaultAddress = computed(() => {
     const current = currentVault.value
@@ -43,7 +39,7 @@ export const useMultiplyCollateralOptions = ({
     liability.collateralLTVs
       .filter(ltv => ltv.borrowLTV > 0n)
       .forEach((ltv) => {
-        const vault = resolveVault(ltv.collateral)
+        const vault = getVault(ltv.collateral) as Vault | undefined
         if (!vault) return
 
         const balance = getBalance(vault.asset.address as Address)

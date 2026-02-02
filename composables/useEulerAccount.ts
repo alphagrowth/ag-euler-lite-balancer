@@ -322,8 +322,7 @@ const updateBorrowPositions = async (
   }
 
   const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
-  const { getVault, getSecuritizeVault } = useVaults()
-  const { getVault: registryGetVault } = useVaultRegistry()
+  const { getOrFetch } = useVaultRegistry()
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
 
@@ -370,7 +369,8 @@ const updateBorrowPositions = async (
         const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
 
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
-        const borrow = shouldShowAllPositions ? await getVault(borrowAddress) : registryGetVault(borrowAddress) as Vault | undefined
+        // Use unified resolution - getOrFetch handles registry lookup + fallback fetch
+        const borrow = await getOrFetch(borrowAddress) as Vault | undefined
         if (!borrow) {
           return undefined
         }
@@ -388,22 +388,8 @@ const updateBorrowPositions = async (
           collateralAddress = collateralCandidates[0]
         }
 
-        // Check registry for collateral vault (handles EVK, escrow, and securitize)
-        let collateral = registryGetVault(collateralAddress) as Vault | undefined
-
-        // If still not found and shouldShowAllPositions, try fetching
-        if (!collateral && shouldShowAllPositions) {
-          try {
-            collateral = await getVault(collateralAddress)
-          }
-          catch {
-            // getVault throws for securitize vaults, try securitize
-            const securitizeCollateral = await getSecuritizeVault(collateralAddress)
-            if (securitizeCollateral) {
-              collateral = securitizeCollateral as unknown as Vault
-            }
-          }
-        }
+        // Use unified resolution for collateral vault (handles EVK, escrow, and securitize)
+        const collateral = await getOrFetch(collateralAddress) as Vault | undefined
 
         if (!collateral) {
           return undefined
@@ -531,7 +517,7 @@ const updateDepositPositions = async (
   }
 
   const { earnVaults } = useEulerLabels()
-  const { getOrResolve, has: registryHas, getType: registryGetType, getEvkVaults } = useVaultRegistry()
+  const { getOrFetch, has: registryHas, getType: registryGetType, getEvkVaults } = useVaultRegistry()
   const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
@@ -577,16 +563,17 @@ const updateDepositPositions = async (
     }
 
           // Resolve vault from registry
-          const vaultEntry = await getOrResolve(vaultAddress)
-          if (!vaultEntry) continue
+          const vault = await getOrFetch(vaultAddress)
+          if (!vault) continue
 
-          // Skip earn vaults
-          if (vaultEntry.type === 'earn') continue
+          // Skip earn vaults (getOrFetch caches in registry, so getType works)
+          const vaultType = registryGetType(vaultAddress)
+          if (vaultType === 'earn') continue
 
-    const isVerifiedVault = vaultEntry.type === 'evk'
-      ? (vaultEntry.vault as Vault).verified
-      : vaultEntry.type === 'securitize'
-        ? (vaultEntry.vault as SecuritizeVault).verified
+    const isVerifiedVault = vaultType === 'evk'
+      ? (vault as Vault).verified
+      : vaultType === 'securitize'
+        ? (vault as SecuritizeVault).verified
         : false
 
     // Skip unverified vaults unless showing all positions
@@ -601,7 +588,7 @@ const updateDepositPositions = async (
       if (res.vaultAccountInfo.shares === 0n) continue
 
             deposits.push({
-              vault: vaultEntry.vault,
+              vault,
         subAccount: normalizedSubAccount,
               shares: res.vaultAccountInfo.shares,
               assets: res.vaultAccountInfo.assets,
@@ -667,7 +654,7 @@ const updateEarnPositions = async (
     return
   }
 
-  const { getOrResolve, getEarnVaults } = useVaultRegistry()
+  const { getOrFetch, getType: registryGetType, getEarnVaults } = useVaultRegistry()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -705,13 +692,13 @@ const updateEarnPositions = async (
           }
 
           // Resolve vault from registry
-          const vaultEntry = await getOrResolve(vaultAddress)
-          if (!vaultEntry) {
+          const vault = await getOrFetch(vaultAddress)
+          if (!vault) {
             return undefined
           }
 
           // Only process earn vaults (others handled by updateDepositPositions)
-          if (vaultEntry.type !== 'earn') {
+          if (registryGetType(vaultAddress) !== 'earn') {
             return undefined
           }
 
@@ -719,7 +706,7 @@ const updateEarnPositions = async (
             const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
 
             return {
-              vault: vaultEntry.vault,
+              vault,
               shares: res.vaultAccountInfo.shares,
               assets: res.vaultAccountInfo.assets,
             } as AccountEarnPosition
@@ -733,17 +720,37 @@ const updateEarnPositions = async (
     }
   }
   else {
+    // For non-showAll mode, only show positions in known/verified earn vaults
+    // Use account lens to get share balances (wallet balances only track underlying assets)
+    const { EVM_PROVIDER_URL } = useEulerConfig()
+
+    if (!eulerLensAddresses?.accountLens) {
+      throw new Error('Euler addresses not loaded yet')
+    }
+
+    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
+    const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+
     const earnVaultsList = getEarnVaults()
     for (let i = 0; i < earnVaultsList.length; i += batchSize) {
       const batch = earnVaultsList
         .slice(i, i + batchSize)
         .map(async (vault) => {
-          const balance = balances.get(ethers.getAddress(vault.address))
-          return {
-            vault,
-            shares: balance,
-            assets: balance ? await convertSharesToAssets(vault.address, balance) : 0n,
-          } as AccountEarnPosition
+          try {
+            const res = await accountLensContract.getAccountInfo(address, vault.address)
+            return {
+              vault,
+              shares: res.vaultAccountInfo.shares,
+              assets: res.vaultAccountInfo.assets,
+            } as AccountEarnPosition
+          }
+          catch {
+            return {
+              vault,
+              shares: 0n,
+              assets: 0n,
+            } as AccountEarnPosition
+          }
         })
 
       earns = [...earns, ...(await Promise.all(batch)).filter(o => o.shares > 0n)] as AccountEarnPosition[]

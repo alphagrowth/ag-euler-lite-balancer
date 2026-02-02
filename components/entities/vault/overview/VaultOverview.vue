@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Vault } from '~/entities/vault'
 
-const emits = defineEmits(['vault-click'])
+const emits = defineEmits<{
+  'vault-click': [address: string]
+}>()
 const { vault } = defineProps<{ vault: Vault, desktopOverview?: boolean }>()
 </script>
 
@@ -28,7 +30,7 @@ const { vault } = defineProps<{ vault: Vault, desktopOverview?: boolean }>()
     <VaultOverviewBlockBorrow
       :vault="vault"
       :class="[desktopOverview ? 'py-16 [&:first-child]:!pt-0 px-0' : '']"
-      @vault-click="emits('vault-click')"
+      @vault-click="(address: string) => emits('vault-click', address)"
     />
 
     <VaultOverviewBlockIRM

@@ -11,8 +11,6 @@ import {
   getNetAPY,
   getVaultPrice,
   getCollateralAssetPriceFromLiability,
-  isSecuritizeVault,
-  fetchSecuritizeVault,
   type Vault,
   type SecuritizeVault,
 } from '~/entities/vault'
@@ -27,14 +25,14 @@ const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate(
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
 const { isConnected } = useAccount()
+const { fetchSingleBalance } = useWallets()
 const positionIndex = route.params.number as string
 const { isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
-const { getBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
-const { getVault, isReady: isVaultsReady } = useVaults()
-const { getVault: registryGetVault } = useVaultRegistry()
+const { isReady: isVaultsReady } = useVaults()
+const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
@@ -150,18 +148,9 @@ const loadSelectedCollateral = async () => {
 
     await until(isVaultsReady).toBe(true)
 
-    // Try loading from registry first, then as securitize or regular vault
-    let vault: Vault | SecuritizeVault | undefined = registryGetVault(targetAddress) as Vault | SecuritizeVault | undefined
-    if (!vault) {
-      const isSecuritizeResult = await isSecuritizeVault(targetAddress)
-      if (isSecuritizeResult) {
-        vault = await fetchSecuritizeVault(targetAddress)
-      }
-      else {
-        vault = await getVault(targetAddress)
-      }
-    }
-    selectedCollateral.value = vault
+    // Use unified vault resolution - handles EVK, escrow, and securitize vaults
+    const vault = await getOrFetch(targetAddress) as Vault | SecuritizeVault | undefined
+    selectedCollateral.value = vault || null
 
     const lensAddress = eulerLensAddresses.value?.accountLens
     if (!lensAddress) {
@@ -189,6 +178,7 @@ const load = async () => {
   await until(isPositionLoaded).toBe(true)
   try {
     await loadSelectedCollateral()
+    // Fetch fresh underlying asset balance for this specific vault
     await updateBalance()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value.userLTV
@@ -203,12 +193,11 @@ const load = async () => {
   }
 }
 const updateBalance = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value || !collateralVault.value?.asset.address) {
     balance.value = 0n
     return
   }
-
-  balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
+  balance.value = await fetchSingleBalance(collateralVault.value.asset.address)
 }
 const submit = async () => {
   await guardWithTerms(async () => {

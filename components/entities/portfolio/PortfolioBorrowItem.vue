@@ -31,8 +31,8 @@ type PositionCollateral = {
 }
 
 const collateralItems = ref<PositionCollateral[]>([])
-const { getVault, isReady: isVaultsReady } = useVaults()
-const { getVault: registryGetVault } = useVaultRegistry()
+const { isReady: isVaultsReady } = useVaults()
+const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
@@ -175,7 +175,7 @@ const loadCollaterals = async () => {
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {
         try {
-          const vault = registryGetVault(address) as Vault | undefined || await getVault(address)
+          const vault = await getOrFetch(address) as Vault | undefined
           let assets = 0n
 
           try {

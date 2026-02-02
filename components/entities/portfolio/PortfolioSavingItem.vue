@@ -55,11 +55,10 @@ const assetAmount = computed(() => {
 })
 
 const onClick = () => {
-  if (isSecuritize.value) return // No modal for Securitize vaults
   modal.open(VaultOverviewModal, {
-    props: {
-      vault: vault,
-    },
+    props: isSecuritize.value
+      ? { securitizeVault: vault.value }
+      : { vault: vault.value },
   })
 }
 </script>
@@ -68,7 +67,8 @@ const onClick = () => {
   <!-- Securitize vault display -->
   <div
     v-if="isSecuritize"
-    class="block no-underline text-white bg-euler-dark-500 rounded-16"
+    class="block no-underline text-white bg-euler-dark-500 rounded-16 cursor-pointer"
+    @click="onClick"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
       <div class="flex w-full">
@@ -112,7 +112,10 @@ const onClick = () => {
             </div>
           </div>
         </div>
-        <div class="flex flex-wrap items-center gap-8">
+        <div
+          class="flex flex-wrap items-center gap-8"
+          @click.stop
+        >
           <UiButton
             :to="`/lend/${vault.address}/`"
             rounded

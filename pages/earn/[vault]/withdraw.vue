@@ -22,7 +22,7 @@ const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { withdraw, redeem, buildWithdrawPlan, buildRedeemPlan } = useEulerOperations()
 const { getEarnVault } = useVaults()
 const { isConnected } = useAccount()
-const { getBalance } = useWallets()
+const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfLendVault } = useMerkl()
 const vaultAddress = route.params.vault as string
@@ -48,9 +48,6 @@ const amountFixed = computed(() => {
     { decimals: Number(asset.value?.decimals || 0) },
   )
 })
-const balance = computed(() => {
-  return getBalance(vault.value?.address as `0x${string}`) || 0n
-})
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   return assetsBalance.value < amountFixed.value.value
@@ -73,7 +70,10 @@ const load = async () => {
     vault.value = await getEarnVault(vaultAddress)
     estimateSupplyAPY.value = vault.value?.supplyAPY || 0
     asset.value = vault.value?.asset
-    updateBalance()
+
+    // Fetch fresh share balance and convert to assets
+    await fetchShareBalance()
+    await updateBalance()
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -83,14 +83,23 @@ const load = async () => {
     isLoading.value = false
   }
 }
-const updateBalance = async () => {
-  if (!isConnected.value) {
-    assetsBalance.value = 0n
+
+const fetchShareBalance = async () => {
+  if (!vault.value?.address) {
     sharesBalance.value = 0n
     return
   }
+  sharesBalance.value = await fetchVaultShareBalance(vault.value.address)
+}
 
-  sharesBalance.value = balance.value
+const updateBalance = async () => {
+  if (!isConnected.value || sharesBalance.value === 0n) {
+    assetsBalance.value = 0n
+    delta.value = 0n
+    return
+  }
+
+  // Convert shares to assets
   assetsBalance.value = await convertSharesToAssets(
     vaultAddress,
     sharesBalance.value,
@@ -196,8 +205,11 @@ const updateEstimates = useDebounceFn(async () => {
 
 load()
 
-watch(isConnected, () => {
-  updateBalance()
+watch(isConnected, async () => {
+  if (vault.value) {
+    await fetchShareBalance()
+    await updateBalance()
+  }
 })
 watch(amount, async () => {
   clearSimulationError()

@@ -19,7 +19,7 @@ const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
 const { getEarnVault, updateEarnVault } = useVaults()
 const { isConnected } = useAccount()
-const { getBalance } = useWallets()
+const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
@@ -36,11 +36,23 @@ const vault: Ref<EarnVault | undefined> = ref(undefined)
 const asset: Ref<VaultAsset | undefined> = ref(undefined)
 const estimateSupplyAPY = ref(0)
 const monthlyEarnings = ref(0)
+const balance = ref(0n)
+
+const fetchBalance = async () => {
+  if (!asset.value?.address) {
+    balance.value = 0n
+    return
+  }
+  balance.value = await fetchSingleBalance(asset.value.address)
+}
 
 // Load vault data with top-level await
 try {
   vault.value = await getEarnVault(vaultAddress)
   asset.value = vault.value?.asset
+
+  // Fetch fresh underlying asset balance for this specific vault
+  await fetchBalance()
 
   if (!vault.value?.verified) {
     modal.open(VaultUnverifiedDisclaimerModal, {
@@ -57,8 +69,6 @@ catch (e) {
   showError('Unable to load Vault')
   console.warn(e)
 }
-
-const balance = computed(() => getBalance(asset.value?.address as `0x${string}`) || 0n)
 const errorText = computed(() => {
   if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
     return 'Not enough balance'
@@ -325,6 +335,7 @@ watch(amount, async () => {
         v-if="vault"
         :vault="vault as EarnVault"
         desktop-overview
+        @vault-click="(address: string) => router.push(`/lend/${address}`)"
       />
     </div>
   </div>

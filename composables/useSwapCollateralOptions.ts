@@ -14,14 +14,10 @@ export const useSwapCollateralOptions = ({
   liabilityVault?: Ref<Vault | undefined>
 }) => {
   const { borrowList } = useVaults()
-  const { getVault: registryGetVault, getByType, getByTypes } = useVaultRegistry()
+  const { getVault: registryGetVault, getEvkVaults, getStandardEvkVaults, getEscrowVaults } = useVaultRegistry()
   const { getBalance } = useWallets()
   const { getOpportunityOfLendVault } = useMerkl()
   const { withIntrinsicSupplyApy } = useIntrinsicApy()
-
-  const resolveVault = (address: string): Vault | undefined => {
-    return registryGetVault(address) as Vault | undefined
-  }
 
   const collateralVaults = computed(() => {
     const current = currentVault.value
@@ -31,21 +27,23 @@ export const useSwapCollateralOptions = ({
     let candidates: Vault[] = []
 
     if (liability) {
+      // When we have a liability vault, get collaterals from LTV configuration
       candidates = liability.collateralLTVs
         .filter(ltv => ltv.borrowLTV > 0n)
-        .map(ltv => resolveVault(ltv.collateral))
+        .map(ltv => registryGetVault(ltv.collateral) as Vault | undefined)
         .filter((vault): vault is Vault => Boolean(vault))
     }
     else {
+      // Without liability vault, show borrowable vaults + all escrow vaults
       const borrowable = new Set(
         borrowList.value.map(pair => ethers.getAddress(pair.borrow.address)),
       )
-      // Get EVK and escrow vaults as potential collateral candidates
-      const evkAndEscrowVaults = getByTypes(['evk', 'escrow']) as Vault[]
-      const baseVaults = evkAndEscrowVaults.filter(vault => borrowable.has(ethers.getAddress(vault.address)))
-      const escrowVaults = getByType('escrow') as Vault[]
+      // Get standard EVK vaults that are borrowable (can be used as collateral for some pair)
+      const standardVaults = getStandardEvkVaults().filter(vault => borrowable.has(ethers.getAddress(vault.address)))
+      // Get all escrow vaults (always valid as collateral)
+      const escrowVaults = getEscrowVaults()
 
-      candidates = [...baseVaults, ...escrowVaults]
+      candidates = [...standardVaults, ...escrowVaults]
     }
 
     const unique = new Map<string, Vault>()
@@ -71,7 +69,7 @@ export const useSwapCollateralOptions = ({
       const opportunity = getOpportunityOfLendVault(vault.address)
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
 
-      const optionType = ('type' in vault && vault.type === 'escrow') ? 'escrow' : 'vault'
+      const optionType = vault.vaultCategory === 'escrow' ? 'escrow' : 'vault'
 
       return {
         type: optionType,

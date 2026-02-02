@@ -5,6 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountBorrowPosition } from '~/entities/account'
 
 const emits = defineEmits(['close'])
+const router = useRouter()
 
 // Check if collateral is a securitize vault
 const isCollateralSecuritize = computed(() => {
@@ -73,8 +74,9 @@ watch(tabs, (next) => {
   }
 }, { immediate: true })
 
-const onVaultClick = () => {
+const onVaultClick = (address: string) => {
   emits('close')
+  router.push(`/lend/${address}`)
 }
 </script>
 
@@ -119,14 +121,17 @@ const onVaultClick = () => {
           <VaultOverview
             v-else-if="tab === 'collateral'"
             :vault="(pair.collateral as Vault)"
+            @vault-click="onVaultClick"
           />
           <VaultOverview
             v-else-if="tab === 'multiply-collateral' && extraVault"
             :vault="extraVault"
+            @vault-click="onVaultClick"
           />
           <VaultOverview
             v-else-if="tab === 'borrow'"
             :vault="pair.borrow"
+            @vault-click="onVaultClick"
           />
         </Transition>
       </template>

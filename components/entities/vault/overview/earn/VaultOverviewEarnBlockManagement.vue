@@ -74,7 +74,7 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
         </div>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
-        label="Time lock"
+        label="Timelock"
         :value="timelockDisplay"
         orientation="horizontal"
       />

@@ -12,8 +12,8 @@ import {
   SECURITIZE_FACTORY_ADDRESS,
 } from '~/entities/vault'
 
-// Vault type enum
-export type VaultType = 'evk' | 'earn' | 'escrow' | 'securitize'
+// Vault type enum - 3 types (escrow is a category of evk, not a separate type)
+export type VaultType = 'evk' | 'earn' | 'securitize'
 
 // Union of all vault types
 export type AnyVault = Vault | EarnVault | EscrowVault | SecuritizeVault
@@ -95,8 +95,30 @@ const getByTypes = (types: VaultType[]): AnyVault[] => {
 // Typed getters for each vault type
 const getEvkVaults = (): Vault[] => getByType('evk') as Vault[]
 const getEarnVaults = (): EarnVault[] => getByType('earn') as EarnVault[]
-const getEscrowVaults = (): EscrowVault[] => getByType('escrow') as EscrowVault[]
 const getSecuritizeVaults = (): SecuritizeVault[] => getByType('securitize') as SecuritizeVault[]
+
+// Escrow vaults are EVK vaults with vaultCategory: 'escrow'
+const getEscrowVaults = (): Vault[] => {
+  return getEvkVaults().filter(v => v.vaultCategory === 'escrow')
+}
+
+// Standard EVK vaults (non-escrow)
+const getStandardEvkVaults = (): Vault[] => {
+  return getEvkVaults().filter(v => v.vaultCategory !== 'escrow')
+}
+
+// Type checker convenience methods
+const isEscrowVault = (address: string): boolean => {
+  const entry = get(address)
+  if (!entry) return false
+  if (entry.type !== 'evk') return false
+  const vault = entry.vault as Vault
+  return vault.vaultCategory === 'escrow'
+}
+
+const isEarnVault = (address: string): boolean => getType(address) === 'earn'
+const isSecuritizeVault = (address: string): boolean => getType(address) === 'securitize'
+const isEvkVault = (address: string): boolean => getType(address) === 'evk'
 
 // Reactive size for watchers
 const size = computed(() => registry.value.size)
@@ -134,18 +156,43 @@ const detectVaultType = (factoryAddress: string): VaultType => {
 
 /**
  * Fetch vault using the appropriate fetch function based on type.
+ * Note: Escrow vaults are a category of evk, not a separate type.
+ * They are fetched using fetchVault and identified by vaultCategory.
  */
 const fetchVaultByType = async (address: string, type: VaultType): Promise<AnyVault> => {
   switch (type) {
     case 'earn':
       return await fetchEarnVault(address)
-    case 'escrow':
-      return await fetchEscrowVault(address)
     case 'securitize':
       return await fetchSecuritizeVault(address)
     case 'evk':
     default:
       return await fetchVault(address)
+  }
+}
+
+/**
+ * Check if a vault is in the escrowedCollateralPerspective.
+ */
+const isInEscrowPerspective = async (address: string): Promise<boolean> => {
+  const { eulerPeripheryAddresses } = useEulerAddresses()
+  const { EVM_PROVIDER_URL } = useEulerConfig()
+
+  if (!eulerPeripheryAddresses.value?.escrowedCollateralPerspective) {
+    return false
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+    const perspectiveContract = new ethers.Contract(
+      eulerPeripheryAddresses.value.escrowedCollateralPerspective,
+      ['function isVerified(address vault) view returns (bool)'],
+      provider,
+    )
+    return await perspectiveContract.isVerified(address)
+  }
+  catch {
+    return false
   }
 }
 
@@ -181,6 +228,16 @@ const resolveUnknown = async (address: string): Promise<VaultEntry> => {
     }
   }
 
+  // For EVK vaults, check if it's actually an escrow vault
+  if (type === 'evk') {
+    const isEscrow = await isInEscrowPerspective(normalized)
+    if (isEscrow) {
+      const vault = await fetchEscrowVault(normalized)
+      set(normalized, vault, 'evk')
+      return { vault, type: 'evk' }
+    }
+  }
+
   // Fetch vault with appropriate lens
   const vault = await fetchVaultByType(normalized, type)
 
@@ -191,19 +248,20 @@ const resolveUnknown = async (address: string): Promise<VaultEntry> => {
 }
 
 /**
- * Get vault from registry or resolve if unknown.
- * Main entry point for position loading in shouldShowAllPositions mode.
+ * Get vault from registry, or fetch and cache if not found.
+ * Primary method for vault resolution. After calling, use getType(address) if you need the type.
  */
-const getOrResolve = async (address: string): Promise<VaultEntry | undefined> => {
+const getOrFetch = async (address: string): Promise<AnyVault | undefined> => {
   // Check registry first
   const existing = get(address)
   if (existing) {
-    return existing
+    return existing.vault
   }
 
   // Try to resolve unknown vault
   try {
-    return await resolveUnknown(address)
+    const entry = await resolveUnknown(address)
+    return entry.vault
   }
   catch (e) {
     console.warn(`Failed to resolve vault ${address}:`, e)
@@ -237,13 +295,20 @@ export const useVaultRegistry = () => {
     getEarnVaults,
     getEscrowVaults,
     getSecuritizeVaults,
+    getStandardEvkVaults,
+
+    // Type checkers
+    isEscrowVault,
+    isEarnVault,
+    isSecuritizeVault,
+    isEvkVault,
 
     // Type detection & fetching
     detectVaultType,
     fetchVaultByType,
 
-    // Resolution
+    // Resolution (primary method for vault resolution)
     resolveUnknown,
-    getOrResolve,
+    getOrFetch,
   }
 }

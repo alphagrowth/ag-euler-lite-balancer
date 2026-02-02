@@ -11,8 +11,6 @@ import {
   getVaultPrice,
   getVaultPriceInfo,
   getCollateralAssetPriceFromLiability,
-  isSecuritizeVault,
-  fetchSecuritizeVault,
   type Vault,
   type SecuritizeVault,
 } from '~/entities/vault'
@@ -32,8 +30,8 @@ const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-const { getVault, isReady: isVaultsReady } = useVaults()
-const { getVault: registryGetVault } = useVaultRegistry()
+const { isReady: isVaultsReady } = useVaults()
+const { getOrFetch } = useVaultRegistry()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const positionIndex = route.params.number as string
@@ -157,18 +155,9 @@ const loadSelectedCollateral = async () => {
 
     await until(isVaultsReady).toBe(true)
 
-    // Try loading from registry first, then as securitize or regular vault
-    let vault: Vault | SecuritizeVault | undefined = registryGetVault(targetAddress) as Vault | SecuritizeVault | undefined
-    if (!vault) {
-      const isSecuritizeResult = await isSecuritizeVault(targetAddress)
-      if (isSecuritizeResult) {
-        vault = await fetchSecuritizeVault(targetAddress)
-      }
-      else {
-        vault = await getVault(targetAddress)
-      }
-    }
-    selectedCollateral.value = vault
+    // Use unified vault resolution - handles EVK, escrow, and securitize vaults
+    const vault = await getOrFetch(targetAddress) as Vault | SecuritizeVault | undefined
+    selectedCollateral.value = vault || null
 
     const lensAddress = eulerLensAddresses.value?.accountLens
     if (!lensAddress) {
