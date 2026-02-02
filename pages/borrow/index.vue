@@ -82,7 +82,7 @@ const sortedBorrowList = computed(() => {
       })
     case 'Borrow APY':
       return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
-        return Number(b.borrow.interestRateInfo.borrowAPY) - Number(a.borrow.interestRateInfo.borrowAPY)
+        return Number(a.borrow.interestRateInfo.borrowAPY) - Number(b.borrow.interestRateInfo.borrowAPY)
       })
     default:
       return filteredBorrowList.value
