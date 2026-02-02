@@ -93,13 +93,19 @@ onDeactivated(() => {
           Net asset value
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
-          <div class="text-h5 text-content-primary">
+          <div class="flex items-center gap-4 text-h5 text-content-primary">
             {{ (() => {
               const netValue = totalSuppliedValueInfo.total - totalBorrowedValueInfo.total
               const hasMissing = totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices
               if (netValue === 0 && hasMissing) return '—'
-              return hasMissing ? `$${compactNumber(netValue)}+` : `$${compactNumber(netValue)}`
+              return `$${compactNumber(netValue)}`
             })() }}
+            <UiFootnote
+              v-if="(totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices) && (totalSuppliedValueInfo.total - totalBorrowedValueInfo.total) !== 0"
+              title="Incomplete pricing"
+              text="Some assets in your portfolio don't have price data available. The displayed value may be higher than shown."
+              tooltip-placement="top-end"
+            />
           </div>
         </BaseLoadableContent>
       </div>
@@ -108,12 +114,18 @@ onDeactivated(() => {
           Total supplied value
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
-          <div class="text-h5 text-content-primary">
+          <div class="flex items-center gap-4 text-h5 text-content-primary">
             {{ (() => {
               const { total, hasMissingPrices } = totalSuppliedValueInfo
               if (total === 0 && hasMissingPrices) return '—'
-              return hasMissingPrices ? `$${compactNumber(total)}+` : `$${compactNumber(total)}`
+              return `$${compactNumber(total)}`
             })() }}
+            <UiFootnote
+              v-if="totalSuppliedValueInfo.hasMissingPrices && totalSuppliedValueInfo.total !== 0"
+              title="Incomplete pricing"
+              text="Some supplied assets don't have price data available. The displayed value may be higher than shown."
+              tooltip-placement="top-end"
+            />
           </div>
         </BaseLoadableContent>
       </div>
@@ -122,12 +134,18 @@ onDeactivated(() => {
           Total borrowed value
         </div>
         <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
-          <div class="text-h5 text-content-primary">
+          <div class="flex items-center gap-4 text-h5 text-content-primary">
             {{ (() => {
               const { total, hasMissingPrices } = totalBorrowedValueInfo
               if (total === 0 && hasMissingPrices) return '—'
-              return hasMissingPrices ? `$${compactNumber(total)}+` : `$${compactNumber(total)}`
+              return `$${compactNumber(total)}`
             })() }}
+            <UiFootnote
+              v-if="totalBorrowedValueInfo.hasMissingPrices && totalBorrowedValueInfo.total !== 0"
+              title="Incomplete pricing"
+              text="Some borrowed assets don't have price data available. The displayed value may be higher than shown."
+              tooltip-placement="top-end"
+            />
           </div>
         </BaseLoadableContent>
       </div>
