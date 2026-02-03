@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getEarnVaultPrice } from '~/entities/vault'
 import type { EarnVault } from '~/entities/vault'
@@ -8,7 +9,9 @@ defineOptions({
   name: 'EarnPage',
 })
 
-const { earnList: list, isLoading } = useVaults()
+const { isEarnUpdating: isLoading } = useVaults()
+const { getEarnVaults } = useVaultRegistry()
+const list = computed(() => getEarnVaults().filter(v => v.verified))
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])
@@ -60,6 +63,10 @@ const sortedList = computed(() => {
       return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
         return Number(b.supplyAPY) - Number(a.supplyAPY)
       })
+    case 'Liquidity':
+      return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+        return getEarnVaultPrice(b.availableAssets, b) - getEarnVaultPrice(a.availableAssets, a)
+      })
     default:
       return filteredList.value
   }
@@ -83,17 +90,17 @@ load()
       title="Earn"
       description="Deposit once, earn passive yield across multiple professionally curated strategies."
       class="mb-24"
-      arrow-down
+      arrow-right
     />
 
     <div class="mb-16 -mx-16">
-      <h3 class="text-h3 mb-16 pl-16">
+      <h3 class="text-h3 mb-16 pl-16 text-neutral-900">
         Discover vaults
       </h3>
       <div class="flex items-center overflow-auto [scrollbar-width:none] gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"
-          :options="['Total Supply', 'Supply APY']"
+          :options="['Total Supply', 'Liquidity', 'Supply APY']"
           placeholder="Sort By"
           title="Sorting type"
         />
@@ -112,7 +119,7 @@ load()
     <div class="flex flex-col flex-1">
       <UiLoader
         v-if="isLoading"
-        class="my-16 mx-auto"
+        class="flex-1 self-center justify-self-center"
       />
 
       <VaultsEarnList
@@ -123,7 +130,7 @@ load()
 
       <div
         v-else
-        class="flex flex-col flex-1 gap-3 items-center justify-center text-euler-dark-900"
+        class="flex flex-col flex-1 gap-3 items-center justify-center text-neutral-500"
       >
         <UiIcon
           name="search"

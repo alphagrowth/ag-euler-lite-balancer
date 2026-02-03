@@ -1,22 +1,27 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getVaultPrice } from '~/entities/vault'
-import type { AnyBorrowVaultPair } from '~/entities/vault'
+import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getProductByVault } from '~/composables/useEulerLabels'
+
+const getMaxRoe = (pair: BorrowVaultPair) => {
+  const borrowLTV = nanoToValue(pair.borrowLTV, 2)
+  const maxMultiplier = Math.max(1, Math.floor(100 / (100 - borrowLTV) * 100) / 100)
+  const supplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
+  const borrowApy = nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25)
+  const netApy = supplyApy - borrowApy
+  return supplyApy + (maxMultiplier - 1) * netApy
+}
 
 defineOptions({
   name: 'BorrowPage',
 })
 
-const { borrowList, securitizeBorrowList, isLoading } = useVaults()
-const { products, entities } = useEulerLabels()
+const { borrowList, isUpdating, isEscrowUpdating } = useVaults()
 
-// Combined list of all borrow pairs (regular + securitize)
-const allBorrowList = computed((): AnyBorrowVaultPair[] => [
-  ...borrowList.value,
-  ...securitizeBorrowList.value,
-])
+const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value)
+const { products, entities } = useEulerLabels()
 
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
@@ -24,7 +29,7 @@ const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Liquidity')
 
 const collateralAssetOptions = computed(() => {
-  return allBorrowList.value
+  return borrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.collateral.asset.address === item.collateral.asset.address))
     .map(pair => ({
       label: pair.collateral.asset.symbol,
@@ -37,7 +42,7 @@ const collateralAssetOptions = computed(() => {
 })
 
 const debtAssetOptions = computed(() => {
-  return allBorrowList.value
+  return borrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.borrow.asset.address === item.borrow.asset.address))
     .map(pair => ({
       label: pair.borrow.asset.symbol,
@@ -50,7 +55,7 @@ const debtAssetOptions = computed(() => {
 })
 
 const marketOptions = computed(() => {
-  return allBorrowList.value.reduce((result, pair) => {
+  return borrowList.value.reduce((result, pair) => {
     const market = Object.values(products).find(product => product.vaults.includes(pair.collateral.address))
     const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
     const entityObj = entityName ? entities[entityName] : null
@@ -64,7 +69,7 @@ const marketOptions = computed(() => {
 })
 
 const filteredBorrowList = computed(() => {
-  return allBorrowList.value
+  return borrowList.value
     .filter(pair =>
       selectedCollateral.value.length || selectedDebt.value.length
         ? ((!selectedCollateral.value.length || selectedCollateral.value.includes(pair.collateral.asset.address))
@@ -84,6 +89,18 @@ const sortedBorrowList = computed(() => {
       return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return Number(a.borrow.interestRateInfo.borrowAPY) - Number(b.borrow.interestRateInfo.borrowAPY)
       })
+    case 'Utilization':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return getVaultUtilization(b.borrow) - getVaultUtilization(a.borrow)
+      })
+    case 'Total Borrowed':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return getVaultPrice(b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.borrow, a.borrow)
+      })
+    case 'Max ROE':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return getMaxRoe(b) - getMaxRoe(a)
+      })
     default:
       return filteredBorrowList.value
   }
@@ -99,14 +116,14 @@ const sortedBorrowList = computed(() => {
     />
 
     <div class="mb-16">
-      <h3 class="text-h3 mb-16">
+      <h3 class="text-h3 mb-16 text-neutral-900">
         Discover vaults
       </h3>
       <div class="flex justify-start items-center w-full gap-8 mobile:flex-wrap">
         <VaultSortButton
           v-model="sortBy"
           class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
-          :options="['Liquidity', 'Borrow APY']"
+          :options="['Liquidity', 'Total Borrowed', 'Utilization', 'Borrow APY', 'Max ROE']"
           placeholder="Sort By"
           title="Sorting type"
         />
@@ -153,7 +170,7 @@ const sortedBorrowList = computed(() => {
 
       <div
         v-else
-        class="flex flex-col flex-1 gap-3 items-center justify-center text-euler-dark-900"
+        class="flex flex-col flex-1 gap-3 items-center justify-center text-neutral-500"
       >
         <UiIcon
           name="search"

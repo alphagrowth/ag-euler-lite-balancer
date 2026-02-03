@@ -18,6 +18,9 @@ export type EulerLabelProduct = {
   entity: string[] | string
   url: string
   vaults: string[]
+  deprecatedVaults?: string[]
+  deprecationReason?: string
+  isGovernanceLimited?: boolean
 }
 export type EulerLabelPoint = {
   name: string
@@ -31,16 +34,6 @@ export type EulerLabelPointReward = {
   name: string
   logo: string
 }
-
-export type EulerLabelVaultLabel = {
-  name: string
-  description?: string
-}
-
-export const eulerLabelVaultLabelEmpty = {
-  name: '',
-  description: '',
-} as EulerLabelVaultLabel
 
 export const eulerLabelEntityEmpty = {
   name: '',
@@ -62,6 +55,8 @@ export const eulerLabelProductEmpty = {
   entity: [],
   url: '',
   vaults: [],
+  deprecatedVaults: [],
+  deprecationReason: '',
 } as EulerLabelProduct
 
 export const getEulerLabelEntityLogo = (fileName: string) => {

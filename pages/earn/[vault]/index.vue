@@ -19,7 +19,7 @@ const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
 const { getEarnVault, updateEarnVault } = useVaults()
 const { isConnected } = useAccount()
-const { getBalance } = useWallets()
+const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
@@ -36,8 +36,39 @@ const vault: Ref<EarnVault | undefined> = ref(undefined)
 const asset: Ref<VaultAsset | undefined> = ref(undefined)
 const estimateSupplyAPY = ref(0)
 const monthlyEarnings = ref(0)
+const balance = ref(0n)
 
-const balance = computed(() => getBalance(asset.value?.address as `0x${string}`) || 0n)
+const fetchBalance = async () => {
+  if (!asset.value?.address) {
+    balance.value = 0n
+    return
+  }
+  balance.value = await fetchSingleBalance(asset.value.address)
+}
+
+// Load vault data with top-level await
+try {
+  vault.value = await getEarnVault(vaultAddress)
+  asset.value = vault.value?.asset
+
+  // Fetch fresh underlying asset balance for this specific vault
+  await fetchBalance()
+
+  if (!vault.value?.verified) {
+    modal.open(VaultUnverifiedDisclaimerModal, {
+      isNotClosable: true,
+      props: {
+        onCancel: () => {
+          router.replace('/')
+        },
+      },
+    })
+  }
+}
+catch (e) {
+  showError('Unable to load Vault')
+  console.warn(e)
+}
 const errorText = computed(() => {
   if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
     return 'Not enough balance'
@@ -63,34 +94,6 @@ const supplyAPYDisplay = computed(() => {
 const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(estimateSupplyAPY.value)
 })
-
-const load = async () => {
-  isLoading.value = true
-  try {
-    vault.value = await getEarnVault(vaultAddress)
-    asset.value = vault.value?.asset
-
-    estimateSupplyAPY.value = (vault.value.supplyAPY || 0) + totalRewardsAPY.value
-
-    if (!vault.value?.verified) {
-      modal.open(VaultUnverifiedDisclaimerModal, {
-        isNotClosable: true,
-        props: {
-          onCancel: () => {
-            router.replace('/')
-          },
-        },
-      })
-    }
-  }
-  catch (e) {
-    showError('Unable to load Vault')
-    console.warn(e)
-  }
-  finally {
-    isLoading.value = false
-  }
-}
 const submit = async () => {
   await guardWithTerms(async () => {
     if (!asset.value?.address) {
@@ -188,7 +191,8 @@ const onSupplyInfoIconClick = () => {
   })
 }
 
-load()
+// Initialize estimateSupplyAPY after vault is loaded
+estimateSupplyAPY.value = (vault.value?.supplyAPY || 0) + totalRewardsAPY.value
 
 watch(amount, async () => {
   clearSimulationError()
@@ -220,7 +224,7 @@ watch(amount, async () => {
         />
 
         <div class="flex flex-col items-end justify-end">
-          <p class="mb-4 text-euler-dark-900">
+          <p class="mb-4 text-content-tertiary">
             Supply APY
           </p>
 
@@ -281,8 +285,8 @@ watch(amount, async () => {
               Projected Earnings per Month
             </p>
 
-            <p class="text-euler-dark-900">
-              <span class="text-white text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
+            <p class="text-content-tertiary">
+              <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
                 asset.symbol
               }}
               ≈ ${{ vault ? compactNumber(getEarnVaultPrice(monthlyEarnings, vault)) : 0 }}
@@ -296,15 +300,15 @@ watch(amount, async () => {
 
             <p
               v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay"
-              class="text-p2 text-euler-dark-900"
+              class="text-p2 text-content-tertiary"
             >
               {{ supplyAPYDisplay }}% <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
-                → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
+                → <span class="text-content-primary">{{ estimateSupplyAPYDisplay }}%</span>
               </template>
             </p>
             <p
               v-else
-              class="text-p2 text-white"
+              class="text-p2 text-content-primary"
             >
               {{ supplyAPYDisplay }}%
             </p>
@@ -331,6 +335,7 @@ watch(amount, async () => {
         v-if="vault"
         :vault="vault as EarnVault"
         desktop-overview
+        @vault-click="(address: string) => router.push(`/lend/${address}`)"
       />
     </div>
   </div>

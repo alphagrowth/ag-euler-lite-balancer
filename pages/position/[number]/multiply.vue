@@ -23,7 +23,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
 const { address, isConnected } = useAccount()
-const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { buildMultiplyPlan, executeTxPlan } = useEulerOperations()
 const { eulerLensAddresses } = useEulerAddresses()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
@@ -724,7 +724,7 @@ const reviewMultiplyDisabled = getSubmitDisabled(isMultiplySubmitDisabled)
 
 const loadPosition = async () => {
   isLoading.value = true
-  position.value = borrowPositions.value[+positionIndex - 1] || null
+  position.value = getPositionBySubAccountIndex(+positionIndex) || null
   if (!position.value) {
     multiplySupplyVault.value = undefined
     resetMultiplyQuoteState()
@@ -869,16 +869,16 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
 
         <VaultFormInfoBlock
           :loading="isMultiplyQuoteLoading"
-          class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px]"
+          class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px] shadow-card"
         >
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               ROE
             </p>
             <p class="text-p2">
               <template v-if="multiplyRoeBefore !== null && multiplyRoeAfter !== null && multiplySwapReady">
-                <span class="text-euler-dark-900">{{ formatNumber(multiplyRoeBefore) }}%</span>
-                → <span class="text-white">{{ formatNumber(multiplyRoeAfter) }}%</span>
+                <span class="text-content-tertiary">{{ formatNumber(multiplyRoeBefore) }}%</span>
+                → <span class="text-content-primary">{{ formatNumber(multiplyRoeAfter) }}%</span>
               </template>
               <template v-else>
                 {{ multiplyRoeBefore !== null ? `${formatNumber(multiplyRoeBefore)}%` : '-' }}
@@ -886,7 +886,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Current price
             </p>
             <p class="text-p2">
@@ -894,37 +894,37 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Liquidation price
             </p>
             <p class="text-p2">
               <template v-if="multiplyCurrentLiquidationPrice !== null && multiplyNextLiquidationPrice !== null && multiplySwapReady">
-                <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentLiquidationPrice, 4) }}</span>
-                → <span class="text-white">{{ formatNumber(multiplyNextLiquidationPrice, 4) }}</span>
+                <span class="text-content-tertiary">{{ formatNumber(multiplyCurrentLiquidationPrice, 4) }}</span>
+                → <span class="text-content-primary">{{ formatNumber(multiplyNextLiquidationPrice, 4) }}</span>
               </template>
               <template v-else>
                 {{ multiplyCurrentLiquidationPrice !== null ? formatNumber(multiplyCurrentLiquidationPrice, 4) : '-' }}
               </template>
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 {{ multiplyLongVault?.asset.symbol }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your LTV (LLTV)
             </p>
             <p class="text-p2 text-right">
               <template v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null && multiplyNextLtv !== null && multiplyNextLiquidationLtv !== null && multiplySwapReady">
-                <span class="text-euler-dark-900">
+                <span class="text-content-tertiary">
                   {{ formatNumber(multiplyCurrentLtv) }}%
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
                   </span>
                 </span>
-                → <span class="text-white">
+                → <span class="text-content-primary">
                   {{ formatNumber(multiplyNextLtv) }}%
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     ({{ formatNumber(multiplyNextLiquidationLtv) }}%)
                   </span>
                 </span>
@@ -932,7 +932,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
               <template v-else>
                 <span v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null">
                   {{ formatNumber(multiplyCurrentLtv) }}%
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
                   </span>
                 </span>
@@ -941,13 +941,13 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your health
             </p>
             <p class="text-p2">
               <template v-if="multiplyCurrentHealth !== null && multiplyNextHealth !== null && multiplySwapReady">
-                <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentHealth, 2) }}</span>
-                → <span class="text-white">{{ formatNumber(multiplyNextHealth, 2) }}</span>
+                <span class="text-content-tertiary">{{ formatNumber(multiplyCurrentHealth, 2) }}</span>
+                → <span class="text-content-primary">{{ formatNumber(multiplyNextHealth, 2) }}</span>
               </template>
               <template v-else>
                 {{ multiplyCurrentHealth !== null ? formatNumber(multiplyCurrentHealth, 2) : '-' }}
@@ -955,21 +955,21 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             </p>
           </div>
           <div class="flex justify-between items-start">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Swap
             </p>
             <p class="text-p2 text-right flex flex-col items-end">
               <span>{{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}</span>
               <span
                 v-if="multiplySwapSummary"
-                class="text-euler-dark-900 text-p3"
+                class="text-content-tertiary text-p3"
               >
                 {{ multiplySwapSummary.to }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Price impact
             </p>
             <p class="text-p2">
@@ -977,7 +977,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Slippage tolerance
             </p>
             <button
@@ -988,12 +988,12 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
               <span>{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
               <SvgIcon
                 name="edit"
-                class="!w-16 !h-16 text-aquamarine-700"
+                class="!w-16 !h-16 text-accent-600"
               />
             </button>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Routed via
             </p>
             <p class="text-p2 text-right">

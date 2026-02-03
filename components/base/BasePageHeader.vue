@@ -9,24 +9,29 @@ defineProps({
     default: '',
   },
   arrowDown: Boolean,
+  arrowRight: Boolean,
 })
 </script>
 
 <template>
-  <div class="flex items-center">
+  <div class="flex items-center animate-fade-in-up">
     <div
-      class="w-[52px] h-[52px] rounded-[12px] mr-16 bg-gradient-to-b from-[hsl(var(--aquamarine-700)/0.08)] to-[hsl(var(--aquamarine-700)/0.2)] flex items-center justify-center text-aquamarine-700 flex-shrink-0"
-      :class="arrowDown ? '[&>svg]:rotate-0' : '[&>svg]:rotate-180'"
+      class="w-[52px] h-[52px] rounded-[14px] mr-16 bg-gradient-to-br from-accent-300/30 to-accent-400/40 flex items-center justify-center text-accent-600 flex-shrink-0 shadow-sm"
+      :class="[
+        arrowRight ? '[&>svg]:-rotate-90' : '',
+        arrowDown && !arrowRight ? '[&>svg]:rotate-0' : '',
+        !arrowDown && !arrowRight ? '[&>svg]:rotate-180' : ''
+      ]"
     >
       <SvgIcon
         name="arrow-big"
       />
     </div>
     <div>
-      <div class="text-h3 mb-4">
+      <h1 class="text-h3 mb-4 text-content-primary">
         {{ title }}
-      </div>
-      <p class="text-euler-dark-900">
+      </h1>
+      <p class="text-content-tertiary">
         {{ description }}
       </p>
     </div>

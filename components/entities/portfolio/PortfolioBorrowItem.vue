@@ -1,25 +1,38 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import type { AccountBorrowPosition } from '~/entities/account'
+import { getSubAccountIndex } from '~/entities/account'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getNetAPY, getUnitOfAccountUsdPrice, getVaultPrice, getVaultPriceDisplay, type Vault } from '~/entities/vault'
+import { getNetAPY, getUnitOfAccountUsdPrice, getVaultPrice, getVaultPriceDisplay, getCollateralAssetPriceFromLiability, type Vault } from '~/entities/vault'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
-const { index, position } = defineProps<{ index: number, position: AccountBorrowPosition }>()
+const { position } = defineProps<{ position: AccountBorrowPosition }>()
+
+const { address } = useAccount()
+const { portfolioAddress } = useEulerAccount()
+const ownerAddress = computed(() => portfolioAddress.value || address.value || '')
+const subAccountIndex = computed(() => {
+  if (!ownerAddress.value || !position.subAccount) return 0
+  return getSubAccountIndex(ownerAddress.value, position.subAccount)
+})
 
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const { name: collateralProductName } = useEulerProductOfVault(position.collateral.address)
 const { name: borrowProductName } = useEulerProductOfVault(position.borrow.address)
+
 type PositionCollateral = {
   vault: Vault
   assets: bigint
 }
 
 const collateralItems = ref<PositionCollateral[]>([])
-const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { isReady: isVaultsReady } = useVaults()
+const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
@@ -32,19 +45,19 @@ const collateralSymbolLabel = computed(() => {
 })
 const pairSymbols = computed(() => `${collateralSymbolLabel.value}/${position.borrow.asset.symbol}`)
 
-// Handle escrow vaults showing "Ungoverned"
+const isAnyUnverified = computed(() => {
+  const collateralUnverified = 'verified' in position.collateral && !position.collateral.verified
+  const borrowUnverified = 'verified' in position.borrow && !position.borrow.verified
+  return collateralUnverified || borrowUnverified
+})
+
 const collateralLabel = computed(() => {
-  if ('type' in position.collateral && position.collateral.type === 'escrow') {
-    return 'Ungoverned'
+  if ('vaultCategory' in position.collateral && position.collateral.vaultCategory === 'escrow') {
+    return 'Escrowed collateral'
   }
   return collateralProductName || position.collateral.name
 })
-const borrowLabel = computed(() => {
-  if ('type' in position.borrow && position.borrow.type === 'escrow') {
-    return 'Ungoverned'
-  }
-  return borrowProductName || position.borrow.name
-})
+const borrowLabel = computed(() => borrowProductName || position.borrow.name)
 
 const pairName = computed(() => {
   if (collateralLabel.value === borrowLabel.value) {
@@ -68,21 +81,33 @@ const liquidationPriceUsd = computed(() => {
 })
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
-const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
-  nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
-  collateralVault.value?.asset.symbol,
-))
+const collateralSupplyApy = computed(() => {
+  return withIntrinsicSupplyApy(
+    nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
+    collateralVault.value?.asset.symbol,
+  )
+})
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
 
 const collateralValueUsd = computed(() => {
+  // Collateral price ALWAYS comes from liability vault's oracle
   if (!collateralItems.value.length) {
-    return getVaultPrice(position.supplied, position.collateral)
+    const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, position.collateral)
+    if (!priceInfo) return 0
+    const amount = nanoToValue(position.supplied, position.collateral.decimals)
+    return amount * nanoToValue(priceInfo.amountOutMid, 18)
   }
 
-  return collateralItems.value.reduce((total, item) => total + getVaultPrice(item.assets, item.vault), 0)
+  // For multiple collaterals, sum up using liability vault's oracle for each
+  return collateralItems.value.reduce((total, item) => {
+    const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, item.vault)
+    if (!priceInfo) return total
+    const amount = nanoToValue(item.assets, item.vault.decimals)
+    return total + amount * nanoToValue(priceInfo.amountOutMid, 18)
+  }, 0)
 })
 
 const collateralValueDisplay = computed(() => {
@@ -103,8 +128,11 @@ const netAssetValueDisplay = computed(() => {
 })
 
 const currentPriceDisplay = computed(() => {
-  const price = getVaultPriceDisplay(1, collateralVault.value!)
-  return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+  // Collateral price ALWAYS comes from liability vault's oracle
+  const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, collateralVault.value)
+  if (!priceInfo) return '-'
+  const usdValue = nanoToValue(priceInfo.amountOutMid, 18)
+  return `$${formatNumber(usdValue)}`
 })
 
 const netAPY = computed(() => {
@@ -119,6 +147,9 @@ const netAPY = computed(() => {
 })
 
 const loadCollaterals = async () => {
+  // Only load additional collaterals if position has multiple
+  if (!position.collaterals?.length || position.collaterals.length <= 1) return
+
   const collateralAddresses = position.collaterals?.length
     ? position.collaterals
     : [position.collateral.address]
@@ -155,13 +186,12 @@ const loadCollaterals = async () => {
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {
         try {
-          const vault = map.value.get(address) || await getVault(address)
+          const vault = await getOrFetch(address) as Vault | undefined
           let assets = 0n
 
           try {
             const res = await accountLensContract.getAccountInfo(position.subAccount, address)
             assets = res.vaultAccountInfo.assets
-            console.log(assets)
           }
           catch {
             if (address === primaryAddress) {
@@ -185,8 +215,9 @@ const loadCollaterals = async () => {
   }
 }
 
+// Initialize collateralItems - for securitize, we won't load additional collaterals
 collateralItems.value = [{
-  vault: position.collateral,
+  vault: position.collateral as Vault,
   assets: position.supplied,
 }]
 
@@ -197,17 +228,17 @@ onMounted(() => {
 
 <template>
   <NuxtLink
-    :to="`/position/${index + 1}`"
-    class="block no-underline text-white bg-euler-dark-500 rounded-16"
+    :to="`/position/${subAccountIndex}`"
+    class="block no-underline bg-surface rounded-xl border border-line-subtle shadow-card transition-all duration-default ease-default hover:shadow-card-hover hover:border-line-emphasis"
   >
-    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
+    <div class="flex py-16 px-16 pb-12 border-b border-line-default">
       <div
         class="flex flex-col gap-12 items-start w-full"
       >
         <div
-          class="text-h6 text-euler-dark-900 bg-euler-dark-600 py-4 px-12 rounded-8 border border-euler-dark-700"
+          class="text-h6 text-content-secondary bg-surface-secondary py-4 px-12 rounded-8 border border-line-default"
         >
-          Position {{ index + 1 }}
+          Position {{ subAccountIndex }}
         </div>
         <div class="flex gap-12">
           <BaseAvatar
@@ -216,10 +247,13 @@ onMounted(() => {
             class="icon--40"
           />
           <div>
-            <div class="text-euler-dark-900 text-p3 mb-4">
-              {{ pairName }}
+            <div class="text-content-tertiary text-p3 mb-4">
+              <VaultDisplayName
+                :name="pairName"
+                :is-unverified="isAnyUnverified"
+              />
             </div>
-            <div class="text-h5">
+            <div class="text-h5 text-content-primary">
               {{ pairSymbols }}
             </div>
           </div>
@@ -232,90 +266,90 @@ onMounted(() => {
         class="flex flex-col gap-12 w-full"
       >
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Net asset value
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
+            <div class="text-content-primary text-p3">
               {{ netAssetValueDisplay }}
             </div>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             My Debt
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
+            <div class="text-content-primary text-p3">
               {{ borrowedValueDisplay }}
             </div>
-            <div class="text-euler-dark-900 text-p3">
+            <div class="text-content-tertiary text-p3">
               ~ {{ roundAndCompactTokens(position.borrowed, position.borrow.decimals) }}
               {{ position.borrow.asset.symbol }}
             </div>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Collateral value
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
+            <div class="text-content-primary text-p3">
               {{ collateralValueDisplay }}
             </div>
-            <div class="text-euler-dark-900 text-p3">
+            <div class="text-content-tertiary text-p3">
               ~ {{ roundAndCompactTokens(collateralItems[0].assets, position.collateral.decimals) }}
               {{ position.collateral.asset.symbol }} {{ collateralItems.length > 1 ? '& others' : '' }}
             </div>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Net APY
           </div>
           <div
-            :class="[netAPY <= 0 ? 'text-red-700' : 'text-aquamarine-700']"
+            :class="[netAPY <= 0 ? 'text-error-500' : 'text-accent-600']"
             class="text-p2"
           >
             {{ formatNumber(netAPY) }}%
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Health score
           </div>
-          <div class="text-white text-p3">
+          <div class="text-content-primary text-p3">
             {{ formatNumber(nanoToValue(position.health, 18)) }}
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Current price
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <span class="text-white text-p3">
+            <span class="text-content-primary text-p3">
               {{ currentPriceDisplay }}
             </span>
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ position.collateral.asset.symbol }}
             </span>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Liquidation price
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <span class="text-white text-p3">
+            <span class="text-content-primary text-p3">
               ${{ liquidationPriceUsd ? formatNumber(liquidationPriceUsd) : '-' }}
             </span>
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ position.collateral.asset.symbol }}
             </span>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Your LTV
           </div>
           <div class="flex justify-between items-center gap-16">
@@ -327,7 +361,7 @@ onMounted(() => {
               size="small"
             />
             <div class="flex justify-between gap-8 text-right">
-              <div class="text-white text-p3">
+              <div class="text-content-primary text-p3">
                 {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
               </div>
             </div>

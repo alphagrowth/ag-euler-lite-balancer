@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Address } from 'viem'
-import type { Vault } from '~/entities/vault'
+import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { EUR_ADDRESS, USD_ADDRESS } from '~/entities/constants'
 import { collectOracleAdapters, type OracleAdapterEntry, type OracleAdapterMeta } from '~/entities/oracle'
 import { getExplorerLink } from '~/utils/block-explorer'
@@ -8,7 +8,7 @@ import { getExplorerLink } from '~/utils/block-explorer'
 const props = defineProps<{
   vault?: Vault
   vaults?: Vault[]
-  collateralAssets?: string[]
+  collateralVaults?: (Vault | SecuritizeVault)[]
 }>()
 const { tokens, loadTokens } = useTokens()
 const { oracleAdapters, loadOracleAdapters } = useEulerLabels()
@@ -37,10 +37,10 @@ const adapters = computed(() => {
       leafOnly: true,
     }))
 
-    if (props.collateralAssets?.length) {
-      props.collateralAssets.forEach((collateralAddress) => {
+    if (props.collateralVaults?.length) {
+      props.collateralVaults.forEach((collateralVault) => {
         entries.push(...collectOracleAdapters(vault.oracleDetailedInfo, 3, {
-          base: collateralAddress as Address,
+          base: collateralVault.address,
           quote: vault.unitOfAccount,
           leafOnly: true,
         }))
@@ -104,6 +104,11 @@ const tokenSymbolsByAddress = computed(() => {
     }
   })
 
+  // Map collateral vault addresses to their underlying asset symbols
+  props.collateralVaults?.forEach((vault) => {
+    map.set(vault.address.toLowerCase(), vault.asset.symbol)
+  })
+
   return map
 })
 
@@ -121,13 +126,13 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
-    <p class="text-h3 text-white">
+  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card">
+    <p class="text-h3 text-content-primary">
       Oracles
     </p>
     <div
       v-if="!adapterViews.length"
-      class="text-p3 text-euler-dark-900"
+      class="text-p3 text-content-tertiary"
     >
       No oracle adapters found
     </div>
@@ -138,22 +143,22 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
       <div
         v-for="adapter in adapterViews"
         :key="getAdapterKey(adapter)"
-        class="w-full rounded-16 bg-euler-dark-500 p-16 flex flex-col gap-12"
+        class="w-full rounded-xl bg-surface p-16 flex flex-col gap-12 border border-line-subtle"
       >
         <div class="flex flex-wrap items-center gap-8">
-          <div class="p2 text-white">
+          <div class="p2 text-content-primary">
             {{ resolveSymbol(adapter.base) }}/{{ resolveSymbol(adapter.quote) }}
           </div>
           <NuxtLink
             :to="getExplorerAddressLink(adapter.oracle)"
-            class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+            class="text-accent-600 underline cursor-pointer hover:text-accent-500"
             target="_blank"
           >
             {{ shortenAddress(adapter.oracle) }}
           </NuxtLink>
           <button
             :class="$style.copyBtn"
-            class="text-euler-dark-900"
+            class="text-content-muted"
             @click="onCopyClick(adapter.oracle)"
           >
             <SvgIcon
@@ -164,12 +169,12 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
         </div>
         <div class="grid grid-cols-2 gap-12 text-p4">
           <div class="flex flex-col gap-4">
-            <span class="text-euler-dark-900">Provider</span>
-            <span class="text-white">{{ adapter.provider || '-' }}</span>
+            <span class="text-content-tertiary">Provider</span>
+            <span class="text-content-primary">{{ adapter.provider || '-' }}</span>
           </div>
           <div class="flex flex-col gap-4">
-            <span class="text-euler-dark-900">Methodology</span>
-            <span class="text-white">{{ adapter.methodology || '-' }}</span>
+            <span class="text-content-tertiary">Methodology</span>
+            <span class="text-content-primary">{{ adapter.methodology || '-' }}</span>
           </div>
         </div>
       </div>
@@ -183,11 +188,11 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
   outline: none;
 
   &:hover {
-    color: var(--c-euler-dark-800);
+    color: var(--text-secondary);
   }
 
   &:active {
-    color: var(--c-euler-dark-700);
+    color: var(--text-primary);
   }
 }
 </style>

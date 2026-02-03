@@ -100,7 +100,7 @@ const onClaimClick = async () => {
 
 <template>
   <div
-    class="text-white bg-euler-dark-500 rounded-16 p-16"
+    class="bg-surface rounded-xl border border-line-subtle shadow-card p-16"
   >
     <div
       class="flex flex-col gap-12"
@@ -113,19 +113,19 @@ const onClaimClick = async () => {
             class="icon--40"
           />
           <div class="ml-12">
-            <h4 class="text-h5 mb-4">
+            <h4 class="text-h5 mb-4 text-content-primary">
               {{ campaign.reward_info.token_symbol }}
             </h4>
-            <p class="text-p3 text-euler-dark-900">
+            <p class="text-p3 text-content-tertiary">
               {{ actionLabel }} {{ vault?.asset.symbol }}
             </p>
           </div>
         </div>
         <div class="flex flex-col gap-8 text-right">
-          <p class="text-p2">
+          <p class="text-p2 text-content-primary">
             {{ rewardUsdValue < 0.01 ? ' < $0.01' : `$${formatNumber(rewardUsdValue, 2)}` }}
           </p>
-          <p class="text-p3 text-euler-dark-900">
+          <p class="text-p3 text-content-tertiary">
             ~ {{ rewardAmount < 0.01 ? '< 0.01' : formatNumber(rewardAmount, 2) }} {{ campaign.reward_info.token_symbol }}
           </p>
         </div>

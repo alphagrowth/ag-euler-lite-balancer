@@ -1,7 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { appDescription, appTitle } from './entities/custom'
 
-const cspHeaderValue = `default-src 'self'; script-src 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' 'self' https://static.cloudflareinsights.com; style-src 'unsafe-inline' 'self'; object-src 'none'; base-uri 'self'; connect-src 'self' https://indexer-main.euler.finance https://swap.euler.finance https://swap-dev.euler.finance https://api.merkl.xyz https://incentra-prd.brevis.network https://hermes.pyth.network https://raw.githubusercontent.com https://oracle-checks-data.euler.finance https://rpc.walletconnect.org https://api.web3modal.org https://explorer-api.walletconnect.com https://verify.walletconnect.org https://pulse.walletconnect.org https://rpc.monad.xyz https://chain-proxy.wallet.coinbase.com https://cca-lite.coinbase.com https://yields.llama.fi https://rpc.plasma.to https://*.quiknode.pro https://*.alchemy.com https://*.ankr.com https://*.goldsky.com wss://www.walletlink.org wss://relay.walletconnect.com wss://relay.walletconnect.org; font-src 'self' https://fonts.reown.com; frame-src 'self' https://verify.walletconnect.org https://verify.walletconnect.com; img-src 'self' data: blob: https://raw.githubusercontent.com https://storage.googleapis.com https://token-images.euler.finance; manifest-src 'self'; media-src 'self'; worker-src 'self' blob:; form-action 'self';`
+const cspHeaderValue = `default-src 'self'; script-src 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' 'self' https://static.cloudflareinsights.com; style-src 'unsafe-inline' 'self'; object-src 'none'; base-uri 'self'; connect-src 'self' https://indexer-main.euler.finance https://swap.euler.finance https://swap-dev.euler.finance https://api.merkl.xyz https://incentra-prd.brevis.network https://hermes.pyth.network https://raw.githubusercontent.com https://oracle-checks-data.euler.finance https://rpc.walletconnect.org https://api.web3modal.org https://explorer-api.walletconnect.com https://verify.walletconnect.org https://pulse.walletconnect.org https://rpc.monad.xyz https://chain-proxy.wallet.coinbase.com https://cca-lite.coinbase.com https://yields.llama.fi https://rpc.plasma.to https://registry.npmjs.org https://*.quiknode.pro https://*.alchemy.com https://*.ankr.com https://*.goldsky.com wss://www.walletlink.org wss://relay.walletconnect.com wss://relay.walletconnect.org; font-src 'self' https://fonts.reown.com; frame-src 'self' https://verify.walletconnect.org https://verify.walletconnect.com; img-src 'self' data: blob: https://raw.githubusercontent.com https://storage.googleapis.com https://token-images.euler.finance; manifest-src 'self'; media-src 'self'; worker-src 'self' blob:; form-action 'self';`
 
 export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss', '@nuxt/eslint', '@gvade/nuxt3-svg-sprite', '@vueuse/nuxt'],
@@ -93,6 +93,8 @@ export default defineNuxtConfig({
     public: {
       network: process.env.NETWORK,
       pythHermesUrl: process.env.PYTH_HERMES_URL || 'https://hermes.pyth.network',
+      appKitProjectId: process.env.APPKIT_PROJECT_ID,
+      appUrl: process.env.APP_URL,
     },
   },
 
@@ -102,10 +104,15 @@ export default defineNuxtConfig({
   },
 
   devServer: {
-    // https: {
-    //   key: process.env.HTTPS_KEY,
-    //   cert: process.env.HTTPS_CERT,
-    // },
+    // Only enable HTTPS if both key and cert are provided
+    ...(process.env.HTTPS_KEY && process.env.HTTPS_CERT
+      ? {
+          https: {
+            key: process.env.HTTPS_KEY,
+            cert: process.env.HTTPS_CERT,
+          },
+        }
+      : {}),
   },
 
   compatibilityDate: '2024-08-29',

@@ -12,23 +12,27 @@ const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const vault = computed(() => position.vault)
-const isSecuritize = computed(() => position.isSecuritize || false)
 
-// Type guard for regular vault properties - cast to Vault type when not securitize
-const regularVault = computed(() => (isSecuritize.value ? null : (vault.value as Vault)))
+// Check if securitize vault by type field
+const isSecuritize = computed(() => 'type' in vault.value && vault.value.type === 'securitize')
+const regularVault = computed(() => isSecuritize.value ? null : vault.value as Vault)
 
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
 const supplyApy = computed(() => {
-  if (isSecuritize.value || !regularVault.value) return 0
   return withIntrinsicSupplyApy(
-    nanoToValue(regularVault.value.interestRateInfo.supplyAPY, 25),
+    nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
     vault.value.asset.symbol,
   )
 })
 const supplyApyWithRewards = computed(() => supplyApy.value + (opportunityInfo.value?.apr || 0))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
-const displayName = computed(() => product.name || vault.value.name)
+const isEscrow = computed(() => 'vaultCategory' in vault.value && vault.value.vaultCategory === 'escrow')
+const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
+const displayName = computed(() => {
+  if (isEscrow.value) return 'Escrowed collateral'
+  return product.name || vault.value.name
+})
 
 const supplyValueDisplay = computed(() => {
   if (!regularVault.value)
@@ -37,17 +41,17 @@ const supplyValueDisplay = computed(() => {
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
-const earnDisplay = computed(() => {
-  if (!regularVault.value) return '—'
-  const price = getVaultPrice(position.assets, regularVault.value)
-  if (price === 0) return '—'
-  return compactNumber((price * supplyApy.value * 90) / 365 / 100)
+const hasPrice = computed(() => {
+  if (!regularVault.value) return false
+  return getVaultPrice(position.assets, regularVault.value) > 0
 })
-const earnDisplayWithReward = computed(() => {
+
+const projectedEarningsPerMonth = computed(() => {
   if (!regularVault.value) return '—'
   const price = getVaultPrice(position.assets, regularVault.value)
   if (price === 0) return '—'
-  return compactNumber((price * supplyApyWithRewards.value * 90) / 365 / 100)
+  // Monthly earnings = (value * APY%) / 12
+  return compactNumber((price * supplyApyWithRewards.value) / 12 / 100)
 })
 
 // Securitize-specific computed properties
@@ -56,11 +60,10 @@ const assetAmount = computed(() => {
 })
 
 const onClick = () => {
-  if (isSecuritize.value) return // No modal for Securitize vaults
   modal.open(VaultOverviewModal, {
-    props: {
-      vault: vault,
-    },
+    props: isSecuritize.value
+      ? { securitizeVault: vault.value }
+      : { vault: vault.value },
   })
 }
 </script>
@@ -69,66 +72,10 @@ const onClick = () => {
   <!-- Securitize vault display -->
   <div
     v-if="isSecuritize"
-    class="block no-underline text-white bg-euler-dark-500 rounded-16"
-  >
-    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
-      <div class="flex w-full">
-        <BaseAvatar
-          class="icon--40"
-          :src="getAssetLogoUrl(vault.asset.symbol)"
-          :label="vault.asset.symbol"
-        />
-        <div class="flex-grow ml-12">
-          <div class="text-euler-dark-900 text-p3 mb-4">
-            {{ displayName }}
-          </div>
-          <div class="text-h5">
-            {{ vault.asset.symbol }}
-          </div>
-        </div>
-        <div class="flex flex-col items-end">
-          <div class="text-euler-dark-900 text-p3 mb-4">
-            Type
-          </div>
-          <div class="text-p2 text-aquamarine-700">
-            Securitize
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="flex py-12 px-16 pb-16">
-      <div class="flex flex-col gap-12 w-full">
-        <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
-            Supply value
-          </div>
-          <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
-              {{ formatNumber(assetAmount) }} {{ vault.asset.symbol }}
-            </div>
-          </div>
-        </div>
-        <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
-            Shares
-          </div>
-          <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
-              {{ formatNumber(nanoToValue(position.shares, vault.decimals)) }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Regular vault display -->
-  <div
-    v-else
-    class="block no-underline text-white bg-euler-dark-500 rounded-16 cursor-pointer"
+    class="block no-underline bg-surface rounded-xl border border-line-subtle shadow-card cursor-pointer transition-all duration-default ease-default hover:shadow-card-hover hover:border-line-emphasis"
     @click="onClick"
   >
-    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
+    <div class="flex py-16 px-16 pb-12 border-b border-line-default">
       <div class="flex w-full">
         <BaseAvatar
           class="icon--40"
@@ -136,22 +83,25 @@ const onClick = () => {
           :label="vault.asset.symbol"
         />
         <div class="flex-grow ml-12">
-          <div class="text-euler-dark-900 text-p3 mb-4">
-            {{ displayName }}
+          <div class="text-content-tertiary text-p3 mb-4">
+            <VaultDisplayName
+              :name="displayName"
+              :is-unverified="isUnverified"
+            />
           </div>
-          <div class="text-h5">
+          <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
           </div>
         </div>
         <div class="flex flex-col items-end">
-          <div class="text-euler-dark-900 text-p3 mb-4">
+          <div class="text-content-tertiary text-p3 mb-4">
             Supply APY
           </div>
-          <div class="text-p2 flex text-aquamarine-700">
+          <div class="text-p2 flex text-accent-600">
             <SvgIcon
               v-if="opportunityInfo?.apr"
               name="sparks"
-              class="!w-20 !h-20 text-aquamarine-700 mr-4"
+              class="!w-20 !h-20 text-accent-600 mr-4"
             />
             {{ formatNumber(supplyApyWithRewards) }}%
           </div>
@@ -161,40 +111,117 @@ const onClick = () => {
     <div class="flex py-12 px-16 pb-16">
       <div class="flex flex-col gap-12 w-full">
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Supply value
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
+            <div class="text-content-primary text-p3">
+              {{ formatNumber(assetAmount) }} {{ vault.asset.symbol }}
+            </div>
+          </div>
+        </div>
+        <div
+          class="flex flex-wrap items-center gap-8"
+          @click.stop
+        >
+          <UiButton
+            :to="`/lend/${vault.address}/`"
+            rounded
+          >
+            Supply
+          </UiButton>
+          <UiButton
+            variant="primary-stroke"
+            :to="`/lend/${vault.address}/withdraw`"
+            rounded
+          >
+            Withdraw
+          </UiButton>
+          <UiButton
+            variant="primary-stroke"
+            :to="`/lend/${vault.address}/swap`"
+            rounded
+          >
+            Asset swap
+          </UiButton>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regular vault display -->
+  <div
+    v-else
+    class="block no-underline bg-surface rounded-xl border border-line-subtle shadow-card cursor-pointer transition-all duration-default ease-default hover:shadow-card-hover hover:border-line-emphasis"
+    @click="onClick"
+  >
+    <div class="flex py-16 px-16 pb-12 border-b border-line-default">
+      <div class="flex w-full">
+        <BaseAvatar
+          class="icon--40"
+          :src="getAssetLogoUrl(vault.asset.symbol)"
+          :label="vault.asset.symbol"
+        />
+        <div class="flex-grow ml-12">
+          <div class="text-content-tertiary text-p3 mb-4">
+            <VaultDisplayName
+              :name="displayName"
+              :is-unverified="isUnverified"
+            />
+          </div>
+          <div class="text-h5 text-content-primary">
+            {{ vault.asset.symbol }}
+          </div>
+        </div>
+        <div class="flex flex-col items-end">
+          <div class="text-content-tertiary text-p3 mb-4">
+            Supply APY
+          </div>
+          <div class="text-p2 flex text-accent-600">
+            <SvgIcon
+              v-if="opportunityInfo?.apr"
+              name="sparks"
+              class="!w-20 !h-20 text-accent-600 mr-4"
+            />
+            {{ formatNumber(supplyApyWithRewards) }}%
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flex py-12 px-16 pb-16">
+      <div class="flex flex-col gap-12 w-full">
+        <div class="flex justify-between">
+          <div class="text-content-tertiary text-p3">
+            Supply value
+          </div>
+          <div class="flex justify-between gap-8 text-right">
+            <div class="text-content-primary text-p3">
               {{ supplyValueDisplay }}
             </div>
             <div
               v-if="regularVault"
-              class="text-euler-dark-900 text-p3"
+              class="text-content-tertiary text-p3"
             >
               ~ {{ roundAndCompactTokens(position.assets, regularVault.decimals) }}
               {{ vault.asset.symbol }}
             </div>
           </div>
         </div>
-        <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
-            Earn in 90 days
+        <div
+          v-if="hasPrice"
+          class="flex justify-between"
+        >
+          <div class="text-content-tertiary text-p3">
+            Projected Earnings per Month
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
-              ${{ earnDisplay }}
-            </div>
-            <div
-              v-if="opportunityInfo?.apr"
-              class="text-white text-p3 flex gap-2 items-center"
-            >
-              + <SvgIcon
+            <div class="text-content-primary text-p3 flex items-center gap-4">
+              <SvgIcon
+                v-if="opportunityInfo?.apr"
                 name="sparks"
-                class="!w-18 !h-18 text-aquamarine-700"
-              /> ${{
-                earnDisplayWithReward
-              }}
+                class="!w-18 !h-18 text-accent-600"
+              />
+              ${{ projectedEarningsPerMonth }}
             </div>
           </div>
         </div>

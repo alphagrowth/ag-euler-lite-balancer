@@ -175,7 +175,8 @@ watch(model, () => {
     background-color: var(--ui-checkbox-background-color);
     color: var(--ui-checkbox-color);
     overflow: hidden;
-    box-shadow: 0 0 0 1px var(--ui-checkbox-box-shadow-color);
+    box-shadow: 0 0 0 1.5px var(--ui-checkbox-box-shadow-color), 0 1px 2px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.15s ease, background-color 0.15s ease;
 
     svg {
       width: 16px;

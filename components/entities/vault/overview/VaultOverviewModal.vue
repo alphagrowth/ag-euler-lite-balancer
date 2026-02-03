@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import type { BorrowVaultPair, EarnVault, Vault } from '~/entities/vault'
+import type { AnyBorrowVaultPair, EarnVault, SecuritizeVault, Vault } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountBorrowPosition } from '~/entities/account'
 
 const emits = defineEmits(['close'])
+const router = useRouter()
 
-const { pair, vault, earnVault, extraVault } = defineProps<{ pair?: BorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault, extraVault?: Vault }>()
+// Check if collateral is a securitize vault
+const isCollateralSecuritize = computed(() => {
+  if (!pair) return false
+  return 'type' in pair.collateral && pair.collateral.type === 'securitize'
+})
+
+const { pair, vault, earnVault, extraVault, securitizeVault } = defineProps<{ pair?: AnyBorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault, extraVault?: Vault, securitizeVault?: SecuritizeVault }>()
 
 const tab = ref()
 const normalizeAddress = (address?: string) => {
@@ -67,8 +74,9 @@ watch(tabs, (next) => {
   }
 }, { immediate: true })
 
-const onVaultClick = () => {
+const onVaultClick = (address: string) => {
   emits('close')
+  router.push(`/lend/${address}`)
 }
 </script>
 
@@ -106,17 +114,24 @@ const onVaultClick = () => {
             :pair="pair"
             style="flex-grow: 1"
           />
+          <SecuritizeVaultOverview
+            v-else-if="tab === 'collateral' && isCollateralSecuritize"
+            :vault="(pair.collateral as SecuritizeVault)"
+          />
           <VaultOverview
             v-else-if="tab === 'collateral'"
-            :vault="pair.collateral"
+            :vault="(pair.collateral as Vault)"
+            @vault-click="onVaultClick"
           />
           <VaultOverview
             v-else-if="tab === 'multiply-collateral' && extraVault"
             :vault="extraVault"
+            @vault-click="onVaultClick"
           />
           <VaultOverview
             v-else-if="tab === 'borrow'"
             :vault="pair.borrow"
+            @vault-click="onVaultClick"
           />
         </Transition>
       </template>
@@ -125,6 +140,12 @@ const onVaultClick = () => {
         <VaultOverview
           :vault="vault"
           @vault-click="onVaultClick"
+        />
+      </template>
+
+      <template v-else-if="securitizeVault">
+        <SecuritizeVaultOverview
+          :vault="securitizeVault"
         />
       </template>
 

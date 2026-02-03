@@ -5,9 +5,10 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { computeAPYs, getVaultPrice, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
+import { computeAPYs, getCurrentLiquidationLTV, getVaultPrice, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
 import SecuritizeVaultOverview from '~/components/entities/vault/overview/SecuritizeVaultOverview.vue'
@@ -53,19 +54,16 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
-const { getVault, getSecuritizeVault, updateVault, escrowMap } = useVaults()
+const { getVault, getSecuritizeVault, getEscrowVault, updateVault, isEscrowLoadedOnce } = useVaults()
+const { get: registryGet, getVault: registryGetVault, isKnownEscrowAddress } = useVaultRegistry()
 const { isConnected } = useAccount()
-const { getBalance } = useWallets()
+const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
 const { getIntrinsicApy } = useIntrinsicApy()
-
-// Initial async check for vault type
-const isSecuritize = await isSecuritizeVault(vaultAddress)
-const features = computed(() => VAULT_FEATURES[vaultType.value])
 
 // State
 const isLoading = ref(false)
@@ -79,14 +77,77 @@ const monthlyEarnings = ref(0)
 // Vault data - only one will be populated based on type
 const evkVault: Ref<Vault | undefined> = ref(undefined)
 const securitizeVault: Ref<SecuritizeVault | undefined> = ref(undefined)
+const balance = ref(0n)
 
-// Load vault data based on type, with fallback if detection fails
+// Check if securitize vault first
+const isSecuritize = await isSecuritizeVault(vaultAddress)
+
+// Load vault data based on type
 if (isSecuritize) {
   securitizeVault.value = await getSecuritizeVault(vaultAddress)
 }
 else {
   try {
-    evkVault.value = await getVault(vaultAddress)
+    const normalizedAddress = ethers.getAddress(vaultAddress)
+
+    // Fast path: vault already in registry
+    const registryEntry = registryGet(normalizedAddress)
+    if (registryEntry?.type === 'evk') {
+      evkVault.value = registryEntry.vault as Vault
+    }
+    // Escrow vaults haven't loaded yet - wait for them
+    else if (!isEscrowLoadedOnce.value) {
+      await until(isEscrowLoadedOnce).toBe(true)
+      const entryAfterLoad = registryGet(normalizedAddress)
+      if (entryAfterLoad?.type === 'evk') {
+        evkVault.value = entryAfterLoad.vault as Vault
+      }
+      else if (isKnownEscrowAddress(normalizedAddress)) {
+        evkVault.value = await getEscrowVault(vaultAddress) as Vault
+      }
+      else {
+        evkVault.value = await getVault(vaultAddress)
+      }
+    }
+    // Escrow vaults loaded - check if known escrow address
+    else if (isKnownEscrowAddress(normalizedAddress)) {
+      evkVault.value = await getEscrowVault(vaultAddress) as Vault
+    }
+    // Regular vault
+    else {
+      evkVault.value = await getVault(vaultAddress)
+    }
+
+    // Load any collateral vaults that aren't already in registry
+    if (evkVault.value) {
+      const { has: registryHas } = useVaultRegistry()
+
+      const collateralAddresses = evkVault.value.collateralLTVs
+        .filter(ltv => getCurrentLiquidationLTV(ltv) > 0n)
+        .map(ltv => ltv.collateral)
+
+      // Check and load missing collaterals in parallel
+      await Promise.all(
+        collateralAddresses.map(async (collateralAddr) => {
+          // Skip if already loaded in registry
+          if (registryHas(collateralAddr)) return
+
+          try {
+            // Try regular vault first, then securitize
+            await getVault(collateralAddr)
+          }
+          catch {
+            // If regular vault fails, try securitize
+            try {
+              await getSecuritizeVault(collateralAddr)
+            }
+            catch {
+              // Ignore - collateral vault might not be accessible
+            }
+          }
+        }),
+      )
+    }
   }
   catch (e) {
     // If EVK vault load fails, try as securitize vault
@@ -95,17 +156,25 @@ else {
   }
 }
 
+const features = computed(() => VAULT_FEATURES[vaultType.value])
+
 // Determine vault type based on which vault was loaded
 const vaultType = computed<VaultType>(() => securitizeVault.value ? 'securitize' : 'evk')
 
 // Unified accessors - these provide a common interface regardless of vault type
 const vaultName = computed(() => evkVault.value?.name || securitizeVault.value?.name || '')
-const asset: Ref<VaultAsset | undefined> = ref(evkVault.value?.asset || securitizeVault.value?.asset)
+const asset = computed(() => evkVault.value?.asset || securitizeVault.value?.asset)
 
 // For components that need the EVK Vault type (VaultLabelsAndAssets, VaultPoints, etc.)
 const vault = computed(() => evkVault.value)
 
-const balance = computed(() => getBalance(asset.value?.address as `0x${string}`) || 0n)
+const fetchBalance = async () => {
+  if (!asset.value?.address) {
+    balance.value = 0n
+    return
+  }
+  balance.value = await fetchSingleBalance(asset.value.address)
+}
 const errorText = computed(() => {
   if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
     return 'Not enough balance'
@@ -142,31 +211,35 @@ const estimateSupplyAPYDisplay = computed(() => {
 // Check if vault data is loaded
 const isVaultLoaded = computed(() => !!evkVault.value || !!securitizeVault.value)
 
+// Check if vault is verified - both EVK and securitize vaults have verified field
+const isVaultVerified = computed(() => {
+  return evkVault.value?.verified ?? securitizeVault.value?.verified ?? true
+})
+
 const load = async () => {
   isLoading.value = true
   try {
+    // Fetch fresh underlying asset balance for this specific vault
+    await fetchBalance()
+
     if (features.value.hasInterestRate && evkVault.value) {
       estimateSupplyAPY.value = evkVault.value.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
-
-      // Check for escrow vault override
-      if (escrowMap.value.get(ethers.getAddress(vaultAddress))) {
-        evkVault.value = escrowMap.value.get(ethers.getAddress(vaultAddress))
-      }
-
-      if (features.value.hasVerifiedStatus && !evkVault.value.verified) {
-        modal.open(VaultUnverifiedDisclaimerModal, {
-          isNotClosable: true,
-          props: {
-            onCancel: () => {
-              router.replace('/')
-            },
-          },
-        })
-      }
     }
     else {
       // For vaults without interest rate info, just use rewards
       estimateSupplyAPY.value = valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
+    }
+
+    // Show warning modal for any unverified vault
+    if (!isVaultVerified.value) {
+      modal.open(VaultUnverifiedDisclaimerModal, {
+        isNotClosable: true,
+        props: {
+          onCancel: () => {
+            router.replace('/')
+          },
+        },
+      })
     }
   }
   catch (e) {
@@ -310,10 +383,7 @@ watch(amount, async () => {
 <template>
   <div class="flex gap-32">
     <div class="flex flex-col gap-16 w-full">
-      <span
-        v-if="vaultType === 'securitize'"
-        class="bg-euler-dark-600 text-euler-dark-900 px-12 py-4 rounded-8 text-p3 self-start"
-      >Securitize Digital Security Token</span>
+      <BaseBackButton class="laptop:!hidden" />
       <VaultForm
         title="Open lend position"
         class="w-full"
@@ -324,30 +394,16 @@ watch(amount, async () => {
           v-if="isVaultLoaded && asset"
           class="flex justify-between"
         >
-          <!-- EVK vaults use VaultLabelsAndAssets component -->
+          <!-- Use VaultLabelsAndAssets for both EVK and Securitize vaults -->
           <VaultLabelsAndAssets
-            v-if="features.hasPoints && vault"
-            :vault="vault"
+            v-if="vault || securitizeVault"
+            :vault="(vault || securitizeVault)!"
             :assets="assets"
             size="large"
           />
-          <!-- Securitize and other vault types show simple name/symbol -->
-          <div
-            v-else
-            class="flex items-center gap-12"
-          >
-            <div>
-              <p class="text-h3">
-                {{ vaultName }}
-              </p>
-              <p class="text-euler-dark-900">
-                {{ asset.symbol }}
-              </p>
-            </div>
-          </div>
 
           <div class="flex flex-col items-end justify-end">
-            <p class="mb-4 text-euler-dark-900">
+            <p class="mb-4 text-content-tertiary">
               Supply APY
             </p>
 
@@ -359,7 +415,7 @@ watch(amount, async () => {
               />
               <SvgIcon
                 v-if="hasRewards"
-                class="!w-24 !h-24 text-aquamarine-700"
+                class="!w-24 !h-24 text-accent-600"
                 name="sparks"
               />
               <span>
@@ -367,7 +423,7 @@ watch(amount, async () => {
               </span>
               <SvgIcon
                 v-if="features.hasApyBreakdown"
-                class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
+                class="!w-24 !h-24 text-content-muted cursor-pointer"
                 name="question-circle"
                 @click="onSupplyInfoIconClick"
               />
@@ -411,8 +467,8 @@ watch(amount, async () => {
                 Projected Earnings per Month
               </p>
 
-              <p class="text-euler-dark-900">
-                <span class="text-white text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
+              <p class="text-content-tertiary">
+                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
                   asset.symbol
                 }}
                 <template v-if="features.hasPriceInfo && vault">
@@ -428,16 +484,16 @@ watch(amount, async () => {
 
               <p
                 v-if="features.hasInterestRate && supplyAPYDisplay !== estimateSupplyAPYDisplay"
-                class="text-p2 text-euler-dark-900"
+                class="text-p2 text-content-tertiary"
               >
                 {{ supplyAPYDisplay }}%
                 <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
-                  → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
+                  → <span class="text-content-primary">{{ estimateSupplyAPYDisplay }}%</span>
                 </template>
               </p>
               <p
                 v-else
-                class="text-p2 text-white"
+                class="text-p2 text-content-primary"
               >
                 {{ supplyAPYDisplay }}%
               </p>
@@ -468,6 +524,7 @@ watch(amount, async () => {
         v-if="features.hasOverview && vault && vaultType === 'evk'"
         :vault="vault"
         desktop-overview
+        @vault-click="(address: string) => router.push(`/lend/${address}`)"
       />
       <!-- Securitize Vault Overview -->
       <SecuritizeVaultOverview

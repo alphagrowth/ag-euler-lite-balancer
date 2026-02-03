@@ -194,6 +194,7 @@ watch(model, () => {
     border-radius: 4px;
     background-color: var(--ui-range-track-background-color);
     cursor: pointer;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
   }
 
   &__track-active {
@@ -214,6 +215,12 @@ watch(model, () => {
     height: 20px;
     background-color: var(--ui-range-thumb-background-color);
     cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.15s ease;
+
+    &:hover {
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
 
     &:before {
       content: "";

@@ -21,21 +21,11 @@ defineProps<{
       />
     </template>
     <template v-else-if="type === 'borrow'">
-      <div
-        v-for="(position, idx) in items"
-        :key="`${(position as AccountBorrowPosition).collateral.address}-${(position as AccountBorrowPosition).borrow.address}`"
-      >
-        <PortfolioBorrowCollateralItem
-          v-if="(position as AccountBorrowPosition).borrow.borrow === 0n"
-          :position="position as AccountBorrowPosition"
-          :index="idx"
-        />
-        <PortfolioBorrowItem
-          v-else
-          :position="position as AccountBorrowPosition"
-          :index="idx"
-        />
-      </div>
+      <PortfolioBorrowItem
+        v-for="position in items"
+        :key="`${(position as AccountBorrowPosition).collateral.address}-${(position as AccountBorrowPosition).borrow.address}-${(position as AccountBorrowPosition).subAccount}`"
+        :position="position as AccountBorrowPosition"
+      />
     </template>
     <template v-else-if="type === 'earn'">
       <PortfolioEarnItem

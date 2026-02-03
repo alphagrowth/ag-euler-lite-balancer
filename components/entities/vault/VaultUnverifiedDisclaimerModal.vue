@@ -21,7 +21,7 @@ const handleCancel = () => {
         Are you sure you want to interact with the unverified vault?
       </h4>
       <p class="pb-8">
-        Proceeding with this unverified vault may pose security risks. Unverified vaults could potentially be used for phishing attempts.
+        Proceeding with this unknown and unverified vault may pose security risks. Such vaults could potentially be used for phishing attempts.
       </p>
       <p>
         Please ensure you trust the source before continuing.

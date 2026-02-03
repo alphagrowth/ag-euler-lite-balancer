@@ -19,9 +19,9 @@ const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const { borrow, buildBorrowPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected } = useAccount()
-const { borrowPositions, isPositionsLoading, isPositionsLoaded } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
 const positionIndex = route.params.number as string
-const { getBalance } = useWallets()
+const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -118,7 +118,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 
 const load = async () => {
   isLoading.value = true
-  position.value = borrowPositions.value[+positionIndex - 1]
+  position.value = getPositionBySubAccountIndex(+positionIndex)
   const collateralAddress = position.value.collateral.address
   const borrowAddress = position.value.borrow.address
   collateralAmount.value = `${nanoToValue(position.value.supplied, position.value.collateral.decimals)}`
@@ -126,7 +126,8 @@ const load = async () => {
   ltv.value = userLTV.value
   try {
     pair.value = await getBorrowVaultPair(collateralAddress as string, borrowAddress as string)
-    updateBalance()
+    // Fetch fresh underlying asset balance for this specific vault
+    await updateBalance()
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -137,12 +138,13 @@ const load = async () => {
   }
 }
 const updateBalance = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value || !collateralVault.value?.asset.address) {
     balance.value = 0n
+    isBalanceLoading.value = false
     return
   }
 
-  balance.value = getBalance(collateralVault.value?.asset.address as `0x${string}`) || 0n
+  balance.value = await fetchSingleBalance(collateralVault.value.asset.address)
   isBalanceLoading.value = false
 }
 const submit = async () => {
@@ -352,10 +354,10 @@ onUnmounted(() => {
       <VaultFormInfoBlock
         v-if="pair"
         :loading="isEstimatesLoading"
-        class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
+        class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 shadow-card"
       >
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Net APY
           </p>
           <p class="text-p2">
@@ -363,29 +365,29 @@ onUnmounted(() => {
           </p>
         </div>
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Current Price
           </p>
           <p class="text-p2">
             {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
             </span>
           </p>
         </div>
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Liquidation price
           </p>
           <p class="text-p2">
             {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ collateralVault?.asset.symbol }}
             </span>
           </p>
         </div>
         <div class="flex justify-between items-center">
-          <p class="text-euler-dark-900">
+          <p class="text-content-tertiary">
             Health
           </p>
           <p class="text-p2">

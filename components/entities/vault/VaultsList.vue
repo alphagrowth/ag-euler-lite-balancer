@@ -9,10 +9,12 @@ defineProps<{ items: Vault[], type: 'lend' | 'borrow' }>()
     class="flex flex-col gap-8"
   >
     <VaultItem
-      v-for="vault in items"
+      v-for="(vault, index) in items"
       :key="vault.address"
       :vault="vault"
       :type="type"
+      class="animate-fade-in-up"
+      :style="{ animationDelay: `${Math.min(index * 0.05, 0.4)}s` }"
     />
   </div>
 </template>

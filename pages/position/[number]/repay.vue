@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import { type Address, zeroAddress } from 'viem'
 import { FixedNumber, ethers } from 'ethers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
@@ -13,7 +14,6 @@ import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
-import { type Address, zeroAddress } from 'viem'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 
 const route = useRoute()
@@ -21,15 +21,15 @@ const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
 const { repay, fullRepay, buildRepayPlan, buildFullRepayPlan, buildSwapPlan, swap: executeSwap } = useEulerOperations()
-const { isConnected } = useAccount()
+const { isConnected, address } = useAccount()
 const positionIndex = route.params.number as string
-const { borrowPositions, isPositionsLoading, isPositionsLoaded, updateBorrowPositions } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
-const { address } = useAccount()
-const { getBalance } = useWallets()
+const { fetchSingleBalance } = useWallets()
+const walletBalance = ref(0n)
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { slippage } = useSlippage()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
@@ -129,6 +129,14 @@ const liquidationPrice = computed(() => {
 const { name } = useEulerProductOfVault(borrowVault.value?.address || '')
 const swapCollateralProduct = useEulerProductOfVault(computed(() => swapCollateralVault.value?.address || ''))
 
+const fetchWalletBalance = async () => {
+  if (!isConnected.value || !borrowVault.value?.asset.address) {
+    walletBalance.value = 0n
+    return
+  }
+  walletBalance.value = await fetchSingleBalance(borrowVault.value.asset.address)
+}
+
 const load = async () => {
   if (!isConnected.value) {
     showError('Wallet is not connected.')
@@ -137,7 +145,9 @@ const load = async () => {
   await until(isPositionsLoaded).toBe(true)
 
   try {
-    position.value = borrowPositions.value[+positionIndex - 1]
+    position.value = getPositionBySubAccountIndex(+positionIndex)
+    // Fetch fresh wallet balance for this specific asset
+    await fetchWalletBalance()
     await updateBalance()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value?.userLTV || 0n
@@ -930,8 +940,7 @@ const updateEstimates = useDebounceFn(async () => {
     return
   }
   try {
-    const walletBalance = getBalance(borrowVault.value.asset.address as Address)
-    if (walletBalance < valueToNano(amount.value, borrowVault.value.decimals)) {
+    if (walletBalance.value < valueToNano(amount.value, borrowVault.value.decimals)) {
       throw new Error('Not enough balance')
     }
     if (balanceFixed.value.lt(amountFixed.value)) {
@@ -1109,60 +1118,60 @@ onUnmounted(() => {
           class="flex flex-col gap-16"
         >
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Net APY
             </p>
 
             <p
               v-if="netAPY !== estimateNetAPY"
-              class="text-p2 text-euler-dark-900"
+              class="text-p2 text-content-tertiary"
             >
-              {{ formatNumber(netAPY) }}% → <span class="text-white">{{ formatNumber(estimateNetAPY) }}%</span>
+              {{ formatNumber(netAPY) }}% → <span class="text-content-primary">{{ formatNumber(estimateNetAPY) }}%</span>
             </p>
             <p
               v-else
-              class="text-p2 text-white"
+              class="text-p2 text-content-primary"
             >
               {{ formatNumber(netAPY) }}%
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Current price
             </p>
             <p class="text-p2 flex items-center gap-4">
               ${{ formatNumber(nanoToValue(position.price, 18)) }}
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Liquidation price
             </p>
             <p class="text-p2 flex items-center gap-4">
               ${{ formatNumber(liquidationPrice) }}
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 {{ collateralVault.asset.symbol }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your LTV (LLTV)
             </p>
             <p
               v-if="position.userLTV !== estimateUserLTV"
-              class="text-p2 text-euler-dark-900"
+              class="text-p2 text-content-tertiary"
             >
               {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
               <span class="text-p3">
                 ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
               </span>
-              → <span class="text-white">
+              → <span class="text-content-primary">
                 {{ formatNumber(nanoToValue(estimateUserLTV, 18)) }}%
-                <span class="text-euler-dark-900 text-p3">
+                <span class="text-content-tertiary text-p3">
                   ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
                 </span>
               </span>
@@ -1172,25 +1181,25 @@ onUnmounted(() => {
               class="text-p2 flex items-center gap-4"
             >
               {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your health
             </p>
 
             <p
               v-if="position.health !== estimateHealth"
-              class="text-p2 text-euler-dark-900"
+              class="text-p2 text-content-tertiary"
             >
-              {{ formatNumber(nanoToValue(position.health, 18)) }} → <span class="text-white">{{ formatNumber(nanoToValue(estimateHealth, 18)) }}</span>
+              {{ formatNumber(nanoToValue(position.health, 18)) }} → <span class="text-content-primary">{{ formatNumber(nanoToValue(estimateHealth, 18)) }}</span>
             </p>
             <p
               v-else
-              class="text-p2 text-white"
+              class="text-p2 text-content-primary"
             >
               {{ formatNumber(nanoToValue(position.health, 18)) }}
             </p>
@@ -1260,16 +1269,16 @@ onUnmounted(() => {
 
         <VaultFormInfoBlock
           :loading="swapIsQuoteLoading"
-          class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full"
+          class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full shadow-card"
         >
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               ROE
             </p>
             <p class="text-p2">
               <template v-if="swapRoeBefore !== null && swapRoeAfter !== null && swapQuote">
-                <span class="text-euler-dark-900">{{ formatNumber(swapRoeBefore) }}%</span>
-                → <span class="text-white">{{ formatNumber(swapRoeAfter) }}%</span>
+                <span class="text-content-tertiary">{{ formatNumber(swapRoeBefore) }}%</span>
+                → <span class="text-content-primary">{{ formatNumber(swapRoeAfter) }}%</span>
               </template>
               <template v-else>
                 {{ swapRoeBefore !== null ? `${formatNumber(swapRoeBefore)}%` : '-' }}
@@ -1277,7 +1286,7 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Current price
             </p>
             <p class="text-p2">
@@ -1285,37 +1294,37 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Liquidation price
             </p>
             <p class="text-p2">
               <template v-if="swapCurrentLiquidationPrice !== null && swapNextLiquidationPrice !== null && swapQuote">
-                <span class="text-euler-dark-900">{{ formatNumber(swapCurrentLiquidationPrice, 4) }}</span>
-                → <span class="text-white">{{ formatNumber(swapNextLiquidationPrice, 4) }}</span>
+                <span class="text-content-tertiary">{{ formatNumber(swapCurrentLiquidationPrice, 4) }}</span>
+                → <span class="text-content-primary">{{ formatNumber(swapNextLiquidationPrice, 4) }}</span>
               </template>
               <template v-else>
                 {{ swapCurrentLiquidationPrice !== null ? `${formatNumber(swapCurrentLiquidationPrice, 4)} ` : '-' }}
               </template>
-              <span class="text-euler-dark-900 text-p3">
+              <span class="text-content-tertiary text-p3">
                 {{ swapCollateralVault?.asset.symbol }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your LTV (LLTV)
             </p>
             <p class="text-p2 text-right">
               <template v-if="swapCurrentLtv !== null && swapCurrentLiquidationLtv !== null && swapNextLtv !== null && swapNextLiquidationLtv !== null && swapQuote">
-                <span class="text-euler-dark-900">
+                <span class="text-content-tertiary">
                   {{ formatNumber(swapCurrentLtv) }}%
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     ({{ formatNumber(swapCurrentLiquidationLtv) }}%)
                   </span>
                 </span>
-                → <span class="text-white">
+                → <span class="text-content-primary">
                   {{ formatNumber(swapNextLtv) }}%
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     ({{ formatNumber(swapNextLiquidationLtv) }}%)
                   </span>
                 </span>
@@ -1323,7 +1332,7 @@ onUnmounted(() => {
               <template v-else>
                 <span v-if="swapCurrentLtv !== null && swapCurrentLiquidationLtv !== null">
                   {{ formatNumber(swapCurrentLtv) }}%
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     ({{ formatNumber(swapCurrentLiquidationLtv) }}%)
                   </span>
                 </span>
@@ -1332,13 +1341,13 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Your health
             </p>
             <p class="text-p2">
               <template v-if="swapCurrentHealth !== null && swapNextHealth !== null && swapQuote">
-                <span class="text-euler-dark-900">{{ formatNumber(swapCurrentHealth, 2) }}</span>
-                → <span class="text-white">{{ formatNumber(swapNextHealth, 2) }}</span>
+                <span class="text-content-tertiary">{{ formatNumber(swapCurrentHealth, 2) }}</span>
+                → <span class="text-content-primary">{{ formatNumber(swapNextHealth, 2) }}</span>
               </template>
               <template v-else>
                 {{ swapCurrentHealth !== null ? formatNumber(swapCurrentHealth, 2) : '-' }}
@@ -1346,21 +1355,21 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-start">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Swap
             </p>
             <p class="text-p2 text-right flex flex-col items-end">
               <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
               <span
                 v-if="swapSummary"
-                class="text-euler-dark-900 text-p3"
+                class="text-content-tertiary text-p3"
               >
                 {{ swapSummary.to }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Price impact
             </p>
             <p class="text-p2">
@@ -1368,7 +1377,7 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Leveraged price impact
             </p>
             <p class="text-p2">
@@ -1376,7 +1385,7 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Slippage tolerance
             </p>
             <button
@@ -1387,12 +1396,12 @@ onUnmounted(() => {
               <span>{{ formatNumber(slippage, 2, 0) }}%</span>
               <SvgIcon
                 name="edit"
-                class="!w-16 !h-16 text-aquamarine-700"
+                class="!w-16 !h-16 text-accent-600"
               />
             </button>
           </div>
           <div class="flex justify-between items-center">
-            <p class="text-euler-dark-900">
+            <p class="text-content-tertiary">
               Routed via
             </p>
             <p class="text-p2 text-right">

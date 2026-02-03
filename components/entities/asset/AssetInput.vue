@@ -5,7 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
-const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false, collateralOptions = [], readonly = false } = defineProps<{
+const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false, collateralOptions = [], readonly = false, priceOverride } = defineProps<{
   label?: string
   desc?: string
   maxable?: boolean
@@ -15,6 +15,7 @@ const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false
   balanceLoading?: boolean
   collateralOptions?: CollateralOption[]
   readonly?: boolean
+  priceOverride?: number // For vaults without standard price info (e.g., securitize)
 }>()
 const emits = defineEmits(['input', 'change-collateral'])
 const model = defineModel<string>({ default: '' })
@@ -26,6 +27,11 @@ const isFocused = ref(false)
 const selectedIdx = ref(0)
 const friendlyBalance = computed(() => nanoToValue(balance, asset?.decimals || 18))
 const price = computed(() => {
+  // Use priceOverride if provided (for securitize vaults etc.)
+  if (priceOverride !== undefined) {
+    return priceOverride * (+model.value || 0)
+  }
+
   if (!vault) {
     return 0
   }
@@ -37,6 +43,8 @@ const price = computed(() => {
     return getVaultPrice(+model.value || 0, vault as Vault)
   }
 })
+
+const hasPrice = computed(() => vault !== undefined || priceOverride !== undefined)
 const setMax = () => {
   model.value = ethers.formatUnits(balance, Number(asset.decimals))
   emits('input')
@@ -81,8 +89,12 @@ const openChooseCollateralModal = () => {
 
 <template>
   <div
-    class="flex flex-col gap-12 p-16 bg-euler-dark-100 rounded-16"
-    :class="[isFocused ? 'shadow-[0_0_0_1px_hsl(var(--aquamarine-700))]' : '']"
+    class="flex flex-col gap-12 p-16 rounded-16 border transition-all duration-200"
+    :class="[
+      isFocused 
+        ? 'bg-bg-surface border-accent-500 shadow-[0_0_0_3px_rgba(196,155,100,0.15),0_2px_4px_rgba(0,0,0,0.06)]' 
+        : 'bg-[var(--ui-form-field-background)] border-[var(--ui-form-field-border-color)] shadow-[var(--ui-form-field-shadow)]'
+    ]"
   >
     <div
       v-if="label || desc"
@@ -134,10 +146,11 @@ const openChooseCollateralModal = () => {
       </div>
     </div>
     <div
-      class="flex justify-between"
+      class="flex"
+      :class="hasPrice ? 'justify-between' : 'justify-end'"
     >
       <p
-        v-if="vault"
+        v-if="hasPrice"
         class="text-euler-dark-800"
       >
         <template v-if="price > 10 ** 18">

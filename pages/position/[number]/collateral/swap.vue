@@ -6,7 +6,13 @@ import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { type Vault, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import {
+  type Vault,
+  type SecuritizeVault,
+  getVaultPrice,
+  getVaultPriceInfo,
+  getCollateralAssetPriceFromLiability,
+} from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -17,11 +23,12 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const route = useRoute()
 const router = useRouter()
 const { isConnected, address } = useAccount()
-const { borrowPositions, isPositionsLoaded, isPositionsLoading } = useEulerAccount()
+const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
 const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
@@ -30,7 +37,8 @@ const reviewSwapLabel = getSubmitLabel('Review Swap')
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
-const { map, getVault, isReady: isVaultsReady } = useVaults()
+const { isReady: isVaultsReady } = useVaults()
+const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
@@ -62,18 +70,25 @@ const {
 } = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
 
 const position: Ref<AccountBorrowPosition | null> = ref(null)
-const selectedCollateral = ref<Vault | null>(null)
+const selectedCollateral = ref<Vault | SecuritizeVault | null>(null)
 const selectedCollateralAssets = ref(0n)
 const lastCollateralAddress = ref('')
 
 const fromVault = computed(() => selectedCollateral.value || position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
 const toVault: Ref<Vault | undefined> = ref()
+// Securitize collateral cannot be swapped
+const isFromSecuritize = computed(() => fromVault.value && 'type' in fromVault.value && fromVault.value.type === 'securitize')
+// For swap options, we need a regular vault - securitize cannot be current vault
+const fromVaultAsRegular = computed(() => {
+  if (!fromVault.value || isFromSecuritize.value) return undefined
+  return fromVault.value as Vault
+})
 
 const fromProduct = useEulerProductOfVault(computed(() => fromVault.value?.address || ''))
 const toProduct = useEulerProductOfVault(computed(() => toVault.value?.address || ''))
 const { collateralOptions, collateralVaults } = useSwapCollateralOptions({
-  currentVault: computed(() => fromVault.value as Vault | undefined),
+  currentVault: fromVaultAsRegular,
   liabilityVault: computed(() => borrowVault.value as Vault | undefined),
 })
 
@@ -81,7 +96,7 @@ const loadPosition = async () => {
   isLoading.value = true
   await until(isPositionsLoaded).toBe(true)
 
-  position.value = borrowPositions.value[+positionIndex - 1] || null
+  position.value = getPositionBySubAccountIndex(+positionIndex) || null
   await loadSelectedCollateral()
   isLoading.value = false
 }
@@ -138,8 +153,9 @@ const loadSelectedCollateral = async () => {
 
     await until(isVaultsReady).toBe(true)
 
-    const vault = map.value.get(targetAddress) || await getVault(targetAddress)
-    selectedCollateral.value = vault
+    // Use unified vault resolution - handles EVK, escrow, and securitize vaults
+    const vault = await getOrFetch(targetAddress) as Vault | SecuritizeVault | undefined
+    selectedCollateral.value = vault || null
 
     const lensAddress = eulerLensAddresses.value?.accountLens
     if (!lensAddress) {
@@ -170,9 +186,13 @@ const syncToVault = () => {
     return
   }
   if (!collateralVaults.value.length) {
-    if (!toVault.value) {
-      toVault.value = fromVault.value
+    // Set toVault to first available or fromVault to allow form to render
+    // (swap will show "no quotes" if not possible)
+    if (!toVault.value && !isFromSecuritize.value) {
+      toVault.value = fromVault.value as Vault
     }
+    // For securitize, we can't set toVault to itself - form won't render which is fine
+    // as there's nothing to swap
     return
   }
 
@@ -198,9 +218,16 @@ watch([quote, toVault], () => {
     return
   }
   const amountOut = getQuoteAmount(quote.value, 'amountOut')
-  toAmount.value = amountOut > 0n
-    ? formatSignificant(ethers.formatUnits(amountOut, Number(toVault.value.decimals)))
-    : ''
+  if (amountOut <= 0n) {
+    toAmount.value = ''
+    return
+  }
+  const formatted = ethers.formatUnits(amountOut, Number(toVault.value.decimals))
+  const numericValue = Number(formatted)
+  // Use more precision for very small amounts
+  toAmount.value = numericValue < 0.01
+    ? numericValue.toExponential(2)
+    : formatSignificant(formatted)
 }, { immediate: true })
 const balance = computed(() => selectedCollateralAssets.value)
 
@@ -240,11 +267,25 @@ const borrowApy = computed(() => {
   return withIntrinsicBorrowApy(base, borrowVault.value.asset.symbol) - (borrowOpportunity.value?.apr || 0)
 })
 
+// Get collateral USD value using liability vault's price perspective
+const getCollateralValueUsd = (amount: bigint) => {
+  if (!borrowVault.value || !fromVault.value) return 0
+  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, fromVault.value)
+  if (!priceInfo?.amountOutMid) return 0
+  return nanoToValue(amount, fromVault.value.decimals) * nanoToValue(priceInfo.amountOutMid, 18)
+}
+// Price per unit for collateral (from liability vault's perspective)
+const collateralPricePerUnit = computed(() => {
+  if (!borrowVault.value || !fromVault.value) return undefined
+  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, fromVault.value)
+  if (!priceInfo?.amountOutMid) return undefined
+  return nanoToValue(priceInfo.amountOutMid, 18)
+})
 const supplyValueUsd = computed(() => {
-  if (!fromVault.value || !position.value) {
+  if (!fromVault.value || !position.value || !borrowVault.value) {
     return null
   }
-  return getVaultPrice(selectedCollateralAssets.value, fromVault.value)
+  return getCollateralValueUsd(selectedCollateralAssets.value)
 })
 const nextSupplyValueUsd = computed(() => {
   if (!quote.value || !toVault.value) {
@@ -402,10 +443,10 @@ const swapSummary = computed(() => {
 })
 
 const priceImpact = computed(() => {
-  if (!quote.value || !fromVault.value || !toVault.value) {
+  if (!quote.value || !fromVault.value || !toVault.value || !borrowVault.value) {
     return null
   }
-  const amountInUsd = getVaultPrice(BigInt(quote.value.amountIn), fromVault.value)
+  const amountInUsd = getCollateralValueUsd(BigInt(quote.value.amountIn))
   const amountOutUsd = getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
   if (!amountInUsd || !amountOutUsd) {
     return null
@@ -423,6 +464,14 @@ const routedVia = computed(() => {
   }
   return quote.value.route.map(route => route.providerName).join(', ')
 })
+const formatSmallAmount = (value: bigint, decimals: number) => {
+  const formatted = ethers.formatUnits(value, decimals)
+  const numericValue = Number(formatted)
+  return numericValue < 0.01 && numericValue > 0
+    ? numericValue.toExponential(2)
+    : formatSignificant(formatted)
+}
+
 const swapRouteItems = computed(() => {
   if (!toVault.value) {
     return []
@@ -430,9 +479,7 @@ const swapRouteItems = computed(() => {
   const bestProvider = quoteCardsSorted.value[0]?.provider
   return quoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amount = formatSignificant(
-      ethers.formatUnits(amountOut, Number(toVault.value.decimals)),
-    )
+    const amount = formatSmallAmount(amountOut, Number(toVault.value.decimals))
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
       ? { label: 'Best', tone: 'best' as const }
@@ -464,7 +511,22 @@ const errorText = computed(() => {
   if (balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)) {
     return 'Not enough balance'
   }
+  if (selectedQuote.value && +fromAmount.value > 0) {
+    const amountOut = getQuoteAmount(selectedQuote.value, 'amountOut')
+    if (amountOut <= 0n) {
+      return 'Output amount is below minimum'
+    }
+  }
   return null
+})
+const isSameVault = computed(() => {
+  if (!fromVault.value || !toVault.value) {
+    return false
+  }
+  return normalizeAddress(fromVault.value.address) === normalizeAddress(toVault.value.address)
+})
+const sameVaultError = computed(() => {
+  return isSameVault.value ? 'Select a different vault' : null
 })
 
 const isSubmitDisabled = computed(() => {
@@ -472,17 +534,20 @@ const isSubmitDisabled = computed(() => {
   if (!fromVault.value?.asset || !toVault.value?.asset || !selectedQuote.value) {
     return true
   }
+  const amountOut = getQuoteAmount(selectedQuote.value, 'amountOut')
   return isLoading.value
     || isQuoteLoading.value
     || balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)
     || !(+fromAmount.value)
     || !toAmount.value
+    || isSameVault.value
+    || amountOut <= 0n
 })
 const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
 
 const onFromInput = async () => {
   clearSimulationError()
-  if (!fromVault.value || !toVault.value || !fromAmount.value) {
+  if (!fromVault.value || !toVault.value || !fromAmount.value || isSameVault.value) {
     toAmount.value = ''
     resetQuoteState()
     return
@@ -494,7 +559,7 @@ const onFromInput = async () => {
 const requestQuote = useDebounceFn(async () => {
   quoteError.value = null
 
-  if (!fromVault.value || !toVault.value || !fromAmount.value || !position.value) {
+  if (!fromVault.value || !toVault.value || !fromAmount.value || !position.value || isSameVault.value) {
     resetQuoteState()
     return
   }
@@ -542,6 +607,11 @@ const requestQuote = useDebounceFn(async () => {
 watch(toVault, () => {
   clearSimulationError()
   if (!toVault.value) {
+    toAmount.value = ''
+    resetQuoteState()
+    return
+  }
+  if (isSameVault.value) {
     toAmount.value = ''
     resetQuoteState()
     return
@@ -654,7 +724,7 @@ const send = async () => {
       :loading="isLoading || isPositionsLoading"
       @submit.prevent="submit"
     >
-      <template v-if="fromVault && toVault">
+      <template v-if="fromVault">
         <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
           <div class="flex flex-col gap-16 w-full">
             <AssetInput
@@ -662,8 +732,9 @@ const send = async () => {
               :desc="fromProduct.name"
               label="From"
               :asset="fromVault.asset"
-              :vault="fromVault"
+              :vault="isFromSecuritize ? undefined : (fromVault as Vault)"
               :balance="balance"
+              :price-override="isFromSecuritize ? collateralPricePerUnit : undefined"
               maxable
               @input="onFromInput"
             />
@@ -678,6 +749,7 @@ const send = async () => {
             />
 
             <AssetInput
+              v-if="toVault"
               v-model="toAmount"
               :desc="toProduct.name"
               label="To"
@@ -687,12 +759,25 @@ const send = async () => {
               :readonly="true"
               @change-collateral="onToVaultChange"
             />
+            <div
+              v-else
+              class="bg-euler-dark-400 rounded-16 p-16 text-euler-dark-900"
+            >
+              No collateral swap options available
+            </div>
 
             <UiToast
               v-show="errorText"
               title="Error"
               variant="error"
               :description="errorText || ''"
+              size="compact"
+            />
+            <UiToast
+              v-if="sameVaultError"
+              title="Error"
+              variant="error"
+              :description="sameVaultError"
               size="compact"
             />
             <UiToast
@@ -723,16 +808,16 @@ const send = async () => {
 
           <VaultFormInfoBlock
             :loading="isQuoteLoading"
-            class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px]"
+            class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px] shadow-card"
           >
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 ROE
               </p>
               <p class="text-p2">
                 <template v-if="roeBefore !== null && roeAfter !== null && quote">
-                  <span class="text-euler-dark-900">{{ formatNumber(roeBefore) }}%</span>
-                  → <span class="text-white">{{ formatNumber(roeAfter) }}%</span>
+                  <span class="text-content-tertiary">{{ formatNumber(roeBefore) }}%</span>
+                  → <span class="text-content-primary">{{ formatNumber(roeAfter) }}%</span>
                 </template>
                 <template v-else>
                   {{ roeBefore !== null ? `${formatNumber(roeBefore)}%` : '-' }}
@@ -740,7 +825,7 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Current price
               </p>
               <p class="text-p2">
@@ -748,37 +833,37 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Liquidation price
               </p>
               <p class="text-p2">
                 <template v-if="currentLiquidationPrice !== null && nextLiquidationPrice !== null && quote">
-                  <span class="text-euler-dark-900">{{ formatNumber(currentLiquidationPrice, 4) }}</span>
-                  → <span class="text-white">{{ formatNumber(nextLiquidationPrice, 4) }}</span>
+                  <span class="text-content-tertiary">{{ formatNumber(currentLiquidationPrice, 4) }}</span>
+                  → <span class="text-content-primary">{{ formatNumber(nextLiquidationPrice, 4) }}</span>
                 </template>
                 <template v-else>
                   {{ currentLiquidationPrice !== null ? formatNumber(currentLiquidationPrice, 4) : '-' }}
                 </template>
-                <span class="text-euler-dark-900 text-p3">
+                <span class="text-content-tertiary text-p3">
                   {{ fromVault?.asset.symbol }}
                 </span>
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Your LTV (LLTV)
               </p>
               <p class="text-p2 text-right">
                 <template v-if="currentLtv !== null && currentLiquidationLtv !== null && nextLtv !== null && nextLiquidationLtv !== null && quote">
-                  <span class="text-euler-dark-900">
+                  <span class="text-content-tertiary">
                     {{ formatNumber(currentLtv) }}%
-                    <span class="text-euler-dark-900 text-p3">
+                    <span class="text-content-tertiary text-p3">
                       ({{ formatNumber(currentLiquidationLtv) }}%)
                     </span>
                   </span>
-                  → <span class="text-white">
+                  → <span class="text-content-primary">
                     {{ formatNumber(nextLtv) }}%
-                    <span class="text-euler-dark-900 text-p3">
+                    <span class="text-content-tertiary text-p3">
                       ({{ formatNumber(nextLiquidationLtv) }}%)
                     </span>
                   </span>
@@ -786,7 +871,7 @@ const send = async () => {
                 <template v-else>
                   <span v-if="currentLtv !== null && currentLiquidationLtv !== null">
                     {{ formatNumber(currentLtv) }}%
-                    <span class="text-euler-dark-900 text-p3">
+                    <span class="text-content-tertiary text-p3">
                       ({{ formatNumber(currentLiquidationLtv) }}%)
                     </span>
                   </span>
@@ -795,13 +880,13 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Your health
               </p>
               <p class="text-p2">
                 <template v-if="currentHealth !== null && nextHealth !== null && quote">
-                  <span class="text-euler-dark-900">{{ formatNumber(currentHealth, 2) }}</span>
-                  → <span class="text-white">{{ formatNumber(nextHealth, 2) }}</span>
+                  <span class="text-content-tertiary">{{ formatNumber(currentHealth, 2) }}</span>
+                  → <span class="text-content-primary">{{ formatNumber(nextHealth, 2) }}</span>
                 </template>
                 <template v-else>
                   {{ currentHealth !== null ? formatNumber(currentHealth, 2) : '-' }}
@@ -809,21 +894,21 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-start">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Swap
               </p>
               <p class="text-p2 text-right flex flex-col items-end">
                 <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
                 <span
                   v-if="swapSummary"
-                  class="text-euler-dark-900 text-p3"
+                  class="text-content-tertiary text-p3"
                 >
                   {{ swapSummary.to }}
                 </span>
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Price impact
               </p>
               <p class="text-p2">
@@ -831,7 +916,7 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Slippage tolerance
               </p>
               <button
@@ -842,12 +927,12 @@ const send = async () => {
                 <span>{{ formatNumber(slippage, 2, 0) }}%</span>
                 <SvgIcon
                   name="edit"
-                  class="!w-16 !h-16 text-aquamarine-700"
+                  class="!w-16 !h-16 text-accent-600"
                 />
               </button>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Routed via
               </p>
               <p class="text-p2 text-right">

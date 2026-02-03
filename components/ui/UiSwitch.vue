@@ -145,6 +145,8 @@ watch(model, () => {
     color: var(--ui-switch-color);
     background-color: var(--ui-switch-background-color);
     overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
   }
 
   &__input {
@@ -167,8 +169,9 @@ watch(model, () => {
     height: 16px;
     background-color: var(--ui-switch-indicator-background-color);
     border-radius: 100px;
-    transition: transform 0.2s ease-in-out;
+    transition: transform 0.2s ease-in-out, box-shadow 0.15s ease;
     transform: translateX(0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   }
 }
 </style>

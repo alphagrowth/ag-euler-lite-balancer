@@ -33,7 +33,7 @@ defineEmits(['close'])
         <SvgIcon
           v-if="warning"
           name="warning"
-          class="!w-20 !h-20 text-yellow-600"
+          class="!w-20 !h-20 text-warning-500"
         />
         {{ title }}
       </p>

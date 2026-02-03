@@ -8,12 +8,16 @@ import type {
   AccountBorrowPosition, AccountDepositPosition,
   AccountEarnPosition,
 } from '~/entities/account'
-import { convertSharesToAssets, getVaultPrice, getVaultPriceInfo, getEarnVaultPrice, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { convertSharesToAssets, getVaultPrice, getVaultPriceInfo, getEarnVaultPrice, getCollateralAssetPriceFromLiability, type Vault, type SecuritizeVault } from '~/entities/vault'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const earnPositions: Ref<AccountEarnPosition[]> = ref([])
 const borrowPositions: Ref<AccountBorrowPosition[]> = ref([])
+
+// Track which (subAccount, vaultAddress) pairs are used as collateral
+// Format: "subAccount:vaultAddress" (both checksummed)
+const collateralUsageSet: Ref<Set<string>> = ref(new Set())
 
 const isPositionsLoading = ref(true)
 const isPositionsLoaded = ref(false)
@@ -67,16 +71,16 @@ const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>, fall
 }
 
 const totalSuppliedValue = computed(() => {
-  const { map } = useVaults()
+  const { getVault: registryGetVault } = useVaultRegistry()
 
-  // Deposit positions (standalone vault context) — excludes securitize vaults
+  // Deposit positions (standalone vault context) — only vaults with price info
   const depositValue = depositPositions.value
-    .filter(position => !position.isSecuritize)
-    .reduce((result, position) => result + getVaultPrice(position.assets, position.vault), 0)
+    .filter(position => 'liabilityPriceInfo' in position.vault)
+    .reduce((result, position) => result + getVaultPrice(position.assets, position.vault as Vault), 0)
 
   // Borrow position collateral (liability vault context) — use borrow vault's collateral pricing
   const collateralValue = borrowPositions.value.reduce((result, position) => {
-    const borrowVault = map.value.get(position.borrow.address)
+    const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) return result
 
     const priceInfo = getCollateralAssetPriceFromLiability(borrowVault, position.collateral)
@@ -96,7 +100,7 @@ const totalSuppliedValue = computed(() => {
 })
 
 const totalSuppliedValueInfo = computed(() => {
-  const { map } = useVaults()
+  const { getVault: registryGetVault } = useVaultRegistry()
   let total = 0
   let hasMissingPrices = false
 
@@ -109,7 +113,7 @@ const totalSuppliedValueInfo = computed(() => {
   })
 
   borrowPositions.value.forEach((position) => {
-    const borrowVault = map.value.get(position.borrow.address)
+    const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) {
       if (position.supplied > 0n) hasMissingPrices = true
       return
@@ -153,151 +157,6 @@ const totalBorrowedValueInfo = computed(() => {
   return { total, hasMissingPrices }
 })
 
-const updateCollateralPositions = async (eulerLensAddresses: EulerLensAddresses, address: string) => {
-  const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
-  const { map } = useVaults()
-
-  if (!eulerLensAddresses?.accountLens) {
-    throw new Error('Euler addresses not loaded yet')
-  }
-
-  const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-  const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-  const { data } = await axios.post(SUBGRAPH_URL, {
-    query: `query AccountDeposits {
-      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
-        deposits
-      }
-    }`,
-    operationName: 'AccountDeposits',
-  })
-
-  const depositEntries = data.data.trackingActiveAccount?.deposits || []
-
-  let deposits: AccountBorrowPosition[] = []
-  const borrows: { borrowed: bigint }[] = []
-  const batchSize = 5
-
-  for (let i = 0; i < depositEntries.length; i += batchSize) {
-    const batch = depositEntries
-      .slice(i, i + batchSize)
-      .map(async (entry: string) => {
-        const vault = `0x${entry.substring(42)}`
-        const subAccount = entry.substring(0, 42)
-
-        let res
-        try {
-          res = await accountLensContract.getAccountInfo(subAccount, vault)
-        }
-        catch {
-          return undefined
-        }
-
-        let enabledCollaterals = ''
-        let enabledControllers = ''
-        if (res.evcAccountInfo.enabledCollaterals.length > 0 && res.evcAccountInfo.enabledControllers.length > 0) {
-          enabledCollaterals = res.evcAccountInfo.enabledCollaterals[0]
-          enabledControllers = res.evcAccountInfo.enabledControllers[0]
-        }
-        if (!enabledCollaterals || !enabledControllers) {
-          return undefined
-        }
-
-        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map(collateral => ethers.getAddress(collateral))
-        const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
-
-        const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
-        const borrow = map.value.get(borrowAddress)
-        if (!borrow) {
-          return undefined
-        }
-
-        let collateralAddress: string | undefined
-        const collateralCandidates = collaterals.length ? collaterals : enabledCollateralsList
-        for (const addr of collateralCandidates) {
-          if (borrow.collateralLTVs.some(ltv => ethers.getAddress(ltv.collateral) === addr)) {
-            collateralAddress = addr
-            break
-          }
-        }
-
-        if (!collateralAddress) {
-          collateralAddress = collateralCandidates[0]
-        }
-
-        const collateral = map.value.get(collateralAddress)
-        if (!collateral) {
-          return undefined
-        }
-
-        const cLTV = borrow.collateralLTVs.find(ltv => ethers.getAddress(ltv.collateral) === collateral.address)
-        const collateralValueLiquidation = res.vaultAccountInfo.liquidityInfo.collateralValueLiquidation
-        const liabilityValue = res.vaultAccountInfo.liquidityInfo.liabilityValue
-        const liquidationLTV = cLTV?.liquidationLTV || 0n
-        const healthFixed = FixedNumber.fromValue(1, 18)
-        const userLTVFixed = healthFixed.isZero()
-          ? FixedNumber.fromValue(0n, 2)
-          : FixedNumber.fromValue(liquidationLTV, 2).div(healthFixed)
-        const userLTV = userLTVFixed.value
-        const priceFixed = FixedNumber.fromValue(1n, 18)
-        const price = priceFixed.value
-        const supplied = res.vaultAccountInfo.assets
-
-        return {
-          borrow,
-          collateral,
-          collaterals,
-          subAccount,
-          liabilityLTV: 0n,
-          borrowLTV: cLTV?.borrowLTV || 0n,
-          initialLiquidationLTV: cLTV?.initialLiquidationLTV || 0n,
-          timeToLiquidation: res.vaultAccountInfo.liquidityInfo.timeToLiquidation,
-          health: healthFixed.value,
-          borrowed: res.vaultAccountInfo.borrowed,
-          price,
-          userLTV,
-          supplied,
-          liabilityValue,
-          liquidationLTV,
-          collateralValueLiquidation,
-        } as AccountBorrowPosition
-      })
-    deposits = [...deposits, ...(await Promise.all(batch)).filter(o => !!o)] as AccountBorrowPosition[]
-  }
-
-  for (let i = 0; i < deposits.length; i += batchSize) {
-    const batch = deposits
-      .slice(i, i + batchSize)
-      .map(async (deposit: AccountBorrowPosition) => {
-        try {
-          const res = await accountLensContract.getAccountInfo(deposit.subAccount, deposit.borrow.address)
-          const borrowed = res.vaultAccountInfo.borrowed
-
-          return {
-            borrowed,
-          }
-        }
-        catch {
-          return {
-            borrowed: 0n,
-          }
-        }
-      })
-
-    borrows.push(...(await Promise.all(batch)).filter(o => !!o))
-  }
-  return deposits
-    .filter((deposit, idx) => borrows[idx].borrowed === 0n)
-    .map((deposit) => {
-      return {
-        ...deposit,
-        borrow: {
-          ...deposit.borrow,
-          borrow: 0n,
-        },
-      }
-    })
-}
 const updateBorrowPositions = async (
   eulerLensAddresses: EulerLensAddresses,
   address: string,
@@ -318,7 +177,7 @@ const updateBorrowPositions = async (
   }
 
   const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
-  const { map, getVault } = useVaults()
+  const { getOrFetch } = useVaultRegistry()
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
 
@@ -365,7 +224,8 @@ const updateBorrowPositions = async (
         const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
 
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
-        const borrow = shouldShowAllPositions ? await getVault(borrowAddress) : map.value.get(borrowAddress)
+        // Use unified resolution - getOrFetch handles registry lookup + fallback fetch
+        const borrow = await getOrFetch(borrowAddress) as Vault | undefined
         if (!borrow) {
           return undefined
         }
@@ -383,8 +243,15 @@ const updateBorrowPositions = async (
           collateralAddress = collateralCandidates[0]
         }
 
-        const collateral = shouldShowAllPositions ? await getVault(collateralAddress) : map.value.get(collateralAddress)
+        // Use unified resolution for collateral vault (handles EVK, escrow, and securitize)
+        const collateral = await getOrFetch(collateralAddress) as Vault | undefined
+
         if (!collateral) {
+          return undefined
+        }
+
+        // Skip positions where both vaults are unverified (unless showing all positions)
+        if (!shouldShowAllPositions && !borrow.verified && !collateral.verified) {
           return undefined
         }
 
@@ -468,12 +335,23 @@ const updateBorrowPositions = async (
 
     borrows = [...borrows, ...(await Promise.all(batch)).filter(o => !!o)] as AccountBorrowPosition[]
   }
-  const collateralPositions = await updateCollateralPositions(eulerLensAddresses, address) || []
+  const collateralPositions: AccountBorrowPosition[] = []
   const shouldUpdate = options.forceAllPositions !== undefined
     ? true
     : isShowAllPositions.value === isAllPositionsAtStart
   if (shouldUpdate) {
-    borrowPositions.value = [...borrows, ...collateralPositions]
+    const allPositions = [...borrows, ...collateralPositions]
+    borrowPositions.value = allPositions
+
+    // Build set of (subAccount, collateralVault) pairs used as collateral
+    const usageSet = new Set<string>()
+    for (const pos of allPositions) {
+      const subAccount = ethers.getAddress(pos.subAccount)
+      const collateralAddress = ethers.getAddress(pos.collateral.address)
+      usageSet.add(`${subAccount}:${collateralAddress}`)
+    }
+    collateralUsageSet.value = usageSet
+
     isPositionsLoading.value = false
     isPositionsLoaded.value = true
   }
@@ -498,17 +376,13 @@ const updateDepositPositions = async (
     return
   }
 
-  const { list, earnMap } = useVaults()
   const { earnVaults } = useEulerLabels()
-  const { getOrResolve } = useVaultRegistry()
+  const { getOrFetch, has: registryHas, getType: registryGetType, getEvkVaults } = useVaultRegistry()
+  const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
   let deposits: AccountDepositPosition[] = []
-  const batchSize = 5
-
-  if (shouldShowAllPositions) {
-    const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
     if (!eulerLensAddresses?.accountLens) {
       throw new Error('Euler addresses not loaded yet')
@@ -516,6 +390,8 @@ const updateDepositPositions = async (
 
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+
+  // Fetch ALL deposits from subgraph for this address prefix
     const { data } = await axios.post(SUBGRAPH_URL, {
       query: `query AccountDeposits {
       trackingActiveAccount(id: "${getAddressPrefix(address)}") {
@@ -526,141 +402,87 @@ const updateDepositPositions = async (
     })
     const depositEntries = data.data.trackingActiveAccount?.deposits || []
 
-    for (let i = 0; i < depositEntries.length; i += batchSize) {
-      const batch = depositEntries
-        .slice(i, i + batchSize)
-        .map(async (entry: string) => {
+  for (const entry of depositEntries) {
           const vaultAddress = `0x${entry.substring(42)}`
           const subAccount = entry.substring(0, 42)
 
-          // Resolve vault from registry (fetches from subgraph if unknown)
-          const vaultEntry = await getOrResolve(vaultAddress)
-          if (!vaultEntry) {
-            return undefined
+    // Normalize addresses for comparison
+    const normalizedSubAccount = ethers.getAddress(subAccount)
+    const normalizedVaultAddress = ethers.getAddress(vaultAddress)
+
+    // Check if this deposit is being used as collateral (built during borrow position loading)
+    const collateralKey = `${normalizedSubAccount}:${normalizedVaultAddress}`
+    if (collateralUsageSet.value.has(collateralKey)) {
+      // This deposit is collateral, not savings - skip
+      continue
           }
 
           // Skip earn vaults (handled by updateEarnPositions)
-          if (vaultEntry.type === 'earn') {
-            return undefined
-          }
-
-          const isSecuritize = vaultEntry.type === 'securitize'
-
-          // For Securitize vaults, match on address prefix (subaccounts derive from main account)
-          // For regular vaults, match exact address
-          if (isSecuritize) {
-            const subAccountPrefix = subAccount.toLowerCase().slice(0, 40)
-            const addrPrefix = address.toLowerCase().slice(0, 40)
-            if (subAccountPrefix !== addrPrefix) {
-              return undefined
-            }
-          }
-          else {
-            if (ethers.getAddress(subAccount) !== ethers.getAddress(address)) {
-              return undefined
-            }
-          }
-
-          try {
-            const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
-
-            return {
-              vault: vaultEntry.vault,
-              shares: res.vaultAccountInfo.shares,
-              assets: res.vaultAccountInfo.assets,
-              isSecuritize,
-            } as AccountDepositPosition
-          }
-          catch (e) {
-            console.warn(`Failed to fetch vault ${vaultAddress}:`, e)
-            return undefined
-          }
-        })
-      deposits = [...deposits, ...(await Promise.all(batch)).filter(o => !!o)] as AccountDepositPosition[]
+    if (earnVaults.value.includes(normalizedVaultAddress) || registryGetType(normalizedVaultAddress) === 'earn') {
+      continue
     }
-  }
-  else {
-    // Fetch regular deposit positions from verified vault list
-    for (let i = 0; i < list.value.length; i += batchSize) {
-      const batch = list.value
-        .slice(i, i + batchSize)
-        .map(async (vault) => {
-          const balance = balances.get(ethers.getAddress(vault.address))
-          return {
-            vault,
-            shares: balance,
-            assets: balance ? await convertSharesToAssets(vault.address, balance) : 0n,
-          } as AccountDepositPosition
-        })
-
-      deposits = [...deposits, ...(await Promise.all(batch)).filter(o => o.shares > 0n)] as AccountDepositPosition[]
-    }
-
-    // Also fetch non-EVK positions from subgraph (e.g., Securitize)
-    const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
-
-    if (eulerLensAddresses?.accountLens) {
-      const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-      const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
-
-      try {
-        const { data } = await axios.post(SUBGRAPH_URL, {
-          query: `query AccountDeposits {
-            trackingActiveAccount(id: "${getAddressPrefix(address)}") {
-              deposits
-            }
-          }`,
-          operationName: 'AccountDeposits',
-        })
-
-        const depositEntries = data.data.trackingActiveAccount?.deposits || []
-
-        for (const entry of depositEntries) {
-          const vaultAddress = `0x${entry.substring(42)}`
-          const subAccount = entry.substring(0, 42)
-
-          // Skip vaults already in EVK list or earn vaults
-          const normalizedVault = ethers.getAddress(vaultAddress)
-          if (list.value.some(v => v.address === normalizedVault)) continue
-          if (earnVaults.value.includes(normalizedVault) || earnMap.value.has(normalizedVault)) continue
 
           // Resolve vault from registry
-          const vaultEntry = await getOrResolve(vaultAddress)
-          if (!vaultEntry) continue
+          const vault = await getOrFetch(vaultAddress)
+          if (!vault) continue
 
-          // Skip earn vaults
-          if (vaultEntry.type === 'earn') continue
+          // Skip earn vaults (getOrFetch caches in registry, so getType works)
+          const vaultType = registryGetType(vaultAddress)
+          if (vaultType === 'earn') continue
 
-          const isSecuritize = vaultEntry.type === 'securitize'
+    const isVerifiedVault = vaultType === 'evk'
+      ? (vault as Vault).verified
+      : vaultType === 'securitize'
+        ? (vault as SecuritizeVault).verified
+        : false
 
-          // Match on address prefix for securitize, exact for others
-          if (isSecuritize) {
-            const subAccountPrefix = subAccount.toLowerCase().slice(0, 40)
-            const addrPrefix = address.toLowerCase().slice(0, 40)
-            if (subAccountPrefix !== addrPrefix) continue
-          }
-          else {
-            if (ethers.getAddress(subAccount) !== ethers.getAddress(address)) continue
+    // Skip unverified vaults unless showing all positions
+    if (!shouldShowAllPositions && !isVerifiedVault) {
+      continue
           }
 
           try {
             const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
+
+      // Only include if there are shares
+      if (res.vaultAccountInfo.shares === 0n) continue
+
             deposits.push({
-              vault: vaultEntry.vault,
+              vault,
+        subAccount: normalizedSubAccount,
               shares: res.vaultAccountInfo.shares,
               assets: res.vaultAccountInfo.assets,
-              isSecuritize,
             } as AccountDepositPosition)
           }
           catch (e) {
             console.warn(`Failed to fetch vault ${vaultAddress}:`, e)
           }
         }
-      }
-      catch (e) {
-        console.warn('Failed to fetch deposits from subgraph:', e)
-      }
+
+  // Also include deposits from wallet balances for verified EVK vaults
+  // (some deposits might not be tracked in subgraph if balance forwarding is disabled)
+  const normalizedAddress = ethers.getAddress(address)
+  for (const vault of getEvkVaults()) {
+    const balance = balances.get(ethers.getAddress(vault.address))
+    if (!balance || balance === 0n) continue
+
+    // Skip if already in deposits from subgraph
+    if (deposits.some(d => ethers.getAddress(d.vault.address) === ethers.getAddress(vault.address))) {
+      continue
     }
+
+    // Check if this is used as collateral (using main address as subAccount)
+    const collateralKey = `${normalizedAddress}:${ethers.getAddress(vault.address)}`
+    if (collateralUsageSet.value.has(collateralKey)) {
+      continue
+    }
+
+    deposits.push({
+      vault,
+      subAccount: normalizedAddress,
+      shares: balance,
+      assets: await convertSharesToAssets(vault.address, balance),
+    } as AccountDepositPosition)
   }
 
   const shouldUpdate = options.forceAllPositions !== undefined
@@ -692,8 +514,7 @@ const updateEarnPositions = async (
     return
   }
 
-  const { earnList } = useVaults()
-  const { getOrResolve } = useVaultRegistry()
+  const { getOrFetch, getType: registryGetType, getEarnVaults } = useVaultRegistry()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -731,13 +552,13 @@ const updateEarnPositions = async (
           }
 
           // Resolve vault from registry
-          const vaultEntry = await getOrResolve(vaultAddress)
-          if (!vaultEntry) {
+          const vault = await getOrFetch(vaultAddress)
+          if (!vault) {
             return undefined
           }
 
           // Only process earn vaults (others handled by updateDepositPositions)
-          if (vaultEntry.type !== 'earn') {
+          if (registryGetType(vaultAddress) !== 'earn') {
             return undefined
           }
 
@@ -745,7 +566,7 @@ const updateEarnPositions = async (
             const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
 
             return {
-              vault: vaultEntry.vault,
+              vault,
               shares: res.vaultAccountInfo.shares,
               assets: res.vaultAccountInfo.assets,
             } as AccountEarnPosition
@@ -759,16 +580,37 @@ const updateEarnPositions = async (
     }
   }
   else {
-    for (let i = 0; i < earnList.value.length; i += batchSize) {
-      const batch = earnList.value
+    // For non-showAll mode, only show positions in known/verified earn vaults
+    // Use account lens to get share balances (wallet balances only track underlying assets)
+    const { EVM_PROVIDER_URL } = useEulerConfig()
+
+    if (!eulerLensAddresses?.accountLens) {
+      throw new Error('Euler addresses not loaded yet')
+    }
+
+    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
+    const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+
+    const earnVaultsList = getEarnVaults().filter(v => v.verified)
+    for (let i = 0; i < earnVaultsList.length; i += batchSize) {
+      const batch = earnVaultsList
         .slice(i, i + batchSize)
         .map(async (vault) => {
-          const balance = balances.get(ethers.getAddress(vault.address))
-          return {
-            vault,
-            shares: balance,
-            assets: balance ? await convertSharesToAssets(vault.address, balance) : 0n,
-          } as AccountEarnPosition
+          try {
+            const res = await accountLensContract.getAccountInfo(address, vault.address)
+            return {
+              vault,
+              shares: res.vaultAccountInfo.shares,
+              assets: res.vaultAccountInfo.assets,
+            } as AccountEarnPosition
+          }
+          catch {
+            return {
+              vault,
+              shares: 0n,
+              assets: 0n,
+            } as AccountEarnPosition
+          }
         })
 
       earns = [...earns, ...(await Promise.all(batch)).filter(o => o.shares > 0n)] as AccountEarnPosition[]
@@ -794,27 +636,29 @@ export const useEulerAccount = () => {
   const portfolioAddress = computed(() => normalizedDebugAddress.value || normalizeAddress(address.value))
   const isDebugPortfolio = computed(() => Boolean(normalizedDebugAddress.value))
 
-  const updatePositions = () => {
+  const updatePositions = async () => {
     const targetAddress = portfolioAddress.value
-    updateBorrowPositions(
+    const shouldShowAll = isShowAllPositions.value || isDebugPortfolio.value
+    // Borrow positions must be loaded first so deposits can filter against them
+    await updateBorrowPositions(
       eulerLensAddresses.value,
       targetAddress,
       false,
-      { forceAllPositions: isDebugPortfolio.value },
+      { forceAllPositions: shouldShowAll },
     )
     updateDepositPositions(
       balances.value,
       eulerLensAddresses.value,
       targetAddress,
       false,
-      { forceAllPositions: isDebugPortfolio.value },
+      { forceAllPositions: shouldShowAll },
     )
     updateEarnPositions(
       balances.value,
       eulerLensAddresses.value,
       targetAddress,
       false,
-      { forceAllPositions: isDebugPortfolio.value },
+      { forceAllPositions: shouldShowAll },
     )
   }
 
@@ -828,6 +672,27 @@ export const useEulerAccount = () => {
     updatePositions()
   })
 
+  /**
+   * Find a borrow position by its subaccount index.
+   * The subaccount index is derived from: ownerAddress XOR subAccountAddress
+   */
+  const getPositionBySubAccountIndex = (subAccountIndex: number): AccountBorrowPosition | undefined => {
+    const owner = portfolioAddress.value || address.value
+    if (!owner) return undefined
+    
+    return borrowPositions.value.find((position) => {
+      try {
+        const ownerBigInt = BigInt(ethers.getAddress(owner))
+        const subAccountBigInt = BigInt(ethers.getAddress(position.subAccount))
+        const index = Number(ownerBigInt ^ subAccountBigInt)
+        return index === subAccountIndex
+      }
+      catch {
+        return false
+      }
+    })
+  }
+
   return {
     borrowPositions,
     depositPositions,
@@ -840,9 +705,9 @@ export const useEulerAccount = () => {
     portfolioAddress,
     isDebugPortfolio,
     updateBorrowPositions,
-    updateCollateralPositions,
     updateDepositPositions,
     updateEarnPositions,
+    getPositionBySubAccountIndex,
     totalSuppliedValue,
     totalSuppliedValueInfo,
     totalBorrowedValue,

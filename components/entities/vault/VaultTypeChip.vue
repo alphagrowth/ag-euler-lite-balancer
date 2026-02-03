@@ -1,58 +1,101 @@
 <script setup lang="ts">
-import type { Vault, EarnVault, EscrowVault } from '~/entities/vault'
+import type { Vault, EarnVault, SecuritizeVault } from '~/entities/vault'
 
-// TODO: More types
 const { type, vault } = defineProps<{
   type: string
-  vault: Vault | EarnVault | EscrowVault
+  vault: Vault | EarnVault | SecuritizeVault
 }>()
 
+const { isVaultGovernorVerified, isEarnVaultOwnerVerified } = useVaults()
+
+// Check if vault is verified by checking governorAdmin/owner matches declared entities
+const isVerified = computed(() => {
+  if (type === 'escrow') {
+    return true
+  }
+
+  if (type === 'managed') {
+    return isEarnVaultOwnerVerified(vault as EarnVault)
+  }
+
+  // governed, ungoverned, securitize
+  return isVaultGovernorVerified(vault as Vault)
+})
+
+const isWarning = computed(() => !isVerified.value || type === 'unknown')
+
 const icon = computed(() => {
+  if (isWarning.value) {
+    return 'warning'
+  }
   switch (type) {
     case 'governed':
     case 'managed':
       return 'bank'
     case 'escrow':
+    case 'securitize':
       return 'shield'
+    case 'ungoverned':
+      return 'pulse'
   }
 
   return 'pulse'
 })
+
 const label = computed(() => {
+  if (!isVerified.value) {
+    return 'Unknown'
+  }
   switch (type) {
     case 'governed':
       return 'Governed'
     case 'managed':
       return 'Managed'
     case 'escrow':
-      return 'Escrow'
+      return 'Escrowed collateral'
+    case 'securitize':
+      return 'Securitize Digital Security'
+    case 'ungoverned':
+      return 'Ungoverned'
+    case 'unknown':
+      return 'Unknown'
   }
 
-  return 'Edge'
+  return 'Unknown'
 })
 </script>
 
 <template>
-  <template v-if="'verified' in vault && !vault.verified">
-    <div
-      class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-yellow-opaque-200)] text-yellow-700"
-    >
-      <UiIcon
-        class="mr-2 !w-20 !h-20 text-yellow-600"
-        name="warning"
-      />
-      Unverified
-    </div>
-  </template>
-  <template v-else>
-    <div
-      class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-aquamarine-opaque-300)]"
-    >
-      <UiIcon
-        class="mr-2 !w-20 !h-20"
-        :name="icon"
-      />
-      {{ label }}
-    </div>
-  </template>
+  <div
+    class="vault-type-chip flex gap-8 items-center py-8 px-12 rounded-8"
+    :class="{ 'vault-type-chip--warning': isWarning }"
+  >
+    <UiIcon
+      class="mr-2 !w-20 !h-20"
+      :name="icon"
+    />
+    {{ label }}
+  </div>
 </template>
+
+<style scoped lang="scss">
+.vault-type-chip {
+  background-color: rgba(196, 155, 100, 0.15);
+  color: var(--accent-600);
+
+  [data-theme="dark"] & {
+    background-color: rgba(212, 169, 90, 0.2);
+    color: var(--accent-500);
+  }
+
+  &--warning {
+    background-color: var(--warning-100);
+    color: var(--warning-500);
+
+    [data-theme="dark"] & {
+      background-color: var(--warning-100);
+      color: var(--warning-500);
+    }
+  }
+}
+</style>

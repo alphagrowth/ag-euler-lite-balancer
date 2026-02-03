@@ -16,6 +16,7 @@ import { erc20ABI, swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
 import { buildPythUpdateCalls, sumCallValues } from '~/utils/pyth'
 import { useVaults } from '~/composables/useVaults'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { MAX_UINT48, MAX_UINT160, PERMIT2_TYPES, permit2Abi } from '~/entities/permit2'
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { isNonBlockingSimulationError } from '~/utils/tx-errors'
@@ -29,21 +30,12 @@ export const useEulerOperations = () => {
   const config = useConfig()
   const { eulerCoreAddresses, eulerPeripheryAddresses } = useEulerAddresses()
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
-  const { map, earnMap } = useVaults()
+  const { get: registryGet } = useVaultRegistry()
 
   const rpcProvider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const resolvePermit2Address = (vaultAddr?: Address): Address | undefined => {
-    const fallback = eulerCoreAddresses.value?.permit2 as Address | undefined
-    if (!vaultAddr) {
-      return fallback && fallback !== ethers.ZeroAddress ? fallback : undefined
-    }
-
-    const normalized = ethers.getAddress(vaultAddr)
-    const vault = map.value.get(normalized) || earnMap.value.get(normalized)
-    const vaultPermit2 = vault?.permit2 as Address | undefined
-    const resolved = vaultPermit2 && vaultPermit2 !== ethers.ZeroAddress ? vaultPermit2 : fallback
-
-    return resolved && resolved !== ethers.ZeroAddress ? resolved : undefined
+  const resolvePermit2Address = (): Address | undefined => {
+    const permit2 = eulerCoreAddresses.value?.permit2 as Address | undefined
+    return permit2 && permit2 !== ethers.ZeroAddress ? permit2 : undefined
   }
 
   const waitForTxReceipt = async (txHash?: Hash) => {
@@ -208,20 +200,23 @@ export const useEulerOperations = () => {
           if (!target) {
             continue
           }
-          const normalized = normalizeAddress(target)
-          const vault = map.value.get(normalized) || earnMap.value.get(normalized)
-          if (!vault?.asset?.address) {
+          // Check all vault types via registry
+          const vaultEntry = registryGet(normalizeAddress(target))
+          const vault = vaultEntry?.vault
+          const vaultAddress = vault?.address
+          const assetAddress = vault?.asset?.address
+          if (!assetAddress || !vaultAddress) {
             continue
           }
-          const permit2Address = resolvePermit2Address(vault.address as Address)
+          const permit2Address = resolvePermit2Address()
           if (!permit2Address) {
             continue
           }
           const permit2Key = normalizeAddress(permit2Address)
-          const pairKey = `${normalizeAddress(vault.asset.address as Address)}:${normalizeAddress(vault.address as Address)}`
+          const pairKey = `${normalizeAddress(assetAddress as Address)}:${normalizeAddress(vaultAddress as Address)}`
           const entry = permit2Pairs.get(permit2Key) || { address: permit2Address, pairs: [] }
           if (!entry.pairs.some(pair => `${normalizeAddress(pair.token)}:${normalizeAddress(pair.spender)}` === pairKey)) {
-            entry.pairs.push({ token: vault.asset.address as Address, spender: vault.address as Address })
+            entry.pairs.push({ token: assetAddress as Address, spender: vaultAddress as Address })
           }
           permit2Pairs.set(permit2Key, entry)
         }
@@ -322,7 +317,8 @@ export const useEulerOperations = () => {
 
   const preparePythUpdates = async (vaultAddresses: string[], sender: Address) => {
     try {
-      const vaults = vaultAddresses.map(addr => map.value.get(ethers.getAddress(addr)))
+      const { getVault: registryGetVault } = useVaultRegistry()
+      const vaults = vaultAddresses.map(addr => registryGetVault(ethers.getAddress(addr)))
       return await buildPythUpdateCalls(vaults, EVM_PROVIDER_URL, PYTH_HERMES_URL, sender)
     }
     catch (err) {
@@ -598,6 +594,7 @@ export const useEulerOperations = () => {
     }
 
     const hasApprovalSteps = plan.steps.some(step => step.type === 'approve' || step.type === 'permit2-approve')
+    const usesPermit2 = plan.steps.some(step => step.type === 'permit2-approve' || (step.label && step.label.includes('Permit2')))
     const stepsToSimulate = plan.steps.filter(step => step.type !== 'approve' && step.type !== 'permit2-approve')
     let stateOverride: StateOverride | undefined
     try {
@@ -623,7 +620,7 @@ export const useEulerOperations = () => {
         })
       }
       catch (err) {
-        if (hasApprovalSteps && isNonBlockingSimulationError(err)) {
+        if ((hasApprovalSteps || usesPermit2) && isNonBlockingSimulationError(err)) {
           continue
         }
         throw err
@@ -652,7 +649,7 @@ export const useEulerOperations = () => {
 
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
-    const permit2Address = resolvePermit2Address(vaultAddr)
+    const permit2Address = resolvePermit2Address()
     const includePermit2Call = options.includePermit2Call ?? true
     const canUsePermit2 = !!chainId.value && !!permit2Address
 
@@ -900,7 +897,7 @@ export const useEulerOperations = () => {
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const permit2Address = resolvePermit2Address(vaultAddr)
+    const permit2Address = resolvePermit2Address()
 
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
 
@@ -1166,8 +1163,8 @@ export const useEulerOperations = () => {
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const supplyPermit2Address = resolvePermit2Address(supplyVaultAddr)
-    const longPermit2Address = resolvePermit2Address(longVaultAddr)
+    const supplyPermit2Address = resolvePermit2Address()
+    const longPermit2Address = resolvePermit2Address()
 
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
     const hasSigned = await hasSignature(userAddr)
@@ -1444,7 +1441,7 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const permit2Address = resolvePermit2Address(borrowVaultAddr)
+    const permit2Address = resolvePermit2Address()
 
     const hasSigned = await hasSignature(userAddr)
 
@@ -1550,7 +1547,7 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const permit2Address = resolvePermit2Address(borrowVaultAddr)
+    const permit2Address = resolvePermit2Address()
 
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
@@ -1833,7 +1830,7 @@ export const useEulerOperations = () => {
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const permit2Address = resolvePermit2Address(vaultAddr)
+    const permit2Address = resolvePermit2Address()
     const depositToAddr = subAccount ? (subAccount as Address) : userAddr
 
     const hasSigned = await hasSignature(userAddr)
@@ -2083,7 +2080,7 @@ export const useEulerOperations = () => {
 
     const hasSigned = await hasSignature(userAddr)
     const requirePermit2 = true
-    const permit2Address = resolvePermit2Address(vaultAddr)
+    const permit2Address = resolvePermit2Address()
     const canUsePermit2 = !!chainId.value && !!permit2Address
     let permitCall: EVCCall | undefined
 
@@ -2308,7 +2305,7 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const permit2Address = resolvePermit2Address(borrowVaultAddr)
+    const permit2Address = resolvePermit2Address()
 
     const hasSigned = await hasSignature(userAddr)
 
@@ -2401,7 +2398,7 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
-    const permit2Address = resolvePermit2Address(borrowVaultAddr)
+    const permit2Address = resolvePermit2Address()
 
     const hasSigned = await hasSignature(userAddr)
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
@@ -2442,9 +2439,6 @@ export const useEulerOperations = () => {
 
     const subAccountShares = await vaultContract.balanceOf(subAccountAddr).catch(() => 0n)
     const subAccountAssets = await vaultContract.convertToAssets(subAccountShares).catch(() => 0n)
-
-    console.log('subAccountShares', subAccountShares)
-    console.log('subAccountAssets', subAccountAssets)
 
     const hooks = new SaHooksBuilder()
 

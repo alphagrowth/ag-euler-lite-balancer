@@ -48,8 +48,8 @@ load()
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
-    <p class="text-h3 text-white">
+  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card">
+    <p class="text-h3 text-content-primary">
       Risk parameters
     </p>
     <div class="flex flex-col items-start gap-24">
@@ -69,6 +69,7 @@ load()
             <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress
+            v-if="vault.supplyCap < MaxUint256"
             :value="supplyCapPercentageDisplay"
             :max="100"
           />
@@ -82,9 +83,10 @@ load()
         <div class="flex gap-4 items-center">
           <span>
             {{ vault.borrowCap >= MaxUint256 ? '∞' :`$${compactNumber(calcPrice(vault.borrowCap))}` }}
-            <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
+            <span v-if="vault.borrowCap < MaxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress
+            v-if="vault.borrowCap < MaxUint256"
             :value="borrowCapPercentageDisplay"
             :max="100"
           />

@@ -145,7 +145,7 @@ const onUnlockClick = async () => {
           {{ reulToken ? `${formatNumber(unlockableAmount, 6)} rEUL` : '...' }}
         </p>
         <p class="text-p3 text-euler-dark-900">
-          {{ reulToken ? `OF ${formatNumber(amount, 6)} rEUL` : '...' }}
+          {{ reulToken ? `of ${formatNumber(amount, 6)} rEUL` : '...' }}
         </p>
       </div>
     </div>
