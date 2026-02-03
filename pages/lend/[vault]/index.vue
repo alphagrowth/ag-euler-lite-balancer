@@ -376,6 +376,7 @@ watch(amount, async () => {
 <template>
   <div class="flex gap-32">
     <div class="flex flex-col gap-16 w-full">
+      <BaseBackButton class="laptop:!hidden" />
       <VaultForm
         title="Open lend position"
         class="w-full"

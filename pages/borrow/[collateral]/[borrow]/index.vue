@@ -1376,367 +1376,369 @@ watch(formTab, () => {
   clearBorrowSimulationError()
   clearMultiplySimulationError()
 })
-
 </script>
 
 <template>
   <div class="flex gap-32">
-    <VaultForm
-      title="Open borrow position"
-      class="flex flex-col gap-16 w-full min-w-0"
-      @submit.prevent="onSubmit"
-    >
-      <template v-if="pair">
-        <UiTabs
-          v-model="formTab"
-          class="mb-12"
-          rounded
-          pills
-          :list="formTabs"
-        />
-
-        <VaultLabelsAndAssets
-          v-if="collateralVault && borrowVault"
-          :vault="collateralVault"
-          :pair-vault="borrowVault"
-          :assets="pairAssets as VaultAsset[]"
-          size="large"
-        />
-
-        <template v-if="formTab === 'borrow'">
-          <AssetInput
-            v-if="collateralVault"
-            v-model="collateralAmount"
-            :desc="collateralProduct.name"
-            :label="`Supply ${collateralVault.asset.symbol}`"
-            :asset="collateralVault.asset"
-            :price-override="collateralUnitPrice"
-            :balance="computedBalance"
-            :collateral-options="collateralOptions as CollateralOption[]"
-            maxable
-            @input="onCollateralInput"
-            @change-collateral="onChangeCollateral"
+    <div class="flex flex-col gap-16 w-full">
+      <BaseBackButton class="laptop:!hidden" />
+      <VaultForm
+        title="Open borrow position"
+        class="flex flex-col gap-16 w-full min-w-0"
+        @submit.prevent="onSubmit"
+      >
+        <template v-if="pair">
+          <UiTabs
+            v-model="formTab"
+            class="mb-12"
+            rounded
+            pills
+            :list="formTabs"
           />
 
-          <UiRange
-            v-model="ltv"
-            label="LTV"
-            :step="0.1"
-            :max="Number(pair.borrowLTV / 100n)"
-            :number-filter="(n: number) => `${n}%`"
-            @update:model-value="onLtvInput"
+          <VaultLabelsAndAssets
+            v-if="collateralVault && borrowVault"
+            :vault="collateralVault"
+            :pair-vault="borrowVault"
+            :assets="pairAssets as VaultAsset[]"
+            size="large"
           />
 
-          <AssetInput
-            v-if="borrowVault"
-            v-model="borrowAmount"
-            :desc="borrowProduct.name"
-            :label="`Borrow ${borrowVault.asset.symbol}`"
-            :asset="borrowVault.asset"
-            :vault="borrowVault"
-            @input="onBorrowInput"
-          />
+          <template v-if="formTab === 'borrow'">
+            <AssetInput
+              v-if="collateralVault"
+              v-model="collateralAmount"
+              :desc="collateralProduct.name"
+              :label="`Supply ${collateralVault.asset.symbol}`"
+              :asset="collateralVault.asset"
+              :price-override="collateralUnitPrice"
+              :balance="computedBalance"
+              :collateral-options="collateralOptions as CollateralOption[]"
+              maxable
+              @input="onCollateralInput"
+              @change-collateral="onChangeCollateral"
+            />
 
-          <UiToast
-            v-show="errorText"
-            title="Error"
-            variant="error"
-            :description="errorText || ''"
-            size="compact"
-          />
-          <UiToast
-            v-if="borrowSimulationError"
-            title="Error"
-            variant="error"
-            :description="borrowSimulationError"
-            size="compact"
-          />
+            <UiRange
+              v-model="ltv"
+              label="LTV"
+              :step="0.1"
+              :max="Number(pair.borrowLTV / 100n)"
+              :number-filter="(n: number) => `${n}%`"
+              @update:model-value="onLtvInput"
+            />
 
-          <VaultFormInfoBlock
-            v-if="pair"
-            :loading="isEstimatesLoading"
-            class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
-          >
-            <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
-                Net APY
-              </p>
-              <p class="text-p2">
-                {{ netAPY ? `${formatNumber(netAPY)}%` : '-' }}
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
-                Current Price
-              </p>
-              <p class="text-p2">
-                {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-                <span class="text-euler-dark-900 text-p3">
-                  {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
-                </span>
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
-                Liquidation price
-              </p>
-              <p class="text-p2">
-                {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-                <span class="text-euler-dark-900 text-p3">
-                  {{ collateralVault?.asset.symbol }}
-                </span>
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
-                Health
-              </p>
-              <p class="text-p2">
-                {{ health ? formatNumber(health, 2) : '-' }}
-              </p>
-            </div>
-          </VaultFormInfoBlock>
-        </template>
+            <AssetInput
+              v-if="borrowVault"
+              v-model="borrowAmount"
+              :desc="borrowProduct.name"
+              :label="`Borrow ${borrowVault.asset.symbol}`"
+              :asset="borrowVault.asset"
+              :vault="borrowVault"
+              @input="onBorrowInput"
+            />
 
-        <template v-else-if="multiplySupplyVault && multiplyLongVault && multiplyShortVault">
-          <div class="grid gap-16 laptop:items-start">
-            <div class="flex flex-col gap-16 w-full">
-              <AssetInput
-                v-model="multiplyInputAmount"
-                :desc="multiplySupplyProduct.name"
-                :label="`Supply ${multiplySupplyVault.asset.symbol}`"
-                :asset="multiplySupplyVault.asset"
-                :vault="multiplySupplyVault"
-                :balance="multiplyBalance"
-                :collateral-options="multiplyCollateralOptions"
-                maxable
-                @input="onMultiplyInput"
-                @change-collateral="onMultiplyCollateralChange"
-              />
+            <UiToast
+              v-show="errorText"
+              title="Error"
+              variant="error"
+              :description="errorText || ''"
+              size="compact"
+            />
+            <UiToast
+              v-if="borrowSimulationError"
+              title="Error"
+              variant="error"
+              :description="borrowSimulationError"
+              size="compact"
+            />
 
-              <UiRange
-                v-model="multiplier"
-                label="Multiplier"
-                :step="0.1"
-                :min="multiplyMinMultiplier"
-                :max="multiplyMaxMultiplier"
-                :number-filter="(n: number) => `${n}x`"
-                @update:model-value="onMultiplierInput"
-              />
+            <VaultFormInfoBlock
+              v-if="pair"
+              :loading="isEstimatesLoading"
+              class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
+            >
+              <div class="flex justify-between items-center">
+                <p class="text-euler-dark-900">
+                  Net APY
+                </p>
+                <p class="text-p2">
+                  {{ netAPY ? `${formatNumber(netAPY)}%` : '-' }}
+                </p>
+              </div>
+              <div class="flex justify-between items-center">
+                <p class="text-euler-dark-900">
+                  Current Price
+                </p>
+                <p class="text-p2">
+                  {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
+                  <span class="text-euler-dark-900 text-p3">
+                    {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
+                  </span>
+                </p>
+              </div>
+              <div class="flex justify-between items-center">
+                <p class="text-euler-dark-900">
+                  Liquidation price
+                </p>
+                <p class="text-p2">
+                  {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
+                  <span class="text-euler-dark-900 text-p3">
+                    {{ collateralVault?.asset.symbol }}
+                  </span>
+                </p>
+              </div>
+              <div class="flex justify-between items-center">
+                <p class="text-euler-dark-900">
+                  Health
+                </p>
+                <p class="text-p2">
+                  {{ health ? formatNumber(health, 2) : '-' }}
+                </p>
+              </div>
+            </VaultFormInfoBlock>
+          </template>
 
-              <SwapRouteSelector
-                :items="multiplyRouteItems"
-                :selected-provider="multiplySelectedProvider"
-                :status-label="multiplyQuotesStatusLabel"
-                :is-loading="isMultiplyQuoteLoading"
-                :empty-message="multiplyRouteEmptyMessage"
-                @select="selectMultiplyQuote"
-              />
+          <template v-else-if="multiplySupplyVault && multiplyLongVault && multiplyShortVault">
+            <div class="grid gap-16 laptop:items-start">
+              <div class="flex flex-col gap-16 w-full">
+                <AssetInput
+                  v-model="multiplyInputAmount"
+                  :desc="multiplySupplyProduct.name"
+                  :label="`Supply ${multiplySupplyVault.asset.symbol}`"
+                  :asset="multiplySupplyVault.asset"
+                  :vault="multiplySupplyVault"
+                  :balance="multiplyBalance"
+                  :collateral-options="multiplyCollateralOptions"
+                  maxable
+                  @input="onMultiplyInput"
+                  @change-collateral="onMultiplyCollateralChange"
+                />
 
-              <AssetInput
-                v-model="multiplyLongAmount"
-                :desc="multiplyLongProduct.name"
-                label="Long"
-                :asset="multiplyLongVault.asset"
-                :vault="multiplyLongVault"
-                :readonly="true"
-              />
+                <UiRange
+                  v-model="multiplier"
+                  label="Multiplier"
+                  :step="0.1"
+                  :min="multiplyMinMultiplier"
+                  :max="multiplyMaxMultiplier"
+                  :number-filter="(n: number) => `${n}x`"
+                  @update:model-value="onMultiplierInput"
+                />
 
-              <AssetInput
-                v-model="multiplyShortAmount"
-                :desc="multiplyShortProduct.name"
-                label="Short"
-                :asset="multiplyShortVault.asset"
-                :vault="multiplyShortVault"
-                :readonly="true"
-              />
+                <SwapRouteSelector
+                  :items="multiplyRouteItems"
+                  :selected-provider="multiplySelectedProvider"
+                  :status-label="multiplyQuotesStatusLabel"
+                  :is-loading="isMultiplyQuoteLoading"
+                  :empty-message="multiplyRouteEmptyMessage"
+                  @select="selectMultiplyQuote"
+                />
 
-              <UiToast
-                v-show="multiplyErrorText"
-                title="Error"
-                variant="error"
-                :description="multiplyErrorText || ''"
-                size="compact"
-              />
-              <UiToast
-                v-if="multiplySimulationError"
-                title="Error"
-                variant="error"
-                :description="multiplySimulationError"
-                size="compact"
-              />
+                <AssetInput
+                  v-model="multiplyLongAmount"
+                  :desc="multiplyLongProduct.name"
+                  label="Long"
+                  :asset="multiplyLongVault.asset"
+                  :vault="multiplyLongVault"
+                  :readonly="true"
+                />
 
-              <UiToast
-                v-if="multiplyQuoteError"
-                title="Swap quote"
-                variant="warning"
-                :description="multiplyQuoteError"
-                size="compact"
-              />
-            </div>
+                <AssetInput
+                  v-model="multiplyShortAmount"
+                  :desc="multiplyShortProduct.name"
+                  label="Short"
+                  :asset="multiplyShortVault.asset"
+                  :vault="multiplyShortVault"
+                  :readonly="true"
+                />
 
-            <div class="flex flex-col gap-16 w-full">
-              <VaultFormInfoBlock
-                :loading="isMultiplyQuoteLoading"
-                class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full"
-              >
-                <div class="flex justify-between items-center">
-                  <p class="text-euler-dark-900">
-                    ROE
-                  </p>
-                  <p class="text-p2">
-                    <template v-if="multiplyRoeBefore !== null && multiplyRoeAfter !== null && multiplySwapReady">
-                      <span class="text-euler-dark-900">{{ formatNumber(multiplyRoeBefore) }}%</span>
-                      → <span class="text-white">{{ formatNumber(multiplyRoeAfter) }}%</span>
-                    </template>
-                    <template v-else>
-                      {{ multiplyRoeBefore !== null ? `${formatNumber(multiplyRoeBefore)}%` : '-' }}
-                    </template>
-                  </p>
-                </div>
-                <div class="flex justify-between items-center">
-                  <p class="text-euler-dark-900">
-                    Current price
-                  </p>
-                  <p class="text-p2">
-                    {{ multiplyCurrentPrice ? `${formatNumber(multiplyCurrentPrice.value)} ${multiplyCurrentPrice.symbol}` : '-' }}
-                  </p>
-                </div>
-                <div class="flex justify-between items-center">
-                  <p class="text-euler-dark-900">
-                    Liquidation price
-                  </p>
-                  <p class="text-p2">
-                    <template v-if="multiplyCurrentLiquidationPrice !== null && multiplyNextLiquidationPrice !== null && multiplySwapReady">
-                      <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentLiquidationPrice, 4) }}</span>
-                      → <span class="text-white">{{ formatNumber(multiplyNextLiquidationPrice, 4) }}</span>
-                    </template>
-                    <template v-else>
-                      {{ multiplyCurrentLiquidationPrice !== null ? formatNumber(multiplyCurrentLiquidationPrice, 4) : '-' }}
-                    </template>
-                    <span class="text-euler-dark-900 text-p3">
-                      {{ multiplyLongVault?.asset.symbol }}
-                    </span>
-                  </p>
-                </div>
-                <div class="flex justify-between items-center">
-                  <p class="text-euler-dark-900">
-                    Your LTV (LLTV)
-                  </p>
-                  <p class="text-p2 text-right">
-                    <template v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null && multiplyNextLtv !== null && multiplyNextLiquidationLtv !== null && multiplySwapReady">
-                      <span class="text-euler-dark-900">
-                        {{ formatNumber(multiplyCurrentLtv) }}%
-                        <span class="text-euler-dark-900 text-p3">
-                          ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
-                        </span>
+                <UiToast
+                  v-show="multiplyErrorText"
+                  title="Error"
+                  variant="error"
+                  :description="multiplyErrorText || ''"
+                  size="compact"
+                />
+                <UiToast
+                  v-if="multiplySimulationError"
+                  title="Error"
+                  variant="error"
+                  :description="multiplySimulationError"
+                  size="compact"
+                />
+
+                <UiToast
+                  v-if="multiplyQuoteError"
+                  title="Swap quote"
+                  variant="warning"
+                  :description="multiplyQuoteError"
+                  size="compact"
+                />
+              </div>
+
+              <div class="flex flex-col gap-16 w-full">
+                <VaultFormInfoBlock
+                  :loading="isMultiplyQuoteLoading"
+                  class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full"
+                >
+                  <div class="flex justify-between items-center">
+                    <p class="text-euler-dark-900">
+                      ROE
+                    </p>
+                    <p class="text-p2">
+                      <template v-if="multiplyRoeBefore !== null && multiplyRoeAfter !== null && multiplySwapReady">
+                        <span class="text-euler-dark-900">{{ formatNumber(multiplyRoeBefore) }}%</span>
+                        → <span class="text-white">{{ formatNumber(multiplyRoeAfter) }}%</span>
+                      </template>
+                      <template v-else>
+                        {{ multiplyRoeBefore !== null ? `${formatNumber(multiplyRoeBefore)}%` : '-' }}
+                      </template>
+                    </p>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <p class="text-euler-dark-900">
+                      Current price
+                    </p>
+                    <p class="text-p2">
+                      {{ multiplyCurrentPrice ? `${formatNumber(multiplyCurrentPrice.value)} ${multiplyCurrentPrice.symbol}` : '-' }}
+                    </p>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <p class="text-euler-dark-900">
+                      Liquidation price
+                    </p>
+                    <p class="text-p2">
+                      <template v-if="multiplyCurrentLiquidationPrice !== null && multiplyNextLiquidationPrice !== null && multiplySwapReady">
+                        <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentLiquidationPrice, 4) }}</span>
+                        → <span class="text-white">{{ formatNumber(multiplyNextLiquidationPrice, 4) }}</span>
+                      </template>
+                      <template v-else>
+                        {{ multiplyCurrentLiquidationPrice !== null ? formatNumber(multiplyCurrentLiquidationPrice, 4) : '-' }}
+                      </template>
+                      <span class="text-euler-dark-900 text-p3">
+                        {{ multiplyLongVault?.asset.symbol }}
                       </span>
-                      → <span class="text-white">
-                        {{ formatNumber(multiplyNextLtv) }}%
-                        <span class="text-euler-dark-900 text-p3">
-                          ({{ formatNumber(multiplyNextLiquidationLtv) }}%)
+                    </p>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <p class="text-euler-dark-900">
+                      Your LTV (LLTV)
+                    </p>
+                    <p class="text-p2 text-right">
+                      <template v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null && multiplyNextLtv !== null && multiplyNextLiquidationLtv !== null && multiplySwapReady">
+                        <span class="text-euler-dark-900">
+                          {{ formatNumber(multiplyCurrentLtv) }}%
+                          <span class="text-euler-dark-900 text-p3">
+                            ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
+                          </span>
                         </span>
-                      </span>
-                    </template>
-                    <template v-else>
-                      <span v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null">
-                        {{ formatNumber(multiplyCurrentLtv) }}%
-                        <span class="text-euler-dark-900 text-p3">
-                          ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
+                        → <span class="text-white">
+                          {{ formatNumber(multiplyNextLtv) }}%
+                          <span class="text-euler-dark-900 text-p3">
+                            ({{ formatNumber(multiplyNextLiquidationLtv) }}%)
+                          </span>
                         </span>
+                      </template>
+                      <template v-else>
+                        <span v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null">
+                          {{ formatNumber(multiplyCurrentLtv) }}%
+                          <span class="text-euler-dark-900 text-p3">
+                            ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
+                          </span>
+                        </span>
+                        <span v-else>-</span>
+                      </template>
+                    </p>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <p class="text-euler-dark-900">
+                      Your health
+                    </p>
+                    <p class="text-p2">
+                      <template v-if="multiplyCurrentHealth !== null && multiplyNextHealth !== null && multiplySwapReady">
+                        <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentHealth, 2) }}</span>
+                        → <span class="text-white">{{ formatNumber(multiplyNextHealth, 2) }}</span>
+                      </template>
+                      <template v-else>
+                        {{ multiplyCurrentHealth !== null ? formatNumber(multiplyCurrentHealth, 2) : '-' }}
+                      </template>
+                    </p>
+                  </div>
+                  <div class="flex justify-between items-start">
+                    <p class="text-euler-dark-900">
+                      Swap
+                    </p>
+                    <p class="text-p2 text-right flex flex-col items-end">
+                      <span>{{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}</span>
+                      <span
+                        v-if="multiplySwapSummary"
+                        class="text-euler-dark-900 text-p3"
+                      >
+                        {{ multiplySwapSummary.to }}
                       </span>
-                      <span v-else>-</span>
-                    </template>
-                  </p>
-                </div>
-                <div class="flex justify-between items-center">
-                  <p class="text-euler-dark-900">
-                    Your health
-                  </p>
-                  <p class="text-p2">
-                    <template v-if="multiplyCurrentHealth !== null && multiplyNextHealth !== null && multiplySwapReady">
-                      <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentHealth, 2) }}</span>
-                      → <span class="text-white">{{ formatNumber(multiplyNextHealth, 2) }}</span>
-                    </template>
-                    <template v-else>
-                      {{ multiplyCurrentHealth !== null ? formatNumber(multiplyCurrentHealth, 2) : '-' }}
-                    </template>
-                  </p>
-                </div>
-                <div class="flex justify-between items-start">
-                  <p class="text-euler-dark-900">
-                    Swap
-                  </p>
-                  <p class="text-p2 text-right flex flex-col items-end">
-                    <span>{{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}</span>
-                    <span
-                      v-if="multiplySwapSummary"
-                      class="text-euler-dark-900 text-p3"
+                    </p>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <p class="text-euler-dark-900">
+                      Price impact
+                    </p>
+                    <p class="text-p2">
+                      {{ multiplyPriceImpact !== null ? `${formatNumber(multiplyPriceImpact, 2, 2)}%` : '-' }}
+                    </p>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <p class="text-euler-dark-900">
+                      Slippage tolerance
+                    </p>
+                    <button
+                      type="button"
+                      class="flex items-center gap-6 text-p2"
+                      @click="openSlippageSettings"
                     >
-                      {{ multiplySwapSummary.to }}
-                    </span>
-                  </p>
-                </div>
-                <div class="flex justify-between items-center">
-                  <p class="text-euler-dark-900">
-                    Price impact
-                  </p>
-                  <p class="text-p2">
-                    {{ multiplyPriceImpact !== null ? `${formatNumber(multiplyPriceImpact, 2, 2)}%` : '-' }}
-                  </p>
-                </div>
-                <div class="flex justify-between items-center">
-                  <p class="text-euler-dark-900">
-                    Slippage tolerance
-                  </p>
-                  <button
-                    type="button"
-                    class="flex items-center gap-6 text-p2"
-                    @click="openSlippageSettings"
-                  >
-                    <span>{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
-                    <SvgIcon
-                      name="edit"
-                      class="!w-16 !h-16 text-aquamarine-700"
-                    />
-                  </button>
-                </div>
-                <div class="flex justify-between items-center">
-                  <p class="text-euler-dark-900">
-                    Routed via
-                  </p>
-                  <p class="text-p2 text-right">
-                    {{ multiplyRoutedVia || '-' }}
-                  </p>
-                </div>
-              </VaultFormInfoBlock>
+                      <span>{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
+                      <SvgIcon
+                        name="edit"
+                        class="!w-16 !h-16 text-aquamarine-700"
+                      />
+                    </button>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <p class="text-euler-dark-900">
+                      Routed via
+                    </p>
+                    <p class="text-p2 text-right">
+                      {{ multiplyRoutedVia || '-' }}
+                    </p>
+                  </div>
+                </VaultFormInfoBlock>
+              </div>
             </div>
-          </div>
+          </template>
         </template>
-      </template>
 
-      <template #buttons>
-        <VaultFormInfoButton
-          :pair="pair"
-          :extra-vault="formTab === 'multiply' ? multiplySupplyVault : undefined"
-          class="laptop:!hidden"
-        />
-        <VaultFormSubmit
-          v-if="formTab === 'borrow'"
-          :disabled="reviewBorrowDisabled"
-          :loading="isSubmitting"
-        >
-          {{ reviewBorrowLabel }}
-        </VaultFormSubmit>
-        <VaultFormSubmit
-          v-else-if="formTab === 'multiply'"
-          :disabled="reviewMultiplyDisabled"
-          :loading="isMultiplySubmitting"
-        >
-          {{ reviewMultiplyLabel }}
-        </VaultFormSubmit>
-      </template>
-    </VaultForm>
+        <template #buttons>
+          <VaultFormInfoButton
+            :pair="pair"
+            :extra-vault="formTab === 'multiply' ? multiplySupplyVault : undefined"
+            class="laptop:!hidden"
+          />
+          <VaultFormSubmit
+            v-if="formTab === 'borrow'"
+            :disabled="reviewBorrowDisabled"
+            :loading="isSubmitting"
+          >
+            {{ reviewBorrowLabel }}
+          </VaultFormSubmit>
+          <VaultFormSubmit
+            v-else-if="formTab === 'multiply'"
+            :disabled="reviewMultiplyDisabled"
+            :loading="isMultiplySubmitting"
+          >
+            {{ reviewMultiplyLabel }}
+          </VaultFormSubmit>
+        </template>
+      </VaultForm>
+    </div>
     <div
       v-if="pair"
       class="w-full min-w-0 mobile:hidden"
