@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getVaultPrice, getVaultPriceDisplay, getVaultUtilization, type Vault } from '~/entities/vault'
-import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
+import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -10,26 +9,14 @@ import { VaultUtilizationWarningModal } from '#components'
 
 const { isConnected } = useAccount()
 const { vault } = defineProps<{ vault: Vault }>()
-const { isVaultGovernorVerified } = useVaults()
 const product = useEulerProductOfVault(vault.address)
 const isUnverified = computed(() => !vault.verified)
 const displayName = computed(() => product.name || vault.name)
-const entities = useEulerEntitiesOfVault(vault)
 const { getBalance, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const modal = useModal()
-
-const isGovernorVerified = computed(() => isVaultGovernorVerified(vault))
-const entitiesLabels = computed(() => {
-  if (!isGovernorVerified.value) return ['Unknown']
-  return entities.map(e => e.name)
-})
-const entitiesLogos = computed(() => {
-  if (!isGovernorVerified.value) return []
-  return entities.map(e => getEulerLabelEntityLogo(e.logo))
-})
 
 const balance = computed(() => getBalance(vault.asset.address as `0x${string}`))
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
@@ -46,6 +33,11 @@ const utilization = computed(() => getVaultUtilization(vault))
 const totalSupplyPrice = computed(() => {
   const price = getVaultPriceDisplay(vault.totalAssets, vault)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
+
+const liquidityPrice = computed(() => {
+  const liquidity = vault.supply - vault.borrow
+  return `$${compactNumber(getVaultPrice(liquidity, vault))}`
 })
 
 const walletBalancePrice = computed(() => {
@@ -110,13 +102,11 @@ const onWarningClick = () => {
       </div>
       <div class="flex-1 flex flex-col items-center">
         <div class="text-content-tertiary text-p3 mb-4">
-          Risk manager
+          Available liquidity
         </div>
-        <BaseAvatar
-          class="icon--20"
-          :label="entitiesLabels"
-          :src="entitiesLogos"
-        />
+        <div class="text-p2 text-content-primary">
+          {{ liquidityPrice }}
+        </div>
       </div>
       <div
         class="flex flex-col flex-1 mobile:!hidden"

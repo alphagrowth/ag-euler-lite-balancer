@@ -1,29 +1,16 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getEarnVaultPrice, getEarnVaultPriceDisplay, type EarnVault } from '~/entities/vault'
-import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
+import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 
 const { isConnected } = useAccount()
 const { vault } = defineProps<{ vault: EarnVault }>()
-const { isEarnVaultOwnerVerified } = useVaults()
-const entities = useEulerEntitiesOfEarnVault(vault)
 const product = useEulerProductOfVault(vault.address)
-const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
 const { getBalance, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
-
-const entitiesLabels = computed(() => {
-  if (!isOwnerVerified.value) return ['Unknown']
-  return entities.map(e => e.name)
-})
-const entitiesLogos = computed(() => {
-  if (!isOwnerVerified.value) return []
-  return entities.map(e => getEulerLabelEntityLogo(e.logo))
-})
 
 const balance = computed(() => getBalance(vault.asset.address as `0x${string}`))
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
@@ -36,6 +23,10 @@ const displayName = computed(() => product.name || vault.name)
 const totalSupplyPrice = computed(() => {
   const price = getEarnVaultPriceDisplay(vault.totalAssets, vault)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
+
+const liquidityPrice = computed(() => {
+  return `$${compactNumber(getEarnVaultPrice(vault.availableAssets, vault))}`
 })
 
 const walletBalancePrice = computed(() => {
@@ -94,15 +85,13 @@ const walletBalancePrice = computed(() => {
           {{ totalSupplyPrice }}
         </div>
       </div>
-      <div class="flex flex-col items-center flex-1">
+      <div class="flex-1 flex flex-col items-center">
         <div class="text-content-tertiary text-p3 mb-4">
-          Capital allocator
+          Available liquidity
         </div>
-        <BaseAvatar
-          class="icon--20"
-          :label="entitiesLabels"
-          :src="entitiesLogos"
-        />
+        <div class="text-p2 text-content-primary">
+          {{ liquidityPrice }}
+        </div>
       </div>
       <div
         class="flex flex-col flex-1 items-end text-right"

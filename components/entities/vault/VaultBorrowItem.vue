@@ -123,7 +123,7 @@ const linkPath = computed(() => `/borrow/${pair.collateral.address}/${pair.borro
     <div class="flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-line-subtle">
       <div>
         <div class="text-content-tertiary text-p3 mb-4">
-          Liquidity
+          Available liquidity
         </div>
         <div class="text-p2 text-content-primary">
           {{ `$${compactNumber(getVaultPrice(pair.borrow.supply - pair.borrow.borrow, pair.borrow))}` }}
