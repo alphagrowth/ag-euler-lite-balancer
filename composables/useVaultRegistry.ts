@@ -2,7 +2,6 @@ import { ethers } from 'ethers'
 import {
   type Vault,
   type EarnVault,
-  type EscrowVault,
   type SecuritizeVault,
   fetchVault,
   fetchEarnVault,
@@ -16,7 +15,7 @@ import {
 export type VaultType = 'evk' | 'earn' | 'securitize'
 
 // Union of all vault types
-export type AnyVault = Vault | EarnVault | EscrowVault | SecuritizeVault
+export type AnyVault = Vault | EarnVault | SecuritizeVault
 
 // Registry entry containing vault and its type
 export interface VaultEntry {

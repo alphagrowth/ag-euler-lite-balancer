@@ -29,7 +29,7 @@ const priceDisplay = computed(() => {
 
 const vaultGovernanceType = computed(() => {
   // Escrow vault
-  if ('type' in vault && vault.type === 'escrow') {
+  if (vault.vaultCategory === 'escrow') {
     return 'escrow'
   }
   // Has matching entity → governed

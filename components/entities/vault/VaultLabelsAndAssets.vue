@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import type { EarnVault, EscrowVault, SecuritizeVault, Vault, VaultAsset } from '~/entities/vault'
+import type { EarnVault, SecuritizeVault, Vault, VaultAsset } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
-  vault: Vault | EarnVault | EscrowVault | SecuritizeVault
+  vault: Vault | EarnVault | SecuritizeVault
   assets: VaultAsset[]
   size?: 'large'
   assetsLabel?: string
@@ -14,7 +14,7 @@ const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
 const vaultAddress = computed(() => ethers.getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const displayName = computed(() => {
-  if ('type' in vault && vault.type === 'escrow') {
+  if ('vaultCategory' in vault && vault.vaultCategory === 'escrow') {
     return 'Escrowed collateral'
   }
   return product.name || vault.name
@@ -23,8 +23,8 @@ const displayName = computed(() => {
 const pairVaultAddress = computed(() => pairVault ? ethers.getAddress(pairVault.address) : '')
 const pairProduct = useEulerProductOfVault(pairVaultAddress)
 
-const getVaultLabel = (v: Vault | EarnVault | EscrowVault | SecuritizeVault) => {
-  if ('type' in v && v.type === 'escrow') {
+const getVaultLabel = (v: Vault | EarnVault | SecuritizeVault) => {
+  if ('vaultCategory' in v && v.vaultCategory === 'escrow') {
     return 'Escrowed collateral'
   }
   const addr = ethers.getAddress(v.address)

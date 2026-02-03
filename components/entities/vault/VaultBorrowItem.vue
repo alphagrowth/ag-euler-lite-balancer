@@ -23,7 +23,7 @@ const modal = useModal()
 const collateralProduct = useEulerProductOfVault(computed(() => pair.collateral.address))
 const borrowProduct = useEulerProductOfVault(computed(() => pair.borrow.address))
 
-const isEscrowCollateral = computed(() => 'type' in pair.collateral && pair.collateral.type === 'escrow')
+const isEscrowCollateral = computed(() => 'vaultCategory' in pair.collateral && pair.collateral.vaultCategory === 'escrow')
 
 const isAnyUnverified = computed(() => {
   const collateralUnverified = 'verified' in pair.collateral && !pair.collateral.verified

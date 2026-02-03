@@ -52,7 +52,7 @@ const isAnyUnverified = computed(() => {
 })
 
 const collateralLabel = computed(() => {
-  if ('type' in position.collateral && position.collateral.type === 'escrow') {
+  if ('vaultCategory' in position.collateral && position.collateral.vaultCategory === 'escrow') {
     return 'Escrowed collateral'
   }
   return collateralProductName || position.collateral.name

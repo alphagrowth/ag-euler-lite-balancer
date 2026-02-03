@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Vault, EscrowVault, SecuritizeVault } from '~/entities/vault'
+import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
@@ -17,7 +17,7 @@ const onCollateralClick = (address: string) => {
 // This includes collaterals that are ramping down (borrowLTV == 0 but currentLiquidationLTV > 0)
 const allCollateralPairs = computed(() => {
   const pairs: Array<{
-    collateral: Vault | EscrowVault | SecuritizeVault
+    collateral: Vault | SecuritizeVault
     borrowLTV: bigint
     liquidationLTV: bigint
     initialLiquidationLTV: bigint
@@ -40,7 +40,7 @@ const allCollateralPairs = computed(() => {
     // Try to find the collateral vault from registry
     const collateralEntry = registryGet(ltv.collateral)
     if (collateralEntry) {
-      pairs.push({ collateral: collateralEntry.vault as Vault | EscrowVault | SecuritizeVault, ...pairData })
+      pairs.push({ collateral: collateralEntry.vault as Vault | SecuritizeVault, ...pairData })
     }
   })
 

@@ -27,7 +27,7 @@ const supplyApy = computed(() => {
 const supplyApyWithRewards = computed(() => supplyApy.value + (opportunityInfo.value?.apr || 0))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
-const isEscrow = computed(() => 'type' in vault.value && vault.value.type === 'escrow')
+const isEscrow = computed(() => 'vaultCategory' in vault.value && vault.value.vaultCategory === 'escrow')
 const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
 const displayName = computed(() => {
   if (isEscrow.value) return 'Escrowed collateral'

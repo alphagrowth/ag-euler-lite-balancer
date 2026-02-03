@@ -3,7 +3,6 @@ import { useVaultRegistry } from './useVaultRegistry'
 import {
   type AnyBorrowVaultPair,
   type EarnVault,
-  type EscrowVault,
   type SecuritizeVault,
   fetchEarnVaults,
   fetchVault,
@@ -359,7 +358,7 @@ const updateEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   return vault
 }
 
-const getEscrowVault = async (address: string): Promise<EscrowVault> => {
+const getEscrowVault = async (address: string): Promise<Vault> => {
   const { getVault: registryGetVault, isEscrowVault: registryIsEscrow, isKnownEscrowAddress, set: registrySet } = useVaultRegistry()
   const normalizedAddress = ethers.getAddress(address)
 
@@ -371,7 +370,7 @@ const getEscrowVault = async (address: string): Promise<EscrowVault> => {
   // Check if already in registry with full vault info
   const existingVault = registryGetVault(normalizedAddress)
   if (existingVault && registryIsEscrow(normalizedAddress)) {
-    return existingVault as EscrowVault
+    return existingVault as Vault
   }
 
   // If it's a known escrow address but not in registry (wasn't needed during initial load),
@@ -388,7 +387,7 @@ const getEscrowVault = async (address: string): Promise<EscrowVault> => {
   return vault
 }
 
-const updateEscrowVault = async (vaultAddress: string): Promise<EscrowVault> => {
+const updateEscrowVault = async (vaultAddress: string): Promise<Vault> => {
   const { set: registrySet } = useVaultRegistry()
   const address = ethers.getAddress(vaultAddress)
   const vault = await fetchEscrowVault(address)
@@ -466,7 +465,7 @@ const getBorrowVaultPair = async (
 
   // Check collateral type from registry
   const collateralType = getType(collateralAddr)
-  let collateralVault: Vault | EscrowVault | SecuritizeVault | undefined
+  let collateralVault: Vault | SecuritizeVault | undefined
 
   if (registryIsEscrow(collateralAddr)) {
     collateralVault = await getEscrowVault(collateralAddr)
@@ -515,7 +514,7 @@ export const useVaults = () => {
     const { entities } = useEulerLabels()
 
     // Escrow vaults don't have a risk manager - show "-" not "Unknown"
-    if ('type' in vault && (vault as { type: string }).type === 'escrow') {
+    if (vault.vaultCategory === 'escrow') {
       return true
     }
 

@@ -410,9 +410,6 @@ export interface EarnVault {
   }
 }
 
-export interface EscrowVault extends Vault {
-  type: 'escrow'
-}
 
 export interface CollateralOption {
   type: string
@@ -950,7 +947,7 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
   } as EarnVault
 }
 
-export const fetchEscrowVault = async (vaultAddress: string): Promise<EscrowVault> => {
+export const fetchEscrowVault = async (vaultAddress: string): Promise<Vault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses } = useEulerAddresses()
 
@@ -988,10 +985,9 @@ export const fetchEscrowVault = async (vaultAddress: string): Promise<EscrowVaul
 
   return {
     ...vault,
-    type: 'escrow',
     vaultCategory: 'escrow',
     verified: true,
-  } as EscrowVault
+  }
 }
 
 export const fetchVaults = async function* (
@@ -1348,7 +1344,7 @@ export const fetchEscrowAddresses = async (): Promise<string[]> => {
 }
 
 export const fetchEscrowVaults = async function* (): AsyncGenerator<
-  VaultIteratorResult<EscrowVault>,
+  VaultIteratorResult<Vault>,
   void,
   unknown
 > {
@@ -1427,7 +1423,6 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
 
         return {
           verified: true,
-          type: 'escrow',
           vaultCategory: 'escrow',
           address: data.vault,
           name: data.vaultName,
@@ -1474,7 +1469,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
                 interestRateModelInfo: data.irmInfo.interestRateModelInfo,
               }
             : undefined,
-        } as EscrowVault
+        } as Vault
       }
       catch (e) {
         console.error(`Error fetching escrow vault ${vaultAddress}:`, e)
@@ -1483,7 +1478,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
     })
 
     const res = await Promise.all(batchPromises)
-    const validVaults = res.filter(o => !!o) as EscrowVault[]
+    const validVaults = res.filter(o => !!o) as Vault[]
     await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
     applyVaultPriceOverrides(validVaults)
     await Promise.all(validVaults.map(vault => applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)))

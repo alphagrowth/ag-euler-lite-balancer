@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Vault, EarnVault, EscrowVault, SecuritizeVault } from '~/entities/vault'
+import type { Vault, EarnVault, SecuritizeVault } from '~/entities/vault'
 
 const { type, vault } = defineProps<{
   type: string
-  vault: Vault | EarnVault | EscrowVault | SecuritizeVault
+  vault: Vault | EarnVault | SecuritizeVault
 }>()
 
 const { isVaultGovernorVerified, isEarnVaultOwnerVerified } = useVaults()
