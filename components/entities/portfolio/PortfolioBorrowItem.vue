@@ -45,8 +45,14 @@ const collateralSymbolLabel = computed(() => {
 })
 const pairSymbols = computed(() => `${collateralSymbolLabel.value}/${position.borrow.asset.symbol}`)
 
+const isAnyUnverified = computed(() => {
+  const collateralUnverified = 'verified' in position.collateral && !position.collateral.verified
+  const borrowUnverified = 'verified' in position.borrow && !position.borrow.verified
+  return collateralUnverified || borrowUnverified
+})
+
 const collateralLabel = computed(() => {
-  if ('type' in position.collateral && position.collateral.type === 'escrow') {
+  if ('vaultCategory' in position.collateral && position.collateral.vaultCategory === 'escrow') {
     return 'Escrowed collateral'
   }
   return collateralProductName || position.collateral.name
@@ -223,14 +229,14 @@ onMounted(() => {
 <template>
   <NuxtLink
     :to="`/position/${subAccountIndex}`"
-    class="block no-underline text-white bg-euler-dark-500 rounded-16"
+    class="block no-underline bg-surface rounded-xl border border-line-subtle shadow-card transition-all duration-default ease-default hover:shadow-card-hover hover:border-line-emphasis"
   >
-    <div class="flex py-16 px-16 pb-12 border-b border-border-primary">
+    <div class="flex py-16 px-16 pb-12 border-b border-line-default">
       <div
         class="flex flex-col gap-12 items-start w-full"
       >
         <div
-          class="text-h6 text-euler-dark-900 bg-euler-dark-600 py-4 px-12 rounded-8 border border-euler-dark-700"
+          class="text-h6 text-content-secondary bg-surface-secondary py-4 px-12 rounded-8 border border-line-default"
         >
           Position {{ subAccountIndex }}
         </div>
@@ -241,10 +247,13 @@ onMounted(() => {
             class="icon--40"
           />
           <div>
-            <div class="text-euler-dark-900 text-p3 mb-4">
-              {{ pairName }}
+            <div class="text-content-tertiary text-p3 mb-4">
+              <VaultDisplayName
+                :name="pairName"
+                :is-unverified="isAnyUnverified"
+              />
             </div>
-            <div class="text-h5">
+            <div class="text-h5 text-content-primary">
               {{ pairSymbols }}
             </div>
           </div>
@@ -257,90 +266,90 @@ onMounted(() => {
         class="flex flex-col gap-12 w-full"
       >
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Net asset value
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
+            <div class="text-content-primary text-p3">
               {{ netAssetValueDisplay }}
             </div>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             My Debt
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
+            <div class="text-content-primary text-p3">
               {{ borrowedValueDisplay }}
             </div>
-            <div class="text-euler-dark-900 text-p3">
+            <div class="text-content-tertiary text-p3">
               ~ {{ roundAndCompactTokens(position.borrowed, position.borrow.decimals) }}
               {{ position.borrow.asset.symbol }}
             </div>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Collateral value
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-white text-p3">
+            <div class="text-content-primary text-p3">
               {{ collateralValueDisplay }}
             </div>
-            <div class="text-euler-dark-900 text-p3">
+            <div class="text-content-tertiary text-p3">
               ~ {{ roundAndCompactTokens(collateralItems[0].assets, position.collateral.decimals) }}
               {{ position.collateral.asset.symbol }} {{ collateralItems.length > 1 ? '& others' : '' }}
             </div>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Net APY
           </div>
           <div
-            :class="[netAPY <= 0 ? 'text-red-700' : 'text-aquamarine-700']"
+            :class="[netAPY <= 0 ? 'text-error-500' : 'text-accent-600']"
             class="text-p2"
           >
             {{ formatNumber(netAPY) }}%
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Health score
           </div>
-          <div class="text-white text-p3">
+          <div class="text-content-primary text-p3">
             {{ formatNumber(nanoToValue(position.health, 18)) }}
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Current price
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <span class="text-white text-p3">
+            <span class="text-content-primary text-p3">
               {{ currentPriceDisplay }}
             </span>
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ position.collateral.asset.symbol }}
             </span>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Liquidation price
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <span class="text-white text-p3">
+            <span class="text-content-primary text-p3">
               ${{ liquidationPriceUsd ? formatNumber(liquidationPriceUsd) : '-' }}
             </span>
-            <span class="text-euler-dark-900 text-p3">
+            <span class="text-content-tertiary text-p3">
               {{ position.collateral.asset.symbol }}
             </span>
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-euler-dark-900 text-p3">
+          <div class="text-content-tertiary text-p3">
             Your LTV
           </div>
           <div class="flex justify-between items-center gap-16">
@@ -352,7 +361,7 @@ onMounted(() => {
               size="small"
             />
             <div class="flex justify-between gap-8 text-right">
-              <div class="text-white text-p3">
+              <div class="text-content-primary text-p3">
                 {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
               </div>
             </div>

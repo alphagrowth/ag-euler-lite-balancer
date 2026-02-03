@@ -18,7 +18,7 @@ export const socials = {
 
 // SEO defaults for the app (used in nuxt.config.ts).
 export const appTitle = 'Euler Lite'
-export const appDescription = 'Lightweight inte rface for Euler Finance lending and borrowing.'
+export const appDescription = 'Lightweight interface for Euler Finance lending and borrowing.'
 
 // AppKit (Reown) metadata used for wallet connection UI.
 export const appKitMetadata = {
@@ -46,20 +46,7 @@ export const intrinsicApySources = [
 ] as const
 
 export const availableNetworkIds = [
-  1,
-  42161,
-  8453,
-  1923,
-  146,
-  60808,
-  80094,
-  43114,
-  56,
-  130,
-  239,
-  59144,
-  9745,
-  143,
+  1
 ] as const
 
 export const labelsRepo: string = 'euler-xyz/euler-labels' // https://github.com/euler-xyz/euler-labels

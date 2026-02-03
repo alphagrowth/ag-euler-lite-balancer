@@ -12,7 +12,7 @@ export const useSwapDebtOptions = ({
   collateralVault: Ref<Vault | undefined>
   currentBorrowVault?: Ref<Vault | undefined>
 }) => {
-  const { getEvkVaults } = useVaultRegistry()
+  const { getVerifiedEvkVaults } = useVaultRegistry()
   const { getOpportunityOfBorrowVault } = useMerkl()
   const { withIntrinsicBorrowApy } = useIntrinsicApy()
 
@@ -27,7 +27,7 @@ export const useSwapDebtOptions = ({
       ? ethers.getAddress(currentBorrowVault.value.address)
       : null
 
-    return getEvkVaults().filter((vault) => {
+    return getVerifiedEvkVaults().filter((vault) => {
       if (!vault.collateralLTVs?.length) {
         return false
       }

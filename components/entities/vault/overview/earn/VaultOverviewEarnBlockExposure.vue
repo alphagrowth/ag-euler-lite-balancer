@@ -69,10 +69,10 @@ load()
 <template>
   <div
     v-if="exposureList.length"
-    class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
+    class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
   >
     <div>
-      <p class="text-h3 text-white mb-12">
+      <p class="text-h3 text-content-primary mb-12">
         Exposure
       </p>
     </div>
@@ -91,12 +91,11 @@ load()
       <div
         v-for="exposure in exposureList"
         :key="exposure.strategy"
-        class="bg-euler-dark-500 rounded-16 text-white block no-underline cursor-pointer"
+        class="bg-surface rounded-xl text-content-primary block no-underline cursor-pointer shadow-card hover:shadow-card-hover transition-shadow border border-line-default"
         @click="onExposureClick(exposure.info.vault)"
       >
         <div
-          class="px-16 pt-16 pb-12"
-          style="border-bottom: 1px solid var(--c-euler-dark-600)"
+          class="px-16 pt-16 pb-12 border-b border-line-subtle"
         >
           <VaultLabelsAndAssets
             :vault="getExposureVaultByAddress(exposure.info.vault) as Vault"
@@ -125,7 +124,7 @@ load()
                   <UiFootnote
                     title="Amount in assets"
                     :text="getExposureAssetAmount(exposure)"
-                    class="[--ui-footnote-icon-color:var(--c-euler-dark-900)]"
+                    class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
                   />
                 </span>
               </template>

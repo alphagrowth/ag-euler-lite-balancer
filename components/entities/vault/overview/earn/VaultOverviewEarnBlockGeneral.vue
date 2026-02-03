@@ -21,8 +21,8 @@ const feeDisplay = computed(() => {
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
-    <p class="text-h3 text-white">
+  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card">
+    <p class="text-h3 text-content-primary">
       Overview
     </p>
     <div class="flex flex-col items-start gap-24">
@@ -51,16 +51,16 @@ const feeDisplay = computed(() => {
             <a
               :href="entity.url"
               target="_blank"
-              class="text-p2 text-white underline"
+              class="text-p2 text-neutral-800 hover:text-accent-600 underline transition-colors"
             >{{ entity.name }}</a>
           </div>
         </div>
         <div
           v-else-if="!isOwnerVerified"
-          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-yellow-opaque-200)] text-yellow-700"
+          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500"
         >
           <UiIcon
-            class="mr-2 !w-20 !h-20 text-yellow-600"
+            class="mr-2 !w-20 !h-20"
             name="warning"
           />
           Unknown
@@ -72,8 +72,8 @@ const feeDisplay = computed(() => {
       <VaultOverviewLabelValue label="Vault type">
         <VaultTypeChip
           :vault="vault"
-          :type="entities.length ? 'managed' : ''"
-      />
+          :type="entities.length ? 'managed' : 'unknown'"
+        />
       </VaultOverviewLabelValue>
     </div>
   </div>

@@ -63,6 +63,8 @@ const onClick = () => {
   cursor: pointer;
   user-select: none;
   box-shadow: inset 0em -2px 0 transparent;
+  color: var(--ui-tab-text-color);
+  transition: color 0.15s ease;
 
   &__icon {
     margin-right: 8px;
@@ -79,6 +81,8 @@ const onClick = () => {
 
   &.is-active {
     box-shadow: inset 0 -2px 0 -1px var(--ui-tab-active-box-shadow-color);
+    color: var(--ui-tab-active-text-color);
+    font-weight: 500;
   }
 
   &.is-pill {

@@ -2,7 +2,6 @@ import { ethers } from 'ethers'
 import {
   type Vault,
   type EarnVault,
-  type EscrowVault,
   type SecuritizeVault,
   fetchVault,
   fetchEarnVault,
@@ -16,7 +15,7 @@ import {
 export type VaultType = 'evk' | 'earn' | 'securitize'
 
 // Union of all vault types
-export type AnyVault = Vault | EarnVault | EscrowVault | SecuritizeVault
+export type AnyVault = Vault | EarnVault | SecuritizeVault
 
 // Registry entry containing vault and its type
 export interface VaultEntry {
@@ -121,6 +120,11 @@ const getEscrowVaults = (): Vault[] => {
 // Standard EVK vaults (non-escrow)
 const getStandardEvkVaults = (): Vault[] => {
   return getEvkVaults().filter(v => v.vaultCategory !== 'escrow')
+}
+
+// Verified EVK vaults (for display in tables) - excludes dynamically fetched unknown vaults
+const getVerifiedEvkVaults = (): Vault[] => {
+  return getEvkVaults().filter(v => v.verified === true)
 }
 
 // Type checker convenience methods
@@ -320,6 +324,7 @@ export const useVaultRegistry = () => {
     getEscrowVaults,
     getSecuritizeVaults,
     getStandardEvkVaults,
+    getVerifiedEvkVaults,
 
     // Type checkers
     isEscrowVault,

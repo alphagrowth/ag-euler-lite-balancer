@@ -147,9 +147,16 @@ watch([quote, toVault], () => {
     return
   }
   const amountOut = getQuoteAmount(quote.value, 'amountOut')
-  toAmount.value = amountOut > 0n
-    ? formatSignificant(ethers.formatUnits(amountOut, Number(toVault.value.decimals)))
-    : ''
+  if (amountOut <= 0n) {
+    toAmount.value = ''
+    return
+  }
+  const formatted = ethers.formatUnits(amountOut, Number(toVault.value.decimals))
+  const numericValue = Number(formatted)
+  // Use more precision for very small amounts
+  toAmount.value = numericValue < 0.01
+    ? numericValue.toExponential(2)
+    : formatSignificant(formatted)
 }, { immediate: true })
 
 const resetQuoteState = () => {
@@ -242,6 +249,14 @@ const routedVia = computed(() => {
   }
   return quote.value.route.map(route => route.providerName).join(', ')
 })
+const formatSmallAmount = (value: bigint, decimals: number) => {
+  const formatted = ethers.formatUnits(value, decimals)
+  const numericValue = Number(formatted)
+  return numericValue < 0.01 && numericValue > 0
+    ? numericValue.toExponential(2)
+    : formatSignificant(formatted)
+}
+
 const swapRouteItems = computed(() => {
   if (!toVault.value) {
     return []
@@ -249,9 +264,7 @@ const swapRouteItems = computed(() => {
   const bestProvider = quoteCardsSorted.value[0]?.provider
   return quoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amount = formatSignificant(
-      ethers.formatUnits(amountOut, Number(toVault.value.decimals)),
-    )
+    const amount = formatSmallAmount(amountOut, Number(toVault.value.decimals))
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
       ? { label: 'Best', tone: 'best' as const }
@@ -283,6 +296,12 @@ const errorText = computed(() => {
   if (balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)) {
     return 'Not enough balance'
   }
+  if (selectedQuote.value && +fromAmount.value > 0) {
+    const amountOut = getQuoteAmount(selectedQuote.value, 'amountOut')
+    if (amountOut <= 0n) {
+      return 'Output amount is below minimum'
+    }
+  }
   return null
 })
 const isSameVault = computed(() => {
@@ -300,11 +319,13 @@ const isSubmitDisabled = computed(() => {
   if (!fromVault.value?.asset || !toVault.value?.asset || !selectedQuote.value) {
     return true
   }
+  const amountOut = getQuoteAmount(selectedQuote.value, 'amountOut')
   return isLoading.value
     || balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)
     || !(+fromAmount.value)
     || !toAmount.value
     || isSameVault.value
+    || amountOut <= 0n
 })
 const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
 
@@ -557,10 +578,10 @@ const send = async () => {
 
           <VaultFormInfoBlock
             :loading="isQuoteLoading"
-            class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px]"
+            class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px] shadow-card"
           >
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 {{ fromVault.asset.symbol || 'Token1' }} supply APY
               </p>
               <p class="text-p2">
@@ -568,7 +589,7 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 {{ toVault.asset.symbol || 'Token2' }} supply APY
               </p>
               <p class="text-p2">
@@ -576,7 +597,7 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Current price
               </p>
               <p class="text-p2">
@@ -584,21 +605,21 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-start">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Swap
               </p>
               <p class="text-p2 text-right flex flex-col items-end">
                 <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
                 <span
                   v-if="swapSummary"
-                  class="text-euler-dark-900 text-p3"
+                  class="text-content-tertiary text-p3"
                 >
                   {{ swapSummary.to }}
                 </span>
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Price impact
               </p>
               <p class="text-p2">
@@ -606,7 +627,7 @@ const send = async () => {
               </p>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Slippage tolerance
               </p>
               <button
@@ -617,12 +638,12 @@ const send = async () => {
                 <span>{{ formatNumber(slippage, 2, 0) }}%</span>
                 <SvgIcon
                   name="edit"
-                  class="!w-16 !h-16 text-aquamarine-700"
+                  class="!w-16 !h-16 text-accent-600"
                 />
               </button>
             </div>
             <div class="flex justify-between items-center">
-              <p class="text-euler-dark-900">
+              <p class="text-content-tertiary">
                 Routed via
               </p>
               <p class="text-p2 text-right">

@@ -37,12 +37,12 @@ const onSelect = (provider: string) => {
 </script>
 
 <template>
-  <div class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-12">
+  <div class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-12 border border-line-default">
     <div class="flex justify-between items-center">
-      <p class="text-p2 text-white">
+      <p class="text-p2 text-content-primary">
         {{ title }}
       </p>
-      <p class="text-p3 text-euler-dark-900">
+      <p class="text-p3 text-content-secondary">
         {{ statusLabel || '-' }}
       </p>
     </div>
@@ -54,18 +54,18 @@ const onSelect = (provider: string) => {
           type="button"
           class="w-full text-left rounded-12 border p-12 transition-colors"
           :class="selectedProvider === item.provider
-            ? 'border-teal-light-300 bg-euler-dark-500'
-            : 'border-euler-dark-500 bg-euler-dark-400 hover:bg-euler-dark-500'"
+            ? 'border-accent-600 bg-surface'
+            : 'border-line-default bg-surface hover:bg-surface-secondary'"
           @click="onSelect(item.provider)"
         >
           <div class="flex items-center justify-between gap-8">
-            <p class="text-p2 text-white">
+            <p class="text-p2 text-content-primary">
               {{ item.amount }} {{ item.symbol }}
             </p>
-            <div class="flex flex-col items-end gap-2 text-p3 text-euler-dark-900">
+            <div class="flex flex-col items-end gap-2 text-p3 text-content-secondary">
               <p
                 v-if="item.badge"
-                :class="item.badge.tone === 'best' ? 'text-green-600' : 'text-red-600'"
+                :class="item.badge.tone === 'best' ? 'text-success-600' : 'text-error-500'"
               >
                 {{ item.badge.label }}
               </p>
@@ -75,12 +75,12 @@ const onSelect = (provider: string) => {
         </button>
       </template>
       <template v-else-if="isLoading">
-        <div class="h-48 rounded-12 bg-euler-dark-500 animate-pulse" />
-        <div class="h-48 rounded-12 bg-euler-dark-500 animate-pulse" />
-        <div class="h-48 rounded-12 bg-euler-dark-500 animate-pulse" />
+        <div class="h-48 rounded-12 bg-surface animate-pulse" />
+        <div class="h-48 rounded-12 bg-surface animate-pulse" />
+        <div class="h-48 rounded-12 bg-surface animate-pulse" />
       </template>
       <template v-else>
-        <p class="text-p3 text-euler-dark-900">
+        <p class="text-p3 text-content-secondary">
           {{ emptyMessage }}
         </p>
       </template>

@@ -40,6 +40,37 @@ const chartOptions = ref<ChartOptions<'line'> | null>(null)
 const isLoading = ref(true)
 const hasError = ref(false)
 
+// Theme detection
+const theme = useLocalStorage('theme', 'light')
+const isDark = computed(() => theme.value === 'dark')
+
+// Theme-aware colors
+const chartColors = computed(() => isDark.value ? {
+  text: '#a3a3a3',
+  textMuted: '#737373',
+  gridLine: '#262626',
+  axisLine: '#404040',
+  tooltip: {
+    bg: 'rgba(26, 26, 26, 0.95)',
+    border: '#404040',
+    text: '#fafafa',
+    textMuted: '#a3a3a3',
+  },
+  currentLine: '#a3a3a3',
+} : {
+  text: '#737373',
+  textMuted: '#525252',
+  gridLine: '#f5f5f5',
+  axisLine: '#e5e5e5',
+  tooltip: {
+    bg: 'rgba(255, 255, 255, 0.95)',
+    border: '#e5e5e5',
+    text: '#262626',
+    textMuted: '#525252',
+  },
+  currentLine: '#262626',
+})
+
 const { EVM_PROVIDER_URL } = useEulerConfig()
 const { eulerLensAddresses } = useEulerAddresses()
 
@@ -207,11 +238,19 @@ const renderChart = async () => {
         type: 'line',
         xMin: currentUtilization.toFixed(0),
         xMax: currentUtilization.toFixed(0),
-        borderColor: '#FFFFFF',
+        borderColor: chartColors.value.currentLine,
         borderWidth: 1,
         borderDash: [5, 5],
         label: {
-          display: false,
+          display: true,
+          content: `Current (${currentUtilization.toFixed(2)}%)`,
+          position: 'end',
+          backgroundColor: 'rgba(128, 128, 128, 0.8)',
+          color: '#FFFFFF',
+          font: {
+            size: 11,
+          },
+          padding: 4,
         },
       },
     }
@@ -256,10 +295,10 @@ const renderChart = async () => {
           mode: 'index',
           intersect: false,
           position: 'nearest',
-          backgroundColor: 'rgb(31, 33, 40)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: '#444',
+          backgroundColor: chartColors.value.tooltip.bg,
+          titleColor: chartColors.value.tooltip.text,
+          bodyColor: chartColors.value.tooltip.text,
+          borderColor: chartColors.value.tooltip.border,
           borderWidth: 1,
           padding: 12,
           displayColors: true,
@@ -296,13 +335,13 @@ const renderChart = async () => {
           title: {
             display: true,
             text: 'Utilization %',
-            color: '#888',
+            color: chartColors.value.text,
             font: {
               size: 12,
             },
           },
           ticks: {
-            color: '#888',
+            color: chartColors.value.text,
             callback: function (value, index) {
               // Show every 10th label
               const label = this.getLabelForValue(Number(value))
@@ -310,30 +349,30 @@ const renderChart = async () => {
             },
           },
           grid: {
-            color: '#222',
+            color: chartColors.value.gridLine,
           },
           border: {
-            color: '#333',
+            color: chartColors.value.axisLine,
           },
         },
         y: {
           title: {
             display: true,
             text: 'APY %',
-            color: '#888',
+            color: chartColors.value.text,
             font: {
               size: 12,
             },
           },
           ticks: {
-            color: '#888',
+            color: chartColors.value.text,
             callback: (value) => `${value}%`,
           },
           grid: {
-            color: '#222',
+            color: chartColors.value.gridLine,
           },
           border: {
-            color: '#333',
+            color: chartColors.value.axisLine,
           },
         },
       },
@@ -354,19 +393,27 @@ onMounted(async () => {
     await renderChart()
   }
 })
+
+// Re-render chart when theme changes
+watch(theme, async () => {
+  if (chartData.value && hasValidIRM.value) {
+    await nextTick()
+    await renderChart()
+  }
+})
 </script>
 
 <template>
   <div
     v-if="hasValidIRM"
-    class="bg-euler-dark-300 rounded-16 flex flex-col gap-16 p-24"
+    class="bg-surface-secondary rounded-xl flex flex-col gap-16 p-24 shadow-card"
   >
     <div class="flex justify-between items-center flex-wrap gap-12">
       <div class="flex items-center gap-8">
-        <p class="text-h3 text-white">
+        <p class="text-h3 text-content-primary">
           Interest rate model
         </p>
-        <div class="inline-flex items-center py-0 px-4 rounded-4 bg-[rgba(var(--aquamarine-700),0.3)] text-aquamarine-700 text-[12px] font-medium capitalize">
+        <div class="inline-flex items-center py-0 px-4 rounded-4 bg-accent-300/30 text-accent-700 text-[12px] font-medium capitalize">
           {{ irmTypeLabel }}
         </div>
       </div>
@@ -375,13 +422,13 @@ onMounted(async () => {
     <div class="relative w-full min-h-400">
       <div
         v-if="isLoading"
-        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#888] text-center pointer-events-none z-10"
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-content-tertiary text-center pointer-events-none z-10"
       >
         Loading chart...
       </div>
       <div
         v-else-if="hasError"
-        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#e15241] text-center pointer-events-none z-10"
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-red-500 text-center pointer-events-none z-10"
       >
         Failed to load interest rate data
       </div>

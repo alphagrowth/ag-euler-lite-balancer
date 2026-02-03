@@ -1456,10 +1456,10 @@ watch(formTab, () => {
             <VaultFormInfoBlock
               v-if="pair"
               :loading="isEstimatesLoading"
-              class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16"
+              class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 shadow-card"
             >
               <div class="flex justify-between items-center">
-                <p class="text-euler-dark-900">
+                <p class="text-content-tertiary">
                   Net APY
                 </p>
                 <p class="text-p2">
@@ -1467,12 +1467,12 @@ watch(formTab, () => {
                 </p>
               </div>
               <div class="flex justify-between items-center">
-                <p class="text-euler-dark-900">
+                <p class="text-content-tertiary">
                   Current Price
                 </p>
                 <p class="text-p2">
                   {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
                   </span>
                 </p>
@@ -1483,13 +1483,13 @@ watch(formTab, () => {
                 </p>
                 <p class="text-p2">
                   {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-                  <span class="text-euler-dark-900 text-p3">
+                  <span class="text-content-tertiary text-p3">
                     {{ collateralVault?.asset.symbol }}
                   </span>
                 </p>
               </div>
               <div class="flex justify-between items-center">
-                <p class="text-euler-dark-900">
+                <p class="text-content-tertiary">
                   Health
                 </p>
                 <p class="text-p2">
@@ -1579,16 +1579,16 @@ watch(formTab, () => {
               <div class="flex flex-col gap-16 w-full">
                 <VaultFormInfoBlock
                   :loading="isMultiplyQuoteLoading"
-                  class="bg-euler-dark-400 p-16 rounded-16 flex flex-col gap-16 w-full"
+                  class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full shadow-card"
                 >
                   <div class="flex justify-between items-center">
-                    <p class="text-euler-dark-900">
+                    <p class="text-content-tertiary">
                       ROE
                     </p>
                     <p class="text-p2">
                       <template v-if="multiplyRoeBefore !== null && multiplyRoeAfter !== null && multiplySwapReady">
-                        <span class="text-euler-dark-900">{{ formatNumber(multiplyRoeBefore) }}%</span>
-                        → <span class="text-white">{{ formatNumber(multiplyRoeAfter) }}%</span>
+                        <span class="text-content-tertiary">{{ formatNumber(multiplyRoeBefore) }}%</span>
+                        → <span class="text-content-primary">{{ formatNumber(multiplyRoeAfter) }}%</span>
                       </template>
                       <template v-else>
                         {{ multiplyRoeBefore !== null ? `${formatNumber(multiplyRoeBefore)}%` : '-' }}
@@ -1596,7 +1596,7 @@ watch(formTab, () => {
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
-                    <p class="text-euler-dark-900">
+                    <p class="text-content-tertiary">
                       Current price
                     </p>
                     <p class="text-p2">
@@ -1604,37 +1604,37 @@ watch(formTab, () => {
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
-                    <p class="text-euler-dark-900">
+                    <p class="text-content-tertiary">
                       Liquidation price
                     </p>
                     <p class="text-p2">
                       <template v-if="multiplyCurrentLiquidationPrice !== null && multiplyNextLiquidationPrice !== null && multiplySwapReady">
-                        <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentLiquidationPrice, 4) }}</span>
-                        → <span class="text-white">{{ formatNumber(multiplyNextLiquidationPrice, 4) }}</span>
+                        <span class="text-content-tertiary">{{ formatNumber(multiplyCurrentLiquidationPrice, 4) }}</span>
+                        → <span class="text-content-primary">{{ formatNumber(multiplyNextLiquidationPrice, 4) }}</span>
                       </template>
                       <template v-else>
                         {{ multiplyCurrentLiquidationPrice !== null ? formatNumber(multiplyCurrentLiquidationPrice, 4) : '-' }}
                       </template>
-                      <span class="text-euler-dark-900 text-p3">
+                      <span class="text-content-tertiary text-p3">
                         {{ multiplyLongVault?.asset.symbol }}
                       </span>
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
-                    <p class="text-euler-dark-900">
+                    <p class="text-content-tertiary">
                       Your LTV (LLTV)
                     </p>
                     <p class="text-p2 text-right">
                       <template v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null && multiplyNextLtv !== null && multiplyNextLiquidationLtv !== null && multiplySwapReady">
-                        <span class="text-euler-dark-900">
+                        <span class="text-content-tertiary">
                           {{ formatNumber(multiplyCurrentLtv) }}%
-                          <span class="text-euler-dark-900 text-p3">
+                          <span class="text-content-tertiary text-p3">
                             ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
                           </span>
                         </span>
-                        → <span class="text-white">
+                        → <span class="text-content-primary">
                           {{ formatNumber(multiplyNextLtv) }}%
-                          <span class="text-euler-dark-900 text-p3">
+                          <span class="text-content-tertiary text-p3">
                             ({{ formatNumber(multiplyNextLiquidationLtv) }}%)
                           </span>
                         </span>
@@ -1642,7 +1642,7 @@ watch(formTab, () => {
                       <template v-else>
                         <span v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null">
                           {{ formatNumber(multiplyCurrentLtv) }}%
-                          <span class="text-euler-dark-900 text-p3">
+                          <span class="text-content-tertiary text-p3">
                             ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
                           </span>
                         </span>
@@ -1651,13 +1651,13 @@ watch(formTab, () => {
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
-                    <p class="text-euler-dark-900">
+                    <p class="text-content-tertiary">
                       Your health
                     </p>
                     <p class="text-p2">
                       <template v-if="multiplyCurrentHealth !== null && multiplyNextHealth !== null && multiplySwapReady">
-                        <span class="text-euler-dark-900">{{ formatNumber(multiplyCurrentHealth, 2) }}</span>
-                        → <span class="text-white">{{ formatNumber(multiplyNextHealth, 2) }}</span>
+                        <span class="text-content-tertiary">{{ formatNumber(multiplyCurrentHealth, 2) }}</span>
+                        → <span class="text-content-primary">{{ formatNumber(multiplyNextHealth, 2) }}</span>
                       </template>
                       <template v-else>
                         {{ multiplyCurrentHealth !== null ? formatNumber(multiplyCurrentHealth, 2) : '-' }}
@@ -1665,21 +1665,21 @@ watch(formTab, () => {
                     </p>
                   </div>
                   <div class="flex justify-between items-start">
-                    <p class="text-euler-dark-900">
+                    <p class="text-content-tertiary">
                       Swap
                     </p>
                     <p class="text-p2 text-right flex flex-col items-end">
                       <span>{{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}</span>
                       <span
                         v-if="multiplySwapSummary"
-                        class="text-euler-dark-900 text-p3"
+                        class="text-content-tertiary text-p3"
                       >
                         {{ multiplySwapSummary.to }}
                       </span>
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
-                    <p class="text-euler-dark-900">
+                    <p class="text-content-tertiary">
                       Price impact
                     </p>
                     <p class="text-p2">
@@ -1687,7 +1687,7 @@ watch(formTab, () => {
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
-                    <p class="text-euler-dark-900">
+                    <p class="text-content-tertiary">
                       Slippage tolerance
                     </p>
                     <button
@@ -1698,12 +1698,12 @@ watch(formTab, () => {
                       <span>{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
                       <SvgIcon
                         name="edit"
-                        class="!w-16 !h-16 text-aquamarine-700"
+                        class="!w-16 !h-16 text-accent-600"
                       />
                     </button>
                   </div>
                   <div class="flex justify-between items-center">
-                    <p class="text-euler-dark-900">
+                    <p class="text-content-tertiary">
                       Routed via
                     </p>
                     <p class="text-p2 text-right">

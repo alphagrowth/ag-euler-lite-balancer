@@ -69,15 +69,15 @@ const onBorrowInfoIconClick = () => {
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
-    <p class="text-h3 text-white">
+  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card">
+    <p class="text-h3 text-content-primary">
       Overview
     </p>
     <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue
         label="Price"
       >
-        {{ formatNumber(price) }} <span class="text-euler-dark-900">
+        {{ formatNumber(price) }} <span class="text-content-tertiary">
           {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
         </span>
       </VaultOverviewLabelValue>
@@ -89,7 +89,7 @@ const onBorrowInfoIconClick = () => {
             {{ formatNumber(supplyApyWithRewards) }}%
           </span>
           <SvgIcon
-            class="!w-20 !h-20 text-euler-dark-800 cursor-pointer"
+            class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
             name="question-circle"
             @click="onSupplyInfoIconClick"
           />
@@ -104,7 +104,7 @@ const onBorrowInfoIconClick = () => {
             {{ formatNumber(borrowApyWithRewards) }}%
           </span>
           <SvgIcon
-            class="!w-20 !h-20 text-euler-dark-800 cursor-pointer"
+            class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
             name="question-circle"
             @click="onBorrowInfoIconClick"
           />

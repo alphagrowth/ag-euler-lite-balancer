@@ -84,8 +84,8 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
-    <p class="text-h3 text-white">
+  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card">
+    <p class="text-h3 text-content-primary">
       Addresses
     </p>
     <div class="flex flex-col items-start gap-24">
@@ -98,13 +98,13 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
         <div class="flex gap-4 items-center">
           <NuxtLink
             :to="getExplorerAddressLink(infoItem.address)"
-            class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+            class="text-accent-600 underline cursor-pointer hover:text-accent-500"
             target="_blank"
           >
             {{ shortenAddress(infoItem.address) }}
           </NuxtLink>
           <button
-            class="text-euler-dark-900 cursor-pointer outline-none hover:text-euler-dark-800 active:text-euler-dark-700"
+            class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"
             @click="onCopyClick(infoItem.address)"
           >
             <SvgIcon

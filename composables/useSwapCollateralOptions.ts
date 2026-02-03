@@ -14,7 +14,7 @@ export const useSwapCollateralOptions = ({
   liabilityVault?: Ref<Vault | undefined>
 }) => {
   const { borrowList } = useVaults()
-  const { getVault: registryGetVault, getEvkVaults, getStandardEvkVaults, getEscrowVaults } = useVaultRegistry()
+  const { getVault: registryGetVault, getVerifiedEvkVaults, getEscrowVaults } = useVaultRegistry()
   const { getBalance } = useWallets()
   const { getOpportunityOfLendVault } = useMerkl()
   const { withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -38,9 +38,11 @@ export const useSwapCollateralOptions = ({
       const borrowable = new Set(
         borrowList.value.map(pair => ethers.getAddress(pair.borrow.address)),
       )
-      // Get standard EVK vaults that are borrowable (can be used as collateral for some pair)
-      const standardVaults = getStandardEvkVaults().filter(vault => borrowable.has(ethers.getAddress(vault.address)))
-      // Get all escrow vaults (always valid as collateral)
+      // Get verified EVK vaults that are borrowable and non-escrow
+      const standardVaults = getVerifiedEvkVaults()
+        .filter(vault => vault.vaultCategory !== 'escrow')
+        .filter(vault => borrowable.has(ethers.getAddress(vault.address)))
+      // Get all escrow vaults (always valid as collateral, already have verified: true)
       const escrowVaults = getEscrowVaults()
 
       candidates = [...standardVaults, ...escrowVaults]

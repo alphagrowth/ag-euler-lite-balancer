@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ethers } from 'ethers'
 import { getVaultPrice, getVaultPriceDisplay, type Vault } from '~/entities/vault'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
@@ -25,11 +26,28 @@ const priceDisplay = computed(() => {
   const price = getVaultPriceDisplay(1, vault)
   return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
 })
+
+const vaultGovernanceType = computed(() => {
+  // Escrow vault
+  if (vault.vaultCategory === 'escrow') {
+    return 'escrow'
+  }
+  // Has matching entity → governed
+  if (entities.length) {
+    return 'governed'
+  }
+  // Zero governorAdmin → ungoverned
+  if (!vault.governorAdmin || vault.governorAdmin === ethers.ZeroAddress) {
+    return 'ungoverned'
+  }
+  // Non-zero but no matching entity → unknown
+  return 'unknown'
+})
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
-    <p class="text-h3 text-white">
+  <div class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card">
+    <p class="text-h3 text-content-primary">
       Overview
     </p>
     <div class="flex flex-col items-start gap-24">
@@ -58,16 +76,16 @@ const priceDisplay = computed(() => {
             <a
               :href="entity.url"
               target="_blank"
-              class="text-p2 text-white underline"
+              class="text-p2 text-content-primary hover:text-accent-600 underline transition-colors"
             >{{ entity.name }}</a>
           </div>
         </div>
         <div
           v-else-if="!isGovernorVerified"
-          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-yellow-opaque-200)] text-yellow-700"
+          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500"
         >
           <UiIcon
-            class="mr-2 !w-20 !h-20 text-yellow-600"
+            class="mr-2 !w-20 !h-20"
             name="warning"
           />
           Unknown
@@ -79,7 +97,7 @@ const priceDisplay = computed(() => {
       <VaultOverviewLabelValue label="Vault type">
         <VaultTypeChip
           :vault="vault"
-          :type="entities.length ? 'governed' : 'type' in vault ? vault.type as string : ''"
+          :type="vaultGovernanceType"
         />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Can be borrowed">
@@ -87,7 +105,7 @@ const priceDisplay = computed(() => {
           <div>
             <UiIcon :name="borrowCount ? 'green-tick' : 'red-cross'" />
           </div>
-          <span class="text-p2 text-white">
+          <span class="text-p2 text-content-primary">
             {{ borrowCount ? `Yes in ${borrowCount} markets` : 'No' }}
           </span>
         </div>
@@ -97,7 +115,7 @@ const priceDisplay = computed(() => {
           <div>
             <UiIcon :name="collateralCount ? 'green-tick' : 'red-cross'" />
           </div>
-          <span class="text-p2 text-white">
+          <span class="text-p2 text-content-primary">
             {{ collateralCount ? `Yes in ${collateralCount} markets` : 'No' }}
           </span>
         </div>

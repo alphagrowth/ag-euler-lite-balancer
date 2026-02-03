@@ -85,11 +85,48 @@ export const links = [
 ] as const;
 ```
 
-**Theme Color** - Customize your brand color (hue in degrees, 0-360):
+**Theming System** - The app uses a comprehensive CSS variables-based theming system with light/dark mode support:
 
-```typescript
-export const themeHue = 150; // Change to your brand color hue
+The theme is defined in `assets/styles/variables.scss` with the following color categories:
+
+- **Primary colors** (`--primary-*`) - Navy blues for primary UI elements
+- **Accent colors** (`--accent-*`) - Gold/bronze for CTAs and highlights
+- **Neutral colors** (`--neutral-*`) - Warm grays for text and backgrounds
+- **Semantic colors** (`--success-*`, `--warning-*`, `--error-*`) - Status indicators
+
+**Customizing Colors**:
+
+Edit `assets/styles/variables.scss` to change the color palette:
+
+```scss
+:root {
+  // Primary - Navy (change these for your brand)
+  --primary-500: #1e3a5f;
+  --primary-600: #162d4d;
+  
+  // Accent - Gold/Bronze (for CTAs and highlights)
+  --accent-500: #c49b64;
+  --accent-600: #b08850;
+  
+  // ... other colors
+}
 ```
+
+**Dark Mode**:
+
+Dark mode colors are defined in the `[data-theme="dark"]` block in `variables.scss`. The app includes a theme switcher (bottom-left corner) that toggles between light and dark modes, with the preference saved to localStorage.
+
+**Semantic Theme Classes**:
+
+The app uses semantic Tailwind classes that automatically adapt to the current theme:
+
+| Class | Light Mode | Dark Mode |
+|-------|------------|-----------|
+| `bg-surface` | White | Dark gray |
+| `bg-card` | White | Dark gray |
+| `text-content-primary` | Near black | Near white |
+| `text-content-secondary` | Medium gray | Light gray |
+| `border-line-default` | Light gray | Dark gray |
 
 **SEO Metadata** - Default page title and description for search/social previews:
 
@@ -348,6 +385,8 @@ docker run -p 3000:3000 \
 
 Key directories and files:
 
+- `assets/styles/` - Global styles and theming
+  - `variables.scss` - **Theme colors and CSS variables (light/dark mode)**
 - `composables/` - Vue composables for app logic (vaults, tokens, operations, etc.)
 - `components/` - Vue components organized by feature
 - `entities/` - Type definitions and configuration
@@ -359,6 +398,7 @@ Key directories and files:
   - `favicons/` - **Favicon files**
   - `tokens/` - **Token icon files**
 - `nuxt.config.ts` - **Nuxt configuration (SEO meta, favicon)**
+- `tailwind.config.js` - **Tailwind CSS configuration with semantic theme classes**
 
 ## 🔧 Available Scripts
 
@@ -375,7 +415,7 @@ Before deploying, ensure you've completed:
 - [ ] Created `.env` file with `NETWORK` variable
 - [ ] Updated social links in `entities/custom.ts`
 - [ ] Updated documentation and terms links in `entities/custom.ts`
-- [ ] Set theme color hue in `entities/custom.ts`
+- [ ] Customized theme colors in `assets/styles/variables.scss`
 - [ ] Configured supported networks in `entities/custom.ts`
 - [ ] Updated Euler labels repository in `entities/custom.ts` (if using custom labels)
 - [ ] Set `APPKIT_PROJECT_ID` in `.env`
@@ -384,7 +424,7 @@ Before deploying, ensure you've completed:
 - [ ] Set SEO title/description in `entities/custom.ts`
 - [ ] Configured onboarding page (logo, title, description) in `entities/custom.ts`
 - [ ] Replaced favicon files in `public/favicons/`
-- [ ] Updated theme color in `nuxt.config.ts`
+- [ ] Updated theme color meta tag in `nuxt.config.ts`
 - [ ] Added custom token icons to `public/tokens/` (if needed)
 
 ## 🆘 Troubleshooting

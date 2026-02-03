@@ -54,8 +54,8 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { supply, buildSupplyPlan } = useEulerOperations()
-const { getVault, getSecuritizeVault, updateVault, isEscrowLoadedOnce } = useVaults()
-const { get: registryGet, getVault: registryGetVault } = useVaultRegistry()
+const { getVault, getSecuritizeVault, getEscrowVault, updateVault, isEscrowLoadedOnce } = useVaults()
+const { get: registryGet, getVault: registryGetVault, isKnownEscrowAddress } = useVaultRegistry()
 const { isConnected } = useAccount()
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -102,11 +102,18 @@ else {
       if (entryAfterLoad?.type === 'evk') {
         evkVault.value = entryAfterLoad.vault as Vault
       }
+      else if (isKnownEscrowAddress(normalizedAddress)) {
+        evkVault.value = await getEscrowVault(vaultAddress) as Vault
+      }
       else {
         evkVault.value = await getVault(vaultAddress)
       }
     }
-    // Escrow vaults loaded and address not in registry as escrow - regular vault
+    // Escrow vaults loaded - check if known escrow address
+    else if (isKnownEscrowAddress(normalizedAddress)) {
+      evkVault.value = await getEscrowVault(vaultAddress) as Vault
+    }
+    // Regular vault
     else {
       evkVault.value = await getVault(vaultAddress)
     }
@@ -396,7 +403,7 @@ watch(amount, async () => {
           />
 
           <div class="flex flex-col items-end justify-end">
-            <p class="mb-4 text-euler-dark-900">
+            <p class="mb-4 text-content-tertiary">
               Supply APY
             </p>
 
@@ -408,7 +415,7 @@ watch(amount, async () => {
               />
               <SvgIcon
                 v-if="hasRewards"
-                class="!w-24 !h-24 text-aquamarine-700"
+                class="!w-24 !h-24 text-accent-600"
                 name="sparks"
               />
               <span>
@@ -416,7 +423,7 @@ watch(amount, async () => {
               </span>
               <SvgIcon
                 v-if="features.hasApyBreakdown"
-                class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
+                class="!w-24 !h-24 text-content-muted cursor-pointer"
                 name="question-circle"
                 @click="onSupplyInfoIconClick"
               />
@@ -460,8 +467,8 @@ watch(amount, async () => {
                 Projected Earnings per Month
               </p>
 
-              <p class="text-euler-dark-900">
-                <span class="text-white text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
+              <p class="text-content-tertiary">
+                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
                   asset.symbol
                 }}
                 <template v-if="features.hasPriceInfo && vault">
@@ -477,16 +484,16 @@ watch(amount, async () => {
 
               <p
                 v-if="features.hasInterestRate && supplyAPYDisplay !== estimateSupplyAPYDisplay"
-                class="text-p2 text-euler-dark-900"
+                class="text-p2 text-content-tertiary"
               >
                 {{ supplyAPYDisplay }}%
                 <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
-                  → <span class="text-white">{{ estimateSupplyAPYDisplay }}%</span>
+                  → <span class="text-content-primary">{{ estimateSupplyAPYDisplay }}%</span>
                 </template>
               </p>
               <p
                 v-else
-                class="text-p2 text-white"
+                class="text-p2 text-content-primary"
               >
                 {{ supplyAPYDisplay }}%
               </p>

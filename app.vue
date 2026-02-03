@@ -8,6 +8,22 @@ const { loadLabels } = useEulerLabels()
 const { updateBalances } = useWallets()
 const { isConnected } = useWagmi()
 
+// Theme: Initialize from localStorage, default to 'light'
+const theme = useLocalStorage('theme', 'light')
+
+// Sync theme with HTML attribute
+watch(theme, (newTheme) => {
+  if (process.client) {
+    document.documentElement.setAttribute('data-theme', newTheme)
+  }
+}, { immediate: true })
+
+useHead({
+  htmlAttrs: {
+    'data-theme': theme,
+  },
+})
+
 const isMenuVisible = ref(true)
 const isHeaderVisible = ref(true)
 let interval: NodeJS.Timeout | null = null
@@ -105,6 +121,9 @@ onUnmounted(() => {
   </main>
   <UiModals />
   <UiToastContainer />
+  <ClientOnly>
+    <UiThemeSwitcher />
+  </ClientOnly>
   <Transition name="page">
     <TheMenu v-show="isMenuVisible" />
   </Transition>

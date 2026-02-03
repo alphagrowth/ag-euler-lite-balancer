@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Vault, EscrowVault, SecuritizeVault } from '~/entities/vault'
+import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
@@ -17,7 +17,7 @@ const onCollateralClick = (address: string) => {
 // This includes collaterals that are ramping down (borrowLTV == 0 but currentLiquidationLTV > 0)
 const allCollateralPairs = computed(() => {
   const pairs: Array<{
-    collateral: Vault | EscrowVault | SecuritizeVault
+    collateral: Vault | SecuritizeVault
     borrowLTV: bigint
     liquidationLTV: bigint
     initialLiquidationLTV: bigint
@@ -40,7 +40,7 @@ const allCollateralPairs = computed(() => {
     // Try to find the collateral vault from registry
     const collateralEntry = registryGet(ltv.collateral)
     if (collateralEntry) {
-      pairs.push({ collateral: collateralEntry.vault as Vault | EscrowVault | SecuritizeVault, ...pairData })
+      pairs.push({ collateral: collateralEntry.vault as Vault | SecuritizeVault, ...pairData })
     }
   })
 
@@ -66,13 +66,13 @@ const formatTimeRemaining = (seconds: bigint): string => {
 <template>
   <div
     v-if="allCollateralPairs.length"
-    class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24"
+    class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
   >
     <div>
-      <p class="text-h3 text-white mb-12">
+      <p class="text-h3 text-content-primary mb-12">
         Collateral exposure
       </p>
-      <p class="text-euler-dark-900">
+      <p class="text-content-secondary">
         Deposits in this market can be borrowed.
         Please make sure you're comfortable accepting the collateral
         listed in the table below before depositing.
@@ -83,12 +83,11 @@ const formatTimeRemaining = (seconds: bigint): string => {
       <div
         v-for="pair in allCollateralPairs"
         :key="pair.collateral.address"
-        class="bg-euler-dark-500 rounded-16 text-white block no-underline cursor-pointer"
+        class="bg-surface rounded-xl text-content-primary block no-underline cursor-pointer hover:bg-card-hover transition-colors shadow-sm"
         @click="onCollateralClick(pair.collateral.address)"
       >
         <div
-          class="px-16 pt-16 pb-12"
-          style="border-bottom: 1px solid var(--c-euler-dark-600)"
+          class="px-16 pt-16 pb-12 border-b border-line-subtle"
         >
           <VaultLabelsAndAssets
             :vault="pair.collateral"
@@ -112,7 +111,7 @@ const formatTimeRemaining = (seconds: bigint): string => {
                   <UiFootnote
                     title="LTV Ramping"
                     :text="`The LLTV for this collateral is currently being reduced. Target LLTV: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair))}.`"
-                    class="[--ui-footnote-icon-color:var(--c-euler-dark-900)]"
+                    class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
                   />
                 </span>
               </template>

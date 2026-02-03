@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import type { EarnVault, EscrowVault, SecuritizeVault, Vault, VaultAsset } from '~/entities/vault'
+import type { EarnVault, SecuritizeVault, Vault, VaultAsset } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
-  vault: Vault | EarnVault | EscrowVault | SecuritizeVault
+  vault: Vault | EarnVault | SecuritizeVault
   assets: VaultAsset[]
   size?: 'large'
   assetsLabel?: string
@@ -14,7 +14,7 @@ const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
 const vaultAddress = computed(() => ethers.getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const displayName = computed(() => {
-  if ('type' in vault && vault.type === 'escrow') {
+  if ('vaultCategory' in vault && vault.vaultCategory === 'escrow') {
     return 'Escrowed collateral'
   }
   return product.name || vault.name
@@ -43,8 +43,8 @@ const deprecationReason = computed(() => {
   return ''
 })
 
-const getVaultLabel = (v: Vault | EarnVault | EscrowVault | SecuritizeVault) => {
-  if ('type' in v && v.type === 'escrow') {
+const getVaultLabel = (v: Vault | EarnVault | SecuritizeVault) => {
+  if ('vaultCategory' in v && v.vaultCategory === 'escrow') {
     return 'Escrowed collateral'
   }
   const addr = ethers.getAddress(v.address)
@@ -87,15 +87,11 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
     />
 
     <div>
-      <p
-        v-if="'verified' in vault && !vault.verified"
-        class="flex text-yellow-600 mb-4 items-center gap-4"
-      >
-        <SvgIcon
-          name="warning"
-          class="!w-20 !h-20"
+      <p class="text-content-tertiary mb-4">
+        <VaultDisplayName
+          :name="pairVault ? displayLabel : displayName"
+          :is-unverified="('verified' in vault && !vault.verified) || (pairVault && 'verified' in pairVault && !pairVault.verified)"
         />
-        Unknown
       </p>
       <p v-if="isDeprecated" class="mb-4">
         <span
@@ -108,20 +104,8 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
           </span>
         </span>
       </p>
-      <p
-        v-else
-        class="text-euler-dark-900 mb-4"
-      >
-        {{ pairVault ? displayLabel : displayName }}
-      </p>
-      <p
-        v-if="isDeprecated"
-        class="text-euler-dark-900 mb-4"
-      >
-        {{ pairVault ? displayLabel : displayName }}
-      </p>
 
-      <p class="text-p2 font-semibold">
+      <p class="text-p2 font-semibold text-content-primary">
         {{ displayAssetsLabel }}
       </p>
     </div>

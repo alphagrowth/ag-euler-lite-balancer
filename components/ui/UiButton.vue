@@ -131,17 +131,20 @@ const onClick = (e: Event) => {
   position: relative;
   display: inline-flex;
   overflow: hidden;
-  padding: 10px 14px;
-  font-weight: 600;
+  padding: 10px 16px;
+  font-weight: 500;
   text-align: center;
-  border-radius: 32px;
+  border-radius: 10px;
   cursor: pointer;
   user-select: none;
   border: none;
   text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 
   &.is-disabled, &.is-loading {
     pointer-events: none;
+    opacity: 0.6;
   }
 
   &.is-rounded {
@@ -192,6 +195,7 @@ const onClick = (e: Event) => {
     min-width: 32px;
     min-height: 32px;
     padding: 8px 12px;
+    border-radius: 8px;
 
     &.is-icon-only {
       padding: 8px;
@@ -203,7 +207,8 @@ const onClick = (e: Event) => {
     line-height: 20px;
     min-width: 36px;
     min-height: 36px;
-    padding: 8px 14px;
+    padding: 8px 16px;
+    border-radius: 10px;
 
     &.is-icon-only {
       padding: 10px;
@@ -211,11 +216,12 @@ const onClick = (e: Event) => {
   }
 
   &--large {
-    font-size: 16px;
+    font-size: 15px;
     line-height: 20px;
     min-width: 44px;
     min-height: 44px;
-    padding: 12px 20px;
+    padding: 12px 24px;
+    border-radius: 12px;
 
     #{$block}__icon {
       width: 20px;
@@ -232,7 +238,8 @@ const onClick = (e: Event) => {
     line-height: 20px;
     min-width: 52px;
     min-height: 52px;
-    padding: 16px 20px;
+    padding: 16px 28px;
+    border-radius: 14px;
 
     #{$block}__icon {
       width: 24px;
@@ -247,43 +254,47 @@ const onClick = (e: Event) => {
   &--primary {
     background-color: var(--ui-button-primary-background-color);
     color: var(--ui-button-primary-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 
-    &:hover, &:active {
+    &:hover {
       background-color: var(--ui-button-primary-active-background-color);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      transform: translateY(-1px);
     }
 
     &:active {
-      outline: 2px solid var(--ui-button-primary-active-outline-color);
+      background-color: var(--ui-button-primary-focus-active-background-color);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      transform: translateY(0);
     }
 
     &:focus-visible {
       background-color: var(--ui-button-primary-focus-background-color);
       outline: 2px solid var(--ui-button-primary-focus-outline-color);
       outline-offset: 2px;
-
-      &:active {
-        background-color: var(--ui-button-primary-focus-active-background-color);
-      }
     }
 
     &.is-disabled {
       background-color: var(--ui-button-primary-disabled-background-color);
       color: var(--ui-button-primary-disabled-color);
+      box-shadow: none;
+      transform: none;
     }
   }
 
   &--primary-stroke {
-    background-color: transparent;
+    background-color: var(--ui-button-primary-stroke-background-color);
     color: var(--ui-button-primary-stroke-color);
-    box-shadow: inset 0 0 0 1px var(--ui-button-primary-stroke-border-color);
+    box-shadow: inset 0 0 0 1px var(--ui-button-primary-stroke-border-color), 0 1px 2px rgba(0, 0, 0, 0.04);
 
-    &:hover, &:active {
+    &:hover {
       background-color: var(--ui-button-primary-stroke-hover-background-color);
-      box-shadow: inset 0 0 0 1px var(--ui-button-primary-stroke-border-color);
+      box-shadow: inset 0 0 0 1px var(--ui-button-primary-stroke-border-color), 0 2px 4px rgba(0, 0, 0, 0.06);
     }
 
     &:active {
-      box-shadow: inset 0 0 0 2px var(--ui-button-primary-stroke-border-color);
+      background-color: var(--ui-button-primary-stroke-active-background-color);
+      box-shadow: inset 0 0 0 1px var(--ui-button-primary-stroke-border-color);
     }
 
     &:focus-visible {
@@ -294,20 +305,22 @@ const onClick = (e: Event) => {
     &.is-disabled {
       box-shadow: inset 0 0 0 1px var(--ui-button-primary-stroke-disabled-border-color);
       color: var(--ui-button-primary-stroke-disabled-color);
+      background-color: var(--ui-button-primary-stroke-disabled-background-color);
     }
   }
 
   &--secondary {
     background-color: var(--ui-button-secondary-background-color);
     color: var(--ui-button-secondary-color);
-    box-shadow: inset 0 0 0 1px var(--ui-button-secondary-border-color);
+    box-shadow: inset 0 0 0 1px var(--ui-button-secondary-border-color), 0 1px 2px rgba(0, 0, 0, 0.04);
 
-    &:hover, &:active {
+    &:hover {
       background-color: var(--ui-button-secondary-hover-background-color);
-      box-shadow: inset 0 0 0 1px var(--ui-button-secondary-hover-border-color);
+      box-shadow: inset 0 0 0 1px var(--ui-button-secondary-hover-border-color), 0 2px 4px rgba(0, 0, 0, 0.06);
     }
 
     &:active {
+      background-color: var(--ui-button-secondary-active-background-color);
       box-shadow: inset 0 0 0 1px var(--ui-button-secondary-hover-border-color);
     }
 
@@ -326,13 +339,14 @@ const onClick = (e: Event) => {
   &--secondary-ghost {
     background-color: transparent;
     color: var(--ui-button-secondary-ghost-color);
+    box-shadow: none;
 
-    &:hover, &:active {
+    &:hover {
       background-color: var(--ui-button-secondary-ghost-hover-background-color);
     }
 
     &:active {
-      outline: 1px solid var(--ui-button-secondary-ghost-active-outline-color);
+      background-color: var(--ui-button-secondary-ghost-active-background-color);
     }
 
     &:focus-visible {
@@ -348,10 +362,11 @@ const onClick = (e: Event) => {
   &--red {
     background-color: var(--ui-button-red-background-color);
     color: var(--ui-button-red-color);
-    box-shadow: inset 0 0 0 1px var(--ui-button-red-border-color);
+    box-shadow: inset 0 0 0 1px var(--ui-button-red-border-color), 0 1px 2px rgba(0, 0, 0, 0.04);
 
-    &:hover, &:active {
+    &:hover {
       background-color: var(--ui-button-red-hover-background-color);
+      box-shadow: inset 0 0 0 1px var(--ui-button-red-border-color), 0 2px 4px rgba(0, 0, 0, 0.06);
     }
 
     &:active {
@@ -361,11 +376,7 @@ const onClick = (e: Event) => {
     &:focus-visible {
       background-color: var(--ui-button-red-hover-background-color);
       outline: 2px solid var(--ui-button-red-focus-outline-color);
-      outline-offset: 1px;
-
-      &:active {
-        background-color: var(--ui-button-red-focus-active-background-color);
-      }
+      outline-offset: 2px;
     }
 
     &.is-disabled {
@@ -378,14 +389,16 @@ const onClick = (e: Event) => {
   &--red-destructive {
     background-color: transparent;
     color: var(--ui-button-red-destructive-color);
+    box-shadow: none;
 
-    &:hover, &:active {
+    &:hover {
       box-shadow: inset 0 0 0 1px var(--ui-button-red-destructive-hover-border-color);
       background-color: var(--ui-button-red-destructive-hover-background-color);
     }
 
     &:active {
-      box-shadow: inset 0 0 0 2px var(--ui-button-red-destructive-hover-border-color);
+      box-shadow: inset 0 0 0 1px var(--ui-button-red-destructive-hover-border-color);
+      background-color: var(--ui-button-red-destructive-active-background-color);
     }
 
     &:focus-visible {

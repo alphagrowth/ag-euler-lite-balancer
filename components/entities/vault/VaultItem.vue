@@ -3,9 +3,8 @@ import { useAccount } from '@wagmi/vue'
 import { offset, useFloating } from '@floating-ui/vue'
 import { DateTime } from 'luxon'
 import { ethers } from 'ethers'
-import { getVaultPriceDisplay, getVaultUtilization, type Vault } from '~/entities/vault'
-import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
+import { getVaultPrice, getVaultPriceDisplay, getVaultUtilization, type Vault } from '~/entities/vault'
+import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -24,25 +23,14 @@ interface RewardInfo {
 
 const { isConnected } = useAccount()
 const { vault } = defineProps<{ vault: Vault }>()
-const { isVaultGovernorVerified } = useVaults()
 const product = useEulerProductOfVault(vault.address)
+const isUnverified = computed(() => !vault.verified)
 const displayName = computed(() => product.name || vault.name)
-const entities = useEulerEntitiesOfVault(vault)
 const { getBalance, isLoading: isBalancesLoading } = useWallets()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getCampaignOfLendVault } = useBrevis()
 const { withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
 const modal = useModal()
-
-const isGovernorVerified = computed(() => isVaultGovernorVerified(vault))
-const entitiesLabels = computed(() => {
-  if (!isGovernorVerified.value) return ['Unknown']
-  return entities.map(e => e.name)
-})
-const entitiesLogos = computed(() => {
-  if (!isGovernorVerified.value) return []
-  return entities.map(e => getEulerLabelEntityLogo(e.logo))
-})
 
 const balance = computed(() => getBalance(vault.asset.address as `0x${string}`))
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
@@ -151,6 +139,11 @@ const totalSupplyPrice = computed(() => {
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
+const liquidityPrice = computed(() => {
+  const liquidity = vault.supply - vault.borrow
+  return `$${compactNumber(getVaultPrice(liquidity, vault))}`
+})
+
 const walletBalancePrice = computed(() => {
   const price = getVaultPriceDisplay(balance.value, vault)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
@@ -163,18 +156,21 @@ const onWarningClick = () => {
 
 <template>
   <NuxtLink
-    class="block no-underline text-white bg-euler-dark-500 rounded-16"
+    class="block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
     :to="`/lend/${vault.address}`"
   >
-    <div class="flex pb-12 p-16 border-b border-border-primary">
+    <div class="flex pb-12 p-16 border-b border-line-subtle">
       <BaseAvatar
         class="icon--40"
         :src="getAssetLogoUrl(vault.asset.symbol)"
         :label="vault.asset.symbol"
       />
       <div class="flex-grow ml-12">
-        <div class="text-euler-dark-900 text-p3 mb-4 flex items-center gap-8">
-          <span>{{ displayName }}</span>
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
+          <VaultDisplayName
+            :name="displayName"
+            :is-unverified="isUnverified"
+          />
           <span
             v-if="isDeprecated"
             class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-[var(--c-red-opaque-200)] text-red-700 text-p5"
@@ -184,23 +180,23 @@ const onWarningClick = () => {
             Deprecated
           </span>
         </div>
-        <div class="text-h5">
+        <div class="text-h5 text-content-primary">
           {{ vault.asset.symbol }}
         </div>
       </div>
       <div class="flex flex-col items-end">
-        <div class="text-euler-dark-900 text-p3 mb-4 text-right">
+        <div class="text-content-tertiary text-p3 mb-4 text-right">
           Supply APY
         </div>
         <div
-          class="flex items-center "
+          class="flex items-center"
         >
           <div class="mr-6">
             <VaultPoints :vault="vault" />
           </div>
           <div
             ref="apyReference"
-            class="text-p2 flex items-center text-aquamarine-700 cursor-pointer relative"
+            class="text-p2 flex items-center text-accent-600 font-semibold cursor-pointer relative"
             @mouseenter="showTooltip"
             @mouseleave="hideTooltip"
             @touchstart.prevent="showTooltip"
@@ -208,7 +204,7 @@ const onWarningClick = () => {
           >
             <SvgIcon
               v-if="hasRewards"
-              class="!w-20 !h-20 text-aquamarine-700 mr-4"
+              class="!w-20 !h-20 text-accent-500 mr-4"
               name="sparks"
             />
             {{ formatNumber(supplyApyWithRewards) }}%
@@ -216,30 +212,28 @@ const onWarningClick = () => {
         </div>
       </div>
     </div>
-    <div class="flex-1 flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-border-primary">
+    <div class="flex-1 flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-line-subtle">
       <div class="flex-1">
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Total supply
         </div>
-        <div class="text-p2">
+        <div class="text-p2 text-content-primary">
           {{ totalSupplyPrice }}
         </div>
       </div>
       <div class="flex-1 flex flex-col items-center">
-        <div class="text-euler-dark-900 text-p3 mb-4">
-          Risk manager
+        <div class="text-content-tertiary text-p3 mb-4">
+          Available liquidity
         </div>
-        <BaseAvatar
-          class="icon--20"
-          :label="entitiesLabels"
-          :src="entitiesLogos"
-        />
+        <div class="text-p2 text-content-primary">
+          {{ liquidityPrice }}
+        </div>
       </div>
       <div
         class="flex flex-col flex-1 mobile:!hidden"
         :class="isConnected ? 'justify-center items-center' : 'items-end text-right'"
       >
-        <div class="text-euler-dark-900 text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4">
           Utilization
         </div>
         <div
@@ -247,7 +241,7 @@ const onWarningClick = () => {
         >
           <button
             v-if="utilization >= 95"
-            class="flex justify-center items-center w-20 h-20 bg-[#3e4540] text-yellow-600 rounded-4 cursor-pointer"
+            class="flex justify-center items-center w-20 h-20 bg-warning-100 text-warning-500 rounded-4 cursor-pointer"
             @click.stop.prevent="onWarningClick"
           >
             <SvgIcon
@@ -259,7 +253,7 @@ const onWarningClick = () => {
             :value="utilization"
             :max="100"
           />
-          <div class="text-p2">
+          <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
           </div>
         </div>
@@ -268,14 +262,14 @@ const onWarningClick = () => {
         v-if="isConnected"
         class="flex flex-col flex-1 items-end text-right"
       >
-          <div class="text-euler-dark-900 text-p3 mb-4">
+          <div class="text-content-tertiary text-p3 mb-4">
             In wallet
           </div>
           <BaseLoadableContent
             :loading="isBalancesLoading"
             style="width: 70px; height: 20px"
           >
-            <div class="text-p2">
+            <div class="text-p2 text-content-primary">
               {{ walletBalancePrice }}
             </div>
           </BaseLoadableContent>
@@ -283,7 +277,7 @@ const onWarningClick = () => {
     </div>
     <div class="hidden mobile:flex py-12 px-16 pb-16">
       <div class="flex-1">
-        <div class="text-euler-dark-900 text-p3">
+        <div class="text-content-tertiary text-p3">
           Utilization
         </div>
       </div>
@@ -292,7 +286,7 @@ const onWarningClick = () => {
       >
         <button
           v-if="utilization >= 95"
-          class="flex justify-center items-center w-20 h-20 bg-[#3e4540] text-yellow-600 rounded-4 cursor-pointer"
+          class="flex justify-center items-center w-20 h-20 bg-warning-100 text-warning-500 rounded-4 cursor-pointer"
           @click.stop.prevent="onWarningClick"
         >
           <SvgIcon
@@ -304,7 +298,7 @@ const onWarningClick = () => {
           :value="utilization"
           :max="100"
         />
-        <div class="text-p2">
+        <div class="text-p2 text-content-primary">
           {{ compactNumber(utilization, 2, 2) }}%
         </div>
       </div>
@@ -358,7 +352,7 @@ const onWarningClick = () => {
             <div>
               <p class="text-p3 mb-2 flex gap-4 items-center">
                 <SvgIcon
-                  class="!w-16 !h-16 text-aquamarine-700"
+                  class="!w-16 !h-16 text-accent-500"
                   name="sparks"
                 />
                 <span>Rewards APY</span>

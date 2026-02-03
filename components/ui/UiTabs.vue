@@ -229,6 +229,7 @@ defineExpose({
       width: auto;
       bottom: auto;
       max-width: none;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
   }
 

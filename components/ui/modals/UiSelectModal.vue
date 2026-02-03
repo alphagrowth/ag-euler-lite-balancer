@@ -160,7 +160,7 @@ watch(() => props.selected, (val) => {
     height: 26px;
     border-radius: 50%;
     overflow: hidden;
-    background: var(--c-white);
+    background: var(--bg-surface);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -176,8 +176,8 @@ watch(() => props.selected, (val) => {
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: var(--c-aquamarine-700);
-    color: var(--c-euler-dark-100);
+    background: var(--accent-500);
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -187,7 +187,7 @@ watch(() => props.selected, (val) => {
 
   &__label {
     font-size: 16px;
-    color: var(--c-white);
+    color: var(--text-primary);
   }
 
   &__checkbox {
