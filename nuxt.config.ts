@@ -93,6 +93,8 @@ export default defineNuxtConfig({
     public: {
       network: process.env.NETWORK,
       pythHermesUrl: process.env.PYTH_HERMES_URL || 'https://hermes.pyth.network',
+      appKitProjectId: process.env.APPKIT_PROJECT_ID,
+      appUrl: process.env.APP_URL,
     },
   },
 

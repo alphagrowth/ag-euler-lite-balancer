@@ -18,7 +18,14 @@ export const socials = {
 
 // SEO defaults for the app (used in nuxt.config.ts).
 export const appTitle = 'Euler Lite'
-export const appDescription = 'Lightweight interface for Euler Finance lending and borrowing.'
+export const appDescription = 'Lightweight inte rface for Euler Finance lending and borrowing.'
+
+// AppKit (Reown) metadata used for wallet connection UI.
+export const appKitMetadata = {
+  name: 'Euler Lite',
+  description: 'Euler Finance Lite',
+  iconPath: '/manifest-img.png',
+} as const
 
 // Base hue for the app theme in degrees (0-360). Change to shift the brand palette.
 export const themeHue = 150

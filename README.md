@@ -40,12 +40,16 @@ NETWORK=mainnet  # or testnet
 # Pyth Hermes URL (optional, defaults to https://hermes.pyth.network)
 PYTH_HERMES_URL=https://hermes.pyth.network
 
+# Reown (AppKit) configuration (required for wallet connect)
+APPKIT_PROJECT_ID=your-reown-project-id
+APP_URL=https://your-domain.com
+
 # HTTPS configuration for local development (optional)
 HTTPS_KEY=/path/to/key.pem
 HTTPS_CERT=/path/to/cert.pem
 ```
 
-**Note**: The `NETWORK` variable is required. Other variables are optional and have sensible defaults.
+**Note**: `NETWORK`, `APPKIT_PROJECT_ID`, and `APP_URL` are required. Other variables are optional and have sensible defaults.
 
 ### 3. Customize Your Instance
 
@@ -215,32 +219,26 @@ export const intrinsicApySources = [
 3. `sourceSymbol` - optional; use when the vault asset is a wrapped token but APY is tied to another symbol.
 
 
-#### 3.2. Wagmi Configuration (`plugins/00.wagmi.ts`)
+#### 3.2. AppKit (Reown) Configuration
 
-Open `plugins/00.wagmi.ts` and update:
+**Environment Variables** - Set these in your `.env`:
 
-**Reown Project ID** - Replace with your own project ID:
-
-```typescript
-const projectId = "your-reown-project-id"; // Get from https://reown.com/
+```bash
+APPKIT_PROJECT_ID=your-reown-project-id  # Get from https://reown.com/
+APP_URL=https://your-domain.com
 ```
 
-**App URL** - Set your domain URL:
+**App Metadata** - Update the app name/description and icon path in `entities/custom.ts`:
 
 ```typescript
-const url = "https://your-domain.com";
-```
-
-**App Metadata** - Update the app name and description:
-
-```typescript
-const metadata = {
+export const appKitMetadata = {
   name: "Your App Name",
   description: "Your app description",
-  url,
-  icons: [`${url}/manifest-img.png`],
-};
+  iconPath: "/manifest-img.png",
+} as const;
 ```
+
+The runtime AppKit metadata is assembled from `APP_URL` + `iconPath` in `plugins/00.wagmi.ts`.
 
 #### 3.3. App Title, Description and Favicon (`nuxt.config.ts`)
 
@@ -380,9 +378,9 @@ Before deploying, ensure you've completed:
 - [ ] Set theme color hue in `entities/custom.ts`
 - [ ] Configured supported networks in `entities/custom.ts`
 - [ ] Updated Euler labels repository in `entities/custom.ts` (if using custom labels)
-- [ ] Set Reown Project ID in `plugins/00.wagmi.ts`
-- [ ] Updated app URL in `plugins/00.wagmi.ts`
-- [ ] Updated app metadata (name, description) in `plugins/00.wagmi.ts`
+- [ ] Set `APPKIT_PROJECT_ID` in `.env`
+- [ ] Set `APP_URL` in `.env`
+- [ ] Updated AppKit metadata (name, description, iconPath) in `entities/custom.ts`
 - [ ] Set SEO title/description in `entities/custom.ts`
 - [ ] Configured onboarding page (logo, title, description) in `entities/custom.ts`
 - [ ] Replaced favicon files in `public/favicons/`

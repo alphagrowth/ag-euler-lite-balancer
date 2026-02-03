@@ -5,17 +5,28 @@ import {
   bob, berachain, avalanche, bsc, unichain, monad,
   tac, linea, plasma, type AppKitNetwork } from '@reown/appkit/networks'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
-import { availableNetworkIds } from '~/entities/custom'
+import { availableNetworkIds, appKitMetadata } from '~/entities/custom'
 
-const projectId = 'b4d5f74af3e208693c5c26a4eb041592' // https://reown.com/
-const url = 'https://beta-lite.boostcult.fun'
+const config = useRuntimeConfig()
+const projectId = config.public.appKitProjectId
+const appUrl = config.public.appUrl
+const normalizedAppUrl = appUrl ? appUrl.replace(/\/+$/, '') : ''
 
-const metadata = {
-  name: 'Euler Lite',
-  description: 'Euler Finance Lite',
-  url,
-  icons: [`${url}/manifest-img.png`],
+if (!projectId) {
+  console.warn('[wagmi] Missing APPKIT_PROJECT_ID in runtime config')
 }
+if (!normalizedAppUrl) {
+  console.warn('[wagmi] Missing APP_URL in runtime config')
+}
+
+const buildAppKitMetadata = (appUrl: string) => ({
+  name: appKitMetadata.name,
+  description: appKitMetadata.description,
+  url: appUrl,
+  icons: appUrl ? [`${appUrl}${appKitMetadata.iconPath}`] : [],
+})
+
+const metadata = buildAppKitMetadata(normalizedAppUrl)
 
 const allNetworks: AppKitNetwork[] = [
   mainnet, arbitrum, base, swellchain, sonic,
@@ -38,13 +49,13 @@ const networks = (filteredNetworks.length ? filteredNetworks : allNetworks) as [
 
 const wagmiAdapter = new WagmiAdapter({
   networks,
-  projectId,
+  projectId: projectId || '',
 })
 
 createAppKit({
   adapters: [wagmiAdapter],
   networks,
-  projectId,
+  projectId: projectId || '',
   metadata,
 })
 
