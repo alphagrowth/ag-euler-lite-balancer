@@ -42,7 +42,7 @@ export const availableNetworkIds = [
   1
 ] as const
 
-export const labelsRepo: string = 'kanvgupta/euler-labels' // https://github.com/euler-xyz/euler-labels
+export const labelsRepo: string = 'euler-xyz/euler-labels' // https://github.com/euler-xyz/euler-labels
 
 export const onboardingInfo = {
   logoUrl: '/logo.png',

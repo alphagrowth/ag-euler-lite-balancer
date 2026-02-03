@@ -191,14 +191,6 @@ const linkPath = computed(() => `/borrow/${pair.collateral.address}/${pair.borro
           </div>
         </div>
       </div>
-      <div class="text-right">
-        <div class="text-content-tertiary text-p3 mb-4">
-          LLTV
-        </div>
-        <div class="text-p2 text-content-primary">
-          {{ pair.liquidationLTV / 100n }}%
-        </div>
-      </div>
     </div>
     <div class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
       <div class="flex w-full justify-between">
