@@ -2,6 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { offset, useFloating } from '@floating-ui/vue'
 import { DateTime } from 'luxon'
+import { ethers } from 'ethers'
 import { getVaultPriceDisplay, getVaultUtilization, type Vault } from '~/entities/vault'
 import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
@@ -56,6 +57,16 @@ const supplyApy = computed(() => withIntrinsicSupplyApy(
 ))
 const supplyApyWithRewards = computed(() => supplyApy.value + totalRewardsAPY.value)
 const utilization = computed(() => getVaultUtilization(vault))
+const isDeprecated = computed(() => {
+  try {
+    const addr = ethers.getAddress(vault.address)
+    return product.deprecatedVaults?.includes(addr) ?? false
+  }
+  catch {
+    return product.deprecatedVaults?.includes(vault.address) ?? false
+  }
+})
+const deprecationReason = computed(() => (isDeprecated.value ? product.deprecationReason : ''))
 
 // Tooltip state
 const isTooltipVisible = ref(false)
@@ -162,8 +173,16 @@ const onWarningClick = () => {
         :label="vault.asset.symbol"
       />
       <div class="flex-grow ml-12">
-        <div class="text-euler-dark-900 text-p3 mb-4">
-          {{ displayName }}
+        <div class="text-euler-dark-900 text-p3 mb-4 flex items-center gap-8">
+          <span>{{ displayName }}</span>
+          <span
+            v-if="isDeprecated"
+            class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-[var(--c-red-opaque-200)] text-red-700 text-p5"
+            :title="deprecationReason || 'This vault has been deprecated.'"
+          >
+            <SvgIcon name="warning" class="!w-14 !h-14" />
+            Deprecated
+          </span>
         </div>
         <div class="text-h5">
           {{ vault.asset.symbol }}

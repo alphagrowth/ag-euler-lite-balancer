@@ -23,6 +23,26 @@ const displayName = computed(() => {
 const pairVaultAddress = computed(() => pairVault ? ethers.getAddress(pairVault.address) : '')
 const pairProduct = useEulerProductOfVault(pairVaultAddress)
 
+const isVaultDeprecated = computed(() => {
+  const addr = vaultAddress.value
+  return product.deprecatedVaults?.includes(addr) ?? false
+})
+const isPairVaultDeprecated = computed(() => {
+  if (!pairVault) return false
+  const addr = pairVaultAddress.value
+  return pairProduct.deprecatedVaults?.includes(addr) ?? false
+})
+const isDeprecated = computed(() => isVaultDeprecated.value || isPairVaultDeprecated.value)
+const deprecationReason = computed(() => {
+  if (isVaultDeprecated.value && product.deprecationReason) {
+    return product.deprecationReason
+  }
+  if (isPairVaultDeprecated.value && pairProduct.deprecationReason) {
+    return pairProduct.deprecationReason
+  }
+  return ''
+})
+
 const getVaultLabel = (v: Vault | EarnVault | EscrowVault | SecuritizeVault) => {
   if ('type' in v && v.type === 'escrow') {
     return 'Escrowed collateral'
@@ -77,8 +97,25 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
         />
         Unknown
       </p>
+      <p v-if="isDeprecated" class="mb-4">
+        <span
+          class="inline-flex items-center gap-6 rounded-8 px-10 py-4 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 max-w-[520px]"
+          :title="deprecationReason || 'This vault has been deprecated.'"
+        >
+          <SvgIcon name="warning" class="!w-16 !h-16" />
+          <span class="truncate">
+            Deprecated<span v-if="deprecationReason">: {{ deprecationReason }}</span>
+          </span>
+        </span>
+      </p>
       <p
         v-else
+        class="text-euler-dark-900 mb-4"
+      >
+        {{ pairVault ? displayLabel : displayName }}
+      </p>
+      <p
+        v-if="isDeprecated"
         class="text-euler-dark-900 mb-4"
       >
         {{ pairVault ? displayLabel : displayName }}

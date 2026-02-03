@@ -38,14 +38,20 @@ const normalizeProducts = (data: Record<string, EulerLabelProduct>): { products:
   const allVaults = new Set<string>()
   Object.entries(data).forEach(([key, product]) => {
     const normalizedVaults = product.vaults.map(normalizeAddress)
+    const normalizedDeprecated = (product.deprecatedVaults || []).map(normalizeAddress)
+    const fallbackReason = (product as { deprecateReason?: string }).deprecateReason
     normalized[key] = {
       ...product,
       vaults: normalizedVaults,
+      deprecatedVaults: normalizedDeprecated,
+      deprecationReason: product.deprecationReason || fallbackReason,
     }
     normalizedVaults.forEach(v => allVaults.add(v))
+    normalizedDeprecated.forEach(v => allVaults.add(v))
   })
   return { products: normalized, vaultAddresses: [...allVaults] }
 }
+
 
 const normalizeEntities = (data: Record<string, EulerLabelEntity>) => {
   const normalized: Record<string, EulerLabelEntity> = {}
@@ -197,7 +203,10 @@ export const useEulerLabels = () => {
 
 export const getProductByVault = (vaultAddress: string) => {
   const normalized = normalizeAddress(vaultAddress)
-  return Object.values(products).find(product => product.vaults.includes(normalized))
+  return Object.values(products).find(product =>
+    product.vaults.includes(normalized)
+    || product.deprecatedVaults?.includes(normalized),
+  )
     || eulerLabelProductEmpty
 }
 
