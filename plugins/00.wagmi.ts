@@ -7,27 +7,6 @@ import {
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { availableNetworkIds, appKitMetadata } from '~/entities/custom'
 
-const config = useRuntimeConfig()
-const projectId = config.public.appKitProjectId
-const appUrl = config.public.appUrl
-const normalizedAppUrl = appUrl ? appUrl.replace(/\/+$/, '') : ''
-
-if (!projectId) {
-  console.warn('[wagmi] Missing APPKIT_PROJECT_ID in runtime config')
-}
-if (!normalizedAppUrl) {
-  console.warn('[wagmi] Missing APP_URL in runtime config')
-}
-
-const buildAppKitMetadata = (appUrl: string) => ({
-  name: appKitMetadata.name,
-  description: appKitMetadata.description,
-  url: appUrl,
-  icons: appUrl ? [`${appUrl}${appKitMetadata.iconPath}`] : [],
-})
-
-const metadata = buildAppKitMetadata(normalizedAppUrl)
-
 const allNetworks: AppKitNetwork[] = [
   mainnet, arbitrum, base, swellchain, sonic,
   bob, berachain, avalanche, bsc, unichain,
@@ -47,18 +26,39 @@ if (!filteredNetworks.length) {
 
 const networks = (filteredNetworks.length ? filteredNetworks : allNetworks) as [AppKitNetwork, ...AppKitNetwork[]]
 
-const wagmiAdapter = new WagmiAdapter({
-  networks,
-  projectId: projectId || '',
-})
-
-createAppKit({
-  adapters: [wagmiAdapter],
-  networks,
-  projectId: projectId || '',
-  metadata,
-})
-
 export default defineNuxtPlugin((nuxtApp) => {
+  const config = useRuntimeConfig()
+  const projectId = config.public.appKitProjectId
+  const appUrl = config.public.appUrl
+  const normalizedAppUrl = appUrl ? appUrl.replace(/\/+$/, '') : ''
+
+  if (!projectId) {
+    console.warn('[wagmi] Missing APPKIT_PROJECT_ID in runtime config')
+  }
+  if (!normalizedAppUrl) {
+    console.warn('[wagmi] Missing APP_URL in runtime config')
+  }
+
+  const buildAppKitMetadata = (url: string) => ({
+    name: appKitMetadata.name,
+    description: appKitMetadata.description,
+    url,
+    icons: url ? [`${url}${appKitMetadata.iconPath}`] : [],
+  })
+
+  const metadata = buildAppKitMetadata(normalizedAppUrl)
+
+  const wagmiAdapter = new WagmiAdapter({
+    networks,
+    projectId: projectId || '',
+  })
+
+  createAppKit({
+    adapters: [wagmiAdapter],
+    networks,
+    projectId: projectId || '',
+    metadata,
+  })
+
   nuxtApp.vueApp.use(WagmiPlugin, { config: wagmiAdapter.wagmiConfig })
 })
