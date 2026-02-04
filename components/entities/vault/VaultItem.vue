@@ -136,8 +136,8 @@ const onWarningClick = () => {
             />
             {{ formatNumber(supplyApyWithRewards) }}%
             <SvgIcon
-              class="!w-20 !h-20 text-content-muted cursor-pointer ml-4"
-              name="question-circle"
+              class="!w-20 !h-20 text-content-muted hover:text-content-secondary transition-colors cursor-pointer ml-4"
+              name="info-circle"
               @click="onSupplyInfoIconClick"
             />
           </div>

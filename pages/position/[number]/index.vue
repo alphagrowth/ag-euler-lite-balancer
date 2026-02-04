@@ -453,7 +453,7 @@ watch(isConnected, () => {
             {{ formatNumber(netAPY) }}%
             <SvgIcon
               class="!w-24 !h-24 text-neutral-400 cursor-pointer"
-              name="question-circle"
+              name="info-circle"
               @click="onNetApyInfoIconClick"
             />
           </div>

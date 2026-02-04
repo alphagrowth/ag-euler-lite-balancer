@@ -87,7 +87,7 @@ const onBorrowInfoIconClick = () => {
           </span>
           <SvgIcon
             class="!w-20 !h-20 text-euler-dark-800 cursor-pointer"
-            name="question-circle"
+            name="info-circle"
             @click="onSupplyInfoIconClick"
           />
         </p>
@@ -101,7 +101,7 @@ const onBorrowInfoIconClick = () => {
           </span>
           <SvgIcon
             class="!w-20 !h-20 text-euler-dark-800 cursor-pointer"
-            name="question-circle"
+            name="info-circle"
             @click="onBorrowInfoIconClick"
           />
         </p>

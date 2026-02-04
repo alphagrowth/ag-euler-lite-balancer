@@ -348,7 +348,7 @@ const openLegalModal = () => {
       />
       <SvgIcon
         class="!w-24 !h-24"
-        name="question-circle"
+        name="info-circle"
       />
       <SvgIcon
         class="!w-24 !h-24"
