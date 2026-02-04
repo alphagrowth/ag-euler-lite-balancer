@@ -222,10 +222,10 @@ const linkPath = computed(
         <div class="flex gap-8 justify-end items-center text-right">
           <button
             v-if="utilization >= 95"
-            class="flex justify-center items-center w-20 h-20 bg-warning-100 text-warning-500 rounded-4 cursor-pointer"
+            class="text-warning-500 hover:text-warning-600 transition-colors cursor-pointer"
             @click.stop.prevent="onWarningClick"
           >
-            <SvgIcon name="warning" class="!w-16 !h-16" />
+            <SvgIcon name="warning" class="!w-18 !h-18" />
           </button>
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
@@ -272,10 +272,10 @@ const linkPath = computed(
         <div class="flex gap-8 justify-end items-center text-right flex-1">
           <button
             v-if="utilization >= 95"
-            class="flex justify-center items-center w-20 h-20 bg-warning-100 text-warning-500 rounded-4 cursor-pointer"
+            class="text-warning-500 hover:text-warning-600 transition-colors cursor-pointer"
             @click.stop.prevent="onWarningClick"
           >
-            <SvgIcon name="warning" class="!w-16 !h-16" />
+            <SvgIcon name="warning" class="!w-18 !h-18" />
           </button>
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
