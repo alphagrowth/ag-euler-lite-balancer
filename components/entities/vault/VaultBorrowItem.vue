@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ethers } from "ethers";
 import {
   type AnyBorrowVaultPair,
   getVaultPrice,
@@ -35,6 +36,14 @@ const isAnyUnverified = computed(() => {
     "verified" in pair.collateral && !pair.collateral.verified;
   const borrowUnverified = "verified" in pair.borrow && !pair.borrow.verified;
   return collateralUnverified || borrowUnverified;
+});
+
+const isAnyDeprecated = computed(() => {
+  const collateralAddr = ethers.getAddress(pair.collateral.address);
+  const borrowAddr = ethers.getAddress(pair.borrow.address);
+  const collateralDeprecated = collateralProduct.deprecatedVaults?.includes(collateralAddr) ?? false;
+  const borrowDeprecated = borrowProduct.deprecatedVaults?.includes(borrowAddr) ?? false;
+  return collateralDeprecated || borrowDeprecated;
 });
 
 const pairName = computed(() => {
@@ -154,6 +163,13 @@ const linkPath = computed(
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
           <VaultDisplayName :name="pairName" :is-unverified="isAnyUnverified" />
+          <span
+            v-if="isAnyDeprecated"
+            class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+          >
+            <SvgIcon name="warning" class="!w-14 !h-14" />
+            Deprecated
+          </span>
         </div>
         <div class="text-h5 text-content-primary">
           {{

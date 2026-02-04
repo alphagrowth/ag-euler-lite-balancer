@@ -1,14 +1,22 @@
 <script setup lang="ts">
+import { ethers } from 'ethers'
 import type { EarnVault } from '~/entities/vault'
 import { getVaultPriceDisplay } from '~/entities/vault'
-import { useEulerEntitiesOfEarnVault } from '~/composables/useEulerLabels'
+import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
 
 const { isEarnVaultOwnerVerified } = useVaults()
+const vaultAddress = computed(() => ethers.getAddress(vault.address))
+const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfEarnVault(vault)
 const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
+
+const isDeprecated = computed(() => {
+  return product.deprecatedVaults?.includes(vaultAddress.value) ?? false
+})
+const deprecationReason = computed(() => isDeprecated.value ? product.deprecationReason : '')
 
 const priceDisplay = computed(() => {
   const price = getVaultPriceDisplay(1, vault)
@@ -26,10 +34,19 @@ const feeDisplay = computed(() => {
       Overview
     </p>
     <div class="flex flex-col items-start gap-24">
+      <div
+        v-if="isDeprecated && deprecationReason"
+        class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
+      >
+        <div class="flex items-start gap-8">
+          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
+          <p class="text-p3 text-warning-500">{{ deprecationReason }}</p>
+        </div>
+      </div>
       <VaultOverviewLabelValue
         label="Price"
         :value="priceDisplay"
-        />
+      />
       <VaultOverviewLabelValue
         label="Performance fee"
         :value="feeDisplay"
@@ -57,7 +74,7 @@ const feeDisplay = computed(() => {
         </div>
         <div
           v-else-if="!isOwnerVerified"
-          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500"
+          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"
         >
           <UiIcon
             class="mr-2 !w-20 !h-20"

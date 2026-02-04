@@ -33,15 +33,6 @@ const isPairVaultDeprecated = computed(() => {
   return pairProduct.deprecatedVaults?.includes(addr) ?? false
 })
 const isDeprecated = computed(() => isVaultDeprecated.value || isPairVaultDeprecated.value)
-const deprecationReason = computed(() => {
-  if (isVaultDeprecated.value && product.deprecationReason) {
-    return product.deprecationReason
-  }
-  if (isPairVaultDeprecated.value && pairProduct.deprecationReason) {
-    return pairProduct.deprecationReason
-  }
-  return ''
-})
 
 const getVaultLabel = (v: Vault | EarnVault | SecuritizeVault) => {
   if ('vaultCategory' in v && v.vaultCategory === 'escrow') {
@@ -87,23 +78,21 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
     />
 
     <div>
-      <p class="text-content-tertiary mb-4">
-        <VaultDisplayName
-          :name="pairVault ? displayLabel : displayName"
-          :is-unverified="('verified' in vault && !vault.verified) || (pairVault && 'verified' in pairVault && !pairVault.verified)"
-        />
-      </p>
-      <p v-if="isDeprecated" class="mb-4">
-        <span
-          class="inline-flex items-center gap-6 rounded-8 px-10 py-4 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 max-w-[520px]"
-          :title="deprecationReason || 'This vault has been deprecated.'"
-        >
-          <SvgIcon name="warning" class="!w-16 !h-16" />
-          <span class="truncate">
-            Deprecated<span v-if="deprecationReason">: {{ deprecationReason }}</span>
-          </span>
+      <div class="flex items-center gap-8 mb-4">
+        <span class="text-content-tertiary">
+          <VaultDisplayName
+            :name="pairVault ? displayLabel : displayName"
+            :is-unverified="('verified' in vault && !vault.verified) || (pairVault && 'verified' in pairVault && !pairVault.verified)"
+          />
         </span>
-      </p>
+        <span
+          v-if="isDeprecated"
+          class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+        >
+          <SvgIcon name="warning" class="!w-14 !h-14" />
+          Deprecated
+        </span>
+      </div>
 
       <p class="text-p2 font-semibold text-content-primary">
         {{ displayAssetsLabel }}

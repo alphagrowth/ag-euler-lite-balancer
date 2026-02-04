@@ -109,7 +109,7 @@ const onWarningClick = () => {
           <VaultDisplayName :name="displayName" :is-unverified="isUnverified" />
           <span
             v-if="isDeprecated"
-            class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-[var(--c-red-opaque-200)] text-red-700 text-p5"
+            class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
             :title="deprecationReason || 'This vault has been deprecated.'"
           >
             <SvgIcon name="warning" class="!w-14 !h-14" />

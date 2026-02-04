@@ -8,7 +8,7 @@ const { name, isUnverified } = defineProps<{
 <template>
   <span
     v-if="isUnverified"
-    class="flex text-warning-500 items-center gap-4"
+    class="flex text-red-700 items-center gap-4"
   >
     <SvgIcon
       name="warning"
