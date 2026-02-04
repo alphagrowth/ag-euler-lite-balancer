@@ -8,13 +8,16 @@ import {
   vaultMaxWithdrawAbi,
   vaultPreviewWithdrawAbi,
 } from '~/abis/vault'
-import type { OracleDetailedInfo } from '~/entities/oracle'
+import type { OracleDetailedInfo, PythFeed } from '~/entities/oracle'
+import { collectPythFeedIds } from '~/entities/oracle'
 import {
   eulerEarnVaultLensABI,
   eulerPerspectiveABI,
   eulerUtilsLensABI,
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
+import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
+import { buildPythBatchItemsFromFeeds } from '~/utils/pyth'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { nanoToValue } from '~/utils/crypto-utils'
 
@@ -26,26 +29,6 @@ const vaultFactoryCache = new Map<string, string>()
 const unitOfAccountPriceCache = new Map<string, { amountOutMid: bigint } | null>()
 
 const ONE_18 = 10n ** 18n
-const STABLECOIN_SYMBOLS = [
-  'USD',
-  'USDC',
-  'USDT',
-  'DAI',
-  'FRAX',
-  'LUSD',
-  'GUSD',
-  'USDP',
-  'TUSD',
-  'BUSD',
-  'SUSD',
-]
-
-const normalizeSymbol = (symbol?: string) => symbol?.toUpperCase() || ''
-const isStableSymbol = (symbol?: string) => {
-  const normalized = normalizeSymbol(symbol)
-  if (!normalized) return false
-  return STABLECOIN_SYMBOLS.some(stable => normalized.includes(stable))
-}
 
 // Fetch vault factory from subgraph
 export const fetchVaultFactory = async (
@@ -416,16 +399,12 @@ export interface CollateralOption {
 const resolveAssetPriceInfo = async (
   utilsLensContract: ethers.Contract,
   assetAddress: string,
-  assetSymbol?: string,
 ): Promise<{ amountOutMid: bigint } | undefined> => {
   try {
     const priceInfo = await utilsLensContract.getAssetPriceInfo(assetAddress, USD_ADDRESS)
     const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
 
     if (priceData.queryFailure || !priceData.amountOutMid || priceData.amountOutMid === 0n) {
-      if (isStableSymbol(assetSymbol)) {
-        return { amountOutMid: ONE_18 }
-      }
       return undefined
     }
 
@@ -441,15 +420,22 @@ const resolveUnitOfAccountPriceInfo = async (
   utilsLensContract: ethers.Contract,
   unitOfAccount?: string,
 ): Promise<{ amountOutMid: bigint } | undefined> => {
-  if (!unitOfAccount) return undefined
+  if (!unitOfAccount) {
+    return undefined
+  }
   const normalized = unitOfAccount.toLowerCase()
 
   if (normalized === USD_ADDRESS.toLowerCase()) {
     return { amountOutMid: ONE_18 }
   }
 
-  if (unitOfAccountPriceCache.has(normalized)) {
-    return unitOfAccountPriceCache.get(normalized) || undefined
+  // Check cache
+  const cached = unitOfAccountPriceCache.get(normalized)
+  if (cached) {
+    return cached
+  }
+  if (cached === null) {
+    return undefined
   }
 
   const priceInfo = await resolveAssetPriceInfo(utilsLensContract, unitOfAccount)
@@ -457,35 +443,20 @@ const resolveUnitOfAccountPriceInfo = async (
   return priceInfo
 }
 
-export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { loadEulerConfig, isReady } = useEulerAddresses()
-  const { verifiedVaultAddresses } = useEulerLabels()
-
-  if (!isReady.value) {
-    loadEulerConfig()
-    await until(computed(() => isReady.value)).toBeTruthy()
-  }
-  const { eulerLensAddresses } = useEulerAddresses()
-
-  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const vaultLensContract = new ethers.Contract(
-    eulerLensAddresses.value!.vaultLens,
-    eulerVaultLensABI,
-    provider,
-  )
-  const utilsLensContract = eulerLensAddresses.value?.utilsLens
-    ? new ethers.Contract(
-        eulerLensAddresses.value.utilsLens,
-        eulerUtilsLensABI,
-        provider,
-      )
-    : undefined
-  const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
+/**
+ * Process raw vault lens data into a Vault object.
+ * Extracted to enable reuse between direct query and simulation-based fetch.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const processRawVaultData = (
+  raw: any,
+  vaultAddress: string,
+  verifiedVaultAddresses: string[],
+): Vault => {
   const data = raw.toObject({ deep: true })
 
-  const vault = {
-    verified: verifiedVaultAddresses.value.includes(vaultAddress),
+  return {
+    verified: verifiedVaultAddresses.includes(vaultAddress),
     address: data.vault,
     name: data.vaultName,
     supply: data.totalAssets,
@@ -508,7 +479,6 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
       .map((o: { toObject: () => void }) => o.toObject()),
     liabilityPriceInfo: data.liabilityPriceInfo,
     maxLiquidationDiscount: data.maxLiquidationDiscount,
-    // interestRateInfo: data.irmInfo.interestRateInfo._, // might be a toObject deep conversion bug
     interestRateInfo: !raw.irmInfo?.interestRateInfo?._
       ? {
           borrowAPY: 0n,
@@ -541,10 +511,152 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
         }
       : undefined,
   } as Vault
+}
+
+/**
+ * Fetch vault using EVC batchSimulation with Pyth updates.
+ * This ensures fresh Pyth prices are available when querying vault info.
+ *
+ * @param vaultAddress - The vault address to fetch
+ * @param feeds - Pre-collected Pyth feeds for this vault
+ * @param provider - JSON-RPC provider
+ * @param vaultLensContract - Vault lens contract instance
+ * @param evcAddress - EVC contract address
+ * @param hermesEndpoint - Pyth Hermes endpoint URL
+ * @param providerUrl - JSON-RPC provider URL for Pyth batch building
+ * @param verifiedVaultAddresses - List of verified vault addresses
+ * @returns Vault with fresh Pyth prices, or undefined if simulation fails
+ */
+const fetchVaultWithPythSimulation = async (
+  vaultAddress: string,
+  feeds: PythFeed[],
+  provider: ethers.JsonRpcProvider,
+  vaultLensContract: ethers.Contract,
+  evcAddress: string,
+  hermesEndpoint: string,
+  providerUrl: string,
+  verifiedVaultAddresses: string[],
+): Promise<Vault | undefined> => {
+  try {
+    // Build Pyth update batch items
+    const { items: pythItems, totalFee } = await buildPythBatchItemsFromFeeds(
+      feeds,
+      providerUrl,
+      hermesEndpoint,
+    )
+
+    // Build vault lens batch item
+    const vaultLensCallData = vaultLensContract.interface.encodeFunctionData(
+      'getVaultInfoFull',
+      [vaultAddress],
+    )
+    const vaultLensBatchItem: BatchItem = {
+      targetContract: await vaultLensContract.getAddress(),
+      onBehalfOfAccount: ethers.ZeroAddress,
+      value: 0n,
+      data: vaultLensCallData,
+    }
+
+    // Combine batch items: Pyth updates first, then vault lens call
+    const batchItems = [...pythItems, vaultLensBatchItem]
+
+    // Execute batch simulation
+    const evcContract = new ethers.Contract(evcAddress, EVC_ABI, provider)
+    const [batchResults] = await evcContract.batchSimulation.staticCall(
+      batchItems,
+      { value: totalFee },
+    ) as [BatchItemResult[], unknown, unknown]
+
+    // Validate batch results
+    if (!batchResults || batchResults.length === 0) {
+      console.warn('[fetchVaultWithPythSimulation] Empty batch results')
+      return undefined
+    }
+
+    // Get the last result (vault lens call)
+    const vaultLensResult = batchResults[batchResults.length - 1]
+    if (!vaultLensResult || !vaultLensResult.success) {
+      console.warn('[fetchVaultWithPythSimulation] Vault lens call failed in simulation')
+      return undefined
+    }
+
+    // Decode the vault lens result
+    const decodedResult = vaultLensContract.interface.decodeFunctionResult(
+      'getVaultInfoFull',
+      vaultLensResult.result,
+    )
+    if (!decodedResult || decodedResult.length === 0) {
+      console.warn('[fetchVaultWithPythSimulation] Failed to decode vault lens result')
+      return undefined
+    }
+    const raw = decodedResult[0]
+
+    return processRawVaultData(raw, vaultAddress, verifiedVaultAddresses)
+  }
+  catch (err) {
+    console.warn(`[fetchVaultWithPythSimulation] Error for vault ${vaultAddress}:`, err)
+    return undefined
+  }
+}
+
+export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
+  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
+  const { loadEulerConfig, isReady } = useEulerAddresses()
+  const { verifiedVaultAddresses } = useEulerLabels()
+
+  if (!isReady.value) {
+    loadEulerConfig()
+    await until(computed(() => isReady.value)).toBeTruthy()
+  }
+  const { eulerLensAddresses, eulerCoreAddresses } = useEulerAddresses()
+
+  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const vaultLensContract = new ethers.Contract(
+    eulerLensAddresses.value!.vaultLens,
+    eulerVaultLensABI,
+    provider,
+  )
+  const utilsLensContract = eulerLensAddresses.value?.utilsLens
+    ? new ethers.Contract(
+        eulerLensAddresses.value.utilsLens,
+        eulerUtilsLensABI,
+        provider,
+      )
+    : undefined
+
+  // Standard query first (fast path for non-Pyth vaults)
+  const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
+  let vault = processRawVaultData(raw, vaultAddress, verifiedVaultAddresses.value)
+
+  // Check if vault uses Pyth and has a price query failure
+  const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+
+  const hasPythPriceFailure = feeds.length > 0 && (
+    vault.liabilityPriceInfo?.queryFailure ||
+    !vault.liabilityPriceInfo?.amountOutMid ||
+    vault.liabilityPriceInfo.amountOutMid === 0n
+  )
+
+  // If Pyth vault with price failure, re-query with simulation
+  if (hasPythPriceFailure && eulerCoreAddresses.value?.evc && PYTH_HERMES_URL) {
+    const vaultWithFreshPrice = await fetchVaultWithPythSimulation(
+      vaultAddress,
+      feeds,
+      provider,
+      vaultLensContract,
+      eulerCoreAddresses.value.evc,
+      PYTH_HERMES_URL,
+      EVM_PROVIDER_URL,
+      verifiedVaultAddresses.value,
+    )
+    if (vaultWithFreshPrice) {
+      vault = vaultWithFreshPrice
+    }
+  }
 
   if (utilsLensContract) {
     const [assetPriceInfo, unitOfAccountPriceInfo] = await Promise.all([
-      resolveAssetPriceInfo(utilsLensContract, vault.asset.address, vault.asset.symbol),
+      resolveAssetPriceInfo(utilsLensContract, vault.asset.address),
       resolveUnitOfAccountPriceInfo(utilsLensContract, vault.unitOfAccount),
     ])
     vault.assetPriceInfo = assetPriceInfo
@@ -944,7 +1056,7 @@ export const fetchVaults = async function* (
       await Promise.all(
         validVaults.map(async (vault) => {
           const [assetPriceInfo, unitOfAccountPriceInfo] = await Promise.all([
-            resolveAssetPriceInfo(utilsLensContract, vault.asset.address, vault.asset.symbol),
+            resolveAssetPriceInfo(utilsLensContract, vault.asset.address),
             resolveUnitOfAccountPriceInfo(utilsLensContract, vault.unitOfAccount),
           ])
           vault.assetPriceInfo = assetPriceInfo
@@ -1303,7 +1415,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
     await Promise.all(
       validVaults.map(async (vault) => {
         const [assetPriceInfo, unitOfAccountPriceInfo] = await Promise.all([
-          resolveAssetPriceInfo(utilsLensContract, vault.asset.address, vault.asset.symbol),
+          resolveAssetPriceInfo(utilsLensContract, vault.asset.address),
           resolveUnitOfAccountPriceInfo(utilsLensContract, vault.unitOfAccount),
         ])
         vault.assetPriceInfo = assetPriceInfo

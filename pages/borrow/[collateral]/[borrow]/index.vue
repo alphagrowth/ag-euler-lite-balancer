@@ -1288,10 +1288,54 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 1000)
 
+// Check if borrow vault has a price failure (liabilityPriceInfo missing/zero)
+const hasBorrowPriceFailure = (vault: Vault | undefined): boolean => {
+  if (!vault) return false
+  return (
+    vault.liabilityPriceInfo?.queryFailure ||
+    !vault.liabilityPriceInfo?.amountOutMid ||
+    vault.liabilityPriceInfo.amountOutMid === 0n
+  )
+}
+
+// Track vaults that have been refreshed to avoid infinite retry loops
+const refreshedVaultAddresses = new Set<string>()
+
 watch(pair, async (val) => {
   if (!val) {
     return
   }
+
+  // Refresh borrow vault if it has a price failure (only once per vault)
+  // fetchVault handles Pyth simulation internally when needed
+  const borrowAddr = val.borrow.address.toLowerCase()
+
+  if (hasBorrowPriceFailure(val.borrow) && !refreshedVaultAddresses.has(borrowAddr)) {
+    refreshedVaultAddresses.add(borrowAddr)
+    const refreshedBorrow = await updateVault(val.borrow.address)
+    pair.value = {
+      ...val,
+      borrow: refreshedBorrow,
+    } as AnyBorrowVaultPair
+    val = pair.value
+  }
+
+  // Also refresh collateral vault if it has a price failure (only for regular Vaults, not SecuritizeVault)
+  if ('liabilityPriceInfo' in val.collateral) {
+    const collateralVaultTyped = val.collateral as Vault
+    const collateralAddr = collateralVaultTyped.address.toLowerCase()
+
+    if (hasBorrowPriceFailure(collateralVaultTyped) && !refreshedVaultAddresses.has(collateralAddr)) {
+      refreshedVaultAddresses.add(collateralAddr)
+      const refreshedCollateral = await updateVault(collateralVaultTyped.address)
+      pair.value = {
+        ...pair.value,
+        collateral: refreshedCollateral,
+      } as AnyBorrowVaultPair
+      val = pair.value
+    }
+  }
+
   const supplyAddress = normalizeAddress(multiplySupplyVault.value?.address)
   const isSupplyAllowed = supplyAddress
     ? val.borrow.collateralLTVs.some(ltv => normalizeAddress(ltv.collateral) === supplyAddress)

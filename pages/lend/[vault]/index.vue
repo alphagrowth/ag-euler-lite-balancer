@@ -157,6 +157,22 @@ else {
   }
 }
 
+// Check if vault has Pyth price failure and needs refresh via simulation
+const hasPriceFailure = (v: Vault | undefined): boolean => {
+  if (!v) return false
+  return (
+    v.liabilityPriceInfo?.queryFailure ||
+    !v.liabilityPriceInfo?.amountOutMid ||
+    v.liabilityPriceInfo.amountOutMid === 0n
+  )
+}
+
+// Refresh EVK vault if it has Pyth price failure (fetchVault handles Pyth simulation internally)
+if (evkVault.value && hasPriceFailure(evkVault.value)) {
+  const refreshedVault = await updateVault(vaultAddress)
+  evkVault.value = refreshedVault
+}
+
 const features = computed(() => VAULT_FEATURES[vaultType.value])
 
 // Determine vault type based on which vault was loaded

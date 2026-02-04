@@ -46,6 +46,7 @@ export const clearStaleUoACache = () => {
  */
 export const getAssetOraclePrice = (vault: Vault | null | undefined): PriceResult | undefined => {
   if (!vault) return undefined
+
   if (!vault.liabilityPriceInfo || vault.liabilityPriceInfo.queryFailure) {
     return undefined
   }
@@ -142,7 +143,9 @@ export const getCollateralOraclePrice = (
  * @returns UoA → USD rate as bigint (18 decimals), or undefined
  */
 export const getUnitOfAccountUsdRate = (vault: Vault | null | undefined): bigint | undefined => {
-  if (!vault || !vault.unitOfAccount) return undefined
+  if (!vault || !vault.unitOfAccount) {
+    return undefined
+  }
 
   // Special case: USD unit of account returns 1.0
   if (vault.unitOfAccount.toLowerCase() === USD_ADDRESS.toLowerCase()) {
@@ -210,7 +213,6 @@ export const getAssetUsdPrice = (vault: Vault | EarnVault | null | undefined): P
       const mid = vault.assetPriceInfo.amountOutMid
       return { amountOutMid: mid, amountOutAsk: mid, amountOutBid: mid }
     }
-    // No assetPriceInfo available
     return undefined
   }
 
