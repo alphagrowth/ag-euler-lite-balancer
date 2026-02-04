@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import { getVaultPrice, type Vault, type VaultAsset, type CollateralOption, type EarnVault, getEarnVaultPrice } from '~/entities/vault'
+import { type Vault, type VaultAsset, type CollateralOption, type EarnVault } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -37,10 +38,10 @@ const price = computed(() => {
   }
 
   if ('type' in vault && vault.type === 'earn') {
-    return getEarnVaultPrice(+model.value || 0, vault)
+    return getAssetUsdValue(+model.value || 0, vault)
   }
   else {
-    return getVaultPrice(+model.value || 0, vault as Vault)
+    return getAssetUsdValue(+model.value || 0, vault as Vault)
   }
 })
 

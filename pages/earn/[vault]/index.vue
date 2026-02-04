@@ -4,7 +4,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { getEarnVaultPrice, type EarnVault, type VaultAsset } from '~/entities/vault'
+import { type EarnVault, type VaultAsset } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
@@ -289,7 +290,7 @@ watch(amount, async () => {
               <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
                 asset.symbol
               }}
-              ≈ ${{ vault ? compactNumber(getEarnVaultPrice(monthlyEarnings, vault)) : 0 }}
+              ≈ ${{ vault ? compactNumber(getAssetUsdValue(monthlyEarnings, vault)) : 0 }}
             </p>
           </div>
 

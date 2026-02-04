@@ -3,7 +3,8 @@ import { useAccount } from '@wagmi/vue'
 import { offset, useFloating } from '@floating-ui/vue'
 import { DateTime } from 'luxon'
 import { ethers } from 'ethers'
-import { getVaultPrice, getVaultPriceDisplay, getVaultUtilization, type Vault } from '~/entities/vault'
+import { getVaultUtilization, type Vault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
@@ -135,17 +136,18 @@ const hideTooltipImmediate = () => {
 }
 
 const totalSupplyPrice = computed(() => {
-  const price = getVaultPriceDisplay(vault.totalAssets, vault)
+  const price = formatAssetValue(vault.totalAssets, vault)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
 const liquidityPrice = computed(() => {
   const liquidity = vault.supply - vault.borrow
-  return `$${compactNumber(getVaultPrice(liquidity, vault))}`
+  const price = formatAssetValue(liquidity, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
 const walletBalancePrice = computed(() => {
-  const price = getVaultPriceDisplay(balance.value, vault)
+  const price = formatAssetValue(balance.value, vault)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
@@ -267,9 +269,9 @@ const onWarningClick = () => {
           </div>
           <BaseLoadableContent
             :loading="isBalancesLoading"
-            style="width: 70px; height: 20px"
+            style="min-width: 70px; height: 20px"
           >
-            <div class="text-p2 text-content-primary">
+            <div class="text-p2 text-content-primary whitespace-nowrap">
               {{ walletBalancePrice }}
             </div>
           </BaseLoadableContent>

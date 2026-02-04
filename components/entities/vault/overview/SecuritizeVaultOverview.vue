@@ -5,6 +5,7 @@ import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getExplorerLink } from '~/utils/block-explorer'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolean }>()
 
@@ -81,13 +82,25 @@ const loadRiskParameters = async () => {
 
 loadRiskParameters()
 
+// Price display
+const priceDisplay = computed(() => {
+  const price = formatAssetValue(1, vault as unknown as Vault)
+  return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+})
+
+// Total supply display with USD if available
+const totalSupplyDisplay = computed(() => {
+  const price = formatAssetValue(vault.totalAssets, vault as unknown as Vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
+
 // Supply cap display - supplyCap is in shares denomination (vault.decimals), same as regular vaults
 const supplyCapDisplay = computed(() => {
   if (!vault.supplyCap || vault.supplyCap === 0n || vault.supplyCap >= MaxUint256) {
     return '∞'
   }
-  // Display in shares (like regular vaults, but without USD conversion since we don't have price info)
-  return `${compactNumber(nanoToValue(vault.supplyCap, vault.decimals))} ${vault.symbol}`
+  const price = formatAssetValue(vault.supplyCap, vault as unknown as Vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
 const supplyCapPercentageDisplay = computed(() => {
@@ -112,6 +125,10 @@ const supplyCapPercentageDisplay = computed(() => {
         Overview
       </p>
       <div class="flex flex-col items-start gap-24">
+        <VaultOverviewLabelValue
+          label="Price"
+          :value="priceDisplay"
+        />
         <VaultOverviewLabelValue
           label="Market"
           :value="product.name"
@@ -190,7 +207,7 @@ const supplyCapPercentageDisplay = computed(() => {
       <div class="flex flex-col items-start gap-24">
         <VaultOverviewLabelValue
           label="Total supply"
-          :value="`${compactNumber(nanoToValue(vault.totalAssets, vault.asset.decimals))} ${vault.asset.symbol}`"
+          :value="totalSupplyDisplay"
           orientation="horizontal"
         />
         <VaultOverviewLabelValue

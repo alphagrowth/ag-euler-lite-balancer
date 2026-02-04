@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { getVaultPrice, type Vault } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
@@ -18,8 +19,9 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   vault.asset.symbol,
 ) - (rewardBorrowAPY.value || 0))
 
-const calcPrice = (amount: bigint) => {
-  return getVaultPrice(nanoToValue(amount, vault.decimals), vault)
+const formatPrice = (amount: bigint) => {
+  const price = formatAssetValue(amount, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 }
 </script>
 
@@ -31,19 +33,19 @@ const calcPrice = (amount: bigint) => {
     <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue
         label="Total supply"
-        :value="`$${compactNumber(calcPrice(vault.supply))}`"
+        :value="formatPrice(vault.supply)"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
         v-if="isBorrowable"
         label="Total borrowed"
-        :value="`$${compactNumber(calcPrice(vault.borrow))}`"
+        :value="formatPrice(vault.borrow)"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
         v-if="isBorrowable"
         label="Available liquidity"
-        :value="`$${compactNumber(calcPrice(vault.supply - vault.borrow))}`"
+        :value="formatPrice(vault.supply - vault.borrow)"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue

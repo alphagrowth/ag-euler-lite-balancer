@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getEarnVaultPrice, getEarnVaultPriceDisplay } from '~/entities/vault'
+import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountEarnPosition } from '~/entities/account'
 import { VaultOverviewModal } from '#components'
@@ -18,16 +18,16 @@ const isUnverified = computed(() => 'verified' in vault.value && !vault.value.ve
 const displayName = computed(() => product.name || vault.value.name)
 
 const supplyValueDisplay = computed(() => {
-  const price = getEarnVaultPriceDisplay(position.assets, vault.value)
+  const price = formatAssetValue(position.assets, vault.value)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
 const supplyApyWithRewards = computed(() => (vault.value.supplyAPY || 0) + (opportunityInfo.value?.apr || 0))
 
-const hasPrice = computed(() => getEarnVaultPrice(position.assets, vault.value) > 0)
+const hasPrice = computed(() => getAssetUsdValue(position.assets, vault.value) > 0)
 
 const projectedEarningsPerMonth = computed(() => {
-  const price = getEarnVaultPrice(position.assets, vault.value)
+  const price = getAssetUsdValue(position.assets, vault.value)
   if (price === 0) return '—'
   // Monthly earnings = (value * APY%) / 12
   return compactNumber((price * supplyApyWithRewards.value) / 12 / 100)
@@ -96,7 +96,10 @@ const onClick = () => {
             <div class="text-content-primary text-p3">
               {{ supplyValueDisplay }}
             </div>
-            <div class="text-content-tertiary text-p3">
+            <div
+              v-if="hasPrice"
+              class="text-content-tertiary text-p3"
+            >
               ~ {{ roundAndCompactTokens(position.assets, vault.asset.decimals) }} {{ vault.asset.symbol }}
             </div>
           </div>

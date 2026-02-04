@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import { type EarnVault, type Vault, getVaultPrice } from '~/entities/vault'
+import { type EarnVault, type Vault } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const emits = defineEmits<{
@@ -56,7 +57,7 @@ const getExposureVaultByAddress = (address: string) => {
 const getExposureUsdPrice = (exposure: typeof exposureList.value[0]) => {
   const exposureVault = getExposureVaultByAddress(exposure.info.vault)
   if (!exposureVault) return 0
-  return getVaultPrice(exposure.allocatedAssets, exposureVault)
+  return getAssetUsdValue(exposure.allocatedAssets, exposureVault)
 }
 
 const getExposureAssetAmount = (exposure: typeof exposureList.value[0]) => {

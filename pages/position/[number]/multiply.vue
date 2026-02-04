@@ -7,7 +7,8 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault, type VaultAsset, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { type Vault, type VaultAsset } from '~/entities/vault'
+import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
@@ -272,7 +273,7 @@ const multiplyLongValueUsd = computed(() => {
   if (!multiplySwapAmountOut.value) {
     return null
   }
-  return getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
+  return getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value)
 })
 const multiplyBorrowValueUsd = computed(() => {
   if (!multiplyShortVault.value) {
@@ -281,19 +282,19 @@ const multiplyBorrowValueUsd = computed(() => {
   if (!multiplyDebtAmountNano.value) {
     return null
   }
-  return getVaultPrice(multiplyDebtAmountNano.value, multiplyShortVault.value)
+  return getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value)
 })
 const currentSupplyValueUsd = computed(() => {
   if (!position.value || !multiplyLongVault.value) {
     return null
   }
-  return getVaultPrice(position.value.supplied, multiplyLongVault.value)
+  return getAssetUsdValue(position.value.supplied, multiplyLongVault.value)
 })
 const currentBorrowValueUsd = computed(() => {
   if (!position.value || !multiplyShortVault.value) {
     return null
   }
-  return getVaultPrice(position.value.borrowed, multiplyShortVault.value)
+  return getAssetUsdValue(position.value.borrowed, multiplyShortVault.value)
 })
 const nextSupplyValueUsd = computed(() => {
   if (currentSupplyValueUsd.value === null) {
@@ -407,8 +408,8 @@ const multiplyPriceRatio = computed(() => {
     return null
   }
   // Use liability vault's (multiplyShortVault) view of collateral price (multiplyLongVault is the collateral)
-  const collateralPrice = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplyLongVault.value)
-  const borrowPrice = getVaultPriceInfo(multiplyShortVault.value)
+  const collateralPrice = getCollateralOraclePrice(multiplyShortVault.value, multiplyLongVault.value)
+  const borrowPrice = getAssetOraclePrice(multiplyShortVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -470,8 +471,8 @@ const multiplyPriceImpact = computed(() => {
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
     return null
   }
-  const amountInUsd = getVaultPrice(multiplySwapAmountIn.value, multiplyShortVault.value)
-  const amountOutUsd = getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
+  const amountInUsd = getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value)
+  const amountOutUsd = getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value)
   if (!amountInUsd || !amountOutUsd) {
     return null
   }

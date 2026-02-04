@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { type AnyBorrowVaultPair, getCollateralAssetPriceFromLiability, getVaultPriceInfo } from '~/entities/vault'
+import { type AnyBorrowVaultPair } from '~/entities/vault'
+import { getCollateralOraclePrice, getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -37,8 +38,8 @@ const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(pair.coll
 const borrowOpportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address))
 
 const price = computed(() => {
-  const collateralPrice = getCollateralAssetPriceFromLiability(pair.borrow, pair.collateral)
-  const borrowPrice = getVaultPriceInfo(pair.borrow)
+  const collateralPrice = getCollateralOraclePrice(pair.borrow, pair.collateral)
+  const borrowPrice = getAssetOraclePrice(pair.borrow)
 
   if (!collateralPrice || !borrowPrice || borrowPrice.amountOutMid === 0n) {
     return 0

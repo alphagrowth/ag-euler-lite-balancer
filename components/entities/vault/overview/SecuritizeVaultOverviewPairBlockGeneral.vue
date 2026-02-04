@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { type SecuritizeBorrowVaultPair, getVaultPriceInfo } from '~/entities/vault'
+import { type SecuritizeBorrowVaultPair } from '~/entities/vault'
+import { getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
 
@@ -35,7 +36,7 @@ const price = computed(() => {
   const collateralPrice = pair.borrow.collateralPrices.find(
     p => p.asset === pair.collateral.address,
   )
-  const borrowPrice = getVaultPriceInfo(pair.borrow)
+  const borrowPrice = getAssetOraclePrice(pair.borrow)
 
   const ask = collateralPrice?.amountOutAsk || collateralPrice?.amountOutMid || 0n
   const bid = borrowPrice?.amountOutBid || 1n

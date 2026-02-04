@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { EarnVault } from '~/entities/vault'
-import { getVaultPriceDisplay } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfEarnVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
@@ -11,7 +11,7 @@ const entities = useEulerEntitiesOfEarnVault(vault)
 const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
 
 const priceDisplay = computed(() => {
-  const price = getVaultPriceDisplay(1, vault)
+  const price = formatAssetValue(1, vault)
   return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
 })
 

@@ -8,7 +8,18 @@ import type {
   AccountBorrowPosition, AccountDepositPosition,
   AccountEarnPosition,
 } from '~/entities/account'
-import { convertSharesToAssets, getVaultPrice, getVaultPriceInfo, getEarnVaultPrice, getCollateralAssetPriceFromLiability, type Vault, type SecuritizeVault } from '~/entities/vault'
+import {
+  convertSharesToAssets,
+  type Vault,
+  type SecuritizeVault,
+} from '~/entities/vault'
+import {
+  getAssetUsdValue,
+  getAssetOraclePrice,
+  getCollateralOraclePrice,
+  getCollateralUsdPrice,
+  getCollateralUsdValue,
+} from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
@@ -76,23 +87,19 @@ const totalSuppliedValue = computed(() => {
   // Deposit positions (standalone vault context) — only vaults with price info
   const depositValue = depositPositions.value
     .filter(position => 'liabilityPriceInfo' in position.vault)
-    .reduce((result, position) => result + getVaultPrice(position.assets, position.vault as Vault), 0)
+    .reduce((result, position) => result + getAssetUsdValue(position.assets, position.vault as Vault), 0)
 
-  // Borrow position collateral (liability vault context) — use borrow vault's collateral pricing
+  // Borrow position collateral (liability vault context) — use borrow vault's collateral pricing with USD conversion
   const collateralValue = borrowPositions.value.reduce((result, position) => {
     const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) return result
 
-    const priceInfo = getCollateralAssetPriceFromLiability(borrowVault, position.collateral)
-    if (!priceInfo) return result
-
-    const amount = nanoToValue(position.supplied, position.collateral.decimals)
-    return result + amount * nanoToValue(priceInfo.amountOutMid, 18)
+    return result + getCollateralUsdValue(position.supplied, borrowVault, position.collateral)
   }, 0)
 
   // Earn positions — use earn vault's asset price
   const earnValue = earnPositions.value.reduce(
-    (result, position) => result + getEarnVaultPrice(position.assets, position.vault),
+    (result, position) => result + getAssetUsdValue(position.assets, position.vault),
     0,
   )
 
@@ -105,7 +112,7 @@ const totalSuppliedValueInfo = computed(() => {
   let hasMissingPrices = false
 
   depositPositions.value.forEach((position) => {
-    const price = getVaultPrice(position.assets, position.vault)
+    const price = getAssetUsdValue(position.assets, position.vault)
     if (price === 0 && position.assets > 0n) {
       hasMissingPrices = true
     }
@@ -119,18 +126,15 @@ const totalSuppliedValueInfo = computed(() => {
       return
     }
 
-    const priceInfo = getCollateralAssetPriceFromLiability(borrowVault, position.collateral)
-    if (!priceInfo) {
-      if (position.supplied > 0n) hasMissingPrices = true
-      return
+    const value = getCollateralUsdValue(position.supplied, borrowVault, position.collateral)
+    if (value === 0 && position.supplied > 0n) {
+      hasMissingPrices = true
     }
-
-    const amount = nanoToValue(position.supplied, position.collateral.decimals)
-    total += amount * nanoToValue(priceInfo.amountOutMid, 18)
+    total += value
   })
 
   earnPositions.value.forEach((position) => {
-    const price = getEarnVaultPrice(position.assets, position.vault)
+    const price = getAssetUsdValue(position.assets, position.vault)
     if (price === 0 && position.assets > 0n) {
       hasMissingPrices = true
     }
@@ -140,14 +144,14 @@ const totalSuppliedValueInfo = computed(() => {
   return { total, hasMissingPrices }
 })
 
-const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getVaultPrice(pair.borrowed, pair.borrow), 0))
+const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getAssetUsdValue(pair.borrowed, pair.borrow), 0))
 
 const totalBorrowedValueInfo = computed(() => {
   let total = 0
   let hasMissingPrices = false
 
   borrowPositions.value.forEach((pair) => {
-    const price = getVaultPrice(pair.borrowed, pair.borrow)
+    const price = getAssetUsdValue(pair.borrowed, pair.borrow)
     if (price === 0 && pair.borrowed > 0n) {
       hasMissingPrices = true
     }
@@ -279,16 +283,21 @@ const updateBorrowPositions = async (
           : FixedNumber.fromValue(liquidationLTV, 2).div(healthFixed)
         const userLTV = userLTVFixed.value
 
-        const collateralPrice = getCollateralAssetPriceFromLiability(borrow, collateral)
-        const borrowPrice = getVaultPriceInfo(borrow)
+        // Get collateral price in UoA for ratio calculation (UoA cancels in ratio)
+        const collateralPriceUoA = getCollateralOraclePrice(borrow, collateral)
+        const borrowPriceUoA = getAssetOraclePrice(borrow)
+
+        // Get collateral price in USD for display
+        const collateralPriceUsd = getCollateralUsdPrice(borrow, collateral)
 
         // Guard against missing price
-        if (!collateralPrice || !borrowPrice) {
+        if (!collateralPriceUoA || !borrowPriceUoA || !collateralPriceUsd) {
           return undefined // or handle gracefully
         }
 
-        const priceFixed = FixedNumber.fromValue(collateralPrice.amountOutAsk, 18)
-          .div(FixedNumber.fromValue(borrowPrice.amountOutBid || 1n, 18))
+        // Price ratio calculation uses UoA prices (UoA cancels)
+        const priceFixed = FixedNumber.fromValue(collateralPriceUoA.amountOutAsk, 18)
+          .div(FixedNumber.fromValue(borrowPriceUoA.amountOutBid || 1n, 18))
 
         const supplyLiquidationPriceRatio = collateralValueLiquidation === 0n
           ? FixedNumber.fromValue(0n, 18)
@@ -297,9 +306,10 @@ const updateBorrowPositions = async (
               .div(FixedNumber.fromValue(collateralValueLiquidation, 18))
               .add(FixedNumber.fromValue(1n, 0))
 
-        const currentCollateralPrice = FixedNumber.fromValue(collateralPrice.amountOutMid, 18)
+        // Use USD price for display (already converted from UoA)
+        const currentCollateralPriceUsd = FixedNumber.fromValue(collateralPriceUsd.amountOutMid, 18)
 
-        const price = currentCollateralPrice.mul(supplyLiquidationPriceRatio).value
+        const price = currentCollateralPriceUsd.mul(supplyLiquidationPriceRatio).value
 
         const borrowedFixed = FixedNumber.fromValue(
           res.vaultAccountInfo.borrowed,

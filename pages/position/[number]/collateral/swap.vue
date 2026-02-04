@@ -9,10 +9,14 @@ import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   type Vault,
   type SecuritizeVault,
-  getVaultPrice,
-  getVaultPriceInfo,
-  getCollateralAssetPriceFromLiability,
 } from '~/entities/vault'
+import {
+  getAssetUsdValue,
+  getAssetOraclePrice,
+  getCollateralOraclePrice,
+  getCollateralUsdPrice,
+  getCollateralUsdValue,
+} from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -268,16 +272,14 @@ const borrowApy = computed(() => {
 })
 
 // Get collateral USD value using liability vault's price perspective
-const getCollateralValueUsd = (amount: bigint) => {
+const getCollateralValueUsdLocal = (amount: bigint) => {
   if (!borrowVault.value || !fromVault.value) return 0
-  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, fromVault.value)
-  if (!priceInfo?.amountOutMid) return 0
-  return nanoToValue(amount, fromVault.value.decimals) * nanoToValue(priceInfo.amountOutMid, 18)
+  return getCollateralUsdValue(amount, borrowVault.value, fromVault.value as Vault)
 }
-// Price per unit for collateral (from liability vault's perspective)
+// Price per unit for collateral in USD (from liability vault's perspective)
 const collateralPricePerUnit = computed(() => {
   if (!borrowVault.value || !fromVault.value) return undefined
-  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, fromVault.value)
+  const priceInfo = getCollateralUsdPrice(borrowVault.value, fromVault.value as Vault)
   if (!priceInfo?.amountOutMid) return undefined
   return nanoToValue(priceInfo.amountOutMid, 18)
 })
@@ -285,19 +287,19 @@ const supplyValueUsd = computed(() => {
   if (!fromVault.value || !position.value || !borrowVault.value) {
     return null
   }
-  return getCollateralValueUsd(selectedCollateralAssets.value)
+  return getCollateralValueUsdLocal(selectedCollateralAssets.value)
 })
 const nextSupplyValueUsd = computed(() => {
   if (!quote.value || !toVault.value) {
     return null
   }
-  return getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
+  return getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value)
 })
 const borrowValueUsd = computed(() => {
   if (!borrowVault.value || !position.value) {
     return null
   }
-  return getVaultPrice(position.value.borrowed, borrowVault.value)
+  return getAssetUsdValue(position.value.borrowed, borrowVault.value)
 })
 
 const calculateRoe = (
@@ -331,8 +333,8 @@ const priceRatio = computed(() => {
   if (!toVault.value || !borrowVault.value) {
     return null
   }
-  const collateralPrice = getCollateralAssetPriceFromLiability(borrowVault.value, toVault.value)
-  const borrowPrice = getVaultPriceInfo(borrowVault.value)
+  const collateralPrice = getCollateralOraclePrice(borrowVault.value, toVault.value)
+  const borrowPrice = getAssetOraclePrice(borrowVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -446,8 +448,8 @@ const priceImpact = computed(() => {
   if (!quote.value || !fromVault.value || !toVault.value || !borrowVault.value) {
     return null
   }
-  const amountInUsd = getCollateralValueUsd(BigInt(quote.value.amountIn))
-  const amountOutUsd = getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
+  const amountInUsd = getCollateralValueUsdLocal(BigInt(quote.value.amountIn))
+  const amountOutUsd = getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value)
   if (!amountInUsd || !amountOutUsd) {
     return null
   }

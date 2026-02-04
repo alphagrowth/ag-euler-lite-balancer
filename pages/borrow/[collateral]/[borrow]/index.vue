@@ -6,7 +6,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
+import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, getCollateralUsdPrice } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -159,9 +160,9 @@ const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.val
 const priceFixed = computed(() => {
   // Use liability vault's view of collateral price
   const collateralPrice = borrowVault.value && collateralVault.value
-    ? getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+    ? getCollateralOraclePrice(borrowVault.value, collateralVault.value)
     : undefined
-  const borrowPrice = borrowVault.value ? getVaultPriceInfo(borrowVault.value) : undefined
+  const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
   return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
@@ -170,9 +171,9 @@ const priceFixed = computed(() => {
 // USD price per unit of collateral from liability vault's perspective (for AssetInput display)
 const collateralUnitPrice = computed(() => {
   if (!borrowVault.value || !collateralVault.value) return undefined
-  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+  const priceInfo = getCollateralUsdPrice(borrowVault.value, collateralVault.value as Vault)
   if (!priceInfo) return undefined
-  // amountOutMid is the price in unit of account (18 decimals) for 1 unit of collateral
+  // amountOutMid is the price in USD (18 decimals) for 1 unit of collateral
   return nanoToValue(priceInfo.amountOutMid, 18)
 })
 const collateralAmountFixed = computed(() => FixedNumber.fromValue(
@@ -384,7 +385,7 @@ const collateralOptions = computed(() => {
     {
       type: 'wallet',
       amount: nanoToValue(balance.value, collateralVault.value?.asset.decimals),
-      price: getVaultPrice(nanoToValue(balance.value, collateralVault.value?.asset.decimals) || 0, collateralVault.value!),
+      price: getAssetUsdValue(balance.value, collateralVault.value),
       apy: collateralSupplyApyWithRewards.value,
     },
   ]
@@ -393,7 +394,7 @@ const collateralOptions = computed(() => {
     options.push({
       type: 'saving',
       amount: nanoToValue(savingCollateral.value.assets, collateralVault.value?.asset.decimals),
-      price: getVaultPrice(nanoToValue(savingCollateral.value.assets, collateralVault.value?.asset.decimals) || 0, collateralVault.value!),
+      price: getAssetUsdValue(savingCollateral.value.assets, collateralVault.value),
       apy: collateralSupplyApyWithRewards.value,
     })
   }
@@ -452,7 +453,7 @@ const multiplyDebtAmountNano = computed(() => {
     return 0n
   }
   // Use helper that applies Pyth-enhanced collateral pricing from the liability vault's perspective
-  const collateralPriceInfo = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplySupplyVault.value)
+  const collateralPriceInfo = getCollateralOraclePrice(multiplyShortVault.value, multiplySupplyVault.value)
   const liabilityPrice = multiplyShortVault.value.liabilityPriceInfo
 
   if (!collateralPriceInfo || collateralPriceInfo.amountOutMid <= 0n || !collateralPriceInfo.amountIn || collateralPriceInfo.amountIn <= 0n) {
@@ -557,7 +558,7 @@ const multiplySupplyValueUsd = computed(() => {
   if (!multiplySupplyAmountNano.value) {
     return null
   }
-  return getVaultPrice(multiplySupplyAmountNano.value, multiplySupplyVault.value)
+  return getAssetUsdValue(multiplySupplyAmountNano.value, multiplySupplyVault.value)
 })
 const multiplyLongValueUsd = computed(() => {
   if (!multiplyLongVault.value) {
@@ -566,7 +567,7 @@ const multiplyLongValueUsd = computed(() => {
   if (!multiplySwapAmountOut.value) {
     return null
   }
-  return getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
+  return getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value)
 })
 const multiplyBorrowValueUsd = computed(() => {
   if (!multiplyShortVault.value) {
@@ -575,7 +576,7 @@ const multiplyBorrowValueUsd = computed(() => {
   if (!multiplyDebtAmountNano.value) {
     return null
   }
-  return getVaultPrice(multiplyDebtAmountNano.value, multiplyShortVault.value)
+  return getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value)
 })
 const multiplyTotalSupplyUsd = computed(() => {
   if (multiplySupplyValueUsd.value === null) {
@@ -688,8 +689,8 @@ const multiplyPriceRatio = computed(() => {
     return null
   }
   // Use liability vault's (multiplyShortVault) view of collateral price
-  const collateralPrice = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplyLongVault.value)
-  const borrowPrice = getVaultPriceInfo(multiplyShortVault.value)
+  const collateralPrice = getCollateralOraclePrice(multiplyShortVault.value, multiplyLongVault.value)
+  const borrowPrice = getAssetOraclePrice(multiplyShortVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -762,8 +763,8 @@ const multiplyPriceImpact = computed(() => {
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
     return null
   }
-  const amountInUsd = getVaultPrice(multiplySwapAmountIn.value, multiplyShortVault.value)
-  const amountOutUsd = getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
+  const amountInUsd = getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value)
+  const amountOutUsd = getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value)
   if (!amountInUsd || !amountOutUsd) {
     return null
   }
@@ -1268,9 +1269,9 @@ const updateEstimates = useDebounceFn(async () => {
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
     netAPY.value = getNetAPY(
-      getVaultPrice(+collateralAmount.value || 0, collateralVault.value!),
+      getAssetUsdValue(+collateralAmount.value || 0, collateralVault.value!),
       collateralSupplyApy.value,
-      getVaultPrice(+borrowAmount.value || 0, borrowVault.value!),
+      getAssetUsdValue(+borrowAmount.value || 0, borrowVault.value!),
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,

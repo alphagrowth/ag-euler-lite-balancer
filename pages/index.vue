@@ -2,8 +2,9 @@
 import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { getProductByVault } from '~/composables/useEulerLabels'
 
 defineOptions({
@@ -56,7 +57,7 @@ const assetOptions = computed(() => {
 
 const topOptions = computed(() => {
   const sortedBySupply = [...borrowableVaults.value].sort((a: Vault, b: Vault) => {
-    return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
+    return getAssetUsdValue(b.totalAssets, b) - getAssetUsdValue(a.totalAssets, a)
   })
 
   return sortedBySupply
@@ -81,7 +82,7 @@ const sortedList = computed(() => {
   switch (sortBy.value) {
     case 'Total Supply':
       return [...filteredList.value].sort((a: Vault, b: Vault) => {
-        return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
+        return getAssetUsdValue(b.totalAssets, b) - getAssetUsdValue(a.totalAssets, a)
       })
     case 'Supply APY':
       return [...filteredList.value].sort((a: Vault, b: Vault) => {

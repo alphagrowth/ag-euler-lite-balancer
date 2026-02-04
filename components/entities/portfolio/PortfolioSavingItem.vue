@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { getVaultPrice, getVaultPriceDisplay, type Vault } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
+import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountDepositPosition } from '~/entities/account'
 import { VaultOverviewModal } from '#components'
@@ -37,18 +38,18 @@ const displayName = computed(() => {
 const supplyValueDisplay = computed(() => {
   if (!regularVault.value)
     return `${formatNumber(nanoToValue(position.assets, vault.value.asset.decimals))} ${vault.value.asset.symbol}`
-  const price = getVaultPriceDisplay(position.assets, regularVault.value)
+  const price = formatAssetValue(position.assets, regularVault.value)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
 const hasPrice = computed(() => {
   if (!regularVault.value) return false
-  return getVaultPrice(position.assets, regularVault.value) > 0
+  return getAssetUsdValue(position.assets, regularVault.value) > 0
 })
 
 const projectedEarningsPerMonth = computed(() => {
   if (!regularVault.value) return '—'
-  const price = getVaultPrice(position.assets, regularVault.value)
+  const price = getAssetUsdValue(position.assets, regularVault.value)
   if (price === 0) return '—'
   // Monthly earnings = (value * APY%) / 12
   return compactNumber((price * supplyApyWithRewards.value) / 12 / 100)
@@ -199,7 +200,7 @@ const onClick = () => {
               {{ supplyValueDisplay }}
             </div>
             <div
-              v-if="regularVault"
+              v-if="regularVault && hasPrice"
               class="text-content-tertiary text-p3"
             >
               ~ {{ roundAndCompactTokens(position.assets, regularVault.decimals) }}

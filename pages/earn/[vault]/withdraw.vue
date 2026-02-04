@@ -7,10 +7,10 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
-  getEarnVaultPrice,
   type EarnVault,
   type VaultAsset,
 } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -290,8 +290,8 @@ watch(amount, async () => {
             Deposit
           </p>
           <p class="text-p2 text-content-tertiary">
-            ${{ formatNumber(getEarnVaultPrice(assetsBalance, vault)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
-              → <span class="text-content-primary">${{ formatNumber(getEarnVaultPrice(delta, vault)) }}</span>
+            ${{ formatNumber(getAssetUsdValue(assetsBalance, vault)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
+              → <span class="text-content-primary">${{ formatNumber(getAssetUsdValue(delta, vault)) }}</span>
             </template>
           </p>
         </div>
@@ -304,7 +304,7 @@ watch(amount, async () => {
             class="text-p2 flex items-center gap-4"
           >
             {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="text-p3 text-content-tertiary">{{ asset.symbol }}</span>
-            <span class="text-p3 text-content-tertiary">≈ ${{ formatNumber(getEarnVaultPrice(assetsBalance, vault)) }}</span>
+            <span class="text-p3 text-content-tertiary">≈ ${{ formatNumber(getAssetUsdValue(assetsBalance, vault)) }}</span>
           </p>
         </div>
       </VaultFormInfoBlock>

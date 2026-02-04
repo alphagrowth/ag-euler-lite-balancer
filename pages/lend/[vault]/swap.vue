@@ -4,7 +4,8 @@ import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
-import { type Vault, type SecuritizeVault, getVaultPrice, isSecuritizeVault, fetchSecuritizeVault } from '~/entities/vault'
+import { type Vault, type SecuritizeVault, isSecuritizeVault, fetchSecuritizeVault } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -231,8 +232,8 @@ const priceImpact = computed(() => {
   if (!quote.value || !fromVault.value || !toVault.value) {
     return null
   }
-  const amountInUsd = getVaultPrice(BigInt(quote.value.amountIn), fromVault.value)
-  const amountOutUsd = getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
+  const amountInUsd = getAssetUsdValue(BigInt(quote.value.amountIn), fromVault.value)
+  const amountOutUsd = getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value)
   if (!amountInUsd || !amountOutUsd) {
     return null
   }

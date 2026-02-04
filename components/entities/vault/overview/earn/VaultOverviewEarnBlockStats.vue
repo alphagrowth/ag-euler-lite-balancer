@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { getEarnVaultPrice, getEarnVaultPriceDisplay, type EarnVault } from '~/entities/vault'
+import { type EarnVault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
 
@@ -10,17 +11,13 @@ const availableLiquidityOfStrategies = ref(0n)
 
 const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?.apr)
 
-const calcPrice = (amount: bigint) => {
-  return getEarnVaultPrice(nanoToValue(amount, vault.decimals), vault)
-}
-
 const totalSupplyDisplay = computed(() => {
-  const price = getEarnVaultPriceDisplay(vault.totalAssets, vault)
+  const price = formatAssetValue(vault.totalAssets, vault)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
 const availableLiquidityDisplay = computed(() => {
-  const price = getEarnVaultPriceDisplay(availableLiquidityOfStrategies.value, vault)
+  const price = formatAssetValue(availableLiquidityOfStrategies.value, vault)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 const load = async () => {

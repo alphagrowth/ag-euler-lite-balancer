@@ -5,7 +5,15 @@ import type { AccountBorrowPosition } from '~/entities/account'
 import { getSubAccountIndex } from '~/entities/account'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getNetAPY, getUnitOfAccountUsdPrice, getVaultPrice, getVaultPriceDisplay, getCollateralAssetPriceFromLiability, type Vault } from '~/entities/vault'
+import {
+  getNetAPY,
+  type Vault,
+} from '~/entities/vault'
+import {
+  getAssetUsdValue,
+  formatAssetValue,
+  getCollateralUsdValue,
+} from '~/services/pricing/priceProvider'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
@@ -65,20 +73,6 @@ const pairName = computed(() => {
   }
   return `${collateralLabel.value} / ${borrowLabel.value}`
 })
-const liquidationPriceUsd = computed(() => {
-  const price = position.price || 0n
-
-  if (price <= 0n) {
-    return undefined
-  }
-
-  const unitPrice = getUnitOfAccountUsdPrice(borrowVault.value)
-  if (!unitPrice) {
-    return undefined
-  }
-
-  return nanoToValue(price, 18) * unitPrice
-})
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
 const collateralSupplyApy = computed(() => {
@@ -93,53 +87,50 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 ))
 
 const collateralValueUsd = computed(() => {
-  // Collateral price ALWAYS comes from liability vault's oracle
+  // Collateral price ALWAYS comes from liability vault's oracle, converted to USD
   if (!collateralItems.value.length) {
-    const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, position.collateral)
-    if (!priceInfo) return 0
-    const amount = nanoToValue(position.supplied, position.collateral.decimals)
-    return amount * nanoToValue(priceInfo.amountOutMid, 18)
+    return getCollateralUsdValue(position.supplied, position.borrow, position.collateral)
   }
 
   // For multiple collaterals, sum up using liability vault's oracle for each
   return collateralItems.value.reduce((total, item) => {
-    const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, item.vault)
-    if (!priceInfo) return total
-    const amount = nanoToValue(item.assets, item.vault.decimals)
-    return total + amount * nanoToValue(priceInfo.amountOutMid, 18)
+    return total + getCollateralUsdValue(item.assets, position.borrow, item.vault)
   }, 0)
 })
 
-const collateralValueDisplay = computed(() => {
-  return `$${formatNumber(collateralValueUsd.value)}`
+const collateralValueInfo = computed(() => {
+  const hasPrice = collateralValueUsd.value > 0
+  return {
+    display: hasPrice ? `$${formatNumber(collateralValueUsd.value)}` : `${roundAndCompactTokens(collateralItems.value[0]?.assets || 0n, BigInt(position.collateral.decimals))} ${position.collateral.asset.symbol}`,
+    hasPrice,
+  }
 })
 
-const borrowedValueDisplay = computed(() => {
-  const price = getVaultPriceDisplay(position.borrowed || 0n, borrowVault.value!)
-  return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+const collateralValueDisplay = computed(() => collateralValueInfo.value.display)
+
+const borrowedValueInfo = computed(() => {
+  const price = formatAssetValue(position.borrowed || 0n, borrowVault.value!)
+  return {
+    display: price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display,
+    hasPrice: price.hasPrice,
+  }
 })
+
+const borrowedValueDisplay = computed(() => borrowedValueInfo.value.display)
 
 const netAssetValueUsd = computed(() => {
-  return collateralValueUsd.value - getVaultPrice(position.borrowed, borrowVault.value)
+  return collateralValueUsd.value - getAssetUsdValue(position.borrowed, borrowVault.value)
 })
 
 const netAssetValueDisplay = computed(() => {
   return `$${formatNumber(netAssetValueUsd.value)}`
 })
 
-const currentPriceDisplay = computed(() => {
-  // Collateral price ALWAYS comes from liability vault's oracle
-  const priceInfo = getCollateralAssetPriceFromLiability(position.borrow, collateralVault.value)
-  if (!priceInfo) return '-'
-  const usdValue = nanoToValue(priceInfo.amountOutMid, 18)
-  return `$${formatNumber(usdValue)}`
-})
-
 const netAPY = computed(() => {
   return getNetAPY(
     collateralValueUsd.value,
     collateralSupplyApy.value,
-    getVaultPrice(position.borrowed || 0n || 0, borrowVault.value!),
+    getAssetUsdValue(position.borrowed ?? 0n, borrowVault.value!),
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
@@ -283,7 +274,10 @@ onMounted(() => {
             <div class="text-content-primary text-p3">
               {{ borrowedValueDisplay }}
             </div>
-            <div class="text-content-tertiary text-p3">
+            <div
+              v-if="borrowedValueInfo.hasPrice"
+              class="text-content-tertiary text-p3"
+            >
               ~ {{ roundAndCompactTokens(position.borrowed, position.borrow.decimals) }}
               {{ position.borrow.asset.symbol }}
             </div>
@@ -297,7 +291,10 @@ onMounted(() => {
             <div class="text-content-primary text-p3">
               {{ collateralValueDisplay }}
             </div>
-            <div class="text-content-tertiary text-p3">
+            <div
+              v-if="collateralValueInfo.hasPrice"
+              class="text-content-tertiary text-p3"
+            >
               ~ {{ roundAndCompactTokens(collateralItems[0].assets, position.collateral.decimals) }}
               {{ position.collateral.asset.symbol }} {{ collateralItems.length > 1 ? '& others' : '' }}
             </div>
@@ -320,32 +317,6 @@ onMounted(() => {
           </div>
           <div class="text-content-primary text-p3">
             {{ formatNumber(nanoToValue(position.health, 18)) }}
-          </div>
-        </div>
-        <div class="flex justify-between">
-          <div class="text-content-tertiary text-p3">
-            Current price
-          </div>
-          <div class="flex justify-between gap-8 text-right">
-            <span class="text-content-primary text-p3">
-              {{ currentPriceDisplay }}
-            </span>
-            <span class="text-content-tertiary text-p3">
-              {{ position.collateral.asset.symbol }}
-            </span>
-          </div>
-        </div>
-        <div class="flex justify-between">
-          <div class="text-content-tertiary text-p3">
-            Liquidation price
-          </div>
-          <div class="flex justify-between gap-8 text-right">
-            <span class="text-content-primary text-p3">
-              ${{ liquidationPriceUsd ? formatNumber(liquidationPriceUsd) : '-' }}
-            </span>
-            <span class="text-content-tertiary text-p3">
-              {{ position.collateral.asset.symbol }}
-            </span>
           </div>
         </div>
         <div class="flex justify-between">

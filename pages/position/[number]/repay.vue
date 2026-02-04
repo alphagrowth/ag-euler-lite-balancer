@@ -6,7 +6,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type Vault } from '~/entities/vault'
+import { getNetAPY, type VaultAsset, type Vault } from '~/entities/vault'
+import { getAssetUsdValue, getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { SwapperMode } from '~/entities/swap'
@@ -99,9 +100,9 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 ))
 const netAPY = computed(() => {
   return getNetAPY(
-    getVaultPrice(position.value?.supplied || 0n, collateralVault.value!),
+    getAssetUsdValue(position.value?.supplied || 0n, collateralVault.value!),
     collateralSupplyApy.value,
-    getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
+    getAssetUsdValue(position.value?.borrowed ?? 0n, borrowVault.value!),
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
@@ -302,27 +303,27 @@ const swapCollateralValueUsd = computed(() => {
   if (!swapCollateralVault.value) {
     return null
   }
-  return getVaultPrice(swapCollateralAssets.value, swapCollateralVault.value)
+  return getAssetUsdValue(swapCollateralAssets.value, swapCollateralVault.value)
 })
 const swapBorrowValueUsd = computed(() => {
   if (!borrowVault.value || !position.value) {
     return null
   }
-  return getVaultPrice(position.value.borrowed, borrowVault.value)
+  return getAssetUsdValue(position.value.borrowed, borrowVault.value)
 })
 const swapNextCollateralValueUsd = computed(() => {
   if (!swapCollateralVault.value || swapCollateralSpent.value === null) {
     return null
   }
   const nextAssets = swapCollateralAssets.value - swapCollateralSpent.value
-  return getVaultPrice(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value)
+  return getAssetUsdValue(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value)
 })
 const swapNextBorrowValueUsd = computed(() => {
   if (!borrowVault.value || !position.value || swapDebtRepaid.value === null) {
     return null
   }
   const nextBorrow = position.value.borrowed - swapDebtRepaid.value
-  return getVaultPrice(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value)
+  return getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value)
 })
 
 const calculateRoe = (
@@ -356,8 +357,8 @@ const swapPriceRatio = computed(() => {
   if (!swapCollateralVault.value || !borrowVault.value) {
     return null
   }
-  const collateralPrice = getVaultPriceInfo(swapCollateralVault.value)
-  const borrowPrice = getVaultPriceInfo(borrowVault.value)
+  const collateralPrice = getAssetOraclePrice(swapCollateralVault.value)
+  const borrowPrice = getAssetOraclePrice(borrowVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -478,8 +479,8 @@ const swapPriceImpact = computed(() => {
   if (!swapQuote.value || !swapCollateralVault.value || !borrowVault.value) {
     return null
   }
-  const amountInUsd = getVaultPrice(BigInt(swapQuote.value.amountIn), swapCollateralVault.value)
-  const amountOutUsd = getVaultPrice(BigInt(swapQuote.value.amountOut), borrowVault.value)
+  const amountInUsd = getAssetUsdValue(BigInt(swapQuote.value.amountIn), swapCollateralVault.value)
+  const amountOutUsd = getAssetUsdValue(BigInt(swapQuote.value.amountOut), borrowVault.value)
   if (!amountInUsd || !amountOutUsd) {
     return null
   }
@@ -734,7 +735,7 @@ const updateBalance = async () => {
     return
   }
 
-  const borrowedUsd = getVaultPrice(position.value!.borrowed, borrowVault.value!) || 0.01
+  const borrowedUsd = getAssetUsdValue(position.value!.borrowed, borrowVault.value!) || 0.01
   const factor = Math.pow(10, 2)
   const borrowedRounded = Math.ceil(borrowedUsd * factor) / factor
   balance.value = FixedNumber.fromValue(valueToNano(borrowedRounded, 4), 4)
@@ -947,9 +948,9 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('You repaying more than required')
     }
     estimateNetAPY.value = getNetAPY(
-      getVaultPrice((position.value.supplied || 0n), collateralVault.value!),
+      getAssetUsdValue((position.value.supplied || 0n), collateralVault.value!),
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
-      getVaultPrice((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value),
+      getAssetUsdValue((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value),
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,

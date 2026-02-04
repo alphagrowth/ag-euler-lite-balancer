@@ -5,7 +5,8 @@ import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
+import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapDebtOptions } from '~/composables/useSwapDebtOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -195,19 +196,19 @@ const supplyValueUsd = computed(() => {
   if (!collateralVault.value || !position.value) {
     return null
   }
-  return getVaultPrice(position.value.supplied, collateralVault.value)
+  return getAssetUsdValue(position.value.supplied, collateralVault.value)
 })
 const currentBorrowValueUsd = computed(() => {
   if (!fromVault.value || !position.value) {
     return null
   }
-  return getVaultPrice(position.value.borrowed, fromVault.value)
+  return getAssetUsdValue(position.value.borrowed, fromVault.value)
 })
 const nextBorrowValueUsd = computed(() => {
   if (!quote.value || !toVault.value) {
     return null
   }
-  return getVaultPrice(BigInt(quote.value.amountIn), toVault.value)
+  return getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value)
 })
 
 const calculateRoe = (
@@ -241,8 +242,8 @@ const priceRatio = computed(() => {
   if (!collateralVault.value || !toVault.value) {
     return null
   }
-  const collateralPrice = getCollateralAssetPriceFromLiability(toVault.value, collateralVault.value)
-  const borrowPrice = getVaultPriceInfo(toVault.value)
+  const collateralPrice = getCollateralOraclePrice(toVault.value, collateralVault.value)
+  const borrowPrice = getAssetOraclePrice(toVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -357,8 +358,8 @@ const priceImpact = computed(() => {
   if (!quote.value || !fromVault.value || !toVault.value) {
     return null
   }
-  const amountOutUsd = getVaultPrice(BigInt(quote.value.amountOut), fromVault.value)
-  const amountInUsd = getVaultPrice(BigInt(quote.value.amountIn), toVault.value)
+  const amountOutUsd = getAssetUsdValue(BigInt(quote.value.amountOut), fromVault.value)
+  const amountInUsd = getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value)
   if (!amountOutUsd || !amountInUsd) {
     return null
   }

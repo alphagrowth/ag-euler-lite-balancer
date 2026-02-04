@@ -8,12 +8,15 @@ import { useToast } from '~/components/ui/composables/useToast'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   getNetAPY,
-  getVaultPrice,
-  getVaultPriceInfo,
-  getCollateralAssetPriceFromLiability,
   type Vault,
   type SecuritizeVault,
 } from '~/entities/vault'
+import {
+  getAssetUsdValue,
+  getAssetOraclePrice,
+  getCollateralOraclePrice,
+  getCollateralUsdValue,
+} from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
@@ -69,17 +72,15 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   borrowVault.value?.asset.symbol,
 ))
 // Get collateral USD value using liability vault's price perspective
-const getCollateralValueUsd = (amount: bigint) => {
+const getCollateralValueUsdLocal = (amount: bigint) => {
   if (!borrowVault.value || !collateralVault.value) return 0
-  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
-  if (!priceInfo?.amountOutMid) return 0
-  return nanoToValue(amount, collateralVault.value.decimals) * nanoToValue(priceInfo.amountOutMid, 18)
+  return getCollateralUsdValue(amount, borrowVault.value, collateralVault.value as Vault)
 }
 const netAPY = computed(() => {
   return getNetAPY(
-    getCollateralValueUsd(collateralAssets.value),
+    getCollateralValueUsdLocal(collateralAssets.value),
     collateralSupplyApy.value,
-    getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
+    getAssetUsdValue(position.value?.borrowed ?? 0n, borrowVault.value!),
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
@@ -94,9 +95,9 @@ const suppliedFixed = computed(() => FixedNumber.fromValue(collateralAssets.valu
 // Use the correct collateral/borrow price ratio for LTV calculations (not the liquidation price)
 const priceFixed = computed(() => {
   const collateralPrice = borrowVault.value && collateralVault.value
-    ? getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+    ? getCollateralOraclePrice(borrowVault.value, collateralVault.value)
     : undefined
-  const borrowPrice = borrowVault.value ? getVaultPriceInfo(borrowVault.value) : undefined
+  const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
   return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
@@ -283,9 +284,9 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('Not enough liquidity in your position')
     }
     estimateNetAPY.value = getNetAPY(
-      getCollateralValueUsd(collateralAssets.value - valueToNano(amount.value, collateralVault.value.decimals)),
+      getCollateralValueUsdLocal(collateralAssets.value - valueToNano(amount.value, collateralVault.value.decimals)),
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
-      getVaultPrice(position.value!.borrowed || 0n || 0, borrowVault.value!),
+      getAssetUsdValue(position.value!.borrowed ?? 0n, borrowVault.value!),
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,

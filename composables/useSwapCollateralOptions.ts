@@ -4,7 +4,8 @@ import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { type CollateralOption, getVaultPrice, type Vault } from '~/entities/vault'
+import { type CollateralOption, type Vault } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 
 export const useSwapCollateralOptions = ({
   currentVault,
@@ -76,7 +77,7 @@ export const useSwapCollateralOptions = ({
       return {
         type: optionType,
         amount,
-        price: getVaultPrice(amount, vault),
+        price: getAssetUsdValue(amount, vault),
         apy,
         symbol: vault.asset.symbol,
         label: product.name || vault.name,

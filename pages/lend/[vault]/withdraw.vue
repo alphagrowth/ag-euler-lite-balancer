@@ -7,13 +7,13 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
-  getVaultPrice,
   isSecuritizeVault,
   fetchSecuritizeVault,
   type Vault,
   type SecuritizeVault,
   type VaultAsset,
 } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -76,7 +76,7 @@ const estimateSupplyAPYDisplay = computed(() => {
 // Helper to get vault price - returns 0 for securitize vaults (no USD price available)
 const getPrice = (amount: bigint) => {
   if (!vault.value || isSecuritizeVaultType.value) return 0
-  return getVaultPrice(amount, vault.value as Vault)
+  return getAssetUsdValue(amount, vault.value as Vault)
 }
 
 const load = async () => {

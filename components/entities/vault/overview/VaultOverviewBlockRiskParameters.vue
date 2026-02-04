@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { MaxUint256, ethers } from 'ethers'
 import { vaultConvertToAssetsAbi } from '~/abis/vault'
-import { getVaultPrice, type Vault } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
@@ -30,8 +31,9 @@ const borrowCapPercentageDisplay = computed(() => {
   return parseFloat(`${fraction / scale}.${fraction % scale}`)
 })
 
-const calcPrice = (amount: bigint) => {
-  return getVaultPrice(nanoToValue(amount, vault.decimals), vault)
+const formatPrice = (amount: bigint) => {
+  const price = formatAssetValue(amount, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 }
 
 const load = async () => {
@@ -65,7 +67,7 @@ load()
       >
         <div class="flex gap-4 items-center">
           <span>
-            {{ vault.supplyCap >= MaxUint256 ? '∞' : `$${compactNumber(calcPrice(vault.supplyCap))}` }}
+            {{ vault.supplyCap >= MaxUint256 ? '∞' : formatPrice(vault.supplyCap) }}
             <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress
@@ -82,7 +84,7 @@ load()
       >
         <div class="flex gap-4 items-center">
           <span>
-            {{ vault.borrowCap >= MaxUint256 ? '∞' :`$${compactNumber(calcPrice(vault.borrowCap))}` }}
+            {{ vault.borrowCap >= MaxUint256 ? '∞' : formatPrice(vault.borrowCap) }}
             <span v-if="vault.borrowCap < MaxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress

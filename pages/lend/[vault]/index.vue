@@ -5,7 +5,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { computeAPYs, getCurrentLiquidationLTV, getVaultPrice, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
+import { computeAPYs, getCurrentLiquidationLTV, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -472,7 +473,7 @@ watch(amount, async () => {
                   asset.symbol
                 }}
                 <template v-if="features.hasPriceInfo && vault">
-                  ≈ ${{ compactNumber(getVaultPrice(monthlyEarnings, vault)) }}
+                  ≈ ${{ compactNumber(getAssetUsdValue(monthlyEarnings, vault)) }}
                 </template>
               </p>
             </div>

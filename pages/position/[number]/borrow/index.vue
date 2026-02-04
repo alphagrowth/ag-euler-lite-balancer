@@ -5,7 +5,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY } from '~/entities/vault'
+import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
@@ -80,9 +81,9 @@ const collateralVault = computed(() => pair.value?.collateral)
 const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
 const priceFixed = computed(() => {
   const collateralPrice = borrowVault.value && collateralVault.value
-    ? getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+    ? getCollateralOraclePrice(borrowVault.value, collateralVault.value)
     : undefined
-  const borrowPrice = borrowVault.value ? getVaultPriceInfo(borrowVault.value) : undefined
+  const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
   return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
@@ -261,9 +262,9 @@ const updateEstimates = useDebounceFn(async () => {
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
     netAPY.value = getNetAPY(
-      getVaultPrice(+collateralAmount.value || 0, collateralVault.value!),
+      getAssetUsdValue(+collateralAmount.value || 0, collateralVault.value!),
       collateralSupplyApy.value,
-      getVaultPrice(+borrowAmount.value || 0, borrowVault.value!),
+      getAssetUsdValue(+borrowAmount.value || 0, borrowVault.value!),
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,

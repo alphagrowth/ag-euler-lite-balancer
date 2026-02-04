@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { type AnyBorrowVaultPair, getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import { type AnyBorrowVaultPair, getVaultUtilization } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -76,6 +77,12 @@ const maxRoe = computed(() => {
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2))
 const utilization = computed(() => getVaultUtilization(pair.borrow))
 
+const liquidityDisplay = computed(() => {
+  const liquidity = pair.borrow.supply - pair.borrow.borrow
+  const price = formatAssetValue(liquidity, pair.borrow)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+})
+
 const onWarningClick = () => {
   modal.open(VaultUtilizationWarningModal)
 }
@@ -126,7 +133,7 @@ const linkPath = computed(() => `/borrow/${pair.collateral.address}/${pair.borro
           Available liquidity
         </div>
         <div class="text-p2 text-content-primary">
-          {{ `$${compactNumber(getVaultPrice(pair.borrow.supply - pair.borrow.borrow, pair.borrow))}` }}
+          {{ liquidityDisplay }}
         </div>
       </div>
       <div class="text-center">

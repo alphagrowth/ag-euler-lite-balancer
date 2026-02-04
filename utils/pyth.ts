@@ -2,6 +2,7 @@ import { PriceServiceConnection } from '@pythnetwork/price-service-client'
 import { ethers } from 'ethers'
 import type { Address, Hex } from 'viem'
 import { PYTH_ABI } from '~/abis/pyth'
+import type { BatchItem } from '~/abis/evc'
 import { DEFAULT_PRICE_CACHE_TTL_MS } from '~/entities/constants'
 import { collectPythFeedIds, type PythFeed } from '~/entities/oracle'
 import type { Vault } from '~/entities/vault'
@@ -44,10 +45,7 @@ const priceToAmountOutMid = (price: { price: string; expo: number }): bigint => 
 const collectFeedsFromVault = (vault: Vault | undefined, maxDepth: number): PythFeed[] => {
   if (!vault) return []
 
-  const feeds = [
-    ...collectPythFeedIds(vault.oracleDetailedInfo, maxDepth),
-    ...collectPythFeedIds(vault.backupAssetOracleInfo, maxDepth),
-  ]
+  const feeds = collectPythFeedIds(vault.oracleDetailedInfo, maxDepth)
 
   const unique = new Map<string, PythFeed>()
   feeds.forEach((feed) => {
@@ -207,5 +205,122 @@ export const fetchPythPrices = async (
 }
 
 export const sumCallValues = (calls: EVCCall[]): bigint => calls.reduce((acc, call) => acc + (call.value || 0n), 0n)
+
+/**
+ * Build batch items for Pyth updates.
+ * Reusable for both vault fetching AND account lens fetching via batchSimulation.
+ *
+ * @param vaults - Array of vaults to collect Pyth feeds from
+ * @param providerUrl - JSON-RPC provider URL
+ * @param hermesEndpoint - Pyth Hermes endpoint URL
+ * @returns BatchItem array for Pyth updates and total fee required
+ */
+export const buildPythBatchItems = async (
+  vaults: (Vault | undefined)[],
+  providerUrl: string,
+  hermesEndpoint: string | undefined,
+): Promise<{ items: BatchItem[]; totalFee: bigint }> => {
+  const feeds = collectPythFeedsFromVaults(vaults)
+  if (!feeds.length || !hermesEndpoint) {
+    return { items: [], totalFee: 0n }
+  }
+
+  const grouped = new Map<Address, Set<Hex>>()
+  feeds.forEach((feed) => {
+    const key = feed.pythAddress
+    if (!grouped.has(key)) {
+      grouped.set(key, new Set())
+    }
+    grouped.get(key)?.add(feed.feedId)
+  })
+
+  const provider = new ethers.JsonRpcProvider(providerUrl)
+  const items: BatchItem[] = []
+  let totalFee = 0n
+
+  for (const [pythAddress, feedSet] of grouped.entries()) {
+    const updateData = await fetchPythUpdateData([...feedSet], hermesEndpoint)
+    if (!updateData.length) continue
+
+    const pythContract = new ethers.Contract(pythAddress, PYTH_ABI, provider)
+
+    let fee = 0n
+    try {
+      fee = await pythContract.getUpdateFee(updateData)
+    }
+    catch (err) {
+      console.warn('[buildPythBatchItems] getUpdateFee failed', err)
+      continue
+    }
+
+    items.push({
+      targetContract: pythAddress,
+      onBehalfOfAccount: ethers.ZeroAddress,
+      value: fee,
+      data: pythContract.interface.encodeFunctionData('updatePriceFeeds', [updateData]),
+    })
+    totalFee += fee
+  }
+
+  return { items, totalFee }
+}
+
+/**
+ * Build batch items from pre-collected Pyth feeds.
+ * Use when you've already collected feeds from multiple sources (e.g., liability + all collaterals).
+ *
+ * @param feeds - Array of PythFeed objects
+ * @param providerUrl - JSON-RPC provider URL
+ * @param hermesEndpoint - Pyth Hermes endpoint URL
+ * @returns BatchItem array for Pyth updates and total fee required
+ */
+export const buildPythBatchItemsFromFeeds = async (
+  feeds: PythFeed[],
+  providerUrl: string,
+  hermesEndpoint: string | undefined,
+): Promise<{ items: BatchItem[]; totalFee: bigint }> => {
+  if (!feeds.length || !hermesEndpoint) {
+    return { items: [], totalFee: 0n }
+  }
+
+  const grouped = new Map<Address, Set<Hex>>()
+  feeds.forEach((feed) => {
+    const key = feed.pythAddress
+    if (!grouped.has(key)) {
+      grouped.set(key, new Set())
+    }
+    grouped.get(key)?.add(feed.feedId)
+  })
+
+  const provider = new ethers.JsonRpcProvider(providerUrl)
+  const items: BatchItem[] = []
+  let totalFee = 0n
+
+  for (const [pythAddress, feedSet] of grouped.entries()) {
+    const updateData = await fetchPythUpdateData([...feedSet], hermesEndpoint)
+    if (!updateData.length) continue
+
+    const pythContract = new ethers.Contract(pythAddress, PYTH_ABI, provider)
+
+    let fee = 0n
+    try {
+      fee = await pythContract.getUpdateFee(updateData)
+    }
+    catch (err) {
+      console.warn('[buildPythBatchItemsFromFeeds] getUpdateFee failed', err)
+      continue
+    }
+
+    items.push({
+      targetContract: pythAddress,
+      onBehalfOfAccount: ethers.ZeroAddress,
+      value: fee,
+      data: pythContract.interface.encodeFunctionData('updatePriceFeeds', [updateData]),
+    })
+    totalFee += fee
+  }
+
+  return { items, totalFee }
+}
 
 export const pythAbi = PYTH_ABI

@@ -2,8 +2,8 @@
 import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getEarnVaultPrice } from '~/entities/vault'
 import type { EarnVault } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 
 defineOptions({
   name: 'EarnPage',
@@ -31,7 +31,7 @@ const assetOptions = computed(() => {
 
 const topOptions = computed(() => {
   const sortedBySupply = [...list.value].sort((a: EarnVault, b: EarnVault) => {
-    return getEarnVaultPrice(b.totalAssets, b) - getEarnVaultPrice(a.totalAssets, a)
+    return getAssetUsdValue(b.totalAssets, b) - getAssetUsdValue(a.totalAssets, a)
   })
 
   return sortedBySupply
@@ -57,7 +57,7 @@ const sortedList = computed(() => {
   switch (sortBy.value) {
     case 'Total Supply':
       return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
-        return getEarnVaultPrice(b.totalAssets, b) - getEarnVaultPrice(a.totalAssets, a)
+        return getAssetUsdValue(b.totalAssets, b) - getAssetUsdValue(a.totalAssets, a)
       })
     case 'Supply APY':
       return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
@@ -65,7 +65,7 @@ const sortedList = computed(() => {
       })
     case 'Liquidity':
       return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
-        return getEarnVaultPrice(b.availableAssets, b) - getEarnVaultPrice(a.availableAssets, a)
+        return getAssetUsdValue(b.availableAssets, b) - getAssetUsdValue(a.availableAssets, a)
       })
     default:
       return filteredList.value

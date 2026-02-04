@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { getProductByVault } from '~/composables/useEulerLabels'
 
 const getMaxRoe = (pair: BorrowVaultPair) => {
@@ -83,7 +84,7 @@ const sortedBorrowList = computed(() => {
   switch (sortBy.value) {
     case 'Liquidity':
       return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
-        return getVaultPrice(b.borrow.supply - b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.supply - a.borrow.borrow, a.borrow)
+        return getAssetUsdValue(b.borrow.supply - b.borrow.borrow, b.borrow) - getAssetUsdValue(a.borrow.supply - a.borrow.borrow, a.borrow)
       })
     case 'Borrow APY':
       return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
@@ -95,7 +96,7 @@ const sortedBorrowList = computed(() => {
       })
     case 'Total Borrowed':
       return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-        return getVaultPrice(b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.borrow, a.borrow)
+        return getAssetUsdValue(b.borrow.borrow, b.borrow) - getAssetUsdValue(a.borrow.borrow, a.borrow)
       })
     case 'Max ROE':
       return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {

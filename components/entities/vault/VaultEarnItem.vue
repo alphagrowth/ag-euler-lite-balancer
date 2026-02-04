@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getEarnVaultPrice, getEarnVaultPriceDisplay, type EarnVault } from '~/entities/vault'
+import { type EarnVault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
@@ -21,16 +22,17 @@ const isUnverified = computed(() => !vault.verified)
 const displayName = computed(() => product.name || vault.name)
 
 const totalSupplyPrice = computed(() => {
-  const price = getEarnVaultPriceDisplay(vault.totalAssets, vault)
+  const price = formatAssetValue(vault.totalAssets, vault)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
 const liquidityPrice = computed(() => {
-  return `$${compactNumber(getEarnVaultPrice(vault.availableAssets, vault))}`
+  const price = formatAssetValue(vault.availableAssets, vault)
+  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 
 const walletBalancePrice = computed(() => {
-  const price = getEarnVaultPriceDisplay(balance.value, vault)
+  const price = formatAssetValue(balance.value, vault)
   return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
 })
 </script>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import { getVaultPrice, getVaultPriceDisplay, type Vault } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
@@ -23,7 +24,7 @@ const borrowCount = computed(() => {
 })
 
 const priceDisplay = computed(() => {
-  const price = getVaultPriceDisplay(1, vault)
+  const price = formatAssetValue(1, vault)
   return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
 })
 
