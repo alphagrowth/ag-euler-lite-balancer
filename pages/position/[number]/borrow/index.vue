@@ -333,7 +333,7 @@ onUnmounted(() => {
         :step="0.1"
         :max="Number(pair.borrowLTV / 100n)"
         :min="userLTV"
-        :number-filter="(n: number) => `${n}%`"
+        :number-filter="(n: number) => `${formatNumber(n, 2, 0)}%`"
         @update:model-value="onLtvInput"
       />
 

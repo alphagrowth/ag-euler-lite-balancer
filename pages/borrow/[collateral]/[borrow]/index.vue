@@ -1425,7 +1425,7 @@ watch(formTab, () => {
               label="LTV"
               :step="0.1"
               :max="Number(pair.borrowLTV / 100n)"
-              :number-filter="(n: number) => `${n}%`"
+              :number-filter="(n: number) => `${formatNumber(n, 2, 0)}%`"
               @update:model-value="onLtvInput"
             />
 
@@ -1522,7 +1522,7 @@ watch(formTab, () => {
                   :step="0.1"
                   :min="multiplyMinMultiplier"
                   :max="multiplyMaxMultiplier"
-                  :number-filter="(n: number) => `${n}x`"
+                  :number-filter="(n: number) => `${formatNumber(n, 2, 0)}x`"
                   @update:model-value="onMultiplierInput"
                 />
 

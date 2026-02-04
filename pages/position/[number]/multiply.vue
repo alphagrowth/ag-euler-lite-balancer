@@ -806,7 +806,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             :step="0.1"
             :min="multiplyMinMultiplier"
             :max="multiplyMaxMultiplier"
-            :number-filter="(n: number) => `${n}x`"
+            :number-filter="(n: number) => `${formatNumber(n, 2, 0)}x`"
             @update:model-value="onMultiplierInput"
           />
 
