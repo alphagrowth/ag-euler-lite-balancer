@@ -96,7 +96,6 @@ const checkGetController = async (subAccount: string) => {
 
   try {
     const controllers = await contract.getControllers(subAccount)
-    console.log('[checkGetController]', subAccount, 'has controllers:', controllers)
     return controllers.length === 0 // Return true if NO controllers (account is free)
   }
   catch (e) {
@@ -144,7 +143,6 @@ export const getNewSubAccount = async (ownerAddress: string) => {
     const hasNoController = await checkGetController(subAccountAddress)
 
     if (isNotInBorrows && hasNoController) {
-      console.log('[getNewSubAccount] found free subaccount:', subAccountAddress)
       return subAccountAddress
     }
   }
