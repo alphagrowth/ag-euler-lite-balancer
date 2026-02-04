@@ -363,6 +363,12 @@ const send = async (collateralAddress: string) => {
   }
 }
 const load = async () => {
+  // Redirect to portfolio if not connected
+  if (!isConnected.value) {
+    router.replace('/portfolio')
+    return
+  }
+
   try {
     await until(isPositionsLoaded).toBe(true)
     position.value = getPositionBySubAccountIndex(+positionIndex)
@@ -768,9 +774,6 @@ watch(isConnected, () => {
           Pair information
         </UiButton>
       </div>
-    </template>
-    <template v-else-if="!isConnected">
-      Connect your wallet to see your positions
     </template>
     <template v-else>
       Position not found

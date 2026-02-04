@@ -139,7 +139,8 @@ const fetchWalletBalance = async () => {
 
 const load = async () => {
   if (!isConnected.value) {
-    showError('Wallet is not connected.')
+    position.value = undefined
+    return
   }
   isLoading.value = true
   await until(isPositionsLoaded).toBe(true)

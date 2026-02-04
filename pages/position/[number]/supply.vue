@@ -172,7 +172,7 @@ const loadSelectedCollateral = async () => {
 
 const load = async () => {
   if (!isConnected.value) {
-    showError('Wallet is not connected.')
+    return
   }
   isLoading.value = true
   await until(isPositionLoaded).toBe(true)

@@ -99,6 +99,10 @@ const setFromAmountToMax = () => {
 }
 
 const loadPosition = async () => {
+  if (!isConnected.value) {
+    position.value = null
+    return
+  }
   isLoading.value = true
   await until(isPositionsLoaded).toBe(true)
 
