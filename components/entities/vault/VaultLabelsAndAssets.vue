@@ -90,7 +90,7 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
       <p class="text-content-tertiary mb-4">
         <VaultDisplayName
           :name="pairVault ? displayLabel : displayName"
-          :is-unverified="('verified' in vault && !vault.verified) || (pairVault && 'verified' in pairVault && !pairVault.verified)"
+          :is-unverified="('verified' in vault && !vault.verified) || !!(pairVault && 'verified' in pairVault && !pairVault.verified)"
         />
       </p>
       <p v-if="isDeprecated" class="mb-4">

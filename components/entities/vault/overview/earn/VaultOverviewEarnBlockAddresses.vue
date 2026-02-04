@@ -7,7 +7,7 @@ const { chainId } = useEulerAddresses()
 
 const vaultAddresesInfo = computed(() => ([
   {
-    title: `Underlying ${vault.asset.symbol} token`,
+    title: `${vault.asset.symbol} token`,
     address: vault.asset.address,
   },
   {

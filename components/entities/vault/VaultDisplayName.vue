@@ -1,7 +1,7 @@
 <script setup lang="ts">
-const { name, isUnverified } = defineProps<{
+const { name, isUnverified = false } = defineProps<{
   name: string
-  isUnverified: boolean
+  isUnverified?: boolean
 }>()
 </script>
 
