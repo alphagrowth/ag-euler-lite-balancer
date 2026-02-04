@@ -120,7 +120,7 @@ load()
           >
             <div class="flex items-center gap-4">
               <template v-if="getExposureUsdPrice(exposure) > 0">
-                {{ `$${compactNumber(getExposureUsdPrice(exposure), 2)}` }}
+                {{ formatCompactUsdValue(getExposureUsdPrice(exposure)) }}
                 <span @click.stop.prevent>
                   <UiFootnote
                     title="Amount in assets"

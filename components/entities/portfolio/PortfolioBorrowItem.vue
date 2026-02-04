@@ -101,7 +101,7 @@ const collateralValueUsd = computed(() => {
 const collateralValueInfo = computed(() => {
   const hasPrice = collateralValueUsd.value > 0
   return {
-    display: hasPrice ? `$${formatNumber(collateralValueUsd.value)}` : `${roundAndCompactTokens(collateralItems.value[0]?.assets || 0n, BigInt(position.collateral.decimals))} ${position.collateral.asset.symbol}`,
+    display: hasPrice ? formatCompactUsdValue(collateralValueUsd.value) : `${roundAndCompactTokens(collateralItems.value[0]?.assets ?? 0n, BigInt(position.collateral.decimals))} ${position.collateral.asset.symbol}`,
     hasPrice,
   }
 })
@@ -109,9 +109,9 @@ const collateralValueInfo = computed(() => {
 const collateralValueDisplay = computed(() => collateralValueInfo.value.display)
 
 const borrowedValueInfo = computed(() => {
-  const price = formatAssetValue(position.borrowed || 0n, borrowVault.value!)
+  const price = formatAssetValue(position.borrowed ?? 0n, borrowVault.value!)
   return {
-    display: price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display,
+    display: price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display,
     hasPrice: price.hasPrice,
   }
 })
@@ -123,7 +123,7 @@ const netAssetValueUsd = computed(() => {
 })
 
 const netAssetValueDisplay = computed(() => {
-  return `$${formatNumber(netAssetValueUsd.value)}`
+  return formatCompactUsdValue(netAssetValueUsd.value)
 })
 
 const netAPY = computed(() => {

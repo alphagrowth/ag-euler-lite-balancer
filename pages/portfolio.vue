@@ -98,7 +98,7 @@ onDeactivated(() => {
               const netValue = totalSuppliedValueInfo.total - totalBorrowedValueInfo.total
               const hasMissing = totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices
               if (netValue === 0 && hasMissing) return '—'
-              return `$${compactNumber(netValue)}`
+              return formatCompactUsdValue(netValue)
             })() }}
             <UiFootnote
               v-if="(totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices) && (totalSuppliedValueInfo.total - totalBorrowedValueInfo.total) !== 0"
@@ -118,7 +118,7 @@ onDeactivated(() => {
             {{ (() => {
               const { total, hasMissingPrices } = totalSuppliedValueInfo
               if (total === 0 && hasMissingPrices) return '—'
-              return `$${compactNumber(total)}`
+              return formatCompactUsdValue(total)
             })() }}
             <UiFootnote
               v-if="totalSuppliedValueInfo.hasMissingPrices && totalSuppliedValueInfo.total !== 0"
@@ -138,7 +138,7 @@ onDeactivated(() => {
             {{ (() => {
               const { total, hasMissingPrices } = totalBorrowedValueInfo
               if (total === 0 && hasMissingPrices) return '—'
-              return `$${compactNumber(total)}`
+              return formatCompactUsdValue(total)
             })() }}
             <UiFootnote
               v-if="totalBorrowedValueInfo.hasMissingPrices && totalBorrowedValueInfo.total !== 0"

@@ -80,7 +80,7 @@ const utilization = computed(() => getVaultUtilization(pair.borrow))
 const liquidityDisplay = computed(() => {
   const liquidity = pair.borrow.supply - pair.borrow.borrow
   const price = formatAssetValue(liquidity, pair.borrow)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const onWarningClick = () => {

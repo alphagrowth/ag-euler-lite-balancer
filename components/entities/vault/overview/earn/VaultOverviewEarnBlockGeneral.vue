@@ -12,7 +12,7 @@ const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
 
 const priceDisplay = computed(() => {
   const price = formatAssetValue(1, vault)
-  return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatUsdValue(price.usdValue) : price.display
 })
 
 const feeDisplay = computed(() => {

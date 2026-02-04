@@ -137,18 +137,18 @@ const hideTooltipImmediate = () => {
 
 const totalSupplyPrice = computed(() => {
   const price = formatAssetValue(vault.totalAssets, vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const liquidityPrice = computed(() => {
   const liquidity = vault.supply - vault.borrow
   const price = formatAssetValue(liquidity, vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const walletBalancePrice = computed(() => {
   const price = formatAssetValue(balance.value, vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const onWarningClick = () => {

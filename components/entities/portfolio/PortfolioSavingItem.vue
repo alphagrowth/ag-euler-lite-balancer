@@ -39,7 +39,7 @@ const supplyValueDisplay = computed(() => {
   if (!regularVault.value)
     return `${formatNumber(nanoToValue(position.assets, vault.value.asset.decimals))} ${vault.value.asset.symbol}`
   const price = formatAssetValue(position.assets, regularVault.value)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const hasPrice = computed(() => {

@@ -13,12 +13,12 @@ const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?
 
 const totalSupplyDisplay = computed(() => {
   const price = formatAssetValue(vault.totalAssets, vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const availableLiquidityDisplay = computed(() => {
   const price = formatAssetValue(availableLiquidityOfStrategies.value, vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 const load = async () => {
   vault.strategies.forEach(async (strategy) => {

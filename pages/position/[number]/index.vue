@@ -562,7 +562,7 @@ watch(isConnected, () => {
               <div class="flex justify-between gap-8 justify-self-end">
                 <div class="text-neutral-800 text-p3">
                   {{ hasVaultPrice(borrowVault)
-                    ? `$${formatNumber(getAssetUsdValue(position.borrowed, borrowVault))}`
+                    ? formatCompactUsdValue(getAssetUsdValue(position.borrowed, borrowVault))
                     : `${roundAndCompactTokens(position.borrowed, borrowVault.decimals)} ${borrowVault.asset.symbol}`
                   }}
                 </div>
@@ -587,7 +587,7 @@ watch(isConnected, () => {
                 Current price
               </div>
               <div class="text-neutral-800 text-p3">
-                {{ hasVaultPrice(borrowVault) ? `$${formatNumber(getAssetUsdValue(1, position.borrow))}` : '-' }}
+                {{ hasVaultPrice(borrowVault) ? formatUsdValue(getAssetUsdValue(1, position.borrow)) : '-' }}
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
@@ -597,7 +597,7 @@ watch(isConnected, () => {
               <div class="text-neutral-800 text-p3">
                 {{
                   getOraclePrice(position.borrow)
-                    ? `$${formatNumber(getOraclePrice(position.borrow))}`
+                    ? formatUsdValue(getOraclePrice(position.borrow))
                     : '-'
                 }}
               </div>
@@ -675,7 +675,7 @@ watch(isConnected, () => {
                 <div class="flex justify-between gap-8 justify-self-end">
                   <div class="text-neutral-800 text-p3">
                     {{ collateral.valueUsd > 0
-                      ? `$${formatNumber(collateral.valueUsd)}`
+                      ? formatCompactUsdValue(collateral.valueUsd)
                       : `${roundAndCompactTokens(collateral.assets, collateral.vault.decimals)} ${collateral.vault.asset.symbol}`
                     }}
                   </div>
@@ -701,7 +701,7 @@ watch(isConnected, () => {
                   Current price
                 </div>
                 <div class="text-neutral-800 text-p3">
-                  {{ collateral.unitPriceUsd > 0 ? `$${formatNumber(collateral.unitPriceUsd)}` : '-' }}
+                  {{ collateral.unitPriceUsd > 0 ? formatUsdValue(collateral.unitPriceUsd) : '-' }}
                 </div>
               </div>
               <div class="flex justify-between gap-8 flex-wrap mb-16">
@@ -711,7 +711,7 @@ watch(isConnected, () => {
                 <div class="text-neutral-800 text-p3">
   {{
                     getCollateralOraclePrice(collateral.vault, borrowVault)
-                      ? `$${formatNumber(getCollateralOraclePrice(collateral.vault, borrowVault))}`
+                      ? formatUsdValue(getCollateralOraclePrice(collateral.vault, borrowVault))
                       : '-'
                   }}
                 </div>

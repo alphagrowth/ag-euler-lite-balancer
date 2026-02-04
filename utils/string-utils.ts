@@ -10,6 +10,26 @@ export const truncateAddressForSubgraph = (address: string): string => {
 export const formatNumber = (value: string | number = 0, maximumFractionDigits = 2, minimumFractionDigits = 2) =>
   Number(value).toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits })
 
+/**
+ * Format USD value with smart handling of small amounts.
+ * - Shows "<$0.01" for small positive values (0 < value < 0.01)
+ * - Shows "$0.00" for zero or negative tiny values
+ * - Shows normal formatting for larger values
+ */
+export const formatUsdValue = (value: string | number = 0, maximumFractionDigits = 2): string => {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    return '$0.00'
+  }
+  if (numericValue > 0 && numericValue < 0.01) {
+    return '<$0.01'
+  }
+  if (numericValue < 0 && numericValue > -0.01) {
+    return '-<$0.01'
+  }
+  return `$${formatNumber(numericValue, maximumFractionDigits)}`
+}
+
 export const formatSignificant = (value: string | number = 0, maximumSignificantDigits = 2) => {
   const numericValue = Number(value)
   if (!Number.isFinite(numericValue)) {
@@ -27,6 +47,26 @@ export const compactNumber = (value: string | number = 0, maximumFractionDigits 
     maximumFractionDigits,
     minimumFractionDigits,
   }).format(Number(value))
+}
+
+/**
+ * Format USD value with compact notation for large amounts.
+ * - Shows "<$0.01" for small positive values (0 < value < 0.01)
+ * - Shows "$0" for zero
+ * - Uses compact notation (e.g., $1.5M, $2.3K) for larger values
+ */
+export const formatCompactUsdValue = (value: string | number = 0, maximumFractionDigits = 2): string => {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    return '$0'
+  }
+  if (numericValue > 0 && numericValue < 0.01) {
+    return '<$0.01'
+  }
+  if (numericValue < 0 && numericValue > -0.01) {
+    return '-<$0.01'
+  }
+  return `$${compactNumber(numericValue, maximumFractionDigits)}`
 }
 
 export const preciseNumber = (value: string | number, decimals = 36) => {

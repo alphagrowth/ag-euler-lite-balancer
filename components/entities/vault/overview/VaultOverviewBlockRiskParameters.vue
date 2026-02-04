@@ -33,7 +33,7 @@ const borrowCapPercentageDisplay = computed(() => {
 
 const formatPrice = (amount: bigint) => {
   const price = formatAssetValue(amount, vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 }
 
 const load = async () => {

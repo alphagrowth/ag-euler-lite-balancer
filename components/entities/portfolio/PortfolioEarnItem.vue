@@ -19,7 +19,7 @@ const displayName = computed(() => product.name || vault.value.name)
 
 const supplyValueDisplay = computed(() => {
   const price = formatAssetValue(position.assets, vault.value)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const supplyApyWithRewards = computed(() => (vault.value.supplyAPY || 0) + (opportunityInfo.value?.apr || 0))

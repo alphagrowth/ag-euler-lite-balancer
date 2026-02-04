@@ -85,13 +85,13 @@ loadRiskParameters()
 // Price display
 const priceDisplay = computed(() => {
   const price = formatAssetValue(1, vault as unknown as Vault)
-  return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatUsdValue(price.usdValue) : price.display
 })
 
 // Total supply display with USD if available
 const totalSupplyDisplay = computed(() => {
   const price = formatAssetValue(vault.totalAssets, vault as unknown as Vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 // Supply cap display - supplyCap is in shares denomination (vault.decimals), same as regular vaults
@@ -100,7 +100,7 @@ const supplyCapDisplay = computed(() => {
     return '∞'
   }
   const price = formatAssetValue(vault.supplyCap, vault as unknown as Vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const supplyCapPercentageDisplay = computed(() => {

@@ -80,7 +80,13 @@ export const getCollateralShareOraclePrice = (
     p => p.asset.toLowerCase() === collateralAddress,
   )
 
-  if (!priceInfo || priceInfo.queryFailure) {
+  if (!priceInfo) {
+    return undefined
+  }
+
+  // Return price if available, even if queryFailure is true
+  // (queryFailure may indicate stale price but we can still use it)
+  if (priceInfo.queryFailure && !priceInfo.amountOutMid) {
     return undefined
   }
 

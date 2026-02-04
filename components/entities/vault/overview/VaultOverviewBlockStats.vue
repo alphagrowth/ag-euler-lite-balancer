@@ -21,7 +21,7 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
 
 const formatPrice = (amount: bigint) => {
   const price = formatAssetValue(amount, vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 }
 </script>
 
