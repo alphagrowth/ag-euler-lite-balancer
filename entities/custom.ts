@@ -63,6 +63,7 @@ export const availableNetworkIds = [
 ] as const
 
 export const labelsRepo: string = 'euler-xyz/euler-labels' // https://github.com/euler-xyz/euler-labels
+export const oracleChecksRepo: string = 'euler-xyz/oracle-checks' // https://github.com/euler-xyz/oracle-checks
 
 export const onboardingInfo = {
   logoUrl: '/logo.png',

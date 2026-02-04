@@ -9,10 +9,13 @@ import {
 } from '~/entities/euler/labels'
 import type { EarnVault, Vault } from '~/entities/vault'
 import type { OracleAdapterMeta } from '~/entities/oracle'
-import { labelsRepo } from '~/entities/custom'
+import { labelsRepo, oracleChecksRepo } from '~/entities/custom'
 
 const getLabelsUrl = (chainId: number, file: string) =>
   `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/${file}`
+
+const getOracleChecksUrl = (chainId: number, file: string) =>
+  `https://raw.githubusercontent.com/${oracleChecksRepo}/refs/heads/master/data/${chainId}/${file}`
 
 const isLoading = ref(false)
 
@@ -68,9 +71,7 @@ const normalizeEntities = (data: Record<string, EulerLabelEntity>) => {
   return normalized
 }
 
-const getOracleAdaptersUrl = (chainId: number) => getLabelsUrl(chainId, 'adapters/all.json')
-const getOracleAdaptersFallbackUrl = (chainId: number) =>
-  `https://oracle-checks-data.euler.finance/${chainId}/adapters/all.json`
+const loadingAdapters = new Set<string>()
 
 const normalizeOracleAdapters = (data: unknown) => {
   const normalized: Record<string, OracleAdapterMeta> = {}
@@ -98,30 +99,48 @@ const normalizeOracleAdapters = (data: unknown) => {
       checks: Array.isArray(raw.checks) ? raw.checks.filter(v => typeof v === 'string') : undefined,
     }
 
-    const key = baseAddress && quoteAddress
-      ? `${meta.oracle.toLowerCase()}:${baseAddress.toLowerCase()}:${quoteAddress.toLowerCase()}`
-      : meta.oracle.toLowerCase()
-    normalized[key] = meta
+    normalized[meta.oracle.toLowerCase()] = meta
   })
 
   return normalized
 }
 
-const loadOracleAdapters = async (chainId: number) => {
-  try {
-    const adaptersRes = await axios.get(getOracleAdaptersUrl(chainId))
-    Object.assign(oracleAdapters, normalizeOracleAdapters(adaptersRes.data))
-    return
-  }
-  catch {}
+const loadOracleAdapter = async (chainId: number, oracleAddress: string): Promise<OracleAdapterMeta | undefined> => {
+  const checksummed = ethers.getAddress(oracleAddress)
+  const key = checksummed.toLowerCase()
 
+  // Already cached
+  if (oracleAdapters[key]) {
+    return oracleAdapters[key]
+  }
+
+  // Already loading
+  if (loadingAdapters.has(key)) {
+    return undefined
+  }
+
+  loadingAdapters.add(key)
   try {
-    const adaptersRes = await axios.get(getOracleAdaptersFallbackUrl(chainId))
-    Object.assign(oracleAdapters, normalizeOracleAdapters(adaptersRes.data))
+    const url = getOracleChecksUrl(chainId, `adapters/${checksummed}.json`)
+    const res = await axios.get(url)
+    const meta = normalizeOracleAdapters([res.data])
+    Object.assign(oracleAdapters, meta)
+    return oracleAdapters[key]
   }
-  catch (e) {
-    console.warn('[oracle adapters] failed to load adapters', e)
+  catch {
+    // Adapter file not found - silently ignore
+    return undefined
   }
+  finally {
+    loadingAdapters.delete(key)
+  }
+}
+
+const loadOracleAdapters = async (chainId: number, addresses?: string[]) => {
+  if (!addresses?.length) {
+    return // No-op if no specific addresses requested
+  }
+  await Promise.all(addresses.map(addr => loadOracleAdapter(chainId, addr)))
 }
 
 export const useEulerLabels = () => {
@@ -177,8 +196,6 @@ export const useEulerLabels = () => {
           })
         })
       })
-
-      await loadOracleAdapters(chainId)
     }
     catch (e) {
       console.warn(e)
@@ -197,6 +214,7 @@ export const useEulerLabels = () => {
     oracleAdapters,
     earnVaults,
     loadLabels,
+    loadOracleAdapter,
     loadOracleAdapters,
   }
 }
