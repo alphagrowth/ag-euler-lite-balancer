@@ -1160,9 +1160,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
         const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
 
         if (priceData.queryFailure || !priceData.amountOutMid || priceData.amountOutMid === 0n) {
-          const stablecoins = ['USD', 'USDC', 'USDT', 'DAI', 'FRAX', 'LUSD', 'GUSD', 'USDP', 'TUSD', 'BUSD', 'SUSD']
-          const isStablecoin = stablecoins.some(stable => data.assetSymbol?.toUpperCase().includes(stable))
-          assetPriceInfo = isStablecoin ? { amountOutMid: ethers.parseUnits('1', 18) } : undefined
+          assetPriceInfo = undefined
         }
         else {
           assetPriceInfo = { amountOutMid: priceData.amountOutMid }
