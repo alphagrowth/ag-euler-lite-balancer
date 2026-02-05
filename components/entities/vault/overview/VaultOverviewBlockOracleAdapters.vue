@@ -11,7 +11,7 @@ const props = defineProps<{
   collateralVaults?: (Vault | SecuritizeVault)[]
 }>()
 const { tokens, loadTokens } = useTokens()
-const { oracleAdapters, loadOracleAdapters } = useEulerLabels()
+const { oracleAdapters, loadOracleAdapter } = useEulerLabels()
 const { chainId } = useEulerAddresses()
 
 const sourceVaults = computed(() => {
@@ -49,7 +49,8 @@ const adapters = computed(() => {
   })
 
   entries.forEach((adapter) => {
-    const key = `${adapter.oracle.toLowerCase()}:${adapter.base.toLowerCase()}:${adapter.quote.toLowerCase()}`
+    // Dedupe by oracle address - same oracle shows same provider/methodology
+    const key = adapter.oracle.toLowerCase()
     if (!deduped.has(key)) {
       deduped.set(key, adapter)
     }
@@ -59,11 +60,7 @@ const adapters = computed(() => {
 })
 
 const adapterViews = computed(() => adapters.value.map((adapter) => {
-  const base = adapter.base.toLowerCase()
-  const quote = adapter.quote.toLowerCase()
-  const oracle = adapter.oracle.toLowerCase()
-  const key = `${oracle}:${base}:${quote}`
-  const meta: OracleAdapterMeta | undefined = oracleAdapters[key] || oracleAdapters[oracle]
+  const meta: OracleAdapterMeta | undefined = oracleAdapters[adapter.oracle.toLowerCase()]
 
   return {
     ...adapter,
@@ -77,10 +74,20 @@ onMounted(() => {
   if (!Object.keys(tokens).length) {
     loadTokens()
   }
-  if (!Object.keys(oracleAdapters).length && chainId.value) {
-    loadOracleAdapters(chainId.value)
-  }
 })
+
+watch(
+  () => adapters.value,
+  async (adapterList) => {
+    if (!chainId.value || !adapterList.length) return
+
+    // Load only the adapters we need
+    await Promise.all(
+      adapterList.map(a => loadOracleAdapter(chainId.value, a.oracle))
+    )
+  },
+  { immediate: true }
+)
 
 const shortenAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`
 
@@ -121,7 +128,7 @@ const onCopyClick = (address: string) => {
   navigator.clipboard.writeText(address)
 }
 
-const getAdapterKey = (adapter: OracleAdapterEntry) => `${adapter.oracle}-${adapter.base}-${adapter.quote}`
+const getAdapterKey = (adapter: OracleAdapterEntry) => adapter.oracle.toLowerCase()
 const getExplorerAddressLink = (address: string) => getExplorerLink(address, chainId.value, true)
 </script>
 

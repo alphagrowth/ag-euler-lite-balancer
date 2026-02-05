@@ -9,6 +9,12 @@ EXPOSE ${APP_PORT}
 ARG NETWORK=mainnet
 ENV NETWORK=${NETWORK}
 
+ARG APPKIT_PROJECT_ID
+ENV APPKIT_PROJECT_ID=${APPKIT_PROJECT_ID}
+
+ARG APP_URL
+ENV APP_URL=${APP_URL}
+
 # Create app directory
 WORKDIR /usr/src/app
 # Copy package.json for installing dependencies

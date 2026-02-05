@@ -2,15 +2,21 @@
 import { ethers } from 'ethers'
 import { type Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
-import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
+import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
 const { borrowList, isVaultGovernorVerified } = useVaults()
 
-const product = useEulerProductOfVault(vault.address)
+const vaultAddress = computed(() => ethers.getAddress(vault.address))
+const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfVault(vault)
+
+const isDeprecated = computed(() => {
+  return product.deprecatedVaults?.includes(vaultAddress.value) ?? false
+})
+const deprecationReason = computed(() => isDeprecated.value ? product.deprecationReason : '')
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault))
 
 // Count how many borrow pairs have this vault as collateral
@@ -54,6 +60,15 @@ const vaultGovernanceType = computed(() => {
       Overview
     </p>
     <div class="flex flex-col items-start gap-24">
+      <div
+        v-if="isDeprecated && deprecationReason"
+        class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
+      >
+        <div class="flex items-start gap-8">
+          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
+          <p class="text-p3 text-warning-500">{{ deprecationReason }}</p>
+        </div>
+      </div>
       <VaultOverviewLabelValue
         label="Price"
         :value="priceDisplay"
@@ -85,7 +100,7 @@ const vaultGovernanceType = computed(() => {
         </div>
         <div
           v-else-if="!isGovernorVerified"
-          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500"
+          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"
         >
           <UiIcon
             class="mr-2 !w-20 !h-20"

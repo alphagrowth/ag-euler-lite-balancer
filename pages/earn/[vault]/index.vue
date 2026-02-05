@@ -253,7 +253,7 @@ watch(amount, async () => {
             </span>
             <SvgIcon
               class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
-              name="question-circle"
+              name="info-circle"
               @click="onSupplyInfoIconClick"
             />
           </p>

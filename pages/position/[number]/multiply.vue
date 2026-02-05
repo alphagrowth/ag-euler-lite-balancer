@@ -739,6 +739,10 @@ const isMultiplySubmitDisabled = computed(() => {
 const reviewMultiplyDisabled = getSubmitDisabled(isMultiplySubmitDisabled)
 
 const loadPosition = async () => {
+  if (!isConnected.value) {
+    position.value = null
+    return
+  }
   isLoading.value = true
   position.value = getPositionBySubAccountIndex(+positionIndex) || null
   if (!position.value) {

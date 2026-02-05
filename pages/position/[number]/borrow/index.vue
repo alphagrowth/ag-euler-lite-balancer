@@ -118,8 +118,16 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 ))
 
 const load = async () => {
+  if (!isConnected.value) {
+    position.value = undefined
+    return
+  }
   isLoading.value = true
   position.value = getPositionBySubAccountIndex(+positionIndex)
+  if (!position.value) {
+    isLoading.value = false
+    return
+  }
   const collateralAddress = position.value.collateral.address
   const borrowAddress = position.value.borrow.address
   collateralAmount.value = `${nanoToValue(position.value.supplied, position.value.collateral.decimals)}`

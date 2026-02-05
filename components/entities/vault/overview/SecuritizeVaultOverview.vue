@@ -15,9 +15,15 @@ const { borrowList, isVaultGovernorVerified } = useVaults()
 const { getEvkVaults } = useVaultRegistry()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getIntrinsicApy } = useIntrinsicApy()
-const product = useEulerProductOfVault(vault.address)
+const vaultAddress = computed(() => ethers.getAddress(vault.address))
+const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault as unknown as Vault))
+
+const isDeprecated = computed(() => {
+  return product.deprecatedVaults?.includes(vaultAddress.value) ?? false
+})
+const deprecationReason = computed(() => isDeprecated.value ? product.deprecationReason : '')
 
 const shortenAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -132,6 +138,15 @@ const supplyCapPercentageDisplay = computed(() => {
         Overview
       </p>
       <div class="flex flex-col items-start gap-24">
+        <div
+          v-if="isDeprecated && deprecationReason"
+          class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
+        >
+          <div class="flex items-start gap-8">
+            <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
+            <p class="text-p3 text-warning-500">{{ deprecationReason }}</p>
+          </div>
+        </div>
         <VaultOverviewLabelValue
           label="Price"
           :value="priceDisplay"
@@ -163,7 +178,7 @@ const supplyCapPercentageDisplay = computed(() => {
           </div>
           <div
             v-else-if="!isGovernorVerified"
-            class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500"
+            class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"
           >
             <UiIcon
               class="mr-2 !w-20 !h-20"

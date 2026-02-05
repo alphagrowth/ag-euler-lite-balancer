@@ -46,10 +46,24 @@ export const intrinsicApySources = [
 ] as const
 
 export const availableNetworkIds = [
-  1
+  1,
+  42161,
+  8453,
+  1923,
+  146,
+  60808,
+  80094,
+  43114,
+  56,
+  130,
+  239,
+  59144,
+  9745,
+  143,
 ] as const
 
 export const labelsRepo: string = 'euler-xyz/euler-labels' // https://github.com/euler-xyz/euler-labels
+export const oracleChecksRepo: string = 'euler-xyz/oracle-checks' // https://github.com/euler-xyz/oracle-checks
 
 export const onboardingInfo = {
   logoUrl: '/logo.png',

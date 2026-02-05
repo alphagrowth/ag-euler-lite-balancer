@@ -52,7 +52,7 @@ onClickOutside(reference, () => {
   >
     <SvgIcon
       class="ui-footnote__icon"
-      name="question-circle"
+      name="info-circle"
     />
     <Transition
       name="tooltip"

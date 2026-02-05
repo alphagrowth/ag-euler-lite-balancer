@@ -5,21 +5,33 @@ import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultSupplyApyModal } from '#components'
 
-const { isConnected } = useAccount()
-const { vault } = defineProps<{ vault: EarnVault }>()
-const product = useEulerProductOfVault(vault.address)
-const { getBalance, isLoading: isBalancesLoading } = useWallets()
-const { getOpportunityOfLendVault } = useMerkl()
-const { getCampaignOfLendVault } = useBrevis()
+const { isConnected } = useAccount();
+const { vault } = defineProps<{ vault: EarnVault }>();
+const product = useEulerProductOfVault(vault.address);
+const { getBalance, isLoading: isBalancesLoading } = useWallets();
+const { getOpportunityOfLendVault } = useMerkl();
+const { getCampaignOfLendVault } = useBrevis();
+const { getIntrinsicApy } = useIntrinsicApy();
+const modal = useModal();
 
-const balance = computed(() => getBalance(vault.asset.address as `0x${string}`))
-const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
-const brevisInfo = computed(() => getCampaignOfLendVault(vault.address))
-const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
-const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
-const isUnverified = computed(() => !vault.verified)
-const displayName = computed(() => product.name || vault.name)
+const balance = computed(() =>
+  getBalance(vault.asset.address as `0x${string}`),
+);
+const opportunityInfo = computed(() =>
+  getOpportunityOfLendVault(vault.address),
+);
+const brevisInfo = computed(() => getCampaignOfLendVault(vault.address));
+const totalRewardsAPY = computed(
+  () =>
+    (opportunityInfo.value?.apr || 0) +
+    (brevisInfo.value?.reward_info.apr || 0) * 100,
+);
+const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value);
+const isUnverified = computed(() => !vault.verified);
+const displayName = computed(() => product.name || vault.name);
 
 const totalSupplyPrice = ref('-')
 const liquidityPrice = ref('-')
@@ -39,6 +51,19 @@ watchEffect(async () => {
   const price = await formatAssetValue(balance.value, vault, 'off-chain')
   walletBalancePrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
+
+const onSupplyInfoIconClick = (event: MouseEvent) => {
+  event.preventDefault()
+  event.stopPropagation()
+  modal.open(VaultSupplyApyModal, {
+    props: {
+      lendingAPY: vault.supplyAPY || 0,
+      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      opportunityInfo: opportunityInfo.value,
+      brevisInfo: brevisInfo.value,
+    },
+  })
+}
 </script>
 
 <template>
@@ -54,10 +79,7 @@ watchEffect(async () => {
       />
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4">
-          <VaultDisplayName
-            :name="displayName"
-            :is-unverified="isUnverified"
-          />
+          <VaultDisplayName :name="displayName" :is-unverified="isUnverified" />
         </div>
         <div class="text-h5 text-content-primary">
           {{ vault.asset.symbol }}
@@ -67,9 +89,7 @@ watchEffect(async () => {
         <div class="text-content-tertiary text-p3 mb-4 text-right">
           Supply APY
         </div>
-        <div
-          class="text-p2 flex items-center text-accent-600"
-        >
+        <div class="text-p2 flex items-center text-accent-600">
           <div class="mr-6">
             <VaultPoints :vault="vault" />
           </div>
@@ -79,14 +99,17 @@ watchEffect(async () => {
             name="sparks"
           />
           {{ formatNumber((vault.supplyAPY || 0) + totalRewardsAPY) }}%
+          <SvgIcon
+            class="!w-20 !h-20 text-content-muted hover:text-content-secondary transition-colors cursor-pointer ml-4"
+            name="info-circle"
+            @click="onSupplyInfoIconClick"
+          />
         </div>
       </div>
     </div>
     <div class="flex py-12 px-16 pb-16">
       <div class="flex-1">
-        <div class="text-content-tertiary text-p3 mb-4">
-          Total supply
-        </div>
+        <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
         <div class="text-p2 text-content-primary">
           {{ totalSupplyPrice }}
         </div>
@@ -99,13 +122,9 @@ watchEffect(async () => {
           {{ liquidityPrice }}
         </div>
       </div>
-      <div
-        class="flex flex-col flex-1 items-end text-right"
-      >
+      <div class="flex flex-col flex-1 items-end text-right">
         <template v-if="isConnected">
-          <div class="text-content-tertiary text-p3 mb-4">
-            In wallet
-          </div>
+          <div class="text-content-tertiary text-p3 mb-4">In wallet</div>
           <BaseLoadableContent
             :loading="isBalancesLoading"
             style="width: 70px; height: 20px"
@@ -115,7 +134,6 @@ watchEffect(async () => {
             </div>
           </BaseLoadableContent>
         </template>
-
       </div>
     </div>
   </NuxtLink>

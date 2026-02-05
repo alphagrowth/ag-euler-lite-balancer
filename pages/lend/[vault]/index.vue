@@ -465,7 +465,7 @@ watch(amount, async () => {
               <SvgIcon
                 v-if="features.hasApyBreakdown"
                 class="!w-24 !h-24 text-content-muted cursor-pointer"
-                name="question-circle"
+                name="info-circle"
                 @click="onSupplyInfoIconClick"
               />
             </p>

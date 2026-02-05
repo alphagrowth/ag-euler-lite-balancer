@@ -488,6 +488,12 @@ const send = async (collateralAddress: string) => {
   }
 }
 const load = async () => {
+  // Redirect to portfolio if not connected
+  if (!isConnected.value) {
+    router.replace('/portfolio')
+    return
+  }
+
   try {
     await until(isPositionsLoaded).toBe(true)
     position.value = getPositionBySubAccountIndex(+positionIndex)
@@ -578,7 +584,7 @@ watch(isConnected, () => {
             {{ formatNumber(netAPY) }}%
             <SvgIcon
               class="!w-24 !h-24 text-neutral-400 cursor-pointer"
-              name="question-circle"
+              name="info-circle"
               @click="onNetApyInfoIconClick"
             />
           </div>
@@ -905,9 +911,6 @@ watch(isConnected, () => {
           Pair information
         </UiButton>
       </div>
-    </template>
-    <template v-else-if="!isConnected">
-      Connect your wallet to see your positions
     </template>
     <template v-else>
       Position not found
