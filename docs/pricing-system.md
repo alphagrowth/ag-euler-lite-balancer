@@ -340,11 +340,12 @@ const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
 let vault = processRawVaultData(raw, ...)
 
 // 2. Check if Pyth AND has price failure
+// Note: 0n is a valid price (very small value), so we don't treat it as failure
 const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
 const hasPythPriceFailure = feeds.length > 0 && (
   vault.liabilityPriceInfo?.queryFailure ||
-  !vault.liabilityPriceInfo?.amountOutMid ||
-  vault.liabilityPriceInfo.amountOutMid === 0n
+  vault.liabilityPriceInfo?.amountOutMid === undefined ||
+  vault.liabilityPriceInfo?.amountOutMid === null
 )
 
 // 3. Re-query with simulation if failure detected

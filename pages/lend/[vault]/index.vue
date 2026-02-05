@@ -166,13 +166,13 @@ const hasPythOracles = (v: Vault | undefined): boolean => {
   return feeds.length > 0
 }
 
-// Check if vault has price failure
+// Check if vault has price failure (0n is valid - very small price)
 const hasPriceFailure = (v: Vault | undefined): boolean => {
   if (!v) return false
   return (
     v.liabilityPriceInfo?.queryFailure ||
-    !v.liabilityPriceInfo?.amountOutMid ||
-    v.liabilityPriceInfo.amountOutMid === 0n
+    v.liabilityPriceInfo?.amountOutMid === undefined ||
+    v.liabilityPriceInfo?.amountOutMid === null
   )
 }
 

@@ -41,6 +41,7 @@ const price = computed(() => {
   const collateralPrice = getCollateralOraclePrice(pair.borrow, pair.collateral)
   const borrowPrice = getAssetOraclePrice(pair.borrow)
 
+  // Check for 0n in denominator to prevent division by zero
   if (!collateralPrice || !borrowPrice || borrowPrice.amountOutMid === 0n) {
     return null
   }

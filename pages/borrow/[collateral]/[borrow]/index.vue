@@ -1332,17 +1332,19 @@ const hasPythOracles = (vault: Vault | undefined): boolean => {
   return feeds.length > 0
 }
 
-// Check if borrow vault has a price failure (liabilityPriceInfo missing/zero)
+// Check if borrow vault has a price failure (liabilityPriceInfo missing or query failed)
+// Note: 0n is a valid price (very small value), so we don't treat it as failure
 const hasBorrowPriceFailure = (vault: Vault | undefined): boolean => {
   if (!vault) return false
   return (
     vault.liabilityPriceInfo?.queryFailure ||
-    !vault.liabilityPriceInfo?.amountOutMid ||
-    vault.liabilityPriceInfo.amountOutMid === 0n
+    vault.liabilityPriceInfo?.amountOutMid === undefined ||
+    vault.liabilityPriceInfo?.amountOutMid === null
   )
 }
 
 // Check if borrow vault has a collateral price failure for the given collateral
+// Note: 0n is a valid price (very small value), so we don't treat it as failure
 const hasCollateralPriceFailure = (borrowVault: Vault | undefined, collateralAddress: string | undefined): boolean => {
   if (!borrowVault || !collateralAddress) return false
   const collateralPrice = borrowVault.collateralPrices.find(
@@ -1351,8 +1353,8 @@ const hasCollateralPriceFailure = (borrowVault: Vault | undefined, collateralAdd
   if (!collateralPrice) return true // No price entry = failure
   return (
     collateralPrice.queryFailure ||
-    !collateralPrice.amountOutMid ||
-    collateralPrice.amountOutMid === 0n
+    collateralPrice.amountOutMid === undefined ||
+    collateralPrice.amountOutMid === null
   )
 }
 

@@ -64,7 +64,7 @@ export const getAssetOraclePrice = (vault: Vault | null | undefined): PriceResul
   }
 
   const { amountOutAsk, amountOutBid, amountOutMid } = vault.liabilityPriceInfo
-  if (!amountOutMid) {
+  if (amountOutMid === undefined || amountOutMid === null) {
     return undefined
   }
 
@@ -149,12 +149,9 @@ export const getCollateralOraclePrice = (
   const amountOutAsk = (sharePrice.amountOutAsk * totalShares) / totalAssets
   const amountOutBid = (sharePrice.amountOutBid * totalShares) / totalAssets
 
-  if (!amountOutMid) {
-    return undefined
-  }
-
-  const ask = amountOutAsk && amountOutAsk > 0n ? amountOutAsk : amountOutMid
-  const bid = amountOutBid && amountOutBid > 0n ? amountOutBid : amountOutMid
+  // Note: 0n is a valid price (very small value due to precision), don't reject it
+  const ask = amountOutAsk > 0n ? amountOutAsk : amountOutMid
+  const bid = amountOutBid > 0n ? amountOutBid : amountOutMid
 
   return { amountOutAsk: ask, amountOutBid: bid, amountOutMid }
 }

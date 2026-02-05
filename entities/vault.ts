@@ -403,7 +403,8 @@ const resolveAssetPriceInfo = async (
     const priceInfo = await utilsLensContract.getAssetPriceInfo(assetAddress, USD_ADDRESS)
     const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
 
-    if (priceData.queryFailure || !priceData.amountOutMid || priceData.amountOutMid === 0n) {
+    // Note: 0n is a valid price (very small value), only reject null/undefined or explicit failure
+    if (priceData.queryFailure || priceData.amountOutMid === undefined || priceData.amountOutMid === null) {
       return undefined
     }
 
@@ -765,8 +766,8 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     const priceInfo = await utilsLensContract.getAssetPriceInfo(data.asset, USD_ADDRESS)
     const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
 
-    // Check if price query failed
-    if (priceData.queryFailure || !priceData.amountOutMid || priceData.amountOutMid === 0n) {
+    // Check if price query failed (0n is valid - very small price)
+    if (priceData.queryFailure || priceData.amountOutMid === undefined || priceData.amountOutMid === null) {
       console.warn(`No price available for asset ${data.asset} (${data.assetSymbol})`)
       assetPriceInfo = undefined
     }
@@ -1110,7 +1111,8 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
         const priceInfo = await utilsLensContract.getAssetPriceInfo(data.asset, USD_ADDRESS)
         const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
 
-        if (priceData.queryFailure || !priceData.amountOutMid || priceData.amountOutMid === 0n) {
+        // Note: 0n is a valid price (very small value)
+        if (priceData.queryFailure || priceData.amountOutMid === undefined || priceData.amountOutMid === null) {
           assetPriceInfo = undefined
         }
         else {
@@ -1374,10 +1376,10 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
 
     await Promise.all(
       validVaults.map(async (vault) => {
+        // Refetch price if missing or query failed (0n is valid - very small price)
         if (
           !vault.liabilityPriceInfo
           || vault.liabilityPriceInfo.queryFailure
-          || vault.liabilityPriceInfo.amountOutMid === 0n
         ) {
           try {
             const priceInfo = await utilsLensContract.getAssetPriceInfo(
