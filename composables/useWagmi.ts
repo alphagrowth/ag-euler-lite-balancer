@@ -1,8 +1,9 @@
-import { useAccount, useDisconnect, useBalance, useSwitchChain, useEnsName } from '@wagmi/vue'
+import { useAccount, useAccountEffect, useDisconnect, useBalance, useSwitchChain, useEnsName } from '@wagmi/vue'
 import { useAppKit } from '@reown/appkit/vue'
 import { formatUnits, getAddress, isAddress, type Address } from 'viem'
 import { truncate } from '~/utils/string-utils'
 import { availableNetworkIds } from '~/entities/custom'
+import { useAddressScreen } from '~/composables/useAddressScreen'
 
 let isChangingChain = false
 let isRouterReplacing = false
@@ -29,6 +30,7 @@ function initializeWagmi() {
   const { address: wagmiAddress, isConnected: wagmiIsConnected, connector, chain: wagmiChain, status } = useAccount()
   const { disconnect: wagmiDisconnect } = useDisconnect()
   const { switchChain } = useSwitchChain()
+  const { screenConnectedAddress, resetScreeningCache } = useAddressScreen()
 
   const chainId = computed(() => wagmiChain.value?.id)
 
@@ -40,6 +42,23 @@ function initializeWagmi() {
     address: wagmiAddress,
   })
   const { open: modal } = useAppKit()
+
+  useAccountEffect({
+    onConnect: ({ address }) => {
+      if (address) {
+        screenConnectedAddress(address)
+      }
+    },
+  })
+
+  watch(wagmiAddress, (address, oldAddress) => {
+    if (address && address !== oldAddress) {
+      screenConnectedAddress(address)
+    }
+    if (!address && oldAddress) {
+      resetScreeningCache()
+    }
+  }, { immediate: true })
 
   return {
     wagmiAddress,

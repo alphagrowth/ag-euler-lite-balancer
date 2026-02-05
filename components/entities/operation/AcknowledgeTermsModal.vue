@@ -24,9 +24,28 @@ const onAccept = () => {
     title="Acknowledge terms"
     @close="onReject"
   >
-    <div class="text-white flex flex-col gap-12 mb-16">
+    <div class="flex flex-col gap-12 mb-16">
       <p class="text-euler-dark-900">
-        Please confirm each statement:
+        By accessing or using Euler's products and services, I agree to the
+        <a
+          href="https://www.euler.finance/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-aquamarine-700 hover:underline"
+        >Terms of Use</a>,
+        <a
+          href="https://www.euler.finance/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-aquamarine-700 hover:underline"
+        >Privacy Policy</a>, and
+        <a
+          href="https://www.euler.finance/risk"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-aquamarine-700 hover:underline"
+        >Risk Disclosures</a>.
+        I further represent and warrant:
       </p>
       <ul class="flex flex-col gap-10">
         <li class="flex gap-8">
@@ -62,6 +81,14 @@ const onAccept = () => {
           <span>
             I understand the risks of decentralised finance and engaging with blockchain and other web3 software
             and services, including technical, operational, market, liquidity, and legal risks.
+          </span>
+        </li>
+        <li class="flex gap-8">
+          <span class="text-aquamarine-700">•</span>
+          <span>
+            I acknowledge that Safe Harbor programs have separate rules, and by using the Protocol, I consent to
+            the Whitehat Agreement terms, including eligible fund rescues, bounty deductions, associated risks
+            (including loss and taxes), and holding Euler Community Members harmless.
           </span>
         </li>
       </ul>

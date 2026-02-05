@@ -73,4 +73,4 @@ export const onboardingInfo = {
 
 // Toggle Terms of Use signature flow in transactions.
 // Modal content lives at: components/entities/operation/AcknowledgeTermsModal.vue
-export const enableTermsOfUseSignature = false
+export const enableTermsOfUseSignature = true

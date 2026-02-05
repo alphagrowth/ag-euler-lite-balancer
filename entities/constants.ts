@@ -56,8 +56,8 @@ export const MAX_SLIPPAGE = 50
 export const USD_ADDRESS = '0x0000000000000000000000000000000000000348'
 export const EUR_ADDRESS = '0x00000000000000000000000000000000000003d2'
 
-export const FINAL_MESSAGE = 'By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: https://www.euler.finance/terms  hash:0x1a7aa1916b6c56272b62be027108c06d9af95eef4dac46acbc80267b3919e07e'
-export const FINAL_HASH = '0xb0d552b4ebe441d9582f5fc732fd6026b09bec13e7f3c1e21c0ecaa3801df595'
+export const TOS_MD = 'https://raw.githubusercontent.com/euler-xyz/euler-docs/refs/heads/20260129-update-legal-pages/legal/termsOfUse-20260129.md'
+export const TOS_PUBLIC = 'https://www.euler.finance/terms'
 export const ALLOWANCE_SLOT_CANDIDATES = [0n, 1n, 2n, 3n] as const
 export const PERMIT2_SIG_WINDOW = 60n * 60n
 

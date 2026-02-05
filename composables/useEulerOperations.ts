@@ -3,7 +3,8 @@ import { readContract, simulateContract } from '@wagmi/vue/actions'
 import type { Address, Hash, Hex, Abi, StateOverride } from 'viem'
 import { encodeFunctionData, encodePacked, hexToBigInt, keccak256, maxUint256, toHex } from 'viem'
 import { ethers } from 'ethers'
-import { ALLOWANCE_SLOT_CANDIDATES, FINAL_HASH, FINAL_MESSAGE, PERMIT2_SIG_WINDOW } from '~/entities/constants'
+import { ALLOWANCE_SLOT_CANDIDATES, PERMIT2_SIG_WINDOW } from '~/entities/constants'
+import { getTosData } from '~/composables/useTosData'
 import { enableTermsOfUseSignature } from '~/entities/custom'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { erc20ApproveAbi, erc20BalanceOfAbi, erc20TransferAbi } from '~/abis/erc20'
@@ -340,7 +341,8 @@ export const useEulerOperations = () => {
     )
 
     try {
-      const lastSignTimestamp = await contract.lastTermsOfUseSignatureTimestamp(userAddress, FINAL_HASH)
+      const { tosMessageHash } = await getTosData()
+      const lastSignTimestamp = await contract.lastTermsOfUseSignatureTimestamp(userAddress, tosMessageHash)
       return lastSignTimestamp > 0
     }
     catch (e) {
@@ -432,6 +434,7 @@ export const useEulerOperations = () => {
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     if (isRepay && quote.verify.type !== SwapVerificationType.DebtMax) {
       throw new Error('Swap verifier type mismatch')
@@ -484,7 +487,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       })
     }
 
@@ -648,6 +651,7 @@ export const useEulerOperations = () => {
     const depositToAddr = subAccount ? (subAccount as Address) : userAddr
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
     const permit2Address = resolvePermit2Address()
     const includePermit2Call = options.includePermit2Call ?? true
@@ -711,7 +715,7 @@ export const useEulerOperations = () => {
         data: hooks.getDataForCall(
           tosSignerAddress,
           'signTermsOfUse',
-          [FINAL_MESSAGE, FINAL_HASH],
+          [tosData.tosMessage, tosData.tosMessageHash],
         ) as Hex,
       }
       evcCalls.unshift(tosCall)
@@ -756,6 +760,7 @@ export const useEulerOperations = () => {
     const withdrawFromAddr = subAccount ? (subAccount as Address) : userAddr
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const hooks = new SaHooksBuilder()
 
@@ -780,7 +785,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -826,6 +831,7 @@ export const useEulerOperations = () => {
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const vaultContract = new ethers.Contract(vaultAddr, vaultPreviewWithdrawAbi, rpcProvider)
 
@@ -855,7 +861,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -902,6 +908,7 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
     const requirePermit2 = true
 
     const steps: TxStep[] = []
@@ -968,7 +975,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -1050,6 +1057,7 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const hooks = new SaHooksBuilder()
 
@@ -1071,7 +1079,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -1168,6 +1176,7 @@ export const useEulerOperations = () => {
 
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
     const requirePermit2 = true
 
     const hasSwap = !!quote
@@ -1293,7 +1302,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -1444,6 +1453,7 @@ export const useEulerOperations = () => {
     const permit2Address = resolvePermit2Address()
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const steps: TxStep[] = []
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
@@ -1501,7 +1511,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -1550,6 +1560,7 @@ export const useEulerOperations = () => {
     const permit2Address = resolvePermit2Address()
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
     const includePermit2Call = options.includePermit2Call ?? true
     const canUsePermit2 = !!chainId.value && !!permit2Address
@@ -1614,7 +1625,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.push(tosCall)
     }
@@ -1733,6 +1744,7 @@ export const useEulerOperations = () => {
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const hooks = new SaHooksBuilder()
 
@@ -1756,7 +1768,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -1834,6 +1846,7 @@ export const useEulerOperations = () => {
     const depositToAddr = subAccount ? (subAccount as Address) : userAddr
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
     const canUsePermit2 = !!chainId.value && !!permit2Address
 
@@ -1883,7 +1896,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -1938,6 +1951,7 @@ export const useEulerOperations = () => {
     const withdrawFromAddr = subAccount ? (subAccount as Address) : userAddr
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const hooks = new SaHooksBuilder()
 
@@ -1962,7 +1976,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -2007,6 +2021,7 @@ export const useEulerOperations = () => {
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const vaultContract = new ethers.Contract(vaultAddr, vaultPreviewWithdrawAbi, rpcProvider)
 
@@ -2036,7 +2051,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -2079,6 +2094,7 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
     const requirePermit2 = true
     const permit2Address = resolvePermit2Address()
     const canUsePermit2 = !!chainId.value && !!permit2Address
@@ -2134,7 +2150,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -2215,6 +2231,7 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const hooks = new SaHooksBuilder()
 
@@ -2239,7 +2256,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -2308,6 +2325,7 @@ export const useEulerOperations = () => {
     const permit2Address = resolvePermit2Address()
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
     const canUsePermit2 = !!chainId.value && !!permit2Address
@@ -2357,7 +2375,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
@@ -2401,6 +2419,7 @@ export const useEulerOperations = () => {
     const permit2Address = resolvePermit2Address()
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
     const canUsePermit2 = !!chainId.value && !!permit2Address
 
@@ -2457,7 +2476,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.push(tosCall)
     }
@@ -2533,6 +2552,7 @@ export const useEulerOperations = () => {
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
 
     const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
 
     const hooks = new SaHooksBuilder()
 
@@ -2556,7 +2576,7 @@ export const useEulerOperations = () => {
         targetContract: tosSignerAddress,
         onBehalfOfAccount: userAddr,
         value: 0n,
-        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [FINAL_MESSAGE, FINAL_HASH]) as Hash,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
     }
