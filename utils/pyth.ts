@@ -25,6 +25,127 @@ let priceServiceEndpoint = ''
 let priceServiceClient: PriceServiceConnection | undefined
 const priceCache = new Map<string, CachedPrice>()
 
+// -------------------------------------------
+// Pyth Update Data Batching
+// -------------------------------------------
+
+const PYTH_BATCH_DELAY_MS = 50 // Wait 50ms to collect requests before batching
+const PYTH_UPDATE_CACHE_TTL_MS = 10 * 1000 // Cache Pyth update data for 10 seconds
+
+type PythPendingRequest = {
+  feedIds: Hex[]
+  endpoint: string
+  resolve: (data: Hex[]) => void
+  reject: (err: unknown) => void
+}
+
+type CachedPythUpdate = {
+  data: Hex[]
+  fetchedAt: number
+}
+
+let pythPendingRequests: PythPendingRequest[] = []
+let pythBatchTimeout: ReturnType<typeof setTimeout> | null = null
+const pythUpdateCache = new Map<string, CachedPythUpdate>()
+
+const getPythCacheKey = (feedIds: Hex[], endpoint: string): string => {
+  const sortedIds = [...feedIds].sort().join(',')
+  return `${endpoint}:${sortedIds}`
+}
+
+/**
+ * Execute all pending Pyth update requests as batched calls.
+ */
+const executePythBatch = async () => {
+  pythBatchTimeout = null
+  const requests = pythPendingRequests
+  pythPendingRequests = []
+
+  if (requests.length === 0) return
+
+  // Group requests by endpoint
+  const byEndpoint = new Map<string, PythPendingRequest[]>()
+  for (const req of requests) {
+    const existing = byEndpoint.get(req.endpoint) || []
+    existing.push(req)
+    byEndpoint.set(req.endpoint, existing)
+  }
+
+  // Execute batched requests for each endpoint
+  for (const [endpoint, endpointRequests] of byEndpoint.entries()) {
+    // Collect all unique feed IDs for this endpoint
+    const allFeedIds = new Set<Hex>()
+    for (const req of endpointRequests) {
+      req.feedIds.forEach(id => allFeedIds.add(normalizeFeedId(id)))
+    }
+
+    const feedIdArray = [...allFeedIds]
+    const cacheKey = getPythCacheKey(feedIdArray, endpoint)
+    const now = Date.now()
+
+    // Check cache first
+    const cached = pythUpdateCache.get(cacheKey)
+    if (cached && (now - cached.fetchedAt) < PYTH_UPDATE_CACHE_TTL_MS) {
+      for (const req of endpointRequests) {
+        req.resolve(cached.data)
+      }
+      continue
+    }
+
+    try {
+      const data = await fetchPythUpdateDataDirect(feedIdArray, endpoint)
+
+      // Cache the result
+      pythUpdateCache.set(cacheKey, {
+        data,
+        fetchedAt: now,
+      })
+
+      // Resolve all requests for this endpoint
+      for (const req of endpointRequests) {
+        req.resolve(data)
+      }
+    }
+    catch (err) {
+      for (const req of endpointRequests) {
+        req.reject(err)
+      }
+    }
+  }
+}
+
+/**
+ * Direct fetch without batching - used internally by the batching system.
+ */
+const fetchPythUpdateDataDirect = async (feedIds: Hex[], endpoint: string): Promise<Hex[]> => {
+  if (!feedIds.length || !endpoint) {
+    return []
+  }
+
+  try {
+    const url = new URL('/v2/updates/price/latest', endpoint)
+    feedIds.forEach(id => url.searchParams.append('ids[]', id))
+    url.searchParams.set('encoding', 'hex')
+
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Pyth data: ${response.status}`)
+    }
+
+    const body = await response.json()
+    const binaryData = body?.binary?.data || []
+    if (!Array.isArray(binaryData)) {
+      return []
+    }
+
+    return binaryData.map((item: string) => normalizeHex(item))
+  }
+  catch (err) {
+    console.warn('[fetchPythUpdateDataDirect] error', err)
+    return []
+  }
+}
+
 const getPriceServiceClient = (endpoint: string) => {
   if (!priceServiceClient || priceServiceEndpoint !== endpoint) {
     priceServiceEndpoint = endpoint
@@ -75,33 +196,39 @@ export const collectPythFeedsFromVaults = (
   return [...unique.values()]
 }
 
+/**
+ * Fetch Pyth update data with automatic request batching.
+ * Multiple calls within 50ms are combined into a single network request.
+ */
 export const fetchPythUpdateData = async (feedIds: Hex[], endpoint?: string): Promise<Hex[]> => {
   if (!feedIds.length || !endpoint) {
     return []
   }
 
-  try {
-    const url = new URL('/v2/updates/price/latest', endpoint)
-    feedIds.forEach(id => url.searchParams.append('ids[]', id))
-    url.searchParams.set('encoding', 'hex')
+  const normalizedIds = feedIds.map(id => normalizeFeedId(id))
+  const cacheKey = getPythCacheKey(normalizedIds, endpoint)
+  const now = Date.now()
 
-    const response = await fetch(url.toString())
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Pyth data: ${response.status}`)
-    }
-
-    const body = await response.json()
-    const binaryData = body?.binary?.data || []
-    if (!Array.isArray(binaryData)) {
-      return []
-    }
-
-    return binaryData.map((item: string) => normalizeHex(item))
+  // Check cache first to avoid adding to batch
+  const cached = pythUpdateCache.get(cacheKey)
+  if (cached && (now - cached.fetchedAt) < PYTH_UPDATE_CACHE_TTL_MS) {
+    return cached.data
   }
-  catch (err) {
-    console.warn('[fetchPythUpdateData] error', err)
-    return []
-  }
+
+  // Add to pending batch
+  return new Promise<Hex[]>((resolve, reject) => {
+    pythPendingRequests.push({
+      feedIds: normalizedIds,
+      endpoint,
+      resolve,
+      reject,
+    })
+
+    // Schedule batch execution if not already scheduled
+    if (!pythBatchTimeout) {
+      pythBatchTimeout = setTimeout(executePythBatch, PYTH_BATCH_DELAY_MS)
+    }
+  })
 }
 
 export const buildPythUpdateCalls = async (

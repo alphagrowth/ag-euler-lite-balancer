@@ -19,6 +19,10 @@ const getOracleChecksUrl = (chainId: number, file: string) =>
 
 const isLoading = ref(false)
 
+// Use a simple object to track loaded state (survives HMR better than ref)
+const loadState = { chainId: null as number | null, timestamp: 0 }
+const LABELS_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
 const products: Record<string, EulerLabelProduct> = shallowReactive({})
 const entities: Record<string, EulerLabelEntity> = shallowReactive({})
 const points: Record<string, EulerLabelPointReward[]> = shallowReactive({})
@@ -144,9 +148,8 @@ const loadOracleAdapters = async (chainId: number, addresses?: string[]) => {
 }
 
 export const useEulerLabels = () => {
-  const loadLabels = async () => {
+  const loadLabels = async (forceRefresh = false) => {
     try {
-      isLoading.value = true
       const { getCurrentChainConfig, loadEulerConfig } = useEulerAddresses()
 
       if (!getCurrentChainConfig.value) {
@@ -154,14 +157,25 @@ export const useEulerLabels = () => {
       }
       await until(getCurrentChainConfig).toBeTruthy()
 
+      const chainId = getCurrentChainConfig.value!.chainId
+      const now = Date.now()
+
+      // Skip if already loaded for this chain and cache is still valid
+      if (!forceRefresh
+        && loadState.chainId === chainId
+        && Object.keys(products).length > 0
+        && (now - loadState.timestamp) < LABELS_CACHE_TTL_MS) {
+        return
+      }
+
+      isLoading.value = true
+
       Object.keys(products).forEach(key => delete products[key])
       Object.keys(entities).forEach(key => delete entities[key])
       Object.keys(points).forEach(key => delete points[key])
       Object.keys(oracleAdapters).forEach(key => delete oracleAdapters[key])
       earnVaults.value = []
       verifiedVaultAddresses.value = []
-
-      const chainId = getCurrentChainConfig.value!.chainId
 
       const [productRes, entitiesRes, pointsRes] = await Promise.all([
         axios.get(getLabelsUrl(chainId, 'products.json')),
@@ -196,6 +210,9 @@ export const useEulerLabels = () => {
           })
         })
       })
+
+      loadState.chainId = chainId
+      loadState.timestamp = Date.now()
     }
     catch (e) {
       console.warn(e)

@@ -79,17 +79,69 @@ export const clearStaleBackendCache = () => {
 }
 
 // -------------------------------------------
+// Request Batching
+// -------------------------------------------
+
+const BATCH_DELAY_MS = 50 // Wait 50ms to collect requests before batching
+
+type PendingRequest = {
+  address: Address
+  chainId: number
+  resolve: (data: BackendPriceData | undefined) => void
+  reject: (err: unknown) => void
+}
+
+let pendingRequests: PendingRequest[] = []
+let batchTimeout: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Execute all pending requests as a batched call.
+ */
+const executeBatch = async () => {
+  batchTimeout = null
+  const requests = pendingRequests
+  pendingRequests = []
+
+  if (requests.length === 0) return
+
+  // Group requests by chainId
+  const byChain = new Map<number, PendingRequest[]>()
+  for (const req of requests) {
+    const existing = byChain.get(req.chainId) || []
+    existing.push(req)
+    byChain.set(req.chainId, existing)
+  }
+
+  // Execute batched requests for each chain
+  for (const [chainId, chainRequests] of byChain.entries()) {
+    const addresses = [...new Set(chainRequests.map(r => r.address))]
+
+    try {
+      const results = await fetchBackendPricesBatch(addresses, chainId)
+
+      // Resolve each pending request
+      for (const req of chainRequests) {
+        const data = results?.get(req.address.toLowerCase())
+        req.resolve(data)
+      }
+    }
+    catch (err) {
+      for (const req of chainRequests) {
+        req.reject(err)
+      }
+    }
+  }
+}
+
+// -------------------------------------------
 // Fetch Functions
 // -------------------------------------------
 
 /**
- * Fetch asset prices from backend.
- * Returns undefined if backend is not configured or request fails.
- *
- * @param assetAddresses - Array of asset addresses to fetch prices for
- * @param chainId - Optional chain ID (uses configured default if not provided)
+ * Internal: Execute a batched fetch without debouncing.
+ * Used by the batching system.
  */
-export const fetchBackendPrices = async (
+const fetchBackendPricesBatch = async (
   assetAddresses: Address[],
   chainId?: number,
 ): Promise<Map<string, BackendPriceData> | undefined> => {
@@ -162,14 +214,55 @@ export const fetchBackendPrices = async (
 }
 
 /**
+ * Fetch asset prices from backend.
+ * Returns undefined if backend is not configured or request fails.
+ *
+ * @param assetAddresses - Array of asset addresses to fetch prices for
+ * @param chainId - Optional chain ID (uses configured default if not provided)
+ */
+export const fetchBackendPrices = async (
+  assetAddresses: Address[],
+  chainId?: number,
+): Promise<Map<string, BackendPriceData> | undefined> => {
+  return fetchBackendPricesBatch(assetAddresses, chainId)
+}
+
+/**
  * Fetch a single asset price from backend.
+ * Requests are automatically batched - multiple calls within 50ms
+ * are combined into a single network request.
  */
 export const fetchBackendPrice = async (
   assetAddress: Address,
   chainId?: number,
 ): Promise<BackendPriceData | undefined> => {
-  const prices = await fetchBackendPrices([assetAddress], chainId)
-  return prices?.get(assetAddress.toLowerCase())
+  if (!backendEndpoint) {
+    return undefined
+  }
+
+  const effectiveChainId = chainId || currentChainId || 1
+
+  // Check cache first to avoid adding to batch
+  const key = getCacheKey(assetAddress, effectiveChainId)
+  const cached = priceCache.get(key)
+  if (cached && (Date.now() - cached.fetchedAt) < CACHE_TTL_MS) {
+    return cached.data
+  }
+
+  // Add to pending batch
+  return new Promise<BackendPriceData | undefined>((resolve, reject) => {
+    pendingRequests.push({
+      address: assetAddress,
+      chainId: effectiveChainId,
+      resolve,
+      reject,
+    })
+
+    // Schedule batch execution if not already scheduled
+    if (!batchTimeout) {
+      batchTimeout = setTimeout(executeBatch, BATCH_DELAY_MS)
+    }
+  })
 }
 
 // -------------------------------------------
