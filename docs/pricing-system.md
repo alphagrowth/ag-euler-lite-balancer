@@ -15,7 +15,7 @@ The pricing functions support two price sources:
 | `'on-chain'` (default) | Uses on-chain oracle data only | Health factor, LTV, liquidation calculations |
 | `'off-chain'` | Tries backend first, falls back to on-chain | Display values, portfolio totals, UI |
 
-**Key insight**: The UoA rate can safely use off-chain pricing even in calculations that mix on-chain oracle prices. Since UoA is a common denominator (both collateral and borrow prices are quoted in UoA), using an off-chain UoA rate doesn't affect health factor/LTV ratios - it only changes the USD display values.
+**Key insight**: The UoA rate **defaults to on-chain** but can use off-chain pricing when `source='off-chain'` is passed. When off-chain is requested, the system tries the backend first, then falls back to on-chain. Since UoA is a common denominator (both collateral and borrow prices are quoted in UoA), using an off-chain UoA rate doesn't affect health factor/LTV ratios - it only changes the USD display values.
 
 ### Backend Configuration
 
@@ -38,6 +38,38 @@ const { backendConfig, isBackendEnabled } = usePriceBackend()
 // Pass to price functions
 const price = await getAssetUsdPrice(vault, 'off-chain', backendConfig.value)
 ```
+
+### Backend Client Implementation
+
+The backend client (`services/pricing/backendClient.ts`) provides price fetching with automatic optimizations:
+
+**Types:**
+- `BackendPriceData` - Response shape: `{ address, price: number, source, symbol, timestamp }`
+- `BackendPriceResponse` - `Record<string, BackendPriceData>` keyed by lowercase address
+
+**API Endpoint:**
+- URL: `GET /v1/prices?chainId={chainId}&assets={addr1},{addr2},...`
+- Response: Flat object keyed by lowercase address
+
+**Caching:**
+- TTL: 60 seconds
+- Key format: `{chainId}:{address.toLowerCase()}`
+- Stale entries cleared automatically
+
+**Request Batching:**
+- 50ms debounce window
+- Requests grouped by chainId
+- Addresses deduplicated within batch
+
+**Error Handling:**
+- Network errors: Log warning, return cached results if available
+- Non-200 responses: Fall back to cached results
+- Partial failures: Return available cached data
+
+**Key Functions:**
+- `fetchBackendPrice(address, chainId?)` - Single price with auto-batching
+- `fetchBackendPrices(addresses, chainId?)` - Multiple prices
+- `backendPriceToBigInt(price)` - Convert to 18-decimal bigint
 
 ### Price Source Usage in Codebase
 
@@ -133,7 +165,16 @@ Located in `services/pricing/priceProvider.ts`:
 
 - **`getAssetOraclePrice(vault)`** - Returns the vault's asset price in its unit of account from `liabilityPriceInfo` (always on-chain, synchronous)
 - **`getCollateralOraclePrice(liabilityVault, collateralVault)`** - Returns collateral asset price in the liability vault's unit of account, converting from share price to asset price (always on-chain, synchronous)
-- **`getUnitOfAccountUsdRate(vault, source?, backend?)`** - Returns the UoA → USD conversion rate. Returns `1e18` if UoA is USD. Supports off-chain pricing with on-chain fallback (async). Since UoA is a common denominator, using off-chain rates doesn't affect health factor/LTV ratios - only USD display values.
+- **`getUnitOfAccountUsdRate(vault, source?, backend?)`** - Returns the UoA → USD conversion rate.
+  - If `unitOfAccount === USD`, returns `1e18` (hardcoded)
+  - If `source='off-chain'` and backend configured: tries backend first, falls back to on-chain
+  - If `source='on-chain'` (default): uses `vault.unitOfAccountPriceInfo` directly
+  - Since UoA is a common denominator, using off-chain rates doesn't affect health factor/LTV ratios - only USD display values.
+
+**Internal Helpers:**
+- `getCollateralShareOraclePrice(liabilityVault, collateralVault)` - Returns raw share price before asset conversion
+- `getAssetUsdPriceFromOracle(vault, uoaRate)` - Oracle-based USD price calculation
+- `getCollateralUsdPriceFromOracle(liabilityVault, collateralVault, uoaRate)` - Collateral oracle USD price
 
 ### Layer 2: USD Prices
 
@@ -358,6 +399,26 @@ export const executeLensWithPythSimulation = async <T>(
   return lensContract.interface.decodeFunctionResult(lensMethod, lensResult.result)
 }
 ```
+
+### Additional Pyth Utilities
+
+Located in `utils/pyth.ts`:
+
+**Feed Collection:**
+- `collectPythFeedIds(oracleInfo, maxDepth?)` - Extract feeds from single oracle config
+- `collectPythFeedsFromVaults(vaults, maxDepth?)` - Collect from multiple vaults, deduplicated
+
+**Price/Update Fetching:**
+- `fetchPythUpdateData(feedIds, endpoint)` - Fetch update data (50ms batching, 15s cache)
+- `fetchPythPrices(feedIds, endpoint, cacheTtlMs?)` - Fetch actual price values
+
+**Batch Building:**
+- `buildPythUpdateCalls(vaults, providerUrl, hermesEndpoint, sender)` - Build EVCCall[] format
+- `buildPythBatchItems(vaults, providerUrl, hermesEndpoint)` - Build BatchItem[] format
+- `buildPythBatchItemsFromFeeds(feeds, providerUrl, hermesEndpoint)` - Pre-collected feeds version
+
+**Utilities:**
+- `sumCallValues(calls)` - Sum fees from multiple calls
 
 **fetchVault() in `entities/vault.ts`:**
 ```typescript
