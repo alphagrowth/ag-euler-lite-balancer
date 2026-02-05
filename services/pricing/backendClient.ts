@@ -5,46 +5,26 @@ import type { Address } from 'viem'
 // -------------------------------------------
 
 /**
- * Expected response shape from the price backend.
- * ADJUST THIS when the actual backend is implemented.
+ * Response shape from the price backend (indexer /v1/prices endpoint).
  */
 export type BackendPriceData = {
-  /** Price in USD (e.g., "1.0023" or "2847.50") */
-  usd: string
+  /** Asset address */
+  address: string
+  /** Price in USD as number */
+  price: number
+  /** Price source (e.g., "pyth", "defillama") */
+  source: string
+  /** Asset symbol */
+  symbol: string
   /** Unix timestamp when this price was recorded */
   timestamp: number
-  /** Optional: confidence interval or spread */
-  confidence?: string
-}
-
-export type BackendPriceResponse = {
-  prices: Record<string, BackendPriceData>
-  /** Chain ID this response is for */
-  chainId: number
-  /** Server timestamp */
-  serverTime: number
 }
 
 /**
- * Collateral price response - price of collateral in context of a liability vault.
- * ADJUST THIS when the actual backend is implemented.
+ * Response from /v1/prices endpoint.
+ * Flat object keyed by lowercase address.
  */
-export type BackendCollateralPriceData = {
-  /** Collateral asset address */
-  collateral: string
-  /** Price in USD */
-  usd: string
-  /** Unix timestamp */
-  timestamp: number
-}
-
-export type BackendCollateralPriceResponse = {
-  prices: BackendCollateralPriceData[]
-  /** Liability vault this is in context of */
-  liabilityVault: string
-  chainId: number
-  serverTime: number
-}
+export type BackendPriceResponse = Record<string, BackendPriceData>
 
 // -------------------------------------------
 // Configuration
@@ -141,10 +121,9 @@ export const fetchBackendPrices = async (
 
   try {
     // Build request URL
-    // ADJUST THIS when actual backend API is known
     const url = new URL('/v1/prices', backendEndpoint)
     url.searchParams.set('chainId', String(effectiveChainId))
-    missingAddresses.forEach(addr => url.searchParams.append('assets', addr))
+    url.searchParams.set('assets', missingAddresses.join(','))
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -154,15 +133,14 @@ export const fetchBackendPrices = async (
     })
 
     if (!response.ok) {
-      console.warn(`[backendClient] Price fetch failed: ${response.status}`)
       return results.size > 0 ? results : undefined
     }
 
     const data: BackendPriceResponse = await response.json()
 
     // Map response to results and update cache
-    // ADJUST FIELD MAPPING HERE when actual backend response is known
-    for (const [address, priceData] of Object.entries(data.prices)) {
+    // Response is a flat object keyed by address
+    for (const [address, priceData] of Object.entries(data)) {
       const normalizedAddr = address.toLowerCase()
       results.set(normalizedAddr, priceData)
 
@@ -194,65 +172,6 @@ export const fetchBackendPrice = async (
   return prices?.get(assetAddress.toLowerCase())
 }
 
-/**
- * Fetch collateral prices in context of a liability vault.
- * Returns undefined if backend is not configured or request fails.
- *
- * @param liabilityVaultAddress - The liability vault address
- * @param collateralAddresses - Array of collateral asset addresses
- * @param chainId - Optional chain ID
- */
-export const fetchBackendCollateralPrices = async (
-  liabilityVaultAddress: Address,
-  collateralAddresses: Address[],
-  chainId?: number,
-): Promise<Map<string, BackendPriceData> | undefined> => {
-  if (!backendEndpoint || !collateralAddresses.length) {
-    return undefined
-  }
-
-  const effectiveChainId = chainId || currentChainId || 1
-
-  try {
-    // Build request URL
-    // ADJUST THIS when actual backend API is known
-    const url = new URL('/v1/collateral-prices', backendEndpoint)
-    url.searchParams.set('chainId', String(effectiveChainId))
-    url.searchParams.set('liabilityVault', liabilityVaultAddress)
-    collateralAddresses.forEach(addr => url.searchParams.append('collaterals', addr))
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      console.warn(`[backendClient] Collateral price fetch failed: ${response.status}`)
-      return undefined
-    }
-
-    const data: BackendCollateralPriceResponse = await response.json()
-
-    // Map response to results
-    // ADJUST FIELD MAPPING HERE when actual backend response is known
-    const results = new Map<string, BackendPriceData>()
-    for (const item of data.prices) {
-      results.set(item.collateral.toLowerCase(), {
-        usd: item.usd,
-        timestamp: item.timestamp,
-      })
-    }
-
-    return results
-  }
-  catch (err) {
-    console.warn('[backendClient] Error fetching collateral prices:', err)
-    return undefined
-  }
-}
-
 // -------------------------------------------
 // Price Conversion Helper
 // -------------------------------------------
@@ -260,13 +179,15 @@ export const fetchBackendCollateralPrices = async (
 const ONE_18 = 10n ** 18n
 
 /**
- * Convert backend price string to bigint (18 decimals).
+ * Convert backend price to bigint (18 decimals).
+ * Accepts both string (legacy) and number (current API) formats.
  * Use this to convert backend prices to the same format as on-chain prices.
  */
-export const backendPriceToBigInt = (priceString: string): bigint => {
+export const backendPriceToBigInt = (price: string | number): bigint => {
   try {
-    const price = parseFloat(priceString)
-    if (isNaN(price) || price < 0) {
+    const priceString = typeof price === 'number' ? price.toString() : price
+    const priceNum = typeof price === 'number' ? price : parseFloat(price)
+    if (isNaN(priceNum) || priceNum < 0) {
       return 0n
     }
     // Convert to 18 decimal fixed point

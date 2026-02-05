@@ -8,8 +8,8 @@ import type {
 import { nanoToValue } from '~/utils/crypto-utils'
 import {
   fetchBackendPrice,
-  fetchBackendCollateralPrices,
   backendPriceToBigInt,
+  isBackendConfigured,
   type BackendPriceData,
 } from './backendClient'
 
@@ -208,14 +208,14 @@ export const getUnitOfAccountUsdRate = async (
   }
 
   // Try backend first if configured and source is 'off-chain'
-  if (source === 'off-chain' && backend?.url) {
+  if (source === 'off-chain' && isBackendConfigured()) {
     try {
       const backendPrice = await fetchBackendPrice(
         vault.unitOfAccount as `0x${string}`,
-        backend.chainId,
+        backend?.chainId,
       )
       if (backendPrice) {
-        const rate = backendPriceToBigInt(backendPrice.usd)
+        const rate = backendPriceToBigInt(backendPrice.price)
         if (rate > 0n) return rate
       }
     }
@@ -266,7 +266,7 @@ const usesUtilsLensPricing = (vault: AnyVault | null | undefined): boolean => {
  * Convert backend price data to PriceResult format.
  */
 const backendPriceToPriceResult = (data: BackendPriceData): PriceResult | undefined => {
-  const mid = backendPriceToBigInt(data.usd)
+  const mid = backendPriceToBigInt(data.price)
   if (mid <= 0n) return undefined
   return { amountOutMid: mid, amountOutAsk: mid, amountOutBid: mid }
 }
@@ -351,11 +351,11 @@ export const getAssetUsdPrice = async (
   if (!vault) return undefined
 
   // Try backend first if configured and source is 'off-chain'
-  if (source === 'off-chain' && backend?.url) {
+  if (source === 'off-chain' && isBackendConfigured()) {
     try {
       const backendPrice = await fetchBackendPrice(
         vault.asset.address as `0x${string}`,
-        backend.chainId,
+        backend?.chainId,
       )
       if (backendPrice) {
         const result = backendPriceToPriceResult(backendPrice)
@@ -394,14 +394,14 @@ export const getCollateralUsdPrice = async (
   if (!liabilityVault || !collateralVault) return undefined
 
   // Try backend first if configured and source is 'off-chain'
-  if (source === 'off-chain' && backend?.url) {
+  // Use fetchBackendPrice directly with the collateral asset address
+  // (the /v1/prices endpoint returns asset prices without needing liability context)
+  if (source === 'off-chain' && isBackendConfigured()) {
     try {
-      const backendPrices = await fetchBackendCollateralPrices(
-        liabilityVault.address as `0x${string}`,
-        [collateralVault.asset.address as `0x${string}`],
-        backend.chainId,
+      const backendPrice = await fetchBackendPrice(
+        collateralVault.asset.address as `0x${string}`,
+        backend?.chainId,
       )
-      const backendPrice = backendPrices?.get(collateralVault.asset.address.toLowerCase())
       if (backendPrice) {
         const result = backendPriceToPriceResult(backendPrice)
         if (result) return result

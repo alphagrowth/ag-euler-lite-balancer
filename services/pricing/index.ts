@@ -33,10 +33,7 @@ export {
   clearStaleBackendCache,
   fetchBackendPrice,
   fetchBackendPrices,
-  fetchBackendCollateralPrices,
   backendPriceToBigInt,
   type BackendPriceData,
   type BackendPriceResponse,
-  type BackendCollateralPriceData,
-  type BackendCollateralPriceResponse,
 } from './backendClient'
