@@ -10,6 +10,7 @@ import type {
 } from '~/entities/account'
 import {
   convertSharesToAssets,
+  fetchVault,
   type Vault,
   type SecuritizeVault,
 } from '~/entities/vault'
@@ -21,6 +22,8 @@ import {
   getCollateralUsdValue,
 } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { collectPythFeedIds } from '~/entities/oracle'
+import { executeLensWithPythSimulation } from '~/utils/pyth'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const earnPositions: Ref<AccountEarnPosition[]> = ref([])
@@ -79,6 +82,16 @@ const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>, fall
   }
 
   return fallbackNormalized
+}
+
+/**
+ * Check if a vault uses Pyth oracles and needs fresh prices.
+ * Always returns true if Pyth oracles are detected, because Pyth prices
+ * are only valid for ~2 minutes and require continuous updates.
+ */
+const hasPythOracles = (vault: Vault): boolean => {
+  const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+  return feeds.length > 0
 }
 
 const totalSuppliedValue = computed(() => {
@@ -180,8 +193,9 @@ const updateBorrowPositions = async (
     return
   }
 
-  const { EVM_PROVIDER_URL, SUBGRAPH_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, SUBGRAPH_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { getOrFetch } = useVaultRegistry()
+  const { eulerCoreAddresses } = useEulerAddresses()
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
 
@@ -189,7 +203,7 @@ const updateBorrowPositions = async (
     throw new Error('Euler addresses not loaded yet')
   }
 
-  const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
+  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
   const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
 
   const { data } = await axios.post(SUBGRAPH_URL, {
@@ -209,14 +223,45 @@ const updateBorrowPositions = async (
     const batch = borrowEntries
       .slice(i, i + batchSize)
       .map(async (entry: string) => {
-        const vault = `0x${entry.substring(42)}`
+        const vaultAddress = `0x${entry.substring(42)}`
         const subAccount = entry.substring(0, 42)
+
+        // Pre-fetch borrow vault to check for Pyth oracles
+        const borrowVault = await getOrFetch(vaultAddress) as Vault | undefined
 
         let res
         try {
-          res = await accountLensContract.getAccountInfo(subAccount, vault)
+          // Check if vault uses Pyth oracles and we can use simulation
+          const pythFeeds = borrowVault ? collectPythFeedIds(borrowVault.oracleDetailedInfo) : []
+          const canUsePythSimulation = pythFeeds.length > 0
+            && PYTH_HERMES_URL
+            && eulerCoreAddresses.value?.evc
+
+          if (canUsePythSimulation) {
+            // Use batchSimulation with Pyth updates for fresh oracle prices
+            const result = await executeLensWithPythSimulation(
+              pythFeeds,
+              accountLensContract,
+              'getAccountInfo',
+              [subAccount, vaultAddress],
+              eulerCoreAddresses.value!.evc,
+              provider,
+              EVM_PROVIDER_URL,
+              PYTH_HERMES_URL!,
+            ) as Record<string, unknown>[] | undefined
+            // Result is decoded tuple - first element is the account info struct
+            if (!result || !result[0]) {
+              return undefined
+            }
+            res = result[0] as Record<string, unknown>
+          }
+          else {
+            // Direct call for non-Pyth vaults
+            res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
+          }
         }
-        catch {
+        catch (err) {
+          console.warn('[updateBorrowPositions] Error fetching account info:', err)
           return undefined
         }
 
@@ -224,14 +269,25 @@ const updateBorrowPositions = async (
           return undefined
         }
 
-        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map(collateral => ethers.getAddress(collateral))
+        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map((collateral: string) => ethers.getAddress(collateral))
         const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
 
         const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
-        // Use unified resolution - getOrFetch handles registry lookup + fallback fetch
-        const borrow = await getOrFetch(borrowAddress) as Vault | undefined
+        // Use pre-fetched vault if it matches, otherwise fetch
+        let borrow = borrowVault && borrowVault.address.toLowerCase() === borrowAddress.toLowerCase()
+          ? borrowVault
+          : await getOrFetch(borrowAddress) as Vault | undefined
         if (!borrow) {
           return undefined
+        }
+
+        // If borrow vault uses Pyth oracles, always fetch fresh prices
+        // (Pyth prices are only valid for ~2 minutes and require continuous updates)
+        if (hasPythOracles(borrow)) {
+          const freshBorrow = await fetchVault(borrowAddress)
+          if (freshBorrow) {
+            borrow = freshBorrow
+          }
         }
 
         let collateralAddress: string | undefined
@@ -247,7 +303,14 @@ const updateBorrowPositions = async (
           collateralAddress = collateralCandidates[0]
         }
 
+        if (!collateralAddress) {
+          return undefined
+        }
+
         // Use unified resolution for collateral vault (handles EVK, escrow, and securitize)
+        // Note: Collateral PRICES come from borrow.collateralPrices[], which are already
+        // refreshed when we fetch the borrow vault with Pyth simulation above.
+        // The collateral vault only provides totalAssets/totalShares for share→asset conversion.
         const collateral = await getOrFetch(collateralAddress) as Vault | undefined
 
         if (!collateral) {
@@ -292,7 +355,7 @@ const updateBorrowPositions = async (
 
         // Guard against missing price
         if (!collateralPriceUoA || !borrowPriceUoA || !collateralPriceUsd) {
-          return undefined // or handle gracefully
+          return undefined
         }
 
         // Price ratio calculation uses UoA prices (UoA cancels)
@@ -343,7 +406,9 @@ const updateBorrowPositions = async (
         } as AccountBorrowPosition
       })
 
-    borrows = [...borrows, ...(await Promise.all(batch)).filter(o => !!o)] as AccountBorrowPosition[]
+    const batchResults = await Promise.all(batch)
+    const validResults = batchResults.filter(o => !!o) as AccountBorrowPosition[]
+    borrows = [...borrows, ...validResults]
   }
   const collateralPositions: AccountBorrowPosition[] = []
   const shouldUpdate = options.forceAllPositions !== undefined

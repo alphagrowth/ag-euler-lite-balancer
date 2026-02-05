@@ -16,8 +16,7 @@ import {
   eulerUtilsLensABI,
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
-import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
-import { buildPythBatchItemsFromFeeds } from '~/utils/pyth'
+import { executeLensWithPythSimulation } from '~/utils/pyth'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { nanoToValue } from '~/utils/crypto-utils'
 
@@ -537,66 +536,22 @@ const fetchVaultWithPythSimulation = async (
   providerUrl: string,
   verifiedVaultAddresses: string[],
 ): Promise<Vault | undefined> => {
-  try {
-    // Build Pyth update batch items
-    const { items: pythItems, totalFee } = await buildPythBatchItemsFromFeeds(
-      feeds,
-      providerUrl,
-      hermesEndpoint,
-    )
+  const result = await executeLensWithPythSimulation(
+    feeds,
+    vaultLensContract,
+    'getVaultInfoFull',
+    [vaultAddress],
+    evcAddress,
+    provider,
+    providerUrl,
+    hermesEndpoint,
+  ) as Record<string, unknown>[] | undefined
 
-    // Build vault lens batch item
-    const vaultLensCallData = vaultLensContract.interface.encodeFunctionData(
-      'getVaultInfoFull',
-      [vaultAddress],
-    )
-    const vaultLensBatchItem: BatchItem = {
-      targetContract: await vaultLensContract.getAddress(),
-      onBehalfOfAccount: ethers.ZeroAddress,
-      value: 0n,
-      data: vaultLensCallData,
-    }
-
-    // Combine batch items: Pyth updates first, then vault lens call
-    const batchItems = [...pythItems, vaultLensBatchItem]
-
-    // Execute batch simulation
-    const evcContract = new ethers.Contract(evcAddress, EVC_ABI, provider)
-    const [batchResults] = await evcContract.batchSimulation.staticCall(
-      batchItems,
-      { value: totalFee },
-    ) as [BatchItemResult[], unknown, unknown]
-
-    // Validate batch results
-    if (!batchResults || batchResults.length === 0) {
-      console.warn('[fetchVaultWithPythSimulation] Empty batch results')
-      return undefined
-    }
-
-    // Get the last result (vault lens call)
-    const vaultLensResult = batchResults[batchResults.length - 1]
-    if (!vaultLensResult || !vaultLensResult.success) {
-      console.warn('[fetchVaultWithPythSimulation] Vault lens call failed in simulation')
-      return undefined
-    }
-
-    // Decode the vault lens result
-    const decodedResult = vaultLensContract.interface.decodeFunctionResult(
-      'getVaultInfoFull',
-      vaultLensResult.result,
-    )
-    if (!decodedResult || decodedResult.length === 0) {
-      console.warn('[fetchVaultWithPythSimulation] Failed to decode vault lens result')
-      return undefined
-    }
-    const raw = decodedResult[0]
-
-    return processRawVaultData(raw, vaultAddress, verifiedVaultAddresses)
-  }
-  catch (err) {
-    console.warn(`[fetchVaultWithPythSimulation] Error for vault ${vaultAddress}:`, err)
+  if (!result || !result[0]) {
     return undefined
   }
+
+  return processRawVaultData(result[0] as Record<string, unknown>, vaultAddress, verifiedVaultAddresses)
 }
 
 export const fetchVault = async (vaultAddress: string): Promise<Vault> => {

@@ -2,7 +2,7 @@ import { PriceServiceConnection } from '@pythnetwork/price-service-client'
 import { ethers } from 'ethers'
 import type { Address, Hex } from 'viem'
 import { PYTH_ABI } from '~/abis/pyth'
-import type { BatchItem } from '~/abis/evc'
+import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
 import { DEFAULT_PRICE_CACHE_TTL_MS } from '~/entities/constants'
 import { collectPythFeedIds, type PythFeed } from '~/entities/oracle'
 import type { Vault } from '~/entities/vault'
@@ -321,6 +321,81 @@ export const buildPythBatchItemsFromFeeds = async (
   }
 
   return { items, totalFee }
+}
+
+/**
+ * Execute a lens call with Pyth simulation.
+ * Generic helper that handles the common pattern of:
+ * 1. Building Pyth update batch items
+ * 2. Building the lens call batch item
+ * 3. Executing batchSimulation
+ * 4. Returning the decoded lens result
+ *
+ * @param feeds - Pyth feeds to update
+ * @param lensContract - The lens contract instance
+ * @param lensMethod - Method name to call on the lens
+ * @param lensArgs - Arguments for the lens method
+ * @param evcAddress - EVC contract address
+ * @param provider - JSON-RPC provider
+ * @param providerUrl - Provider URL for Pyth batch building
+ * @param hermesEndpoint - Pyth Hermes endpoint
+ * @returns Decoded lens result, or undefined if simulation fails
+ */
+export const executeLensWithPythSimulation = async <T>(
+  feeds: PythFeed[],
+  lensContract: ethers.Contract,
+  lensMethod: string,
+  lensArgs: unknown[],
+  evcAddress: string,
+  provider: ethers.JsonRpcProvider,
+  providerUrl: string,
+  hermesEndpoint: string,
+): Promise<T | undefined> => {
+  try {
+    // Build Pyth update batch items
+    const { items: pythItems, totalFee } = await buildPythBatchItemsFromFeeds(
+      feeds,
+      providerUrl,
+      hermesEndpoint,
+    )
+
+    // Build lens batch item
+    const lensCallData = lensContract.interface.encodeFunctionData(lensMethod, lensArgs)
+    const lensBatchItem: BatchItem = {
+      targetContract: await lensContract.getAddress(),
+      onBehalfOfAccount: ethers.ZeroAddress,
+      value: 0n,
+      data: lensCallData,
+    }
+
+    // Combine: Pyth updates first, then lens call
+    const batchItems = [...pythItems, lensBatchItem]
+
+    // Execute batch simulation
+    const evcContract = new ethers.Contract(evcAddress, EVC_ABI, provider)
+    const [batchResults] = await evcContract.batchSimulation.staticCall(
+      batchItems,
+      { value: totalFee },
+    ) as [BatchItemResult[], unknown, unknown]
+
+    // Validate and get the last result (lens call)
+    if (!batchResults || batchResults.length === 0) {
+      return undefined
+    }
+
+    const lensResult = batchResults[batchResults.length - 1]
+    if (!lensResult || !lensResult.success) {
+      return undefined
+    }
+
+    // Decode the lens result
+    const decodedResult = lensContract.interface.decodeFunctionResult(lensMethod, lensResult.result)
+    return decodedResult as T
+  }
+  catch (err) {
+    console.warn('[executeLensWithPythSimulation] Error:', err)
+    return undefined
+  }
 }
 
 export const pythAbi = PYTH_ABI

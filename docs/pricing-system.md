@@ -122,11 +122,11 @@ Unlike Chainlink oracles that maintain on-chain prices, Pyth oracles require exp
 
 ### The Solution
 
-The system uses EVC `batchSimulation` to simulate Pyth price updates alongside vault data fetching:
+Since Pyth prices are only valid for ~2 minutes after on-chain update, the system **always refreshes** when Pyth oracles are detected (not just on price failure). This is implemented using EVC `batchSimulation` to simulate Pyth price updates alongside lens calls:
 
 1. **Detection**: `collectPythFeedIds()` extracts ALL Pyth feed IDs from `vault.oracleDetailedInfo`
-2. **Simulation**: `fetchVaultWithPythSimulation()` bundles Pyth updates with vault lens call
-3. **Refresh**: Page-level watchers detect price failures and trigger re-fetch with simulation
+2. **Simulation**: `executeLensWithPythSimulation()` bundles Pyth updates with any lens call (vault or account)
+3. **Always Refresh**: When Pyth is detected, always fetch fresh data rather than using cached values
 
 ### Why This Works for Collaterals Too
 
@@ -147,41 +147,98 @@ Since `resolvedOraclesInfo` contains oracle configs for ALL (base, quote) pairs 
 
 ### Pyth Handling Flow
 
+**Vault Fetching (pages like /lend, /borrow):**
 ```
-User navigates to /lend/0xPythVault or /borrow/collateral/0xPythVault
-                              ↓
-                    Initial vault load
-                    (standard getVaultInfoFull)
-                              ↓
-              ┌───────────────┴───────────────┐
-              │ liabilityPriceInfo.queryFailure │
-              │ = true (Pyth price stale)       │
-              └───────────────┬───────────────┘
-                              ↓
-                 Page detects price failure
-              (hasBorrowPriceFailure() or hasPriceFailure())
-                              ↓
-                    Calls updateVault()
-                              ↓
-                    fetchVault() runs
-                              ↓
-              collectPythFeedIds() finds Pyth feeds
-              in vault.oracleDetailedInfo
-                              ↓
-           fetchVaultWithPythSimulation() called:
-           1. Fetch fresh prices from Hermes API
-           2. Build Pyth updatePriceFeeds() batch items
-           3. Build getVaultInfoFull() batch item
-           4. Execute EVC batchSimulation
-           5. Decode fresh vault data with updated prices
-                              ↓
-              Vault now has valid liabilityPriceInfo
-              (queryFailure: false, amountOutMid: fresh price)
-                              ↓
-              priceProvider functions work normally
+fetchVault(vaultAddress) called
+                ↓
+        Standard query first
+    (getVaultInfoFull - fast path)
+                ↓
+    collectPythFeedIds() checks
+    vault.oracleDetailedInfo
+                ↓
+        ┌───────┴───────┐
+        │ Pyth detected? │
+        └───────┬───────┘
+           Yes  │  No → Return vault as-is
+                ↓
+    Check for price failure
+    (queryFailure or missing amountOutMid)
+                ↓
+           Yes  │  No → Return vault as-is
+                ↓
+    fetchVaultWithPythSimulation():
+    1. Fetch fresh prices from Hermes API
+    2. Build Pyth updatePriceFeeds() batch items
+    3. Build getVaultInfoFull() batch item
+    4. Execute EVC batchSimulation
+    5. Return fresh vault data
 ```
 
+**Portfolio/Account Loading (useEulerAccount.ts):**
+```
+updateBorrowPositions() called
+                ↓
+    For each borrow position:
+    Pre-fetch vault via getOrFetch()
+                ↓
+    collectPythFeedIds() checks
+    vault.oracleDetailedInfo
+                ↓
+        ┌───────┴───────┐
+        │ Pyth detected? │
+        └───────┬───────┘
+           Yes  │  No → Direct accountLens.getAccountInfo()
+                ↓
+    executeLensWithPythSimulation():
+    1. Build Pyth update batch items
+    2. Build getAccountInfo() batch item
+    3. Execute EVC batchSimulation
+    4. Get fresh account data with updated prices
+                ↓
+    hasPythOracles(borrow) check
+                ↓
+           Yes  │  No → Use cached vault
+                ↓
+    fetchVault() for FRESH borrow vault
+    (Refreshes BOTH liabilityPriceInfo AND
+     collateralPrices[] - see "Why This Works
+     for Collaterals Too" section above)
+```
+
+Note: We only refresh the BORROW vault, not the collateral vault. Collateral prices come from `borrow.collateralPrices[]`, which are refreshed when we fetch the borrow vault. The collateral vault only provides `totalAssets`/`totalShares` for share→asset conversion, which aren't affected by Pyth.
+
 ### Key Implementation Details
+
+**Reusable Pyth Simulation Helper (`utils/pyth.ts`):**
+```typescript
+// Generic helper for ANY lens call with Pyth simulation
+export const executeLensWithPythSimulation = async <T>(
+  feeds: PythFeed[],
+  lensContract: ethers.Contract,
+  lensMethod: string,
+  lensArgs: unknown[],
+  evcAddress: string,
+  provider: ethers.JsonRpcProvider,
+  providerUrl: string,
+  hermesEndpoint: string,
+): Promise<T | undefined> => {
+  // 1. Build Pyth update batch items
+  const { items: pythItems, totalFee } = await buildPythBatchItemsFromFeeds(...)
+
+  // 2. Build lens batch item
+  const lensBatchItem = { targetContract, data: encodedCall, ... }
+
+  // 3. Execute batch simulation
+  const [batchResults] = await evcContract.batchSimulation.staticCall(
+    [...pythItems, lensBatchItem],
+    { value: totalFee },
+  )
+
+  // 4. Return decoded lens result
+  return lensContract.interface.decodeFunctionResult(lensMethod, lensResult.result)
+}
+```
 
 **fetchVault() in `entities/vault.ts`:**
 ```typescript
@@ -197,31 +254,38 @@ const hasPythPriceFailure = feeds.length > 0 && (
   vault.liabilityPriceInfo.amountOutMid === 0n
 )
 
-// 3. Only re-query if failure detected
+// 3. Re-query with simulation if failure detected
 if (hasPythPriceFailure && evc && PYTH_HERMES_URL) {
   vault = await fetchVaultWithPythSimulation(...) || vault
 }
 ```
 
-**Page-level refresh (borrow page example):**
+**Portfolio Loading (`composables/useEulerAccount.ts`):**
 ```typescript
-const hasBorrowPriceFailure = (vault: Vault | undefined): boolean => {
-  if (!vault) return false
-  return (
-    vault.liabilityPriceInfo?.queryFailure ||
-    !vault.liabilityPriceInfo?.amountOutMid ||
-    vault.liabilityPriceInfo.amountOutMid === 0n
-  )
+// Helper to detect Pyth oracles
+const hasPythOracles = (vault: Vault): boolean => {
+  const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+  return feeds.length > 0
 }
 
-watch(pair, async (val) => {
-  if (hasBorrowPriceFailure(val.borrow) && !refreshedVaultAddresses.has(borrowAddr)) {
-    refreshedVaultAddresses.add(borrowAddr)
-    const refreshedBorrow = await updateVault(val.borrow.address)
-    pair.value = { ...val, borrow: refreshedBorrow }
-  }
-  // Similar logic for collateral vault...
-})
+// In updateBorrowPositions():
+// 1. Use Pyth simulation for account lens if Pyth detected
+if (canUsePythSimulation) {
+  const result = await executeLensWithPythSimulation(
+    pythFeeds, accountLensContract, 'getAccountInfo', ...
+  )
+  res = result[0]
+}
+
+// 2. ALWAYS fetch fresh borrow vault when Pyth detected (valid only ~2 min)
+// This refreshes BOTH liabilityPriceInfo AND collateralPrices[]
+if (hasPythOracles(borrow)) {
+  const freshBorrow = await fetchVault(borrowAddress)
+  if (freshBorrow) borrow = freshBorrow
+}
+
+// Note: No need to refresh collateral vault - collateral prices come from
+// borrow.collateralPrices[], already refreshed above
 ```
 
 ### EVC batchSimulation Usage
@@ -279,6 +343,7 @@ const usesUtilsLensPricing = (vault): boolean => {
 - `services/pricing/priceProvider.ts` - Core pricing functions (Layers 1-3)
 - `entities/vault.ts` - Vault fetching with Pyth simulation support
 - `entities/oracle.ts` - Oracle decoding and Pyth feed collection (EulerRouter, CrossAdapter, PythOracle)
+- `composables/useEulerAccount.ts` - Portfolio/account loading with Pyth simulation for borrow positions
 - `pages/borrow/[collateral]/[borrow]/index.vue` - Borrow page Pyth refresh logic
 - `pages/lend/[vault]/index.vue` - Lend page Pyth refresh logic
-- `utils/pyth.ts` - Pyth-specific utilities (Hermes API, batch building)
+- `utils/pyth.ts` - Pyth-specific utilities (Hermes API, batch building, `executeLensWithPythSimulation()`)
