@@ -182,6 +182,8 @@ getCollateralUsdPrice(liabilityVault, collateralVault, source, backend):
   2. Oracle calculation (fallback or primary if source='on-chain'):
      a. sharePrice = liabilityVault.collateralPrices.find(collateralVault.address)
      b. assetPrice = sharePrice × (totalShares / totalAssets)  // Convert share→asset
+        // Special case: if totalAssets=0 AND totalShares=0 (empty vault),
+        // ERC-4626 standard defines 1:1 ratio, so use sharePrice directly
      c. uoaRate = await getUnitOfAccountUsdRate(liabilityVault, source, backend)
         // Use LIABILITY's UoA - can come from backend for 'off-chain' source
      d. return (assetPrice × uoaRate) / 1e18
@@ -242,7 +244,31 @@ Since `resolvedOraclesInfo` contains oracle configs for ALL (base, quote) pairs 
 
 ### Pyth Handling Flow
 
-**Vault Fetching (pages like /lend, /borrow):**
+**Bulk Vault Loading (vault list pages):**
+```
+fetchVaults() generator called
+                ↓
+    Fetch batch of vaults in parallel
+    (getVaultInfoFull for each - fast path)
+                ↓
+    For each vault in batch:
+    collectPythFeedIds() checks
+    vault.oracleDetailedInfo
+                ↓
+        ┌───────┴───────┐
+        │ Pyth detected? │
+        └───────┬───────┘
+           No   │   → Keep vault as-is
+                ↓ Yes
+    Re-fetch with fetchVaultWithPythSimulation()
+    to get fresh Pyth prices
+                ↓
+    Replace original vault with refreshed version
+                ↓
+    Yield batch (with fresh Pyth prices)
+```
+
+**Single Vault Fetching (pages like /lend, /borrow):**
 ```
 fetchVault(vaultAddress) called
                 ↓
@@ -427,10 +453,12 @@ const usesUtilsLensPricing = (vault): boolean => {
 
 1. **Collateral prices from liability vault's perspective** - Collateral is always priced using the liability vault's oracle router, ensuring consistent pricing within a borrow position
 2. **No hardcoded fallbacks** - If a price cannot be determined, return `undefined` rather than assuming values
-3. **Pyth handled via simulation** - Fresh prices are obtained through EVC batch simulation, not fallbacks
+3. **Pyth handled via simulation** - Fresh prices are obtained through EVC batch simulation, not fallbacks. Both single vault fetching (`fetchVault`) and bulk loading (`fetchVaults`) handle Pyth simulation
 4. **Complete oracle traversal** - When refreshing Pyth prices, ALL feeds in the oracle configuration are updated (liability AND collaterals)
 5. **Layered architecture** - Clear separation between raw oracle data, USD conversion, and value calculation
 6. **Vault type awareness** - Different vault types route to appropriate price sources
+7. **Empty vault handling** - ERC-4626 empty vaults (totalAssets=0, totalShares=0) use 1:1 share-to-asset ratio per standard
+8. **Zero is valid** - A price of 0n is valid (very small value due to precision), only `undefined`/`null` or `queryFailure` indicate missing prices
 
 ## Files
 
