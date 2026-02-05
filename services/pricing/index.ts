@@ -4,6 +4,9 @@ export {
   type PriceSource,
   type BackendConfig,
 
+  // Constants
+  ONE_18,
+
   // Layer 1: Raw Oracle Prices (Unit of Account) - always on-chain
   getAssetOraclePrice,
   getCollateralShareOraclePrice,
