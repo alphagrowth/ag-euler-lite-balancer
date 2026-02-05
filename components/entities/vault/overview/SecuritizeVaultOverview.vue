@@ -83,24 +83,31 @@ const loadRiskParameters = async () => {
 loadRiskParameters()
 
 // Price display
-const priceDisplay = computed(() => {
-  const price = formatAssetValue(1, vault as unknown as Vault)
-  return price.hasPrice ? formatUsdValue(price.usdValue) : price.display
+const priceDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(1, vault as unknown as Vault, 'off-chain')
+  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : price.display
 })
 
 // Total supply display with USD if available
-const totalSupplyDisplay = computed(() => {
-  const price = formatAssetValue(vault.totalAssets, vault as unknown as Vault)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+const totalSupplyDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.totalAssets, vault as unknown as Vault, 'off-chain')
+  totalSupplyDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 // Supply cap display - supplyCap is in shares denomination (vault.decimals), same as regular vaults
-const supplyCapDisplay = computed(() => {
+const supplyCapDisplay = ref('∞')
+
+watchEffect(async () => {
   if (!vault.supplyCap || vault.supplyCap === 0n || vault.supplyCap >= MaxUint256) {
-    return '∞'
+    supplyCapDisplay.value = '∞'
+    return
   }
-  const price = formatAssetValue(vault.supplyCap, vault as unknown as Vault)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+  const price = await formatAssetValue(vault.supplyCap, vault as unknown as Vault, 'off-chain')
+  supplyCapDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const supplyCapPercentageDisplay = computed(() => {

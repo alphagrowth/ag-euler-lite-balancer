@@ -11,15 +11,20 @@ const availableLiquidityOfStrategies = ref(0n)
 
 const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?.apr)
 
-const totalSupplyDisplay = computed(() => {
-  const price = formatAssetValue(vault.totalAssets, vault)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+const totalSupplyDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.totalAssets, vault, 'off-chain')
+  totalSupplyDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
-const availableLiquidityDisplay = computed(() => {
-  const price = formatAssetValue(availableLiquidityOfStrategies.value, vault)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+const availableLiquidityDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(availableLiquidityOfStrategies.value, vault, 'off-chain')
+  availableLiquidityDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
+
 const load = async () => {
   vault.strategies.forEach(async (strategy) => {
     const vlt = await getVault(strategy.info.vault)

@@ -6,6 +6,87 @@ This document describes the pricing system in euler-lite, including how prices a
 
 The pricing system is built as a 3-layer architecture that separates concerns between raw oracle data, USD conversion, and value calculation.
 
+## Price Sources: On-Chain vs Off-Chain
+
+The pricing functions support two price sources:
+
+| Source | Description | Use Case |
+|--------|-------------|----------|
+| `'on-chain'` (default) | Uses on-chain oracle data only | Health factor, LTV, liquidation calculations |
+| `'off-chain'` | Tries backend first, falls back to on-chain | Display values, portfolio totals, UI |
+
+**Key insight**: The UoA rate can safely use off-chain pricing even in calculations that mix on-chain oracle prices. Since UoA is a common denominator (both collateral and borrow prices are quoted in UoA), using an off-chain UoA rate doesn't affect health factor/LTV ratios - it only changes the USD display values.
+
+### Backend Configuration
+
+Configure the backend URL in `entities/config.ts`:
+
+```typescript
+export default {
+  mainnet: {
+    PRICE_BACKEND_URL: 'https://api.example.com/prices', // Empty = disabled
+    // ...
+  }
+}
+```
+
+Use `usePriceBackend()` composable to access the configuration:
+
+```typescript
+const { backendConfig, isBackendEnabled } = usePriceBackend()
+
+// Pass to price functions
+const price = await getAssetUsdPrice(vault, 'off-chain', backendConfig.value)
+```
+
+### Price Source Usage in Codebase
+
+#### On-Chain Only (Layer 1 - Synchronous)
+
+These functions are **always on-chain** and used for **liquidation-sensitive calculations**:
+
+| Function | Purpose | Used For |
+|----------|---------|----------|
+| `getAssetOraclePrice()` | Raw oracle price in UoA | Health factor, LTV calculations |
+| `getCollateralOraclePrice()` | Collateral price in UoA | Health factor, max borrow calculations |
+
+**Locations using on-chain oracle prices:**
+- Borrow page (`pages/borrow/`) - LTV slider, max borrow calculations
+- Position pages (`pages/position/`) - Health factor, max withdraw constraints
+- Account composable (`composables/useEulerAccount.ts`) - Account health calculation
+- Vault overview components - Display oracle price (informational)
+
+#### Off-Chain Preferred (Layer 2/3 - Async)
+
+All display-only USD values use **`'off-chain'`** source:
+
+| Function | Purpose | Call Count |
+|----------|---------|------------|
+| `getAssetUsdValue()` | USD value of asset amount | 60+ calls |
+| `getCollateralUsdValue()` | USD value of collateral | 12+ calls |
+| `getAssetUsdPrice()` | Asset price in USD | 4 calls |
+| `getCollateralUsdPrice()` | Collateral price in USD | 5 calls |
+| `formatAssetValue()` | Format + USD value | 20+ calls |
+| `getUnitOfAccountUsdRate()` | UoA→USD rate | Used internally |
+
+**Use cases for off-chain prices:**
+- **Portfolio totals** - `totalSuppliedValue`, `totalBorrowedValue`, position values
+- **Vault list pages** - TVL, available liquidity in USD
+- **Vault detail pages** - Monthly earnings, deposit values
+- **Position management** - Supply/borrow value displays (informational)
+- **Transaction forms** - Live USD conversion below input fields
+- **Vault cards/items** - TVL, liquidity, balance displays
+
+#### Design Decision Summary
+
+| Calculation Type | Source | Rationale |
+|-----------------|--------|-----------|
+| Health factor | On-chain | Must match protocol's liquidation logic |
+| Max borrow/withdraw | On-chain | Safety-critical limits |
+| LTV slider | On-chain | User expectations match protocol |
+| USD displays | Off-chain | Better UX, backend can have more price feeds |
+| Portfolio values | Off-chain | Display only, no safety impact |
+
 ## Architecture: 3-Layer System
 
 ```
@@ -50,9 +131,9 @@ The pricing system is built as a 3-layer architecture that separates concerns be
 
 Located in `services/pricing/priceProvider.ts`:
 
-- **`getAssetOraclePrice(vault)`** - Returns the vault's asset price in its unit of account from `liabilityPriceInfo`
-- **`getCollateralOraclePrice(liabilityVault, collateralVault)`** - Returns collateral asset price in the liability vault's unit of account, converting from share price to asset price
-- **`getUnitOfAccountUsdRate(vault)`** - Returns the UoA → USD conversion rate. Returns `1e18` if UoA is USD, otherwise uses `unitOfAccountPriceInfo`
+- **`getAssetOraclePrice(vault)`** - Returns the vault's asset price in its unit of account from `liabilityPriceInfo` (always on-chain, synchronous)
+- **`getCollateralOraclePrice(liabilityVault, collateralVault)`** - Returns collateral asset price in the liability vault's unit of account, converting from share price to asset price (always on-chain, synchronous)
+- **`getUnitOfAccountUsdRate(vault, source?, backend?)`** - Returns the UoA → USD conversion rate. Returns `1e18` if UoA is USD. Supports off-chain pricing with on-chain fallback (async). Since UoA is a common denominator, using off-chain rates doesn't affect health factor/LTV ratios - only USD display values.
 
 ### Layer 2: USD Prices
 
@@ -71,12 +152,20 @@ Located in `services/pricing/priceProvider.ts`:
 ## USD Price Calculation for Regular EVK Vault
 
 ```typescript
-getAssetUsdPrice(vault):
-  1. oraclePrice = vault.liabilityPriceInfo.amountOutMid  // e.g., 1.0003e18 BOLD in USD
-  2. uoaRate = vault.unitOfAccountPriceInfo.amountOutMid  // e.g., 1e18 if UoA is USD
-     OR 1e18 if vault.unitOfAccount === USD_ADDRESS
-  3. return (oraclePrice × uoaRate) / 1e18
+getAssetUsdPrice(vault, source, backend):
+  1. If source='off-chain' and backend configured:
+     - Try backend for direct asset USD price
+     - If available, return backend price
+
+  2. Oracle calculation (fallback or primary if source='on-chain'):
+     a. oraclePrice = vault.liabilityPriceInfo.amountOutMid  // Always on-chain
+     b. uoaRate = await getUnitOfAccountUsdRate(vault, source, backend)
+        - If source='off-chain': tries backend first, falls back to on-chain
+        - Returns 1e18 if vault.unitOfAccount === USD_ADDRESS
+     c. return (oraclePrice × uoaRate) / 1e18
 ```
+
+**Note on UoA Rate**: The UoA rate can come from backend even when the asset oracle price is on-chain. Since UoA is a common denominator (both collateral and borrow prices use the same UoA), using an off-chain UoA rate doesn't affect health factor/LTV ratios - only the USD display values.
 
 ## Collateral Price Calculation (Borrow Context)
 
@@ -85,11 +174,17 @@ getAssetUsdPrice(vault):
 When vault A (liability) accepts vault B (collateral), the price of B is determined by vault A's oracle router, NOT vault B's own oracle. This ensures consistent pricing within a borrow position.
 
 ```typescript
-getCollateralUsdPrice(liabilityVault, collateralVault):
-  1. sharePrice = liabilityVault.collateralPrices.find(collateralVault.address)
-  2. assetPrice = sharePrice × (totalShares / totalAssets)  // Convert share→asset
-  3. uoaRate = liabilityVault.unitOfAccountPriceInfo       // Use LIABILITY's UoA
-  4. return (assetPrice × uoaRate) / 1e18
+getCollateralUsdPrice(liabilityVault, collateralVault, source, backend):
+  1. If source='off-chain' and backend configured:
+     - Try backend for direct collateral USD price
+     - If available, return backend price
+
+  2. Oracle calculation (fallback or primary if source='on-chain'):
+     a. sharePrice = liabilityVault.collateralPrices.find(collateralVault.address)
+     b. assetPrice = sharePrice × (totalShares / totalAssets)  // Convert share→asset
+     c. uoaRate = await getUnitOfAccountUsdRate(liabilityVault, source, backend)
+        // Use LIABILITY's UoA - can come from backend for 'off-chain' source
+     d. return (assetPrice × uoaRate) / 1e18
 ```
 
 ## EulerRouter Oracle Configuration

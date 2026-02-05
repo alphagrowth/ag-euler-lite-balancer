@@ -192,23 +192,29 @@ const toBorrowApy = computed(() => {
   return withIntrinsicBorrowApy(base, toVault.value.asset.symbol) - (toOpportunity.value?.apr || 0)
 })
 
-const supplyValueUsd = computed(() => {
+const supplyValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!collateralVault.value || !position.value) {
-    return null
+    supplyValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(position.value.supplied, collateralVault.value)
+  supplyValueUsd.value = await getAssetUsdValue(position.value.supplied, collateralVault.value, 'off-chain')
 })
-const currentBorrowValueUsd = computed(() => {
+const currentBorrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!fromVault.value || !position.value) {
-    return null
+    currentBorrowValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(position.value.borrowed, fromVault.value)
+  currentBorrowValueUsd.value = await getAssetUsdValue(position.value.borrowed, fromVault.value, 'off-chain')
 })
-const nextBorrowValueUsd = computed(() => {
+const nextBorrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!quote.value || !toVault.value) {
-    return null
+    nextBorrowValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value)
+  nextBorrowValueUsd.value = await getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value, 'off-chain')
 })
 
 const calculateRoe = (
@@ -354,20 +360,24 @@ const swapSummary = computed(() => {
   }
 })
 
-const priceImpact = computed(() => {
+const priceImpact = ref<number | null>(null)
+watchEffect(async () => {
   if (!quote.value || !fromVault.value || !toVault.value) {
-    return null
+    priceImpact.value = null
+    return
   }
-  const amountOutUsd = getAssetUsdValue(BigInt(quote.value.amountOut), fromVault.value)
-  const amountInUsd = getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value)
+  const amountOutUsd = await getAssetUsdValue(BigInt(quote.value.amountOut), fromVault.value, 'off-chain')
+  const amountInUsd = await getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value, 'off-chain')
   if (!amountOutUsd || !amountInUsd) {
-    return null
+    priceImpact.value = null
+    return
   }
   const impact = (amountInUsd / amountOutUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    priceImpact.value = null
+    return
   }
-  return impact
+  priceImpact.value = impact
 })
 
 const routedVia = computed(() => {

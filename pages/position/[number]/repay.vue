@@ -98,11 +98,24 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
-const netAPY = computed(() => {
-  return getNetAPY(
-    getAssetUsdValue(position.value?.supplied || 0n, collateralVault.value!),
+// Pre-computed net APY (async)
+const netAPY = ref(0)
+
+watchEffect(async () => {
+  if (!position.value || !collateralVault.value || !borrowVault.value) {
+    netAPY.value = 0
+    return
+  }
+
+  const [supplyUsd, borrowUsd] = await Promise.all([
+    getAssetUsdValue(position.value.supplied || 0n, collateralVault.value, 'off-chain'),
+    getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
+  ])
+
+  netAPY.value = getNetAPY(
+    supplyUsd,
     collateralSupplyApy.value,
-    getAssetUsdValue(position.value?.borrowed ?? 0n, borrowVault.value!),
+    borrowUsd,
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
@@ -299,31 +312,50 @@ const swapDebtRepaid = computed(() => {
     return null
   }
 })
-const swapCollateralValueUsd = computed(() => {
+// Pre-computed swap collateral USD value (async)
+const swapCollateralValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!swapCollateralVault.value) {
-    return null
+    swapCollateralValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(swapCollateralAssets.value, swapCollateralVault.value)
+  swapCollateralValueUsd.value = await getAssetUsdValue(swapCollateralAssets.value, swapCollateralVault.value, 'off-chain')
 })
-const swapBorrowValueUsd = computed(() => {
+
+// Pre-computed swap borrow USD value (async)
+const swapBorrowValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!borrowVault.value || !position.value) {
-    return null
+    swapBorrowValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(position.value.borrowed, borrowVault.value)
+  swapBorrowValueUsd.value = await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')
 })
-const swapNextCollateralValueUsd = computed(() => {
+
+// Pre-computed swap next collateral USD value (async)
+const swapNextCollateralValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!swapCollateralVault.value || swapCollateralSpent.value === null) {
-    return null
+    swapNextCollateralValueUsd.value = null
+    return
   }
   const nextAssets = swapCollateralAssets.value - swapCollateralSpent.value
-  return getAssetUsdValue(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value)
+  swapNextCollateralValueUsd.value = await getAssetUsdValue(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value, 'off-chain')
 })
-const swapNextBorrowValueUsd = computed(() => {
+
+// Pre-computed swap next borrow USD value (async)
+const swapNextBorrowValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!borrowVault.value || !position.value || swapDebtRepaid.value === null) {
-    return null
+    swapNextBorrowValueUsd.value = null
+    return
   }
   const nextBorrow = position.value.borrowed - swapDebtRepaid.value
-  return getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value)
+  swapNextBorrowValueUsd.value = await getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value, 'off-chain')
 })
 
 const calculateRoe = (
@@ -475,20 +507,28 @@ const swapSummary = computed(() => {
     to: `${formatSignificant(amountOut)} ${borrowVault.value.asset.symbol}`,
   }
 })
-const swapPriceImpact = computed(() => {
+// Pre-computed swap price impact (async)
+const swapPriceImpact = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!swapQuote.value || !swapCollateralVault.value || !borrowVault.value) {
-    return null
+    swapPriceImpact.value = null
+    return
   }
-  const amountInUsd = getAssetUsdValue(BigInt(swapQuote.value.amountIn), swapCollateralVault.value)
-  const amountOutUsd = getAssetUsdValue(BigInt(swapQuote.value.amountOut), borrowVault.value)
+  const [amountInUsd, amountOutUsd] = await Promise.all([
+    getAssetUsdValue(BigInt(swapQuote.value.amountIn), swapCollateralVault.value, 'off-chain'),
+    getAssetUsdValue(BigInt(swapQuote.value.amountOut), borrowVault.value, 'off-chain'),
+  ])
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    swapPriceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    swapPriceImpact.value = null
+    return
   }
-  return impact
+  swapPriceImpact.value = impact
 })
 const swapLeveragedPriceImpact = computed(() => {
   return swapPriceImpact.value
@@ -735,7 +775,7 @@ const updateBalance = async () => {
     return
   }
 
-  const borrowedUsd = getAssetUsdValue(position.value!.borrowed, borrowVault.value!) || 0.01
+  const borrowedUsd = (await getAssetUsdValue(position.value!.borrowed, borrowVault.value!, 'off-chain')) || 0.01
   const factor = Math.pow(10, 2)
   const borrowedRounded = Math.ceil(borrowedUsd * factor) / factor
   balance.value = FixedNumber.fromValue(valueToNano(borrowedRounded, 4), 4)
@@ -947,10 +987,14 @@ const updateEstimates = useDebounceFn(async () => {
     if (balanceFixed.value.lt(amountFixed.value)) {
       throw new Error('You repaying more than required')
     }
+    const [supplyUsd, borrowUsd] = await Promise.all([
+      getAssetUsdValue((position.value.supplied || 0n), collateralVault.value, 'off-chain'),
+      getAssetUsdValue((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value, 'off-chain'),
+    ])
     estimateNetAPY.value = getNetAPY(
-      getAssetUsdValue((position.value.supplied || 0n), collateralVault.value!),
+      supplyUsd,
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
-      getAssetUsdValue((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value),
+      borrowUsd,
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,

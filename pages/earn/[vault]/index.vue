@@ -37,6 +37,7 @@ const vault: Ref<EarnVault | undefined> = ref(undefined)
 const asset: Ref<VaultAsset | undefined> = ref(undefined)
 const estimateSupplyAPY = ref(0)
 const monthlyEarnings = ref(0)
+const monthlyEarningsUsd = ref(0)
 const balance = ref(0n)
 
 const fetchBalance = async () => {
@@ -195,6 +196,15 @@ const onSupplyInfoIconClick = () => {
 // Initialize estimateSupplyAPY after vault is loaded
 estimateSupplyAPY.value = (vault.value?.supplyAPY || 0) + totalRewardsAPY.value
 
+// Update USD value when monthlyEarnings or vault changes
+watchEffect(async () => {
+  if (!vault.value || !monthlyEarnings.value) {
+    monthlyEarningsUsd.value = 0
+    return
+  }
+  monthlyEarningsUsd.value = await getAssetUsdValue(monthlyEarnings.value, vault.value, 'off-chain')
+})
+
 watch(amount, async () => {
   clearSimulationError()
   if (!vault.value) {
@@ -290,7 +300,7 @@ watch(amount, async () => {
               <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
                 asset.symbol
               }}
-              ≈ ${{ vault ? compactNumber(getAssetUsdValue(monthlyEarnings, vault)) : 0 }}
+              ≈ ${{ compactNumber(monthlyEarningsUsd) }}
             </p>
           </div>
 

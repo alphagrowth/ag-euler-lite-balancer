@@ -77,10 +77,12 @@ const maxRoe = computed(() => {
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2))
 const utilization = computed(() => getVaultUtilization(pair.borrow))
 
-const liquidityDisplay = computed(() => {
+const liquidityDisplay = ref('-')
+
+watchEffect(async () => {
   const liquidity = pair.borrow.supply - pair.borrow.borrow
-  const price = formatAssetValue(liquidity, pair.borrow)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+  const price = await formatAssetValue(liquidity, pair.borrow, 'off-chain')
+  liquidityDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const onWarningClick = () => {

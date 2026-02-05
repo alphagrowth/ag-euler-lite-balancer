@@ -266,35 +266,45 @@ const multiplySwapReady = computed(() => {
   }
   return Boolean(multiplyEffectiveQuote.value || (multiplyIsSameAsset.value && multiplyDebtAmountNano.value > 0n))
 })
-const multiplyLongValueUsd = computed(() => {
+const multiplyLongValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!multiplyLongVault.value) {
-    return null
+    multiplyLongValueUsd.value = null
+    return
   }
   if (!multiplySwapAmountOut.value) {
-    return null
+    multiplyLongValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value)
+  multiplyLongValueUsd.value = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
 })
-const multiplyBorrowValueUsd = computed(() => {
+const multiplyBorrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!multiplyShortVault.value) {
-    return null
+    multiplyBorrowValueUsd.value = null
+    return
   }
   if (!multiplyDebtAmountNano.value) {
-    return null
+    multiplyBorrowValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value)
+  multiplyBorrowValueUsd.value = await getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')
 })
-const currentSupplyValueUsd = computed(() => {
+const currentSupplyValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!position.value || !multiplyLongVault.value) {
-    return null
+    currentSupplyValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(position.value.supplied, multiplyLongVault.value)
+  currentSupplyValueUsd.value = await getAssetUsdValue(position.value.supplied, multiplyLongVault.value, 'off-chain')
 })
-const currentBorrowValueUsd = computed(() => {
+const currentBorrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!position.value || !multiplyShortVault.value) {
-    return null
+    currentBorrowValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(position.value.borrowed, multiplyShortVault.value)
+  currentBorrowValueUsd.value = await getAssetUsdValue(position.value.borrowed, multiplyShortVault.value, 'off-chain')
 })
 const nextSupplyValueUsd = computed(() => {
   if (currentSupplyValueUsd.value === null) {
@@ -464,23 +474,28 @@ const multiplySwapSummary = computed(() => {
     to: `${formatSignificant(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
   }
 })
-const multiplyPriceImpact = computed(() => {
+const multiplyPriceImpact = ref<number | null>(null)
+watchEffect(async () => {
   if (isMultiplyQuoteLoading.value) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
-  const amountInUsd = getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value)
-  const amountOutUsd = getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value)
+  const amountInUsd = await getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value, 'off-chain')
+  const amountOutUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
-  return impact
+  multiplyPriceImpact.value = impact
 })
 const multiplyRoutedVia = computed(() => {
   if (isMultiplyQuoteLoading.value) {

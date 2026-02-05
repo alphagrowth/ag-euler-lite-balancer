@@ -6,7 +6,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
-const { label, desc, maxable, vault, asset, balance = 0n, balanceLoading = false, collateralOptions = [], readonly = false, priceOverride } = defineProps<{
+const props = defineProps<{
   label?: string
   desc?: string
   maxable?: boolean
@@ -26,35 +26,39 @@ const modal = useModal()
 const isFocused = ref(false)
 
 const selectedIdx = ref(0)
-const friendlyBalance = computed(() => nanoToValue(balance, asset?.decimals || 18))
-const price = computed(() => {
+const friendlyBalance = computed(() => nanoToValue(props.balance ?? 0n, props.asset?.decimals || 18))
+const price = ref(0)
+
+watchEffect(async () => {
   // Use priceOverride if provided (for securitize vaults etc.)
-  if (priceOverride !== undefined) {
-    return priceOverride * (+model.value || 0)
+  if (props.priceOverride !== undefined) {
+    price.value = props.priceOverride * (+model.value || 0)
+    return
   }
 
-  if (!vault) {
-    return 0
+  if (!props.vault) {
+    price.value = 0
+    return
   }
 
-  if ('type' in vault && vault.type === 'earn') {
-    return getAssetUsdValue(+model.value || 0, vault)
+  if ('type' in props.vault && props.vault.type === 'earn') {
+    price.value = await getAssetUsdValue(+model.value || 0, props.vault, 'off-chain')
   }
   else {
-    return getAssetUsdValue(+model.value || 0, vault as Vault)
+    price.value = await getAssetUsdValue(+model.value || 0, props.vault as Vault, 'off-chain')
   }
 })
 
-const hasPrice = computed(() => vault !== undefined || priceOverride !== undefined)
+const hasPrice = computed(() => props.vault !== undefined || props.priceOverride !== undefined)
 const setMax = () => {
-  model.value = ethers.formatUnits(balance, Number(asset.decimals))
+  model.value = ethers.formatUnits(props.balance ?? 0n, Number(props.asset.decimals))
   emits('input')
   if (inputEl.value) {
     inputEl.value.value = model.value || ''
   }
 }
 const onInput = (e: InputEvent) => {
-  if (readonly || e.data === '-') {
+  if (props.readonly || e.data === '-') {
     (e.target as HTMLInputElement).value = String(model.value ?? '')
     return
   }
@@ -69,14 +73,14 @@ const onInput = (e: InputEvent) => {
   emits('input', e)
 }
 const openChooseCollateralModal = () => {
-  if (collateralOptions?.length < 2) {
+  if ((props.collateralOptions?.length ?? 0) < 2) {
     return
   }
   modal.open(ChooseCollateralModal, {
     props: {
-      productName: desc,
-      symbol: asset.symbol,
-      collateralOptions: collateralOptions,
+      productName: props.desc,
+      symbol: props.asset.symbol,
+      collateralOptions: props.collateralOptions,
       selected: selectedIdx.value,
       onSave: (selectedIndex: number) => {
         selectedIdx.value = selectedIndex
@@ -140,7 +144,7 @@ const openChooseCollateralModal = () => {
         />
         {{ asset.symbol }}
         <SvgIcon
-          v-if="collateralOptions.length > 1"
+          v-if="(collateralOptions?.length ?? 0) > 1"
           class="text-euler-dark-800 !w-16 !h-16"
           name="arrow-down"
         />

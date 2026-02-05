@@ -135,20 +135,24 @@ const hideTooltipImmediate = () => {
   }, 100)
 }
 
-const totalSupplyPrice = computed(() => {
-  const price = formatAssetValue(vault.totalAssets, vault)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+const totalSupplyPrice = ref('-')
+const liquidityPrice = ref('-')
+const walletBalancePrice = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.totalAssets, vault, 'off-chain')
+  totalSupplyPrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
-const liquidityPrice = computed(() => {
+watchEffect(async () => {
   const liquidity = vault.supply - vault.borrow
-  const price = formatAssetValue(liquidity, vault)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+  const price = await formatAssetValue(liquidity, vault, 'off-chain')
+  liquidityPrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
-const walletBalancePrice = computed(() => {
-  const price = formatAssetValue(balance.value, vault)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+watchEffect(async () => {
+  const price = await formatAssetValue(balance.value, vault, 'off-chain')
+  walletBalancePrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const onWarningClick = () => {

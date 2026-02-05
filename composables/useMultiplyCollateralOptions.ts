@@ -30,13 +30,13 @@ export const useMultiplyCollateralOptions = ({
     return current ? ethers.getAddress(current.address) : ''
   })
 
-  const walletItems = computed<CollateralItem[]>(() => {
+  const walletItemsInput = computed(() => {
     const liability = liabilityVault?.value
     if (!liability) {
       return []
     }
 
-    const items: CollateralItem[] = []
+    const items: { vault: Vault; balance: bigint }[] = []
     liability.collateralLTVs
       .filter(ltv => ltv.borrowLTV > 0n)
       .forEach((ltv) => {
@@ -48,53 +48,70 @@ export const useMultiplyCollateralOptions = ({
           && ethers.getAddress(vault.address) === currentVaultAddress.value
         if (!balance && !isCurrent) return
 
-        const amount = nanoToValue(balance, vault.asset.decimals)
-        const product = getProductByVault(vault.address)
-        const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
-        const opportunity = getOpportunityOfLendVault(vault.address)
-        const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
-
-        items.push({
-          vault,
-          option: {
-            type: 'wallet',
-            amount,
-            price: getAssetUsdValue(amount, vault),
-            apy,
-            symbol: vault.asset.symbol,
-            label: product.name || vault.name,
-            vaultAddress: vault.address,
-          },
-        })
+        items.push({ vault, balance })
       })
 
     return items
   })
 
-  const savingItems = computed<CollateralItem[]>(() => {
+  const walletItems = ref<CollateralItem[]>([])
+
+  watchEffect(async () => {
+    const inputs = walletItemsInput.value
+    const items = await Promise.all(inputs.map(async ({ vault, balance }) => {
+      const amount = nanoToValue(balance, vault.asset.decimals)
+      const product = getProductByVault(vault.address)
+      const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
+      const opportunity = getOpportunityOfLendVault(vault.address)
+      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
+
+      return {
+        vault,
+        option: {
+          type: 'wallet',
+          amount,
+          price: await getAssetUsdValue(amount, vault, 'off-chain'),
+          apy,
+          symbol: vault.asset.symbol,
+          label: product.name || vault.name,
+          vaultAddress: vault.address,
+        },
+      } as CollateralItem
+    }))
+    walletItems.value = items
+  })
+
+  const savingItemsInput = computed(() => {
     return depositPositions.value
       .filter(position => position.assets > 0n)
-      .map((position) => {
-        const vault = position.vault
-        const amount = nanoToValue(position.assets, vault.asset.decimals)
-        const product = getProductByVault(vault.address)
-        const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
-        const opportunity = getOpportunityOfLendVault(vault.address)
-        const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
+      .map(position => ({ vault: position.vault, assets: position.assets }))
+  })
 
-        return {
-          vault,
-          option: {
-            type: 'saving',
-            amount,
-            price: getAssetUsdValue(amount, vault),
-            apy,
-            symbol: vault.asset.symbol,
-            label: product.name || vault.name,
-            vaultAddress: vault.address,
-          },
-        }
-      })
+  const savingItems = ref<CollateralItem[]>([])
+
+  watchEffect(async () => {
+    const inputs = savingItemsInput.value
+    const items = await Promise.all(inputs.map(async ({ vault, assets }) => {
+      const amount = nanoToValue(assets, vault.asset.decimals)
+      const product = getProductByVault(vault.address)
+      const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
+      const opportunity = getOpportunityOfLendVault(vault.address)
+      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
+
+      return {
+        vault,
+        option: {
+          type: 'saving',
+          amount,
+          price: await getAssetUsdValue(amount, vault, 'off-chain'),
+          apy,
+          symbol: vault.asset.symbol,
+          label: product.name || vault.name,
+          vaultAddress: vault.address,
+        },
+      } as CollateralItem
+    }))
+    savingItems.value = items
   })
 
   const combinedItems = computed<CollateralItem[]>(() => {

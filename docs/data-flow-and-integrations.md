@@ -1012,9 +1012,9 @@ export const getNetAPY = (
 // BorrowPositionItem
 const netAPY = computed(() => {
   return getNetAPY(
-    getVaultPrice(position.supplied || 0n, collateralVault.value!),
+    getAssetUsdValue(position.supplied || 0n, collateralVault.value!),
     nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
-    getVaultPrice(position.borrowed || 0n || 0, borrowVault.value!),
+    getAssetUsdValue(position.borrowed || 0n || 0, borrowVault.value!),
     nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null
@@ -1052,14 +1052,47 @@ const updateEstimates = useDebounceFn(async () => {
 
 - [Back to the top](#table-of-contents)
 
-#### getVaultPrice function
+#### Price Provider Service
 
+The pricing system is built as a 3-layer architecture in `services/pricing/priceProvider.ts`:
+
+**Layer 1: Raw Oracle Prices (Unit of Account)**
 ```typescript
-export const getVaultPrice = (amount: number | bigint, vault: Vault) => {
-  const actualAmount =
-    typeof amount === "bigint" ? nanoToValue(amount, vault.decimals) : amount;
-  return actualAmount * nanoToValue(vault.liabilityPriceInfo.amountOutMid, 18);
-};
+import { getAssetOraclePrice, getCollateralOraclePrice, getUnitOfAccountUsdRate } from '~/services/pricing'
+
+// Get asset price in vault's unit of account
+const oraclePrice = getAssetOraclePrice(vault)
+
+// Get collateral price from liability vault's perspective (in UoA)
+const collateralPrice = getCollateralOraclePrice(liabilityVault, collateralVault)
+
+// Get UoA → USD conversion rate (returns 1e18 if UoA is USD)
+const uoaRate = getUnitOfAccountUsdRate(vault)
+```
+
+**Layer 2: USD Prices**
+```typescript
+import { getAssetUsdPrice, getCollateralUsdPrice } from '~/services/pricing'
+
+// Get asset price in USD (handles vault type routing internally)
+const usdPrice = getAssetUsdPrice(vault)
+
+// Get collateral USD price in borrow context
+const collateralUsdPrice = getCollateralUsdPrice(liabilityVault, collateralVault)
+```
+
+**Layer 3: USD Value Calculation**
+```typescript
+import { getAssetUsdValue, getCollateralUsdValue, formatAssetValue } from '~/services/pricing'
+
+// Calculate USD value of an amount
+const usdValue = getAssetUsdValue(amount, vault)
+
+// Calculate collateral USD value in borrow context
+const collateralValue = getCollateralUsdValue(assetAmount, liabilityVault, collateralVault)
+
+// Format for UI display
+const { display, hasPrice, usdValue } = formatAssetValue(amount, vault)
 ```
 
 #### Components using price information
@@ -1070,7 +1103,7 @@ export const getVaultPrice = (amount: number | bigint, vault: Vault) => {
   <div class="between gap-8 flex-wrap mb-12">
     <div class="text-euler-dark-900 p3">Current price</div>
     <div class="text-white p3">
-      ${{ formatNumber(getVaultPrice(1, position.borrow)) }}
+      {{ formatUsdValue(getAssetUsdValue(1, vault)) }}
     </div>
   </div>
   <!-- code -->

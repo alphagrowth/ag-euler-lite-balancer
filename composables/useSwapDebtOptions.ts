@@ -45,8 +45,11 @@ export const useSwapDebtOptions = ({
     })
   })
 
-  const borrowOptions = computed<CollateralOption[]>(() => {
-    return borrowVaults.value.map((vault) => {
+  const borrowOptions = ref<CollateralOption[]>([])
+
+  watchEffect(async () => {
+    const vaults = borrowVaults.value
+    const options = await Promise.all(vaults.map(async (vault) => {
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.borrowAPY || 0n, 25)
       const opportunity = getOpportunityOfBorrowVault(vault.asset.address)
@@ -55,13 +58,14 @@ export const useSwapDebtOptions = ({
       return {
         type: 'vault',
         amount: 0,
-        price: getAssetUsdValue(1, vault),
+        price: await getAssetUsdValue(1, vault, 'off-chain'),
         apy,
         symbol: vault.asset.symbol,
         label: product.name || vault.name,
         vaultAddress: vault.address,
       }
-    })
+    }))
+    borrowOptions.value = options
   })
 
   return {

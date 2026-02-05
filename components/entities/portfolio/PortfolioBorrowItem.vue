@@ -86,16 +86,25 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   borrowVault.value?.asset.symbol,
 ))
 
-const collateralValueUsd = computed(() => {
+const collateralValueUsd = ref(0)
+
+const updateCollateralValueUsd = async () => {
   // Collateral price ALWAYS comes from liability vault's oracle, converted to USD
   if (!collateralItems.value.length) {
-    return getCollateralUsdValue(position.supplied, position.borrow, position.collateral)
+    collateralValueUsd.value = await getCollateralUsdValue(position.supplied, position.borrow, position.collateral, 'off-chain')
+    return
   }
 
   // For multiple collaterals, sum up using liability vault's oracle for each
-  return collateralItems.value.reduce((total, item) => {
-    return total + getCollateralUsdValue(item.assets, position.borrow, item.vault)
-  }, 0)
+  const promises = collateralItems.value.map(item =>
+    getCollateralUsdValue(item.assets, position.borrow, item.vault, 'off-chain'),
+  )
+  const values = await Promise.all(promises)
+  collateralValueUsd.value = values.reduce((total, val) => total + val, 0)
+}
+
+watchEffect(() => {
+  updateCollateralValueUsd()
 })
 
 const collateralValueInfo = computed(() => {
@@ -105,21 +114,38 @@ const collateralValueInfo = computed(() => {
     hasPrice,
   }
 })
+// collateralValueInfo stays as computed since it derives from collateralValueUsd ref
 
 const collateralValueDisplay = computed(() => collateralValueInfo.value.display)
 
-const borrowedValueInfo = computed(() => {
-  const price = formatAssetValue(position.borrowed ?? 0n, borrowVault.value!)
-  return {
+const borrowedValueInfo = ref<{ display: string; hasPrice: boolean }>({ display: '-', hasPrice: false })
+
+const updateBorrowedValueInfo = async () => {
+  const price = await formatAssetValue(position.borrowed ?? 0n, borrowVault.value!, 'off-chain')
+  borrowedValueInfo.value = {
     display: price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display,
     hasPrice: price.hasPrice,
   }
+}
+
+watchEffect(() => {
+  updateBorrowedValueInfo()
 })
 
 const borrowedValueDisplay = computed(() => borrowedValueInfo.value.display)
 
+const borrowedValueUsd = ref(0)
+
+const updateBorrowedValueUsd = async () => {
+  borrowedValueUsd.value = await getAssetUsdValue(position.borrowed, borrowVault.value, 'off-chain')
+}
+
+watchEffect(() => {
+  updateBorrowedValueUsd()
+})
+
 const netAssetValueUsd = computed(() => {
-  return collateralValueUsd.value - getAssetUsdValue(position.borrowed, borrowVault.value)
+  return collateralValueUsd.value - borrowedValueUsd.value
 })
 
 const netAssetValueDisplay = computed(() => {
@@ -130,7 +156,7 @@ const netAPY = computed(() => {
   return getNetAPY(
     collateralValueUsd.value,
     collateralSupplyApy.value,
-    getAssetUsdValue(position.borrowed ?? 0n, borrowVault.value!),
+    borrowedValueUsd.value,
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,

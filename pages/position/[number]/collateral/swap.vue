@@ -272,34 +272,47 @@ const borrowApy = computed(() => {
 })
 
 // Get collateral USD value using liability vault's price perspective
-const getCollateralValueUsdLocal = (amount: bigint) => {
+const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !fromVault.value) return 0
-  return getCollateralUsdValue(amount, borrowVault.value, fromVault.value as Vault)
+  return await getCollateralUsdValue(amount, borrowVault.value, fromVault.value as Vault, 'off-chain')
 }
 // Price per unit for collateral in USD (from liability vault's perspective)
-const collateralPricePerUnit = computed(() => {
-  if (!borrowVault.value || !fromVault.value) return undefined
-  const priceInfo = getCollateralUsdPrice(borrowVault.value, fromVault.value as Vault)
-  if (!priceInfo?.amountOutMid) return undefined
-  return nanoToValue(priceInfo.amountOutMid, 18)
+const collateralPricePerUnit = ref<number | undefined>(undefined)
+watchEffect(async () => {
+  if (!borrowVault.value || !fromVault.value) {
+    collateralPricePerUnit.value = undefined
+    return
+  }
+  const priceInfo = await getCollateralUsdPrice(borrowVault.value, fromVault.value as Vault, 'off-chain')
+  if (!priceInfo?.amountOutMid) {
+    collateralPricePerUnit.value = undefined
+    return
+  }
+  collateralPricePerUnit.value = nanoToValue(priceInfo.amountOutMid, 18)
 })
-const supplyValueUsd = computed(() => {
+const supplyValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!fromVault.value || !position.value || !borrowVault.value) {
-    return null
+    supplyValueUsd.value = null
+    return
   }
-  return getCollateralValueUsdLocal(selectedCollateralAssets.value)
+  supplyValueUsd.value = await getCollateralValueUsdLocal(selectedCollateralAssets.value)
 })
-const nextSupplyValueUsd = computed(() => {
+const nextSupplyValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!quote.value || !toVault.value) {
-    return null
+    nextSupplyValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value)
+  nextSupplyValueUsd.value = await getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value, 'off-chain')
 })
-const borrowValueUsd = computed(() => {
+const borrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!borrowVault.value || !position.value) {
-    return null
+    borrowValueUsd.value = null
+    return
   }
-  return getAssetUsdValue(position.value.borrowed, borrowVault.value)
+  borrowValueUsd.value = await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')
 })
 
 const calculateRoe = (
@@ -444,20 +457,24 @@ const swapSummary = computed(() => {
   }
 })
 
-const priceImpact = computed(() => {
+const priceImpact = ref<number | null>(null)
+watchEffect(async () => {
   if (!quote.value || !fromVault.value || !toVault.value || !borrowVault.value) {
-    return null
+    priceImpact.value = null
+    return
   }
-  const amountInUsd = getCollateralValueUsdLocal(BigInt(quote.value.amountIn))
-  const amountOutUsd = getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value)
+  const amountInUsd = await getCollateralValueUsdLocal(BigInt(quote.value.amountIn))
+  const amountOutUsd = await getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value, 'off-chain')
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    priceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    priceImpact.value = null
+    return
   }
-  return impact
+  priceImpact.value = impact
 })
 
 const routedVia = computed(() => {

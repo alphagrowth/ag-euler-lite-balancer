@@ -73,11 +73,20 @@ const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(base + (opportunityInfo.value?.apr || 0))
 })
 
-// Helper to get vault price - returns 0 for securitize vaults (no USD price available)
-const getPrice = (amount: bigint) => {
-  if (!vault.value || isSecuritizeVaultType.value) return 0
-  return getAssetUsdValue(amount, vault.value as Vault)
-}
+// Reactive USD prices for display
+const assetsBalanceUsd = ref(0)
+const deltaUsd = ref(0)
+
+// Update USD prices when vault or amounts change
+watchEffect(async () => {
+  if (!vault.value || isSecuritizeVaultType.value) {
+    assetsBalanceUsd.value = 0
+    deltaUsd.value = 0
+    return
+  }
+  assetsBalanceUsd.value = await getAssetUsdValue(assetsBalance.value, vault.value as Vault, 'off-chain')
+  deltaUsd.value = await getAssetUsdValue(delta.value, vault.value as Vault, 'off-chain')
+})
 
 const load = async () => {
   isLoading.value = true
@@ -323,8 +332,8 @@ watch(amount, async () => {
             Deposit
           </p>
           <p class="text-p2 text-content-tertiary">
-            ${{ formatNumber(getPrice(assetsBalance)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
-              → <span class="text-content-primary">${{ formatNumber(getPrice(delta)) }}</span>
+            ${{ formatNumber(assetsBalanceUsd) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
+              → <span class="text-content-primary">${{ formatNumber(deltaUsd) }}</span>
             </template>
           </p>
         </div>
@@ -340,7 +349,7 @@ watch(amount, async () => {
             <span
               v-if="!isSecuritizeVaultType"
               class="text-p3 text-content-tertiary"
-            >≈ ${{ formatNumber(getPrice(assetsBalance)) }}</span>
+            >≈ ${{ formatNumber(assetsBalanceUsd) }}</span>
           </p>
         </div>
       </VaultFormInfoBlock>

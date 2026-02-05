@@ -17,20 +17,44 @@ const product = useEulerProductOfVault(computed(() => vault.value.address))
 const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
 const displayName = computed(() => product.name || vault.value.name)
 
-const supplyValueDisplay = computed(() => {
-  const price = formatAssetValue(position.assets, vault.value)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+const supplyValueDisplay = ref('-')
+
+const updateSupplyValueDisplay = async () => {
+  const price = await formatAssetValue(position.assets, vault.value, 'off-chain')
+  supplyValueDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+}
+
+watchEffect(() => {
+  updateSupplyValueDisplay()
 })
 
 const supplyApyWithRewards = computed(() => (vault.value.supplyAPY || 0) + (opportunityInfo.value?.apr || 0))
 
-const hasPrice = computed(() => getAssetUsdValue(position.assets, vault.value) > 0)
+const hasPrice = ref(false)
 
-const projectedEarningsPerMonth = computed(() => {
-  const price = getAssetUsdValue(position.assets, vault.value)
-  if (price === 0) return '—'
+const updateHasPrice = async () => {
+  const price = await getAssetUsdValue(position.assets, vault.value, 'off-chain')
+  hasPrice.value = price > 0
+}
+
+watchEffect(() => {
+  updateHasPrice()
+})
+
+const projectedEarningsPerMonth = ref('—')
+
+const updateProjectedEarningsPerMonth = async () => {
+  const price = await getAssetUsdValue(position.assets, vault.value, 'off-chain')
+  if (price === 0) {
+    projectedEarningsPerMonth.value = '—'
+    return
+  }
   // Monthly earnings = (value * APY%) / 12
-  return compactNumber((price * supplyApyWithRewards.value) / 12 / 100)
+  projectedEarningsPerMonth.value = compactNumber((price * supplyApyWithRewards.value) / 12 / 100)
+}
+
+watchEffect(() => {
+  updateProjectedEarningsPerMonth()
 })
 
 const onClick = () => {

@@ -75,6 +75,7 @@ const amount = ref('')
 const plan = ref<TxPlan | null>(null)
 const estimateSupplyAPY = ref(0n)
 const monthlyEarnings = ref(0)
+const monthlyEarningsUsd = ref(0)
 
 // Vault data - only one will be populated based on type
 const evkVault: Ref<Vault | undefined> = ref(undefined)
@@ -399,6 +400,15 @@ const onSupplyInfoIconClick = () => {
 
 load()
 
+// Update USD value when monthlyEarnings or vault changes
+watchEffect(async () => {
+  if (!vault.value || !monthlyEarnings.value) {
+    monthlyEarningsUsd.value = 0
+    return
+  }
+  monthlyEarningsUsd.value = await getAssetUsdValue(monthlyEarnings.value, vault.value, 'off-chain')
+})
+
 watch(amount, async () => {
   clearSimulationError()
   if (!isVaultLoaded.value) {
@@ -503,7 +513,7 @@ watch(amount, async () => {
                   asset.symbol
                 }}
                 <template v-if="features.hasPriceInfo && vault">
-                  ≈ ${{ compactNumber(getAssetUsdValue(monthlyEarnings, vault)) }}
+                  ≈ ${{ compactNumber(monthlyEarningsUsd) }}
                 </template>
               </p>
             </div>

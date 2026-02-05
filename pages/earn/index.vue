@@ -17,6 +17,31 @@ const route = useRoute()
 const selectedCollateral = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
 
+// Cache for USD values used in sorting (keyed by vault address)
+const vaultTotalSupplyUsd = ref<Map<string, number>>(new Map())
+const vaultLiquidityUsd = ref<Map<string, number>>(new Map())
+
+// Fetch USD values for all earn vaults
+watchEffect(async () => {
+  const vaults = list.value
+  if (!vaults.length) return
+
+  const totalSupplyValues = new Map<string, number>()
+  const liquidityValues = new Map<string, number>()
+  await Promise.all(
+    vaults.map(async (vault) => {
+      const [totalSupply, liquidity] = await Promise.all([
+        getAssetUsdValue(vault.totalAssets, vault, 'off-chain'),
+        getAssetUsdValue(vault.availableAssets, vault, 'off-chain'),
+      ])
+      totalSupplyValues.set(vault.address, totalSupply)
+      liquidityValues.set(vault.address, liquidity)
+    }),
+  )
+  vaultTotalSupplyUsd.value = totalSupplyValues
+  vaultLiquidityUsd.value = liquidityValues
+})
+
 const assetOptions = computed(() => {
   return list.value
     .map(vault => ({
@@ -31,7 +56,9 @@ const assetOptions = computed(() => {
 
 const topOptions = computed(() => {
   const sortedBySupply = [...list.value].sort((a: EarnVault, b: EarnVault) => {
-    return getAssetUsdValue(b.totalAssets, b) - getAssetUsdValue(a.totalAssets, a)
+    const aValue = vaultTotalSupplyUsd.value.get(a.address) ?? 0
+    const bValue = vaultTotalSupplyUsd.value.get(b.address) ?? 0
+    return bValue - aValue
   })
 
   return sortedBySupply
@@ -57,7 +84,9 @@ const sortedList = computed(() => {
   switch (sortBy.value) {
     case 'Total Supply':
       return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
-        return getAssetUsdValue(b.totalAssets, b) - getAssetUsdValue(a.totalAssets, a)
+        const aValue = vaultTotalSupplyUsd.value.get(a.address) ?? 0
+        const bValue = vaultTotalSupplyUsd.value.get(b.address) ?? 0
+        return bValue - aValue
       })
     case 'Supply APY':
       return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
@@ -65,7 +94,9 @@ const sortedList = computed(() => {
       })
     case 'Liquidity':
       return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
-        return getAssetUsdValue(b.availableAssets, b) - getAssetUsdValue(a.availableAssets, a)
+        const aValue = vaultLiquidityUsd.value.get(a.address) ?? 0
+        const bValue = vaultLiquidityUsd.value.get(b.address) ?? 0
+        return bValue - aValue
       })
     default:
       return filteredList.value

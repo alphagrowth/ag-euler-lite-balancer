@@ -29,6 +29,35 @@ const selectedDebt = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Liquidity')
 
+// Cache for USD values used in sorting (keyed by pair identifier: collateral+borrow address)
+const pairLiquidityUsd = ref<Map<string, number>>(new Map())
+const pairBorrowedUsd = ref<Map<string, number>>(new Map())
+
+// Helper to create a unique key for a borrow pair
+const getPairKey = (pair: AnyBorrowVaultPair) => `${pair.collateral.address}-${pair.borrow.address}`
+
+// Fetch USD values for all borrow pairs
+watchEffect(async () => {
+  const pairs = borrowList.value
+  if (!pairs.length) return
+
+  const liquidityValues = new Map<string, number>()
+  const borrowedValues = new Map<string, number>()
+  await Promise.all(
+    pairs.map(async (pair) => {
+      const key = getPairKey(pair)
+      const [liquidity, borrowed] = await Promise.all([
+        getAssetUsdValue(pair.borrow.supply - pair.borrow.borrow, pair.borrow, 'off-chain'),
+        getAssetUsdValue(pair.borrow.borrow, pair.borrow, 'off-chain'),
+      ])
+      liquidityValues.set(key, liquidity)
+      borrowedValues.set(key, borrowed)
+    }),
+  )
+  pairLiquidityUsd.value = liquidityValues
+  pairBorrowedUsd.value = borrowedValues
+})
+
 const collateralAssetOptions = computed(() => {
   return borrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.collateral.asset.address === item.collateral.asset.address))
@@ -84,7 +113,9 @@ const sortedBorrowList = computed(() => {
   switch (sortBy.value) {
     case 'Liquidity':
       return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
-        return getAssetUsdValue(b.borrow.supply - b.borrow.borrow, b.borrow) - getAssetUsdValue(a.borrow.supply - a.borrow.borrow, a.borrow)
+        const aValue = pairLiquidityUsd.value.get(getPairKey(a)) ?? 0
+        const bValue = pairLiquidityUsd.value.get(getPairKey(b)) ?? 0
+        return bValue - aValue
       })
     case 'Borrow APY':
       return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
@@ -96,7 +127,9 @@ const sortedBorrowList = computed(() => {
       })
     case 'Total Borrowed':
       return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-        return getAssetUsdValue(b.borrow.borrow, b.borrow) - getAssetUsdValue(a.borrow.borrow, a.borrow)
+        const aValue = pairBorrowedUsd.value.get(getPairKey(a)) ?? 0
+        const bValue = pairBorrowedUsd.value.get(getPairKey(b)) ?? 0
+        return bValue - aValue
       })
     case 'Max ROE':
       return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {

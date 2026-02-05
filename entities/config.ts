@@ -2,8 +2,9 @@ import { labelsRepo } from './custom'
 
 export default {
   testnet: {
-    EULER_API_URL: 'https://indexer-main.euler.finance',
+    EULER_API_URL: 'https://indexer.euler.finance',
     SWAP_API_URL: 'https://swap.euler.finance',
+    PRICE_BACKEND_URL: '', // Backend price API (empty = use on-chain only)
     SWAP_API_FALLBACK_URL: 'https://swap.euler.finance/swap',
     DEFILLAMA_YIELDS_URL: 'https://yields.llama.fi/pools',
     BREVIS_API_URL: 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns',
@@ -18,8 +19,9 @@ export default {
     MERKL_API_BASE_URL: 'https://api.merkl.xyz/v4',
   },
   mainnet: {
-    EULER_API_URL: 'https://indexer-main.euler.finance',
+    EULER_API_URL: 'https://indexer.euler.finance',
     SWAP_API_URL: 'https://swap-dev.euler.finance',
+    PRICE_BACKEND_URL: '', // Backend price API (empty = use on-chain only)
     SWAP_API_FALLBACK_URL: 'https://swap.euler.finance/swap',
     DEFILLAMA_YIELDS_URL: 'https://yields.llama.fi/pools',
     BREVIS_API_URL: 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns',

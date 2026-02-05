@@ -1,40 +1,52 @@
-import { ethers } from 'ethers'
 import { USD_ADDRESS } from '~/entities/constants'
 import type {
   Vault,
   EarnVault,
-  PriceResult,
+  SecuritizeVault,
   VaultCollateralPrice,
 } from '~/entities/vault'
 import { nanoToValue } from '~/utils/crypto-utils'
+import {
+  fetchBackendPrice,
+  fetchBackendCollateralPrices,
+  backendPriceToBigInt,
+  type BackendPriceData,
+} from './backendClient'
+
+// Union type for all vault types that can be priced
+type AnyVault = Vault | EarnVault | SecuritizeVault
 
 const ONE_18 = 10n ** 18n
-const UOA_CACHE_TTL_MS = 2 * 60 * 1000 // 2 minutes
+
+// Note: UoA price caching is handled in entities/vault.ts (unitOfAccountPriceCache)
+// which caches during vault loading. No separate cache needed here.
+
+/**
+ * Price result with mid, ask, and bid prices.
+ * All values are in 18-decimal fixed point format.
+ */
+export type PriceResult = {
+  amountOutMid: bigint
+  amountOutAsk: bigint
+  amountOutBid: bigint
+}
 
 export type PriceSource = 'on-chain' | 'off-chain'
 
-type CachedUoAPrice = {
-  amountOutMid: bigint
-  fetchedAt: number
-}
-
-const uoaPriceCache = new Map<string, CachedUoAPrice>()
-
 /**
- * Clear stale entries from UoA cache.
- * Call periodically to prevent memory leaks.
+ * Backend fetch configuration.
+ * Pass this to price functions to enable backend price fetching.
  */
-export const clearStaleUoACache = () => {
-  const now = Date.now()
-  for (const [key, cached] of uoaPriceCache.entries()) {
-    if ((now - cached.fetchedAt) >= UOA_CACHE_TTL_MS) {
-      uoaPriceCache.delete(key)
-    }
-  }
+export type BackendConfig = {
+  /** Backend API endpoint URL. Empty string or undefined = disabled */
+  url: string | undefined
+  /** Chain ID for the request */
+  chainId?: number
 }
 
 // -------------------------------------------
 // Layer 1: Raw Oracle Prices (Unit of Account)
+// These are always on-chain - no backend option
 // -------------------------------------------
 
 /**
@@ -136,13 +148,12 @@ export const getCollateralOraclePrice = (
 }
 
 /**
- * Get the USD rate for a vault's unit of account.
- * Returns 1.0 (as 1e18) if unit of account is USD.
+ * Get the USD rate for a vault's unit of account (on-chain only, internal helper).
  *
  * @param vault - The vault to get the UoA rate for
  * @returns UoA → USD rate as bigint (18 decimals), or undefined
  */
-export const getUnitOfAccountUsdRate = (vault: Vault | null | undefined): bigint | undefined => {
+const getUnitOfAccountUsdRateOnChain = (vault: Vault | null | undefined): bigint | undefined => {
   if (!vault || !vault.unitOfAccount) {
     return undefined
   }
@@ -160,6 +171,54 @@ export const getUnitOfAccountUsdRate = (vault: Vault | null | undefined): bigint
   return vault.unitOfAccountPriceInfo.amountOutMid
 }
 
+/**
+ * Get the USD rate for a vault's unit of account.
+ * Returns 1.0 (as 1e18) if unit of account is USD.
+ *
+ * For 'off-chain' source, tries backend first then falls back to on-chain.
+ * Since UoA is a common denominator in calculations, using off-chain rates
+ * doesn't affect health factor/LTV ratios - only USD display values.
+ *
+ * @param vault - The vault to get the UoA rate for
+ * @param source - Price source: 'on-chain' (default) or 'off-chain'
+ * @param backend - Backend configuration (required for 'off-chain' source)
+ * @returns UoA → USD rate as bigint (18 decimals), or undefined
+ */
+export const getUnitOfAccountUsdRate = async (
+  vault: Vault | null | undefined,
+  source: PriceSource = 'on-chain',
+  backend?: BackendConfig,
+): Promise<bigint | undefined> => {
+  if (!vault || !vault.unitOfAccount) {
+    return undefined
+  }
+
+  // Special case: USD unit of account returns 1.0
+  if (vault.unitOfAccount.toLowerCase() === USD_ADDRESS.toLowerCase()) {
+    return ONE_18
+  }
+
+  // Try backend first if configured and source is 'off-chain'
+  if (source === 'off-chain' && backend?.url) {
+    try {
+      const backendPrice = await fetchBackendPrice(
+        vault.unitOfAccount as `0x${string}`,
+        backend.chainId,
+      )
+      if (backendPrice) {
+        const rate = backendPriceToBigInt(backendPrice.usd)
+        if (rate > 0n) return rate
+      }
+    }
+    catch {
+      // Fall through to on-chain
+    }
+  }
+
+  // On-chain fallback (or primary if source is 'on-chain')
+  return getUnitOfAccountUsdRateOnChain(vault)
+}
+
 // -------------------------------------------
 // Layer 2: USD Price Info
 // -------------------------------------------
@@ -167,21 +226,21 @@ export const getUnitOfAccountUsdRate = (vault: Vault | null | undefined): bigint
 /**
  * Determine if vault is an EarnVault (type === 'earn').
  */
-const isEarnVault = (vault: Vault | EarnVault | null | undefined): vault is EarnVault => {
+const isEarnVault = (vault: AnyVault | null | undefined): vault is EarnVault => {
   return vault != null && 'type' in vault && vault.type === 'earn'
 }
 
 /**
  * Determine if vault is a Securitize vault (type === 'securitize').
  */
-const isSecuritizeVault = (vault: Vault | EarnVault | null | undefined): boolean => {
+const isSecuritizeVault = (vault: AnyVault | null | undefined): vault is SecuritizeVault => {
   return vault != null && 'type' in vault && vault.type === 'securitize'
 }
 
 /**
  * Determine if vault is an Escrow vault (vaultCategory === 'escrow').
  */
-const isEscrowVault = (vault: Vault | EarnVault | null | undefined): boolean => {
+const isEscrowVault = (vault: AnyVault | null | undefined): boolean => {
   return vault != null && 'vaultCategory' in vault && vault.vaultCategory === 'escrow'
 }
 
@@ -189,28 +248,36 @@ const isEscrowVault = (vault: Vault | EarnVault | null | undefined): boolean => 
  * Determine if vault uses UtilsLens for pricing (escrow, securitize, or earn vaults).
  * These vaults use assetPriceInfo which is already in USD.
  */
-const usesUtilsLensPricing = (vault: Vault | EarnVault | null | undefined): boolean => {
+const usesUtilsLensPricing = (vault: AnyVault | null | undefined): boolean => {
   if (!vault) return false
   return isEarnVault(vault) || isEscrowVault(vault) || isSecuritizeVault(vault)
 }
 
 /**
- * Get asset price in USD.
- *
- * Internal routing based on vault type:
- * - EarnVault/Escrow/Securitize: Uses UtilsLens assetPriceInfo (already USD)
- * - Regular EVK vaults: Uses oracle router (liabilityPriceInfo + UoA conversion)
- *
- * @param vault - The vault to get the USD price for
- * @returns PriceResult in USD, or undefined
+ * Convert backend price data to PriceResult format.
  */
-export const getAssetUsdPrice = (vault: Vault | EarnVault | null | undefined): PriceResult | undefined => {
+const backendPriceToPriceResult = (data: BackendPriceData): PriceResult | undefined => {
+  const mid = backendPriceToBigInt(data.usd)
+  if (mid <= 0n) return undefined
+  return { amountOutMid: mid, amountOutAsk: mid, amountOutBid: mid }
+}
+
+/**
+ * Get asset price in USD using on-chain oracle + UoA conversion.
+ * UoA rate can still come from backend if source is 'off-chain'.
+ */
+const getAssetUsdPriceFromOracle = async (
+  vault: AnyVault | null | undefined,
+  source: PriceSource,
+  backend?: BackendConfig,
+): Promise<PriceResult | undefined> => {
   if (!vault) return undefined
 
   // Earn/Escrow/Securitize vaults - use UtilsLens (assetPriceInfo is already in USD)
   if (usesUtilsLensPricing(vault)) {
-    if (vault.assetPriceInfo?.amountOutMid) {
-      const mid = vault.assetPriceInfo.amountOutMid
+    const priceInfo = (vault as Vault | EarnVault).assetPriceInfo
+    if (priceInfo?.amountOutMid) {
+      const mid = priceInfo.amountOutMid
       return { amountOutMid: mid, amountOutAsk: mid, amountOutBid: mid }
     }
     return undefined
@@ -220,7 +287,8 @@ export const getAssetUsdPrice = (vault: Vault | EarnVault | null | undefined): P
   const oraclePrice = getAssetOraclePrice(vault as Vault)
   if (!oraclePrice) return undefined
 
-  const uoaRate = getUnitOfAccountUsdRate(vault as Vault)
+  // UoA rate can come from backend (common denominator, doesn't affect ratios)
+  const uoaRate = await getUnitOfAccountUsdRate(vault as Vault, source, backend)
   if (!uoaRate) return undefined
 
   return {
@@ -231,19 +299,15 @@ export const getAssetUsdPrice = (vault: Vault | EarnVault | null | undefined): P
 }
 
 /**
- * Get collateral price in USD in the context of a liability vault.
- *
- * Note: Collateral pricing ALWAYS uses the liability vault's oracle,
- * regardless of collateral vault type (even for escrow collaterals).
- *
- * @param liabilityVault - The borrow vault that defines the collateral relationship
- * @param collateralVault - The collateral vault
- * @returns PriceResult in USD, or undefined
+ * Get collateral price in USD using on-chain oracle + UoA conversion.
+ * UoA rate can still come from backend if source is 'off-chain'.
  */
-export const getCollateralUsdPrice = (
+const getCollateralUsdPriceFromOracle = async (
   liabilityVault: Vault | null | undefined,
   collateralVault: Vault | null | undefined,
-): PriceResult | undefined => {
+  source: PriceSource,
+  backend?: BackendConfig,
+): Promise<PriceResult | undefined> => {
   if (!liabilityVault || !collateralVault) return undefined
 
   // Use liability vault's oracle for collateral pricing
@@ -251,7 +315,8 @@ export const getCollateralUsdPrice = (
   if (!oraclePrice) return undefined
 
   // Convert using liability vault's UoA (the collateral price is in liability's UoA)
-  const uoaRate = getUnitOfAccountUsdRate(liabilityVault)
+  // UoA rate can come from backend (common denominator, doesn't affect ratios)
+  const uoaRate = await getUnitOfAccountUsdRate(liabilityVault, source, backend)
   if (!uoaRate) return undefined
 
   return {
@@ -259,6 +324,87 @@ export const getCollateralUsdPrice = (
     amountOutAsk: (oraclePrice.amountOutAsk * uoaRate) / ONE_18,
     amountOutBid: (oraclePrice.amountOutBid * uoaRate) / ONE_18,
   }
+}
+
+/**
+ * Get asset price in USD.
+ *
+ * @param vault - The vault to get the USD price for
+ * @param source - Price source: 'on-chain' (default) or 'off-chain' (tries backend first)
+ * @param backend - Backend configuration (required for 'off-chain' source)
+ * @returns PriceResult in USD, or undefined
+ */
+export const getAssetUsdPrice = async (
+  vault: AnyVault | null | undefined,
+  source: PriceSource = 'on-chain',
+  backend?: BackendConfig,
+): Promise<PriceResult | undefined> => {
+  if (!vault) return undefined
+
+  // Try backend first if configured and source is 'off-chain'
+  if (source === 'off-chain' && backend?.url) {
+    try {
+      const backendPrice = await fetchBackendPrice(
+        vault.asset.address as `0x${string}`,
+        backend.chainId,
+      )
+      if (backendPrice) {
+        const result = backendPriceToPriceResult(backendPrice)
+        if (result) return result
+      }
+    }
+    catch {
+      // Fall through to oracle calculation
+    }
+  }
+
+  // Oracle calculation (UoA rate can still use backend for 'off-chain' source)
+  return getAssetUsdPriceFromOracle(vault, source, backend)
+}
+
+/**
+ * Get collateral price in USD in the context of a liability vault.
+ *
+ * Note: Collateral pricing ALWAYS uses the liability vault's oracle,
+ * regardless of collateral vault type (even for escrow collaterals).
+ *
+ * For liquidation-sensitive calculations, use source='on-chain'.
+ *
+ * @param liabilityVault - The borrow vault that defines the collateral relationship
+ * @param collateralVault - The collateral vault
+ * @param source - Price source: 'on-chain' (default) or 'off-chain' (tries backend first)
+ * @param backend - Backend configuration (required for 'off-chain' source)
+ * @returns PriceResult in USD, or undefined
+ */
+export const getCollateralUsdPrice = async (
+  liabilityVault: Vault | null | undefined,
+  collateralVault: Vault | null | undefined,
+  source: PriceSource = 'on-chain',
+  backend?: BackendConfig,
+): Promise<PriceResult | undefined> => {
+  if (!liabilityVault || !collateralVault) return undefined
+
+  // Try backend first if configured and source is 'off-chain'
+  if (source === 'off-chain' && backend?.url) {
+    try {
+      const backendPrices = await fetchBackendCollateralPrices(
+        liabilityVault.address as `0x${string}`,
+        [collateralVault.asset.address as `0x${string}`],
+        backend.chainId,
+      )
+      const backendPrice = backendPrices?.get(collateralVault.asset.address.toLowerCase())
+      if (backendPrice) {
+        const result = backendPriceToPriceResult(backendPrice)
+        if (result) return result
+      }
+    }
+    catch {
+      // Fall through to oracle calculation
+    }
+  }
+
+  // Oracle calculation (UoA rate can still use backend for 'off-chain' source)
+  return getCollateralUsdPriceFromOracle(liabilityVault, collateralVault, source, backend)
 }
 
 // -------------------------------------------
@@ -270,12 +416,19 @@ export const getCollateralUsdPrice = (
  *
  * @param amount - Amount as bigint (native decimals) or number (token amount)
  * @param vault - The vault
+ * @param source - Price source: 'on-chain' (default) or 'off-chain'
+ * @param backend - Backend configuration (required for 'off-chain' source)
  * @returns USD value as number, or 0 if no price available
  */
-export const getAssetUsdValue = (amount: number | bigint, vault: Vault | EarnVault | null | undefined): number => {
+export const getAssetUsdValue = async (
+  amount: number | bigint,
+  vault: AnyVault | null | undefined,
+  source: PriceSource = 'on-chain',
+  backend?: BackendConfig,
+): Promise<number> => {
   if (!vault) return 0
 
-  const price = getAssetUsdPrice(vault)
+  const price = await getAssetUsdPrice(vault, source, backend)
   if (!price) return 0
 
   const tokenAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.decimals) : amount
@@ -289,16 +442,20 @@ export const getAssetUsdValue = (amount: number | bigint, vault: Vault | EarnVau
  * @param assetAmount - Amount in assets (NOT shares), in native token decimals
  * @param liabilityVault - The borrow vault that defines the collateral relationship
  * @param collateralVault - The collateral vault
+ * @param source - Price source: 'on-chain' (default) or 'off-chain'
+ * @param backend - Backend configuration (required for 'off-chain' source)
  * @returns USD value as number, or 0 if no price available
  */
-export const getCollateralUsdValue = (
+export const getCollateralUsdValue = async (
   assetAmount: bigint,
   liabilityVault: Vault | null | undefined,
   collateralVault: Vault | null | undefined,
-): number => {
+  source: PriceSource = 'on-chain',
+  backend?: BackendConfig,
+): Promise<number> => {
   if (!liabilityVault || !collateralVault) return 0
 
-  const price = getCollateralUsdPrice(liabilityVault, collateralVault)
+  const price = await getCollateralUsdPrice(liabilityVault, collateralVault, source, backend)
   if (!price) return 0
 
   const tokenAmount = nanoToValue(assetAmount, collateralVault.decimals)
@@ -311,13 +468,18 @@ export const getCollateralUsdValue = (
  *
  * @param amount - Amount in native token decimals (bigint) or as number
  * @param vault - The vault
+ * @param source - Price source: 'on-chain' (default) or 'off-chain'
+ * @param backend - Backend configuration (required for 'off-chain' source)
+ * @param options - Formatting options
  * @returns Object with display string, hasPrice flag, USD value, and asset info
  */
-export const formatAssetValue = (
+export const formatAssetValue = async (
   amount: number | bigint,
-  vault: Vault | EarnVault | null | undefined,
+  vault: AnyVault | null | undefined,
+  source: PriceSource = 'on-chain',
+  backend?: BackendConfig,
   options: { maxDecimals?: number; minDecimals?: number } = {},
-): { display: string; hasPrice: boolean; usdValue: number; assetAmount: number; assetSymbol: string } => {
+): Promise<{ display: string; hasPrice: boolean; usdValue: number; assetAmount: number; assetSymbol: string }> => {
   const { maxDecimals = 2, minDecimals = 2 } = options
 
   if (!vault) {
@@ -333,7 +495,7 @@ export const formatAssetValue = (
   const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.decimals) : amount
   const symbol = vault.asset.symbol
 
-  const price = getAssetUsdPrice(vault)
+  const price = await getAssetUsdPrice(vault, source, backend)
 
   if (!price) {
     const formattedAmount = actualAmount.toLocaleString('en-US', {

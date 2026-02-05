@@ -31,10 +31,26 @@ const borrowCapPercentageDisplay = computed(() => {
   return parseFloat(`${fraction / scale}.${fraction % scale}`)
 })
 
-const formatPrice = (amount: bigint) => {
-  const price = formatAssetValue(amount, vault)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
-}
+const supplyCapDisplay = ref('-')
+const borrowCapDisplay = ref('-')
+
+watchEffect(async () => {
+  if (vault.supplyCap >= MaxUint256) {
+    supplyCapDisplay.value = '∞'
+    return
+  }
+  const price = await formatAssetValue(vault.supplyCap, vault, 'off-chain')
+  supplyCapDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
+
+watchEffect(async () => {
+  if (vault.borrowCap >= MaxUint256) {
+    borrowCapDisplay.value = '∞'
+    return
+  }
+  const price = await formatAssetValue(vault.borrowCap, vault, 'off-chain')
+  borrowCapDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
 
 const load = async () => {
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
@@ -67,7 +83,7 @@ load()
       >
         <div class="flex gap-4 items-center">
           <span>
-            {{ vault.supplyCap >= MaxUint256 ? '∞' : formatPrice(vault.supplyCap) }}
+            {{ supplyCapDisplay }}
             <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress
@@ -84,7 +100,7 @@ load()
       >
         <div class="flex gap-4 items-center">
           <span>
-            {{ vault.borrowCap >= MaxUint256 ? '∞' : formatPrice(vault.borrowCap) }}
+            {{ borrowCapDisplay }}
             <span v-if="vault.borrowCap < MaxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress

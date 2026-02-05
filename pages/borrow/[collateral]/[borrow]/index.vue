@@ -170,12 +170,20 @@ const priceFixed = computed(() => {
 })
 
 // USD price per unit of collateral from liability vault's perspective (for AssetInput display)
-const collateralUnitPrice = computed(() => {
-  if (!borrowVault.value || !collateralVault.value) return undefined
-  const priceInfo = getCollateralUsdPrice(borrowVault.value, collateralVault.value as Vault)
-  if (!priceInfo) return undefined
+const collateralUnitPrice = ref<number | undefined>(undefined)
+
+watchEffect(async () => {
+  if (!borrowVault.value || !collateralVault.value) {
+    collateralUnitPrice.value = undefined
+    return
+  }
+  const priceInfo = await getCollateralUsdPrice(borrowVault.value, collateralVault.value as Vault, 'off-chain')
+  if (!priceInfo) {
+    collateralUnitPrice.value = undefined
+    return
+  }
   // amountOutMid is the price in USD (18 decimals) for 1 unit of collateral
-  return nanoToValue(priceInfo.amountOutMid, 18)
+  collateralUnitPrice.value = nanoToValue(priceInfo.amountOutMid, 18)
 })
 const collateralAmountFixed = computed(() => FixedNumber.fromValue(
   valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals),
@@ -381,12 +389,31 @@ const multiplySavingPosition = computed(() => {
 const multiplySavingBalance = computed(() => {
   return multiplySavingPosition.value?.shares || 0n
 })
+// Reactive collateral option prices
+const walletCollateralPriceUsd = ref(0)
+const savingCollateralPriceUsd = ref(0)
+
+watchEffect(async () => {
+  if (!collateralVault.value) {
+    walletCollateralPriceUsd.value = 0
+    savingCollateralPriceUsd.value = 0
+    return
+  }
+  walletCollateralPriceUsd.value = await getAssetUsdValue(balance.value, collateralVault.value, 'off-chain')
+  if (savingCollateral.value) {
+    savingCollateralPriceUsd.value = await getAssetUsdValue(savingCollateral.value.assets, collateralVault.value, 'off-chain')
+  }
+  else {
+    savingCollateralPriceUsd.value = 0
+  }
+})
+
 const collateralOptions = computed(() => {
   const options = [
     {
       type: 'wallet',
       amount: nanoToValue(balance.value, collateralVault.value?.asset.decimals),
-      price: getAssetUsdValue(balance.value, collateralVault.value),
+      price: walletCollateralPriceUsd.value,
       apy: collateralSupplyApyWithRewards.value,
     },
   ]
@@ -395,7 +422,7 @@ const collateralOptions = computed(() => {
     options.push({
       type: 'saving',
       amount: nanoToValue(savingCollateral.value.assets, collateralVault.value?.asset.decimals),
-      price: getAssetUsdValue(savingCollateral.value.assets, collateralVault.value),
+      price: savingCollateralPriceUsd.value,
       apy: collateralSupplyApyWithRewards.value,
     })
   }
@@ -552,32 +579,32 @@ const multiplySwapReady = computed(() => {
   }
   return Boolean(multiplyEffectiveQuote.value || (multiplyIsSameAsset.value && multiplyDebtAmountNano.value > 0n))
 })
-const multiplySupplyValueUsd = computed(() => {
-  if (!multiplySupplyVault.value) {
-    return null
+// Reactive multiply USD values
+const multiplySupplyValueUsd = ref<number | null>(null)
+const multiplyLongValueUsd = ref<number | null>(null)
+const multiplyBorrowValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
+  if (!multiplySupplyVault.value || !multiplySupplyAmountNano.value) {
+    multiplySupplyValueUsd.value = null
   }
-  if (!multiplySupplyAmountNano.value) {
-    return null
+  else {
+    multiplySupplyValueUsd.value = await getAssetUsdValue(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')
   }
-  return getAssetUsdValue(multiplySupplyAmountNano.value, multiplySupplyVault.value)
-})
-const multiplyLongValueUsd = computed(() => {
-  if (!multiplyLongVault.value) {
-    return null
+
+  if (!multiplyLongVault.value || !multiplySwapAmountOut.value) {
+    multiplyLongValueUsd.value = null
   }
-  if (!multiplySwapAmountOut.value) {
-    return null
+  else {
+    multiplyLongValueUsd.value = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
   }
-  return getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value)
-})
-const multiplyBorrowValueUsd = computed(() => {
-  if (!multiplyShortVault.value) {
-    return null
+
+  if (!multiplyShortVault.value || !multiplyDebtAmountNano.value) {
+    multiplyBorrowValueUsd.value = null
   }
-  if (!multiplyDebtAmountNano.value) {
-    return null
+  else {
+    multiplyBorrowValueUsd.value = await getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')
   }
-  return getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value)
 })
 const multiplyTotalSupplyUsd = computed(() => {
   if (multiplySupplyValueUsd.value === null) {
@@ -757,23 +784,30 @@ const multiplySwapSummary = computed(() => {
     to: `${formatNumber(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
   }
 })
-const multiplyPriceImpact = computed(() => {
+// Reactive multiply price impact
+const multiplyPriceImpact = ref<number | null>(null)
+
+watchEffect(async () => {
   if (isMultiplyQuoteLoading.value) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
-  const amountInUsd = getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value)
-  const amountOutUsd = getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value)
+  const amountInUsd = await getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value, 'off-chain')
+  const amountOutUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
-  return impact
+  multiplyPriceImpact.value = impact
 })
 const multiplyRoutedVia = computed(() => {
   if (isMultiplyQuoteLoading.value) {
@@ -1269,10 +1303,12 @@ const updateEstimates = useDebounceFn(async () => {
       ? Infinity
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
+    const collateralUsdValue = await getAssetUsdValue(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')
+    const borrowUsdValue = await getAssetUsdValue(+borrowAmount.value || 0, borrowVault.value!, 'off-chain')
     netAPY.value = getNetAPY(
-      getAssetUsdValue(+collateralAmount.value || 0, collateralVault.value!),
+      collateralUsdValue,
       collateralSupplyApy.value,
-      getAssetUsdValue(+borrowAmount.value || 0, borrowVault.value!),
+      borrowUsdValue,
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,

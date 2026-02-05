@@ -63,8 +63,11 @@ export const useSwapCollateralOptions = ({
     return [...unique.values()]
   })
 
-  const collateralOptions = computed<CollateralOption[]>(() => {
-    return collateralVaults.value.map((vault) => {
+  const collateralOptions = ref<CollateralOption[]>([])
+
+  watchEffect(async () => {
+    const vaults = collateralVaults.value
+    const options = await Promise.all(vaults.map(async (vault) => {
       const balance = getBalance(vault.asset.address as Address)
       const amount = nanoToValue(balance, vault.asset.decimals)
       const product = getProductByVault(vault.address)
@@ -77,13 +80,14 @@ export const useSwapCollateralOptions = ({
       return {
         type: optionType,
         amount,
-        price: getAssetUsdValue(amount, vault),
+        price: await getAssetUsdValue(amount, vault, 'off-chain'),
         apy,
         symbol: vault.asset.symbol,
         label: product.name || vault.name,
         vaultAddress: vault.address,
       }
-    })
+    }))
+    collateralOptions.value = options
   })
 
   return {

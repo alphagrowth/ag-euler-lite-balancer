@@ -228,20 +228,26 @@ const swapSummary = computed(() => {
   }
 })
 
-const priceImpact = computed(() => {
+// Price impact computed asynchronously
+const priceImpact = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!quote.value || !fromVault.value || !toVault.value) {
-    return null
+    priceImpact.value = null
+    return
   }
-  const amountInUsd = getAssetUsdValue(BigInt(quote.value.amountIn), fromVault.value)
-  const amountOutUsd = getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value)
+  const amountInUsd = await getAssetUsdValue(BigInt(quote.value.amountIn), fromVault.value, 'off-chain')
+  const amountOutUsd = await getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value, 'off-chain')
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    priceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    priceImpact.value = null
+    return
   }
-  return impact
+  priceImpact.value = impact
 })
 
 const routedVia = computed(() => {

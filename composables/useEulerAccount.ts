@@ -1,5 +1,6 @@
 import { ethers, FixedNumber } from 'ethers'
 import axios from 'axios'
+import { ref, watch, watchEffect, computed, type Ref } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { useVaultRegistry } from './useVaultRegistry'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
@@ -94,84 +95,140 @@ const hasPythOracles = (vault: Vault): boolean => {
   return feeds.length > 0
 }
 
-const totalSuppliedValue = computed(() => {
+const totalSuppliedValue = ref(0)
+
+const updateTotalSuppliedValue = async () => {
   const { getVault: registryGetVault } = useVaultRegistry()
 
   // Deposit positions (standalone vault context) — only vaults with price info
-  const depositValue = depositPositions.value
+  const depositValuePromises = depositPositions.value
     .filter(position => 'liabilityPriceInfo' in position.vault)
-    .reduce((result, position) => result + getAssetUsdValue(position.assets, position.vault as Vault), 0)
+    .map(position => getAssetUsdValue(position.assets, position.vault as Vault, 'off-chain'))
+  const depositValues = await Promise.all(depositValuePromises)
+  const depositValue = depositValues.reduce((result, val) => result + val, 0)
 
   // Borrow position collateral (liability vault context) — use borrow vault's collateral pricing with USD conversion
-  const collateralValue = borrowPositions.value.reduce((result, position) => {
+  const collateralValuePromises = borrowPositions.value.map(async (position) => {
     const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
-    if (!borrowVault) return result
-
-    return result + getCollateralUsdValue(position.supplied, borrowVault, position.collateral)
-  }, 0)
+    if (!borrowVault) return 0
+    return getCollateralUsdValue(position.supplied, borrowVault, position.collateral, 'off-chain')
+  })
+  const collateralValues = await Promise.all(collateralValuePromises)
+  const collateralValue = collateralValues.reduce((result, val) => result + val, 0)
 
   // Earn positions — use earn vault's asset price
-  const earnValue = earnPositions.value.reduce(
-    (result, position) => result + getAssetUsdValue(position.assets, position.vault),
-    0,
+  const earnValuePromises = earnPositions.value.map(position =>
+    getAssetUsdValue(position.assets, position.vault, 'off-chain'),
   )
+  const earnValues = await Promise.all(earnValuePromises)
+  const earnValue = earnValues.reduce((result, val) => result + val, 0)
 
-  return depositValue + collateralValue + earnValue
+  totalSuppliedValue.value = depositValue + collateralValue + earnValue
+}
+
+watchEffect(() => {
+  // Re-run when positions change
+  if (depositPositions.value.length || borrowPositions.value.length || earnPositions.value.length) {
+    updateTotalSuppliedValue()
+  }
+  else {
+    totalSuppliedValue.value = 0
+  }
 })
 
-const totalSuppliedValueInfo = computed(() => {
+const totalSuppliedValueInfo = ref<{ total: number; hasMissingPrices: boolean }>({ total: 0, hasMissingPrices: false })
+
+const updateTotalSuppliedValueInfo = async () => {
   const { getVault: registryGetVault } = useVaultRegistry()
   let total = 0
   let hasMissingPrices = false
 
-  depositPositions.value.forEach((position) => {
-    const price = getAssetUsdValue(position.assets, position.vault)
+  for (const position of depositPositions.value) {
+    const price = await getAssetUsdValue(position.assets, position.vault, 'off-chain')
     if (price === 0 && position.assets > 0n) {
       hasMissingPrices = true
     }
     total += price
-  })
+  }
 
-  borrowPositions.value.forEach((position) => {
+  for (const position of borrowPositions.value) {
     const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) {
       if (position.supplied > 0n) hasMissingPrices = true
-      return
+      continue
     }
 
-    const value = getCollateralUsdValue(position.supplied, borrowVault, position.collateral)
+    const value = await getCollateralUsdValue(position.supplied, borrowVault, position.collateral, 'off-chain')
     if (value === 0 && position.supplied > 0n) {
       hasMissingPrices = true
     }
     total += value
-  })
+  }
 
-  earnPositions.value.forEach((position) => {
-    const price = getAssetUsdValue(position.assets, position.vault)
+  for (const position of earnPositions.value) {
+    const price = await getAssetUsdValue(position.assets, position.vault, 'off-chain')
     if (price === 0 && position.assets > 0n) {
       hasMissingPrices = true
     }
     total += price
-  })
+  }
 
-  return { total, hasMissingPrices }
+  totalSuppliedValueInfo.value = { total, hasMissingPrices }
+}
+
+watchEffect(() => {
+  // Re-run when positions change
+  if (depositPositions.value.length || borrowPositions.value.length || earnPositions.value.length) {
+    updateTotalSuppliedValueInfo()
+  }
+  else {
+    totalSuppliedValueInfo.value = { total: 0, hasMissingPrices: false }
+  }
 })
 
-const totalBorrowedValue = computed(() => borrowPositions.value.reduce((result, pair) => result + getAssetUsdValue(pair.borrowed, pair.borrow), 0))
+const totalBorrowedValue = ref(0)
 
-const totalBorrowedValueInfo = computed(() => {
+const updateTotalBorrowedValue = async () => {
+  const promises = borrowPositions.value.map(pair =>
+    getAssetUsdValue(pair.borrowed, pair.borrow, 'off-chain'),
+  )
+  const values = await Promise.all(promises)
+  totalBorrowedValue.value = values.reduce((result, val) => result + val, 0)
+}
+
+watchEffect(() => {
+  if (borrowPositions.value.length) {
+    updateTotalBorrowedValue()
+  }
+  else {
+    totalBorrowedValue.value = 0
+  }
+})
+
+const totalBorrowedValueInfo = ref<{ total: number; hasMissingPrices: boolean }>({ total: 0, hasMissingPrices: false })
+
+const updateTotalBorrowedValueInfo = async () => {
   let total = 0
   let hasMissingPrices = false
 
-  borrowPositions.value.forEach((pair) => {
-    const price = getAssetUsdValue(pair.borrowed, pair.borrow)
+  for (const pair of borrowPositions.value) {
+    const price = await getAssetUsdValue(pair.borrowed, pair.borrow, 'off-chain')
     if (price === 0 && pair.borrowed > 0n) {
       hasMissingPrices = true
     }
     total += price
-  })
+  }
 
-  return { total, hasMissingPrices }
+  totalBorrowedValueInfo.value = { total, hasMissingPrices }
+}
+
+watchEffect(() => {
+  if (borrowPositions.value.length) {
+    updateTotalBorrowedValueInfo()
+  }
+  else {
+    totalBorrowedValueInfo.value = { total: 0, hasMissingPrices: false }
+  }
 })
 
 const updateBorrowPositions = async (
@@ -350,8 +407,8 @@ const updateBorrowPositions = async (
         const collateralPriceUoA = getCollateralOraclePrice(borrow, collateral)
         const borrowPriceUoA = getAssetOraclePrice(borrow)
 
-        // Get collateral price in USD for display
-        const collateralPriceUsd = getCollateralUsdPrice(borrow, collateral)
+        // Get collateral price in USD for display (off-chain for display purposes)
+        const collateralPriceUsd = await getCollateralUsdPrice(borrow, collateral, 'off-chain')
 
         // Guard against missing price
         if (!collateralPriceUoA || !borrowPriceUoA || !collateralPriceUsd) {

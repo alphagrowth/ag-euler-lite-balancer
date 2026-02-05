@@ -70,16 +70,29 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
-// Get collateral USD value using liability vault's price perspective
-const getCollateralValueUsdLocal = (amount: bigint) => {
+// Get collateral USD value using liability vault's price perspective (async)
+const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !collateralVault.value) return 0
-  return getCollateralUsdValue(amount, borrowVault.value, collateralVault.value as Vault)
+  return getCollateralUsdValue(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
 }
-const netAPY = computed(() => {
-  return getNetAPY(
+// Pre-computed net APY (async)
+const netAPY = ref(0)
+
+watchEffect(async () => {
+  if (!position.value || !borrowVault.value || !collateralVault.value) {
+    netAPY.value = 0
+    return
+  }
+
+  const [collateralUsd, borrowedUsd] = await Promise.all([
     getCollateralValueUsdLocal(collateralAssets.value),
+    getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
+  ])
+
+  netAPY.value = getNetAPY(
+    collateralUsd,
     collateralSupplyApy.value,
-    getAssetUsdValue(position.value?.borrowed ?? 0n, borrowVault.value!),
+    borrowedUsd,
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
@@ -283,10 +296,14 @@ const updateEstimates = useDebounceFn(async () => {
     if (balanceFixed.value.lt(amountFixed.value)) {
       throw new Error('Not enough balance')
     }
-    estimateNetAPY.value = getNetAPY(
+    const [collateralUsd, borrowedUsd] = await Promise.all([
       getCollateralValueUsdLocal(collateralAssets.value + valueToNano(amount.value, collateralVault.value.decimals)),
+      getAssetUsdValue(position.value!.borrowed || 0n, borrowVault.value!, 'off-chain'),
+    ])
+    estimateNetAPY.value = getNetAPY(
+      collateralUsd,
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
-      getAssetUsdValue(position.value!.borrowed || 0n, borrowVault.value!),
+      borrowedUsd,
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,

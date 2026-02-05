@@ -23,10 +23,28 @@ const selectedCollateral = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
 
+// Cache for USD values used in sorting (keyed by vault address)
+const vaultUsdValues = ref<Map<string, number>>(new Map())
+
 const borrowableVaults = computed(() => {
   return list.value.filter(vault =>
     borrowList.value.some(pair => pair.borrow.address === vault.address),
   )
+})
+
+// Fetch USD values for all borrowable vaults
+watchEffect(async () => {
+  const vaults = borrowableVaults.value
+  if (!vaults.length) return
+
+  const newValues = new Map<string, number>()
+  await Promise.all(
+    vaults.map(async (vault) => {
+      const usdValue = await getAssetUsdValue(vault.totalAssets, vault, 'off-chain')
+      newValues.set(vault.address, usdValue)
+    }),
+  )
+  vaultUsdValues.value = newValues
 })
 
 const marketOptions = computed(() => {
@@ -57,7 +75,9 @@ const assetOptions = computed(() => {
 
 const topOptions = computed(() => {
   const sortedBySupply = [...borrowableVaults.value].sort((a: Vault, b: Vault) => {
-    return getAssetUsdValue(b.totalAssets, b) - getAssetUsdValue(a.totalAssets, a)
+    const aValue = vaultUsdValues.value.get(a.address) ?? 0
+    const bValue = vaultUsdValues.value.get(b.address) ?? 0
+    return bValue - aValue
   })
 
   return sortedBySupply
@@ -82,7 +102,9 @@ const sortedList = computed(() => {
   switch (sortBy.value) {
     case 'Total Supply':
       return [...filteredList.value].sort((a: Vault, b: Vault) => {
-        return getAssetUsdValue(b.totalAssets, b) - getAssetUsdValue(a.totalAssets, a)
+        const aValue = vaultUsdValues.value.get(a.address) ?? 0
+        const bValue = vaultUsdValues.value.get(b.address) ?? 0
+        return bValue - aValue
       })
     case 'Supply APY':
       return [...filteredList.value].sort((a: Vault, b: Vault) => {

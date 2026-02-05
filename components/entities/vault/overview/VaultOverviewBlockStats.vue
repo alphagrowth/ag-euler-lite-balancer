@@ -19,10 +19,24 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   vault.asset.symbol,
 ) - (rewardBorrowAPY.value || 0))
 
-const formatPrice = (amount: bigint) => {
-  const price = formatAssetValue(amount, vault)
-  return price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
-}
+const totalSupplyDisplay = ref('-')
+const totalBorrowedDisplay = ref('-')
+const availableLiquidityDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.supply, vault, 'off-chain')
+  totalSupplyDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.borrow, vault, 'off-chain')
+  totalBorrowedDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.supply - vault.borrow, vault, 'off-chain')
+  availableLiquidityDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
 </script>
 
 <template>
@@ -33,19 +47,19 @@ const formatPrice = (amount: bigint) => {
     <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue
         label="Total supply"
-        :value="formatPrice(vault.supply)"
+        :value="totalSupplyDisplay"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
         v-if="isBorrowable"
         label="Total borrowed"
-        :value="formatPrice(vault.borrow)"
+        :value="totalBorrowedDisplay"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
         v-if="isBorrowable"
         label="Available liquidity"
-        :value="formatPrice(vault.supply - vault.borrow)"
+        :value="availableLiquidityDisplay"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue

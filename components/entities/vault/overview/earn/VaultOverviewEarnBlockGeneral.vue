@@ -10,9 +10,11 @@ const { isEarnVaultOwnerVerified } = useVaults()
 const entities = useEulerEntitiesOfEarnVault(vault)
 const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
 
-const priceDisplay = computed(() => {
-  const price = formatAssetValue(1, vault)
-  return price.hasPrice ? formatUsdValue(price.usdValue) : price.display
+const priceDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(1, vault, 'off-chain')
+  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : price.display
 })
 
 const feeDisplay = computed(() => {
