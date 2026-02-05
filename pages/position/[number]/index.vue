@@ -286,7 +286,7 @@ const isPrimaryCollateral = (vault: Vault | SecuritizeVault) => {
   return ethers.getAddress(vault.address) === primaryCollateralAddress.value
 }
 
-// Pre-computed borrow oracle price for display (async)
+// Pre-computed borrow oracle price for display (always on-chain)
 const borrowOraclePrice = ref(0)
 const hasBorrowPrice = ref(false)
 
@@ -297,7 +297,8 @@ watchEffect(async () => {
     return
   }
 
-  const priceInfo = await getAssetUsdPrice(borrowVault.value, 'off-chain')
+  // Oracle price MUST always use on-chain source
+  const priceInfo = await getAssetUsdPrice(borrowVault.value, 'on-chain')
   if (priceInfo) {
     borrowOraclePrice.value = nanoToValue(priceInfo.amountOutMid, 18)
     hasBorrowPrice.value = true

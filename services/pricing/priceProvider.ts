@@ -18,6 +18,7 @@ type AnyVault = Vault | EarnVault | SecuritizeVault
 
 export const ONE_18 = 10n ** 18n
 
+
 // Note: UoA price caching is handled in entities/vault.ts (unitOfAccountPriceCache)
 // which caches during vault loading. No separate cache needed here.
 
@@ -122,6 +123,7 @@ export const getCollateralOraclePrice = (
   if (!liabilityVault || !collateralVault) {
     return undefined
   }
+
   const sharePrice = getCollateralShareOraclePrice(liabilityVault, collateralVault)
 
   if (!sharePrice) {
