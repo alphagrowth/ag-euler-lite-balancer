@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getEarnVaultPrice } from '~/entities/vault'
 import type { EarnVault } from '~/entities/vault'
@@ -11,11 +12,18 @@ defineOptions({
 
 const { isEarnUpdating: isLoading } = useVaults()
 const { getEarnVaults } = useVaultRegistry()
+const { chainId } = useEulerAddresses()
 const list = computed(() => getEarnVaults().filter(v => v.verified))
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
+
+watch(chainId, (newChainId, oldChainId) => {
+  if (oldChainId !== undefined && newChainId !== oldChainId) {
+    selectedCollateral.value = []
+  }
+})
 
 const assetOptions = computed(() => {
   return list.value
@@ -105,6 +113,7 @@ load()
           title="Sorting type"
         />
         <UiSelect
+          :key="`collateral-${chainId}`"
           v-model="selectedCollateral"
           :options="assetOptions"
           placeholder="Choose asset"

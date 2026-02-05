@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
+import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
@@ -19,6 +20,7 @@ defineOptions({
 })
 
 const { borrowList, isUpdating, isEscrowUpdating } = useVaults()
+const { chainId } = useEulerAddresses()
 
 const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value)
 const { products, entities } = useEulerLabels()
@@ -27,6 +29,14 @@ const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Liquidity')
+
+watch(chainId, (newChainId, oldChainId) => {
+  if (oldChainId !== undefined && newChainId !== oldChainId) {
+    selectedCollateral.value = []
+    selectedDebt.value = []
+    selectedMarkets.value = []
+  }
+})
 
 const collateralAssetOptions = computed(() => {
   return borrowList.value
@@ -128,6 +138,7 @@ const sortedBorrowList = computed(() => {
           title="Sorting type"
         />
         <UiSelect
+          :key="`markets-${chainId}`"
           v-model="selectedMarkets"
           class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
           :options="marketOptions"
@@ -137,6 +148,7 @@ const sortedBorrowList = computed(() => {
           icon="filter"
         />
         <UiSelect
+          :key="`collateral-${chainId}`"
           v-model="selectedCollateral"
           class="flex-1 min-w-0 mobile:basis-[calc(50%-4px)]"
           :options="collateralAssetOptions"
@@ -146,6 +158,7 @@ const sortedBorrowList = computed(() => {
           show-selected-options
         />
         <UiSelect
+          :key="`debt-${chainId}`"
           v-model="selectedDebt"
           class="flex-1 min-w-0 mobile:basis-[calc(50%-4px)]"
           :options="debtAssetOptions"

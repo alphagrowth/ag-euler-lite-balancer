@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
@@ -12,6 +13,7 @@ defineOptions({
 
 const { borrowList, isUpdating } = useVaults()
 const { getVerifiedEvkVaults } = useVaultRegistry()
+const { chainId } = useEulerAddresses()
 const list = computed(() => getVerifiedEvkVaults())
 
 const isLoading = computed(() => isUpdating.value)
@@ -21,6 +23,13 @@ const route = useRoute()
 const selectedCollateral = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
+
+watch(chainId, (newChainId, oldChainId) => {
+  if (oldChainId !== undefined && newChainId !== oldChainId) {
+    selectedCollateral.value = []
+    selectedMarkets.value = []
+  }
+})
 
 const borrowableVaults = computed(() => {
   return list.value.filter(vault =>
@@ -129,6 +138,7 @@ load()
           title="Sorting type"
         />
         <UiSelect
+          :key="`markets-${chainId}`"
           v-model="selectedMarkets"
           :options="marketOptions"
           placeholder="Choose market"
@@ -137,6 +147,7 @@ load()
           icon="filter"
         />
         <UiSelect
+          :key="`collateral-${chainId}`"
           v-model="selectedCollateral"
           :options="assetOptions"
           placeholder="Choose asset"

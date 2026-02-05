@@ -672,6 +672,13 @@ export const useEulerAccount = () => {
     updatePositions()
   })
 
+  // Refresh positions when wallet address changes
+  watch(portfolioAddress, (newAddress, oldAddress) => {
+    if (newAddress !== oldAddress && isBalancesLoaded.value && isEulerLensAddressesReady.value) {
+      updatePositions()
+    }
+  })
+
   /**
    * Find a borrow position by its subaccount index.
    * The subaccount index is derived from: ownerAddress XOR subAccountAddress
