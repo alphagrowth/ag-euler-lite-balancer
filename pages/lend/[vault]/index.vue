@@ -6,6 +6,7 @@ import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerMod
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { computeAPYs, getCurrentLiquidationLTV, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
+import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -157,7 +158,14 @@ else {
   }
 }
 
-// Check if vault has Pyth price failure and needs refresh via simulation
+// Check if vault uses Pyth oracles (requires fresh prices)
+const hasPythOracles = (v: Vault | undefined): boolean => {
+  if (!v) return false
+  const feeds = collectPythFeedIds(v.oracleDetailedInfo)
+  return feeds.length > 0
+}
+
+// Check if vault has price failure
 const hasPriceFailure = (v: Vault | undefined): boolean => {
   if (!v) return false
   return (
@@ -167,8 +175,14 @@ const hasPriceFailure = (v: Vault | undefined): boolean => {
   )
 }
 
-// Refresh EVK vault if it has Pyth price failure (fetchVault handles Pyth simulation internally)
-if (evkVault.value && hasPriceFailure(evkVault.value)) {
+// Check if vault needs refresh (Pyth detected OR price failure)
+const needsRefresh = (v: Vault | undefined): boolean => {
+  return hasPythOracles(v) || hasPriceFailure(v)
+}
+
+// Refresh EVK vault if it uses Pyth oracles or has price failure
+// Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
+if (evkVault.value && needsRefresh(evkVault.value)) {
   const refreshedVault = await updateVault(vaultAddress)
   evkVault.value = refreshedVault
 }

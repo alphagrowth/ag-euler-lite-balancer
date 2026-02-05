@@ -7,6 +7,7 @@ import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerM
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
+import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, getCollateralUsdPrice } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -1288,6 +1289,13 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 1000)
 
+// Check if vault uses Pyth oracles (requires fresh prices)
+const hasPythOracles = (vault: Vault | undefined): boolean => {
+  if (!vault) return false
+  const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+  return feeds.length > 0
+}
+
 // Check if borrow vault has a price failure (liabilityPriceInfo missing/zero)
 const hasBorrowPriceFailure = (vault: Vault | undefined): boolean => {
   if (!vault) return false
@@ -1298,6 +1306,11 @@ const hasBorrowPriceFailure = (vault: Vault | undefined): boolean => {
   )
 }
 
+// Check if vault needs refresh (Pyth detected OR price failure)
+const needsRefresh = (vault: Vault | undefined): boolean => {
+  return hasPythOracles(vault) || hasBorrowPriceFailure(vault)
+}
+
 // Track vaults that have been refreshed to avoid infinite retry loops
 const refreshedVaultAddresses = new Set<string>()
 
@@ -1306,11 +1319,11 @@ watch(pair, async (val) => {
     return
   }
 
-  // Refresh borrow vault if it has a price failure (only once per vault)
-  // fetchVault handles Pyth simulation internally when needed
+  // Refresh borrow vault if it uses Pyth oracles or has a price failure (only once per vault)
+  // Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
   const borrowAddr = val.borrow.address.toLowerCase()
 
-  if (hasBorrowPriceFailure(val.borrow) && !refreshedVaultAddresses.has(borrowAddr)) {
+  if (needsRefresh(val.borrow) && !refreshedVaultAddresses.has(borrowAddr)) {
     refreshedVaultAddresses.add(borrowAddr)
     const refreshedBorrow = await updateVault(val.borrow.address)
     pair.value = {
@@ -1320,12 +1333,14 @@ watch(pair, async (val) => {
     val = pair.value
   }
 
-  // Also refresh collateral vault if it has a price failure (only for regular Vaults, not SecuritizeVault)
+  // Also refresh collateral vault if it uses Pyth oracles or has a price failure (only for regular Vaults, not SecuritizeVault)
+  // Note: Collateral prices in borrow context come from borrow.collateralPrices[], but collateral vault
+  // may have its own Pyth oracles for its own liabilityPriceInfo (e.g., when viewed directly on lend page)
   if ('liabilityPriceInfo' in val.collateral) {
     const collateralVaultTyped = val.collateral as Vault
     const collateralAddr = collateralVaultTyped.address.toLowerCase()
 
-    if (hasBorrowPriceFailure(collateralVaultTyped) && !refreshedVaultAddresses.has(collateralAddr)) {
+    if (needsRefresh(collateralVaultTyped) && !refreshedVaultAddresses.has(collateralAddr)) {
       refreshedVaultAddresses.add(collateralAddr)
       const refreshedCollateral = await updateVault(collateralVaultTyped.address)
       pair.value = {

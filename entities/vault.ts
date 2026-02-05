@@ -583,17 +583,13 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
   const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
   let vault = processRawVaultData(raw, vaultAddress, verifiedVaultAddresses.value)
 
-  // Check if vault uses Pyth and has a price query failure
+  // Check if vault uses Pyth oracles
   const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
 
-  const hasPythPriceFailure = feeds.length > 0 && (
-    vault.liabilityPriceInfo?.queryFailure ||
-    !vault.liabilityPriceInfo?.amountOutMid ||
-    vault.liabilityPriceInfo.amountOutMid === 0n
-  )
-
-  // If Pyth vault with price failure, re-query with simulation
-  if (hasPythPriceFailure && eulerCoreAddresses.value?.evc && PYTH_HERMES_URL) {
+  // ALWAYS re-query with simulation if Pyth detected
+  // Pyth prices are only valid for ~2 minutes after on-chain update,
+  // so we need fresh prices even if current query succeeded
+  if (feeds.length > 0 && eulerCoreAddresses.value?.evc && PYTH_HERMES_URL) {
     const vaultWithFreshPrice = await fetchVaultWithPythSimulation(
       vaultAddress,
       feeds,

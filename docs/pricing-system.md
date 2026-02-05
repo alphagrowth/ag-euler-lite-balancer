@@ -160,12 +160,10 @@ fetchVault(vaultAddress) called
         ┌───────┴───────┐
         │ Pyth detected? │
         └───────┬───────┘
-           Yes  │  No → Return vault as-is
-                ↓
-    Check for price failure
-    (queryFailure or missing amountOutMid)
-                ↓
-           Yes  │  No → Return vault as-is
+           No   │   → Return vault as-is
+                ↓ Yes
+    ALWAYS re-query with simulation
+    (Pyth prices only valid ~2 min)
                 ↓
     fetchVaultWithPythSimulation():
     1. Fetch fresh prices from Hermes API
