@@ -30,7 +30,7 @@ const priceCache = new Map<string, CachedPrice>()
 // -------------------------------------------
 
 const PYTH_BATCH_DELAY_MS = 50 // Wait 50ms to collect requests before batching
-const PYTH_UPDATE_CACHE_TTL_MS = 10 * 1000 // Cache Pyth update data for 10 seconds
+const PYTH_UPDATE_CACHE_TTL_MS = 15 * 1000 // Cache Pyth update data for 15 seconds
 
 type PythPendingRequest = {
   feedIds: Hex[]

@@ -53,7 +53,7 @@ export const isBackendConfigured = (): boolean => {
 // Cache
 // -------------------------------------------
 
-const CACHE_TTL_MS = 30 * 1000 // 30 seconds
+const CACHE_TTL_MS = 60 * 1000 // 1 minute
 
 type CachedPrice = {
   data: BackendPriceData

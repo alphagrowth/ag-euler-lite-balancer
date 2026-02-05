@@ -19,6 +19,7 @@ import {
 import { executeLensWithPythSimulation } from '~/utils/pyth'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { batchLensCalls } from '~/utils/multicall'
 
 // Securitize factory address - vaults created by this factory are treated as securitize vaults
 export const SECURITIZE_FACTORY_ADDRESS = '0x5f51d980f15fe6075ae30394dc35de57a4f76cbb'
@@ -892,6 +893,7 @@ export const fetchVaults = async function* (
     eulerVaultLensABI,
     provider,
   )
+  const vaultLensInterface = new ethers.Interface(eulerVaultLensABI)
   const utilsLensContract = eulerLensAddresses.value.utilsLens
     ? new ethers.Contract(
         eulerLensAddresses.value.utilsLens,
@@ -909,77 +911,143 @@ export const fetchVaults = async function* (
   const batchCount = Math.ceil(verifiedVaults.length / batchSize)
   const parallelRounds = Math.ceil(batchCount / parallelBatches)
 
-  // Helper to fetch a single batch
-  const fetchBatch = async (batchAddresses: string[]): Promise<Vault[]> => {
-    const batchPromises = batchAddresses.map(async (vaultAddress) => {
-      try {
-        const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
-        const data = raw.toObject({ deep: true })
+  // Helper to process raw vault data into Vault object
+  const processVaultResult = (raw: ethers.Result, vaultAddress: string): Vault | undefined => {
+    try {
+      // The result is a tuple, convert to object
+      const data = raw.toObject({ deep: true })
 
-        if (!data.irmInfo?.interestRateInfo?._) {
-          data.irmInfo.interestRateInfo._ = {
-            borrowAPY: 0n,
-            borrowSPY: 0n,
-            borrows: 0n,
-            cash: 0n,
-            supplyAPY: 0n,
+      if (!data.irmInfo?.interestRateInfo?._) {
+        data.irmInfo.interestRateInfo._ = {
+          borrowAPY: 0n,
+          borrowSPY: 0n,
+          borrows: 0n,
+          cash: 0n,
+          supplyAPY: 0n,
+        }
+      }
+
+      return {
+        verified: true,
+        address: data.vault,
+        name: data.vaultName,
+        supply: data.totalAssets,
+        borrow: data.totalBorrowed,
+        symbol: data.vaultSymbol,
+        decimals: data.vaultDecimals,
+        supplyCap: data.supplyCap,
+        borrowCap: data.borrowCap,
+        totalCash: data.totalCash,
+        totalAssets: data.totalAssets,
+        totalShares: data.totalShares,
+        interestFee: data.interestFee,
+        configFlags: data.configFlags,
+        oracle: data.oracle,
+        collateralLTVs: raw.collateralLTVInfo
+          .toArray()
+          .map((o: { toObject: () => void }) => o.toObject()),
+        collateralPrices: raw.collateralPriceInfo
+          .toArray()
+          .map((o: { toObject: () => void }) => o.toObject()),
+        liabilityPriceInfo: data.liabilityPriceInfo,
+        maxLiquidationDiscount: data.maxLiquidationDiscount,
+        interestRateInfo: data.irmInfo.interestRateInfo._,
+        asset: {
+          address: data.asset,
+          name: data.assetName,
+          symbol: data.assetSymbol,
+          decimals: data.assetDecimals,
+        },
+        oracleDetailedInfo: data.oracleInfo,
+        backupAssetOracleInfo: data.backupAssetOracleInfo,
+        dToken: data.dToken,
+        governorAdmin: data.governorAdmin,
+        governorFeeReceiver: data.governorFeeReceiver,
+        unitOfAccount: data.unitOfAccount,
+        unitOfAccountName: data.unitOfAccountName,
+        unitOfAccountSymbol: data.unitOfAccountSymbol,
+        unitOfAccountDecimals: data.unitOfAccountDecimals,
+        interestRateModelAddress: data.interestRateModel,
+        hookTarget: data.hookTarget,
+        irmInfo: data.irmInfo
+          ? { interestRateModelInfo: data.irmInfo.interestRateModelInfo }
+          : undefined,
+      } as Vault
+    }
+    catch (e) {
+      console.error(`Error processing vault ${vaultAddress}:`, e)
+      return undefined
+    }
+  }
+
+  // Helper to fetch vault individually (used as fallback)
+  const fetchVaultIndividually = async (vaultAddress: string): Promise<Vault | undefined> => {
+    try {
+      const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
+      return processVaultResult(raw, vaultAddress)
+    }
+    catch (e) {
+      console.error(`Error fetching vault ${vaultAddress}:`, e)
+      return undefined
+    }
+  }
+
+  // Helper to fetch a batch of vaults using EVC batchSimulation
+  const fetchBatch = async (batchAddresses: string[]): Promise<Vault[]> => {
+    // Use EVC batchSimulation if available for batched RPC calls
+    if (eulerCoreAddresses.value?.evc) {
+      const calls = batchAddresses.map(vaultAddress => ({
+        functionName: 'getVaultInfoFull',
+        args: [vaultAddress],
+      }))
+
+      const results = await batchLensCalls<ethers.Result>(
+        eulerCoreAddresses.value.evc,
+        eulerLensAddresses.value!.vaultLens,
+        vaultLensInterface,
+        calls,
+        provider,
+      )
+
+      const vaults: Vault[] = []
+      const failedAddresses: string[] = []
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i]
+        if (result.success && result.result) {
+          // batchLensCalls returns decoded result, extract the first element
+          const raw = result.result[0] as ethers.Result
+          const vault = processVaultResult(raw, batchAddresses[i])
+          if (vault) {
+            vaults.push(vault)
+          }
+          else {
+            failedAddresses.push(batchAddresses[i])
           }
         }
-
-        return {
-          verified: true,
-          address: data.vault,
-          name: data.vaultName,
-          supply: data.totalAssets,
-          borrow: data.totalBorrowed,
-          symbol: data.vaultSymbol,
-          decimals: data.vaultDecimals,
-          supplyCap: data.supplyCap,
-          borrowCap: data.borrowCap,
-          totalCash: data.totalCash,
-          totalAssets: data.totalAssets,
-          totalShares: data.totalShares,
-          interestFee: data.interestFee,
-          configFlags: data.configFlags,
-          oracle: data.oracle,
-          collateralLTVs: raw.collateralLTVInfo
-            .toArray()
-            .map((o: { toObject: () => void }) => o.toObject()),
-          collateralPrices: raw.collateralPriceInfo
-            .toArray()
-            .map((o: { toObject: () => void }) => o.toObject()),
-          liabilityPriceInfo: data.liabilityPriceInfo,
-          maxLiquidationDiscount: data.maxLiquidationDiscount,
-          interestRateInfo: data.irmInfo.interestRateInfo._,
-          asset: {
-            address: data.asset,
-            name: data.assetName,
-            symbol: data.assetSymbol,
-            decimals: data.assetDecimals,
-          },
-          oracleDetailedInfo: data.oracleInfo,
-          backupAssetOracleInfo: data.backupAssetOracleInfo,
-          dToken: data.dToken,
-          governorAdmin: data.governorAdmin,
-          governorFeeReceiver: data.governorFeeReceiver,
-          unitOfAccount: data.unitOfAccount,
-          unitOfAccountName: data.unitOfAccountName,
-          unitOfAccountSymbol: data.unitOfAccountSymbol,
-          unitOfAccountDecimals: data.unitOfAccountDecimals,
-          interestRateModelAddress: data.interestRateModel,
-          hookTarget: data.hookTarget,
-          irmInfo: data.irmInfo
-            ? { interestRateModelInfo: data.irmInfo.interestRateModelInfo }
-            : undefined,
-        } as Vault
+        else {
+          failedAddresses.push(batchAddresses[i])
+        }
       }
-      catch (e) {
-        console.error(`Error fetching vault ${vaultAddress}:`, e)
-        return undefined
-      }
-    })
 
-    const res = await Promise.all(batchPromises)
+      // Retry failed items individually
+      if (failedAddresses.length > 0) {
+        console.warn(`[fetchBatch] Retrying ${failedAddresses.length} failed vaults individually`)
+        const retryResults = await Promise.all(
+          failedAddresses.map(addr => fetchVaultIndividually(addr)),
+        )
+        for (const vault of retryResults) {
+          if (vault) {
+            vaults.push(vault)
+          }
+        }
+      }
+
+      return vaults
+    }
+
+    // Fallback to individual calls if EVC not available
+    const res = await Promise.all(batchAddresses.map(addr => fetchVaultIndividually(addr)))
     return res.filter(o => !!o) as Vault[]
   }
 

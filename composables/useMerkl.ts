@@ -31,7 +31,7 @@ const isRewardsLoading = ref(true)
 let interval: NodeJS.Timeout | null = null
 
 // Cache state for Merkl data
-const MERKL_CACHE_TTL_MS = 30 * 1000 // 30 seconds cache
+const MERKL_CACHE_TTL_MS = 60 * 1000 // 1 minute cache
 const cacheState = {
   tokens: { chainId: 0, timestamp: 0 },
   opportunities: { chainId: 0, timestamp: 0 },
