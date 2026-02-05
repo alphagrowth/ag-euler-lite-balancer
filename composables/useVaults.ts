@@ -344,9 +344,14 @@ const getEarnVault = async (address: string): Promise<EarnVault> => {
   return vault
 }
 const updateVault = async (vaultAddress: string): Promise<Vault> => {
-  const { set: registrySet } = useVaultRegistry()
+  const { set: registrySet, isKnownEscrowAddress } = useVaultRegistry()
   const address = ethers.getAddress(vaultAddress)
-  const vault = await fetchVault(address)
+
+  // Use appropriate fetch function to preserve escrow status
+  const vault = isKnownEscrowAddress(address)
+    ? await fetchEscrowVault(address)
+    : await fetchVault(address)
+
   registrySet(address, vault, 'evk')
   return vault
 }
