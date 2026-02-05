@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
 import { type Vault, type VaultAsset, type CollateralOption, type EarnVault } from '~/entities/vault'
-import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { getAssetUsdPrice } from '~/services/pricing/priceProvider'
+import { nanoToValue } from '~/utils/crypto-utils'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -27,7 +28,7 @@ const isFocused = ref(false)
 
 const selectedIdx = ref(0)
 const friendlyBalance = computed(() => nanoToValue(props.balance ?? 0n, props.asset?.decimals || 18))
-const price = ref(0)
+const price = ref<number | null>(null)
 
 watchEffect(async () => {
   // Use priceOverride if provided (for securitize vaults etc.)
@@ -37,19 +38,23 @@ watchEffect(async () => {
   }
 
   if (!props.vault) {
-    price.value = 0
+    price.value = null
     return
   }
 
-  if ('type' in props.vault && props.vault.type === 'earn') {
-    price.value = await getAssetUsdValue(+model.value || 0, props.vault, 'off-chain')
+  // Get price info to check if price is actually available
+  const priceInfo = await getAssetUsdPrice(props.vault, 'off-chain')
+  if (!priceInfo) {
+    price.value = null
+    return
   }
-  else {
-    price.value = await getAssetUsdValue(+model.value || 0, props.vault as Vault, 'off-chain')
-  }
+
+  const tokenAmount = +model.value || 0
+  const usdPrice = nanoToValue(priceInfo.amountOutMid, 18)
+  price.value = tokenAmount * usdPrice
 })
 
-const hasPrice = computed(() => props.vault !== undefined || props.priceOverride !== undefined)
+const hasPrice = computed(() => price.value !== null)
 const setMax = () => {
   model.value = ethers.formatUnits(props.balance ?? 0n, Number(props.asset.decimals))
   emits('input')
@@ -155,7 +160,7 @@ const openChooseCollateralModal = () => {
       :class="hasPrice ? 'justify-between' : 'justify-end'"
     >
       <p
-        v-if="hasPrice"
+        v-if="hasPrice && price !== null"
         class="text-euler-dark-800"
       >
         <template v-if="price > 10 ** 18">
