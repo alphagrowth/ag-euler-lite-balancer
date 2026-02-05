@@ -39,9 +39,9 @@ const price = computed(() => {
   const borrowPrice = getAssetOraclePrice(pair.borrow)
 
   const ask = collateralPrice?.amountOutAsk || collateralPrice?.amountOutMid || 0n
-  const bid = borrowPrice?.amountOutBid || 1n
+  const bid = borrowPrice?.amountOutBid || borrowPrice?.amountOutMid || 0n
 
-  if (!ask || !bid) return 0
+  if (!ask || !bid || bid === 0n) return null
   return Number(ask) / Number(bid)
 })
 
@@ -75,9 +75,14 @@ const onBorrowInfoIconClick = () => {
       <VaultOverviewLabelValue
         label="Price"
       >
-        {{ formatSignificant(price, 4) }} <span class="text-euler-dark-900">
-          {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
-        </span>
+        <template v-if="price !== null">
+          {{ formatSignificant(price, 4) }} <span class="text-euler-dark-900">
+            {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
+          </span>
+        </template>
+        <template v-else>
+          <span class="text-euler-dark-900">-</span>
+        </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Supply APY"

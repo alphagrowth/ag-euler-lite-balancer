@@ -1342,9 +1342,28 @@ const hasBorrowPriceFailure = (vault: Vault | undefined): boolean => {
   )
 }
 
+// Check if borrow vault has a collateral price failure for the given collateral
+const hasCollateralPriceFailure = (borrowVault: Vault | undefined, collateralAddress: string | undefined): boolean => {
+  if (!borrowVault || !collateralAddress) return false
+  const collateralPrice = borrowVault.collateralPrices.find(
+    p => p.asset.toLowerCase() === collateralAddress.toLowerCase(),
+  )
+  if (!collateralPrice) return true // No price entry = failure
+  return (
+    collateralPrice.queryFailure ||
+    !collateralPrice.amountOutMid ||
+    collateralPrice.amountOutMid === 0n
+  )
+}
+
 // Check if vault needs refresh (Pyth detected OR price failure)
 const needsRefresh = (vault: Vault | undefined): boolean => {
   return hasPythOracles(vault) || hasBorrowPriceFailure(vault)
+}
+
+// Check if borrow vault needs refresh due to collateral price failure
+const needsRefreshForCollateral = (borrowVault: Vault | undefined, collateralAddress: string | undefined): boolean => {
+  return hasPythOracles(borrowVault) || hasCollateralPriceFailure(borrowVault, collateralAddress)
 }
 
 // Track vaults that have been refreshed to avoid infinite retry loops
@@ -1355,11 +1374,15 @@ watch(pair, async (val) => {
     return
   }
 
-  // Refresh borrow vault if it uses Pyth oracles or has a price failure (only once per vault)
+  // Refresh borrow vault if it uses Pyth oracles, has a price failure, or has collateral price failure
   // Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
+  // Collateral prices come from borrow.collateralPrices[], so refresh borrow vault if those fail
   const borrowAddr = val.borrow.address.toLowerCase()
+  const collateralAddr = val.collateral.address
 
-  if (needsRefresh(val.borrow) && !refreshedVaultAddresses.has(borrowAddr)) {
+  const borrowNeedsRefresh = needsRefresh(val.borrow) || needsRefreshForCollateral(val.borrow, collateralAddr)
+
+  if (borrowNeedsRefresh && !refreshedVaultAddresses.has(borrowAddr)) {
     refreshedVaultAddresses.add(borrowAddr)
     const refreshedBorrow = await updateVault(val.borrow.address)
     pair.value = {

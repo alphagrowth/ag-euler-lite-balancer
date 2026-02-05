@@ -42,7 +42,7 @@ const price = computed(() => {
   const borrowPrice = getAssetOraclePrice(pair.borrow)
 
   if (!collateralPrice || !borrowPrice || borrowPrice.amountOutMid === 0n) {
-    return 0
+    return null
   }
 
   return nanoToValue(collateralPrice.amountOutMid, 18) / nanoToValue(borrowPrice.amountOutMid, 18)
@@ -78,9 +78,14 @@ const onBorrowInfoIconClick = () => {
       <VaultOverviewLabelValue
         label="Price"
       >
-        {{ formatSignificant(price, 4) }} <span class="text-content-tertiary">
-          {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
-        </span>
+        <template v-if="price !== null">
+          {{ formatSignificant(price, 4) }} <span class="text-content-tertiary">
+            {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
+          </span>
+        </template>
+        <template v-else>
+          <span class="text-content-tertiary">-</span>
+        </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Supply APY"

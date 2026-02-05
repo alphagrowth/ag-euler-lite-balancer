@@ -119,7 +119,9 @@ export const getCollateralOraclePrice = (
   liabilityVault: Vault | null | undefined,
   collateralVault: Vault | null | undefined,
 ): PriceResult | undefined => {
-  if (!liabilityVault || !collateralVault) return undefined
+  if (!liabilityVault || !collateralVault) {
+    return undefined
+  }
   const sharePrice = getCollateralShareOraclePrice(liabilityVault, collateralVault)
 
   if (!sharePrice) {
@@ -128,7 +130,17 @@ export const getCollateralOraclePrice = (
 
   const { totalAssets, totalShares } = collateralVault
 
+  // For empty vaults (totalAssets = 0 and totalShares = 0), ERC-4626 standard
+  // defines 1:1 ratio between shares and assets. Use share price directly.
+  if (totalAssets === 0n && totalShares === 0n) {
+    const mid = sharePrice.amountOutMid
+    const ask = sharePrice.amountOutAsk && sharePrice.amountOutAsk > 0n ? sharePrice.amountOutAsk : mid
+    const bid = sharePrice.amountOutBid && sharePrice.amountOutBid > 0n ? sharePrice.amountOutBid : mid
+    return { amountOutAsk: ask, amountOutBid: bid, amountOutMid: mid }
+  }
+
   if (totalAssets === 0n) {
+    // totalAssets is 0 but totalShares > 0 - unusual state, can't calculate
     return undefined
   }
 
