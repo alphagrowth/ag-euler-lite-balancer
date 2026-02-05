@@ -872,8 +872,8 @@ export const fetchVaults = async function* (
     void,
     unknown
   > {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerLensAddresses, chainId } = useEulerAddresses()
+  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
+  const { eulerLensAddresses, eulerCoreAddresses, chainId } = useEulerAddresses()
   const { verifiedVaultAddresses } = useEulerLabels()
 
   const startChainId = chainId.value
@@ -1001,7 +1001,39 @@ export const fetchVaults = async function* (
 
     // Fetch all batches in this round in parallel
     const roundResults = await Promise.all(roundBatches.map(batch => fetchBatch(batch)))
-    const validVaults = roundResults.flat()
+    let validVaults = roundResults.flat()
+
+    // Re-fetch Pyth-powered vaults with simulation to get fresh prices
+    // Pyth prices are only valid for ~2 minutes after on-chain update
+    if (eulerCoreAddresses.value?.evc && PYTH_HERMES_URL) {
+      const pythVaultsToRefresh = validVaults.filter((vault) => {
+        const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+        return feeds.length > 0
+      })
+
+      if (pythVaultsToRefresh.length > 0) {
+        const refreshedVaults = await Promise.all(
+          pythVaultsToRefresh.map(async (vault) => {
+            const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+            const refreshed = await fetchVaultWithPythSimulation(
+              vault.address,
+              feeds,
+              provider,
+              vaultLensContract,
+              eulerCoreAddresses.value!.evc,
+              PYTH_HERMES_URL,
+              EVM_PROVIDER_URL,
+              verifiedVaultAddresses.value,
+            )
+            return refreshed || vault // Fall back to original if simulation fails
+          }),
+        )
+
+        // Replace original vaults with refreshed versions
+        const refreshedMap = new Map(refreshedVaults.map(v => [v.address, v]))
+        validVaults = validVaults.map(v => refreshedMap.get(v.address) || v)
+      }
+    }
 
     // Populate assetPriceInfo and unitOfAccountPriceInfo for USD conversion
     if (utilsLensContract) {
