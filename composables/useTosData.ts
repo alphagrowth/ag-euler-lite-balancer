@@ -19,7 +19,12 @@ export async function getTosData(): Promise<TosData> {
   }
 
   fetchPromise = fetch(TOS_MD)
-    .then(response => response.text())
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ToS: ${response.status} ${response.statusText}`)
+      }
+      return response.text()
+    })
     .then((content) => {
       const tosHash = keccak256(toHex(content))
       const tosHashShort = `0x${tosHash.slice(-6)}`
