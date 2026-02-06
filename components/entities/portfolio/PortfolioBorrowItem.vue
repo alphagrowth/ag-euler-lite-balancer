@@ -207,8 +207,8 @@ const loadCollaterals = async () => {
           let assets = 0n
 
           try {
-            const res = await accountLensContract.getAccountInfo(position.subAccount, address)
-            assets = res.vaultAccountInfo.assets
+            const res = await accountLensContract.getVaultAccountInfo(position.subAccount, address)
+            assets = res.assets
           }
           catch {
             if (address === primaryAddress) {

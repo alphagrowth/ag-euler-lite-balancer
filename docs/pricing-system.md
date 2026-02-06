@@ -347,11 +347,11 @@ updateBorrowPositions() called
         ┌───────┴───────┐
         │ Pyth detected? │
         └───────┬───────┘
-           Yes  │  No → Direct accountLens.getAccountInfo()
+           Yes  │  No → Direct accountLens.getVaultAccountInfo()
                 ↓
     executeLensWithPythSimulation():
     1. Build Pyth update batch items
-    2. Build getAccountInfo() batch item
+    2. Build getVaultAccountInfo() batch item
     3. Execute EVC batchSimulation
     4. Get fresh account data with updated prices
                 ↓
@@ -452,7 +452,7 @@ const hasPythOracles = (vault: Vault): boolean => {
 // 1. Use Pyth simulation for account lens if Pyth detected
 if (canUsePythSimulation) {
   const result = await executeLensWithPythSimulation(
-    pythFeeds, accountLensContract, 'getAccountInfo', ...
+    pythFeeds, accountLensContract, 'getVaultAccountInfo', ...
   )
   res = result[0]
 }

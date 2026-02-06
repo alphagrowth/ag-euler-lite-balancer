@@ -198,8 +198,8 @@ const updateSwapCollateralBalance = async () => {
     }
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
-    const res = await accountLensContract.getAccountInfo(position.value.subAccount, swapCollateralVault.value.address)
-    swapCollateralAssets.value = res.vaultAccountInfo.assets
+    const res = await accountLensContract.getVaultAccountInfo(position.value.subAccount, swapCollateralVault.value.address)
+    swapCollateralAssets.value = res.assets
   }
   catch (e) {
     console.warn('[Repay swap] failed to load collateral balance', e)

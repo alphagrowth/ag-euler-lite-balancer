@@ -860,13 +860,13 @@ const updateBorrowPositions = async (isInitialLoading = true) => {
         const vault = `0x${entry.substring(42)}`;
         const subAccount = entry.substring(0, 42);
 
-        const res = await accountLensContract.getAccountInfo(subAccount, vault);
-        const collateral = map.value.get(
-          ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0])
-        );
-        const borrow = map.value.get(
-          ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
-        );
+        const res = await accountLensContract.getVaultAccountInfo(subAccount, vault);
+        if (!res.isController || res.borrowed === 0n) {
+          return undefined;
+        }
+        const collaterals = res.liquidityInfo?.collaterals || [];
+        const collateral = collaterals.length ? map.value.get(ethers.getAddress(collaterals[0])) : undefined;
+        const borrow = map.value.get(ethers.getAddress(vault));
         if (!collateral || !borrow) {
           return undefined;
         }
@@ -2613,13 +2613,13 @@ const updateBorrowPositions = async (isInitialLoading = true) => {
         const vault = `0x${entry.substring(42)}`;
         const subAccount = entry.substring(0, 42);
 
-        const res = await accountLensContract.getAccountInfo(subAccount, vault);
-        const collateral = map.value.get(
-          ethers.getAddress(res.evcAccountInfo.enabledCollaterals[0])
-        );
-        const borrow = map.value.get(
-          ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
-        );
+        const res = await accountLensContract.getVaultAccountInfo(subAccount, vault);
+        if (!res.isController || res.borrowed === 0n) {
+          return undefined;
+        }
+        const collaterals = res.liquidityInfo?.collaterals || [];
+        const collateral = collaterals.length ? map.value.get(ethers.getAddress(collaterals[0])) : undefined;
+        const borrow = map.value.get(ethers.getAddress(vault));
         if (!collateral || !borrow) {
           return undefined;
         }

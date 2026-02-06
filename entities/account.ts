@@ -3,21 +3,22 @@ import { evcGetControllersAbi } from '~/abis/evc'
 import axios from 'axios'
 import type { EarnVault, SecuritizeVault, Vault } from '~/entities/vault'
 
-export type AccountVaultLiquidityCollateral = {
-  collateral: string
-  collateralValue: bigint
-}
 export interface AccountVaultLiquidity {
-  collateralLiquidityBorrowingInfo: AccountVaultLiquidityCollateral[]
-  collateralLiquidityLiquidationInfo: AccountVaultLiquidityCollateral[]
-  collateralLiquidityRawInfo: AccountVaultLiquidityCollateral[]
+  queryFailure: boolean
+  queryFailureReason: string
+  account: string
+  vault: string
+  unitOfAccount: string
+  timeToLiquidation: bigint
+  liabilityValueBorrowing: bigint
+  liabilityValueLiquidation: bigint
   collateralValueBorrowing: bigint
   collateralValueLiquidation: bigint
   collateralValueRaw: bigint
-  liabilityValue: bigint
-  queryFailure: false
-  queryFailureReason: string
-  timeToLiquidation: bigint
+  collaterals: string[]
+  collateralValuesBorrowing: bigint[]
+  collateralValuesLiquidation: bigint[]
+  collateralValuesRaw: bigint[]
 }
 export interface AccountVault {
   account: string
@@ -34,20 +35,6 @@ export interface AccountVault {
   isController: boolean
   liquidityInfo: AccountVaultLiquidity
   vault: string
-}
-export interface Account {
-  accountRewardInfo: unknown[]
-  evcAccountInfo: {
-    account: string
-    addressPrefix: string
-    evc: string
-    isLockdownMode: boolean
-    isPermitDisabledMode: boolean
-    lastAccountStatusCheckTimestamp: bigint
-    owner: string
-    timestamp: bigint
-  }
-  vaultAccountInfo: AccountVault[]
 }
 export interface AccountBorrowPosition {
   borrow: Vault
