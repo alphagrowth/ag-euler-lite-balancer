@@ -13,7 +13,6 @@ import {
   fetchVaults,
   fetchVaultFactories,
   isSecuritizeVault,
-  SECURITIZE_FACTORY_ADDRESS,
   type Vault,
 } from '~/entities/vault'
 import { labelsRepo } from '~/entities/custom'
@@ -194,7 +193,7 @@ const updateSecuritizeVaults = async (securitizeAddresses: string[]) => {
 }
 
 const loadVaults = async () => {
-  const { chainId } = useEulerAddresses()
+  const { chainId, eulerPeripheryAddresses } = useEulerAddresses()
   const { verifiedVaultAddresses } = useEulerLabels()
   const { setEscrowAddresses } = useVaultRegistry()
   const startChainId = chainId.value
@@ -215,7 +214,7 @@ const loadVaults = async () => {
       const normalizedAddr = addr.toLowerCase()
       const factory = factories.get(normalizedAddr)
 
-      if (factory?.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()) {
+      if (eulerPeripheryAddresses.value?.securitizeFactory && factory?.toLowerCase() === eulerPeripheryAddresses.value.securitizeFactory.toLowerCase()) {
         securitizeAddresses.push(addr)
       }
       else {

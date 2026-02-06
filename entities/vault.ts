@@ -22,9 +22,6 @@ import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { nanoToValue } from '~/utils/crypto-utils'
 // import type { AccountBorrowPosition } from '~/entities/account'
 
-// Securitize factory address - vaults created by this factory are treated as securitize vaults
-export const SECURITIZE_FACTORY_ADDRESS = '0x5f51d980f15fe6075ae30394dc35de57a4f76cbb'
-
 // Cache for vault factory lookups
 const vaultFactoryCache = new Map<string, string>()
 const unitOfAccountPriceCache = new Map<string, { amountOutMid: bigint } | null>()
@@ -104,11 +101,17 @@ export const isSecuritizeVault = async (address: string): Promise<boolean> => {
     }
 
     // Fall back to subgraph query
+    const { eulerPeripheryAddresses } = useEulerAddresses()
+    const securitizeFactory = eulerPeripheryAddresses.value?.securitizeFactory
+    if (!securitizeFactory) {
+      return false
+    }
+
     const factory = await fetchVaultFactory(address)
     if (!factory) {
       return false
     }
-    return factory.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()
+    return factory.toLowerCase() === securitizeFactory.toLowerCase()
   }
   catch {
     return false
@@ -117,12 +120,18 @@ export const isSecuritizeVault = async (address: string): Promise<boolean> => {
 
 // Synchronous check using cached factory data
 export const isSecuritizeVaultSync = (address: string): boolean => {
+  const { eulerPeripheryAddresses } = useEulerAddresses()
+  const securitizeFactory = eulerPeripheryAddresses.value?.securitizeFactory
+  if (!securitizeFactory) {
+    return false
+  }
+
   const normalizedAddress = address.toLowerCase()
   const factory = vaultFactoryCache.get(normalizedAddress)
   if (!factory) {
     return false
   }
-  return factory.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()
+  return factory.toLowerCase() === securitizeFactory.toLowerCase()
 }
 
 // Batch fetch vault factories from subgraph
@@ -191,11 +200,17 @@ export const fetchVaultFactories = async (
 
 // Get all securitize vault addresses from a list of addresses
 export const filterSecuritizeVaults = async (vaultAddresses: string[]): Promise<string[]> => {
+  const { eulerPeripheryAddresses } = useEulerAddresses()
+  const securitizeFactory = eulerPeripheryAddresses.value?.securitizeFactory
+  if (!securitizeFactory) {
+    return []
+  }
+
   const factories = await fetchVaultFactories(vaultAddresses)
   const securitizeAddresses: string[] = []
 
   factories.forEach((factory, address) => {
-    if (factory.toLowerCase() === SECURITIZE_FACTORY_ADDRESS.toLowerCase()) {
+    if (factory.toLowerCase() === securitizeFactory.toLowerCase()) {
       securitizeAddresses.push(address)
     }
   })
