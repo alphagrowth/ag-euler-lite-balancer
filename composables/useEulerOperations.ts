@@ -18,11 +18,12 @@ import type { TxPlan, TxStep } from '~/entities/txPlan'
 import { buildPythUpdateCalls, sumCallValues } from '~/utils/pyth'
 import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { MAX_UINT48, MAX_UINT160, PERMIT2_TYPES, permit2Abi } from '~/entities/permit2'
+import { MAX_UINT160, PERMIT2_TYPES, permit2Abi } from '~/entities/permit2'
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { isNonBlockingSimulationError } from '~/utils/tx-errors'
 
 const allowanceSlotIndexCache = new Map<string, bigint>()
+const adjustForInterest = (amount: bigint) => (amount * 10_001n) / 10_000n
 
 export const useEulerOperations = () => {
   const { address, chainId } = useWagmi()
@@ -283,8 +284,8 @@ export const useEulerOperations = () => {
     const permitSingle = {
       details: {
         token,
-        amount: MAX_UINT160,
-        expiration: MAX_UINT48,
+        amount: requiredAmount > MAX_UINT160 ? MAX_UINT160 : requiredAmount,
+        expiration: currentTime + PERMIT2_SIG_WINDOW,
         nonce: allowance.nonce,
       },
       spender,
@@ -378,8 +379,6 @@ export const useEulerOperations = () => {
   }) => {
     let functionName: 'verifyAmountMinAndSkim' | 'verifyDebtMax'
     let amount: bigint
-
-    const adjustForInterest = (debtAmount: bigint) => (debtAmount * 10_001n) / 10_000n
 
     if (isRepay) {
       functionName = 'verifyDebtMax'
@@ -688,7 +687,7 @@ export const useEulerOperations = () => {
         to: assetAddr,
         abi: erc20ABI as Abi,
         functionName: 'approve',
-        args: [vaultAddr, maxUint256] as const,
+        args: [vaultAddr, amount] as const,
         value: 0n,
       })
     }
@@ -909,7 +908,6 @@ export const useEulerOperations = () => {
 
     const hasSigned = await hasSignature(userAddr)
     const tosData = await getTosData()
-    const requirePermit2 = true
 
     const steps: TxStep[] = []
 
@@ -942,16 +940,13 @@ export const useEulerOperations = () => {
         }
       }
       else if (allowance < amount) {
-        if (requirePermit2) {
-          throw new Error('Permit2 required for borrow')
-        }
         steps.push({
           type: 'approve',
           label: 'Approve asset for vault',
           to: assetAddr,
           abi: erc20ABI as Abi,
           functionName: 'approve',
-          args: [vaultAddr, maxUint256] as const,
+          args: [vaultAddr, amount] as const,
           value: 0n,
         })
       }
@@ -1177,8 +1172,6 @@ export const useEulerOperations = () => {
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
     const hasSigned = await hasSignature(userAddr)
     const tosData = await getTosData()
-    const requirePermit2 = true
-
     const hasSwap = !!quote
     const borrowDepositAmount = hasSwap ? 0n : debtAmount
     const isSameVault = supplyVaultAddr.toLowerCase() === longVaultAddr.toLowerCase()
@@ -1232,16 +1225,13 @@ export const useEulerOperations = () => {
         }
       }
       else if (allowance < amount) {
-        if (requirePermit2) {
-          throw new Error('Permit2 required for multiply')
-        }
         steps.push({
           type: 'approve',
           label: 'Approve asset for vault',
           to: assetAddr,
           abi: erc20ABI as Abi,
           functionName: 'approve',
-          args: [vaultAddr, maxUint256] as const,
+          args: [vaultAddr, amount] as const,
           value: 0n,
         })
       }
@@ -1460,11 +1450,12 @@ export const useEulerOperations = () => {
     const includePermit2Call = options.includePermit2Call ?? true
     const canUsePermit2 = !!chainId.value && !!permit2Address
     let permitCall: EVCCall | undefined
+    const adjustedAmount = adjustForInterest(amount)
     const usesPermit2 = canUsePermit2 && allowance < amount
 
     if (usesPermit2 && permit2Address) {
       const permit2Allowance = await checkAllowance(borrowAssetAddr, permit2Address, userAddr)
-      const needsPermit2Approval = permit2Allowance < amount
+      const needsPermit2Approval = permit2Allowance < adjustedAmount
       if (needsPermit2Approval) {
         steps.push({
           type: 'permit2-approve',
@@ -1478,7 +1469,7 @@ export const useEulerOperations = () => {
       }
 
       if (!needsPermit2Approval && includePermit2Call) {
-        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
+        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, adjustedAmount, userAddr, permit2Address)
       }
     }
     else if (allowance < amount) {
@@ -1488,7 +1479,7 @@ export const useEulerOperations = () => {
         to: borrowAssetAddr,
         abi: erc20ABI as Abi,
         functionName: 'approve',
-        args: [borrowVaultAddr, maxUint256] as const,
+        args: [borrowVaultAddr, adjustForInterest(amount)] as const,
         value: 0n,
       })
     }
@@ -1568,9 +1559,10 @@ export const useEulerOperations = () => {
     const usesPermit2 = canUsePermit2 && allowance < amount
 
     const steps: TxStep[] = []
+    const adjustedAmount = adjustForInterest(amount)
     if (usesPermit2 && permit2Address) {
       const permit2Allowance = await checkAllowance(borrowAssetAddr, permit2Address, userAddr)
-      const needsPermit2Approval = permit2Allowance < amount
+      const needsPermit2Approval = permit2Allowance < adjustedAmount
       if (needsPermit2Approval) {
         steps.push({
           type: 'permit2-approve',
@@ -1584,7 +1576,7 @@ export const useEulerOperations = () => {
       }
 
       if (!needsPermit2Approval && includePermit2Call) {
-        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
+        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, adjustedAmount, userAddr, permit2Address)
       }
     }
     else if (allowance < amount) {
@@ -1594,7 +1586,7 @@ export const useEulerOperations = () => {
         to: borrowAssetAddr,
         abi: erc20ABI as Abi,
         functionName: 'approve',
-        args: [borrowVaultAddr, maxUint256] as const,
+        args: [borrowVaultAddr, adjustForInterest(amount)] as const,
         value: 0n,
       })
     }
@@ -1859,7 +1851,8 @@ export const useEulerOperations = () => {
         permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
         usingPermit2 = true
       }
-      catch {
+      catch (error) {
+        console.warn('Permit2 signing failed, falling back to direct approve:', error)
         usingPermit2 = false
       }
     }
@@ -1871,7 +1864,7 @@ export const useEulerOperations = () => {
         address: assetAddr,
         abi: erc20ABI,
         functionName: 'approve',
-        args: [vaultAddr, maxUint256],
+        args: [vaultAddr, amount],
       })
 
       await waitForTxReceipt(approvalHash)
@@ -1906,7 +1899,7 @@ export const useEulerOperations = () => {
     }
 
     if (needsApproval) {
-      const approveData = hooks.getDataForCall(assetAddr, 'approve', [vaultAddr, maxUint256]) as Hash
+      const approveData = hooks.getDataForCall(assetAddr, 'approve', [vaultAddr, amount]) as Hash
       const approveCall: EVCCall = {
         targetContract: assetAddr,
         onBehalfOfAccount: depositToAddr,
@@ -2095,7 +2088,6 @@ export const useEulerOperations = () => {
 
     const hasSigned = await hasSignature(userAddr)
     const tosData = await getTosData()
-    const requirePermit2 = true
     const permit2Address = resolvePermit2Address()
     const canUsePermit2 = !!chainId.value && !!permit2Address
     let permitCall: EVCCall | undefined
@@ -2110,7 +2102,8 @@ export const useEulerOperations = () => {
           permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
           usingPermit2 = true
         }
-        catch {
+        catch (error) {
+          console.warn('Permit2 signing failed, falling back to direct approve:', error)
           usingPermit2 = false
         }
       }
@@ -2118,14 +2111,11 @@ export const useEulerOperations = () => {
       const needsApproval = !usingPermit2 && allowance < amount
 
       if (needsApproval) {
-        if (requirePermit2) {
-          throw new Error('Permit2 required for borrow')
-        }
         const approvalHash = await writeContractAsync({
           address: assetAddr,
           abi: erc20ABI,
           functionName: 'approve',
-          args: [vaultAddr, maxUint256],
+          args: [vaultAddr, amount],
         })
 
         await waitForTxReceipt(approvalHash)
@@ -2333,13 +2323,16 @@ export const useEulerOperations = () => {
     let permitCall: EVCCall | undefined
     let usingPermit2 = false
 
+    const adjustedAmount = adjustForInterest(amount)
+
     if (canUsePermit2 && allowance < amount && permit2Address) {
       try {
-        await ensurePermit2TokenApproval(borrowAssetAddr, amount, userAddr, permit2Address)
-        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
+        await ensurePermit2TokenApproval(borrowAssetAddr, adjustedAmount, userAddr, permit2Address)
+        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, adjustedAmount, userAddr, permit2Address)
         usingPermit2 = true
       }
-      catch {
+      catch (error) {
+        console.warn('Permit2 signing failed, falling back to direct approve:', error)
         usingPermit2 = false
       }
     }
@@ -2351,7 +2344,7 @@ export const useEulerOperations = () => {
         address: borrowAssetAddr,
         abi: erc20ABI,
         functionName: 'approve',
-        args: [borrowVaultAddr, maxUint256],
+        args: [borrowVaultAddr, adjustedAmount],
       })
 
       await waitForTxReceipt(approvalHash)
@@ -2425,14 +2418,16 @@ export const useEulerOperations = () => {
 
     let permitCall: EVCCall | undefined
     let usingPermit2 = false
+    const adjustedAmount = adjustForInterest(amount)
 
     if (canUsePermit2 && allowance < amount && permit2Address) {
       try {
-        await ensurePermit2TokenApproval(borrowAssetAddr, amount, userAddr, permit2Address)
-        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, amount, userAddr, permit2Address)
+        await ensurePermit2TokenApproval(borrowAssetAddr, adjustedAmount, userAddr, permit2Address)
+        permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, adjustedAmount, userAddr, permit2Address)
         usingPermit2 = true
       }
-      catch {
+      catch (error) {
+        console.warn('Permit2 signing failed, falling back to direct approve:', error)
         usingPermit2 = false
       }
     }
@@ -2444,7 +2439,7 @@ export const useEulerOperations = () => {
         address: borrowAssetAddr,
         abi: erc20ABI,
         functionName: 'approve',
-        args: [borrowVaultAddr, maxUint256],
+        args: [borrowVaultAddr, adjustedAmount],
       })
 
       await waitForTxReceipt(approvalHash)
