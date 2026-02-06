@@ -14,7 +14,6 @@ import {
   getCollateralUsdValue,
   getUnitOfAccountUsdRate,
   getAssetOraclePrice,
-  getCollateralOraclePrice,
 } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
@@ -102,6 +101,7 @@ const borrowApyWithRewards = computed(() => borrowApy.value - (opportunityInfoFo
 const collateralRowsData = ref<{
   valueUsd: number
   unitPriceUsd: number
+  oraclePriceUsd: number
   supplyApy: number
   supplyApyWithRewards: number
 }[]>([])
@@ -111,6 +111,7 @@ const collateralRows = computed(() => {
     const data = collateralRowsData.value[index] || {
       valueUsd: 0,
       unitPriceUsd: 0,
+      oraclePriceUsd: 0,
       supplyApy: 0,
       supplyApyWithRewards: 0,
     }
@@ -139,6 +140,7 @@ watchEffect(async () => {
       // Collateral price ALWAYS comes from liability vault's oracle, converted to USD
       let valueUsd = 0
       let unitPriceUsd = 0
+      let oraclePriceUsd = 0
 
       valueUsd = await getCollateralUsdValue(item.assets, position.value!.borrow, item.vault as Vault, 'off-chain')
       const priceInfo = await getCollateralUsdPrice(position.value!.borrow, item.vault as Vault, 'off-chain')
@@ -146,9 +148,15 @@ watchEffect(async () => {
         unitPriceUsd = nanoToValue(priceInfo.amountOutMid, 18)
       }
 
+      const oraclePriceInfo = await getCollateralUsdPrice(position.value!.borrow, item.vault as Vault, 'on-chain')
+      if (oraclePriceInfo) {
+        oraclePriceUsd = nanoToValue(oraclePriceInfo.amountOutMid, 18)
+      }
+
       return {
         valueUsd,
         unitPriceUsd,
+        oraclePriceUsd,
         supplyApy,
         supplyApyWithRewards: supplyApy + (opportunity?.apr || 0),
       }
@@ -201,7 +209,7 @@ watchEffect(async () => {
     unitOfAccountUsdPrice.value = 0
     return
   }
-  const rate = await getUnitOfAccountUsdRate(borrowVault.value, 'off-chain')
+  const rate = await getUnitOfAccountUsdRate(borrowVault.value)
   unitOfAccountUsdPrice.value = rate ? nanoToValue(rate, 18) : 0
 })
 
@@ -332,12 +340,6 @@ watchEffect(async () => {
 
   borrowUnitPriceUsd.value = await getAssetUsdValue(1, position.value.borrow, 'off-chain')
 })
-
-// Helper to get collateral oracle price (raw on-chain, for display next to current USD price)
-const getCollateralOraclePriceDisplay = (collateral: Vault | SecuritizeVault, borrow: Vault): number => {
-  const priceInfo = getCollateralOraclePrice(borrow, collateral as Vault)
-  return priceInfo ? nanoToValue(priceInfo.amountOutMid, 18) : 0
-}
 
 const isDisableCollateralError = (vault: Vault | SecuritizeVault) => {
   if (!disableCollateralErrorVault.value) {
@@ -811,11 +813,9 @@ watch(isConnected, () => {
                   Oracle price
                 </div>
                 <div class="text-neutral-800 text-p3">
-  {{
-                    getCollateralOraclePriceDisplay(collateral.vault, borrowVault)
-                      ? formatUsdValue(getCollateralOraclePriceDisplay(collateral.vault, borrowVault))
-                      : '-'
-                  }}
+                  {{ collateral.oraclePriceUsd > 0
+                    ? formatUsdValue(collateral.oraclePriceUsd)
+                    : '-' }}
                 </div>
               </div>
               <div

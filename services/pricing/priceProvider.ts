@@ -186,19 +186,15 @@ const getUnitOfAccountUsdRateOnChain = (vault: Vault | null | undefined): bigint
  * Get the USD rate for a vault's unit of account.
  * Returns 1.0 (as 1e18) if unit of account is USD.
  *
- * For 'off-chain' source, tries backend first then falls back to on-chain.
- * Since UoA is a common denominator in calculations, using off-chain rates
- * doesn't affect health factor/LTV ratios - only USD display values.
+ * Always tries backend (off-chain) first, then falls back to on-chain.
+ * UoA is a common denominator in calculations — using off-chain rates
+ * doesn't affect health factor/LTV ratios, only USD display values.
  *
  * @param vault - The vault to get the UoA rate for
- * @param source - Price source: 'on-chain' (default) or 'off-chain'
- * @param backend - Backend configuration (required for 'off-chain' source)
  * @returns UoA → USD rate as bigint (18 decimals), or undefined
  */
 export const getUnitOfAccountUsdRate = async (
   vault: Vault | null | undefined,
-  source: PriceSource = 'on-chain',
-  backend?: BackendConfig,
 ): Promise<bigint | undefined> => {
   if (!vault || !vault.unitOfAccount) {
     return undefined
@@ -209,12 +205,11 @@ export const getUnitOfAccountUsdRate = async (
     return ONE_18
   }
 
-  // Try backend first if configured and source is 'off-chain'
-  if (source === 'off-chain' && isBackendConfigured()) {
+  // Always try backend first (UoA is a common denominator, doesn't affect ratios)
+  if (isBackendConfigured()) {
     try {
       const backendPrice = await fetchBackendPrice(
         vault.unitOfAccount as `0x${string}`,
-        backend?.chainId,
       )
       if (backendPrice) {
         const rate = backendPriceToBigInt(backendPrice.price)
@@ -226,7 +221,6 @@ export const getUnitOfAccountUsdRate = async (
     }
   }
 
-  // On-chain fallback (or primary if source is 'on-chain')
   return getUnitOfAccountUsdRateOnChain(vault)
 }
 
@@ -298,8 +292,7 @@ const getAssetUsdPriceFromOracle = async (
   const oraclePrice = getAssetOraclePrice(vault as Vault)
   if (!oraclePrice) return undefined
 
-  // UoA rate can come from backend (common denominator, doesn't affect ratios)
-  const uoaRate = await getUnitOfAccountUsdRate(vault as Vault, source, backend)
+  const uoaRate = await getUnitOfAccountUsdRate(vault as Vault)
   if (!uoaRate) return undefined
 
   return {
@@ -326,8 +319,7 @@ const getCollateralUsdPriceFromOracle = async (
   if (!oraclePrice) return undefined
 
   // Convert using liability vault's UoA (the collateral price is in liability's UoA)
-  // UoA rate can come from backend (common denominator, doesn't affect ratios)
-  const uoaRate = await getUnitOfAccountUsdRate(liabilityVault, source, backend)
+  const uoaRate = await getUnitOfAccountUsdRate(liabilityVault)
   if (!uoaRate) return undefined
 
   return {
