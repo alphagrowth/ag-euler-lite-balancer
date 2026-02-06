@@ -1,6 +1,15 @@
 import config from '~/entities/config'
 import { availableNetworkIds } from '~/entities/custom'
 
+export type EulerLensAddresses = {
+  accountLens: string
+  eulerEarnVaultLens: string
+  irmLens: string
+  oracleLens: string
+  utilsLens: string
+  vaultLens: string
+} | null
+
 interface EulerChainConfig {
   chainId: number
   name: string
@@ -48,6 +57,7 @@ interface EulerChainConfig {
       oracleAdapterRegistry: string
       oracleRouterFactory: string
       swapVerifier: string
+      securitizeFactory?: string
       swapper: string
       termsOfUseSigner: string
     }
@@ -172,6 +182,7 @@ export const useEulerAddresses = () => {
       kinkyIRMFactory: config.addresses.peripheryAddrs.kinkyIRMFactory,
       oracleAdapterRegistry: config.addresses.peripheryAddrs.oracleAdapterRegistry,
       oracleRouterFactory: config.addresses.peripheryAddrs.oracleRouterFactory,
+      securitizeFactory: config.addresses.peripheryAddrs.securitizeFactory,
       swapVerifier: config.addresses.peripheryAddrs.swapVerifier,
       swapper: config.addresses.peripheryAddrs.swapper,
       termsOfUseSigner: config.addresses.peripheryAddrs.termsOfUseSigner,

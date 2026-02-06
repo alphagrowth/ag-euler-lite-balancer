@@ -8,7 +8,6 @@ import {
   fetchEscrowVault,
   fetchSecuritizeVault,
   fetchVaultFactory,
-  SECURITIZE_FACTORY_ADDRESS,
 } from '~/entities/vault'
 
 // Vault type enum - 3 types (escrow is a category of evk, not a separate type)
@@ -156,12 +155,12 @@ const size = computed(() => registry.value.size)
  * be in the registry.
  */
 const detectVaultType = (factoryAddress: string): VaultType => {
-  const { eulerCoreAddresses } = useEulerAddresses()
+  const { eulerCoreAddresses, eulerPeripheryAddresses } = useEulerAddresses()
 
   const normalizedFactory = factoryAddress.toLowerCase()
 
   // Check Securitize factory (distinct factory)
-  if (SECURITIZE_FACTORY_ADDRESS.toLowerCase() === normalizedFactory) {
+  if (eulerPeripheryAddresses.value?.securitizeFactory?.toLowerCase() === normalizedFactory) {
     return 'securitize'
   }
 

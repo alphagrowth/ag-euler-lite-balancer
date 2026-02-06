@@ -308,7 +308,7 @@ meta: [
 
 The app uses a two-tier system for token icon resolution:
 
-**Primary Source**: Token icons are automatically loaded from the Euler Indexer API (`https://indexer-main.euler.finance/v1/tokens`). The indexer provides token metadata including `logoURI` for each token based on the current chain ID.
+**Primary Source**: Token icons are automatically loaded from the Euler Indexer API (`https://indexer.euler.finance/v1/tokens`). The indexer provides token metadata including `logoURI` for each token based on the current chain ID.
 
 **Fallback**: If a token doesn't have a `logoURI` from the indexer, the app falls back to custom icons in `public/tokens/`.
 
