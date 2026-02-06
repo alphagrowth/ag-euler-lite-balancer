@@ -1,4 +1,4 @@
-import { decodeAbiParameters, type Address, type Hex, isHex, toHex } from 'viem'
+import { decodeAbiParameters, type Address, type Hex, isHex, toHex, zeroAddress } from 'viem'
 import {
   CROSS_ADAPTER_COMPONENTS,
   EULER_ROUTER_COMPONENTS,
@@ -69,6 +69,13 @@ type OracleAdapterOptions = {
   base?: Address
   quote?: Address
   leafOnly?: boolean
+  skipERC4626Bases?: Set<string>
+}
+
+export const isERC4626Oracle = (
+  resolvedAssets: Address[] | undefined,
+): boolean => {
+  return Array.isArray(resolvedAssets) && resolvedAssets.length > 0
 }
 
 const normalizeHex = (value: Hex | string | Uint8Array): Hex => {
@@ -170,6 +177,16 @@ export const collectPythFeedIds = (
   return [...deduped.values()]
 }
 
+const resolveERC4626Base = (
+  resolvedAssets: Address[] | undefined,
+  base: Address | undefined,
+): { effectiveBase: Address; wrapper: Address; underlying: Address } | null => {
+  if (!resolvedAssets || !base || !isERC4626Oracle(resolvedAssets)) return null
+  const wrapper = (resolvedAssets.length >= 2 ? resolvedAssets[0] : base) as Address
+  const underlying = (resolvedAssets.length >= 2 ? resolvedAssets[1] : resolvedAssets[0]) as Address
+  return { effectiveBase: underlying, wrapper, underlying }
+}
+
 type OracleAdapterContext = {
   base?: Address
   quote?: Address
@@ -218,7 +235,9 @@ export const collectPythFeedIdsForPair = (
           if (childBase.toLowerCase() !== targetBase || childQuote.toLowerCase() !== targetQuote) continue
           matched = true
         }
-        visit(child, depth + 1, { base: childBase, quote: childQuote })
+        const erc4626 = resolveERC4626Base(decoded.resolvedAssets?.[i], childBase)
+        const effectiveBase = erc4626?.effectiveBase ?? childBase
+        visit(child, depth + 1, { base: effectiveBase, quote: childQuote })
       }
       if (decoded.fallbackOracleInfo && (!targetBase || !targetQuote || !matched)) {
         visit(decoded.fallbackOracleInfo, depth + 1, context)
@@ -269,6 +288,8 @@ export const collectOracleAdapters = (
   const leafOnly = options.leafOnly ?? false
 
   const addAdapter = (info: OracleDetailedInfo, base: Address, quote: Address) => {
+    if (info.oracle === zeroAddress) return
+    if (base.toLowerCase() === quote.toLowerCase()) return
     adapters.push({ oracle: info.oracle, name: info.name, base, quote })
   }
 
@@ -294,12 +315,30 @@ export const collectOracleAdapters = (
         const base = decoded.bases?.[i]
         const quote = decoded.quotes?.[i]
         if (!child) continue
+
         if (targetBase && targetQuote) {
           if (!base || !quote) continue
           if (base.toLowerCase() !== targetBase || quote.toLowerCase() !== targetQuote) continue
           matched = true
         }
-        visit(child, depth + 1, { base, quote })
+
+        // ERC4626 resolution: resolvedAssets encodes the unwrap chain
+        // Length 1: [underlying] — wrapper is decoded.bases[i]
+        // Length 2: [wrapper, underlying] — wrapper is resolvedAssets[0]
+        const erc4626 = resolveERC4626Base(decoded.resolvedAssets?.[i], base)
+
+        if (erc4626) {
+          if (!options.skipERC4626Bases?.has(erc4626.wrapper.toLowerCase())) {
+            addAdapter(
+              { oracle: erc4626.wrapper, name: 'ERC4626Vault', oracleInfo: '0x' as Hex },
+              erc4626.wrapper,
+              erc4626.underlying,
+            )
+          }
+        }
+
+        const effectiveBase = erc4626?.effectiveBase ?? base
+        visit(child, depth + 1, { base: effectiveBase, quote })
       }
       if (decoded.fallbackOracleInfo && (!targetBase || !targetQuote || !matched)) {
         visit(decoded.fallbackOracleInfo, depth + 1, context)
