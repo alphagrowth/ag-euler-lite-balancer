@@ -191,8 +191,13 @@ watchEffect(async () => {
     return
   }
 
-  const borrowedUsd = await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')
-  netAssetValueUsd.value = collateralValueUsd.value - borrowedUsd
+  // Read ALL reactive deps BEFORE await so watchEffect tracks them
+  const borrowed = position.value.borrowed
+  const borrow = borrowVault.value
+  const colUsd = collateralValueUsd.value
+
+  const borrowedUsd = await getAssetUsdValue(borrowed, borrow, 'off-chain')
+  netAssetValueUsd.value = colUsd - borrowedUsd
 })
 // Pre-computed unit of account USD price (async)
 const unitOfAccountUsdPrice = ref<number>(0)
@@ -267,15 +272,17 @@ watchEffect(async () => {
     return
   }
 
-  const borrowedUsd = await getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain')
-  netAPY.value = getNetAPY(
-    collateralValueUsd.value,
-    collateralSupplyApy.value,
-    borrowedUsd,
-    borrowApy.value,
-    opportunityInfoForCollateral.value?.apr || null,
-    opportunityInfoForBorrow.value?.apr || null,
-  )
+  // Read ALL reactive deps BEFORE await so watchEffect tracks them
+  const borrowed = position.value.borrowed ?? 0n
+  const borrow = borrowVault.value
+  const colUsd = collateralValueUsd.value
+  const supApy = collateralSupplyApy.value
+  const bApy = borrowApy.value
+  const supReward = opportunityInfoForCollateral.value?.apr || null
+  const borReward = opportunityInfoForBorrow.value?.apr || null
+
+  const borrowedUsd = await getAssetUsdValue(borrowed, borrow, 'off-chain')
+  netAPY.value = getNetAPY(colUsd, supApy, borrowedUsd, bApy, supReward, borReward)
 })
 
 const isPrimaryCollateral = (vault: Vault | SecuritizeVault) => {

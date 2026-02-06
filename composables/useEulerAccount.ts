@@ -10,7 +10,6 @@ import type {
   AccountEarnPosition,
 } from '~/entities/account'
 import {
-  convertSharesToAssets,
   fetchVault,
   type Vault,
   type SecuritizeVault,
@@ -450,7 +449,6 @@ const updateBorrowPositions = async (
           subAccount,
           liabilityLTV: 0n,
           borrowLTV: effectiveBorrowLTV,
-          initialLiquidationLTV: liquidationLTV,
           timeToLiquidation: liquidityInfo.timeToLiquidation,
           health: healthFixed.value,
           borrowed: res.borrowed,
@@ -600,7 +598,6 @@ const updateDepositPositions = async (
   }
 }
 const updateEarnPositions = async (
-  balances: Map<string, bigint>,
   eulerLensAddresses: EulerLensAddresses,
   address: string,
   isInitialLoading = false,
@@ -706,7 +703,7 @@ const updateEarnPositions = async (
 }
 
 export const useEulerAccount = () => {
-  const { isLoaded: isBalancesLoaded, balances } = useWallets()
+  const { isLoaded: isBalancesLoaded } = useWallets()
   const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
   const { address } = useAccount()
   const { public: { debugPortfolioAddress } } = useRuntimeConfig()
@@ -731,7 +728,6 @@ export const useEulerAccount = () => {
       { forceAllPositions: shouldShowAll },
     )
     updateEarnPositions(
-      balances.value,
       eulerLensAddresses.value,
       targetAddress,
       false,
