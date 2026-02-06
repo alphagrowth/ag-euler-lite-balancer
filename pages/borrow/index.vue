@@ -5,7 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
-import { getProductByVault } from '~/composables/useEulerLabels'
+import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
 
 const getMaxRoe = (pair: BorrowVaultPair) => {
   const borrowLTV = nanoToValue(pair.borrowLTV, 2)
@@ -25,6 +25,12 @@ const { chainId } = useEulerAddresses()
 
 const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value)
 const { products, entities } = useEulerLabels()
+
+const activeBorrowList = computed(() =>
+  borrowList.value.filter(pair =>
+    !isVaultDeprecated(pair.borrow.address) && !isVaultDeprecated(pair.collateral.address),
+  ),
+)
 
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
@@ -69,7 +75,7 @@ watch(chainId, (newChainId, oldChainId) => {
 })
 
 const collateralAssetOptions = computed(() => {
-  return borrowList.value
+  return activeBorrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.collateral.asset.address === item.collateral.asset.address))
     .map(pair => ({
       label: pair.collateral.asset.symbol,
@@ -82,7 +88,7 @@ const collateralAssetOptions = computed(() => {
 })
 
 const debtAssetOptions = computed(() => {
-  return borrowList.value
+  return activeBorrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.borrow.asset.address === item.borrow.asset.address))
     .map(pair => ({
       label: pair.borrow.asset.symbol,
@@ -95,7 +101,7 @@ const debtAssetOptions = computed(() => {
 })
 
 const marketOptions = computed(() => {
-  return borrowList.value.reduce((result, pair) => {
+  return activeBorrowList.value.reduce((result, pair) => {
     const market = Object.values(products).find(product => product.vaults.includes(pair.collateral.address))
     const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
     const entityObj = entityName ? entities[entityName] : null
@@ -109,7 +115,7 @@ const marketOptions = computed(() => {
 })
 
 const filteredBorrowList = computed(() => {
-  return borrowList.value
+  return activeBorrowList.value
     .filter(pair =>
       selectedCollateral.value.length || selectedDebt.value.length
         ? ((!selectedCollateral.value.length || selectedCollateral.value.includes(pair.collateral.asset.address))
