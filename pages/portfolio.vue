@@ -54,7 +54,7 @@ const checkTab = () => {
 }
 
 const updatePositions = () => {
-  updateDepositPositions(balances.value, eulerLensAddresses.value, address.value as string)
+  updateDepositPositions(eulerLensAddresses.value, address.value as string)
   updateEarnPositions(balances.value, eulerLensAddresses.value, address.value as string)
   updateBorrowPositions(eulerLensAddresses.value, address.value as string)
 }

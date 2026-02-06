@@ -8,7 +8,7 @@ import type {
   AccountBorrowPosition, AccountDepositPosition,
   AccountEarnPosition,
 } from '~/entities/account'
-import { convertSharesToAssets, getVaultPrice, getVaultPriceInfo, getEarnVaultPrice, getCollateralAssetPriceFromLiability, type Vault, type SecuritizeVault } from '~/entities/vault'
+import { getVaultPrice, getVaultPriceInfo, getEarnVaultPrice, getCollateralAssetPriceFromLiability, type Vault, type SecuritizeVault } from '~/entities/vault'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
@@ -357,7 +357,6 @@ const updateBorrowPositions = async (
   }
 }
 const updateDepositPositions = async (
-  balances: Map<string, bigint>,
   eulerLensAddresses: EulerLensAddresses,
   address: string,
   isInitialLoading = false,
@@ -377,7 +376,7 @@ const updateDepositPositions = async (
   }
 
   const { earnVaults } = useEulerLabels()
-  const { getOrFetch, has: registryHas, getType: registryGetType, getEvkVaults } = useVaultRegistry()
+  const { getOrFetch, has: registryHas, getType: registryGetType } = useVaultRegistry()
   const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
@@ -458,32 +457,6 @@ const updateDepositPositions = async (
             console.warn(`Failed to fetch vault ${vaultAddress}:`, e)
           }
         }
-
-  // Also include deposits from wallet balances for verified EVK vaults
-  // (some deposits might not be tracked in subgraph if balance forwarding is disabled)
-  const normalizedAddress = ethers.getAddress(address)
-  for (const vault of getEvkVaults()) {
-    const balance = balances.get(ethers.getAddress(vault.address))
-    if (!balance || balance === 0n) continue
-
-    // Skip if already in deposits from subgraph
-    if (deposits.some(d => ethers.getAddress(d.vault.address) === ethers.getAddress(vault.address))) {
-      continue
-    }
-
-    // Check if this is used as collateral (using main address as subAccount)
-    const collateralKey = `${normalizedAddress}:${ethers.getAddress(vault.address)}`
-    if (collateralUsageSet.value.has(collateralKey)) {
-      continue
-    }
-
-    deposits.push({
-      vault,
-      subAccount: normalizedAddress,
-      shares: balance,
-      assets: await convertSharesToAssets(vault.address, balance),
-    } as AccountDepositPosition)
-  }
 
   const shouldUpdate = options.forceAllPositions !== undefined
     ? true
@@ -620,7 +593,6 @@ export const useEulerAccount = () => {
       { forceAllPositions: shouldShowAll },
     )
     updateDepositPositions(
-      balances.value,
       eulerLensAddresses.value,
       targetAddress,
       false,

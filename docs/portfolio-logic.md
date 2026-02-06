@@ -28,14 +28,34 @@ query AccountBorrows {
 }
 ```
 
-Each entry is a concatenation of `subAccount + vaultAddress` (42 + 42 hex chars). For every entry the function:
+Each entry is a concatenation of `subAccount + vaultAddress` (42 + 42 hex chars). For each borrow entry:
 
-1. Calls `accountLens.getAccountInfo(subAccount, vaultAddress)` to get on-chain state.
-2. Filters out entries where `enabledControllers` or `enabledCollaterals` are empty (no active borrow).
-3. Resolves the primary collateral vault from the account's enabled collateral list, preferring collaterals that have a configured LTV on the borrow vault.
-4. Builds a `collateralUsageSet` containing every `"subAccount:collateralVaultAddress"` pair.
+```
+borrow entry (from subgraph)
+  |
+  |-- Does accountLens.getAccountInfo succeed?
+  |     NO  -> skip
+  |
+  |-- Are enabledControllers or enabledCollaterals empty?
+  |     YES -> skip (no active borrow)
+  |
+  |-- Resolve borrow vault via getOrFetch(enabledControllers[0])
+  |     NOT FOUND -> skip
+  |
+  |-- Resolve primary collateral from enabled collaterals
+  |     (prefer collaterals with configured LTV on borrow vault)
+  |     NOT FOUND -> skip
+  |
+  |-- Are both borrow and collateral vaults unverified and !showAllPositions?
+  |     YES -> skip
+  |
+  |-- Are collateral or borrow prices missing?
+  |     YES -> skip
+  |
+  +-- Include as borrow position
+```
 
-The collateral usage set is the key data structure that enables the savings/position split.
+After processing all entries, a `collateralUsageSet` is built containing every `"subAccount:collateralVaultAddress"` pair. This is the key data structure that enables the savings/position split — deposits that appear in this set are shown under their borrow position rather than as standalone savings.
 
 #### Step 2: Load Deposit (Savings) Positions
 
@@ -68,8 +88,6 @@ deposit entry
   |
   +-- Include as savings position
 ```
-
-An additional pass checks wallet balances for verified EVK vaults, catching deposits that may not appear in the subgraph (e.g., if balance forwarding is disabled).
 
 #### Step 3: Load Earn Positions
 
