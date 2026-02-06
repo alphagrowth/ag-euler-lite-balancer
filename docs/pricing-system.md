@@ -15,7 +15,7 @@ The pricing functions support two price sources:
 | `'on-chain'` (default) | Uses on-chain oracle data only | Health factor, LTV, liquidation calculations |
 | `'off-chain'` | Tries backend first, falls back to on-chain | Display values, portfolio totals, UI |
 
-**Key insight**: The UoA rate **defaults to on-chain** but can use off-chain pricing when `source='off-chain'` is passed. When off-chain is requested, the system tries the backend first, then falls back to on-chain. Since UoA is a common denominator (both collateral and borrow prices are quoted in UoA), using an off-chain UoA rate doesn't affect health factor/LTV ratios - it only changes the USD display values.
+**Key insight**: The UoA rate **always tries backend (off-chain) first**, then falls back to on-chain — regardless of the caller's `source` parameter. Since UoA is a common denominator (both collateral and borrow prices are quoted in UoA), using an off-chain UoA rate doesn't affect health factor/LTV ratios - it only changes the USD display values. This means callers don't need to think about UoA sourcing at all.
 
 ### Backend Configuration
 
@@ -165,11 +165,10 @@ Located in `services/pricing/priceProvider.ts`:
 
 - **`getAssetOraclePrice(vault)`** - Returns the vault's asset price in its unit of account from `liabilityPriceInfo` (always on-chain, synchronous)
 - **`getCollateralOraclePrice(liabilityVault, collateralVault)`** - Returns collateral asset price in the liability vault's unit of account, converting from share price to asset price (always on-chain, synchronous)
-- **`getUnitOfAccountUsdRate(vault, source?, backend?)`** - Returns the UoA → USD conversion rate.
+- **`getUnitOfAccountUsdRate(vault)`** - Returns the UoA → USD conversion rate.
   - If `unitOfAccount === USD`, returns `1e18` (hardcoded)
-  - If `source='off-chain'` and backend configured: tries backend first, falls back to on-chain
-  - If `source='on-chain'` (default): uses `vault.unitOfAccountPriceInfo` directly
-  - Since UoA is a common denominator, using off-chain rates doesn't affect health factor/LTV ratios - only USD display values.
+  - Always tries backend first, falls back to on-chain (`vault.unitOfAccountPriceInfo`)
+  - Since UoA is a common denominator, using off-chain rates doesn't affect health factor/LTV ratios - only USD display values. Callers don't need to specify a source.
 
 **Internal Helpers:**
 - `getCollateralShareOraclePrice(liabilityVault, collateralVault)` - Returns raw share price before asset conversion
@@ -200,13 +199,13 @@ getAssetUsdPrice(vault, source, backend):
 
   2. Oracle calculation (fallback or primary if source='on-chain'):
      a. oraclePrice = vault.liabilityPriceInfo.amountOutMid  // Always on-chain
-     b. uoaRate = await getUnitOfAccountUsdRate(vault, source, backend)
-        - If source='off-chain': tries backend first, falls back to on-chain
+     b. uoaRate = await getUnitOfAccountUsdRate(vault)
+        - Always tries backend first, falls back to on-chain
         - Returns 1e18 if vault.unitOfAccount === USD_ADDRESS
      c. return (oraclePrice × uoaRate) / 1e18
 ```
 
-**Note on UoA Rate**: The UoA rate can come from backend even when the asset oracle price is on-chain. Since UoA is a common denominator (both collateral and borrow prices use the same UoA), using an off-chain UoA rate doesn't affect health factor/LTV ratios - only the USD display values.
+**Note on UoA Rate**: The UoA rate always tries the backend first, regardless of the caller's `source` parameter. Since UoA is a common denominator (both collateral and borrow prices use the same UoA), using an off-chain UoA rate doesn't affect health factor/LTV ratios - only the USD display values.
 
 ## Collateral Price Calculation (Borrow Context)
 
@@ -225,8 +224,8 @@ getCollateralUsdPrice(liabilityVault, collateralVault, source, backend):
      b. assetPrice = sharePrice × (totalShares / totalAssets)  // Convert share→asset
         // Special case: if totalAssets=0 AND totalShares=0 (empty vault),
         // ERC-4626 standard defines 1:1 ratio, so use sharePrice directly
-     c. uoaRate = await getUnitOfAccountUsdRate(liabilityVault, source, backend)
-        // Use LIABILITY's UoA - can come from backend for 'off-chain' source
+     c. uoaRate = await getUnitOfAccountUsdRate(liabilityVault)
+        // Use LIABILITY's UoA - always tries backend first
      d. return (assetPrice × uoaRate) / 1e18
 ```
 

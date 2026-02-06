@@ -245,6 +245,13 @@ export const getProductByVault = (vaultAddress: string) => {
     || eulerLabelProductEmpty
 }
 
+export const isVaultDeprecated = (vaultAddress: string): boolean => {
+  const normalized = normalizeAddress(vaultAddress)
+  return Object.values(products).some(product =>
+    product.deprecatedVaults?.includes(normalized) ?? false,
+  )
+}
+
 export const getEntitiesByVault = (vault: Vault) => {
   const arr: EulerLabelEntity[] = []
   Object.values(entities).forEach((entity) => {

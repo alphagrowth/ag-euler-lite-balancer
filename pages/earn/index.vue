@@ -5,6 +5,7 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { EarnVault } from '~/entities/vault'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { isVaultDeprecated } from '~/composables/useEulerLabels'
 
 defineOptions({
   name: 'EarnPage',
@@ -13,7 +14,7 @@ defineOptions({
 const { isEarnUpdating: isLoading } = useVaults()
 const { getEarnVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
-const list = computed(() => getEarnVaults().filter(v => v.verified))
+const list = computed(() => getEarnVaults().filter(v => v.verified && !isVaultDeprecated(v.address)))
 const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])

@@ -703,8 +703,8 @@ const updateEarnPositions = async (
 }
 
 export const useEulerAccount = () => {
-  const { isLoaded: isBalancesLoaded } = useWallets()
-  const { eulerLensAddresses, isReady: isEulerLensAddressesReady } = useEulerAddresses()
+  const { isLoaded: isBalancesLoaded, balances } = useWallets()
+  const { eulerLensAddresses, isReady: isEulerLensAddressesReady, chainId } = useEulerAddresses()
   const { address } = useAccount()
   const { public: { debugPortfolioAddress } } = useRuntimeConfig()
   const normalizedDebugAddress = computed(() => normalizeAddress(debugPortfolioAddress))
@@ -750,6 +750,20 @@ export const useEulerAccount = () => {
     if (newAddress !== oldAddress && isBalancesLoaded.value && isEulerLensAddressesReady.value) {
       updatePositions()
     }
+  })
+
+  // Clear stale positions immediately on chain change
+  watch(chainId, () => {
+    borrowPositions.value = []
+    depositPositions.value = []
+    earnPositions.value = []
+    collateralUsageSet.value = new Set()
+    isPositionsLoaded.value = false
+    isPositionsLoading.value = true
+    isDepositsLoaded.value = false
+    isDepositsLoading.value = true
+    totalSuppliedValue.value = 0
+    totalBorrowedValue.value = 0
   })
 
   /**

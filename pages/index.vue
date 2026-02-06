@@ -6,7 +6,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
-import { getProductByVault } from '~/composables/useEulerLabels'
+import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
 
 defineOptions({
   name: 'IndexPage',
@@ -15,7 +15,7 @@ defineOptions({
 const { borrowList, isUpdating } = useVaults()
 const { getVerifiedEvkVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
-const list = computed(() => getVerifiedEvkVaults())
+const list = computed(() => getVerifiedEvkVaults().filter(v => !isVaultDeprecated(v.address)))
 
 const isLoading = computed(() => isUpdating.value)
 const { products, entities } = useEulerLabels()

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { AnyBorrowVaultPair } from '~/entities/vault'
+import type { AnyBorrowVaultPair, SecuritizeVault, Vault } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 
-defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition, desktopOverview?: boolean }>()
+const props = defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition, desktopOverview?: boolean, collateralVaults?: (Vault | SecuritizeVault)[] }>()
 </script>
 
 <template>
@@ -16,7 +16,7 @@ defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition, desktopOverview?
     <!-- Oracle adapters should always come from the liability (borrow) vault -->
     <VaultOverviewBlockOracleAdapters
       :vault="pair.borrow"
-      :collateral-vaults="[pair.collateral]"
+      :collateral-vaults="collateralVaults?.length ? collateralVaults : [pair.collateral]"
     />
   </div>
 </template>
