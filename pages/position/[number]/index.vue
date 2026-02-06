@@ -44,8 +44,8 @@ const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
-const borrowVault = computed(() => position.value!.borrow)
-const collateralVault = computed(() => position.value!.collateral)
+const borrowVault = computed(() => position.value?.borrow)
+const collateralVault = computed(() => position.value?.collateral)
 const primaryCollateralAddress = computed(() => position.value ? ethers.getAddress(position.value.collateral.address) : '')
 const collateralCount = computed(() => position.value?.collaterals?.length ?? collateralItems.value.length)
 const collateralSymbolLabel = computed(() => {
@@ -63,14 +63,14 @@ const pairAssetsLabel = computed(() => {
 })
 const pairAssets = computed(() => {
   if (!position.value) return []
-  return [collateralVault.value.asset, borrowVault.value.asset]
+  return [collateralVault.value!.asset, borrowVault.value!.asset]
 })
-const hasNoBorrow = computed(() => position.value!.borrow.borrow === 0n)
+const hasNoBorrow = computed(() => position.value?.borrow.borrow === 0n)
 
-const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
-const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
+const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
+const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
 const baseSupplyAPY = computed(() => {
-  return nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25)
+  return nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25)
 })
 const baseBorrowAPY = computed(() => nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25))
 const intrinsicSupplyAPY = computed(() => getIntrinsicApy(collateralVault.value?.asset.symbol))
@@ -142,14 +142,14 @@ const netAssetValueUsd = computed(() => {
     return 0
   }
 
-  return collateralValueUsd.value - getVaultPrice(position.value.borrowed, borrowVault.value)
+  return collateralValueUsd.value - getVaultPrice(position.value.borrowed, borrowVault.value!)
 })
 const unitOfAccountUsdPrice = computed(() => {
   if (!position.value) {
     return 0
   }
 
-  return getUnitOfAccountUsdPrice(borrowVault.value)
+  return getUnitOfAccountUsdPrice(borrowVault.value!)
 })
 const liquidationPrice = computed(() => {
   if (!position.value) return undefined
