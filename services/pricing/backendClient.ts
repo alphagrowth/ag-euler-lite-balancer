@@ -278,15 +278,15 @@ const ONE_18 = 10n ** 18n
  */
 export const backendPriceToBigInt = (price: string | number): bigint => {
   try {
-    const priceString = typeof price === 'number' ? price.toString() : price
     const priceNum = typeof price === 'number' ? price : parseFloat(price)
     if (isNaN(priceNum) || priceNum < 0) {
       return 0n
     }
-    // Convert to 18 decimal fixed point
-    // Use string manipulation to avoid floating point precision issues
+    // Use toFixed(18) to avoid scientific notation (e.g., 1e-8 -> "0.00000001")
+    // This handles very small prices that would otherwise fail string parsing
+    const priceString = priceNum.toFixed(18)
     const [intPart, decPart = ''] = priceString.split('.')
-    const paddedDec = decPart.padEnd(18, '0').slice(0, 18)
+    const paddedDec = decPart.slice(0, 18)
     return BigInt(intPart + paddedDec)
   }
   catch {

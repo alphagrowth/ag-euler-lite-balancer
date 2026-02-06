@@ -95,10 +95,10 @@ const executePythBatch = async () => {
     try {
       const data = await fetchPythUpdateDataDirect(feedIdArray, endpoint)
 
-      // Cache the result
+      // Cache the result with current timestamp (after async operation completes)
       pythUpdateCache.set(cacheKey, {
         data,
-        fetchedAt: now,
+        fetchedAt: Date.now(),
       })
 
       // Resolve all requests for this endpoint

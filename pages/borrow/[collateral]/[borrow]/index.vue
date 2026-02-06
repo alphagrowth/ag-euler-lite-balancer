@@ -1372,6 +1372,22 @@ const needsRefreshForCollateral = (borrowVault: Vault | undefined, collateralAdd
 // Track vaults that have been refreshed to avoid infinite retry loops
 const refreshedVaultAddresses = new Set<string>()
 
+// Clear refresh tracking when navigating to a different borrow pair
+watch(pair, (newVal, oldVal) => {
+  if (oldVal && newVal) {
+    const newBorrow = newVal.borrow.address.toLowerCase()
+    const oldBorrow = oldVal.borrow.address.toLowerCase()
+    if (newBorrow !== oldBorrow) {
+      refreshedVaultAddresses.clear()
+    }
+  }
+}, { immediate: false })
+
+// Clear on unmount to prevent memory leaks
+onUnmounted(() => {
+  refreshedVaultAddresses.clear()
+})
+
 watch(pair, async (val) => {
   if (!val) {
     return
