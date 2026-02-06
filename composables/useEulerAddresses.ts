@@ -1,6 +1,15 @@
 import config from '~/entities/config'
 import { availableNetworkIds } from '~/entities/custom'
 
+export type EulerLensAddresses = {
+  accountLens: string
+  eulerEarnVaultLens: string
+  irmLens: string
+  oracleLens: string
+  utilsLens: string
+  vaultLens: string
+} | null
+
 interface EulerChainConfig {
   chainId: number
   name: string

@@ -3,7 +3,7 @@ import axios from 'axios'
 import { useAccount } from '@wagmi/vue'
 import { useVaultRegistry } from './useVaultRegistry'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import type { EulerLensAddresses } from '~/entities/euler/addresses'
+import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
 import type {
   AccountBorrowPosition, AccountDepositPosition,
   AccountEarnPosition,
