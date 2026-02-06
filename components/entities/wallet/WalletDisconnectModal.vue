@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { useAccount, useDisconnect } from '@wagmi/vue'
+import { getExplorerLink } from '~/utils/block-explorer'
+
 const emits = defineEmits(['close'])
 
 const { address } = useAccount()
 const { disconnect } = useDisconnect()
+const { chainId } = useEulerAddresses()
+
+const explorerLink = computed(() => getExplorerLink(address.value, chainId.value, true))
 
 const onCopyAddressClick = () => {
   navigator.clipboard.writeText(address.value || '')
@@ -34,6 +39,18 @@ const onDisconnectClick = () => {
           icon-only
           @click="onCopyAddressClick"
         />
+        <NuxtLink
+          :to="explorerLink"
+          target="_blank"
+          external
+        >
+          <UiButton
+            variant="primary-stroke"
+            size="medium"
+            icon="arrow-top-right"
+            icon-only
+          />
+        </NuxtLink>
       </div>
     </div>
     <SlippageSettings />
