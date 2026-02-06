@@ -62,27 +62,22 @@ const toBigInt = (value: unknown) => {
     return 0n
   }
 }
-const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>, fallback: string[]) => {
-  const fallbackNormalized = fallback.map(addr => normalizeAddress(addr)).filter(Boolean)
-  const infoCollaterals = (liquidityInfo?.collaterals || [])
+const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>) => {
+  const collaterals = (liquidityInfo?.collaterals || [])
     .map((addr: string) => normalizeAddress(addr))
     .filter(Boolean)
   const values = liquidityInfo?.collateralValuesRaw
     || liquidityInfo?.collateralValuesLiquidation
     || liquidityInfo?.collateralValuesBorrowing
 
-  if (infoCollaterals.length && Array.isArray(values) && values.length === infoCollaterals.length) {
-    const withValue = infoCollaterals.filter((_, idx) => toBigInt(values[idx]) > 0n)
+  if (collaterals.length && Array.isArray(values) && values.length === collaterals.length) {
+    const withValue = collaterals.filter((_, idx) => toBigInt(values[idx]) > 0n)
     if (withValue.length) {
       return withValue
     }
   }
 
-  if (infoCollaterals.length) {
-    return infoCollaterals
-  }
-
-  return fallbackNormalized
+  return collaterals
 }
 
 /**
@@ -299,7 +294,7 @@ const updateBorrowPositions = async (
             const result = await executeLensWithPythSimulation(
               pythFeeds,
               accountLensContract,
-              'getAccountInfo',
+              'getVaultAccountInfo',
               [subAccount, vaultAddress],
               eulerCoreAddresses.value!.evc,
               provider,
@@ -314,7 +309,7 @@ const updateBorrowPositions = async (
           }
           else {
             // Direct call for non-Pyth vaults
-            res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
+            res = await accountLensContract.getVaultAccountInfo(subAccount, vaultAddress)
           }
         }
         catch (err) {
@@ -322,14 +317,13 @@ const updateBorrowPositions = async (
           return undefined
         }
 
-        if (!res.evcAccountInfo.enabledControllers.length || !res.evcAccountInfo.enabledCollaterals.length) {
+        if (!res.isController || res.borrowed === 0n) {
           return undefined
         }
 
-        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map((collateral: string) => ethers.getAddress(collateral))
-        const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
+        const collaterals = resolvePositionCollaterals(res.liquidityInfo)
 
-        const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
+        const borrowAddress = ethers.getAddress(vaultAddress)
         // Use pre-fetched vault if it matches, otherwise fetch
         let borrow = borrowVault && borrowVault.address.toLowerCase() === borrowAddress.toLowerCase()
           ? borrowVault
@@ -348,7 +342,7 @@ const updateBorrowPositions = async (
         }
 
         let collateralAddress: string | undefined
-        const collateralCandidates = collaterals.length ? collaterals : enabledCollateralsList
+        const collateralCandidates = collaterals
         for (const addr of collateralCandidates) {
           if (borrow.collateralLTVs.some(ltv => ethers.getAddress(ltv.collateral) === addr)) {
             collateralAddress = addr
@@ -379,17 +373,23 @@ const updateBorrowPositions = async (
           return undefined
         }
 
-        const cLTV = borrow.collateralLTVs.find(ltv => ethers.getAddress(ltv.collateral) === collateral.address)
-
-        const liquidityInfo = res.vaultAccountInfo.liquidityInfo
+        const liquidityInfo = res.liquidityInfo
 
         const collateralValueLiquidation = liquidityInfo.collateralValueLiquidation
+        const collateralValueRaw = liquidityInfo.collateralValueRaw
         let liabilityValue = liquidityInfo.liabilityValueBorrowing
-        const liquidationLTV = cLTV?.liquidationLTV || 0n
 
-        if (liabilityValue === 0n && res.vaultAccountInfo.borrowed > 0n) {
+        // Compute effective LTVs from aggregates (handles multi-collateral correctly)
+        const liquidationLTV = collateralValueRaw > 0n
+          ? collateralValueLiquidation * 10000n / collateralValueRaw
+          : 0n
+        const effectiveBorrowLTV = collateralValueRaw > 0n
+          ? liquidityInfo.collateralValueBorrowing * 10000n / collateralValueRaw
+          : 0n
+
+        if (liabilityValue === 0n && res.borrowed > 0n) {
           console.warn('liabilityValue is 0 but borrowed amount exists, calculating manually')
-          const borrowedInUnitOfAccount = FixedNumber.fromValue(res.vaultAccountInfo.borrowed, borrow.decimals)
+          const borrowedInUnitOfAccount = FixedNumber.fromValue(res.borrowed, borrow.decimals)
             .mul(FixedNumber.fromValue(borrow.liabilityPriceInfo.amountOutMid, 18))
             .div(FixedNumber.fromValue(borrow.liabilityPriceInfo.amountIn, 0))
           liabilityValue = borrowedInUnitOfAccount.value
@@ -432,7 +432,7 @@ const updateBorrowPositions = async (
         const price = currentCollateralPriceUsd.mul(supplyLiquidationPriceRatio).value
 
         const borrowedFixed = FixedNumber.fromValue(
-          res.vaultAccountInfo.borrowed,
+          res.borrowed,
           borrow.decimals,
         )
         const userLTVPercent = userLTVFixed.div(FixedNumber.fromValue(100n))
@@ -449,11 +449,11 @@ const updateBorrowPositions = async (
           collaterals,
           subAccount,
           liabilityLTV: 0n,
-          borrowLTV: cLTV?.borrowLTV || 0n,
-          initialLiquidationLTV: cLTV?.initialLiquidationLTV || 0n,
+          borrowLTV: effectiveBorrowLTV,
+          initialLiquidationLTV: liquidationLTV,
           timeToLiquidation: liquidityInfo.timeToLiquidation,
           health: healthFixed.value,
-          borrowed: res.vaultAccountInfo.borrowed,
+          borrowed: res.borrowed,
           price,
           userLTV,
           supplied,
@@ -573,16 +573,16 @@ const updateDepositPositions = async (
           }
 
           try {
-            const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
+            const res = await accountLensContract.getVaultAccountInfo(subAccount, vaultAddress)
 
       // Only include if there are shares
-      if (res.vaultAccountInfo.shares === 0n) continue
+      if (res.shares === 0n) continue
 
             deposits.push({
               vault,
         subAccount: normalizedSubAccount,
-              shares: res.vaultAccountInfo.shares,
-              assets: res.vaultAccountInfo.assets,
+              shares: res.shares,
+              assets: res.assets,
             } as AccountDepositPosition)
           }
           catch (e) {
@@ -675,16 +675,16 @@ const updateEarnPositions = async (
         }
 
         try {
-          const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
+          const res = await accountLensContract.getVaultAccountInfo(subAccount, vaultAddress)
 
-          if (res.vaultAccountInfo.shares === 0n) {
+          if (res.shares === 0n) {
             return undefined
           }
 
           return {
             vault,
-            shares: res.vaultAccountInfo.shares,
-            assets: res.vaultAccountInfo.assets,
+            shares: res.shares,
+            assets: res.assets,
           } as AccountEarnPosition
         }
         catch (e) {

@@ -33,10 +33,10 @@ Each entry is a concatenation of `subAccount + vaultAddress` (42 + 42 hex chars)
 ```
 borrow entry (from subgraph)
   |
-  |-- Does accountLens.getAccountInfo succeed?
+  |-- Does accountLens.getVaultAccountInfo succeed?
   |     NO  -> skip
   |
-  |-- Are enabledControllers or enabledCollaterals empty?
+  |-- Is isController false or borrowed === 0?
   |     YES -> skip (no active borrow)
   |
   |-- Resolve borrow vault via getOrFetch(enabledControllers[0])
@@ -156,7 +156,7 @@ Lens contracts are read-only helpers deployed on every Euler chain. They aggrega
 | Contract | Purpose | Key Method |
 |----------|---------|------------|
 | **VaultLens** | Full vault info (prices, LTVs, rates, oracle config) | `getVaultInfoFull(vault)` |
-| **AccountLens** | Per-account position data (balances, health, liquidity) | `getAccountInfo(account, vault)` |
+| **AccountLens** | Per-account position data (balances, health, liquidity) | `getVaultAccountInfo(account, vault)` |
 | **UtilsLens** | Utility pricing (asset USD price, ERC-4626 info, APY) | `getAssetPriceInfo(asset, quoteAsset)` |
 | **EulerEarnVaultLens** | EulerEarn-specific vault info (strategies, governance) | `getVaultInfoFull(vault)` |
 | **OracleLens** | Oracle configuration details | Used indirectly via VaultLens |
@@ -173,12 +173,13 @@ Returns the complete state of an EVK vault in a single call:
 - **`oracleDetailedInfo`**: Recursive oracle configuration tree (see Oracle section below).
 - **`interestRateInfo`**: Current borrow/supply APY, cash, borrows.
 
-### AccountLens: `getAccountInfo`
+### AccountLens: `getVaultAccountInfo`
 
-Returns per-account data for a specific sub-account and vault:
+Returns per-account data for a specific sub-account and vault directly as a flat `VaultAccountInfo` struct:
 
-- **`evcAccountInfo`**: Enabled collaterals, enabled controllers, lockdown/permit state.
-- **`vaultAccountInfo`**: Shares, assets, borrowed amount, and `liquidityInfo`:
+- **`isController`** / **`isCollateral`**: Whether the vault is an active controller/collateral for this account.
+- **`shares`**, **`assets`**, **`borrowed`**: Position balances.
+- **`liquidityInfo`**: Health and collateral breakdown:
   - `collateralValueLiquidation` / `liabilityValueBorrowing`: Used to compute health factor.
   - `timeToLiquidation`: Estimated seconds until health drops below 1.0.
   - `collaterals[]` / `collateralValuesRaw[]`: Per-collateral breakdown.
@@ -342,7 +343,7 @@ This is a `staticCall` - no transaction is sent, no gas is spent, and the state 
 
 **Borrow position loading** (`composables/useEulerAccount.ts: updateBorrowPositions`):
 1. Pre-fetch the borrow vault to check for Pyth oracles.
-2. If Pyth detected: call `executeLensWithPythSimulation()` with `accountLens.getAccountInfo()` to get liquidity info with fresh prices.
+2. If Pyth detected: call `executeLensWithPythSimulation()` with `accountLens.getVaultAccountInfo()` to get liquidity info with fresh prices.
 3. Additionally, re-fetch the borrow vault itself (`fetchVault`) to get fresh collateral prices for display.
 
 **Transaction building** (`utils/pyth.ts: buildPythUpdateCalls`):
