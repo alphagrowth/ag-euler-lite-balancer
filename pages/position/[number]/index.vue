@@ -190,18 +190,24 @@ watchEffect(async () => {
   collateralValueUsd.value = totals.reduce((sum, val) => sum + val, 0)
 })
 
-// Pre-computed net asset value in USD (async)
-const netAssetValueUsd = ref(0)
+// Pre-computed borrow market value in USD (async)
+const borrowMarketValueUsd = ref(0)
 
 watchEffect(async () => {
-  if (!position.value) {
-    netAssetValueUsd.value = 0
+  if (!position.value || !borrowVault.value) {
+    borrowMarketValueUsd.value = 0
     return
   }
 
-  const borrowedUsd = await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')
-  netAssetValueUsd.value = collateralValueUsd.value - borrowedUsd
+  borrowMarketValueUsd.value = await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')
 })
+
+// Net asset value in USD: sync computed so it tracks both collateralValueUsd and borrowMarketValueUsd
+const netAssetValueUsd = computed(() => {
+  if (!position.value) return 0
+  return collateralValueUsd.value - borrowMarketValueUsd.value
+})
+
 // Pre-computed unit of account USD price (async)
 const unitOfAccountUsdPrice = ref<number>(0)
 watchEffect(async () => {
@@ -266,20 +272,13 @@ const timeToLiquidationDisplay = computed(() => {
   const result = formatTtl(position.value.timeToLiquidation)
   return result?.display || '-'
 })
-// Pre-computed net APY (async)
-const netAPY = ref(0)
-
-watchEffect(async () => {
-  if (!position.value || !borrowVault.value) {
-    netAPY.value = 0
-    return
-  }
-
-  const borrowedUsd = await getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain')
-  netAPY.value = getNetAPY(
+// Net APY: sync computed so it tracks collateralValueUsd, borrowMarketValueUsd, and APY values
+const netAPY = computed(() => {
+  if (!position.value || !borrowVault.value) return 0
+  return getNetAPY(
     collateralValueUsd.value,
     collateralSupplyApy.value,
-    borrowedUsd,
+    borrowMarketValueUsd.value,
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
@@ -315,18 +314,6 @@ watchEffect(async () => {
     borrowOraclePrice.value = 0
     hasBorrowPrice.value = false
   }
-})
-
-// Pre-computed borrow market value for display (async)
-const borrowMarketValueUsd = ref(0)
-
-watchEffect(async () => {
-  if (!position.value || !borrowVault.value) {
-    borrowMarketValueUsd.value = 0
-    return
-  }
-
-  borrowMarketValueUsd.value = await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')
 })
 
 // Pre-computed borrow unit price (1 unit in USD) for display
@@ -528,9 +515,11 @@ const openCollateralInfoModal = (vault: Vault | SecuritizeVault) => {
   })
 }
 const openPairInfoModal = () => {
+  const allCollateralVaults = collateralItems.value.map(item => item.vault)
   modal.open(VaultOverviewModal, {
     props: {
       pair: position.value,
+      collateralVaults: allCollateralVaults,
     },
   })
 }
@@ -909,7 +898,7 @@ watch(isConnected, () => {
           variant="primary-stroke"
           @click="openPairInfoModal"
         >
-          Pair information
+          Position information
         </UiButton>
       </div>
     </template>
