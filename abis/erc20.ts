@@ -13,3 +13,7 @@ export const erc20BalanceOfAbi = [
 export const erc20SymbolAbi = [
   'function symbol() external view returns (string)',
 ] as const
+
+export const erc20DecimalsAbi = [
+  'function decimals() external view returns (uint8)',
+] as const

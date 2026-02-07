@@ -4,6 +4,8 @@ import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { collectOracleAdapters, type OracleAdapterEntry, type OracleAdapterMeta } from '~/entities/oracle'
 import { getOracleProviderLogo } from '~/entities/oracle-providers'
 import { getExplorerLink } from '~/utils/block-explorer'
+import { formatNumber } from '~/utils/string-utils'
+import { useOracleAdapterPrices } from '~/composables/useOracleAdapterPrices'
 
 const props = defineProps<{
   vault?: Vault
@@ -121,6 +123,19 @@ const onCopyClick = (address: string) => {
 
 const getAdapterKey = (adapter: OracleAdapterEntry) => `${adapter.oracle.toLowerCase()}:${adapter.base.toLowerCase()}:${adapter.quote.toLowerCase()}`
 const getExplorerAddressLink = (address: string) => getExplorerLink(address, chainId.value, true)
+
+const { prices: adapterPrices, isLoading: isPriceLoading } = useOracleAdapterPrices(
+  adapters,
+  sourceVaults,
+  computed(() => props.collateralVaults ?? []),
+)
+
+const formatAdapterPrice = (adapter: OracleAdapterEntry) => {
+  const key = getAdapterKey(adapter)
+  const info = adapterPrices.value.get(key)
+  if (!info?.success) return '-'
+  return formatNumber(info.rate, 4)
+}
 </script>
 
 <template>
@@ -165,7 +180,7 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
             />
           </button>
         </div>
-        <div class="grid grid-cols-2 gap-12 text-p4">
+        <div class="grid grid-cols-3 gap-12 text-p4">
           <div class="flex flex-col gap-4">
             <span class="text-content-tertiary">Provider</span>
             <div class="flex items-center gap-8">
@@ -185,6 +200,17 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
           <div class="flex flex-col gap-4">
             <span class="text-content-tertiary">Methodology</span>
             <span class="text-content-primary">{{ adapter.methodology || 'Unknown' }}</span>
+          </div>
+          <div class="flex flex-col gap-4">
+            <span class="text-content-tertiary">Price</span>
+            <span
+              v-if="isPriceLoading"
+              class="text-content-secondary animate-pulse"
+            >...</span>
+            <span
+              v-else
+              class="text-content-primary"
+            >{{ formatAdapterPrice(adapter) }}</span>
           </div>
         </div>
       </div>
