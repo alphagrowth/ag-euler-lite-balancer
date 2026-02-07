@@ -1,3 +1,7 @@
+<script lang="ts">
+const loadedImages = new Set<string>()
+</script>
+
 <script setup lang="ts">
 import { useImage } from '@vueuse/core'
 
@@ -9,11 +13,14 @@ const images = computed(() => {
   const srcs = !src || typeof src === 'string' ? [src || ''] : [...src]
   const labels = !label || typeof label === 'string' ? [label || ''] : [...label]
   return srcs.map((s, index) => {
-    return {
-      label: labels[index],
-      src: s,
-      state: reactive(useImage({ src: s })),
+    if (s && loadedImages.has(s)) {
+      return { label: labels[index], src: s, state: { isReady: true } }
     }
+    const state = reactive(useImage({ src: s }))
+    watch(() => state.isReady, (ready) => {
+      if (ready && s) loadedImages.add(s)
+    })
+    return { label: labels[index], src: s, state }
   })
 })
 </script>
