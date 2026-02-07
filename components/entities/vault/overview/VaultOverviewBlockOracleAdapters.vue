@@ -187,6 +187,7 @@ const formatAdapterPrice = (adapter: OracleAdapterEntry) => {
               <BaseAvatar
                 v-if="adapter.logo"
                 :src="adapter.logo"
+                :label="adapter.name"
                 class="icon--20"
               />
               <SvgIcon

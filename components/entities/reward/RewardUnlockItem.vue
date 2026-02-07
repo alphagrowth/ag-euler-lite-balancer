@@ -135,6 +135,7 @@ const onUnlockClick = async () => {
     >
       <BaseAvatar
         src="/img/euler-default.png"
+        label="EUL"
         class="icon--40"
       />
       <h4 class="text-h5 ml-12">

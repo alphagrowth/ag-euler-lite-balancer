@@ -30,6 +30,7 @@ const tabs = computed(() => {
       label: 'Position details',
       value: undefined,
       avatars: [getAssetLogoUrl(pair.collateral.asset.symbol), getAssetLogoUrl(pair.borrow.asset.symbol)],
+      symbols: [pair.collateral.asset.symbol, pair.borrow.asset.symbol],
     },
   ]
   if (extraVault) {
@@ -41,6 +42,7 @@ const tabs = computed(() => {
         label: extraVault.asset.symbol,
         value: 'multiply-collateral',
         avatars: [getAssetLogoUrl(extraVault.asset.symbol)],
+        symbols: [extraVault.asset.symbol],
       })
     }
   }
@@ -51,6 +53,7 @@ const tabs = computed(() => {
       label: vault.asset.symbol,
       value: `collateral-${index}`,
       avatars: [getAssetLogoUrl(vault.asset.symbol)],
+      symbols: [vault.asset.symbol],
     })
   })
 
@@ -58,6 +61,7 @@ const tabs = computed(() => {
     label: pair.borrow.asset.symbol,
     value: 'borrow',
     avatars: [getAssetLogoUrl(pair.borrow.asset.symbol)],
+    symbols: [pair.borrow.asset.symbol],
   })
   return list
 })
@@ -99,7 +103,7 @@ const onVaultClick = (address: string) => {
     >
       <template #default="{ tab: slotTab }">
         <div class="flex items-center gap-8">
-          <BaseAvatar :src="slotTab.avatars as string[]" />
+          <BaseAvatar :src="slotTab.avatars as string[]" :label="slotTab.symbols" />
           {{ slotTab.label }}
         </div>
       </template>
