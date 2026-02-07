@@ -16,3 +16,7 @@ export async function detectVpn(): Promise<boolean> {
 
   return cached
 }
+
+export function resetVpnCache(): void {
+  cached = null
+}
