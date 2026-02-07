@@ -49,7 +49,7 @@ watchEffect(async () => {
   const newValues = new Map<string, number>()
   await Promise.all(
     vaults.map(async (vault) => {
-      const usdValue = await getAssetUsdValue(vault.totalAssets, vault, 'off-chain')
+      const usdValue = (await getAssetUsdValue(vault.totalAssets, vault, 'off-chain')) ?? 0
       newValues.set(vault.address, usdValue)
     }),
   )

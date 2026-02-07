@@ -37,8 +37,8 @@ watchEffect(async () => {
         getAssetUsdValue(vault.totalAssets, vault, 'off-chain'),
         getAssetUsdValue(vault.availableAssets, vault, 'off-chain'),
       ])
-      totalSupplyValues.set(vault.address, totalSupply)
-      liquidityValues.set(vault.address, liquidity)
+      totalSupplyValues.set(vault.address, totalSupply ?? 0)
+      liquidityValues.set(vault.address, liquidity ?? 0)
     }),
   )
   vaultTotalSupplyUsd.value = totalSupplyValues

@@ -3,6 +3,8 @@ export {
   type PriceResult,
   type PriceSource,
   type BackendConfig,
+  type UsdAmount,
+  toUsdAmount,
 
   // Constants
   ONE_18,

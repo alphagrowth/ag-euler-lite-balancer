@@ -107,10 +107,12 @@ watchEffect(async () => {
     return
   }
 
-  const [supplyUsd, borrowUsd] = await Promise.all([
+  const [supplyUsdRaw, borrowUsdRaw] = await Promise.all([
     getAssetUsdValue(position.value.supplied || 0n, collateralVault.value, 'off-chain'),
     getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
   ])
+  const supplyUsd = supplyUsdRaw ?? 0
+  const borrowUsd = borrowUsdRaw ?? 0
 
   netAPY.value = getNetAPY(
     supplyUsd,
@@ -321,7 +323,7 @@ watchEffect(async () => {
     swapCollateralValueUsd.value = null
     return
   }
-  swapCollateralValueUsd.value = await getAssetUsdValue(swapCollateralAssets.value, swapCollateralVault.value, 'off-chain')
+  swapCollateralValueUsd.value = (await getAssetUsdValue(swapCollateralAssets.value, swapCollateralVault.value, 'off-chain')) ?? null
 })
 
 // Pre-computed swap borrow USD value (async)
@@ -332,7 +334,7 @@ watchEffect(async () => {
     swapBorrowValueUsd.value = null
     return
   }
-  swapBorrowValueUsd.value = await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')
+  swapBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
 })
 
 // Pre-computed swap next collateral USD value (async)
@@ -344,7 +346,7 @@ watchEffect(async () => {
     return
   }
   const nextAssets = swapCollateralAssets.value - swapCollateralSpent.value
-  swapNextCollateralValueUsd.value = await getAssetUsdValue(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value, 'off-chain')
+  swapNextCollateralValueUsd.value = (await getAssetUsdValue(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value, 'off-chain')) ?? null
 })
 
 // Pre-computed swap next borrow USD value (async)
@@ -356,7 +358,7 @@ watchEffect(async () => {
     return
   }
   const nextBorrow = position.value.borrowed - swapDebtRepaid.value
-  swapNextBorrowValueUsd.value = await getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value, 'off-chain')
+  swapNextBorrowValueUsd.value = (await getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value, 'off-chain')) ?? null
 })
 
 const calculateRoe = (
@@ -771,16 +773,16 @@ watch([swapEffectiveQuote, repaySwapDirection], () => {
   }
 })
 const updateBalance = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value || !position.value || !borrowVault.value) {
     balance.value = 0n
     return
   }
 
-  const borrowedUsd = (await getAssetUsdValue(position.value!.borrowed, borrowVault.value!, 'off-chain')) || 0.01
+  const borrowedUsd = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? 0.01
   const factor = Math.pow(10, 2)
   const borrowedRounded = Math.ceil(borrowedUsd * factor) / factor
   balance.value = FixedNumber.fromValue(valueToNano(borrowedRounded, 4), 4)
-    .div(FixedNumber.fromValue(borrowVault.value!.liabilityPriceInfo.amountOutMid, Number(borrowVault.value!.decimals)))
+    .div(FixedNumber.fromValue(borrowVault.value.liabilityPriceInfo.amountOutMid, Number(borrowVault.value.decimals)))
     .value
 }
 const submit = async () => {
@@ -798,7 +800,7 @@ const submit = async () => {
         borrowVault.value.asset.address,
         amountNano,
         position.value.subAccount,
-        collateralVault.value.address,
+        position.value.collaterals ?? [collateralVault.value.address],
         { includePermit2Call: false },
       )
       : await buildRepayPlan(
@@ -872,6 +874,7 @@ const submitSwap = async () => {
       isRepay: true,
       targetDebt,
       currentDebt,
+      liabilityVault: borrowVault.value?.address,
     })
   }
   catch (e) {
@@ -926,6 +929,7 @@ const sendSwap = async () => {
       isRepay: true,
       targetDebt,
       currentDebt,
+      liabilityVault: borrowVault.value?.address,
     })
 
     modal.close()
@@ -958,7 +962,7 @@ const send = async () => {
       borrowVault.value.asset.address,
       valueToNano(amount.value, borrowVault.value.asset.decimals),
       position.value.subAccount,
-      collateralVault.value.address,
+      position.value.collaterals ?? [collateralVault.value.address],
     )
 
     modal.close()
@@ -988,10 +992,12 @@ const updateEstimates = useDebounceFn(async () => {
     if (balanceFixed.value.lt(amountFixed.value)) {
       throw new Error('You repaying more than required')
     }
-    const [supplyUsd, borrowUsd] = await Promise.all([
+    const [supplyUsdRaw, borrowUsdRaw] = await Promise.all([
       getAssetUsdValue((position.value.supplied || 0n), collateralVault.value, 'off-chain'),
       getAssetUsdValue((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value, 'off-chain'),
     ])
+    const supplyUsd = supplyUsdRaw ?? 0
+    const borrowUsd = borrowUsdRaw ?? 0
     estimateNetAPY.value = getNetAPY(
       supplyUsd,
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw

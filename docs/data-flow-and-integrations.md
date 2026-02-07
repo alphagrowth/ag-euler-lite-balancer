@@ -1,14 +1,14 @@
 # Data Flow & Integration
 
-This document provides an overview of how data flows through the Euler TMA system, including data sources, transformations, storage, and the complete data lifecycle from external services to user interface.
+This document provides an overview of how data flows through the Euler Lite system, including data sources, transformations, storage, and the complete data lifecycle from external services to user interface.
 
 ## Overview
 
-The Euler TMA application integrates with multiple external systems to provide a comprehensive DeFi experience:
+The Euler Lite application integrates with multiple external systems to provide a comprehensive DeFi experience:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Euler TMA Application                        │
+│                    Euler Lite Application                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                    Integration Layer                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │

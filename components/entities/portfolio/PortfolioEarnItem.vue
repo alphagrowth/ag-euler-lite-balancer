@@ -34,7 +34,7 @@ const hasPrice = ref(false)
 
 const updateHasPrice = async () => {
   const price = await getAssetUsdValue(position.assets, vault.value, 'off-chain')
-  hasPrice.value = price > 0
+  hasPrice.value = price !== undefined && price > 0
 }
 
 watchEffect(() => {
@@ -45,7 +45,7 @@ const projectedEarningsPerMonth = ref('—')
 
 const updateProjectedEarningsPerMonth = async () => {
   const price = await getAssetUsdValue(position.assets, vault.value, 'off-chain')
-  if (price === 0) {
+  if (price === undefined || price === 0) {
     projectedEarningsPerMonth.value = '—'
     return
   }

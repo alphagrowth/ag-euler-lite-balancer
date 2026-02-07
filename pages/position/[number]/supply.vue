@@ -73,7 +73,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 // Get collateral USD value using liability vault's price perspective (async)
 const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !collateralVault.value) return 0
-  return getCollateralUsdValue(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
+  return (await getCollateralUsdValue(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')) ?? 0
 }
 // Pre-computed net APY (async)
 const netAPY = ref(0)
@@ -84,10 +84,11 @@ watchEffect(async () => {
     return
   }
 
-  const [collateralUsd, borrowedUsd] = await Promise.all([
+  const [collateralUsd, borrowedUsdRaw] = await Promise.all([
     getCollateralValueUsdLocal(collateralAssets.value),
     getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
   ])
+  const borrowedUsd = borrowedUsdRaw ?? 0
 
   netAPY.value = getNetAPY(
     collateralUsd,
@@ -296,10 +297,11 @@ const updateEstimates = useDebounceFn(async () => {
     if (balanceFixed.value.lt(amountFixed.value)) {
       throw new Error('Not enough balance')
     }
-    const [collateralUsd, borrowedUsd] = await Promise.all([
+    const [collateralUsd, borrowedUsdRaw] = await Promise.all([
       getCollateralValueUsdLocal(collateralAssets.value + valueToNano(amount.value, collateralVault.value.decimals)),
       getAssetUsdValue(position.value!.borrowed || 0n, borrowVault.value!, 'off-chain'),
     ])
+    const borrowedUsd = borrowedUsdRaw ?? 0
     estimateNetAPY.value = getNetAPY(
       collateralUsd,
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw

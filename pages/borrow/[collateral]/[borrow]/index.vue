@@ -399,9 +399,9 @@ watchEffect(async () => {
     savingCollateralPriceUsd.value = 0
     return
   }
-  walletCollateralPriceUsd.value = await getAssetUsdValue(balance.value, collateralVault.value, 'off-chain')
+  walletCollateralPriceUsd.value = (await getAssetUsdValue(balance.value, collateralVault.value, 'off-chain')) ?? 0
   if (savingCollateral.value) {
-    savingCollateralPriceUsd.value = await getAssetUsdValue(savingCollateral.value.assets, collateralVault.value, 'off-chain')
+    savingCollateralPriceUsd.value = (await getAssetUsdValue(savingCollateral.value.assets, collateralVault.value, 'off-chain')) ?? 0
   }
   else {
     savingCollateralPriceUsd.value = 0
@@ -590,21 +590,21 @@ watchEffect(async () => {
     multiplySupplyValueUsd.value = null
   }
   else {
-    multiplySupplyValueUsd.value = await getAssetUsdValue(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')
+    multiplySupplyValueUsd.value = (await getAssetUsdValue(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')) ?? 0
   }
 
   if (!multiplyLongVault.value || !multiplySwapAmountOut.value) {
     multiplyLongValueUsd.value = null
   }
   else {
-    multiplyLongValueUsd.value = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+    multiplyLongValueUsd.value = (await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')) ?? 0
   }
 
   if (!multiplyShortVault.value || !multiplyDebtAmountNano.value) {
     multiplyBorrowValueUsd.value = null
   }
   else {
-    multiplyBorrowValueUsd.value = await getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')
+    multiplyBorrowValueUsd.value = (await getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')) ?? 0
   }
 })
 const multiplyTotalSupplyUsd = computed(() => {
@@ -1304,8 +1304,8 @@ const updateEstimates = useDebounceFn(async () => {
       ? Infinity
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
-    const collateralUsdValue = await getAssetUsdValue(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')
-    const borrowUsdValue = await getAssetUsdValue(+borrowAmount.value || 0, borrowVault.value!, 'off-chain')
+    const collateralUsdValue = (await getAssetUsdValue(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')) ?? 0
+    const borrowUsdValue = (await getAssetUsdValue(+borrowAmount.value || 0, borrowVault.value!, 'off-chain')) ?? 0
     netAPY.value = getNetAPY(
       collateralUsdValue,
       collateralSupplyApy.value,

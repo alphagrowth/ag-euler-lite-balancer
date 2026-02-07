@@ -13,6 +13,8 @@ import {
   getAssetUsdValue,
   formatAssetValue,
   getCollateralUsdValue,
+  toUsdAmount,
+  type UsdAmount,
 } from '~/services/pricing/priceProvider'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -86,12 +88,12 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   borrowVault.value?.asset.symbol,
 ))
 
-const collateralValueUsd = ref(0)
+const collateralValue = ref<UsdAmount>({ usd: 0, hasPrice: false })
 
-const updateCollateralValueUsd = async () => {
+const updateCollateralValue = async () => {
   // Collateral price ALWAYS comes from liability vault's oracle, converted to USD
   if (!collateralItems.value.length) {
-    collateralValueUsd.value = await getCollateralUsdValue(position.supplied, position.borrow, position.collateral, 'off-chain')
+    collateralValue.value = toUsdAmount(await getCollateralUsdValue(position.supplied, position.borrow, position.collateral, 'off-chain'))
     return
   }
 
@@ -100,23 +102,22 @@ const updateCollateralValueUsd = async () => {
     getCollateralUsdValue(item.assets, position.borrow, item.vault, 'off-chain'),
   )
   const values = await Promise.all(promises)
-  collateralValueUsd.value = values.reduce((total, val) => total + val, 0)
+  const allHavePrice = values.every(v => v !== undefined)
+  collateralValue.value = {
+    usd: values.reduce<number>((total, val) => total + (val ?? 0), 0),
+    hasPrice: allHavePrice,
+  }
 }
 
 watchEffect(() => {
-  updateCollateralValueUsd()
+  updateCollateralValue()
 })
 
-const collateralValueInfo = computed(() => {
-  const hasPrice = collateralValueUsd.value > 0
-  return {
-    display: hasPrice ? formatCompactUsdValue(collateralValueUsd.value) : `${roundAndCompactTokens(collateralItems.value[0]?.assets ?? 0n, BigInt(position.collateral.decimals))} ${position.collateral.asset.symbol}`,
-    hasPrice,
-  }
+const collateralValueDisplay = computed(() => {
+  return collateralValue.value.hasPrice
+    ? formatCompactUsdValue(collateralValue.value.usd)
+    : `${roundAndCompactTokens(collateralItems.value[0]?.assets ?? 0n, BigInt(position.collateral.decimals))} ${position.collateral.asset.symbol}`
 })
-// collateralValueInfo stays as computed since it derives from collateralValueUsd ref
-
-const collateralValueDisplay = computed(() => collateralValueInfo.value.display)
 
 const borrowedValueInfo = ref<{ display: string; hasPrice: boolean }>({ display: '-', hasPrice: false })
 
@@ -134,29 +135,35 @@ watchEffect(() => {
 
 const borrowedValueDisplay = computed(() => borrowedValueInfo.value.display)
 
-const borrowedValueUsd = ref(0)
+const borrowedValue = ref<UsdAmount>({ usd: 0, hasPrice: false })
 
-const updateBorrowedValueUsd = async () => {
-  borrowedValueUsd.value = await getAssetUsdValue(position.borrowed, borrowVault.value, 'off-chain')
+const updateBorrowedValue = async () => {
+  borrowedValue.value = toUsdAmount(await getAssetUsdValue(position.borrowed, borrowVault.value, 'off-chain'))
 }
 
 watchEffect(() => {
-  updateBorrowedValueUsd()
+  updateBorrowedValue()
 })
 
-const netAssetValueUsd = computed(() => {
-  return collateralValueUsd.value - borrowedValueUsd.value
+const netAssetValue = computed<UsdAmount>(() => {
+  if (!collateralValue.value.hasPrice || !borrowedValue.value.hasPrice) {
+    return { usd: 0, hasPrice: false }
+  }
+  return {
+    usd: collateralValue.value.usd - borrowedValue.value.usd,
+    hasPrice: true,
+  }
 })
 
 const netAssetValueDisplay = computed(() => {
-  return formatCompactUsdValue(netAssetValueUsd.value)
+  return netAssetValue.value.hasPrice ? formatCompactUsdValue(netAssetValue.value.usd) : '-'
 })
 
 const netAPY = computed(() => {
   return getNetAPY(
-    collateralValueUsd.value,
+    collateralValue.value.usd,
     collateralSupplyApy.value,
-    borrowedValueUsd.value,
+    borrowedValue.value.usd,
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
@@ -318,7 +325,7 @@ onMounted(() => {
               {{ collateralValueDisplay }}
             </div>
             <div
-              v-if="collateralValueInfo.hasPrice"
+              v-if="collateralValue.hasPrice"
               class="text-content-tertiary text-p3"
             >
               ~ {{ roundAndCompactTokens(collateralItems[0].assets, position.collateral.decimals) }}

@@ -253,6 +253,8 @@ This means when we decode a vault's `oracleDetailedInfo`:
 
 ## Pyth Oracle Handling
 
+> For a general overview of Pyth and how price updates work in real transactions (write path), see [Pyth Oracle Handling](./pyth-oracle-handling.md). This section covers the read/simulation side in detail.
+
 ### The Problem
 
 Unlike Chainlink oracles that maintain on-chain prices, Pyth oracles require explicit price updates via `updatePriceFeeds()` before they can be queried. When the on-chain Pyth price is stale (past `maxStaleness`), the VaultLens query returns `queryFailure: true` and no valid price.

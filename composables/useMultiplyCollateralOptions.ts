@@ -70,7 +70,7 @@ export const useMultiplyCollateralOptions = ({
         option: {
           type: 'wallet',
           amount,
-          price: await getAssetUsdValue(amount, vault, 'off-chain'),
+          price: (await getAssetUsdValue(amount, vault, 'off-chain')) ?? 0,
           apy,
           symbol: vault.asset.symbol,
           label: product.name || vault.name,
@@ -103,7 +103,7 @@ export const useMultiplyCollateralOptions = ({
         option: {
           type: 'saving',
           amount,
-          price: await getAssetUsdValue(amount, vault, 'off-chain'),
+          price: (await getAssetUsdValue(amount, vault, 'off-chain')) ?? 0,
           apy,
           symbol: vault.asset.symbol,
           label: product.name || vault.name,

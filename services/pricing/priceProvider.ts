@@ -32,6 +32,16 @@ export type PriceResult = {
   amountOutBid: bigint
 }
 
+export type UsdAmount = {
+  usd: number
+  hasPrice: boolean
+}
+
+export const toUsdAmount = (value: number | undefined): UsdAmount => ({
+  usd: value ?? 0,
+  hasPrice: value !== undefined,
+})
+
 export type PriceSource = 'on-chain' | 'off-chain'
 
 /**
@@ -421,18 +431,18 @@ export const getCollateralUsdPrice = async (
  * @param vault - The vault
  * @param source - Price source: 'on-chain' (default) or 'off-chain'
  * @param backend - Backend configuration (required for 'off-chain' source)
- * @returns USD value as number, or 0 if no price available
+ * @returns USD value as number, or undefined if no price available
  */
 export const getAssetUsdValue = async (
   amount: number | bigint,
   vault: AnyVault | null | undefined,
   source: PriceSource = 'on-chain',
   backend?: BackendConfig,
-): Promise<number> => {
-  if (!vault) return 0
+): Promise<number | undefined> => {
+  if (!vault) return undefined
 
   const price = await getAssetUsdPrice(vault, source, backend)
-  if (!price) return 0
+  if (!price) return undefined
 
   const tokenAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.decimals) : amount
   const usdPrice = nanoToValue(price.amountOutMid, 18)
@@ -447,7 +457,7 @@ export const getAssetUsdValue = async (
  * @param collateralVault - The collateral vault
  * @param source - Price source: 'on-chain' (default) or 'off-chain'
  * @param backend - Backend configuration (required for 'off-chain' source)
- * @returns USD value as number, or 0 if no price available
+ * @returns USD value as number, or undefined if no price available
  */
 export const getCollateralUsdValue = async (
   assetAmount: bigint,
@@ -455,11 +465,11 @@ export const getCollateralUsdValue = async (
   collateralVault: Vault | null | undefined,
   source: PriceSource = 'on-chain',
   backend?: BackendConfig,
-): Promise<number> => {
-  if (!liabilityVault || !collateralVault) return 0
+): Promise<number | undefined> => {
+  if (!liabilityVault || !collateralVault) return undefined
 
   const price = await getCollateralUsdPrice(liabilityVault, collateralVault, source, backend)
-  if (!price) return 0
+  if (!price) return undefined
 
   const tokenAmount = nanoToValue(assetAmount, collateralVault.decimals)
   const usdPrice = nanoToValue(price.amountOutMid, 18)

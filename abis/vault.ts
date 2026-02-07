@@ -33,3 +33,7 @@ export const vaultConvertToSharesAbi = [
 export const vaultMaxWithdrawAbi = [
   'function maxWithdraw(address) external view returns (uint256)',
 ] as const
+
+export const vaultTransferFromMaxAbi = [
+  'function transferFromMax(address,address) external returns (bool)',
+] as const

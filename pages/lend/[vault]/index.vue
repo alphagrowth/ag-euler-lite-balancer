@@ -406,7 +406,7 @@ watchEffect(async () => {
     monthlyEarningsUsd.value = 0
     return
   }
-  monthlyEarningsUsd.value = await getAssetUsdValue(monthlyEarnings.value, vault.value, 'off-chain')
+  monthlyEarningsUsd.value = (await getAssetUsdValue(monthlyEarnings.value, vault.value, 'off-chain')) ?? 0
 })
 
 watch(amount, async () => {

@@ -152,7 +152,9 @@ export const collectPythFeedIds = (
       const decoded = decodeEulerRouterInfo(info.oracleInfo)
       if (!decoded) return
       visit(decoded.fallbackOracleInfo, depth + 1)
-      decoded.resolvedOraclesInfo?.forEach(child => visit(child, depth + 1))
+      decoded.resolvedOraclesInfo?.forEach((child) => {
+        visit(child, depth + 1)
+      })
       return
     }
 
@@ -161,6 +163,7 @@ export const collectPythFeedIds = (
       if (!decoded) return
       visit(decoded.oracleBaseCrossInfo, depth + 1)
       visit(decoded.oracleCrossQuoteInfo, depth + 1)
+      return
     }
   }
 

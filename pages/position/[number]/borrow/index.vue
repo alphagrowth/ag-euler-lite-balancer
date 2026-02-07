@@ -269,10 +269,12 @@ const updateEstimates = useDebounceFn(async () => {
       ? Infinity
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
-    const [collateralUsd, borrowUsd] = await Promise.all([
+    const [collateralUsdRaw, borrowUsdRaw] = await Promise.all([
       getAssetUsdValue(+collateralAmount.value || 0, collateralVault.value!, 'off-chain'),
       getAssetUsdValue(+borrowAmount.value || 0, borrowVault.value!, 'off-chain'),
     ])
+    const collateralUsd = collateralUsdRaw ?? 0
+    const borrowUsd = borrowUsdRaw ?? 0
     netAPY.value = getNetAPY(
       collateralUsd,
       collateralSupplyApy.value,

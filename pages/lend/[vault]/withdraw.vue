@@ -84,8 +84,8 @@ watchEffect(async () => {
     deltaUsd.value = 0
     return
   }
-  assetsBalanceUsd.value = await getAssetUsdValue(assetsBalance.value, vault.value as Vault, 'off-chain')
-  deltaUsd.value = await getAssetUsdValue(delta.value, vault.value as Vault, 'off-chain')
+  assetsBalanceUsd.value = (await getAssetUsdValue(assetsBalance.value, vault.value as Vault, 'off-chain')) ?? 0
+  deltaUsd.value = (await getAssetUsdValue(delta.value, vault.value as Vault, 'off-chain')) ?? 0
 })
 
 const load = async () => {

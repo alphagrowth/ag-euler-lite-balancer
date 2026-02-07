@@ -58,8 +58,8 @@ watchEffect(async () => {
         getAssetUsdValue(pair.borrow.supply - pair.borrow.borrow, pair.borrow, 'off-chain'),
         getAssetUsdValue(pair.borrow.borrow, pair.borrow, 'off-chain'),
       ])
-      liquidityValues.set(key, liquidity)
-      borrowedValues.set(key, borrowed)
+      liquidityValues.set(key, liquidity ?? 0)
+      borrowedValues.set(key, borrowed ?? 0)
     }),
   )
   pairLiquidityUsd.value = liquidityValues

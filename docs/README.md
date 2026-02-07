@@ -1,6 +1,6 @@
-# Euler TMA - Project Documentation
+# Euler Lite - Project Documentation
 
-Welcome to the documentation for the Euler TMA (Telegram Mini App) project. This documentation is designed to help both new developers understand the project structure and system architects understand how this project fits into the broader ecosystem.
+Welcome to the documentation for the Euler Lite project. This documentation is designed to help both new developers understand the project structure and system architects understand how this project fits into the broader ecosystem.
 
 ## 📚 Documentation Sections
 
@@ -35,9 +35,39 @@ Welcome to the documentation for the Euler TMA (Telegram Mini App) project. This
 - Internal data management
 - Data transformation flows
 
+### 💰 [Pricing System](./pricing-system.md)
+
+- 3-layer pricing architecture (oracle → USD → values)
+- On-chain vs off-chain price sources
+- Pyth oracle simulation for price reads
+
+### 📊 [Portfolio Logic](./portfolio-logic.md)
+
+- Position discovery and categorization
+- Lens contract usage
+- Borrow, deposit, and earn position loading
+
+### 🏷️ [Vault Labels & Verification](./vault-labels-and-verification.md)
+
+- Vault verification and trust levels
+- Label data sources and types
+- Unknown vault resolution
+
+### 🔧 [Transaction Building](./transaction-building.md)
+
+- TxPlan architecture and composite operations
+- EVC batching and Permit2 integration
+- Sub-accounts and position isolation
+
+### 🔮 [Pyth Oracle Handling](./pyth-oracle-handling.md)
+
+- Pull-based oracle model overview
+- Read path (simulation) and write path (transactions)
+- Feed collection and batch building
+
 ## 🎯 Project Overview
 
-**Euler TMA** is a Telegram Mini App that provides DeFi lending and borrowing services through the Euler Finance protocol, specifically designed for the TON blockchain ecosystem. The application allows users to:
+**Euler Lite** is a lightweight multi-chain DeFi application that provides lending and borrowing services through the Euler Finance protocol. It supports multiple EVM chains and connects via standard EVM wallets. The application allows users to:
 
 - **Lend Assets**: Deposit crypto assets to earn yield
 - **Borrow Assets**: Use collateral to borrow other assets
@@ -47,7 +77,7 @@ Welcome to the documentation for the Euler TMA (Telegram Mini App) project. This
 ## 🏛️ Key Technologies
 
 - **Frontend**: Nuxt.js 3, Vue 3, TypeScript
-- **Blockchain**: TON blockchain, TAC (TON App Chain)
+- **Blockchain**: Multiple EVM chains
 - **DeFi Protocol**: Euler Finance
 - **Wallet Integration**: TonConnect
 - **Styling**: SCSS with custom design system

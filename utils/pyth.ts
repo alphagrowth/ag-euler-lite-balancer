@@ -242,20 +242,20 @@ export const buildPythUpdateCalls = async (
     return { calls: [], totalFee: 0n }
   }
 
-  const grouped = new Map<Address, Set<Hex>>()
+  const grouped = new Map<string, { pythAddress: Address; feedIds: Set<Hex> }>()
   feeds.forEach((feed) => {
-    const key = feed.pythAddress
+    const key = feed.pythAddress.toLowerCase()
     if (!grouped.has(key)) {
-      grouped.set(key, new Set())
+      grouped.set(key, { pythAddress: feed.pythAddress, feedIds: new Set() })
     }
-    grouped.get(key)?.add(feed.feedId)
+    grouped.get(key)?.feedIds.add(feed.feedId)
   })
 
   const provider = new ethers.JsonRpcProvider(providerUrl)
   const calls: EVCCall[] = []
   let totalFee = 0n
 
-  for (const [pythAddress, feedSet] of grouped.entries()) {
+  for (const [, { pythAddress, feedIds: feedSet }] of grouped.entries()) {
     const updateData = await fetchPythUpdateData([...feedSet], hermesEndpoint)
     if (!updateData.length) continue
 

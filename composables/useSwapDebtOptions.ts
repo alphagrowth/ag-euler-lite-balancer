@@ -58,7 +58,7 @@ export const useSwapDebtOptions = ({
       return {
         type: 'vault',
         amount: 0,
-        price: await getAssetUsdValue(1, vault, 'off-chain'),
+        price: (await getAssetUsdValue(1, vault, 'off-chain')) ?? 0,
         apy,
         symbol: vault.asset.symbol,
         label: product.name || vault.name,

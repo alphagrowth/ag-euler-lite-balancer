@@ -53,10 +53,11 @@ const checkTab = () => {
   }
 }
 
-const updatePositions = () => {
+const updatePositions = async () => {
+  // Borrow positions must be loaded first so deposits can filter collateral usage
+  await updateBorrowPositions(eulerLensAddresses.value, address.value as string)
   updateDepositPositions(eulerLensAddresses.value, address.value as string)
   updateEarnPositions(eulerLensAddresses.value, address.value as string)
-  updateBorrowPositions(eulerLensAddresses.value, address.value as string)
 }
 
 watch(tabsModel, checkTab, { immediate: true })

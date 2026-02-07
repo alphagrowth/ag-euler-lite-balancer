@@ -384,7 +384,7 @@ When submitting transactions that interact with Pyth-priced vaults, Pyth update 
               | deposits)        |
               v                  v
           +-----------------------------+
-          | priceProvider (3-layer)      |
+          | priceProvider (3-layer)     |
           |  Layer 1: Oracle (UoA)      |
           |  Layer 2: USD conversion    |
           |  Layer 3: USD values        |
@@ -394,6 +394,12 @@ When submitting transactions that interact with Pyth-priced vaults, Pyth update 
           Portfolio Totals
           (totalSupplied, totalBorrowed)
 ```
+
+## Related Documentation
+
+- [Pricing System](./pricing-system.md) — Full pricing architecture details
+- [Pyth Oracle Handling](./pyth-oracle-handling.md) — How Pyth oracles affect position loading
+- [Vault Labels & Verification](./vault-labels-and-verification.md) — How vault verification affects position visibility
 
 ### Reactive Update Triggers
 

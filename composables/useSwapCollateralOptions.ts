@@ -80,7 +80,7 @@ export const useSwapCollateralOptions = ({
       return {
         type: optionType,
         amount,
-        price: await getAssetUsdValue(amount, vault, 'off-chain'),
+        price: (await getAssetUsdValue(amount, vault, 'off-chain')) ?? 0,
         apy,
         symbol: vault.asset.symbol,
         label: product.name || vault.name,
