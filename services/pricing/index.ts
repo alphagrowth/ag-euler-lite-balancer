@@ -3,6 +3,8 @@ export {
   type PriceResult,
   type PriceSource,
   type BackendConfig,
+  type UsdAmount,
+  toUsdAmount,
 
   // Constants
   ONE_18,
@@ -20,6 +22,8 @@ export {
   // Layer 3: USD Value Calculation (async, supports backend)
   getAssetUsdValue,
   getCollateralUsdValue,
+  getAssetUsdValueOrZero,
+  getCollateralUsdValueOrZero,
   formatAssetValue,
 
   // Liquidation helpers

@@ -15,7 +15,7 @@ import {
   getAssetOraclePrice,
   getCollateralOraclePrice,
   getCollateralUsdPrice,
-  getCollateralUsdValue,
+  getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
@@ -278,7 +278,7 @@ const borrowApy = computed(() => {
 // Get collateral USD value using liability vault's price perspective
 const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !fromVault.value) return 0
-  return await getCollateralUsdValue(amount, borrowVault.value, fromVault.value as Vault, 'off-chain')
+  return getCollateralUsdValueOrZero(amount, borrowVault.value, fromVault.value as Vault, 'off-chain')
 }
 // Price per unit for collateral in USD (from liability vault's perspective)
 const collateralPricePerUnit = ref<number | undefined>(undefined)
@@ -308,7 +308,7 @@ watchEffect(async () => {
     nextSupplyValueUsd.value = null
     return
   }
-  nextSupplyValueUsd.value = await getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value, 'off-chain')
+  nextSupplyValueUsd.value = (await getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value, 'off-chain')) ?? null
 })
 const borrowValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -316,7 +316,7 @@ watchEffect(async () => {
     borrowValueUsd.value = null
     return
   }
-  borrowValueUsd.value = await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')
+  borrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
 })
 
 const calculateRoe = (
@@ -679,6 +679,7 @@ const submit = async () => {
         targetDebt: 0n,
         currentDebt: 0n,
         enableCollateral: true,
+        liabilityVault: borrowVault.value?.address,
       })
     }
     catch (e) {
@@ -723,6 +724,7 @@ const send = async () => {
       targetDebt: 0n,
       currentDebt: 0n,
       enableCollateral: true,
+      liabilityVault: borrowVault.value?.address,
     })
     modal.close()
     setTimeout(() => {

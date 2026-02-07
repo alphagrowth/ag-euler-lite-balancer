@@ -1,11 +1,11 @@
 # Project Structure
 
-This document provides an overview of the Euler TMA project's folder structure, file organization, and naming conventions.
+This document provides an overview of the Euler Lite project's folder structure, file organization, and naming conventions.
 
 ## 📁 Root Directory Structure
 
 ```
-eulertma/
+euler-lite/
 ├── app.vue                 # Main application entry point
 ├── nuxt.config.ts          # Nuxt.js configuration
 ├── package.json            # Dependencies and scripts
@@ -13,6 +13,7 @@ eulertma/
 ├── eslint.config.mjs       # ESLint configuration
 ├── Dockerfile              # Docker configuration
 ├── error.vue               # Global error page
+├── abis/                   # Smart contract ABIs
 ├── assets/                 # Static assets and styles
 ├── components/             # Vue components
 ├── composables/            # Vue composables and business logic
@@ -20,6 +21,7 @@ eulertma/
 ├── pages/                  # Application pages and routing
 ├── plugins/                # Nuxt.js plugins
 ├── public/                 # Public static files
+├── services/               # Service layer (pricing, etc.)
 ├── types/                  # Global TypeScript types
 └── utils/                  # Utility functions
 ```
@@ -73,16 +75,33 @@ components/
 
 ```
 composables/
-├── useEulerConfig.ts          # Configuration management
-├── useEulerAccount.ts       # Euler account operations
-├── useEulerLabels.ts        # Euler labels and metadata
-├── useEulerOperations.ts    # Euler protocol operations
-├── useMerkl.ts              # Merkl rewards system
-├── useOperationTracker.ts   # Operation tracking and monitoring
-├── useTacSdk.ts             # TAC SDK integration
-├── useTonConnect.ts         # TON wallet connection
-├── useVaults.ts             # Vault data management
-└── useWallets.ts            # Wallet balance management
+├── useAddressScreen.ts            # Address screening (compliance)
+├── useBrevis.ts                   # Brevis ZK proof integration
+├── useEulerAccount.ts             # Euler account and portfolio positions
+├── useEulerAddresses.ts           # Euler contract address resolution
+├── useEulerConfig.ts              # Configuration management
+├── useEulerLabels.ts              # Euler labels and metadata
+├── useEulerOperations.ts          # Euler protocol operations (supply, borrow, etc.)
+├── useEstimateFees.ts             # Transaction fee estimation
+├── useIntrinsicApy.ts             # Intrinsic APY calculations
+├── useMerkl.ts                    # Merkl rewards system
+├── useMultiplyCollateralOptions.ts # Multiply collateral selection
+├── usePriceBackend.ts             # Backend price service client
+├── useREULLocks.ts                # REUL token lock management
+├── useSlippage.ts                 # Swap slippage settings
+├── useSwapApi.ts                  # Swap API integration
+├── useSwapCollateralOptions.ts    # Swap collateral selection
+├── useSwapDebtOptions.ts          # Swap debt selection
+├── useSwapQuotesParallel.ts       # Parallel swap quote fetching
+├── useTermsOfUseGate.ts           # Terms of use enforcement
+├── useTokens.ts                   # Token metadata and resolution
+├── useTokenSymbolResolver.ts      # Token symbol resolution
+├── useTosData.ts                  # Terms of service data
+├── useTxPlanSimulation.ts         # Transaction plan simulation
+├── useVaultRegistry.ts            # Vault registry and unknown vault resolution
+├── useVaults.ts                   # Vault data management
+├── useWagmi.ts                    # Wagmi wallet integration
+└── useWallets.ts                  # Wallet balance management
 ```
 
 ### Composable Naming Convention
@@ -97,15 +116,26 @@ composables/
 ```
 entities/
 ├── account.ts               # Account-related data models
-├── assets.ts                # Asset definitions and utilities
+├── brevis.ts                # Brevis ZK proof types
 ├── config.ts                # Configuration constants and addresses
+├── constants.ts             # Shared constants
+├── custom.ts                # Custom entity definitions
+├── customTokens.ts          # Custom token configurations
+├── evc-error-signatures.ts  # EVC error signature decoding
 ├── euler/                   # Euler Finance specific entities
 │   ├── abis.ts              # Smart contract ABIs
-│   ├── addresses.ts         # Contract addresses by network
-│   └── labels.ts            # Euler labels and metadata
+│   └── labels.ts            # Euler labels and metadata types
+├── menu.ts                  # Navigation menu configuration
 ├── merkl.ts                 # Merkl rewards system models
-├── saHooksSDK.ts            # Smart account hooks
-└── vault.ts                 # Vault data models and operations
+├── oracle.ts                # Oracle decoding and Pyth feed collection
+├── oracle-providers.ts      # Oracle provider type definitions
+├── permit2.ts               # Permit2 approval types
+├── reul.ts                  # REUL token types
+├── saHooksSDK.ts            # Smart account hooks builder
+├── swap.ts                  # Swap types and utilities
+├── token.ts                 # Token data models
+├── txPlan.ts                # Transaction plan types (TxPlan, TxStep)
+└── vault.ts                 # Vault data models and fetching
 ```
 
 ### Entity Organization
@@ -123,12 +153,16 @@ pages/
 │   │   └── [borrow]/        # Dynamic route for borrow asset
 │   │       └── index.vue    # Borrow operation page
 │   └── index.vue            # Main borrow page
+├── earn/                    # EulerEarn functionality
+│   └── [vault]/             # Dynamic route for earn vault
+│       ├── index.vue        # Earn vault overview
+│       └── withdraw.vue     # Earn withdrawal
 ├── index.vue                # Landing page (lend)
 ├── lend/                    # Lend functionality
 │   └── [vault]/             # Dynamic route for specific vault
 │       ├── index.vue        # Vault overview page
+│       ├── swap.vue         # Collateral swap page
 │       └── withdraw.vue     # Withdrawal page
-├── metrics.vue              # Analytics and metrics page
 ├── onboarding.vue           # User onboarding flow
 ├── portfolio/               # Portfolio management
 │   ├── index.vue            # Main portfolio page
@@ -137,12 +171,16 @@ pages/
 ├── portfolio.vue            # Legacy portfolio page
 ├── position/                # Position management
 │   └── [number]/            # Dynamic route for position ID
-│       ├── borrow.vue       # Position borrow operations
+│       ├── borrow/
+│       │   ├── index.vue    # Position borrow operations
+│       │   └── swap.vue     # Borrow debt swap
+│       ├── collateral/
+│       │   └── swap.vue     # Collateral swap
 │       ├── index.vue        # Position overview
+│       ├── multiply.vue     # Multiply position
 │       ├── repay.vue        # Position repayment
 │       ├── supply.vue       # Position supply operations
 │       └── withdraw.vue     # Position withdrawal
-├── toast-demo.vue           # Toast notification demo
 └── ui.vue                   # UI component showcase
 ```
 
@@ -157,9 +195,11 @@ pages/
 
 ```
 plugins/
-├── directives.ts             # Global Vue directives
+├── 00.wagmi.ts              # Wagmi wallet initialization (runs first)
+├── 01.query.ts              # Query client initialization
+├── directives.ts            # Global Vue directives
 ├── node.ts                  # Server-side plugins
-└── webapp.client.ts         # Client-side plugins
+└── theme.client.ts          # Client-side theme setup
 ```
 
 ### Plugin Types
@@ -185,9 +225,41 @@ types/
 
 ```
 utils/
+├── block-explorer.ts        # Block explorer URL helpers
+├── crypto-utils.ts          # Cryptographic utilities
+├── evc-converter.ts         # EVC batch/call conversion utilities
+├── multicall.ts             # Batch lens calls via EVC simulation
+├── pyth.ts                  # Pyth oracle utilities (Hermes API, batch building)
 ├── string-utils.ts          # String manipulation utilities
+├── swapQuotes.ts            # Swap quote formatting
 ├── time-utils.ts            # Time and date utilities
-└── ton-utils.ts             # TON blockchain utilities
+└── tx-errors.ts             # Transaction error parsing
+```
+
+## 📊 Services Directory
+
+```
+services/
+├── pricing/
+│   ├── index.ts             # Pricing module exports
+│   ├── backendClient.ts     # Backend price API client (batching, caching)
+│   └── priceProvider.ts     # 3-layer pricing system (oracle → USD → values)
+├── trm.ts                   # TRM Labs compliance screening
+└── vpn.ts                   # VPN detection service
+```
+
+## 📋 ABIs Directory
+
+```
+abis/
+├── brevis.ts                # Brevis contract ABI
+├── erc20.ts                 # ERC-20 token ABI
+├── evc.ts                   # EVC (Ethereum Vault Connector) ABI
+├── merkl.ts                 # Merkl distributor ABI
+├── pyth.ts                  # Pyth oracle contract ABI
+├── reul.ts                  # REUL token ABI
+├── tos.ts                   # Terms of service contract ABI
+└── vault.ts                 # Vault and lens contract ABIs
 ```
 
 ### Utility Organization

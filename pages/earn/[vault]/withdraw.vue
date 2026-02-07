@@ -10,7 +10,7 @@ import {
   type EarnVault,
   type VaultAsset,
 } from '~/entities/vault'
-import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -216,8 +216,8 @@ watchEffect(async () => {
     deltaUsd.value = 0
     return
   }
-  assetsBalanceUsd.value = await getAssetUsdValue(assetsBalance.value, vault.value, 'off-chain')
-  deltaUsd.value = await getAssetUsdValue(delta.value, vault.value, 'off-chain')
+  assetsBalanceUsd.value = await getAssetUsdValueOrZero(assetsBalance.value, vault.value, 'off-chain')
+  deltaUsd.value = await getAssetUsdValueOrZero(delta.value, vault.value, 'off-chain')
 })
 
 watch(isConnected, async () => {

@@ -185,8 +185,10 @@ Located in `services/pricing/priceProvider.ts`:
 
 ### Layer 3: USD Values
 
-- **`getAssetUsdValue(amount, vault)`** - Calculates USD value of an asset amount
-- **`getCollateralUsdValue(amount, liabilityVault, collateralVault)`** - Calculates USD value of collateral in borrow context
+- **`getAssetUsdValue(amount, vault)`** - Calculates USD value of an asset amount. Returns `undefined` when no price is available.
+- **`getCollateralUsdValue(amount, liabilityVault, collateralVault)`** - Calculates USD value of collateral in borrow context. Returns `undefined` when no price is available.
+- **`getAssetUsdValueOrZero(amount, vault)`** - Convenience wrapper that returns `0` instead of `undefined`. Use in UI contexts where a missing price should display as zero.
+- **`getCollateralUsdValueOrZero(amount, liabilityVault, collateralVault)`** - Same convenience wrapper for collateral values.
 - **`formatAssetValue(amount, vault)`** - Formats value for UI display with price availability flag
 
 ## USD Price Calculation for Regular EVK Vault
@@ -252,6 +254,8 @@ This means when we decode a vault's `oracleDetailedInfo`:
 - The full oracle tree (including nested Pyth oracles) is available for traversal
 
 ## Pyth Oracle Handling
+
+> For a general overview of Pyth and how price updates work in real transactions (write path), see [Pyth Oracle Handling](./pyth-oracle-handling.md). This section covers the read/simulation side in detail.
 
 ### The Problem
 

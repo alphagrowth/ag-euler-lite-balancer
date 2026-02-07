@@ -5,7 +5,7 @@ import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerMod
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type EarnVault, type VaultAsset } from '~/entities/vault'
-import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
@@ -202,7 +202,7 @@ watchEffect(async () => {
     monthlyEarningsUsd.value = 0
     return
   }
-  monthlyEarningsUsd.value = await getAssetUsdValue(monthlyEarnings.value, vault.value, 'off-chain')
+  monthlyEarningsUsd.value = await getAssetUsdValueOrZero(monthlyEarnings.value, vault.value, 'off-chain')
 })
 
 watch(amount, async () => {

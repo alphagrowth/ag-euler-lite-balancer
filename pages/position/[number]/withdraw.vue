@@ -12,10 +12,10 @@ import {
   type SecuritizeVault,
 } from '~/entities/vault'
 import {
-  getAssetUsdValue,
+  getAssetUsdValueOrZero,
   getAssetOraclePrice,
   getCollateralOraclePrice,
-  getCollateralUsdValue,
+  getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -74,7 +74,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 // Get collateral USD value using liability vault's price perspective (async)
 const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !collateralVault.value) return 0
-  return getCollateralUsdValue(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
+  return getCollateralUsdValueOrZero(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
 }
 // Pre-computed net APY (async)
 const netAPY = ref(0)
@@ -87,7 +87,7 @@ watchEffect(async () => {
 
   const [collateralUsd, borrowedUsd] = await Promise.all([
     getCollateralValueUsdLocal(collateralAssets.value),
-    getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
+    getAssetUsdValueOrZero(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
   ])
 
   netAPY.value = getNetAPY(
@@ -222,7 +222,7 @@ const submit = async () => {
         collateralVault.value.address,
         valueToNano(amount.value || '0', asset.value.decimals),
         position.value?.subAccount,
-        { includePythUpdate: (position.value?.borrowed || 0n) > 0n },
+        { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address },
       )
     }
     catch (e) {
@@ -269,7 +269,7 @@ const send = async () => {
       position.value?.subAccount,
       undefined,
       undefined,
-      { includePythUpdate: (position.value?.borrowed || 0n) > 0n },
+      { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address },
     )
 
     modal.close()
@@ -298,7 +298,7 @@ const updateEstimates = useDebounceFn(async () => {
     }
     const [collateralUsd, borrowedUsd] = await Promise.all([
       getCollateralValueUsdLocal(collateralAssets.value - valueToNano(amount.value, collateralVault.value.decimals)),
-      getAssetUsdValue(position.value!.borrowed ?? 0n, borrowVault.value!, 'off-chain'),
+      getAssetUsdValueOrZero(position.value!.borrowed ?? 0n, borrowVault.value!, 'off-chain'),
     ])
     estimateNetAPY.value = getNetAPY(
       collateralUsd,

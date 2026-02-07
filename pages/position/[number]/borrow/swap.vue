@@ -202,7 +202,7 @@ watchEffect(async () => {
     supplyValueUsd.value = null
     return
   }
-  supplyValueUsd.value = await getAssetUsdValue(position.value.supplied, collateralVault.value, 'off-chain')
+  supplyValueUsd.value = (await getAssetUsdValue(position.value.supplied, collateralVault.value, 'off-chain')) ?? null
 })
 const currentBorrowValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -210,7 +210,7 @@ watchEffect(async () => {
     currentBorrowValueUsd.value = null
     return
   }
-  currentBorrowValueUsd.value = await getAssetUsdValue(position.value.borrowed, fromVault.value, 'off-chain')
+  currentBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, fromVault.value, 'off-chain')) ?? null
 })
 const nextBorrowValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -218,7 +218,7 @@ watchEffect(async () => {
     nextBorrowValueUsd.value = null
     return
   }
-  nextBorrowValueUsd.value = await getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value, 'off-chain')
+  nextBorrowValueUsd.value = (await getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value, 'off-chain')) ?? null
 })
 
 const calculateRoe = (
@@ -612,6 +612,7 @@ const submit = async () => {
         isRepay: true,
         targetDebt: 0n,
         currentDebt: 0n,
+        liabilityVault: fromVault.value?.address,
       })
     }
     catch (e) {
@@ -655,6 +656,7 @@ const send = async () => {
       isRepay: true,
       targetDebt: 0n,
       currentDebt: 0n,
+      liabilityVault: fromVault.value?.address,
     })
     modal.close()
     setTimeout(() => {

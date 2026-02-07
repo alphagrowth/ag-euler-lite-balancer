@@ -1,10 +1,10 @@
 # Getting Started
 
-Welcome to the Euler TMA project! This guide will help you get up and running with the development environment and understand the basics of the project.
+Welcome to the Euler Lite project! This guide will help you get up and running with the development environment and understand the basics of the project.
 
-## 🎯 What is Euler TMA?
+## 🎯 What is Euler Lite?
 
-**Euler TMA** (Telegram Mini App) is a decentralized finance application that brings Euler Finance's lending and borrowing services to the TON blockchain ecosystem. It's designed as a Telegram Mini App, making DeFi accessible to users directly within the Telegram interface.
+**Euler Lite** is a lightweight multi-chain DeFi application that provides access to Euler Finance's lending and borrowing services. It supports multiple EVM chains and connects via standard EVM wallets.
 
 ### Key Features
 
@@ -51,7 +51,7 @@ Welcome to the Euler TMA project! This guide will help you get up and running wi
 
    ```bash
    git clone <repository-url>
-   cd eulertma
+   cd euler-lite
    ```
 
 2. **Install dependencies**

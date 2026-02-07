@@ -13,8 +13,8 @@ import {
   type SecuritizeVault,
 } from '~/entities/vault'
 import {
-  getAssetUsdValue,
-  getCollateralUsdValue,
+  getAssetUsdValueOrZero,
+  getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -73,7 +73,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 // Get collateral USD value using liability vault's price perspective (async)
 const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !collateralVault.value) return 0
-  return getCollateralUsdValue(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
+  return getCollateralUsdValueOrZero(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
 }
 // Pre-computed net APY (async)
 const netAPY = ref(0)
@@ -86,7 +86,7 @@ watchEffect(async () => {
 
   const [collateralUsd, borrowedUsd] = await Promise.all([
     getCollateralValueUsdLocal(collateralAssets.value),
-    getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
+    getAssetUsdValueOrZero(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
   ])
 
   netAPY.value = getNetAPY(
@@ -298,7 +298,7 @@ const updateEstimates = useDebounceFn(async () => {
     }
     const [collateralUsd, borrowedUsd] = await Promise.all([
       getCollateralValueUsdLocal(collateralAssets.value + valueToNano(amount.value, collateralVault.value.decimals)),
-      getAssetUsdValue(position.value!.borrowed || 0n, borrowVault.value!, 'off-chain'),
+      getAssetUsdValueOrZero(position.value!.borrowed || 0n, borrowVault.value!, 'off-chain'),
     ])
     estimateNetAPY.value = getNetAPY(
       collateralUsd,

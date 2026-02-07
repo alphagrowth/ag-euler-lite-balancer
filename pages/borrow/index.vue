@@ -4,7 +4,7 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
-import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
 
 const getMaxRoe = (pair: BorrowVaultPair) => {
@@ -55,8 +55,8 @@ watchEffect(async () => {
     pairs.map(async (pair) => {
       const key = getPairKey(pair)
       const [liquidity, borrowed] = await Promise.all([
-        getAssetUsdValue(pair.borrow.supply - pair.borrow.borrow, pair.borrow, 'off-chain'),
-        getAssetUsdValue(pair.borrow.borrow, pair.borrow, 'off-chain'),
+        getAssetUsdValueOrZero(pair.borrow.supply - pair.borrow.borrow, pair.borrow, 'off-chain'),
+        getAssetUsdValueOrZero(pair.borrow.borrow, pair.borrow, 'off-chain'),
       ])
       liquidityValues.set(key, liquidity)
       borrowedValues.set(key, borrowed)

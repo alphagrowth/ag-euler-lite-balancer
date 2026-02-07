@@ -276,7 +276,7 @@ watchEffect(async () => {
     multiplyLongValueUsd.value = null
     return
   }
-  multiplyLongValueUsd.value = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+  multiplyLongValueUsd.value = (await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')) ?? null
 })
 const multiplyBorrowValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -288,7 +288,7 @@ watchEffect(async () => {
     multiplyBorrowValueUsd.value = null
     return
   }
-  multiplyBorrowValueUsd.value = await getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')
+  multiplyBorrowValueUsd.value = (await getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')) ?? null
 })
 const currentSupplyValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -296,7 +296,7 @@ watchEffect(async () => {
     currentSupplyValueUsd.value = null
     return
   }
-  currentSupplyValueUsd.value = await getAssetUsdValue(position.value.supplied, multiplyLongVault.value, 'off-chain')
+  currentSupplyValueUsd.value = (await getAssetUsdValue(position.value.supplied, multiplyLongVault.value, 'off-chain')) ?? null
 })
 const currentBorrowValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -304,7 +304,7 @@ watchEffect(async () => {
     currentBorrowValueUsd.value = null
     return
   }
-  currentBorrowValueUsd.value = await getAssetUsdValue(position.value.borrowed, multiplyShortVault.value, 'off-chain')
+  currentBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, multiplyShortVault.value, 'off-chain')) ?? null
 })
 const nextSupplyValueUsd = computed(() => {
   if (currentSupplyValueUsd.value === null) {

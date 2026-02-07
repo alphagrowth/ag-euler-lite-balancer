@@ -8,7 +8,7 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
 import { collectPythFeedIds } from '~/entities/oracle'
-import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, getCollateralUsdPrice, ONE_18 } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralUsdPrice, ONE_18 } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -399,9 +399,9 @@ watchEffect(async () => {
     savingCollateralPriceUsd.value = 0
     return
   }
-  walletCollateralPriceUsd.value = await getAssetUsdValue(balance.value, collateralVault.value, 'off-chain')
+  walletCollateralPriceUsd.value = await getAssetUsdValueOrZero(balance.value, collateralVault.value, 'off-chain')
   if (savingCollateral.value) {
-    savingCollateralPriceUsd.value = await getAssetUsdValue(savingCollateral.value.assets, collateralVault.value, 'off-chain')
+    savingCollateralPriceUsd.value = await getAssetUsdValueOrZero(savingCollateral.value.assets, collateralVault.value, 'off-chain')
   }
   else {
     savingCollateralPriceUsd.value = 0
@@ -590,21 +590,21 @@ watchEffect(async () => {
     multiplySupplyValueUsd.value = null
   }
   else {
-    multiplySupplyValueUsd.value = await getAssetUsdValue(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')
+    multiplySupplyValueUsd.value = await getAssetUsdValueOrZero(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')
   }
 
   if (!multiplyLongVault.value || !multiplySwapAmountOut.value) {
     multiplyLongValueUsd.value = null
   }
   else {
-    multiplyLongValueUsd.value = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+    multiplyLongValueUsd.value = await getAssetUsdValueOrZero(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
   }
 
   if (!multiplyShortVault.value || !multiplyDebtAmountNano.value) {
     multiplyBorrowValueUsd.value = null
   }
   else {
-    multiplyBorrowValueUsd.value = await getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')
+    multiplyBorrowValueUsd.value = await getAssetUsdValueOrZero(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')
   }
 })
 const multiplyTotalSupplyUsd = computed(() => {
@@ -1304,8 +1304,8 @@ const updateEstimates = useDebounceFn(async () => {
       ? Infinity
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
-    const collateralUsdValue = await getAssetUsdValue(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')
-    const borrowUsdValue = await getAssetUsdValue(+borrowAmount.value || 0, borrowVault.value!, 'off-chain')
+    const collateralUsdValue = await getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')
+    const borrowUsdValue = await getAssetUsdValueOrZero(+borrowAmount.value || 0, borrowVault.value!, 'off-chain')
     netAPY.value = getNetAPY(
       collateralUsdValue,
       collateralSupplyApy.value,

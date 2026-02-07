@@ -6,7 +6,7 @@ import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY } from '~/entities/vault'
-import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
@@ -270,8 +270,8 @@ const updateEstimates = useDebounceFn(async () => {
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
     const [collateralUsd, borrowUsd] = await Promise.all([
-      getAssetUsdValue(+collateralAmount.value || 0, collateralVault.value!, 'off-chain'),
-      getAssetUsdValue(+borrowAmount.value || 0, borrowVault.value!, 'off-chain'),
+      getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain'),
+      getAssetUsdValueOrZero(+borrowAmount.value || 0, borrowVault.value!, 'off-chain'),
     ])
     netAPY.value = getNetAPY(
       collateralUsd,

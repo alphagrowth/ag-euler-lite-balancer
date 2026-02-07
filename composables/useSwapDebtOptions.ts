@@ -4,7 +4,7 @@ import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
-import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 
 export const useSwapDebtOptions = ({
   collateralVault,
@@ -58,7 +58,7 @@ export const useSwapDebtOptions = ({
       return {
         type: 'vault',
         amount: 0,
-        price: await getAssetUsdValue(1, vault, 'off-chain'),
+        price: await getAssetUsdValueOrZero(1, vault, 'off-chain'),
         apy,
         symbol: vault.asset.symbol,
         label: product.name || vault.name,

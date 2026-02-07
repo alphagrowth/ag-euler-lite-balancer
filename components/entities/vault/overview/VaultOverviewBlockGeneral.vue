@@ -18,6 +18,7 @@ const isDeprecated = computed(() => {
 })
 const deprecationReason = computed(() => isDeprecated.value ? product.deprecationReason : '')
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault))
+const isGovernanceLimited = computed(() => product.isGovernanceLimited && isGovernorVerified.value)
 
 // Count how many borrow pairs have this vault as collateral
 const collateralCount = computed(() => {
@@ -79,7 +80,22 @@ const vaultGovernanceType = computed(() => {
       />
       <VaultOverviewLabelValue label="Risk manager(s)">
         <div
-          v-if="entities.length && isGovernorVerified"
+          v-if="!isGovernorVerified"
+          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"
+        >
+          <UiIcon
+            class="mr-2 !w-20 !h-20"
+            name="warning"
+          />
+          Unknown
+        </div>
+        <div
+          v-else-if="isGovernanceLimited"
+        >
+          -
+        </div>
+        <div
+          v-else-if="entities.length"
           class="flex flex-col gap-16"
         >
           <div
@@ -97,16 +113,6 @@ const vaultGovernanceType = computed(() => {
               class="text-p2 text-content-primary hover:text-accent-600 underline transition-colors"
             >{{ entity.name }}</a>
           </div>
-        </div>
-        <div
-          v-else-if="!isGovernorVerified"
-          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"
-        >
-          <UiIcon
-            class="mr-2 !w-20 !h-20"
-            name="warning"
-          />
-          Unknown
         </div>
         <div v-else>
           -

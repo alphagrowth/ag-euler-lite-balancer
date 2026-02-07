@@ -5,7 +5,7 @@ import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
-import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 
 type CollateralItem = {
   vault: Vault
@@ -70,7 +70,7 @@ export const useMultiplyCollateralOptions = ({
         option: {
           type: 'wallet',
           amount,
-          price: await getAssetUsdValue(amount, vault, 'off-chain'),
+          price: await getAssetUsdValueOrZero(amount, vault, 'off-chain'),
           apy,
           symbol: vault.asset.symbol,
           label: product.name || vault.name,
@@ -103,7 +103,7 @@ export const useMultiplyCollateralOptions = ({
         option: {
           type: 'saving',
           amount,
-          price: await getAssetUsdValue(amount, vault, 'off-chain'),
+          price: await getAssetUsdValueOrZero(amount, vault, 'off-chain'),
           apy,
           symbol: vault.asset.symbol,
           label: product.name || vault.name,

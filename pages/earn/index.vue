@@ -4,7 +4,7 @@ import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { EarnVault } from '~/entities/vault'
-import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { isVaultDeprecated } from '~/composables/useEulerLabels'
 
 defineOptions({
@@ -34,8 +34,8 @@ watchEffect(async () => {
   await Promise.all(
     vaults.map(async (vault) => {
       const [totalSupply, liquidity] = await Promise.all([
-        getAssetUsdValue(vault.totalAssets, vault, 'off-chain'),
-        getAssetUsdValue(vault.availableAssets, vault, 'off-chain'),
+        getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain'),
+        getAssetUsdValueOrZero(vault.availableAssets, vault, 'off-chain'),
       ])
       totalSupplyValues.set(vault.address, totalSupply)
       liquidityValues.set(vault.address, liquidity)
