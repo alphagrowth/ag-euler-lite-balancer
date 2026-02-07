@@ -72,6 +72,10 @@ const getExposureVaultByAddress = (address: string) => {
   return exposureVaults.value.find(vlt => normalized === ethers.getAddress(vlt.address))
 }
 
+const hasExposureUsdPrice = (exposure: typeof exposureList.value[0]) => {
+  return exposureUsdPrices.value.has(exposure.strategy)
+}
+
 const getExposureUsdPrice = (exposure: typeof exposureList.value[0]) => {
   return exposureUsdPrices.value.get(exposure.strategy) || 0
 }
@@ -134,21 +138,12 @@ load()
             label="Allocation ($)"
             orientation="horizontal"
           >
-            <div class="flex items-center gap-4">
-              <template v-if="getExposureUsdPrice(exposure) > 0">
-                {{ formatCompactUsdValue(getExposureUsdPrice(exposure)) }}
-                <span @click.stop.prevent>
-                  <UiFootnote
-                    title="Amount in assets"
-                    :text="getExposureAssetAmount(exposure)"
-                    class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
-                  />
-                </span>
-              </template>
-              <template v-else>
-                {{ getExposureAssetAmount(exposure) }}
-              </template>
-            </div>
+            <template v-if="hasExposureUsdPrice(exposure)">
+              {{ formatCompactUsdValue(getExposureUsdPrice(exposure)) }}
+            </template>
+            <template v-else>
+              {{ getExposureAssetAmount(exposure) }}
+            </template>
           </VaultOverviewLabelValue>
         </div>
       </div>
