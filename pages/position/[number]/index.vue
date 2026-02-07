@@ -81,6 +81,10 @@ const pairAssets = computed(() => {
   return [collateralVault.value.asset, borrowVault.value.asset]
 })
 const hasNoBorrow = computed(() => position.value?.borrow.borrow === 0n)
+const isEligibleForLiquidation = computed(() => {
+  if (!position.value || position.value.liabilityValueLiquidation === 0n) return false
+  return position.value.liabilityValueLiquidation > position.value.collateralValueLiquidation
+})
 
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
@@ -258,14 +262,14 @@ watchEffect(async () => {
   }
 
   const collateralValueLiquidation = position.value.collateralValueLiquidation
-  const liabilityValue = position.value.liabilityValue
+  const liabilityValueBorrowing = position.value.liabilityValueBorrowing
 
-  if (liabilityValue === 0n || collateralValueLiquidation === 0n) {
+  if (liabilityValueBorrowing === 0n || collateralValueLiquidation === 0n) {
     borrowLiquidationPrice.value = undefined
     return
   }
 
-  const multiplier = nanoToValue(collateralValueLiquidation, 18) / nanoToValue(liabilityValue, 18)
+  const multiplier = nanoToValue(collateralValueLiquidation, 18) / nanoToValue(liabilityValueBorrowing, 18)
   const borrowPriceInfo = await getAssetUsdPrice(borrowVault.value, 'off-chain')
   const currentBorrowPrice = borrowPriceInfo ? nanoToValue(borrowPriceInfo.amountOutMid, 18) : 0
 
@@ -727,7 +731,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary"
                 rounded
-                :to="`/position/${positionIndex}/multiply`"
+                :disabled="isEligibleForLiquidation"
+                :to="isEligibleForLiquidation ? undefined : `/position/${positionIndex}/multiply`"
               >
                 Multiply
               </UiButton>
@@ -735,7 +740,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :to="`/position/${positionIndex}/borrow`"
+                :disabled="isEligibleForLiquidation"
+                :to="isEligibleForLiquidation ? undefined : `/position/${positionIndex}/borrow`"
               >
                 Borrow
               </UiButton>
@@ -862,7 +868,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :to="`/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
+                  :disabled="isEligibleForLiquidation"
+                  :to="isEligibleForLiquidation ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
                 >
                   Withdraw
                 </UiButton>

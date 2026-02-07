@@ -383,7 +383,7 @@ const updateBorrowPositions = async (
 
         const collateralValueLiquidation = liquidityInfo.collateralValueLiquidation
         const collateralValueRaw = liquidityInfo.collateralValueRaw
-        let liabilityValue = liquidityInfo.liabilityValueBorrowing
+        let liabilityValueBorrowing = liquidityInfo.liabilityValueBorrowing
 
         // Compute effective LTVs from aggregates (handles multi-collateral correctly)
         const liquidationLTV = collateralValueRaw > 0n
@@ -393,16 +393,16 @@ const updateBorrowPositions = async (
           ? liquidityInfo.collateralValueBorrowing * 10000n / collateralValueRaw
           : 0n
 
-        if (liabilityValue === 0n && res.vaultAccountInfo.borrowed > 0n) {
-          console.warn('liabilityValue is 0 but borrowed amount exists, calculating manually')
+        if (liabilityValueBorrowing === 0n && res.vaultAccountInfo.borrowed > 0n) {
+          console.warn('liabilityValueBorrowing is 0 but borrowed amount exists, calculating manually')
           const borrowedInUnitOfAccount = FixedNumber.fromValue(res.vaultAccountInfo.borrowed, borrow.decimals)
             .mul(FixedNumber.fromValue(borrow.liabilityPriceInfo.amountOutMid, 18))
             .div(FixedNumber.fromValue(borrow.liabilityPriceInfo.amountIn, 0))
-          liabilityValue = borrowedInUnitOfAccount.value
+          liabilityValueBorrowing = borrowedInUnitOfAccount.value
         }
-        const healthFixed = liabilityValue === 0n
+        const healthFixed = liabilityValueBorrowing === 0n
           ? FixedNumber.fromValue(0n, 18)
-          : FixedNumber.fromValue(collateralValueLiquidation, 18).div(FixedNumber.fromValue(liabilityValue, 18))
+          : FixedNumber.fromValue(collateralValueLiquidation, 18).div(FixedNumber.fromValue(liabilityValueBorrowing, 18))
 
         const userLTVFixed = healthFixed.isZero()
           ? FixedNumber.fromValue(0n, 2)
@@ -427,7 +427,7 @@ const updateBorrowPositions = async (
 
         const supplyLiquidationPriceRatio = collateralValueLiquidation === 0n
           ? FixedNumber.fromValue(0n, 18)
-          : FixedNumber.fromValue(liabilityValue, 18)
+          : FixedNumber.fromValue(liabilityValueBorrowing, 18)
               .sub(FixedNumber.fromValue(collateralValueLiquidation, 18))
               .div(FixedNumber.fromValue(collateralValueLiquidation, 18))
               .add(FixedNumber.fromValue(1n, 0))
@@ -454,7 +454,6 @@ const updateBorrowPositions = async (
           collateral,
           collaterals,
           subAccount,
-          liabilityLTV: 0n,
           borrowLTV: effectiveBorrowLTV,
           timeToLiquidation: liquidityInfo.timeToLiquidation,
           health: healthFixed.value,
@@ -462,7 +461,8 @@ const updateBorrowPositions = async (
           price,
           userLTV,
           supplied,
-          liabilityValue,
+          liabilityValueBorrowing,
+          liabilityValueLiquidation: liquidityInfo.liabilityValueLiquidation,
           liquidationLTV,
           collateralValueLiquidation,
         } as AccountBorrowPosition

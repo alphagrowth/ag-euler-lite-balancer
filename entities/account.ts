@@ -47,9 +47,9 @@ export interface AccountBorrowPosition {
   supplied: bigint
   borrowed: bigint
   borrowLTV: bigint
-  liabilityLTV: bigint
   liquidationLTV: bigint
-  liabilityValue: bigint
+  liabilityValueBorrowing: bigint
+  liabilityValueLiquidation: bigint
   timeToLiquidation: bigint
   collateralValueLiquidation: bigint
 }
