@@ -4,11 +4,12 @@ import { flip, offset, shift, useFloating, type AlignedPlacement } from '@floati
 import { useModal } from '~/components/ui/composables/useModal'
 import { UiFootnoteModal } from '#components'
 
-const { title, text, tooltipPlacement = 'top-start', customModal } = defineProps<{
+const { title, text, tooltipPlacement = 'top-start', customModal, icon = 'info-circle' } = defineProps<{
   title: string
   text: string
   tooltipPlacement?: AlignedPlacement
   customModal?: Component
+  icon?: string
 }>()
 
 const reference = ref(null)
@@ -50,11 +51,11 @@ onClickOutside(reference, () => {
   <div
     ref="reference"
     class="ui-footnote"
-    @click="onClick"
+    @click.stop.prevent="onClick"
   >
     <SvgIcon
       class="ui-footnote__icon"
-      name="info-circle"
+      :name="icon"
     />
     <Transition
       name="tooltip"

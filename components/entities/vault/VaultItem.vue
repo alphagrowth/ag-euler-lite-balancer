@@ -7,7 +7,7 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
-import { VaultSupplyApyModal, VaultUtilizationWarningModal } from '#components'
+import { VaultSupplyApyModal } from '#components'
 
 const { isConnected } = useAccount();
 const { vault } = defineProps<{ vault: Vault }>();
@@ -89,9 +89,6 @@ watchEffect(async () => {
   walletBalancePrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
-const onWarningClick = () => {
-  modal.open(VaultUtilizationWarningModal)
-}
 </script>
 
 <template>
@@ -170,13 +167,14 @@ const onWarningClick = () => {
       >
         <div class="text-content-tertiary text-p3 mb-4">Utilization</div>
         <div class="flex gap-8 justify-end items-center text-right">
-          <button
+          <UiFootnote
             v-if="utilization >= 95"
-            class="text-warning-500 hover:text-warning-600 transition-colors cursor-pointer"
-            @click.stop.prevent="onWarningClick"
-          >
-            <SvgIcon name="warning" class="!w-18 !h-18" />
-          </button>
+            icon="warning"
+            title="High usage warning"
+            text="High utilization on this market. A large proportion of the available liquidity has been borrowed."
+            tooltip-placement="top-end"
+            class="[--ui-footnote-icon-color:var(--warning-500)]"
+          />
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
@@ -200,13 +198,14 @@ const onWarningClick = () => {
         <div class="text-content-tertiary text-p3">Utilization</div>
       </div>
       <div class="flex gap-8 justify-end items-center text-right flex-1">
-        <button
+        <UiFootnote
           v-if="utilization >= 95"
-          class="text-warning-500 hover:text-warning-600 transition-colors cursor-pointer"
-          @click.stop.prevent="onWarningClick"
-        >
-          <SvgIcon name="warning" class="!w-18 !h-18" />
-        </button>
+          icon="warning"
+          title="High usage warning"
+          text="High utilization on this market. A large proportion of the available liquidity has been borrowed."
+          tooltip-placement="top-end"
+          class="[--ui-footnote-icon-color:var(--warning-500)]"
+        />
         <UiRadialProgress :value="utilization" :max="100" />
         <div class="text-p2 text-content-primary">
           {{ compactNumber(utilization, 2, 2) }}%

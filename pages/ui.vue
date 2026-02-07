@@ -2,7 +2,7 @@
 import AssetInput from '~/components/entities/asset/AssetInput.vue'
 import type { VaultAsset } from '~/entities/vault'
 import { useModal } from '~/components/ui/composables/useModal'
-import { LegalTermsAcknowledgeModal } from '#components'
+import { AcknowledgeTermsModal } from '#components'
 
 const radioModel = ref('radio-test-1')
 const tabsModel = ref(0)
@@ -20,7 +20,7 @@ const asset: VaultAsset = {
 
 const modal = useModal()
 const openLegalModal = () => {
-  modal.open(LegalTermsAcknowledgeModal)
+  modal.open(AcknowledgeTermsModal)
 }
 </script>
 
