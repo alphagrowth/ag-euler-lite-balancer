@@ -8,7 +8,7 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
 import { collectPythFeedIds } from '~/entities/oracle'
-import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralUsdPrice, ONE_18 } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -484,25 +484,25 @@ const multiplyDebtAmountNano = computed(() => {
   if (!suppliedCollateral) {
     return 0n
   }
-  // Use helper that applies Pyth-enhanced collateral pricing from the liability vault's perspective
-  // PriceResult is normalized: price per 1e18 units (no amountIn field)
+  // Use raw share price to get amountIn (oracle query amount), then asset price for valuation
+  const rawSharePrice = getCollateralShareOraclePrice(multiplyShortVault.value, multiplySupplyVault.value)
   const collateralPriceInfo = getCollateralOraclePrice(multiplyShortVault.value, multiplySupplyVault.value)
   const liabilityPrice = multiplyShortVault.value.liabilityPriceInfo
 
+  if (!rawSharePrice || !rawSharePrice.amountIn || rawSharePrice.amountIn <= 0n) {
+    return 0n
+  }
   if (!collateralPriceInfo || collateralPriceInfo.amountOutMid <= 0n) {
     return 0n
   }
   if (!liabilityPrice || liabilityPrice.queryFailure || !liabilityPrice.amountOutBid || liabilityPrice.amountOutBid <= 0n || !liabilityPrice.amountIn || liabilityPrice.amountIn <= 0n) {
     return 0n
   }
-  const totalAssets = multiplySupplyVault.value.totalAssets || 0n
-  const totalShares = multiplySupplyVault.value.totalShares || 0n
-  const collateralAsShares = totalAssets > 0n && totalShares > 0n
-    ? (suppliedCollateral * totalShares) / totalAssets
-    : suppliedCollateral
   const collateralOutBid = collateralPriceInfo.amountOutBid || collateralPriceInfo.amountOutMid
-  // PriceResult is normalized to 1e18, so divide by ONE_18 instead of amountIn
-  const suppliedCollateralValue = (collateralAsShares * collateralOutBid) / ONE_18
+  // getCollateralOraclePrice returns UoA value of `amountIn` raw assets (where amountIn = 10^decimals).
+  // Divide by the actual amountIn to get proper per-unit pricing.
+  const collateralAmountIn = rawSharePrice.amountIn
+  const suppliedCollateralValue = (suppliedCollateral * collateralOutBid) / collateralAmountIn
   if (!suppliedCollateralValue) {
     return 0n
   }
