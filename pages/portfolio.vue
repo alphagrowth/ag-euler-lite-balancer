@@ -81,7 +81,12 @@ onDeactivated(() => {
         Your Portfolio
       </h2>
       <div class="flex items-center gap-8">
-        <span class="text-h6 text-content-secondary">All positions/savings</span>
+        <span class="text-h6 text-content-secondary">Show all</span>
+        <UiFootnote
+          title="Show all"
+          text="When enabled, shows positions and deposits in the hidden (unknown) vaults."
+          tooltip-placement="top-end"
+        />
         <UiSwitch
           v-model="isShowAllPositions"
         />
