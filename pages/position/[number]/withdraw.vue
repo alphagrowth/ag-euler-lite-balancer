@@ -12,10 +12,10 @@ import {
   type SecuritizeVault,
 } from '~/entities/vault'
 import {
-  getAssetUsdValue,
+  getAssetUsdValueOrZero,
   getAssetOraclePrice,
   getCollateralOraclePrice,
-  getCollateralUsdValue,
+  getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -74,7 +74,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 // Get collateral USD value using liability vault's price perspective (async)
 const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !collateralVault.value) return 0
-  return (await getCollateralUsdValue(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')) ?? 0
+  return getCollateralUsdValueOrZero(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
 }
 // Pre-computed net APY (async)
 const netAPY = ref(0)
@@ -85,11 +85,10 @@ watchEffect(async () => {
     return
   }
 
-  const [collateralUsd, borrowedUsdRaw] = await Promise.all([
+  const [collateralUsd, borrowedUsd] = await Promise.all([
     getCollateralValueUsdLocal(collateralAssets.value),
-    getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
+    getAssetUsdValueOrZero(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
   ])
-  const borrowedUsd = borrowedUsdRaw ?? 0
 
   netAPY.value = getNetAPY(
     collateralUsd,
@@ -297,11 +296,10 @@ const updateEstimates = useDebounceFn(async () => {
     if (suppliedFixed.value.lte(amountFixed.value)) {
       throw new Error('Not enough liquidity in your position')
     }
-    const [collateralUsd, borrowedUsdRaw] = await Promise.all([
+    const [collateralUsd, borrowedUsd] = await Promise.all([
       getCollateralValueUsdLocal(collateralAssets.value - valueToNano(amount.value, collateralVault.value.decimals)),
-      getAssetUsdValue(position.value!.borrowed ?? 0n, borrowVault.value!, 'off-chain'),
+      getAssetUsdValueOrZero(position.value!.borrowed ?? 0n, borrowVault.value!, 'off-chain'),
     ])
-    const borrowedUsd = borrowedUsdRaw ?? 0
     estimateNetAPY.value = getNetAPY(
       collateralUsd,
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw

@@ -477,6 +477,24 @@ export const getCollateralUsdValue = async (
 }
 
 /**
+ * Convenience wrapper: same as getAssetUsdValue but returns 0 instead of undefined.
+ */
+export const getAssetUsdValueOrZero = async (
+  ...args: Parameters<typeof getAssetUsdValue>
+): Promise<number> => {
+  return (await getAssetUsdValue(...args)) ?? 0
+}
+
+/**
+ * Convenience wrapper: same as getCollateralUsdValue but returns 0 instead of undefined.
+ */
+export const getCollateralUsdValueOrZero = async (
+  ...args: Parameters<typeof getCollateralUsdValue>
+): Promise<number> => {
+  return (await getCollateralUsdValue(...args)) ?? 0
+}
+
+/**
  * Format asset value for UI display.
  *
  * @param amount - Amount in native token decimals (bigint) or as number

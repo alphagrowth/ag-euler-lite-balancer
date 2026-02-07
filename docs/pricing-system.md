@@ -185,8 +185,10 @@ Located in `services/pricing/priceProvider.ts`:
 
 ### Layer 3: USD Values
 
-- **`getAssetUsdValue(amount, vault)`** - Calculates USD value of an asset amount
-- **`getCollateralUsdValue(amount, liabilityVault, collateralVault)`** - Calculates USD value of collateral in borrow context
+- **`getAssetUsdValue(amount, vault)`** - Calculates USD value of an asset amount. Returns `undefined` when no price is available.
+- **`getCollateralUsdValue(amount, liabilityVault, collateralVault)`** - Calculates USD value of collateral in borrow context. Returns `undefined` when no price is available.
+- **`getAssetUsdValueOrZero(amount, vault)`** - Convenience wrapper that returns `0` instead of `undefined`. Use in UI contexts where a missing price should display as zero.
+- **`getCollateralUsdValueOrZero(amount, liabilityVault, collateralVault)`** - Same convenience wrapper for collateral values.
 - **`formatAssetValue(amount, vault)`** - Formats value for UI display with price availability flag
 
 ## USD Price Calculation for Regular EVK Vault

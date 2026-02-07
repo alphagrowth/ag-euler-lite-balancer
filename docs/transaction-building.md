@@ -252,14 +252,15 @@ Quote parameters: `vaultIn` = source vault, `receiver` = destination vault, `acc
 
 ### DisableCollateral
 
-Removes a collateral vault from a borrow position by transferring all shares back to the main account.
+Removes a collateral vault from a borrow position by transferring all shares back to the main account and disabling it on the EVC.
 
-**Steps**: `evc-batch(transferFromMax)`
+**Steps**: `evc-batch(transferFromMax + disableCollateral)`
 
 EVC batch calls:
-1. *(Optional)* Pyth price updates
+1. *(Optional)* Pyth price updates (from `borrowVaultAddress` oracle tree when provided)
 2. *(Optional)* Terms of Use
 3. `vault.transferFromMax(subAccount, user)` — transfer all vault shares back to main account *(skipped if sub-account is the main account)*
+4. `evc.disableCollateral(subAccount, vault)` — remove vault from enabled collaterals
 
 ## Permit2 Integration
 
@@ -328,7 +329,7 @@ The `preparePythUpdates()` function:
 
 Operations that include Pyth updates: **borrow**, **borrowBySaving**, **withdraw** (with sub-account), **disableCollateral**, **collateralSwap**, **debtSwap**, **assetSwap**, **multiply**.
 
-For operations with a borrow position, only the borrow vault address is passed (e.g. `preparePythUpdates([borrowVaultAddr])`). For **withdraw** and **disableCollateral**, the `liabilityVault` parameter is passed from the call site. Swap operations also accept a `liabilityVault` parameter; when not provided, they default to updating feeds for `[vaultIn, receiver]`.
+For operations with a borrow position, only the borrow vault address is passed (e.g. `preparePythUpdates([borrowVaultAddr])`). For **withdraw** and **disableCollateral**, the `borrowVaultAddress` parameter is passed from the call site. Swap operations also accept a `liabilityVault` parameter; when not provided, they default to updating feeds for `[vaultIn, receiver]`.
 
 See [Pyth Oracle Handling](./pyth-oracle-handling.md) for the full Pyth architecture.
 

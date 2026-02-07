@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
 import { type EarnVault, type Vault } from '~/entities/vault'
-import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const emits = defineEmits<{
@@ -57,7 +57,7 @@ const loadExposureUsdPrices = async () => {
   const pricePromises = exposureList.value.map(async (exposure) => {
     const exposureVault = getExposureVaultByAddress(exposure.info.vault)
     if (!exposureVault) return { key: exposure.strategy, value: 0 }
-    const usdValue = (await getAssetUsdValue(exposure.allocatedAssets, exposureVault, 'off-chain')) ?? 0
+    const usdValue = await getAssetUsdValueOrZero(exposure.allocatedAssets, exposureVault, 'off-chain')
     return { key: exposure.strategy, value: usdValue }
   })
 

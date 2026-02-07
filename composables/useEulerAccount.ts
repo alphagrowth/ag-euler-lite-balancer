@@ -10,7 +10,6 @@ import type {
   AccountEarnPosition,
 } from '~/entities/account'
 import {
-  convertSharesToAssets,
   fetchVault,
   type Vault,
   type SecuritizeVault,
@@ -21,6 +20,7 @@ import {
   getCollateralOraclePrice,
   getCollateralUsdPrice,
   getCollateralUsdValue,
+  getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { collectPythFeedIds } from '~/entities/oracle'
@@ -111,7 +111,7 @@ const updateTotalSuppliedValue = async () => {
   const collateralValuePromises = borrowPositions.value.map(async (position) => {
     const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) return 0
-    return (await getCollateralUsdValue(position.supplied, borrowVault, position.collateral, 'off-chain')) ?? 0
+    return getCollateralUsdValueOrZero(position.supplied, borrowVault, position.collateral, 'off-chain')
   })
   const collateralValues = await Promise.all(collateralValuePromises)
   const collateralValue = collateralValues.reduce((result, val) => result + val, 0)
@@ -322,7 +322,7 @@ const updateBorrowPositions = async (
           return undefined
         }
 
-        if (!res.evcAccountInfo.enabledControllers.length || !res.evcAccountInfo.enabledCollaterals.length) {
+        if (!res.evcAccountInfo.enabledControllers.length || !res.evcAccountInfo.enabledCollaterals.length || res.vaultAccountInfo.borrowed === 0n) {
           return undefined
         }
 
@@ -379,13 +379,19 @@ const updateBorrowPositions = async (
           return undefined
         }
 
-        const cLTV = borrow.collateralLTVs.find(ltv => ethers.getAddress(ltv.collateral) === collateral.address)
-
         const liquidityInfo = res.vaultAccountInfo.liquidityInfo
 
         const collateralValueLiquidation = liquidityInfo.collateralValueLiquidation
+        const collateralValueRaw = liquidityInfo.collateralValueRaw
         let liabilityValue = liquidityInfo.liabilityValueBorrowing
-        const liquidationLTV = cLTV?.liquidationLTV || 0n
+
+        // Compute effective LTVs from aggregates (handles multi-collateral correctly)
+        const liquidationLTV = collateralValueRaw > 0n
+          ? collateralValueLiquidation * 10000n / collateralValueRaw
+          : 0n
+        const effectiveBorrowLTV = collateralValueRaw > 0n
+          ? liquidityInfo.collateralValueBorrowing * 10000n / collateralValueRaw
+          : 0n
 
         if (liabilityValue === 0n && res.vaultAccountInfo.borrowed > 0n) {
           console.warn('liabilityValue is 0 but borrowed amount exists, calculating manually')
@@ -449,8 +455,7 @@ const updateBorrowPositions = async (
           collaterals,
           subAccount,
           liabilityLTV: 0n,
-          borrowLTV: cLTV?.borrowLTV || 0n,
-          initialLiquidationLTV: cLTV?.initialLiquidationLTV || 0n,
+          borrowLTV: effectiveBorrowLTV,
           timeToLiquidation: liquidityInfo.timeToLiquidation,
           health: healthFixed.value,
           borrowed: res.vaultAccountInfo.borrowed,

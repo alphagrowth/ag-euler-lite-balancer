@@ -7,7 +7,7 @@ import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, type VaultAsset, type Vault } from '~/entities/vault'
-import { getAssetUsdValue, getAssetOraclePrice } from '~/services/pricing/priceProvider'
+import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { SwapperMode } from '~/entities/swap'
@@ -107,12 +107,10 @@ watchEffect(async () => {
     return
   }
 
-  const [supplyUsdRaw, borrowUsdRaw] = await Promise.all([
-    getAssetUsdValue(position.value.supplied || 0n, collateralVault.value, 'off-chain'),
-    getAssetUsdValue(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
+  const [supplyUsd, borrowUsd] = await Promise.all([
+    getAssetUsdValueOrZero(position.value.supplied || 0n, collateralVault.value, 'off-chain'),
+    getAssetUsdValueOrZero(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
   ])
-  const supplyUsd = supplyUsdRaw ?? 0
-  const borrowUsd = borrowUsdRaw ?? 0
 
   netAPY.value = getNetAPY(
     supplyUsd,
@@ -992,12 +990,10 @@ const updateEstimates = useDebounceFn(async () => {
     if (balanceFixed.value.lt(amountFixed.value)) {
       throw new Error('You repaying more than required')
     }
-    const [supplyUsdRaw, borrowUsdRaw] = await Promise.all([
-      getAssetUsdValue((position.value.supplied || 0n), collateralVault.value, 'off-chain'),
-      getAssetUsdValue((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value, 'off-chain'),
+    const [supplyUsd, borrowUsd] = await Promise.all([
+      getAssetUsdValueOrZero((position.value.supplied || 0n), collateralVault.value, 'off-chain'),
+      getAssetUsdValueOrZero((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value, 'off-chain'),
     ])
-    const supplyUsd = supplyUsdRaw ?? 0
-    const borrowUsd = borrowUsdRaw ?? 0
     estimateNetAPY.value = getNetAPY(
       supplyUsd,
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw

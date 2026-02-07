@@ -1541,6 +1541,9 @@ export const useEulerOperations = () => {
     }
   }
 
+  // Pyth oracle updates are intentionally omitted: the batch ends with disableController
+  // which removes the controller vault. With no active controller at batch end, the EVC
+  // skips account health checks, so oracle prices are not needed.
   const buildFullRepayPlan = async (
     borrowVaultAddress: string,
     borrowAssetAddress: string,
@@ -1734,7 +1737,7 @@ export const useEulerOperations = () => {
   const buildDisableCollateralPlan = async (
     subAccount: string,
     vaultAddress: string,
-    liabilityVault?: string,
+    borrowVaultAddress?: string,
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -1752,6 +1755,7 @@ export const useEulerOperations = () => {
     const hooks = new SaHooksBuilder()
 
     hooks.addContractInterface(vaultAddr, vaultTransferFromMaxAbi)
+    hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
 
     if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
@@ -1769,7 +1773,7 @@ export const useEulerOperations = () => {
       evcCalls.push(tosCall)
     }
 
-    const pythTarget = liabilityVault ? [liabilityVault] : [vaultAddr]
+    const pythTarget = borrowVaultAddress ? [borrowVaultAddress] : [vaultAddr]
     const { calls: pythCalls } = await preparePythUpdates(pythTarget, userAddr)
     if (pythCalls.length) {
       evcCalls.push(...pythCalls as EVCCall[])
@@ -1784,6 +1788,14 @@ export const useEulerOperations = () => {
       }
       evcCalls.push(transferCall)
     }
+
+    const disableCollateralCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'disableCollateral', [subAccountAddr, vaultAddr]) as Hash,
+    }
+    evcCalls.push(disableCollateralCall)
 
     const totalValue = sumCallValues(evcCalls)
 
@@ -2409,6 +2421,7 @@ export const useEulerOperations = () => {
     return repayHash
   }
 
+  // Pyth oracle updates are intentionally omitted (see buildFullRepayPlan comment)
   const fullRepay = async (
     borrowVaultAddress: string,
     borrowAssetAddress: string,
@@ -2564,6 +2577,7 @@ export const useEulerOperations = () => {
     const hooks = new SaHooksBuilder()
 
     hooks.addContractInterface(vaultAddr, vaultTransferFromMaxAbi)
+    hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
 
     if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
@@ -2596,6 +2610,14 @@ export const useEulerOperations = () => {
       }
       evcCalls.push(transferCall)
     }
+
+    const disableCollateralCall = {
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'disableCollateral', [subAccountAddr, vaultAddr]) as Hash,
+    }
+    evcCalls.push(disableCollateralCall)
 
     const totalValue = sumCallValues(evcCalls)
 

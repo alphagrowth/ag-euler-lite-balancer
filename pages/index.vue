@@ -5,7 +5,7 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
-import { getAssetUsdValue } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
 
 defineOptions({
@@ -49,7 +49,7 @@ watchEffect(async () => {
   const newValues = new Map<string, number>()
   await Promise.all(
     vaults.map(async (vault) => {
-      const usdValue = (await getAssetUsdValue(vault.totalAssets, vault, 'off-chain')) ?? 0
+      const usdValue = await getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain')
       newValues.set(vault.address, usdValue)
     }),
   )

@@ -9,6 +9,7 @@ import {
 } from '~/entities/vault'
 import {
   getAssetUsdValue,
+  getAssetUsdValueOrZero,
   getAssetUsdPrice,
   getCollateralUsdPrice,
   getCollateralUsdValue,
@@ -76,7 +77,7 @@ const pairAssetsLabel = computed(() => {
   return `${collateralSymbolLabel.value}/${position.value.borrow.asset.symbol}`
 })
 const pairAssets = computed(() => {
-  if (!position.value) return []
+  if (!collateralVault.value || !borrowVault.value) return []
   return [collateralVault.value.asset, borrowVault.value.asset]
 })
 const hasNoBorrow = computed(() => position.value?.borrow.borrow === 0n)
@@ -336,7 +337,10 @@ watchEffect(async () => {
     return
   }
 
-  borrowUnitPrice.value = toUsdAmount(await getAssetUsdValue(1, position.value.borrow, 'off-chain'))
+  const priceInfo = await getAssetUsdPrice(position.value.borrow, 'off-chain')
+  borrowUnitPrice.value = priceInfo
+    ? { usd: nanoToValue(priceInfo.amountOutMid, 18), hasPrice: true }
+    : { usd: 0, hasPrice: false }
 })
 
 const isDisableCollateralError = (vault: Vault | SecuritizeVault) => {
@@ -538,8 +542,8 @@ const openPairInfoModal = () => {
 const onNetApyInfoIconClick = async () => {
   if (!position.value) return
 
-  const supplyUSD = (await getAssetUsdValue(position.value.supplied || 0n, collateralVault.value!, 'off-chain')) ?? 0
-  const borrowUSD = (await getAssetUsdValue(position.value.borrowed || 0n, borrowVault.value!, 'off-chain')) ?? 0
+  const supplyUSD = await getAssetUsdValueOrZero(position.value.supplied || 0n, collateralVault.value!, 'off-chain')
+  const borrowUSD = await getAssetUsdValueOrZero(position.value.borrowed || 0n, borrowVault.value!, 'off-chain')
 
   modal.open(VaultNetApyModal, {
     props: {

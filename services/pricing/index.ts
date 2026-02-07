@@ -22,6 +22,8 @@ export {
   // Layer 3: USD Value Calculation (async, supports backend)
   getAssetUsdValue,
   getCollateralUsdValue,
+  getAssetUsdValueOrZero,
+  getCollateralUsdValueOrZero,
   formatAssetValue,
 
   // Liquidation helpers

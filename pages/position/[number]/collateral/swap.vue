@@ -15,7 +15,7 @@ import {
   getAssetOraclePrice,
   getCollateralOraclePrice,
   getCollateralUsdPrice,
-  getCollateralUsdValue,
+  getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
@@ -278,7 +278,7 @@ const borrowApy = computed(() => {
 // Get collateral USD value using liability vault's price perspective
 const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !fromVault.value) return 0
-  return (await getCollateralUsdValue(amount, borrowVault.value, fromVault.value as Vault, 'off-chain')) ?? 0
+  return getCollateralUsdValueOrZero(amount, borrowVault.value, fromVault.value as Vault, 'off-chain')
 }
 // Price per unit for collateral in USD (from liability vault's perspective)
 const collateralPricePerUnit = ref<number | undefined>(undefined)
