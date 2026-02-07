@@ -34,7 +34,7 @@ const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { disableCollateral: disableCollateralOperation, buildDisableCollateralPlan } = useEulerOperations()
+const { buildDisableCollateralPlan, executeTxPlan } = useEulerOperations()
 const {
   runSimulation: runDisableCollateralSimulation,
   simulationError: disableCollateralSimulationError,
@@ -473,12 +473,12 @@ const disableCollateral = async (vault: Vault) => {
 const send = async (collateralAddress: string) => {
   try {
     isSubmitting.value = true
-    // Note: disableCollateral operation doesn't support operator parameter
-    await disableCollateralOperation(
+    const txPlan = await buildDisableCollateralPlan(
       position.value!.subAccount,
       collateralAddress,
       position.value!.borrow.address,
     )
+    await executeTxPlan(txPlan)
 
     modal.close()
     setTimeout(() => {

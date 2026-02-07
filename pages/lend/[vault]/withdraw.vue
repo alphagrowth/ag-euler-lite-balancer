@@ -22,7 +22,7 @@ const modal = useModal()
 const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
-const { withdraw, redeem, buildWithdrawPlan, buildRedeemPlan } = useEulerOperations()
+const { buildWithdrawPlan, buildRedeemPlan, executeTxPlan } = useEulerOperations()
 const { getVault } = useVaults()
 const { isConnected } = useAccount()
 const { fetchVaultShareBalance } = useWallets()
@@ -185,17 +185,11 @@ const send = async () => {
       return
     }
 
-    const method = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value) ? redeem : withdraw
-
-    await method(
-      vaultAddress,
-      asset.value.address,
-      amountFixed.value.value,
-      asset.value.symbol,
-      undefined, // subAccount
-      sharesBalance.value,
-      FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value),
-    )
+    const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+    const txPlan = isMax
+      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
+      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
+    await executeTxPlan(txPlan)
 
     modal.close()
     setTimeout(() => {

@@ -17,7 +17,7 @@ const modal = useModal()
 const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewBorrowLabel = getSubmitLabel('Review Borrow')
-const { borrow, buildBorrowPlan } = useEulerOperations()
+const { buildBorrowPlan, executeTxPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected } = useAccount()
 const { isPositionsLoading, isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
@@ -208,17 +208,16 @@ const send = async () => {
     if (!collateralVault.value || !borrowVault.value || !position.value) {
       return
     }
-    // Note: borrow operation doesn't support operator parameter
-    await borrow(
+    const txPlan = await buildBorrowPlan(
       collateralVault.value.address,
       collateralVault.value.asset.address,
       0n,
       borrowVault.value.address,
-      borrowVault.value.asset.address,
       borrowAmountFixed.value.toFormat({ decimals: Number(borrowVault.value.decimals) }).value,
-      collateralVault.value.asset.symbol,
-      position.value.subAccount, // Pass the subaccount to borrow on the same position
+      position.value.subAccount,
+      { includePermit2Call: true },
     )
+    await executeTxPlan(txPlan)
 
     modal.close()
     updateBalance()

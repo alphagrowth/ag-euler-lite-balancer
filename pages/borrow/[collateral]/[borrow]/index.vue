@@ -24,7 +24,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
-const { borrowBySaving, borrow, buildBorrowPlan, buildBorrowBySavingPlan, buildMultiplyPlan, executeTxPlan } = useEulerOperations()
+const { buildBorrowPlan, buildBorrowBySavingPlan, buildMultiplyPlan, executeTxPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
 const { updateBorrowPositions, depositPositions } = useEulerAccount()
@@ -1220,25 +1220,33 @@ const send = async () => {
     if (!collateralVault.value || !borrowVault.value) {
       return
     }
-    const method = isSavingCollateral.value ? borrowBySaving : borrow
-    let amount = collateralAmountFixed.value.toFormat({ decimals: Number(collateralVault.value.decimals) }).value
+    let collateralAmountForPlan = collateralAmountFixed.value.toFormat({ decimals: Number(collateralVault.value.decimals) }).value
     if (isSavingCollateral.value) {
-      if (savingCollateral.value?.assets === amount) {
-        amount = savingBalance.value
+      if (savingCollateral.value?.assets === collateralAmountForPlan) {
+        collateralAmountForPlan = savingBalance.value
       }
       else {
-        amount = await convertAssetsToShares(collateralVault.value.address, amount)
+        collateralAmountForPlan = await convertAssetsToShares(collateralVault.value.address, collateralAmountForPlan)
       }
     }
-    await method(
-      collateralVault.value.address,
-      collateralVault.value.asset.address,
-      amount,
-      borrowVault.value.address,
-      borrowVault.value.asset.address,
-      borrowAmountFixed.value.toFormat({ decimals: Number(borrowVault.value.decimals) }).value,
-      collateralVault.value.asset.symbol,
-    )
+    const borrowAmountNano = borrowAmountFixed.value.toFormat({ decimals: Number(borrowVault.value.decimals) }).value
+    const txPlan = isSavingCollateral.value
+      ? await buildBorrowBySavingPlan(
+        collateralVault.value.address,
+        collateralAmountForPlan,
+        borrowVault.value.address,
+        borrowAmountNano,
+      )
+      : await buildBorrowPlan(
+        collateralVault.value.address,
+        collateralVault.value.asset.address,
+        collateralAmountForPlan,
+        borrowVault.value.address,
+        borrowAmountNano,
+        undefined,
+        { includePermit2Call: true },
+      )
+    await executeTxPlan(txPlan)
 
     modal.close()
     updateBalance()

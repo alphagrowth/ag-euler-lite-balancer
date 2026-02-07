@@ -17,7 +17,7 @@ const modal = useModal()
 const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
-const { supply, buildSupplyPlan } = useEulerOperations()
+const { buildSupplyPlan, executeTxPlan } = useEulerOperations()
 const { getEarnVault, updateEarnVault } = useVaults()
 const { isConnected } = useAccount()
 const { fetchSingleBalance } = useWallets()
@@ -145,7 +145,8 @@ const send = async () => {
     if (!asset.value?.address) {
       return
     }
-    const _txHash = await supply(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol)
+    const txPlan = await buildSupplyPlan(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol, undefined, { includePermit2Call: true })
+    await executeTxPlan(txPlan)
 
     modal.close()
     await updateEstimates()

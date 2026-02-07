@@ -25,7 +25,7 @@ const modal = useModal()
 const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
-const { supply, buildSupplyPlan } = useEulerOperations()
+const { buildSupplyPlan, executeTxPlan } = useEulerOperations()
 const { isConnected } = useAccount()
 const { fetchSingleBalance } = useWallets()
 const positionIndex = route.params.number as string
@@ -264,13 +264,15 @@ const send = async () => {
       return
     }
 
-    await supply(
+    const txPlan = await buildSupplyPlan(
       collateralVault.value.address,
       asset.value.address,
       valueToNano(amount.value || '0', asset.value.decimals),
       asset.value.symbol,
       position.value?.subAccount,
+      { includePermit2Call: true },
     )
+    await executeTxPlan(txPlan)
 
     modal.close()
     await updateBalance()

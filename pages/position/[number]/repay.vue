@@ -21,7 +21,7 @@ const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
-const { repay, fullRepay, buildRepayPlan, buildFullRepayPlan, buildSwapPlan, swap: executeSwap } = useEulerOperations()
+const { buildRepayPlan, buildFullRepayPlan, buildSwapPlan, executeTxPlan } = useEulerOperations()
 const { isConnected, address } = useAccount()
 const positionIndex = route.params.number as string
 const { isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
@@ -921,7 +921,7 @@ const sendSwap = async () => {
       targetDebt = debtAmountNano >= currentDebt ? 0n : currentDebt - debtAmountNano
     }
 
-    await executeSwap({
+    const txPlan = await buildSwapPlan({
       quote: swapSelectedQuote.value,
       swapperMode: swapMode,
       isRepay: true,
@@ -929,6 +929,7 @@ const sendSwap = async () => {
       currentDebt,
       liabilityVault: borrowVault.value?.address,
     })
+    await executeTxPlan(txPlan)
 
     modal.close()
     updateBorrowPositions(eulerLensAddresses.value, address.value as string)
@@ -951,17 +952,25 @@ const send = async () => {
       return
     }
 
-    const method = balance.value <= valueToNano(amount.value, borrowVault.value.asset.decimals)
-      ? fullRepay
-      : repay
-
-    await method(
-      borrowVault.value.address,
-      borrowVault.value.asset.address,
-      valueToNano(amount.value, borrowVault.value.asset.decimals),
-      position.value.subAccount,
-      position.value.collaterals ?? [collateralVault.value.address],
-    )
+    const amountNano = valueToNano(amount.value, borrowVault.value.asset.decimals)
+    const isFullRepay = balance.value <= amountNano
+    const txPlan = isFullRepay
+      ? await buildFullRepayPlan(
+        borrowVault.value.address,
+        borrowVault.value.asset.address,
+        amountNano,
+        position.value.subAccount,
+        position.value.collaterals ?? [collateralVault.value.address],
+        { includePermit2Call: true },
+      )
+      : await buildRepayPlan(
+        borrowVault.value.address,
+        borrowVault.value.asset.address,
+        amountNano,
+        position.value.subAccount,
+        { includePermit2Call: true },
+      )
+    await executeTxPlan(txPlan)
 
     modal.close()
     updateBorrowPositions(eulerLensAddresses.value, address.value as string)

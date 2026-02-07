@@ -22,7 +22,7 @@ const route = useRoute()
 const router = useRouter()
 const { isConnected, address } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
-const { swap: executeSwap, buildSwapPlan } = useEulerOperations()
+const { buildSwapPlan, executeTxPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
@@ -650,7 +650,7 @@ const send = async () => {
 
   isSubmitting.value = true
   try {
-    await executeSwap({
+    const txPlan = await buildSwapPlan({
       quote: selectedQuote.value,
       swapperMode: SwapperMode.TARGET_DEBT,
       isRepay: true,
@@ -658,6 +658,7 @@ const send = async () => {
       currentDebt: 0n,
       liabilityVault: fromVault.value?.address,
     })
+    await executeTxPlan(txPlan)
     modal.close()
     setTimeout(() => {
       router.replace('/portfolio')

@@ -22,7 +22,7 @@ import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const router = useRouter()
 const route = useRoute()
-const { withdraw, buildWithdrawPlan } = useEulerOperations()
+const { buildWithdrawPlan, executeTxPlan } = useEulerOperations()
 const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
@@ -261,16 +261,13 @@ const send = async () => {
       return
     }
 
-    await withdraw(
+    const txPlan = await buildWithdrawPlan(
       collateralVault.value!.address,
-      asset.value!.address,
       valueToNano(amount.value || '0', asset.value.decimals),
-      asset.value.symbol,
       position.value?.subAccount,
-      undefined,
-      undefined,
       { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address },
     )
+    await executeTxPlan(txPlan)
 
     modal.close()
     updateBorrowPositions(eulerLensAddresses.value, address.value as string)
