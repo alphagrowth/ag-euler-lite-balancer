@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers, FixedNumber } from 'ethers'
+import { getAddress, formatUnits, type Address, type Abi } from 'viem'
+import { FixedPoint } from '~/utils/fixed-point'
+import { getPublicClient } from '~/utils/public-client'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -99,12 +101,12 @@ watchEffect(async () => {
     opportunityInfoForBorrow.value?.apr || null,
   )
 })
-const amountFixed = computed(() => FixedNumber.fromValue(
+const amountFixed = computed(() => FixedPoint.fromValue(
   valueToNano(amount.value || '0', collateralVault.value?.decimals),
   Number(collateralVault.value?.decimals),
 ))
-const borrowedFixed = computed(() => FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
-const suppliedFixed = computed(() => FixedNumber.fromValue(collateralAssets.value, collateralVault.value?.decimals || 18))
+const borrowedFixed = computed(() => FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
+const suppliedFixed = computed(() => FixedPoint.fromValue(collateralAssets.value, collateralVault.value?.decimals || 18))
 // Use the correct collateral/borrow price ratio for LTV calculations (not the liquidation price)
 const priceFixed = computed(() => {
   const collateralPrice = borrowVault.value && collateralVault.value
@@ -113,7 +115,7 @@ const priceFixed = computed(() => {
   const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
-  return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
+  return FixedPoint.fromValue(ask, 18).div(FixedPoint.fromValue(bid, 18))
 })
 const liquidationPrice = computed(() => {
   // position.value?.price is already the liquidation price
@@ -135,7 +137,7 @@ const normalizeAddress = (address?: string) => {
     return ''
   }
   try {
-    return ethers.getAddress(address)
+    return getAddress(address)
   }
   catch {
     return ''
@@ -178,9 +180,13 @@ const loadSelectedCollateral = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
-    const res = await accountLensContract.getVaultAccountInfo(position.value.subAccount, targetAddress)
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    const res = await client.readContract({
+      address: lensAddress as Address,
+      abi: eulerAccountLensABI as Abi,
+      functionName: 'getVaultAccountInfo',
+      args: [position.value.subAccount, targetAddress],
+    }) as Record<string, any>
     selectedCollateralAssets.value = res.assets
   }
   catch (e) {
@@ -308,17 +314,17 @@ const updateEstimates = useDebounceFn(async () => {
     const collateralValue = (suppliedFixed.value.sub(amountFixed.value)).mul(priceFixed.value)
 
     const userLtvFixed = collateralValue.isZero()
-      ? FixedNumber.fromValue(0n, 18)
+      ? FixedPoint.fromValue(0n, 18)
       : borrowedFixed.value
           .div(collateralValue)
-          .mul(FixedNumber.fromValue(100n))
+          .mul(FixedPoint.fromValue(100n))
 
     estimateUserLTV.value = userLtvFixed.value
     estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
       ? 0n
-      : FixedNumber.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
+      : FixedPoint.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
 
-    if (userLtvFixed.gte(FixedNumber.fromValue(position.value!.liquidationLTV, 2))) {
+    if (userLtvFixed.gte(FixedPoint.fromValue(position.value!.liquidationLTV, 2))) {
       throw new Error('Not enough liquidity for the vault, LTV is too large')
     }
   }

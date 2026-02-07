@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ethers } from 'ethers'
+import { getAddress } from 'viem'
 import type { AnyBorrowVaultPair, EarnVault, SecuritizeVault, Vault } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountBorrowPosition } from '~/entities/account'
@@ -15,7 +15,7 @@ const normalizeAddress = (address?: string) => {
     return ''
   }
   try {
-    return ethers.getAddress(address)
+    return getAddress(address)
   }
   catch {
     return ''

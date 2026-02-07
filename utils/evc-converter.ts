@@ -1,5 +1,4 @@
-import type { Address, Hash } from 'viem'
-import { encodeFunctionData } from 'viem'
+import { encodeFunctionData, type Address, type Hash } from 'viem'
 import { EVC_ABI } from '~/abis/evc'
 import type { SaHooks } from '~/entities/saHooksSDK'
 

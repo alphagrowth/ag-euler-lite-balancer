@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers } from 'ethers'
+import { getAddress, formatUnits, isAddress, type Address, type Abi } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   getNetAPY,
@@ -61,7 +62,7 @@ const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const borrowVault = computed(() => position.value?.borrow)
 const collateralVault = computed(() => position.value?.collateral)
-const primaryCollateralAddress = computed(() => position.value ? ethers.getAddress(position.value.collateral.address) : '')
+const primaryCollateralAddress = computed(() => position.value ? getAddress(position.value.collateral.address) : '')
 const collateralCount = computed(() => position.value?.collaterals?.length ?? collateralItems.value.length)
 const collateralSymbolLabel = computed(() => {
   if (!position.value) {
@@ -306,7 +307,7 @@ const isPrimaryCollateral = (vault: Vault | SecuritizeVault) => {
     return false
   }
 
-  return ethers.getAddress(vault.address) === primaryCollateralAddress.value
+  return getAddress(vault.address) === primaryCollateralAddress.value
 }
 
 // Pre-computed borrow oracle price for display (always on-chain)
@@ -352,7 +353,7 @@ const isDisableCollateralError = (vault: Vault | SecuritizeVault) => {
     return false
   }
   try {
-    return ethers.getAddress(vault.address) === disableCollateralErrorVault.value
+    return getAddress(vault.address) === disableCollateralErrorVault.value
   }
   catch {
     return false
@@ -371,7 +372,7 @@ const loadCollaterals = async () => {
 
   const normalized = collateralAddresses.reduce<string[]>((acc, address) => {
     try {
-      acc.push(ethers.getAddress(address))
+      acc.push(getAddress(address))
     }
     catch {
       return acc
@@ -379,7 +380,7 @@ const loadCollaterals = async () => {
     return acc
   }, [])
 
-  const primaryAddress = ethers.getAddress(position.value.collateral.address)
+  const primaryAddress = getAddress(position.value.collateral.address)
   const unique = Array.from(new Set(normalized))
   const orderedAddresses = [primaryAddress, ...unique.filter(address => address !== primaryAddress)]
 
@@ -397,8 +398,7 @@ const loadCollaterals = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
+    const client = getPublicClient(EVM_PROVIDER_URL)
 
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {
@@ -407,7 +407,12 @@ const loadCollaterals = async () => {
           let assets = 0n
 
           try {
-            const res = await accountLensContract.getAccountInfo(position.value!.subAccount, address)
+            const res = await client.readContract({
+              address: lensAddress as Address,
+              abi: eulerAccountLensABI as Abi,
+              functionName: 'getAccountInfo',
+              args: [position.value!.subAccount, address],
+            }) as Record<string, any>
             assets = res.vaultAccountInfo.assets
           }
           catch {
@@ -453,7 +458,7 @@ const disableCollateral = async (vault: Vault) => {
   if (plan) {
     const ok = await runDisableCollateralSimulation(plan)
     if (!ok) {
-      disableCollateralErrorVault.value = ethers.getAddress(vault.address)
+      disableCollateralErrorVault.value = getAddress(vault.address)
       return
     }
   }

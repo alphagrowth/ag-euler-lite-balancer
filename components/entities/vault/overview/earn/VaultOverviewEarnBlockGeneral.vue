@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ethers } from 'ethers'
+import { getAddress } from 'viem'
 import type { EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -8,7 +8,7 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 const { vault } = defineProps<{ vault: EarnVault }>()
 
 const { isEarnVaultOwnerVerified } = useVaults()
-const vaultAddress = computed(() => ethers.getAddress(vault.address))
+const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfEarnVault(vault)
 const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers } from 'ethers'
+import { getAddress, type Address, type Abi } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { getSubAccountIndex } from '~/entities/account'
 import { getAssetLogoUrl } from '~/composables/useTokens'
@@ -180,7 +181,7 @@ const loadCollaterals = async () => {
 
   const normalized = collateralAddresses.reduce<string[]>((acc, address) => {
     try {
-      acc.push(ethers.getAddress(address))
+      acc.push(getAddress(address))
     }
     catch {
       return acc
@@ -188,7 +189,7 @@ const loadCollaterals = async () => {
     return acc
   }, [])
 
-  const primaryAddress = ethers.getAddress(position.collateral.address)
+  const primaryAddress = getAddress(position.collateral.address)
   const unique = Array.from(new Set(normalized))
   const orderedAddresses = [primaryAddress, ...unique.filter(address => address !== primaryAddress)]
 
@@ -204,8 +205,7 @@ const loadCollaterals = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
+    const client = getPublicClient(EVM_PROVIDER_URL)
 
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {
@@ -214,7 +214,12 @@ const loadCollaterals = async () => {
           let assets = 0n
 
           try {
-            const res = await accountLensContract.getVaultAccountInfo(position.subAccount, address)
+            const res = await client.readContract({
+              address: lensAddress as Address,
+              abi: eulerAccountLensABI as Abi,
+              functionName: 'getVaultAccountInfo',
+              args: [position.subAccount, address],
+            }) as Record<string, any>
             assets = res.assets
           }
           catch {

@@ -1,39 +1,119 @@
 export const vaultBorrowAbi = [
-  'function borrow(uint256,address) external',
+  {
+    type: 'function',
+    name: 'borrow',
+    inputs: [
+      { name: 'amount', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const
 
 export const vaultRepayAbi = [
-  'function repay(uint256,address) external',
+  {
+    type: 'function',
+    name: 'repay',
+    inputs: [
+      { name: 'amount', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const
 
 export const vaultDepositAbi = [
-  'function deposit(uint256,address) external',
+  {
+    type: 'function',
+    name: 'deposit',
+    inputs: [
+      { name: 'amount', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const
 
 export const vaultWithdrawAbi = [
-  'function withdraw(uint256,address,address) external',
+  {
+    type: 'function',
+    name: 'withdraw',
+    inputs: [
+      { name: 'amount', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+      { name: 'owner', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const
 
 export const vaultRedeemAbi = [
-  'function redeem(uint256,address,address) external',
+  {
+    type: 'function',
+    name: 'redeem',
+    inputs: [
+      { name: 'shares', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+      { name: 'owner', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const
 
 export const vaultPreviewWithdrawAbi = [
-  'function previewWithdraw(uint256) external view returns (uint256)',
+  {
+    type: 'function',
+    name: 'previewWithdraw',
+    inputs: [{ name: 'assets', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
 ] as const
 
 export const vaultConvertToAssetsAbi = [
-  'function convertToAssets(uint256) external view returns (uint256)',
+  {
+    type: 'function',
+    name: 'convertToAssets',
+    inputs: [{ name: 'shares', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
 ] as const
 
 export const vaultConvertToSharesAbi = [
-  'function convertToShares(uint256) external view returns (uint256)',
+  {
+    type: 'function',
+    name: 'convertToShares',
+    inputs: [{ name: 'assets', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
 ] as const
 
 export const vaultMaxWithdrawAbi = [
-  'function maxWithdraw(address) external view returns (uint256)',
+  {
+    type: 'function',
+    name: 'maxWithdraw',
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
 ] as const
 
 export const vaultTransferFromMaxAbi = [
-  'function transferFromMax(address,address) external returns (bool)',
+  {
+    type: 'function',
+    name: 'transferFromMax',
+    inputs: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
 ] as const

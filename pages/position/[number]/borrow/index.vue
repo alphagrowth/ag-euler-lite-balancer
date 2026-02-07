@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { FixedNumber } from 'ethers'
+import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -86,20 +86,20 @@ const priceFixed = computed(() => {
   const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
-  return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
+  return FixedPoint.fromValue(ask, 18).div(FixedPoint.fromValue(bid, 18))
 })
-const collateralAmountFixed = computed(() => FixedNumber.fromValue(
+const collateralAmountFixed = computed(() => FixedPoint.fromValue(
   valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals),
   Number(collateralVault.value?.decimals),
 ))
-const borrowAmountFixed = computed(() => FixedNumber.fromValue(
+const borrowAmountFixed = computed(() => FixedPoint.fromValue(
   valueToNano(borrowAmount.value || '0', borrowVault.value?.decimals),
   Number(borrowVault.value?.decimals),
 ))
 const ltvFixed = computed(() => {
-  const fn = FixedNumber.fromValue(valueToNano(ltv.value, 4), 4)
-  if (fn.gte(FixedNumber.fromValue(pair.value?.borrowLTV || 0n, 2))) {
-    return fn.sub(FixedNumber.fromValue(100n, 4))
+  const fn = FixedPoint.fromValue(valueToNano(ltv.value, 4), 4)
+  if (fn.gte(FixedPoint.fromValue(pair.value?.borrowLTV || 0n, 2))) {
+    return fn.sub(FixedPoint.fromValue(100n, 4))
   }
   return fn
 })
@@ -238,9 +238,9 @@ const onCollateralInput = async () => {
   const result = collateralAmountFixed.value
     .mul(priceFixed.value)
     .mul(ltvFixed.value)
-    .div(FixedNumber.fromValue(100n)).round(Number(borrowVault.value?.decimals || 18))
-    .subUnsafe(FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
-  const zero = FixedNumber.fromValue(0n, Number(borrowVault.value?.decimals || 18))
+    .div(FixedPoint.fromValue(100n)).round(Number(borrowVault.value?.decimals || 18))
+    .subUnsafe(FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
+  const zero = FixedPoint.fromValue(0n, Number(borrowVault.value?.decimals || 18))
   borrowAmount.value = result.lt(zero) ? zero.toString() : result.toString()
 }
 const onBorrowInput = async () => {
@@ -249,9 +249,9 @@ const onBorrowInput = async () => {
     return
   }
   ltv.value = +borrowAmountFixed.value
-    .addUnsafe(FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
+    .addUnsafe(FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
     .div(collateralAmountFixed.value.mul(priceFixed.value))
-    .mul(FixedNumber.fromValue(100n))
+    .mul(FixedPoint.fromValue(100n))
     .toUnsafeFloat().toFixed(2)
 }
 const onLtvInput = async () => {

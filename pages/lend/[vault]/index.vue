@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers } from 'ethers'
+import { getAddress, formatUnits, isAddress } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -91,7 +91,7 @@ if (isSecuritize) {
 }
 else {
   try {
-    const normalizedAddress = ethers.getAddress(vaultAddress)
+    const normalizedAddress = getAddress(vaultAddress)
 
     // Fast path: vault already in registry
     const registryEntry = registryGet(normalizedAddress)

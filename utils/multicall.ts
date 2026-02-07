@@ -1,5 +1,6 @@
-import { ethers } from 'ethers'
+import { encodeFunctionData, decodeFunctionResult, zeroAddress, type Hex, type Abi } from 'viem'
 import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
+import { getPublicClient } from '~/utils/public-client'
 
 export type MulticallResult<T = unknown> = {
   success: boolean
@@ -13,31 +14,51 @@ export type MulticallResult<T = unknown> = {
  *
  * @param evcAddress - EVC contract address
  * @param items - Array of batch items (target, data, value)
- * @param provider - ethers JsonRpcProvider
+ * @param rpcUrl - JSON-RPC URL
  * @returns Array of BatchItemResult in same order as items
  */
 export const evcBatchCall = async (
   evcAddress: string,
   items: BatchItem[],
-  provider: ethers.JsonRpcProvider,
+  rpcUrl: string,
 ): Promise<BatchItemResult[]> => {
   if (items.length === 0) {
     return []
   }
 
-  const evcContract = new ethers.Contract(evcAddress, EVC_ABI, provider)
+  const client = getPublicClient(rpcUrl)
 
   try {
-    const [batchResults] = await evcContract.batchSimulation.staticCall(
-      items,
-      { value: 0n },
-    ) as [BatchItemResult[], unknown, unknown]
+    const callData = encodeFunctionData({
+      abi: EVC_ABI,
+      functionName: 'batchSimulation',
+      args: [items],
+    })
 
+    const result = await client.call({
+      to: evcAddress as Hex,
+      data: callData,
+      value: 0n,
+    })
+
+    if (!result.data) {
+      return items.map(() => ({
+        success: false,
+        result: '0x',
+      }))
+    }
+
+    const decoded = decodeFunctionResult({
+      abi: EVC_ABI,
+      functionName: 'batchSimulation',
+      data: result.data,
+    })
+
+    const batchResults = decoded[0] as unknown as BatchItemResult[]
     return batchResults
   }
   catch (err) {
     console.warn('[evcBatchCall] batchSimulation failed:', err)
-    // Return all failures
     return items.map(() => ({
       success: false,
       result: '0x',
@@ -54,7 +75,7 @@ export const buildBatchItem = (
   value: bigint = 0n,
 ): BatchItem => ({
   targetContract,
-  onBehalfOfAccount: ethers.ZeroAddress,
+  onBehalfOfAccount: zeroAddress,
   value,
   data: callData,
 })
@@ -65,17 +86,17 @@ export const buildBatchItem = (
  *
  * @param evcAddress - EVC contract address
  * @param lensAddress - Lens contract address
- * @param lensInterface - ethers Interface for the lens contract
+ * @param lensAbi - ABI for the lens contract
  * @param calls - Array of { functionName, args } to call
- * @param provider - ethers JsonRpcProvider
+ * @param rpcUrl - JSON-RPC URL
  * @returns Array of decoded results (or null for failed calls)
  */
 export const batchLensCalls = async <T>(
   evcAddress: string,
   lensAddress: string,
-  lensInterface: ethers.Interface,
+  lensAbi: Abi | readonly unknown[],
   calls: Array<{ functionName: string; args: unknown[] }>,
-  provider: ethers.JsonRpcProvider,
+  rpcUrl: string,
 ): Promise<Array<{ success: boolean; result: T | null }>> => {
   if (calls.length === 0) {
     return []
@@ -83,12 +104,16 @@ export const batchLensCalls = async <T>(
 
   // Build batch items
   const items: BatchItem[] = calls.map((call) => {
-    const callData = lensInterface.encodeFunctionData(call.functionName, call.args)
+    const callData = encodeFunctionData({
+      abi: lensAbi as Abi,
+      functionName: call.functionName,
+      args: call.args,
+    })
     return buildBatchItem(lensAddress, callData)
   })
 
   // Execute batch
-  const batchResults = await evcBatchCall(evcAddress, items, provider)
+  const batchResults = await evcBatchCall(evcAddress, items, rpcUrl)
 
   // Decode results
   return batchResults.map((result, index) => {
@@ -97,10 +122,11 @@ export const batchLensCalls = async <T>(
     }
 
     try {
-      const decoded = lensInterface.decodeFunctionResult(
-        calls[index].functionName,
-        result.result,
-      )
+      const decoded = decodeFunctionResult({
+        abi: lensAbi as Abi,
+        functionName: calls[index].functionName,
+        data: result.result as Hex,
+      })
       return { success: true, result: decoded as T }
     }
     catch (err) {

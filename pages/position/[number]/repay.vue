@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { type Address, zeroAddress } from 'viem'
-import { FixedNumber, ethers } from 'ethers'
+import { getAddress, formatUnits, zeroAddress, type Address, type Abi } from 'viem'
+import { FixedPoint } from '~/utils/fixed-point'
+import { getPublicClient } from '~/utils/public-client'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -125,14 +126,14 @@ watchEffect(async () => {
 const swapperMode = computed(() => repaySwapDirection.value)
 
 const getCurrentDebt = () => position.value?.borrowed || 0n
-const amountFixed = computed(() => FixedNumber.fromValue(
+const amountFixed = computed(() => FixedPoint.fromValue(
   valueToNano(amount.value || '0', borrowVault.value?.decimals),
   Number(borrowVault.value?.decimals),
 ))
-const borrowedFixed = computed(() => FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
-const suppliedFixed = computed(() => FixedNumber.fromValue(position.value?.supplied || 0n, position.value?.collateral.decimals || 18))
-const priceFixed = computed(() => FixedNumber.fromValue(position.value?.price || 0n, 18))
-const balanceFixed = computed(() => FixedNumber.fromValue(balance.value, borrowVault.value?.decimals || 18))
+const borrowedFixed = computed(() => FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
+const suppliedFixed = computed(() => FixedPoint.fromValue(position.value?.supplied || 0n, position.value?.collateral.decimals || 18))
+const priceFixed = computed(() => FixedPoint.fromValue(position.value?.price || 0n, 18))
+const balanceFixed = computed(() => FixedPoint.fromValue(balance.value, borrowVault.value?.decimals || 18))
 const liquidationPrice = computed(() => {
   if (nanoToValue(position.value?.health || 0n, 18) < 0.1) {
     return Infinity
@@ -196,9 +197,13 @@ const updateSwapCollateralBalance = async () => {
     if (!lensAddress) {
       throw new Error('Account lens address is not available')
     }
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
-    const res = await accountLensContract.getVaultAccountInfo(position.value.subAccount, swapCollateralVault.value.address)
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    const res = await client.readContract({
+      address: lensAddress as Address,
+      abi: eulerAccountLensABI as Abi,
+      functionName: 'getVaultAccountInfo',
+      args: [position.value.subAccount, swapCollateralVault.value.address],
+    }) as Record<string, any>
     swapCollateralAssets.value = res.assets
   }
   catch (e) {
@@ -211,7 +216,7 @@ const normalizeAddress = (address?: string) => {
     return ''
   }
   try {
-    return ethers.getAddress(address)
+    return getAddress(address)
   }
   catch {
     return ''
@@ -487,8 +492,8 @@ const swapCurrentPrice = computed(() => {
   if (!swapQuote.value || !swapCollateralVault.value || !borrowVault.value) {
     return null
   }
-  const amountOut = Number(ethers.formatUnits(BigInt(swapQuote.value.amountOut), Number(borrowVault.value.asset.decimals)))
-  const amountIn = Number(ethers.formatUnits(BigInt(swapQuote.value.amountIn), Number(swapCollateralVault.value.asset.decimals)))
+  const amountOut = Number(formatUnits(BigInt(swapQuote.value.amountOut), Number(borrowVault.value.asset.decimals)))
+  const amountIn = Number(formatUnits(BigInt(swapQuote.value.amountIn), Number(swapCollateralVault.value.asset.decimals)))
   if (!amountOut || !amountIn) {
     return null
   }
@@ -501,8 +506,8 @@ const swapSummary = computed(() => {
   if (!swapQuote.value || !swapCollateralVault.value || !borrowVault.value) {
     return null
   }
-  const amountIn = ethers.formatUnits(BigInt(swapQuote.value.amountIn), Number(swapCollateralVault.value.asset.decimals))
-  const amountOut = ethers.formatUnits(BigInt(swapQuote.value.amountOut), Number(borrowVault.value.asset.decimals))
+  const amountIn = formatUnits(BigInt(swapQuote.value.amountIn), Number(swapCollateralVault.value.asset.decimals))
+  const amountOut = formatUnits(BigInt(swapQuote.value.amountOut), Number(borrowVault.value.asset.decimals))
   return {
     from: `${formatNumber(amountIn)} ${swapCollateralVault.value.asset.symbol}`,
     to: `${formatSignificant(amountOut)} ${borrowVault.value.asset.symbol}`,
@@ -569,7 +574,7 @@ const swapRouteItems = computed(() => {
     const amount = getQuoteAmount(card.quote, isExactIn ? 'amountOut' : 'amountIn')
     const symbol = isExactIn ? borrowVault.value.asset.symbol : swapCollateralVault.value.asset.symbol
     const amountLabel = formatSignificant(
-      ethers.formatUnits(amount, Number(isExactIn ? borrowVault.value.asset.decimals : swapCollateralVault.value.asset.decimals)),
+      formatUnits(amount, Number(isExactIn ? borrowVault.value.asset.decimals : swapCollateralVault.value.asset.decimals)),
     )
     const diffPct = (isExactIn ? exactInQuotes.getQuoteDiffPct : targetDebtQuotes.getQuoteDiffPct)(card.quote)
     const badge = card.provider === bestProvider
@@ -635,7 +640,7 @@ const onRepayPercentInput = () => {
   }
   const percent = Math.min(100, Math.max(0, repayDebtPercent.value || 0))
   const amountNano = (currentDebt * BigInt(Math.round(percent * 100))) / 10_000n
-  debtAmount.value = ethers.formatUnits(amountNano, Number(borrowVault.value.asset.decimals))
+  debtAmount.value = formatUnits(amountNano, Number(borrowVault.value.asset.decimals))
   requestSwapQuote()
 }
 
@@ -756,14 +761,14 @@ watch([swapEffectiveQuote, repaySwapDirection], () => {
     return
   }
   if (repaySwapDirection.value === SwapperMode.EXACT_IN) {
-    debtAmount.value = ethers.formatUnits(
+    debtAmount.value = formatUnits(
       BigInt(swapEffectiveQuote.value.amountOut || 0),
       Number(borrowVault.value.asset.decimals),
     )
     debtAmount.value = formatSignificant(debtAmount.value)
   }
   else {
-    collateralAmount.value = ethers.formatUnits(
+    collateralAmount.value = formatUnits(
       BigInt(swapEffectiveQuote.value.amountIn || 0),
       Number(swapCollateralVault.value.asset.decimals),
     )
@@ -779,8 +784,8 @@ const updateBalance = async () => {
   const borrowedUsd = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? 0.01
   const factor = Math.pow(10, 2)
   const borrowedRounded = Math.ceil(borrowedUsd * factor) / factor
-  balance.value = FixedNumber.fromValue(valueToNano(borrowedRounded, 4), 4)
-    .div(FixedNumber.fromValue(borrowVault.value.liabilityPriceInfo.amountOutMid, Number(borrowVault.value.decimals)))
+  balance.value = FixedPoint.fromValue(valueToNano(borrowedRounded, 4), 4)
+    .div(FixedPoint.fromValue(borrowVault.value.liabilityPriceInfo.amountOutMid, Number(borrowVault.value.decimals)))
     .value
 }
 const submit = async () => {
@@ -1013,16 +1018,16 @@ const updateEstimates = useDebounceFn(async () => {
     )
     const collateralValue = (suppliedFixed.value).mul(priceFixed.value)
     const userLtvFixed = collateralValue.isZero()
-      ? FixedNumber.fromValue(0n, 18)
+      ? FixedPoint.fromValue(0n, 18)
       : (borrowedFixed.value.sub(amountFixed.value))
           .div(collateralValue)
-          .mul(FixedNumber.fromValue(100n))
+          .mul(FixedPoint.fromValue(100n))
     estimateUserLTV.value = userLtvFixed.value
     estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
       ? 0n
-      : FixedNumber.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
+      : FixedPoint.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
 
-    if (userLtvFixed.gte(FixedNumber.fromValue(position.value!.liquidationLTV, 2))) {
+    if (userLtvFixed.gte(FixedPoint.fromValue(position.value!.liquidationLTV, 2))) {
       throw new Error('Not enough liquidity for the vault, LTV is too large')
     }
   }

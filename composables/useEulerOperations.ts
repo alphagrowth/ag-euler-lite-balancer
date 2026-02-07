@@ -1,8 +1,8 @@
 import { useConfig, useSignTypedData, useWriteContract } from '@wagmi/vue'
 import { readContract, simulateContract } from '@wagmi/vue/actions'
 import type { Address, Hash, Hex, Abi, StateOverride } from 'viem'
-import { encodeFunctionData, encodePacked, hexToBigInt, keccak256, maxUint256, toHex } from 'viem'
-import { ethers } from 'ethers'
+import { encodeFunctionData, encodePacked, getAddress, hexToBigInt, keccak256, maxUint256, toHex, zeroAddress } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import { ALLOWANCE_SLOT_CANDIDATES, PERMIT2_SIG_WINDOW } from '~/entities/constants'
 import { getTosData } from '~/composables/useTosData'
 import { enableTermsOfUseSignature } from '~/entities/custom'
@@ -34,10 +34,10 @@ export const useEulerOperations = () => {
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { get: registryGet } = useVaultRegistry()
 
-  const rpcProvider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const rpcProvider = getPublicClient(EVM_PROVIDER_URL)
   const resolvePermit2Address = (): Address | undefined => {
     const permit2 = eulerCoreAddresses.value?.permit2 as Address | undefined
-    return permit2 && permit2 !== ethers.ZeroAddress ? permit2 : undefined
+    return permit2 && permit2 !== zeroAddress ? permit2 : undefined
   }
 
   const waitForTxReceipt = async (txHash?: Hash) => {
@@ -45,20 +45,23 @@ export const useEulerOperations = () => {
       return
     }
 
-    const receipt = await rpcProvider.waitForTransaction(txHash)
+    const receipt = await rpcProvider.waitForTransactionReceipt({ hash: txHash })
     if (!receipt) {
       throw new Error('Transaction not found')
     }
-    if (receipt.status === 0) {
+    if (receipt.status === 'reverted') {
       throw new Error('Transaction reverted')
     }
   }
 
   const checkAllowance = async (assetAddress: Address, spenderAddress: Address, userAddress: Address): Promise<bigint> => {
-    const contract = new ethers.Contract(assetAddress, erc20ABI, rpcProvider)
-
     try {
-      const allowance = await contract.allowance(userAddress, spenderAddress)
+      const allowance = await rpcProvider.readContract({
+        address: assetAddress,
+        abi: erc20ABI,
+        functionName: 'allowance',
+        args: [userAddress, spenderAddress],
+      })
       return allowance as bigint
     }
     catch (e) {
@@ -70,7 +73,7 @@ export const useEulerOperations = () => {
   const maxUint256Hex = toHex(maxUint256, { size: 32 })
   const normalizeAddress = (address: Address | string) => {
     try {
-      return ethers.getAddress(address)
+      return getAddress(address)
     }
     catch {
       return address.toLowerCase()
@@ -238,12 +241,16 @@ export const useEulerOperations = () => {
       return { amount: 0n, expiration: 0n, nonce: 0n }
     }
 
-    const contract = new ethers.Contract(resolvedPermit2, permit2Abi, rpcProvider)
     try {
-      const result = await contract.allowance(owner, token, spender)
-      const amount = (result.amount ?? result[0] ?? 0n) as bigint
-      const expiration = (result.expiration ?? result[1] ?? 0n) as bigint
-      const nonce = (result.nonce ?? result[2] ?? 0n) as bigint
+      const result = await rpcProvider.readContract({
+        address: resolvedPermit2,
+        abi: permit2Abi,
+        functionName: 'allowance',
+        args: [owner, token, spender],
+      })
+      const amount = ((result as unknown[])[0] ?? 0n) as bigint
+      const expiration = ((result as unknown[])[1] ?? 0n) as bigint
+      const nonce = ((result as unknown[])[2] ?? 0n) as bigint
 
       return { amount, expiration, nonce }
     }
@@ -305,7 +312,7 @@ export const useEulerOperations = () => {
     try {
       const { getVault: registryGetVault } = useVaultRegistry()
       const vaults = vaultAddresses.map((addr) => {
-        return registryGetVault(ethers.getAddress(addr))
+        return registryGetVault(getAddress(addr))
       })
       return await buildPythUpdateCalls(vaults, EVM_PROVIDER_URL, PYTH_HERMES_URL, sender)
     }
@@ -321,16 +328,17 @@ export const useEulerOperations = () => {
     }
 
     const abi = tosSignerReadAbi
-    const contract = new ethers.Contract(
-      eulerPeripheryAddresses.value.termsOfUseSigner,
-      abi,
-      rpcProvider,
-    )
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
 
     try {
       const { tosMessageHash } = await getTosData()
-      const lastSignTimestamp = await contract.lastTermsOfUseSignatureTimestamp(userAddress, tosMessageHash)
-      return lastSignTimestamp > 0
+      const lastSignTimestamp = await rpcProvider.readContract({
+        address: tosSignerAddress,
+        abi,
+        functionName: 'lastTermsOfUseSignatureTimestamp',
+        args: [userAddress, tosMessageHash],
+      })
+      return (lastSignTimestamp as bigint) > 0
     }
     catch (e) {
       console.error('Error checking ToS signature:', e)
@@ -822,11 +830,14 @@ export const useEulerOperations = () => {
     const hasSigned = await hasSignature(userAddr)
     const tosData = await getTosData()
 
-    const vaultContract = new ethers.Contract(vaultAddr, vaultPreviewWithdrawAbi, rpcProvider)
-
     let sharesAmount = isMax
       ? maxSharesAmount || 0n
-      : await vaultContract.previewWithdraw(assetsAmount).catch(() => 0n)
+      : await rpcProvider.readContract({
+        address: vaultAddr,
+        abi: vaultPreviewWithdrawAbi,
+        functionName: 'previewWithdraw',
+        args: [assetsAmount],
+      }).catch(() => 0n) as bigint
 
     if (isMax === false && maxSharesAmount && (sharesAmount > maxSharesAmount)) {
       sharesAmount = maxSharesAmount

@@ -31,7 +31,38 @@ export const reulWithdrawABI = [
 ] as const
 
 export const reulLockAbi = [
-  'function getLockedAmounts(address account) view returns (uint256[], uint256[])',
-  'function getWithdrawAmountsByLockTimestamp(address account, uint256 lockTimestamp) view returns (uint256, uint256)',
-  'function withdrawToByLockTimestamp(address account, uint256 lockTimestamp, bool allowRemainderLoss) external',
+  {
+    type: 'function',
+    name: 'getLockedAmounts',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [
+      { name: 'timestamps', type: 'uint256[]' },
+      { name: 'amounts', type: 'uint256[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getWithdrawAmountsByLockTimestamp',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'lockTimestamp', type: 'uint256' },
+    ],
+    outputs: [
+      { name: 'unlockableAmount', type: 'uint256' },
+      { name: 'amountToBeBurned', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'withdrawToByLockTimestamp',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'lockTimestamp', type: 'uint256' },
+      { name: 'allowRemainderLoss', type: 'bool' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const

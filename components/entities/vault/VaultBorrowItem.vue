@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ethers } from 'ethers'
+import { getAddress } from 'viem'
 import { type AnyBorrowVaultPair, getVaultUtilization } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -36,8 +36,8 @@ const isAnyUnverified = computed(() => {
 });
 
 const isAnyDeprecated = computed(() => {
-  const collateralAddr = ethers.getAddress(pair.collateral.address);
-  const borrowAddr = ethers.getAddress(pair.borrow.address);
+  const collateralAddr = getAddress(pair.collateral.address);
+  const borrowAddr = getAddress(pair.borrow.address);
   const collateralDeprecated = collateralProduct.deprecatedVaults?.includes(collateralAddr) ?? false;
   const borrowDeprecated = borrowProduct.deprecatedVaults?.includes(borrowAddr) ?? false;
   return collateralDeprecated || borrowDeprecated;

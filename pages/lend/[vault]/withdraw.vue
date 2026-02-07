@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { FixedNumber } from 'ethers'
+import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -49,7 +49,7 @@ const estimatesError = ref('')
 
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value?.address || ''))
 const amountFixed = computed(() => {
-  return FixedNumber.fromValue(
+  return FixedPoint.fromValue(
     valueToNano(amount.value || '0', asset.value?.decimals || 0),
     Number(asset.value?.decimals || 0),
     { decimals: Number(asset.value?.decimals || 0) },
@@ -143,7 +143,7 @@ const submit = async () => {
       return
     }
 
-    const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+    const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
 
     try {
       plan.value = isMax
@@ -185,7 +185,7 @@ const send = async () => {
       return
     }
 
-    const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+    const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
     const txPlan = isMax
       ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
       : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)

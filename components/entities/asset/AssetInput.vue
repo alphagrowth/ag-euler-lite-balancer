@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ethers } from 'ethers'
+import { formatUnits } from 'viem'
 import { type Vault, type VaultAsset, type CollateralOption, type EarnVault } from '~/entities/vault'
 import { getAssetUsdPrice } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -56,7 +56,7 @@ watchEffect(async () => {
 
 const hasPrice = computed(() => price.value !== null)
 const setMax = () => {
-  model.value = ethers.formatUnits(props.balance ?? 0n, Number(props.asset.decimals))
+  model.value = formatUnits(props.balance ?? 0n, Number(props.asset.decimals))
   emits('input')
   if (inputEl.value) {
     inputEl.value.value = model.value || ''

@@ -84,21 +84,60 @@ export type BatchItemResult = {
 }
 
 export const evcEnableControllerAbi = [
-  'function enableController(address,address) external',
+  {
+    type: 'function',
+    name: 'enableController',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'vault', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const
 
 export const evcDisableControllerAbi = [
-  'function disableController() external',
+  {
+    type: 'function',
+    name: 'disableController',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const
 
 export const evcEnableCollateralAbi = [
-  'function enableCollateral(address,address) external',
+  {
+    type: 'function',
+    name: 'enableCollateral',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'vault', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const
 
 export const evcDisableCollateralAbi = [
-  'function disableCollateral(address,address) external',
+  {
+    type: 'function',
+    name: 'disableCollateral',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'vault', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const
 
 export const evcGetControllersAbi = [
-  'function getControllers(address) external view returns(address[])',
+  {
+    type: 'function',
+    name: 'getControllers',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'address[]' }],
+    stateMutability: 'view',
+  },
 ] as const

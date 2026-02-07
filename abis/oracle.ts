@@ -1,3 +1,13 @@
 export const priceOracleAbi = [
-  'function getQuote(uint256 inAmount, address base, address quote) external view returns (uint256 outAmount)',
+  {
+    type: 'function',
+    name: 'getQuote',
+    inputs: [
+      { name: 'inAmount', type: 'uint256' },
+      { name: 'base', type: 'address' },
+      { name: 'quote', type: 'address' },
+    ],
+    outputs: [{ name: 'outAmount', type: 'uint256' }],
+    stateMutability: 'view',
+  },
 ] as const

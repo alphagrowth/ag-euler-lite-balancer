@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { MaxUint256, ethers } from 'ethers'
+import { getAddress, maxUint256, type Address } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import type { SecuritizeVault, Vault, VaultCollateralLTV } from '~/entities/vault'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -15,7 +16,7 @@ const { borrowList, isVaultGovernorVerified } = useVaults()
 const { getEvkVaults } = useVaultRegistry()
 const { getOpportunityOfLendVault } = useMerkl()
 const { getIntrinsicApy } = useIntrinsicApy()
-const vaultAddress = computed(() => ethers.getAddress(vault.address))
+const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault as unknown as Vault))
@@ -67,19 +68,19 @@ const shareTokenExchangeRate: Ref<bigint | undefined> = ref()
 
 const loadRiskParameters = async () => {
   try {
-    const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-    const contract = new ethers.Contract(
-      vault.address,
-      [{
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    shareTokenExchangeRate.value = await client.readContract({
+      address: vault.address as Address,
+      abi: [{
         type: 'function',
         name: 'convertToAssets',
         inputs: [{ name: 'shares', type: 'uint256' }],
         outputs: [{ name: 'assets', type: 'uint256' }],
         stateMutability: 'view',
-      }],
-      provider,
-    )
-    shareTokenExchangeRate.value = await contract.convertToAssets(1n * 10n ** vault.decimals)
+      }] as const,
+      functionName: 'convertToAssets',
+      args: [1n * 10n ** vault.decimals],
+    }) as bigint
   }
   catch (e) {
     console.warn('[SecuritizeVaultOverview] Failed to load share token exchange rate', e)
@@ -108,7 +109,7 @@ watchEffect(async () => {
 const supplyCapDisplay = ref('∞')
 
 watchEffect(async () => {
-  if (!vault.supplyCap || vault.supplyCap === 0n || vault.supplyCap >= MaxUint256) {
+  if (!vault.supplyCap || vault.supplyCap === 0n || vault.supplyCap >= maxUint256) {
     supplyCapDisplay.value = '∞'
     return
   }
@@ -117,7 +118,7 @@ watchEffect(async () => {
 })
 
 const supplyCapPercentageDisplay = computed(() => {
-  if (!vault.supplyCap || vault.supplyCap >= MaxUint256 || vault.supplyCap === 0n) return 0
+  if (!vault.supplyCap || vault.supplyCap >= maxUint256 || vault.supplyCap === 0n) return 0
   const scale = 10n ** 2n
   // Compare totalShares to supplyCap (both in shares denomination)
   const fraction = (vault.totalShares * scale * 100n) / vault.supplyCap
@@ -255,12 +256,12 @@ const supplyCapPercentageDisplay = computed(() => {
           <div class="flex gap-4 items-center">
             <span>
               {{ supplyCapDisplay }}
-              <span v-if="vault.supplyCap && vault.supplyCap < MaxUint256 && vault.supplyCap > 0n">
+              <span v-if="vault.supplyCap && vault.supplyCap < maxUint256 && vault.supplyCap > 0n">
                 ({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)
               </span>
             </span>
             <UiRadialProgress
-              v-if="vault.supplyCap && vault.supplyCap < MaxUint256 && vault.supplyCap > 0n"
+              v-if="vault.supplyCap && vault.supplyCap < maxUint256 && vault.supplyCap > 0n"
               :value="supplyCapPercentageDisplay"
               :max="100"
             />

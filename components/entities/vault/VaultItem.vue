@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers } from 'ethers'
+import { getAddress } from 'viem'
 import { getVaultUtilization, type Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -46,7 +46,7 @@ const supplyApyWithRewards = computed(
 const utilization = computed(() => getVaultUtilization(vault));
 const isDeprecated = computed(() => {
   try {
-    const addr = ethers.getAddress(vault.address);
+    const addr = getAddress(vault.address);
     return product.deprecatedVaults?.includes(addr) ?? false;
   } catch {
     return product.deprecatedVaults?.includes(vault.address) ?? false;

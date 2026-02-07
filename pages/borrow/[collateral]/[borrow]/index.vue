@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers, FixedNumber } from 'ethers'
-import type { Address } from 'viem'
+import { getAddress, formatUnits, type Address } from 'viem'
+import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -166,7 +166,7 @@ const priceFixed = computed(() => {
   const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
-  return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
+  return FixedPoint.fromValue(ask, 18).div(FixedPoint.fromValue(bid, 18))
 })
 
 // USD price per unit of collateral from liability vault's perspective (for AssetInput display)
@@ -185,18 +185,18 @@ watchEffect(async () => {
   // amountOutMid is the price in USD (18 decimals) for 1 unit of collateral
   collateralUnitPrice.value = nanoToValue(priceInfo.amountOutMid, 18)
 })
-const collateralAmountFixed = computed(() => FixedNumber.fromValue(
+const collateralAmountFixed = computed(() => FixedPoint.fromValue(
   valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals),
   Number(collateralVault.value?.decimals),
 ))
-const borrowAmountFixed = computed(() => FixedNumber.fromValue(
+const borrowAmountFixed = computed(() => FixedPoint.fromValue(
   valueToNano(borrowAmount.value || '0', borrowVault.value?.decimals),
   Number(borrowVault.value?.decimals),
 ))
 const ltvFixed = computed(() => {
-  const fn = FixedNumber.fromValue(valueToNano(ltv.value, 4), 4)
-  if (fn.gte(FixedNumber.fromValue(pair.value?.borrowLTV || 0n, 2))) {
-    return fn.sub(FixedNumber.fromValue(100n, 4))
+  const fn = FixedPoint.fromValue(valueToNano(ltv.value, 4), 4)
+  if (fn.gte(FixedPoint.fromValue(pair.value?.borrowLTV || 0n, 2))) {
+    return fn.sub(FixedPoint.fromValue(100n, 4))
   }
   return fn
 })
@@ -272,7 +272,7 @@ const multiplyRouteItems = computed(() => {
   return multiplyQuoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
     const amount = formatNumber(
-      ethers.formatUnits(amountOut, Number(multiplyLongVault.value.asset.decimals)),
+      formatUnits(amountOut, Number(multiplyLongVault.value.asset.decimals)),
     )
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
@@ -373,7 +373,7 @@ const normalizeAddress = (address?: string) => {
     return ''
   }
   try {
-    return ethers.getAddress(address)
+    return getAddress(address)
   }
   catch {
     return ''
@@ -765,8 +765,8 @@ const multiplyCurrentPrice = computed(() => {
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
     return null
   }
-  const amountIn = Number(ethers.formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals)))
-  const amountOut = Number(ethers.formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals)))
+  const amountIn = Number(formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals)))
+  const amountOut = Number(formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals)))
   if (!amountIn || !amountOut) {
     return null
   }
@@ -782,8 +782,8 @@ const multiplySwapSummary = computed(() => {
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
     return null
   }
-  const amountIn = ethers.formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals))
-  const amountOut = ethers.formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals))
+  const amountIn = formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals))
+  const amountOut = formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals))
   return {
     from: `${formatNumber(amountIn)} ${multiplyShortVault.value.asset.symbol}`,
     to: `${formatNumber(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
@@ -888,10 +888,10 @@ const setMultiplyAmounts = (longAmount?: bigint | null, shortAmount?: bigint | n
     return
   }
   multiplyLongAmount.value = longAmount && longAmount > 0n
-    ? ethers.formatUnits(longAmount, Number(multiplyLongVault.value.asset.decimals))
+    ? formatUnits(longAmount, Number(multiplyLongVault.value.asset.decimals))
     : ''
   multiplyShortAmount.value = shortAmount && shortAmount > 0n
-    ? ethers.formatUnits(shortAmount, Number(multiplyShortVault.value.asset.decimals))
+    ? formatUnits(shortAmount, Number(multiplyShortVault.value.asset.decimals))
     : ''
 }
 watch([multiplyEffectiveQuote, multiplyIsSameAsset, multiplyDebtAmountNano], () => {
@@ -960,7 +960,7 @@ const requestMultiplyQuote = useDebounceFn(async () => {
     logContext: {
       fromVault: multiplyShortVault.value?.address,
       toVault: multiplyLongVault.value?.address,
-      amount: ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+      amount: formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
       slippage: multiplySlippage.value,
       swapperMode: SwapperMode.EXACT_IN,
       isRepay: false,
@@ -1101,7 +1101,7 @@ const submitMultiply = async () => {
       props: {
         type: 'borrow',
         asset: multiplyShortVault.value.asset,
-        amount: multiplyShortAmount.value || ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+        amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
         plan: multiplyPlan.value || undefined,
         supplyingAssetForBorrow: multiplySupplyVault.value.asset,
         supplyingAmount: multiplyInputAmount.value,
@@ -1284,7 +1284,7 @@ const onCollateralInput = async () => {
   borrowAmount.value = collateralAmountFixed.value
     .mul(priceFixed.value)
     .mul(ltvFixed.value)
-    .div(FixedNumber.fromValue(100n)).round(Number(borrowVault.value?.decimals || 18))
+    .div(FixedPoint.fromValue(100n)).round(Number(borrowVault.value?.decimals || 18))
     .toString()
 }
 const onBorrowInput = async () => {
@@ -1294,7 +1294,7 @@ const onBorrowInput = async () => {
   }
   ltv.value = +borrowAmountFixed.value
     .div(collateralAmountFixed.value.mul(priceFixed.value))
-    .mul(FixedNumber.fromValue(100n))
+    .mul(FixedPoint.fromValue(100n))
     .toUnsafeFloat().toFixed(2)
 }
 const onLtvInput = async () => {

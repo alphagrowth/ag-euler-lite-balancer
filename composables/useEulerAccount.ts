@@ -1,4 +1,6 @@
-import { ethers, FixedNumber } from 'ethers'
+import { getAddress, type Address, type Abi } from 'viem'
+import { FixedPoint } from '~/utils/fixed-point'
+import { getPublicClient } from '~/utils/public-client'
 import axios from 'axios'
 import { ref, watch, watchEffect, computed, type Ref } from 'vue'
 import { useAccount } from '@wagmi/vue'
@@ -44,7 +46,7 @@ const normalizeAddress = (value?: string | null) => {
     return ''
   }
   try {
-    return ethers.getAddress(value)
+    return getAddress(value)
   }
   catch {
     return ''
@@ -260,8 +262,7 @@ const updateBorrowPositions = async (
     throw new Error('Euler addresses not loaded yet')
   }
 
-  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+  const client = getPublicClient(EVM_PROVIDER_URL)
 
   const { data } = await axios.post(SUBGRAPH_URL, {
     query: `query AccountBorrows {
@@ -298,23 +299,28 @@ const updateBorrowPositions = async (
             // Use batchSimulation with Pyth updates for fresh oracle prices
             const result = await executeLensWithPythSimulation(
               pythFeeds,
-              accountLensContract,
+              eulerLensAddresses.accountLens as Address,
+              eulerAccountLensABI as Abi,
               'getAccountInfo',
               [subAccount, vaultAddress],
               eulerCoreAddresses.value!.evc,
-              provider,
               EVM_PROVIDER_URL,
               PYTH_HERMES_URL!,
-            ) as Record<string, unknown>[] | undefined
-            // Result is decoded tuple - first element is the account info struct
-            if (!result || !result[0]) {
+            ) as Record<string, unknown> | undefined
+            // Result is the account info struct (viem unwraps single outputs)
+            if (!result) {
               return undefined
             }
-            res = result[0] as Record<string, unknown>
+            res = result
           }
           else {
             // Direct call for non-Pyth vaults
-            res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
+            res = await client.readContract({
+              address: eulerLensAddresses.accountLens as Address,
+              abi: eulerAccountLensABI as Abi,
+              functionName: 'getAccountInfo',
+              args: [subAccount, vaultAddress],
+            }) as Record<string, unknown>
           }
         }
         catch (err) {
@@ -326,10 +332,10 @@ const updateBorrowPositions = async (
           return undefined
         }
 
-        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map((collateral: string) => ethers.getAddress(collateral))
+        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map((collateral: string) => getAddress(collateral))
         const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
 
-        const borrowAddress = ethers.getAddress(res.evcAccountInfo.enabledControllers[0])
+        const borrowAddress = getAddress(res.evcAccountInfo.enabledControllers[0])
         // Use pre-fetched vault if it matches, otherwise fetch
         let borrow = borrowVault && borrowVault.address.toLowerCase() === borrowAddress.toLowerCase()
           ? borrowVault
@@ -350,7 +356,7 @@ const updateBorrowPositions = async (
         let collateralAddress: string | undefined
         const collateralCandidates = collaterals.length ? collaterals : enabledCollateralsList
         for (const addr of collateralCandidates) {
-          if (borrow.collateralLTVs.some(ltv => ethers.getAddress(ltv.collateral) === addr)) {
+          if (borrow.collateralLTVs.some(ltv => getAddress(ltv.collateral) === addr)) {
             collateralAddress = addr
             break
           }
@@ -395,18 +401,18 @@ const updateBorrowPositions = async (
 
         if (liabilityValueBorrowing === 0n && res.vaultAccountInfo.borrowed > 0n) {
           console.warn('liabilityValueBorrowing is 0 but borrowed amount exists, calculating manually')
-          const borrowedInUnitOfAccount = FixedNumber.fromValue(res.vaultAccountInfo.borrowed, borrow.decimals)
-            .mul(FixedNumber.fromValue(borrow.liabilityPriceInfo.amountOutMid, 18))
-            .div(FixedNumber.fromValue(borrow.liabilityPriceInfo.amountIn, 0))
+          const borrowedInUnitOfAccount = FixedPoint.fromValue(res.vaultAccountInfo.borrowed, borrow.decimals)
+            .mul(FixedPoint.fromValue(borrow.liabilityPriceInfo.amountOutMid, 18))
+            .div(FixedPoint.fromValue(borrow.liabilityPriceInfo.amountIn, 0))
           liabilityValueBorrowing = borrowedInUnitOfAccount.value
         }
         const healthFixed = liabilityValueBorrowing === 0n
-          ? FixedNumber.fromValue(0n, 18)
-          : FixedNumber.fromValue(collateralValueLiquidation, 18).div(FixedNumber.fromValue(liabilityValueBorrowing, 18))
+          ? FixedPoint.fromValue(0n, 18)
+          : FixedPoint.fromValue(collateralValueLiquidation, 18).div(FixedPoint.fromValue(liabilityValueBorrowing, 18))
 
         const userLTVFixed = healthFixed.isZero()
-          ? FixedNumber.fromValue(0n, 2)
-          : FixedNumber.fromValue(liquidationLTV, 2).div(healthFixed)
+          ? FixedPoint.fromValue(0n, 2)
+          : FixedPoint.fromValue(liquidationLTV, 2).div(healthFixed)
         const userLTV = userLTVFixed.value
 
         // Get collateral price in UoA for ratio calculation (UoA cancels in ratio)
@@ -422,26 +428,26 @@ const updateBorrowPositions = async (
         }
 
         // Price ratio calculation uses UoA prices (UoA cancels)
-        const priceFixed = FixedNumber.fromValue(collateralPriceUoA.amountOutAsk, 18)
-          .div(FixedNumber.fromValue(borrowPriceUoA.amountOutBid || 1n, 18))
+        const priceFixed = FixedPoint.fromValue(collateralPriceUoA.amountOutAsk, 18)
+          .div(FixedPoint.fromValue(borrowPriceUoA.amountOutBid || 1n, 18))
 
         const supplyLiquidationPriceRatio = collateralValueLiquidation === 0n
-          ? FixedNumber.fromValue(0n, 18)
-          : FixedNumber.fromValue(liabilityValueBorrowing, 18)
-              .sub(FixedNumber.fromValue(collateralValueLiquidation, 18))
-              .div(FixedNumber.fromValue(collateralValueLiquidation, 18))
-              .add(FixedNumber.fromValue(1n, 0))
+          ? FixedPoint.fromValue(0n, 18)
+          : FixedPoint.fromValue(liabilityValueBorrowing, 18)
+              .sub(FixedPoint.fromValue(collateralValueLiquidation, 18))
+              .div(FixedPoint.fromValue(collateralValueLiquidation, 18))
+              .add(FixedPoint.fromValue(1n, 0))
 
         // Use USD price for display (already converted from UoA)
-        const currentCollateralPriceUsd = FixedNumber.fromValue(collateralPriceUsd.amountOutMid, 18)
+        const currentCollateralPriceUsd = FixedPoint.fromValue(collateralPriceUsd.amountOutMid, 18)
 
         const price = currentCollateralPriceUsd.mul(supplyLiquidationPriceRatio).value
 
-        const borrowedFixed = FixedNumber.fromValue(
+        const borrowedFixed = FixedPoint.fromValue(
           res.vaultAccountInfo.borrowed,
           borrow.decimals,
         )
-        const userLTVPercent = userLTVFixed.div(FixedNumber.fromValue(100n))
+        const userLTVPercent = userLTVFixed.div(FixedPoint.fromValue(100n))
         const supplied = userLTVPercent.isZero()
           ? 0n
           : borrowedFixed
@@ -483,8 +489,8 @@ const updateBorrowPositions = async (
     // Build set of (subAccount, collateralVault) pairs used as collateral
     const usageSet = new Set<string>()
     for (const pos of allPositions) {
-      const subAccount = ethers.getAddress(pos.subAccount)
-      const collateralAddress = ethers.getAddress(pos.collateral.address)
+      const subAccount = getAddress(pos.subAccount)
+      const collateralAddress = getAddress(pos.collateral.address)
       usageSet.add(`${subAccount}:${collateralAddress}`)
     }
     collateralUsageSet.value = usageSet
@@ -524,8 +530,7 @@ const updateDepositPositions = async (
       throw new Error('Euler addresses not loaded yet')
     }
 
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+    const client = getPublicClient(EVM_PROVIDER_URL)
 
   // Fetch ALL deposits from subgraph for this address prefix
     const { data } = await axios.post(SUBGRAPH_URL, {
@@ -543,8 +548,8 @@ const updateDepositPositions = async (
           const subAccount = entry.substring(0, 42)
 
     // Normalize addresses for comparison
-    const normalizedSubAccount = ethers.getAddress(subAccount)
-    const normalizedVaultAddress = ethers.getAddress(vaultAddress)
+    const normalizedSubAccount = getAddress(subAccount)
+    const normalizedVaultAddress = getAddress(vaultAddress)
 
     // Check if this deposit is being used as collateral (built during borrow position loading)
     const collateralKey = `${normalizedSubAccount}:${normalizedVaultAddress}`
@@ -578,16 +583,21 @@ const updateDepositPositions = async (
           }
 
           try {
-            const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
+            const res = await client.readContract({
+              address: eulerLensAddresses.accountLens as Address,
+              abi: eulerAccountLensABI as Abi,
+              functionName: 'getAccountInfo',
+              args: [subAccount, vaultAddress],
+            }) as Record<string, unknown>
 
       // Only include if there are shares
-      if (res.vaultAccountInfo.shares === 0n) continue
+      if ((res as any).vaultAccountInfo.shares === 0n) continue
 
             deposits.push({
               vault,
         subAccount: normalizedSubAccount,
-              shares: res.vaultAccountInfo.shares,
-              assets: res.vaultAccountInfo.assets,
+              shares: (res as any).vaultAccountInfo.shares,
+              assets: (res as any).vaultAccountInfo.assets,
             } as AccountDepositPosition)
           }
           catch (e) {
@@ -634,8 +644,7 @@ const updateEarnPositions = async (
     throw new Error('Euler addresses not loaded yet')
   }
 
-  const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-  const accountLensContract = new ethers.Contract(eulerLensAddresses.accountLens, eulerAccountLensABI, provider)
+  const client = getPublicClient(EVM_PROVIDER_URL)
 
   // Always use subgraph for position discovery (same pattern as updateDepositPositions)
   const { data } = await axios.post(SUBGRAPH_URL, {
@@ -653,8 +662,8 @@ const updateEarnPositions = async (
     const batch = depositEntries
       .slice(i, i + batchSize)
       .map(async (entry: string) => {
-        const vaultAddress = ethers.getAddress(`0x${entry.substring(42)}`)
-        const subAccount = ethers.getAddress(entry.substring(0, 42))
+        const vaultAddress = getAddress(`0x${entry.substring(42)}`)
+        const subAccount = getAddress(entry.substring(0, 42))
 
         // Early skip non-earn types before resolving (avoids unnecessary getOrFetch)
         const knownType = registryGetType(vaultAddress)
@@ -679,16 +688,21 @@ const updateEarnPositions = async (
         }
 
         try {
-          const res = await accountLensContract.getAccountInfo(subAccount, vaultAddress)
+          const res = await client.readContract({
+            address: eulerLensAddresses.accountLens as Address,
+            abi: eulerAccountLensABI as Abi,
+            functionName: 'getAccountInfo',
+            args: [subAccount, vaultAddress],
+          }) as Record<string, unknown>
 
-          if (res.vaultAccountInfo.shares === 0n) {
+          if ((res as any).vaultAccountInfo.shares === 0n) {
             return undefined
           }
 
           return {
             vault,
-            shares: res.vaultAccountInfo.shares,
-            assets: res.vaultAccountInfo.assets,
+            shares: (res as any).vaultAccountInfo.shares,
+            assets: (res as any).vaultAccountInfo.assets,
           } as AccountEarnPosition
         }
         catch (e) {
@@ -783,8 +797,8 @@ export const useEulerAccount = () => {
     
     return borrowPositions.value.find((position) => {
       try {
-        const ownerBigInt = BigInt(ethers.getAddress(owner))
-        const subAccountBigInt = BigInt(ethers.getAddress(position.subAccount))
+        const ownerBigInt = BigInt(getAddress(owner))
+        const subAccountBigInt = BigInt(getAddress(position.subAccount))
         const index = Number(ownerBigInt ^ subAccountBigInt)
         return index === subAccountIndex
       }

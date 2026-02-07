@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers } from 'ethers'
-import { type Address, zeroAddress } from 'viem'
+import { getAddress, formatUnits, isAddress, zeroAddress, type Address, type Abi } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import type { AccountBorrowPosition } from '~/entities/account'
@@ -126,7 +126,7 @@ const normalizeAddress = (addr?: string) => {
     return ''
   }
   try {
-    return ethers.getAddress(addr)
+    return getAddress(addr)
   }
   catch {
     return ''
@@ -170,9 +170,13 @@ const loadSelectedCollateral = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
-    const res = await accountLensContract.getVaultAccountInfo(position.value.subAccount, targetAddress)
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    const res = await client.readContract({
+      address: lensAddress as Address,
+      abi: eulerAccountLensABI as Abi,
+      functionName: 'getVaultAccountInfo',
+      args: [position.value.subAccount, targetAddress],
+    }) as Record<string, any>
     selectedCollateralAssets.value = res.assets
   }
   catch (e) {
@@ -230,7 +234,7 @@ watch([quote, toVault], () => {
     toAmount.value = ''
     return
   }
-  const formatted = ethers.formatUnits(amountOut, Number(toVault.value.decimals))
+  const formatted = formatUnits(amountOut, Number(toVault.value.decimals))
   const numericValue = Number(formatted)
   // Use more precision for very small amounts
   toAmount.value = numericValue < 0.01
@@ -438,8 +442,8 @@ const currentPrice = computed(() => {
   if (!quote.value || !fromVault.value || !toVault.value) {
     return null
   }
-  const amountIn = Number(ethers.formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.asset.decimals)))
-  const amountOut = Number(ethers.formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals)))
+  const amountIn = Number(formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.asset.decimals)))
+  const amountOut = Number(formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals)))
   if (!amountIn || !amountOut) {
     return null
   }
@@ -453,8 +457,8 @@ const swapSummary = computed(() => {
   if (!quote.value || !fromVault.value || !toVault.value) {
     return null
   }
-  const amountIn = ethers.formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.asset.decimals))
-  const amountOut = ethers.formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals))
+  const amountIn = formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.asset.decimals))
+  const amountOut = formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals))
   return {
     from: `${formatNumber(amountIn)} ${fromVault.value.asset.symbol}`,
     to: `${formatSignificant(amountOut)} ${toVault.value.asset.symbol}`,
@@ -488,7 +492,7 @@ const routedVia = computed(() => {
   return quote.value.route.map(route => route.providerName).join(', ')
 })
 const formatSmallAmount = (value: bigint, decimals: number) => {
-  const formatted = ethers.formatUnits(value, decimals)
+  const formatted = formatUnits(value, decimals)
   const numericValue = Number(formatted)
   return numericValue < 0.01 && numericValue > 0
     ? numericValue.toExponential(2)

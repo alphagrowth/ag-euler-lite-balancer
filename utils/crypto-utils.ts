@@ -1,8 +1,8 @@
-import { ethers } from 'ethers'
+import { formatUnits, parseUnits } from 'viem'
 import { TTL_ERROR, TTL_INFINITY, TTL_LIQUIDATION, TTL_MORE_THAN_ONE_YEAR } from '~/entities/constants'
 
 export const nanoToValue = (src: bigint | number | string, decimals: number | bigint = 9) => {
-  return +ethers.formatUnits(src, decimals)
+  return +formatUnits(BigInt(src), Number(decimals))
 }
 
 export const valueToNano = (src: number | string, decimals: number | bigint = 9) => {
@@ -11,7 +11,7 @@ export const valueToNano = (src: number | string, decimals: number | bigint = 9)
   }
   const parts = String(src).split('.')
   const value = parts[0] + '.' + (parts[1] || '').substring(0, Number(decimals))
-  return ethers.parseUnits(value, decimals)
+  return parseUnits(value, Number(decimals))
 }
 
 export interface FormatTtlResult {

@@ -1,4 +1,4 @@
-import { ethers } from 'ethers'
+import { getAddress } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
@@ -23,9 +23,9 @@ export const useSwapDebtOptions = ({
       return []
     }
 
-    const collateralAddress = ethers.getAddress(collateral.address)
+    const collateralAddress = getAddress(collateral.address)
     const currentBorrowAddress = currentBorrowVault?.value
-      ? ethers.getAddress(currentBorrowVault.value.address)
+      ? getAddress(currentBorrowVault.value.address)
       : null
 
     return getVerifiedEvkVaults().filter((vault) => {
@@ -33,12 +33,12 @@ export const useSwapDebtOptions = ({
         return false
       }
       const hasCollateral = vault.collateralLTVs.some(ltv =>
-        ethers.getAddress(ltv.collateral) === collateralAddress && ltv.borrowLTV > 0n,
+        getAddress(ltv.collateral) === collateralAddress && ltv.borrowLTV > 0n,
       )
       if (!hasCollateral) {
         return false
       }
-      if (currentBorrowAddress && ethers.getAddress(vault.address) === currentBorrowAddress) {
+      if (currentBorrowAddress && getAddress(vault.address) === currentBorrowAddress) {
         return false
       }
       return vault.supply > 0n && vault.borrowCap > 0n && vault.totalCash > 0n

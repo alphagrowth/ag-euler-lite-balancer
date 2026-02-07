@@ -14,7 +14,8 @@ import {
   type ChartData,
 } from 'chart.js'
 import annotationPlugin from 'chartjs-plugin-annotation'
-import { ethers } from 'ethers'
+import { formatUnits, type Address, type Abi } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import { INTEREST_RATE_MODEL_TYPE } from '~/entities/constants'
 import type { Vault } from '~/entities/vault'
 import { getVaultUtilization } from '~/entities/vault'
@@ -109,7 +110,7 @@ const generateChartDataPoints = () => {
 
 // Parse APY from bigint (27 decimals) to percentage number
 const parseAPY = (apy: bigint): number => {
-  return Number(ethers.formatUnits(apy, 27)) * 100
+  return Number(formatUnits(apy, 27)) * 100
 }
 
 // Fetch interest rate model data
@@ -119,21 +120,17 @@ const fetchIRMData = async () => {
   }
 
   try {
-    const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-    const vaultLensContract = new ethers.Contract(
-      eulerLensAddresses.value.vaultLens,
-      eulerVaultLensABI,
-      provider,
-    )
+    const client = getPublicClient(EVM_PROVIDER_URL)
 
     const { cashData, borrowsData } = generateChartDataPoints()
 
     // Fetch general interest rate model info
-    const irmData = await vaultLensContract.getVaultInterestRateModelInfo(
-      vault.address,
-      cashData,
-      borrowsData,
-    )
+    const irmData = await client.readContract({
+      address: eulerLensAddresses.value.vaultLens as Address,
+      abi: eulerVaultLensABI as Abi,
+      functionName: 'getVaultInterestRateModelInfo',
+      args: [vault.address, cashData, borrowsData],
+    }) as Record<string, any>
 
     let kinkData = null
     const modelType = Number(irmData.interestRateModelInfo?.interestRateModelType)
@@ -141,7 +138,12 @@ const fetchIRMData = async () => {
     // Fetch kink-specific data if applicable
     if (modelType === INTEREST_RATE_MODEL_TYPE.KINK) {
       try {
-        kinkData = await vaultLensContract.getVaultKinkInterestRateModelInfo(vault.address)
+        kinkData = await client.readContract({
+          address: eulerLensAddresses.value.vaultLens as Address,
+          abi: eulerVaultLensABI as Abi,
+          functionName: 'getVaultKinkInterestRateModelInfo',
+          args: [vault.address],
+        }) as Record<string, any>
       }
       catch (e) {
         console.warn('Failed to fetch kink IRM data:', e)
