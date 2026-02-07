@@ -31,6 +31,7 @@ const onClick = (chainId: number) => {
         <BaseAvatar
           class="mr-8 w-32 h-32"
           :src="`/chains/${chain.id}.webp`"
+          :label="chain.name"
         />
         {{ chain.name }}
       </div>

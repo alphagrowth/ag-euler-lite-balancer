@@ -73,7 +73,7 @@ export const preciseNumber = (value: string | number, decimals = 36) => {
   return Intl.NumberFormat('en-US', { maximumFractionDigits: decimals, useGrouping: false }).format(Number(value))
 }
 
-export const stringToColor = (value: string, saturation = 20, lightness = 20) => {
+export const stringToColor = (value: string, saturation = 40, lightness = 45) => {
   let hash = 0
   for (let i = 0; i < value.length; i++) {
     hash = value.charCodeAt(i) + ((hash << 5) - hash)

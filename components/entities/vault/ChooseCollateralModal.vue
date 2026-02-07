@@ -36,6 +36,7 @@ const handleClose = () => {
     >
       <BaseAvatar
         :src="getAssetLogoUrl(getOptionSymbol(option))"
+        :label="getOptionSymbol(option)"
         class="icon--36 mr-10"
       />
       <div class="flex-grow">
