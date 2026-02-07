@@ -1,8 +1,35 @@
 <script setup lang="ts">
+import { encodeFunctionData, getAddress, toFunctionSelector } from 'viem'
 import type { Reward } from '~/entities/merkl'
 import type { Campaign } from '~/entities/brevis'
 import type { VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
+import type { EVCCall } from '~/utils/evc-converter'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
+
+// Map function selectors to human-readable labels for batch items
+const SELECTOR_LABELS: Record<string, string> = {
+  [toFunctionSelector('function deposit(uint256,address)')]: 'Supply',
+  [toFunctionSelector('function borrow(uint256,address)')]: 'Borrow',
+  [toFunctionSelector('function repay(uint256,address)')]: 'Repay',
+  [toFunctionSelector('function withdraw(uint256,address,address)')]: 'Withdraw',
+  [toFunctionSelector('function redeem(uint256,address,address)')]: 'Withdraw',
+  [toFunctionSelector('function enableController(address,address)')]: 'Enable controller',
+  [toFunctionSelector('function enableCollateral(address,address)')]: 'Enable collateral',
+  [toFunctionSelector('function disableController()')]: 'Disable controller',
+  [toFunctionSelector('function disableCollateral(address,address)')]: 'Disable collateral',
+  [toFunctionSelector('function transferFromMax(address,address)')]: 'Transfer',
+  [toFunctionSelector('function signTermsOfUse(string,bytes32)')]: 'Sign terms of use',
+  [toFunctionSelector('function multicall(bytes[])')]: 'Swap',
+  [toFunctionSelector('function verifyAmountMinAndSkim(address,address,uint256,uint256)')]: 'Verify min received',
+  [toFunctionSelector('function verifyDebtMax(address,address,uint256,uint256)')]: 'Verify max debt',
+  [toFunctionSelector('function updatePriceFeeds(bytes[])')]: 'Update price feeds',
+}
+
+const decodeBatchItemLabel = (data: string): string => {
+  const selector = data.slice(0, 10).toLowerCase()
+  return SELECTOR_LABELS[selector] || 'Unknown operation'
+}
 
 const emits = defineEmits(['close', 'confirm'])
 
@@ -13,7 +40,7 @@ interface REULUnlockInfo {
   daysUntilMaturity: number
 }
 
-const { type, asset, rewardInfo, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan } = defineProps<{
+const { type, asset, rewardInfo, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount } = defineProps<{
   type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral'
   asset: VaultAsset
   amount: number | string
@@ -21,6 +48,8 @@ const { type, asset, rewardInfo, campaignInfo, reulUnlockInfo, amount, onConfirm
   plan?: TxPlan
   supplyingAssetForBorrow?: VaultAsset
   supplyingAmount?: number | string
+  swapToAsset?: VaultAsset
+  swapToAmount?: number | string
   rewardInfo?: Reward
   campaignInfo?: Campaign
   reulUnlockInfo?: REULUnlockInfo
@@ -31,9 +60,11 @@ const { type, asset, rewardInfo, campaignInfo, reulUnlockInfo, amount, onConfirm
 
 const { chain } = useWagmi()
 const { estimatePlanFees } = useEstimatePlanFees()
+const { getVault } = useVaultRegistry()
 
 const isEstimatingFee = ref(false)
 const feeEstimate = ref<string | null>(null)
+const copied = ref(false)
 
 const nativeSymbol = computed(() => chain.value?.nativeCurrency?.symbol || 'ETH')
 
@@ -66,51 +97,190 @@ const handleConfirm = () => {
   onConfirm()
 }
 
+const cleanStepLabel = (label: string) => {
+  return label
+    .replace(/\s*via EVC$/i, '')
+    .replace(/^Permit2\s+/i, '')
+}
+
+interface StepAssetInfo {
+  symbol: string
+  amount?: number | string
+}
+
+interface DisplayStep {
+  index: number
+  label: string
+  isSeparateTx: boolean
+  assetInfo?: StepAssetInfo
+  toAssetInfo?: StepAssetInfo
+}
+
+// Extract the second address param from enableCollateral/enableController calldata
+const decodeVaultAddressFromData = (data: string): string | undefined => {
+  // ABI layout: 4 bytes selector + 32 bytes (address1) + 32 bytes (address2)
+  // The vault address is the second param, at hex chars 10+64=74, last 40 chars of that word
+  if (data.length < 138) return undefined
+  try {
+    return getAddress(`0x${data.slice(98, 138)}`)
+  }
+  catch {
+    return undefined
+  }
+}
+
+const getAssetSymbolForVault = (data: string): string | undefined => {
+  const vaultAddress = decodeVaultAddressFromData(data)
+  if (!vaultAddress) return undefined
+  const vault = getVault(vaultAddress)
+  return vault?.asset?.symbol
+}
+
+const getAssetInfoForStep = (label: string, data: string, usedSupply: { value: boolean }, usedBorrow: { value: boolean }, usedSwapTo: { value: boolean }): StepAssetInfo | undefined => {
+  if (label === 'Enable collateral' || label === 'Enable controller') {
+    const symbol = getAssetSymbolForVault(data)
+    if (symbol) return { symbol }
+    return undefined
+  }
+
+  if (label === 'Supply' || label === 'Withdraw') {
+    // For borrow type with supplyingAssetForBorrow, the supply step uses that asset
+    if (type === 'borrow' && !usedSupply.value && label === 'Supply' && supplyingAssetForBorrow && supplyingAmount) {
+      usedSupply.value = true
+      return { symbol: supplyingAssetForBorrow.symbol, amount: supplyingAmount }
+    }
+    // Otherwise use the main asset
+    return { symbol: asset.symbol, amount }
+  }
+
+  if (label === 'Borrow' || label === 'Repay') {
+    if (!usedBorrow.value) {
+      usedBorrow.value = true
+      return { symbol: asset.symbol, amount }
+    }
+  }
+
+  if (label === 'Swap') {
+    return { symbol: asset.symbol, amount }
+  }
+
+  if (label === 'Verify min received' && swapToAsset && swapToAmount && !usedSwapTo.value) {
+    usedSwapTo.value = true
+    return { symbol: swapToAsset.symbol, amount: swapToAmount }
+  }
+
+  if (label === 'Verify max debt') {
+    return { symbol: asset.symbol, amount }
+  }
+
+  if (label === 'Update price feeds') {
+    return { symbol: asset.symbol }
+  }
+
+  return undefined
+}
+
+const displaySteps = computed((): DisplayStep[] => {
+  if (!plan?.steps) return []
+
+  const steps: DisplayStep[] = []
+  let index = 0
+  const usedSupply = { value: false }
+  const usedBorrow = { value: false }
+  const usedSwapTo = { value: false }
+
+  for (const step of plan.steps) {
+    if (step.type === 'evc-batch') {
+      // Expand batch into individual operations
+      const batchItems = step.args?.[0] as EVCCall[] | undefined
+      if (batchItems?.length) {
+        for (const item of batchItems) {
+          index++
+          const label = decodeBatchItemLabel(item.data)
+          const stepAssetInfo = getAssetInfoForStep(label, item.data, usedSupply, usedBorrow, usedSwapTo)
+          const secondAsset = supplyingAssetForBorrow || swapToAsset
+          let toAssetInfo: StepAssetInfo | undefined
+          if (label === 'Swap' && swapToAsset && swapToAmount) {
+            toAssetInfo = { symbol: swapToAsset.symbol, amount: swapToAmount }
+          }
+          else if (label === 'Update price feeds' && stepAssetInfo && secondAsset && secondAsset.symbol !== asset.symbol) {
+            toAssetInfo = { symbol: secondAsset.symbol }
+          }
+          steps.push({
+            index,
+            label,
+            isSeparateTx: false,
+            assetInfo: stepAssetInfo,
+            toAssetInfo,
+          })
+        }
+      }
+      else {
+        index++
+        steps.push({
+          index,
+          label: cleanStepLabel(step.label || step.functionName),
+          isSeparateTx: false,
+        })
+      }
+    }
+    else {
+      index++
+      steps.push({
+        index,
+        label: cleanStepLabel(step.label || step.functionName),
+        isSeparateTx: step.type === 'approve',
+      })
+    }
+  }
+
+  return steps
+})
+
+const copyCalldata = () => {
+  if (!plan?.steps) return
+
+  try {
+    const calldataEntries = plan.steps.map(step => ({
+      to: step.to,
+      data: encodeFunctionData({
+        abi: step.abi,
+        functionName: step.functionName,
+        args: step.args,
+      }),
+      value: step.value?.toString() || '0',
+    }))
+
+    navigator.clipboard.writeText(JSON.stringify(calldataEntries, null, 2))
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+  }
+  catch (err) {
+    console.warn('[OperationReviewModal] calldata copy failed', err)
+  }
+}
+
 const btnLabel = computed(() => {
   switch (type) {
     case 'supply':
       return 'Supply'
     case 'withdraw':
       return 'Withdraw'
+    case 'borrow':
+      return 'Borrow'
+    case 'repay':
+      return 'Repay'
     case 'swap':
       return 'Swap'
     case 'reul-unlock':
       return 'Unlock'
-    default:
-      return 'Submit'
-  }
-})
-const modalLabel = computed(() => {
-  switch (type) {
-    case 'supply':
-      return 'Supply review'
-    case 'withdraw':
-      return 'Withdraw review'
-    case 'swap':
-      return 'Swap review'
-    case 'reul-unlock':
-      return 'Unlock review'
-    default:
-      return 'Operation review'
-  }
-})
-const assetLabel = computed(() => {
-  switch (type) {
-    case 'supply':
-      return 'Supplying'
-    case 'withdraw':
-      return 'Withdraw'
-    case 'borrow':
-      return 'Borrowing'
-    case 'swap':
-      return 'Swapping'
     case 'reward':
     case 'brevis-reward':
-      return 'Claiming'
-    case 'reul-unlock':
-      return 'Unlocking'
+      return 'Claim'
+    case 'disableCollateral':
+      return 'Disable collateral'
     default:
-      return 'Spending'
+      return 'Submit'
   }
 })
 const reulUnlockDisclaimerText = computed(() => {
@@ -162,48 +332,63 @@ const feeDisplay = computed(() => {
 
 <template>
   <BaseModalWrapper
-    :title="modalLabel"
+    title="Transaction review"
     @close="$emit('close')"
   >
     <div class="flex flex-col gap-24">
-      <div class="flexflex-col gap-16">
-        <div
-          v-if="type === 'borrow' && supplyingAssetForBorrow"
-          class="flex-wrap gap-8 flex justify-between"
-        >
-          <p class="text-p3 text-euler-dark-900 be">
-            Supplying
-          </p>
-          <div class="flex gap-8 items-center">
-            <BaseAvatar
-              class="icon--20"
-              :src="getAssetLogoUrl(supplyingAssetForBorrow.symbol)"
-              :label="supplyingAssetForBorrow.symbol"
-            />
-            <p class="text-p2">
-              {{ formatNumber(supplyingAmount, 8, 0) }} {{ supplyingAssetForBorrow.symbol }}
-            </p>
-          </div>
-        </div>
-        <div
-          v-if="type !== 'disableCollateral'"
-          class="flex-wrap gap-8 flex justify-between"
-        >
-          <p class="text-p3 text-euler-dark-900 be">
-            {{ assetLabel }}
-          </p>
-          <div class="flex gap-8 items-center">
-            <BaseAvatar
-              class="icon--20"
-              :src="getAssetLogoUrl(asset.symbol)"
-              :label="asset.symbol"
-            />
-            <p class="text-p2">
-              {{ formatNumber(amount, 8, 0) }} {{ asset.symbol }}
-            </p>
+      <!-- Transaction Steps -->
+      <div
+        v-if="displaySteps.length"
+        class="flex flex-col gap-8"
+      >
+        <p class="text-p3 text-euler-dark-900">
+          Transaction steps
+        </p>
+        <div class="bg-euler-dark-600 rounded-12 p-12 flex flex-col gap-8">
+          <div
+            v-for="step in displaySteps"
+            :key="step.index"
+            class="flex justify-between items-center"
+          >
+            <div class="flex gap-6 items-center flex-wrap">
+              <p class="text-p3">
+                {{ step.index }}. {{ step.label }}
+              </p>
+              <template v-if="step.assetInfo">
+                <BaseAvatar
+                  class="icon--16"
+                  :src="getAssetLogoUrl(step.assetInfo.symbol)"
+                  :label="step.assetInfo.symbol"
+                />
+                <p class="text-p3">
+                  <template v-if="step.assetInfo.amount !== undefined">{{ formatNumber(step.assetInfo.amount, 8, 0) }} </template>{{ step.assetInfo.symbol }}
+                </p>
+              </template>
+              <template v-if="step.toAssetInfo">
+                <p class="text-p3 text-euler-dark-900">
+                  &rarr;
+                </p>
+                <BaseAvatar
+                  class="icon--16"
+                  :src="getAssetLogoUrl(step.toAssetInfo.symbol)"
+                  :label="step.toAssetInfo.symbol"
+                />
+                <p class="text-p3">
+                  <template v-if="step.toAssetInfo.amount !== undefined">{{ formatNumber(step.toAssetInfo.amount, 8, 0) }} </template>{{ step.toAssetInfo.symbol }}
+                </p>
+              </template>
+            </div>
+            <span
+              v-if="step.isSeparateTx"
+              class="text-p4 text-euler-dark-900"
+            >
+              Separate tx
+            </span>
           </div>
         </div>
       </div>
+
+      <!-- Fee -->
       <div class="flex-wrap gap-8 bg-euler-dark-600 p-16 rounded-12 flex justify-between">
         <div class="flex gap-8 items-center">
           <UiIcon
@@ -216,6 +401,22 @@ const feeDisplay = computed(() => {
           <span class="text-p2">&asymp; {{ feeDisplay }}</span>
         </div>
       </div>
+
+      <!-- Copy calldata -->
+      <button
+        v-if="plan?.steps?.length"
+        type="button"
+        class="flex items-center gap-6 text-p3 text-euler-dark-900 hover:text-euler-dark-1000 transition-colors self-start"
+        @click="copyCalldata"
+      >
+        <SvgIcon
+          name="copy"
+          class="!w-16 !h-16"
+        />
+        {{ copied ? 'Copied!' : 'Copy calldata' }}
+      </button>
+
+      <!-- Disclaimers -->
       <UiToast
         v-if="type === 'reward' && anyNonEulerReward"
         title="Disclaimer"
@@ -237,6 +438,8 @@ const feeDisplay = computed(() => {
         description="Disabling collateral will move this deposit to savings"
         size="compact"
       />
+
+      <!-- Confirm button -->
       <UiButton
         variant="primary"
         size="xlarge"

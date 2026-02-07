@@ -153,11 +153,7 @@ watch([quote, toVault], () => {
     return
   }
   const formatted = ethers.formatUnits(amountOut, Number(toVault.value.decimals))
-  const numericValue = Number(formatted)
-  // Use more precision for very small amounts
-  toAmount.value = numericValue < 0.01
-    ? numericValue.toExponential(2)
-    : formatSignificant(formatted)
+  toAmount.value = formatSignificant(formatted, 6)
 }, { immediate: true })
 
 const resetQuoteState = () => {
@@ -258,10 +254,7 @@ const routedVia = computed(() => {
 })
 const formatSmallAmount = (value: bigint, decimals: number) => {
   const formatted = ethers.formatUnits(value, decimals)
-  const numericValue = Number(formatted)
-  return numericValue < 0.01 && numericValue > 0
-    ? numericValue.toExponential(2)
-    : formatSignificant(formatted)
+  return formatSignificant(formatted, 6)
 }
 
 const swapRouteItems = computed(() => {
@@ -463,6 +456,8 @@ const submit = async () => {
         type: 'swap',
         asset: fromVault.value.asset,
         amount: fromAmount.value,
+        swapToAsset: toVault.value?.asset,
+        swapToAmount: toAmount.value,
         plan: plan.value || undefined,
         onConfirm: () => {
           setTimeout(() => {
