@@ -131,6 +131,10 @@ export const useWagmi = () => {
   const getMainPathForRoute = (): string | null => {
     const path = route.path
 
+    if (path.startsWith('/lend/')) {
+      return '/'
+    }
+
     if (path.startsWith('/earn/') && path !== '/earn') {
       return '/earn'
     }
@@ -200,9 +204,9 @@ export const useWagmi = () => {
       if (!isInitialRouteSync) {
         await redirectToMainIfInternal(targetChainId)
       }
-      // if (isConnected.value) {
-      //   await switchChain({ chainId: targetChainId })
-      // }
+      if (isConnected.value) {
+        await switchChain({ chainId: targetChainId })
+      }
     }
     catch (error) {
       console.error('Failed to switch chain:', error)

@@ -54,7 +54,7 @@ const onSelect = (provider: string) => {
           type="button"
           class="w-full text-left rounded-12 border p-12 transition-colors"
           :class="selectedProvider === item.provider
-            ? 'border-accent-600 bg-surface'
+            ? 'border-accent-500 bg-neutral-200'
             : 'border-line-default bg-surface hover:bg-surface-secondary'"
           @click="onSelect(item.provider)"
         >
