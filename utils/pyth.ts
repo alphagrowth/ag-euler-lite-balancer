@@ -4,7 +4,7 @@ import type { Address, Hex } from 'viem'
 import { PYTH_ABI } from '~/abis/pyth'
 import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
 import { DEFAULT_PRICE_CACHE_TTL_MS } from '~/entities/constants'
-import { collectPythFeedIds, type PythFeed } from '~/entities/oracle'
+import { collectPythFeedIds, collectPythFeedIdsForPair, type PythFeed } from '~/entities/oracle'
 import type { Vault } from '~/entities/vault'
 import type { EVCCall } from './evc-converter'
 
@@ -197,6 +197,50 @@ export const collectPythFeedsFromVaults = (
 }
 
 /**
+ * Collect Pyth feeds needed for a health check: only feeds from the LIABILITY vault's
+ * oracle chain that are used to price the enabled collaterals and the liability itself.
+ */
+export const collectPythFeedsForHealthCheck = (
+  liabilityVault: Vault,
+  collateralAssets: string[],
+): PythFeed[] => {
+  const oracleInfo = liabilityVault.oracleDetailedInfo
+  if (!oracleInfo) return []
+
+  const unitOfAccount = liabilityVault.unitOfAccount as `0x${string}`
+  const allFeeds: PythFeed[] = []
+
+  // Feeds for liability asset pricing
+  const liabilityFeeds = collectPythFeedIdsForPair(
+    oracleInfo,
+    liabilityVault.asset.address as `0x${string}`,
+    unitOfAccount,
+  )
+  allFeeds.push(...liabilityFeeds)
+
+  // Feeds for each collateral asset pricing
+  for (const collateralAsset of collateralAssets) {
+    const feeds = collectPythFeedIdsForPair(
+      oracleInfo,
+      collateralAsset as `0x${string}`,
+      unitOfAccount,
+    )
+    allFeeds.push(...feeds)
+  }
+
+  // Deduplicate
+  const unique = new Map<string, PythFeed>()
+  allFeeds.forEach((feed) => {
+    const key = `${feed.pythAddress.toLowerCase()}:${feed.feedId.toLowerCase()}`
+    if (!unique.has(key)) {
+      unique.set(key, feed)
+    }
+  })
+
+  return [...unique.values()]
+}
+
+/**
  * Fetch Pyth update data with automatic request batching.
  * Multiple calls within 50ms are combined into a single network request.
  */
@@ -231,13 +275,12 @@ export const fetchPythUpdateData = async (feedIds: Hex[], endpoint?: string): Pr
   })
 }
 
-export const buildPythUpdateCalls = async (
-  vaults: (Vault | undefined)[],
+export const buildPythUpdateCallsFromFeeds = async (
+  feeds: PythFeed[],
   providerUrl: string,
   hermesEndpoint: string | undefined,
   sender: Address,
 ): Promise<{ calls: EVCCall[]; totalFee: bigint }> => {
-  const feeds = collectPythFeedsFromVaults(vaults)
   if (!feeds.length || !hermesEndpoint) {
     return { calls: [], totalFee: 0n }
   }
@@ -281,6 +324,16 @@ export const buildPythUpdateCalls = async (
   }
 
   return { calls, totalFee }
+}
+
+export const buildPythUpdateCalls = async (
+  vaults: (Vault | undefined)[],
+  providerUrl: string,
+  hermesEndpoint: string | undefined,
+  sender: Address,
+): Promise<{ calls: EVCCall[]; totalFee: bigint }> => {
+  const feeds = collectPythFeedsFromVaults(vaults)
+  return buildPythUpdateCallsFromFeeds(feeds, providerUrl, hermesEndpoint, sender)
 }
 
 export const fetchPythPrices = async (

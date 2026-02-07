@@ -82,11 +82,7 @@ watch([quote, toVault], () => {
     return
   }
   const formatted = ethers.formatUnits(amountIn, Number(toVault.value.decimals))
-  const numericValue = Number(formatted)
-  // Use more precision for very small amounts
-  toAmount.value = numericValue < 0.01
-    ? numericValue.toExponential(2)
-    : formatSignificant(formatted)
+  toAmount.value = formatSignificant(formatted, 6)
 }, { immediate: true })
 const currentDebt = computed(() => position.value?.borrowed || 0n)
 const balance = computed(() => currentDebt.value)
@@ -96,7 +92,7 @@ const setFromAmountToMax = () => {
     fromAmount.value = ''
     return
   }
-  fromAmount.value = `${nanoToValue(currentDebt.value, fromVault.value.decimals)}`
+  fromAmount.value = formatSignificant(nanoToValue(currentDebt.value, fromVault.value.decimals), 6)
 }
 
 const loadPosition = async () => {
@@ -392,10 +388,7 @@ const routedVia = computed(() => {
 })
 const formatSmallAmount = (value: bigint, decimals: number) => {
   const formatted = ethers.formatUnits(value, decimals)
-  const numericValue = Number(formatted)
-  return numericValue < 0.01 && numericValue > 0
-    ? numericValue.toExponential(2)
-    : formatSignificant(formatted)
+  return formatSignificant(formatted, 6)
 }
 
 const swapRouteItems = computed(() => {
@@ -613,6 +606,7 @@ const submit = async () => {
         targetDebt: 0n,
         currentDebt: 0n,
         liabilityVault: fromVault.value?.address,
+        enabledCollaterals: position.value?.collaterals,
       })
     }
     catch (e) {
@@ -632,6 +626,8 @@ const submit = async () => {
         type: 'swap',
         asset: fromVault.value.asset,
         amount: fromAmount.value,
+        swapToAsset: toVault.value?.asset,
+        swapToAmount: toAmount.value,
         plan: plan.value || undefined,
         onConfirm: () => {
           setTimeout(() => {
@@ -657,6 +653,7 @@ const send = async () => {
       targetDebt: 0n,
       currentDebt: 0n,
       liabilityVault: fromVault.value?.address,
+      enabledCollaterals: position.value?.collaterals,
     })
     await executeTxPlan(txPlan)
     modal.close()

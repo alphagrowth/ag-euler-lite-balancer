@@ -661,6 +661,7 @@ const submitMultiply = async () => {
       plan.value = await buildMultiplyPlan({
         ...nextPlanParams,
         includePermit2Call: false,
+        enabledCollaterals: position.value?.collaterals,
       })
     }
     catch (e) {
@@ -701,6 +702,7 @@ const sendMultiply = async () => {
     const nextPlan = await buildMultiplyPlan({
       ...planParams.value,
       includePermit2Call: true,
+      enabledCollaterals: position.value?.collaterals,
     })
     plan.value = nextPlan
     await executeTxPlan(nextPlan)

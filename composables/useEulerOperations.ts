@@ -15,7 +15,7 @@ import { convertSaHooksToEVCCalls, type EVCCall } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
 import { erc20ABI, swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
-import { buildPythUpdateCalls, sumCallValues } from '~/utils/pyth'
+import { buildPythUpdateCalls, buildPythUpdateCallsFromFeeds, collectPythFeedsForHealthCheck, sumCallValues } from '~/utils/pyth'
 import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { MAX_UINT160, PERMIT2_TYPES, permit2Abi } from '~/entities/permit2'
@@ -304,15 +304,63 @@ export const useEulerOperations = () => {
   const preparePythUpdates = async (vaultAddresses: string[], sender: Address) => {
     try {
       const { getVault: registryGetVault } = useVaultRegistry()
-      const vaults = vaultAddresses.map((addr) => {
-        return registryGetVault(ethers.getAddress(addr))
-      })
+      const vaults = vaultAddresses.map(addr => registryGetVault(ethers.getAddress(addr)))
       return await buildPythUpdateCalls(vaults, EVM_PROVIDER_URL, PYTH_HERMES_URL, sender)
     }
     catch (err) {
       console.warn('[preparePythUpdates] failed', err)
       return { calls: [], totalFee: 0n }
     }
+  }
+
+  /**
+   * Collect Pyth feeds needed for a health check using only the LIABILITY vault's oracle.
+   * Resolves feeds for the liability asset and each enabled collateral's underlying asset,
+   * all priced against the liability vault's unit of account.
+   */
+  const preparePythUpdatesForHealthCheck = async (
+    liabilityVaultAddress: string,
+    collateralVaultAddresses: string[],
+    sender: Address,
+  ) => {
+    try {
+      const { getVault: registryGetVault } = useVaultRegistry()
+      const liabilityVault = registryGetVault(ethers.getAddress(liabilityVaultAddress))
+      if (!liabilityVault) {
+        console.warn('[preparePythUpdatesForHealthCheck] liability vault not found:', liabilityVaultAddress)
+        return { calls: [], totalFee: 0n }
+      }
+
+      // Pass collateral vault addresses directly - the EulerRouter has routes
+      // keyed by vault address (e.g. sBOLD vault → ERC4626 unwrap → BOLD → Pyth)
+      const feeds = collectPythFeedsForHealthCheck(liabilityVault, collateralVaultAddresses)
+      return await buildPythUpdateCallsFromFeeds(feeds, EVM_PROVIDER_URL, PYTH_HERMES_URL, sender)
+    }
+    catch (err) {
+      console.warn('[preparePythUpdatesForHealthCheck] failed', err)
+      return { calls: [], totalFee: 0n }
+    }
+  }
+
+  /**
+   * Compute the set of collateral vault addresses that will be enabled after the tx.
+   */
+  const resolveEffectiveCollaterals = (
+    enabledCollaterals?: string[],
+    adding?: string[],
+    removing?: string[],
+  ): string[] => {
+    const set = new Set<string>()
+    for (const addr of enabledCollaterals || []) {
+      set.add(normalizeAddress(addr))
+    }
+    for (const addr of adding || []) {
+      set.add(normalizeAddress(addr))
+    }
+    for (const addr of removing || []) {
+      set.delete(normalizeAddress(addr))
+    }
+    return [...set]
   }
 
   const hasSignature = async (userAddress: Address) => {
@@ -404,6 +452,7 @@ export const useEulerOperations = () => {
     currentDebt = 0n,
     enableCollateral = false,
     liabilityVault,
+    enabledCollaterals,
   }: {
     quote: SwapApiQuote
     swapperMode: SwapperMode
@@ -412,6 +461,7 @@ export const useEulerOperations = () => {
     currentDebt?: bigint
     enableCollateral?: boolean
     liabilityVault?: string
+    enabledCollaterals?: string[]
   }) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -545,8 +595,15 @@ export const useEulerOperations = () => {
       })
     }
 
-    const vaultsForPyth = liabilityVault ? [liabilityVault] : [quote.vaultIn, quote.receiver]
-    const { calls: pythCalls } = await preparePythUpdates(vaultsForPyth, userAddr)
+    let pythResult: { calls: EVCCall[]; totalFee: bigint }
+    if (liabilityVault) {
+      const effectiveCollaterals = resolveEffectiveCollaterals(enabledCollaterals, enableCollateral ? [quote.receiver] : [])
+      pythResult = await preparePythUpdatesForHealthCheck(liabilityVault, effectiveCollaterals, userAddr)
+    }
+    else {
+      pythResult = await preparePythUpdates([quote.vaultIn, quote.receiver], userAddr)
+    }
+    const { calls: pythCalls } = pythResult
     if (pythCalls.length) {
       evcCalls.unshift(...pythCalls as EVCCall[])
     }
@@ -735,7 +792,7 @@ export const useEulerOperations = () => {
     vaultAddress: string,
     assetsAmount: bigint,
     subAccount?: string,
-    options: { includePythUpdate?: boolean; liabilityVault?: string } = {},
+    options: { includePythUpdate?: boolean; liabilityVault?: string; enabledCollaterals?: string[] } = {},
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -779,8 +836,9 @@ export const useEulerOperations = () => {
     }
 
     if (options.includePythUpdate) {
-      const pythTarget = options.liabilityVault ? [options.liabilityVault] : [vaultAddr]
-      const { calls: pythCalls } = await preparePythUpdates(pythTarget, userAddr)
+      const liabilityAddr = options.liabilityVault || vaultAddr
+      const effectiveCollaterals = resolveEffectiveCollaterals(options.enabledCollaterals)
+      const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(liabilityAddr, effectiveCollaterals, userAddr)
       if (pythCalls.length) {
         evcCalls.unshift(...pythCalls as EVCCall[])
       }
@@ -880,7 +938,7 @@ export const useEulerOperations = () => {
     borrowVaultAddress: string,
     borrowAmount: bigint,
     subAccount?: string,
-    options: { includePermit2Call?: boolean } = {},
+    options: { includePermit2Call?: boolean; enabledCollaterals?: string[] } = {},
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -999,7 +1057,8 @@ export const useEulerOperations = () => {
 
     evcCalls.push(depositCall as EVCCall, enableControllerCall as EVCCall, enableCollateralCall as EVCCall, borrowCall as EVCCall)
 
-    const { calls: pythCalls } = await preparePythUpdates([borrowVaultAddr], userAddr)
+    const effectiveCollaterals = resolveEffectiveCollaterals(options.enabledCollaterals, [vaultAddr])
+    const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(borrowVaultAddr, effectiveCollaterals, userAddr)
     if (pythCalls.length) {
       evcCalls.unshift(...pythCalls as EVCCall[])
     }
@@ -1028,6 +1087,7 @@ export const useEulerOperations = () => {
     borrowVaultAddress: string,
     borrowAmount: bigint,
     subAccount?: string,
+    enabledCollaterals?: string[],
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -1092,7 +1152,8 @@ export const useEulerOperations = () => {
 
     evcCalls.push(enableControllerCall as EVCCall, enableCollateralCall as EVCCall, borrowCall as EVCCall)
 
-    const { calls: pythCalls } = await preparePythUpdates([borrowVaultAddr], userAddr)
+    const effectiveCollaterals = resolveEffectiveCollaterals(enabledCollaterals, [vaultAddr])
+    const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(borrowVaultAddr, effectiveCollaterals, userAddr)
     if (pythCalls.length) {
       evcCalls.unshift(...pythCalls as EVCCall[])
     }
@@ -1129,6 +1190,7 @@ export const useEulerOperations = () => {
     swapperMode = SwapperMode.EXACT_IN,
     subAccount,
     includePermit2Call = true,
+    enabledCollaterals,
   }: {
     supplyVaultAddress: string
     supplyAssetAddress: string
@@ -1143,6 +1205,7 @@ export const useEulerOperations = () => {
     swapperMode?: SwapperMode
     subAccount?: string
     includePermit2Call?: boolean
+    enabledCollaterals?: string[]
   }): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -1387,7 +1450,9 @@ export const useEulerOperations = () => {
       evcCalls.push(enableLongCollateralCall as EVCCall)
     }
 
-    const { calls: pythCalls } = await preparePythUpdates([borrowVaultAddr], userAddr)
+    const addingCollaterals = isSameVault ? [supplyVaultAddr] : [supplyVaultAddr, longVaultAddr]
+    const effectiveCollaterals = resolveEffectiveCollaterals(enabledCollaterals, addingCollaterals)
+    const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(borrowVaultAddr, effectiveCollaterals, userAddr)
     if (pythCalls.length) {
       evcCalls.unshift(...pythCalls as EVCCall[])
     }
@@ -1675,6 +1740,7 @@ export const useEulerOperations = () => {
     currentDebt = 0n,
     enableCollateral = false,
     liabilityVault,
+    enabledCollaterals,
   }: {
     quote: SwapApiQuote
     swapperMode?: SwapperMode
@@ -1683,6 +1749,7 @@ export const useEulerOperations = () => {
     currentDebt?: bigint
     enableCollateral?: boolean
     liabilityVault?: string
+    enabledCollaterals?: string[]
   }): Promise<TxPlan> => {
     const { evcCalls, evcAddress, totalValue } = await buildSwapEvcCalls({
       quote,
@@ -1692,6 +1759,7 @@ export const useEulerOperations = () => {
       currentDebt,
       enableCollateral,
       liabilityVault,
+      enabledCollaterals,
     })
 
     return {
@@ -1714,6 +1782,7 @@ export const useEulerOperations = () => {
     subAccount: string,
     vaultAddress: string,
     borrowVaultAddress?: string,
+    enabledCollaterals?: string[],
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -1749,8 +1818,9 @@ export const useEulerOperations = () => {
       evcCalls.push(tosCall)
     }
 
-    const pythTarget = borrowVaultAddress ? [borrowVaultAddress] : [vaultAddr]
-    const { calls: pythCalls } = await preparePythUpdates(pythTarget, userAddr)
+    const liabilityAddr = borrowVaultAddress || vaultAddr
+    const effectiveCollaterals = resolveEffectiveCollaterals(enabledCollaterals, [], [vaultAddr])
+    const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(liabilityAddr, effectiveCollaterals, userAddr)
     if (pythCalls.length) {
       evcCalls.push(...pythCalls as EVCCall[])
     }

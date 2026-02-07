@@ -873,6 +873,7 @@ const submitSwap = async () => {
       targetDebt,
       currentDebt,
       liabilityVault: borrowVault.value?.address,
+      enabledCollaterals: position.value?.collaterals,
     })
   }
   catch (e) {
@@ -928,6 +929,7 @@ const sendSwap = async () => {
       targetDebt,
       currentDebt,
       liabilityVault: borrowVault.value?.address,
+      enabledCollaterals: position.value?.collaterals,
     })
     await executeTxPlan(txPlan)
 

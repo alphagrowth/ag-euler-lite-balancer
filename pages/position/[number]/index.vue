@@ -444,6 +444,7 @@ const disableCollateral = async (vault: Vault) => {
       position.value!.subAccount,
       vault.address,
       position.value!.borrow.address,
+      position.value!.collaterals,
     )
   }
   catch (e) {
@@ -481,6 +482,7 @@ const send = async (collateralAddress: string) => {
       position.value!.subAccount,
       collateralAddress,
       position.value!.borrow.address,
+      position.value!.collaterals,
     )
     await executeTxPlan(txPlan)
 
