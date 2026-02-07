@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { getEarnVaultPrice, getEarnVaultPriceDisplay, type EarnVault } from '~/entities/vault'
+import { type EarnVault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
 
@@ -10,19 +11,20 @@ const availableLiquidityOfStrategies = ref(0n)
 
 const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?.apr)
 
-const calcPrice = (amount: bigint) => {
-  return getEarnVaultPrice(nanoToValue(amount, vault.decimals), vault)
-}
+const totalSupplyDisplay = ref('-')
 
-const totalSupplyDisplay = computed(() => {
-  const price = getEarnVaultPriceDisplay(vault.totalAssets, vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.totalAssets, vault, 'off-chain')
+  totalSupplyDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
-const availableLiquidityDisplay = computed(() => {
-  const price = getEarnVaultPriceDisplay(availableLiquidityOfStrategies.value, vault)
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display
+const availableLiquidityDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(availableLiquidityOfStrategies.value, vault, 'off-chain')
+  availableLiquidityDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
+
 const load = async () => {
   vault.strategies.forEach(async (strategy) => {
     const vlt = await getVault(strategy.info.vault)

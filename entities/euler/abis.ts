@@ -964,12 +964,32 @@ export const eulerAccountLensABI = [
                 internalType: 'bytes',
               },
               {
+                name: 'account',
+                type: 'address',
+                internalType: 'address',
+              },
+              {
+                name: 'vault',
+                type: 'address',
+                internalType: 'address',
+              },
+              {
+                name: 'unitOfAccount',
+                type: 'address',
+                internalType: 'address',
+              },
+              {
                 name: 'timeToLiquidation',
                 type: 'int256',
                 internalType: 'int256',
               },
               {
-                name: 'liabilityValue',
+                name: 'liabilityValueBorrowing',
+                type: 'uint256',
+                internalType: 'uint256',
+              },
+              {
+                name: 'liabilityValueLiquidation',
                 type: 'uint256',
                 internalType: 'uint256',
               },
@@ -989,55 +1009,24 @@ export const eulerAccountLensABI = [
                 internalType: 'uint256',
               },
               {
-                name: 'collateralLiquidityBorrowingInfo',
-                type: 'tuple[]',
-                internalType: 'struct CollateralLiquidityInfo[]',
-                components: [
-                  {
-                    name: 'collateral',
-                    type: 'address',
-                    internalType: 'address',
-                  },
-                  {
-                    name: 'collateralValue',
-                    type: 'uint256',
-                    internalType: 'uint256',
-                  },
-                ],
+                name: 'collaterals',
+                type: 'address[]',
+                internalType: 'address[]',
               },
               {
-                name: 'collateralLiquidityLiquidationInfo',
-                type: 'tuple[]',
-                internalType: 'struct CollateralLiquidityInfo[]',
-                components: [
-                  {
-                    name: 'collateral',
-                    type: 'address',
-                    internalType: 'address',
-                  },
-                  {
-                    name: 'collateralValue',
-                    type: 'uint256',
-                    internalType: 'uint256',
-                  },
-                ],
+                name: 'collateralValuesBorrowing',
+                type: 'uint256[]',
+                internalType: 'uint256[]',
               },
               {
-                name: 'collateralLiquidityRawInfo',
-                type: 'tuple[]',
-                internalType: 'struct CollateralLiquidityInfo[]',
-                components: [
-                  {
-                    name: 'collateral',
-                    type: 'address',
-                    internalType: 'address',
-                  },
-                  {
-                    name: 'collateralValue',
-                    type: 'uint256',
-                    internalType: 'uint256',
-                  },
-                ],
+                name: 'collateralValuesLiquidation',
+                type: 'uint256[]',
+                internalType: 'uint256[]',
+              },
+              {
+                name: 'collateralValuesRaw',
+                type: 'uint256[]',
+                internalType: 'uint256[]',
               },
             ],
           },

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
-import { type EarnVault, type Vault, getVaultPrice } from '~/entities/vault'
+import { type EarnVault, type Vault } from '~/entities/vault'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const emits = defineEmits<{
@@ -17,6 +18,7 @@ const { isEscrowLoadedOnce } = useVaults()
 
 const exposureVaults: Ref<Vault[]> = ref([])
 const isLoading = ref(false)
+const exposureUsdPrices = ref<Map<string, number>>(new Map())
 
 const exposureList = computed(() => {
   return [...vault.strategies].sort((a, b) => {
@@ -39,6 +41,9 @@ const load = async () => {
       return getOrFetch(exposure.info.vault) as Promise<Vault>
     })
     exposureVaults.value = (await Promise.all(promises)).filter(Boolean)
+
+    // Load USD prices for all exposures
+    await loadExposureUsdPrices()
   }
   catch (e) {
     console.warn(e)
@@ -48,15 +53,27 @@ const load = async () => {
   }
 }
 
+const loadExposureUsdPrices = async () => {
+  const pricePromises = exposureList.value.map(async (exposure) => {
+    const exposureVault = getExposureVaultByAddress(exposure.info.vault)
+    if (!exposureVault) return { key: exposure.strategy, value: 0 }
+    const usdValue = await getAssetUsdValueOrZero(exposure.allocatedAssets, exposureVault, 'off-chain')
+    return { key: exposure.strategy, value: usdValue }
+  })
+
+  const results = await Promise.all(pricePromises)
+  const newPrices = new Map<string, number>()
+  results.forEach(({ key, value }) => newPrices.set(key, value))
+  exposureUsdPrices.value = newPrices
+}
+
 const getExposureVaultByAddress = (address: string) => {
   const normalized = ethers.getAddress(address)
   return exposureVaults.value.find(vlt => normalized === ethers.getAddress(vlt.address))
 }
 
 const getExposureUsdPrice = (exposure: typeof exposureList.value[0]) => {
-  const exposureVault = getExposureVaultByAddress(exposure.info.vault)
-  if (!exposureVault) return 0
-  return getVaultPrice(exposure.allocatedAssets, exposureVault)
+  return exposureUsdPrices.value.get(exposure.strategy) || 0
 }
 
 const getExposureAssetAmount = (exposure: typeof exposureList.value[0]) => {
@@ -119,7 +136,7 @@ load()
           >
             <div class="flex items-center gap-4">
               <template v-if="getExposureUsdPrice(exposure) > 0">
-                {{ `$${compactNumber(getExposureUsdPrice(exposure), 2)}` }}
+                {{ formatCompactUsdValue(getExposureUsdPrice(exposure)) }}
                 <span @click.stop.prevent>
                   <UiFootnote
                     title="Amount in assets"

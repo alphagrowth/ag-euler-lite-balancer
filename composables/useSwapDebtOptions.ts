@@ -3,7 +3,8 @@ import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { type CollateralOption, getVaultPrice, type Vault } from '~/entities/vault'
+import { type CollateralOption, type Vault } from '~/entities/vault'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 
 export const useSwapDebtOptions = ({
   collateralVault,
@@ -44,8 +45,11 @@ export const useSwapDebtOptions = ({
     })
   })
 
-  const borrowOptions = computed<CollateralOption[]>(() => {
-    return borrowVaults.value.map((vault) => {
+  const borrowOptions = ref<CollateralOption[]>([])
+
+  watchEffect(async () => {
+    const vaults = borrowVaults.value
+    const options = await Promise.all(vaults.map(async (vault) => {
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.borrowAPY || 0n, 25)
       const opportunity = getOpportunityOfBorrowVault(vault.asset.address)
@@ -54,13 +58,14 @@ export const useSwapDebtOptions = ({
       return {
         type: 'vault',
         amount: 0,
-        price: getVaultPrice(1, vault),
+        price: await getAssetUsdValueOrZero(1, vault, 'off-chain'),
         apy,
         symbol: vault.asset.symbol,
         label: product.name || vault.name,
         vaultAddress: vault.address,
       }
-    })
+    }))
+    borrowOptions.value = options
   })
 
   return {

@@ -5,7 +5,9 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { computeAPYs, getCurrentLiquidationLTV, getVaultPrice, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
+import { computeAPYs, getCurrentLiquidationLTV, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
+import { collectPythFeedIds } from '~/entities/oracle'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -73,6 +75,7 @@ const amount = ref('')
 const plan = ref<TxPlan | null>(null)
 const estimateSupplyAPY = ref(0n)
 const monthlyEarnings = ref(0)
+const monthlyEarningsUsd = ref(0)
 
 // Vault data - only one will be populated based on type
 const evkVault: Ref<Vault | undefined> = ref(undefined)
@@ -154,6 +157,35 @@ else {
     console.warn('[lend] EVK vault load failed, trying securitize:', e)
     securitizeVault.value = await getSecuritizeVault(vaultAddress)
   }
+}
+
+// Check if vault uses Pyth oracles (requires fresh prices)
+const hasPythOracles = (v: Vault | undefined): boolean => {
+  if (!v) return false
+  const feeds = collectPythFeedIds(v.oracleDetailedInfo)
+  return feeds.length > 0
+}
+
+// Check if vault has price failure (0n is valid - very small price)
+const hasPriceFailure = (v: Vault | undefined): boolean => {
+  if (!v) return false
+  return (
+    v.liabilityPriceInfo?.queryFailure ||
+    v.liabilityPriceInfo?.amountOutMid === undefined ||
+    v.liabilityPriceInfo?.amountOutMid === null
+  )
+}
+
+// Check if vault needs refresh (Pyth detected OR price failure)
+const needsRefresh = (v: Vault | undefined): boolean => {
+  return hasPythOracles(v) || hasPriceFailure(v)
+}
+
+// Refresh EVK vault if it uses Pyth oracles or has price failure
+// Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
+if (evkVault.value && needsRefresh(evkVault.value)) {
+  const refreshedVault = await updateVault(vaultAddress)
+  evkVault.value = refreshedVault
 }
 
 const features = computed(() => VAULT_FEATURES[vaultType.value])
@@ -368,6 +400,15 @@ const onSupplyInfoIconClick = () => {
 
 load()
 
+// Update USD value when monthlyEarnings or vault changes
+watchEffect(async () => {
+  if (!vault.value || !monthlyEarnings.value) {
+    monthlyEarningsUsd.value = 0
+    return
+  }
+  monthlyEarningsUsd.value = await getAssetUsdValueOrZero(monthlyEarnings.value, vault.value, 'off-chain')
+})
+
 watch(amount, async () => {
   clearSimulationError()
   if (!isVaultLoaded.value) {
@@ -472,7 +513,7 @@ watch(amount, async () => {
                   asset.symbol
                 }}
                 <template v-if="features.hasPriceInfo && vault">
-                  ≈ ${{ compactNumber(getVaultPrice(monthlyEarnings, vault)) }}
+                  ≈ ${{ compactNumber(monthlyEarningsUsd) }}
                 </template>
               </p>
             </div>

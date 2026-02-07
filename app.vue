@@ -8,6 +8,9 @@ const { loadLabels } = useEulerLabels()
 const { updateBalances } = useWallets()
 const { isConnected } = useWagmi()
 
+// Initialize price backend (configures endpoint when chainId changes)
+usePriceBackend()
+
 // Theme: Initialize from localStorage, default to 'light'
 const theme = useLocalStorage('theme', 'light')
 

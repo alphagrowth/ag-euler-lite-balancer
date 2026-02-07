@@ -4,6 +4,7 @@ export default {
   testnet: {
     EULER_API_URL: 'https://indexer.euler.finance',
     SWAP_API_URL: 'https://swap.euler.finance',
+    PRICE_BACKEND_URL: 'https://indexer.euler.finance', // Backend price API
     SWAP_API_FALLBACK_URL: 'https://swap.euler.finance/swap',
     DEFILLAMA_YIELDS_URL: 'https://yields.llama.fi/pools',
     BREVIS_API_URL: 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns',
@@ -20,6 +21,7 @@ export default {
   mainnet: {
     EULER_API_URL: 'https://indexer.euler.finance',
     SWAP_API_URL: 'https://swap-dev.euler.finance',
+    PRICE_BACKEND_URL: 'https://indexer.euler.finance', // Backend price API
     SWAP_API_FALLBACK_URL: 'https://swap.euler.finance/swap',
     DEFILLAMA_YIELDS_URL: 'https://yields.llama.fi/pools',
     BREVIS_API_URL: 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns',

@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document provides an overview of the Euler TMA system architecture, including the high-level design, component structure, and key architectural decisions.
+This document provides an overview of the Euler Lite system architecture, including the high-level design, component structure, and key architectural decisions.
 
 ## 🏗️ High-Level System Architecture
 
@@ -21,7 +21,7 @@ This document provides an overview of the Euler TMA system architecture, includi
 1. **User Interface Layer**: Vue components, pages, and UI elements
 2. **Application Logic Layer**: Composables, business logic, and state management
 3. **Integration Layer**: API clients, blockchain interactions, and external service adapters
-4. **External Services Layer**: Euler Finance, TON blockchain, TAC, and third-party APIs
+4. **External Services Layer**: Euler Finance, EVM chains, and third-party APIs
 
 ## 🧩 Component Architecture
 
@@ -130,7 +130,7 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 
 **Why Nuxt.js 3?**
 
-- **SSR Disabled**: Since this is a Telegram Mini App, SSR is not needed
+- **SSR Disabled**: Client-side only SPA, SSR is not needed
 - **Auto-imports**: Reduces boilerplate and improves developer experience
 - **File-based Routing**: Simple and intuitive routing system
 - **Built-in Optimizations**: Automatic code splitting and optimization

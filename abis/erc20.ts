@@ -9,3 +9,11 @@ export const erc20TransferAbi = [
 export const erc20BalanceOfAbi = [
   'function balanceOf(address) external view returns (uint256)',
 ] as const
+
+export const erc20SymbolAbi = [
+  'function symbol() external view returns (string)',
+] as const
+
+export const erc20DecimalsAbi = [
+  'function decimals() external view returns (uint8)',
+] as const

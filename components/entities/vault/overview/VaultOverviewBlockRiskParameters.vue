@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { MaxUint256, ethers } from 'ethers'
 import { vaultConvertToAssetsAbi } from '~/abis/vault'
-import { getVaultPrice, type Vault } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
@@ -30,9 +31,26 @@ const borrowCapPercentageDisplay = computed(() => {
   return parseFloat(`${fraction / scale}.${fraction % scale}`)
 })
 
-const calcPrice = (amount: bigint) => {
-  return getVaultPrice(nanoToValue(amount, vault.decimals), vault)
-}
+const supplyCapDisplay = ref('-')
+const borrowCapDisplay = ref('-')
+
+watchEffect(async () => {
+  if (vault.supplyCap >= MaxUint256) {
+    supplyCapDisplay.value = '∞'
+    return
+  }
+  const price = await formatAssetValue(vault.supplyCap, vault, 'off-chain')
+  supplyCapDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
+
+watchEffect(async () => {
+  if (vault.borrowCap >= MaxUint256) {
+    borrowCapDisplay.value = '∞'
+    return
+  }
+  const price = await formatAssetValue(vault.borrowCap, vault, 'off-chain')
+  borrowCapDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
 
 const load = async () => {
   const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
@@ -65,7 +83,7 @@ load()
       >
         <div class="flex gap-4 items-center">
           <span>
-            {{ vault.supplyCap >= MaxUint256 ? '∞' : `$${compactNumber(calcPrice(vault.supplyCap))}` }}
+            {{ supplyCapDisplay }}
             <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress
@@ -82,7 +100,7 @@ load()
       >
         <div class="flex gap-4 items-center">
           <span>
-            {{ vault.borrowCap >= MaxUint256 ? '∞' :`$${compactNumber(calcPrice(vault.borrowCap))}` }}
+            {{ borrowCapDisplay }}
             <span v-if="vault.borrowCap < MaxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress

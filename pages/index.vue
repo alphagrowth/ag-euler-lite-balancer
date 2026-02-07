@@ -3,9 +3,10 @@ import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
-import { getProductByVault } from '~/composables/useEulerLabels'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
+import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
 
 defineOptions({
   name: 'IndexPage',
@@ -14,7 +15,7 @@ defineOptions({
 const { borrowList, isUpdating } = useVaults()
 const { getVerifiedEvkVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
-const list = computed(() => getVerifiedEvkVaults())
+const list = computed(() => getVerifiedEvkVaults().filter(v => !isVaultDeprecated(v.address)))
 
 const isLoading = computed(() => isUpdating.value)
 const { products, entities } = useEulerLabels()
@@ -23,6 +24,9 @@ const route = useRoute()
 const selectedCollateral = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
+
+// Cache for USD values used in sorting (keyed by vault address)
+const vaultUsdValues = ref<Map<string, number>>(new Map())
 
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
@@ -35,6 +39,21 @@ const borrowableVaults = computed(() => {
   return list.value.filter(vault =>
     borrowList.value.some(pair => pair.borrow.address === vault.address),
   )
+})
+
+// Fetch USD values for all borrowable vaults
+watchEffect(async () => {
+  const vaults = borrowableVaults.value
+  if (!vaults.length) return
+
+  const newValues = new Map<string, number>()
+  await Promise.all(
+    vaults.map(async (vault) => {
+      const usdValue = await getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain')
+      newValues.set(vault.address, usdValue)
+    }),
+  )
+  vaultUsdValues.value = newValues
 })
 
 const marketOptions = computed(() => {
@@ -65,7 +84,9 @@ const assetOptions = computed(() => {
 
 const topOptions = computed(() => {
   const sortedBySupply = [...borrowableVaults.value].sort((a: Vault, b: Vault) => {
-    return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
+    const aValue = vaultUsdValues.value.get(a.address) ?? 0
+    const bValue = vaultUsdValues.value.get(b.address) ?? 0
+    return bValue - aValue
   })
 
   return sortedBySupply
@@ -90,7 +111,9 @@ const sortedList = computed(() => {
   switch (sortBy.value) {
     case 'Total Supply':
       return [...filteredList.value].sort((a: Vault, b: Vault) => {
-        return getVaultPrice(b.totalAssets, b) - getVaultPrice(a.totalAssets, a)
+        const aValue = vaultUsdValues.value.get(a.address) ?? 0
+        const bValue = vaultUsdValues.value.get(b.address) ?? 0
+        return bValue - aValue
       })
     case 'Supply APY':
       return [...filteredList.value].sort((a: Vault, b: Vault) => {

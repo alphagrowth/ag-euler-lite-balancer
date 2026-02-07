@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { type AnyBorrowVaultPair, getCollateralAssetPriceFromLiability, getVaultPriceInfo } from '~/entities/vault'
+import { type AnyBorrowVaultPair } from '~/entities/vault'
+import { getCollateralOraclePrice, getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -37,11 +38,12 @@ const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(pair.coll
 const borrowOpportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address))
 
 const price = computed(() => {
-  const collateralPrice = getCollateralAssetPriceFromLiability(pair.borrow, pair.collateral)
-  const borrowPrice = getVaultPriceInfo(pair.borrow)
+  const collateralPrice = getCollateralOraclePrice(pair.borrow, pair.collateral)
+  const borrowPrice = getAssetOraclePrice(pair.borrow)
 
+  // Check for 0n in denominator to prevent division by zero
   if (!collateralPrice || !borrowPrice || borrowPrice.amountOutMid === 0n) {
-    return 0
+    return null
   }
 
   return nanoToValue(collateralPrice.amountOutMid, 18) / nanoToValue(borrowPrice.amountOutMid, 18)
@@ -77,9 +79,14 @@ const onBorrowInfoIconClick = () => {
       <VaultOverviewLabelValue
         label="Price"
       >
-        {{ formatNumber(price) }} <span class="text-content-tertiary">
-          {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
-        </span>
+        <template v-if="price !== null">
+          {{ formatSignificant(price, 4) }} <span class="text-content-tertiary">
+            {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
+          </span>
+        </template>
+        <template v-else>
+          <span class="text-content-tertiary">-</span>
+        </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Supply APY"

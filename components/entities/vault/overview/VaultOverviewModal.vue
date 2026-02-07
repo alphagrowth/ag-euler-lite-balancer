@@ -7,13 +7,7 @@ import type { AccountBorrowPosition } from '~/entities/account'
 const emits = defineEmits(['close'])
 const router = useRouter()
 
-// Check if collateral is a securitize vault
-const isCollateralSecuritize = computed(() => {
-  if (!pair) return false
-  return 'type' in pair.collateral && pair.collateral.type === 'securitize'
-})
-
-const { pair, vault, earnVault, extraVault, securitizeVault } = defineProps<{ pair?: AnyBorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault, extraVault?: Vault, securitizeVault?: SecuritizeVault }>()
+const { pair, vault, earnVault, extraVault, securitizeVault, collateralVaults } = defineProps<{ pair?: AnyBorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault, extraVault?: Vault, securitizeVault?: SecuritizeVault, collateralVaults?: (Vault | SecuritizeVault)[] }>()
 
 const tab = ref()
 const normalizeAddress = (address?: string) => {
@@ -33,7 +27,7 @@ const tabs = computed(() => {
   }
   const list = [
     {
-      label: 'Pair details',
+      label: 'Position details',
       value: undefined,
       avatars: [getAssetLogoUrl(pair.collateral.asset.symbol), getAssetLogoUrl(pair.borrow.asset.symbol)],
     },
@@ -50,18 +44,21 @@ const tabs = computed(() => {
       })
     }
   }
-  list.push(
-    {
-      label: pair.collateral.asset.symbol,
-      value: 'collateral',
-      avatars: [getAssetLogoUrl(pair.collateral.asset.symbol)],
-    },
-    {
-      label: pair.borrow.asset.symbol,
-      value: 'borrow',
-      avatars: [getAssetLogoUrl(pair.borrow.asset.symbol)],
-    },
-  )
+
+  const collaterals = collateralVaults?.length ? collateralVaults : [pair.collateral]
+  collaterals.forEach((vault, index) => {
+    list.push({
+      label: vault.asset.symbol,
+      value: `collateral-${index}`,
+      avatars: [getAssetLogoUrl(vault.asset.symbol)],
+    })
+  })
+
+  list.push({
+    label: pair.borrow.asset.symbol,
+    value: 'borrow',
+    avatars: [getAssetLogoUrl(pair.borrow.asset.symbol)],
+  })
   return list
 })
 watch(tabs, (next) => {
@@ -73,6 +70,13 @@ watch(tabs, (next) => {
     tab.value = undefined
   }
 }, { immediate: true })
+
+const activeCollateralVault = computed(() => {
+  if (!tab.value?.startsWith('collateral-')) return null
+  const index = parseInt(tab.value.split('-')[1])
+  const collaterals = collateralVaults?.length ? collateralVaults : [pair?.collateral]
+  return collaterals?.[index] ?? null
+})
 
 const onVaultClick = (address: string) => {
   emits('close')
@@ -112,15 +116,16 @@ const onVaultClick = (address: string) => {
           <VaultOverviewPair
             v-if="!tab"
             :pair="pair"
+            :collateral-vaults="collateralVaults"
             style="flex-grow: 1"
           />
           <SecuritizeVaultOverview
-            v-else-if="tab === 'collateral' && isCollateralSecuritize"
-            :vault="(pair.collateral as SecuritizeVault)"
+            v-else-if="activeCollateralVault && 'type' in activeCollateralVault && activeCollateralVault.type === 'securitize'"
+            :vault="(activeCollateralVault as SecuritizeVault)"
           />
           <VaultOverview
-            v-else-if="tab === 'collateral'"
-            :vault="(pair.collateral as Vault)"
+            v-else-if="activeCollateralVault"
+            :vault="(activeCollateralVault as Vault)"
             @vault-click="onVaultClick"
           />
           <VaultOverview

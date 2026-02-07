@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { type SecuritizeBorrowVaultPair, getVaultPriceInfo } from '~/entities/vault'
+import { type SecuritizeBorrowVaultPair } from '~/entities/vault'
+import { getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
 
@@ -35,12 +36,12 @@ const price = computed(() => {
   const collateralPrice = pair.borrow.collateralPrices.find(
     p => p.asset === pair.collateral.address,
   )
-  const borrowPrice = getVaultPriceInfo(pair.borrow)
+  const borrowPrice = getAssetOraclePrice(pair.borrow)
 
   const ask = collateralPrice?.amountOutAsk || collateralPrice?.amountOutMid || 0n
-  const bid = borrowPrice?.amountOutBid || 1n
+  const bid = borrowPrice?.amountOutBid || borrowPrice?.amountOutMid || 0n
 
-  if (!ask || !bid) return 0
+  if (!ask || !bid || bid === 0n) return null
   return Number(ask) / Number(bid)
 })
 
@@ -74,9 +75,14 @@ const onBorrowInfoIconClick = () => {
       <VaultOverviewLabelValue
         label="Price"
       >
-        {{ formatNumber(price) }} <span class="text-euler-dark-900">
-          {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
-        </span>
+        <template v-if="price !== null">
+          {{ formatSignificant(price, 4) }} <span class="text-euler-dark-900">
+            {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
+          </span>
+        </template>
+        <template v-else>
+          <span class="text-euler-dark-900">-</span>
+        </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Supply APY"

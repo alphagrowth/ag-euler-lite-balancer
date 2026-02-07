@@ -4,7 +4,8 @@ import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { type CollateralOption, getVaultPrice, type Vault } from '~/entities/vault'
+import { type CollateralOption, type Vault } from '~/entities/vault'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 
 export const useSwapCollateralOptions = ({
   currentVault,
@@ -62,8 +63,11 @@ export const useSwapCollateralOptions = ({
     return [...unique.values()]
   })
 
-  const collateralOptions = computed<CollateralOption[]>(() => {
-    return collateralVaults.value.map((vault) => {
+  const collateralOptions = ref<CollateralOption[]>([])
+
+  watchEffect(async () => {
+    const vaults = collateralVaults.value
+    const options = await Promise.all(vaults.map(async (vault) => {
       const balance = getBalance(vault.asset.address as Address)
       const amount = nanoToValue(balance, vault.asset.decimals)
       const product = getProductByVault(vault.address)
@@ -76,13 +80,14 @@ export const useSwapCollateralOptions = ({
       return {
         type: optionType,
         amount,
-        price: getVaultPrice(amount, vault),
+        price: await getAssetUsdValueOrZero(amount, vault, 'off-chain'),
         apy,
         symbol: vault.asset.symbol,
         label: product.name || vault.name,
         vaultAddress: vault.address,
       }
-    })
+    }))
+    collateralOptions.value = options
   })
 
   return {

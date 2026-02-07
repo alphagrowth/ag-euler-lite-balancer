@@ -2,7 +2,22 @@
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import { getNetAPY, getVaultPrice, getVaultOraclePrice, getCollateralAssetPriceFromLiability, type Vault, type SecuritizeVault } from '~/entities/vault'
+import {
+  getNetAPY,
+  type Vault,
+  type SecuritizeVault,
+} from '~/entities/vault'
+import {
+  getAssetUsdValue,
+  getAssetUsdValueOrZero,
+  getAssetUsdPrice,
+  getCollateralUsdPrice,
+  getCollateralUsdValue,
+  getUnitOfAccountUsdRate,
+  getAssetOraclePrice,
+  toUsdAmount,
+  type UsdAmount,
+} from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
@@ -62,8 +77,8 @@ const pairAssetsLabel = computed(() => {
   return `${collateralSymbolLabel.value}/${position.value.borrow.asset.symbol}`
 })
 const pairAssets = computed(() => {
-  if (!position.value) return []
-  return [collateralVault.value!.asset, borrowVault.value!.asset]
+  if (!collateralVault.value || !borrowVault.value) return []
+  return [collateralVault.value.asset, borrowVault.value.asset]
 })
 const hasNoBorrow = computed(() => position.value?.borrow.borrow === 0n)
 
@@ -85,72 +100,138 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 ))
 const borrowApyWithRewards = computed(() => borrowApy.value - (opportunityInfoForBorrow.value?.apr || 0))
 
+// Pre-computed collateral row data (USD values computed asynchronously)
+const collateralRowsData = ref<{
+  value: UsdAmount
+  unitPriceUsd: number
+  oraclePriceUsd: number
+  supplyApy: number
+  supplyApyWithRewards: number
+}[]>([])
+
 const collateralRows = computed(() => {
-  return collateralItems.value.map((item) => {
-    const opportunity = getOpportunityOfLendVault(item.vault.address || '')
-    const supplyApy = withIntrinsicSupplyApy(
-      nanoToValue(item.vault.interestRateInfo.supplyAPY || 0n, 25),
-      item.vault.asset.symbol,
-    )
-
-    // Collateral price ALWAYS comes from liability vault's oracle
-    let valueUsd = 0
-    let unitPriceUsd = 0
-    if (position.value) {
-      const priceInfo = getCollateralAssetPriceFromLiability(position.value.borrow, item.vault)
-      if (priceInfo) {
-        const amount = nanoToValue(item.assets, item.vault.decimals)
-        valueUsd = amount * nanoToValue(priceInfo.amountOutMid, 18)
-        unitPriceUsd = nanoToValue(priceInfo.amountOutMid, 18)
-      }
+  return collateralItems.value.map((item, index) => {
+    const data = collateralRowsData.value[index] || {
+      value: { usd: 0, hasPrice: false },
+      unitPriceUsd: 0,
+      oraclePriceUsd: 0,
+      supplyApy: 0,
+      supplyApyWithRewards: 0,
     }
-
     return {
       ...item,
-      supplyApy,
-      supplyApyWithRewards: supplyApy + (opportunity?.apr || 0),
-      valueUsd,
-      unitPriceUsd,
+      ...data,
     }
   })
 })
 
-const collateralValueUsd = computed(() => {
-  if (!position.value) {
-    return 0
+// Update collateral rows data when collateral items change
+watchEffect(async () => {
+  if (!position.value || !collateralItems.value.length) {
+    collateralRowsData.value = []
+    return
   }
 
-  // Collateral price ALWAYS comes from liability vault's oracle
+  const results = await Promise.all(
+    collateralItems.value.map(async (item) => {
+      const opportunity = getOpportunityOfLendVault(item.vault.address || '')
+      const supplyApy = withIntrinsicSupplyApy(
+        nanoToValue(item.vault.interestRateInfo.supplyAPY || 0n, 25),
+        item.vault.asset.symbol,
+      )
+
+      // Collateral price ALWAYS comes from liability vault's oracle, converted to USD
+      let unitPriceUsd = 0
+      let oraclePriceUsd = 0
+
+      const valueRaw = await getCollateralUsdValue(item.assets, position.value!.borrow, item.vault as Vault, 'off-chain')
+      const priceInfo = await getCollateralUsdPrice(position.value!.borrow, item.vault as Vault, 'off-chain')
+      if (priceInfo) {
+        unitPriceUsd = nanoToValue(priceInfo.amountOutMid, 18)
+      }
+
+      const oraclePriceInfo = await getCollateralUsdPrice(position.value!.borrow, item.vault as Vault, 'on-chain')
+      if (oraclePriceInfo) {
+        oraclePriceUsd = nanoToValue(oraclePriceInfo.amountOutMid, 18)
+      }
+
+      return {
+        value: toUsdAmount(valueRaw),
+        unitPriceUsd,
+        oraclePriceUsd,
+        supplyApy,
+        supplyApyWithRewards: supplyApy + (opportunity?.apr || 0),
+      }
+    }),
+  )
+
+  collateralRowsData.value = results
+})
+
+// Pre-computed collateral USD value (async)
+const collateralValue = ref<UsdAmount>({ usd: 0, hasPrice: false })
+
+watchEffect(async () => {
+  if (!position.value) {
+    collateralValue.value = { usd: 0, hasPrice: false }
+    return
+  }
+
+  // Collateral price ALWAYS comes from liability vault's oracle, converted to USD
   if (!collateralItems.value.length) {
-    const priceInfo = getCollateralAssetPriceFromLiability(position.value.borrow, position.value.collateral)
-    if (!priceInfo) return 0
-    const amount = nanoToValue(position.value.supplied, position.value.collateral.decimals)
-    return amount * nanoToValue(priceInfo.amountOutMid, 18)
+    collateralValue.value = toUsdAmount(await getCollateralUsdValue(position.value.supplied, position.value.borrow, position.value.collateral as Vault, 'off-chain'))
+    return
   }
 
   // For multiple collaterals, sum up using liability vault's oracle for each
-  return collateralItems.value.reduce((total, item) => {
-    const priceInfo = getCollateralAssetPriceFromLiability(position.value!.borrow, item.vault)
-    if (!priceInfo) return total
-    const amount = nanoToValue(item.assets, item.vault.decimals)
-    return total + amount * nanoToValue(priceInfo.amountOutMid, 18)
-  }, 0)
+  const totals = await Promise.all(
+    collateralItems.value.map(item =>
+      getCollateralUsdValue(item.assets, position.value!.borrow, item.vault as Vault, 'off-chain'),
+    ),
+  )
+  const allHavePrice = totals.every(v => v !== undefined)
+  collateralValue.value = {
+    usd: totals.reduce<number>((sum, val) => sum + (val ?? 0), 0),
+    hasPrice: allHavePrice,
+  }
 })
 
-const netAssetValueUsd = computed(() => {
-  if (!position.value) {
-    return 0
+// Pre-computed borrow market value in USD (async)
+const borrowMarketValue = ref<UsdAmount>({ usd: 0, hasPrice: false })
+
+watchEffect(async () => {
+  if (!position.value || !borrowVault.value) {
+    borrowMarketValue.value = { usd: 0, hasPrice: false }
+    return
   }
 
-  return collateralValueUsd.value - getVaultPrice(position.value.borrowed, borrowVault.value!)
+  borrowMarketValue.value = toUsdAmount(await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain'))
 })
-const unitOfAccountUsdPrice = computed(() => {
-  if (!position.value) {
-    return 0
-  }
 
-  return getUnitOfAccountUsdPrice(borrowVault.value!)
+// Net asset value in USD: sync computed so it tracks both collateralValue and borrowMarketValue
+const netAssetValue = computed<UsdAmount>(() => {
+  if (!position.value) return { usd: 0, hasPrice: false }
+  if (!collateralValue.value.hasPrice || !borrowMarketValue.value.hasPrice) {
+    return { usd: 0, hasPrice: false }
+  }
+  return {
+    usd: collateralValue.value.usd - borrowMarketValue.value.usd,
+    hasPrice: true,
+  }
 })
+
+// Pre-computed unit of account USD price (async)
+const unitOfAccountUsdPrice = ref<number>(0)
+watchEffect(async () => {
+  if (!position.value) {
+    unitOfAccountUsdPrice.value = 0
+    return
+  }
+  const rate = await getUnitOfAccountUsdRate(borrowVault.value)
+  unitOfAccountUsdPrice.value = rate ? nanoToValue(rate, 18) : 0
+})
+
+// Pre-computed liquidation price (depends on async unitOfAccountUsdPrice)
 const liquidationPrice = computed(() => {
   if (!position.value) return undefined
 
@@ -167,24 +248,33 @@ const liquidationPrice = computed(() => {
 
   return nanoToValue(price, 18) * unitPrice
 })
-const borrowLiquidationPrice = computed(() => {
-  if (!position.value) return undefined
+// Pre-computed borrow liquidation price (async)
+const borrowLiquidationPrice = ref<number | undefined>(undefined)
+
+watchEffect(async () => {
+  if (!position.value) {
+    borrowLiquidationPrice.value = undefined
+    return
+  }
 
   const collateralValueLiquidation = position.value.collateralValueLiquidation
   const liabilityValue = position.value.liabilityValue
 
   if (liabilityValue === 0n || collateralValueLiquidation === 0n) {
-    return undefined
+    borrowLiquidationPrice.value = undefined
+    return
   }
 
   const multiplier = nanoToValue(collateralValueLiquidation, 18) / nanoToValue(liabilityValue, 18)
-  const currentBorrowPrice = getVaultOraclePrice(1, borrowVault.value)
+  const borrowPriceInfo = await getAssetUsdPrice(borrowVault.value, 'off-chain')
+  const currentBorrowPrice = borrowPriceInfo ? nanoToValue(borrowPriceInfo.amountOutMid, 18) : 0
 
   if (!currentBorrowPrice) {
-    return undefined
+    borrowLiquidationPrice.value = undefined
+    return
   }
 
-  return currentBorrowPrice * multiplier
+  borrowLiquidationPrice.value = currentBorrowPrice * multiplier
 })
 const timeToLiquidationDisplay = computed(() => {
   if (!position.value) {
@@ -194,18 +284,20 @@ const timeToLiquidationDisplay = computed(() => {
   const result = formatTtl(position.value.timeToLiquidation)
   return result?.display || '-'
 })
+// Net APY: sync computed so it tracks collateralValue, borrowMarketValue, and APY values
 const netAPY = computed(() => {
+  if (!position.value || !borrowVault.value) return 0
   return getNetAPY(
-    collateralValueUsd.value,
+    collateralValue.value.usd,
     collateralSupplyApy.value,
-    getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
+    borrowMarketValue.value.usd,
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
   )
 })
 
-const isPrimaryCollateral = (vault: Vault) => {
+const isPrimaryCollateral = (vault: Vault | SecuritizeVault) => {
   if (!primaryCollateralAddress.value) {
     return false
   }
@@ -213,7 +305,45 @@ const isPrimaryCollateral = (vault: Vault) => {
   return ethers.getAddress(vault.address) === primaryCollateralAddress.value
 }
 
-const isDisableCollateralError = (vault: Vault) => {
+// Pre-computed borrow oracle price for display (always on-chain)
+const borrowOraclePrice = ref(0)
+const hasBorrowPrice = ref(false)
+
+watchEffect(async () => {
+  if (!borrowVault.value) {
+    borrowOraclePrice.value = 0
+    hasBorrowPrice.value = false
+    return
+  }
+
+  // Oracle price MUST always use on-chain source
+  const priceInfo = await getAssetUsdPrice(borrowVault.value, 'on-chain')
+  if (priceInfo) {
+    borrowOraclePrice.value = nanoToValue(priceInfo.amountOutMid, 18)
+    hasBorrowPrice.value = true
+  }
+  else {
+    borrowOraclePrice.value = 0
+    hasBorrowPrice.value = false
+  }
+})
+
+// Pre-computed borrow unit price (1 unit in USD) for display
+const borrowUnitPrice = ref<UsdAmount>({ usd: 0, hasPrice: false })
+
+watchEffect(async () => {
+  if (!position.value?.borrow) {
+    borrowUnitPrice.value = { usd: 0, hasPrice: false }
+    return
+  }
+
+  const priceInfo = await getAssetUsdPrice(position.value.borrow, 'off-chain')
+  borrowUnitPrice.value = priceInfo
+    ? { usd: nanoToValue(priceInfo.amountOutMid, 18), hasPrice: true }
+    : { usd: 0, hasPrice: false }
+})
+
+const isDisableCollateralError = (vault: Vault | SecuritizeVault) => {
   if (!disableCollateralErrorVault.value) {
     return false
   }
@@ -309,6 +439,7 @@ const disableCollateral = async (vault: Vault) => {
     plan = await buildDisableCollateralPlan(
       position.value!.subAccount,
       vault.address,
+      position.value!.borrow.address,
     )
   }
   catch (e) {
@@ -400,17 +531,19 @@ const openCollateralInfoModal = (vault: Vault | SecuritizeVault) => {
   })
 }
 const openPairInfoModal = () => {
+  const allCollateralVaults = collateralItems.value.map(item => item.vault)
   modal.open(VaultOverviewModal, {
     props: {
       pair: position.value,
+      collateralVaults: allCollateralVaults,
     },
   })
 }
-const onNetApyInfoIconClick = () => {
+const onNetApyInfoIconClick = async () => {
   if (!position.value) return
 
-  const supplyUSD = getVaultPrice(position.value.supplied || 0n, collateralVault.value!)
-  const borrowUSD = getVaultPrice(position.value.borrowed || 0n, borrowVault.value!)
+  const supplyUSD = await getAssetUsdValueOrZero(position.value.supplied || 0n, collateralVault.value!, 'off-chain')
+  const borrowUSD = await getAssetUsdValueOrZero(position.value.borrowed || 0n, borrowVault.value!, 'off-chain')
 
   modal.open(VaultNetApyModal, {
     props: {
@@ -469,7 +602,7 @@ watch(isConnected, () => {
             Net asset value
           </div>
           <div class="text-h5 text-neutral-800">
-            ${{ isCollateralsLoading ? '-' : formatNumber(netAssetValueUsd) }}
+            {{ isCollateralsLoading ? '-' : netAssetValue.hasPrice ? formatCompactUsdValue(netAssetValue.usd) : '-' }}
           </div>
         </div>
       </div>
@@ -537,9 +670,15 @@ watch(isConnected, () => {
               </div>
               <div class="flex justify-between gap-8 justify-self-end">
                 <div class="text-neutral-800 text-p3">
-                  ${{ formatNumber(getVaultPrice(position.borrowed, borrowVault)) }}
+                  {{ borrowMarketValue.hasPrice
+                    ? formatCompactUsdValue(borrowMarketValue.usd)
+                    : `${roundAndCompactTokens(position.borrowed, borrowVault.decimals)} ${borrowVault.asset.symbol}`
+                  }}
                 </div>
-                <div class="text-neutral-500 text-p3">
+                <div
+                  v-if="borrowMarketValue.hasPrice"
+                  class="text-neutral-500 text-p3"
+                >
                   ~ {{ roundAndCompactTokens(position.borrowed, borrowVault.decimals) }} {{ borrowVault.asset.symbol }}
                 </div>
               </div>
@@ -557,7 +696,7 @@ watch(isConnected, () => {
                 Current price
               </div>
               <div class="text-neutral-800 text-p3">
-                ${{ formatNumber(getVaultPrice(1, position.borrow)) }}
+                {{ borrowUnitPrice.hasPrice ? formatUsdValue(borrowUnitPrice.usd) : '-' }}
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
@@ -566,8 +705,8 @@ watch(isConnected, () => {
               </div>
               <div class="text-neutral-800 text-p3">
                 {{
-                  getVaultOraclePrice(1, position.borrow)
-                    ? `$${formatNumber(getVaultOraclePrice(1, position.borrow))}`
+                  borrowOraclePrice
+                    ? formatUsdValue(borrowOraclePrice)
                     : '-'
                 }}
               </div>
@@ -644,9 +783,15 @@ watch(isConnected, () => {
                 </div>
                 <div class="flex justify-between gap-8 justify-self-end">
                   <div class="text-neutral-800 text-p3">
-                    ${{ formatNumber(collateral.valueUsd) }}
+                    {{ collateral.value.hasPrice
+                      ? formatCompactUsdValue(collateral.value.usd)
+                      : `${roundAndCompactTokens(collateral.assets, collateral.vault.decimals)} ${collateral.vault.asset.symbol}`
+                    }}
                   </div>
-                  <div class="text-neutral-500 text-p3">
+                  <div
+                    v-if="collateral.value.hasPrice"
+                    class="text-neutral-500 text-p3"
+                  >
                     ~ {{ roundAndCompactTokens(collateral.assets, collateral.vault.decimals) }}
                     {{ collateral.vault.asset.symbol }}
                   </div>
@@ -665,7 +810,7 @@ watch(isConnected, () => {
                   Current price
                 </div>
                 <div class="text-neutral-800 text-p3">
-                  ${{ formatNumber(collateral.unitPriceUsd) }}
+                  {{ collateral.unitPriceUsd > 0 ? formatUsdValue(collateral.unitPriceUsd) : '-' }}
                 </div>
               </div>
               <div class="flex justify-between gap-8 flex-wrap mb-16">
@@ -673,11 +818,9 @@ watch(isConnected, () => {
                   Oracle price
                 </div>
                 <div class="text-neutral-800 text-p3">
-  {{
-                    getVaultOraclePrice(1, collateral.vault, borrowVault)
-                      ? `$${formatNumber(getVaultOraclePrice(1, collateral.vault, borrowVault))}`
-                      : '-'
-                  }}
+                  {{ collateral.oraclePriceUsd > 0
+                    ? formatUsdValue(collateral.oraclePriceUsd)
+                    : '-' }}
                 </div>
               </div>
               <div
@@ -771,7 +914,7 @@ watch(isConnected, () => {
           variant="primary-stroke"
           @click="openPairInfoModal"
         >
-          Pair information
+          Position information
         </UiButton>
       </div>
     </template>

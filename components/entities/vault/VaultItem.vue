@@ -1,17 +1,13 @@
 <script setup lang="ts">
-import { useAccount } from "@wagmi/vue";
-import { ethers } from "ethers";
-import {
-  getVaultPrice,
-  getVaultPriceDisplay,
-  getVaultUtilization,
-  type Vault,
-} from "~/entities/vault";
-import { useEulerProductOfVault } from "~/composables/useEulerLabels";
-import { getAssetLogoUrl } from "~/composables/useTokens";
-import BaseLoadableContent from "~/components/base/BaseLoadableContent.vue";
-import { useModal } from "~/components/ui/composables/useModal";
-import { VaultSupplyApyModal, VaultUtilizationWarningModal } from "#components";
+import { useAccount } from '@wagmi/vue'
+import { ethers } from 'ethers'
+import { getVaultUtilization, type Vault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
+import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { getAssetLogoUrl } from '~/composables/useTokens'
+import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultSupplyApyModal, VaultUtilizationWarningModal } from '#components'
 
 const { isConnected } = useAccount();
 const { vault } = defineProps<{ vault: Vault }>();
@@ -73,24 +69,29 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
   });
 };
 
-const totalSupplyPrice = computed(() => {
-  const price = getVaultPriceDisplay(vault.totalAssets, vault);
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display;
-});
+const totalSupplyPrice = ref('-')
+const liquidityPrice = ref('-')
+const walletBalancePrice = ref('-')
 
-const liquidityPrice = computed(() => {
-  const liquidity = vault.supply - vault.borrow;
-  return `$${compactNumber(getVaultPrice(liquidity, vault))}`;
-});
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.totalAssets, vault, 'off-chain')
+  totalSupplyPrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
 
-const walletBalancePrice = computed(() => {
-  const price = getVaultPriceDisplay(balance.value, vault);
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display;
-});
+watchEffect(async () => {
+  const liquidity = vault.supply - vault.borrow
+  const price = await formatAssetValue(liquidity, vault, 'off-chain')
+  liquidityPrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
+
+watchEffect(async () => {
+  const price = await formatAssetValue(balance.value, vault, 'off-chain')
+  walletBalancePrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
 
 const onWarningClick = () => {
-  modal.open(VaultUtilizationWarningModal);
-};
+  modal.open(VaultUtilizationWarningModal)
+}
 </script>
 
 <template>
@@ -186,9 +187,9 @@ const onWarningClick = () => {
         <div class="text-content-tertiary text-p3 mb-4">In wallet</div>
         <BaseLoadableContent
           :loading="isBalancesLoading"
-          style="width: 70px; height: 20px"
+          style="min-width: 70px; height: 20px"
         >
-          <div class="text-p2 text-content-primary">
+          <div class="text-p2 text-content-primary whitespace-nowrap">
             {{ walletBalancePrice }}
           </div>
         </BaseLoadableContent>

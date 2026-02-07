@@ -123,7 +123,7 @@ const onClaimClick = async () => {
         </div>
         <div class="flex flex-col gap-8 text-right">
           <p class="text-p2 text-content-primary">
-            {{ rewardUsdValue < 0.01 ? ' < $0.01' : `$${formatNumber(rewardUsdValue, 2)}` }}
+            {{ formatUsdValue(rewardUsdValue) }}
           </p>
           <p class="text-p3 text-content-tertiary">
             ~ {{ rewardAmount < 0.01 ? '< 0.01' : formatNumber(rewardAmount, 2) }} {{ campaign.reward_info.token_symbol }}

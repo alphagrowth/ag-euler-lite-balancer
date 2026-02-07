@@ -4,7 +4,8 @@ import { ethers } from 'ethers'
 import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
-import { type Vault, type SecuritizeVault, getVaultPrice, isSecuritizeVault, fetchSecuritizeVault } from '~/entities/vault'
+import { type Vault, type SecuritizeVault, isSecuritizeVault, fetchSecuritizeVault } from '~/entities/vault'
+import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -227,20 +228,26 @@ const swapSummary = computed(() => {
   }
 })
 
-const priceImpact = computed(() => {
+// Price impact computed asynchronously
+const priceImpact = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!quote.value || !fromVault.value || !toVault.value) {
-    return null
+    priceImpact.value = null
+    return
   }
-  const amountInUsd = getVaultPrice(BigInt(quote.value.amountIn), fromVault.value)
-  const amountOutUsd = getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
+  const amountInUsd = await getAssetUsdValue(BigInt(quote.value.amountIn), fromVault.value, 'off-chain')
+  const amountOutUsd = await getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value, 'off-chain')
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    priceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    priceImpact.value = null
+    return
   }
-  return impact
+  priceImpact.value = impact
 })
 
 const routedVia = computed(() => {

@@ -36,13 +36,16 @@ const styles = reactive({
 })
 
 const roundTick = (value: number) => Math.round(value * 100) / 100
-const ticks = computed(() => [
-  roundTick(min),
-  roundTick(max / 4),
-  roundTick(max / 2),
-  roundTick((max / 4) + (max / 2)),
-  roundTick(max),
-])
+const ticks = computed(() => {
+  const range = max - min
+  return [
+    roundTick(min),
+    roundTick(min + range * 0.25),
+    roundTick(min + range * 0.5),
+    roundTick(min + range * 0.75),
+    roundTick(max),
+  ]
+})
 const invStep = computed(() => 1.0 / step)
 
 const update = (x: number) => {

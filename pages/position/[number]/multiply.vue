@@ -7,7 +7,8 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault, type VaultAsset, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { type Vault, type VaultAsset } from '~/entities/vault'
+import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
@@ -265,35 +266,45 @@ const multiplySwapReady = computed(() => {
   }
   return Boolean(multiplyEffectiveQuote.value || (multiplyIsSameAsset.value && multiplyDebtAmountNano.value > 0n))
 })
-const multiplyLongValueUsd = computed(() => {
+const multiplyLongValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!multiplyLongVault.value) {
-    return null
+    multiplyLongValueUsd.value = null
+    return
   }
   if (!multiplySwapAmountOut.value) {
-    return null
+    multiplyLongValueUsd.value = null
+    return
   }
-  return getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
+  multiplyLongValueUsd.value = (await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')) ?? null
 })
-const multiplyBorrowValueUsd = computed(() => {
+const multiplyBorrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!multiplyShortVault.value) {
-    return null
+    multiplyBorrowValueUsd.value = null
+    return
   }
   if (!multiplyDebtAmountNano.value) {
-    return null
+    multiplyBorrowValueUsd.value = null
+    return
   }
-  return getVaultPrice(multiplyDebtAmountNano.value, multiplyShortVault.value)
+  multiplyBorrowValueUsd.value = (await getAssetUsdValue(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')) ?? null
 })
-const currentSupplyValueUsd = computed(() => {
+const currentSupplyValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!position.value || !multiplyLongVault.value) {
-    return null
+    currentSupplyValueUsd.value = null
+    return
   }
-  return getVaultPrice(position.value.supplied, multiplyLongVault.value)
+  currentSupplyValueUsd.value = (await getAssetUsdValue(position.value.supplied, multiplyLongVault.value, 'off-chain')) ?? null
 })
-const currentBorrowValueUsd = computed(() => {
+const currentBorrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!position.value || !multiplyShortVault.value) {
-    return null
+    currentBorrowValueUsd.value = null
+    return
   }
-  return getVaultPrice(position.value.borrowed, multiplyShortVault.value)
+  currentBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, multiplyShortVault.value, 'off-chain')) ?? null
 })
 const nextSupplyValueUsd = computed(() => {
   if (currentSupplyValueUsd.value === null) {
@@ -407,8 +418,8 @@ const multiplyPriceRatio = computed(() => {
     return null
   }
   // Use liability vault's (multiplyShortVault) view of collateral price (multiplyLongVault is the collateral)
-  const collateralPrice = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplyLongVault.value)
-  const borrowPrice = getVaultPriceInfo(multiplyShortVault.value)
+  const collateralPrice = getCollateralOraclePrice(multiplyShortVault.value, multiplyLongVault.value)
+  const borrowPrice = getAssetOraclePrice(multiplyShortVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -463,23 +474,28 @@ const multiplySwapSummary = computed(() => {
     to: `${formatSignificant(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
   }
 })
-const multiplyPriceImpact = computed(() => {
+const multiplyPriceImpact = ref<number | null>(null)
+watchEffect(async () => {
   if (isMultiplyQuoteLoading.value) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
-  const amountInUsd = getVaultPrice(multiplySwapAmountIn.value, multiplyShortVault.value)
-  const amountOutUsd = getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
+  const amountInUsd = await getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value, 'off-chain')
+  const amountOutUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
-  return impact
+  multiplyPriceImpact.value = impact
 })
 const multiplyRoutedVia = computed(() => {
   if (isMultiplyQuoteLoading.value) {
@@ -809,7 +825,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             :step="0.1"
             :min="multiplyMinMultiplier"
             :max="multiplyMaxMultiplier"
-            :number-filter="(n: number) => `${n}x`"
+            :number-filter="(n: number) => `${formatNumber(n, 2, 0)}x`"
             @update:model-value="onMultiplierInput"
           />
 

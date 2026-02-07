@@ -16,7 +16,7 @@ const isBorrowable = computed(() => borrowCount.value > 0)
 const vaultAddresesInfo = computed(() => {
   const baseAddresses = [
     {
-      title: `Underlying ${vault.asset.symbol} token`,
+      title: `${vault.asset.symbol} token`,
       address: vault.asset.address,
     },
     {

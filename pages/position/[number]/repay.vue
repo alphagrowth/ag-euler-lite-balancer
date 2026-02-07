@@ -6,7 +6,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type Vault } from '~/entities/vault'
+import { getNetAPY, type VaultAsset, type Vault } from '~/entities/vault'
+import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { SwapperMode } from '~/entities/swap'
@@ -97,11 +98,24 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
-const netAPY = computed(() => {
-  return getNetAPY(
-    getVaultPrice(position.value?.supplied || 0n, collateralVault.value!),
+// Pre-computed net APY (async)
+const netAPY = ref(0)
+
+watchEffect(async () => {
+  if (!position.value || !collateralVault.value || !borrowVault.value) {
+    netAPY.value = 0
+    return
+  }
+
+  const [supplyUsd, borrowUsd] = await Promise.all([
+    getAssetUsdValueOrZero(position.value.supplied || 0n, collateralVault.value, 'off-chain'),
+    getAssetUsdValueOrZero(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
+  ])
+
+  netAPY.value = getNetAPY(
+    supplyUsd,
     collateralSupplyApy.value,
-    getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
+    borrowUsd,
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
@@ -184,8 +198,8 @@ const updateSwapCollateralBalance = async () => {
     }
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
-    const res = await accountLensContract.getAccountInfo(position.value.subAccount, swapCollateralVault.value.address)
-    swapCollateralAssets.value = res.vaultAccountInfo.assets
+    const res = await accountLensContract.getVaultAccountInfo(position.value.subAccount, swapCollateralVault.value.address)
+    swapCollateralAssets.value = res.assets
   }
   catch (e) {
     console.warn('[Repay swap] failed to load collateral balance', e)
@@ -299,31 +313,50 @@ const swapDebtRepaid = computed(() => {
     return null
   }
 })
-const swapCollateralValueUsd = computed(() => {
+// Pre-computed swap collateral USD value (async)
+const swapCollateralValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!swapCollateralVault.value) {
-    return null
+    swapCollateralValueUsd.value = null
+    return
   }
-  return getVaultPrice(swapCollateralAssets.value, swapCollateralVault.value)
+  swapCollateralValueUsd.value = (await getAssetUsdValue(swapCollateralAssets.value, swapCollateralVault.value, 'off-chain')) ?? null
 })
-const swapBorrowValueUsd = computed(() => {
+
+// Pre-computed swap borrow USD value (async)
+const swapBorrowValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!borrowVault.value || !position.value) {
-    return null
+    swapBorrowValueUsd.value = null
+    return
   }
-  return getVaultPrice(position.value.borrowed, borrowVault.value)
+  swapBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
 })
-const swapNextCollateralValueUsd = computed(() => {
+
+// Pre-computed swap next collateral USD value (async)
+const swapNextCollateralValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!swapCollateralVault.value || swapCollateralSpent.value === null) {
-    return null
+    swapNextCollateralValueUsd.value = null
+    return
   }
   const nextAssets = swapCollateralAssets.value - swapCollateralSpent.value
-  return getVaultPrice(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value)
+  swapNextCollateralValueUsd.value = (await getAssetUsdValue(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value, 'off-chain')) ?? null
 })
-const swapNextBorrowValueUsd = computed(() => {
+
+// Pre-computed swap next borrow USD value (async)
+const swapNextBorrowValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!borrowVault.value || !position.value || swapDebtRepaid.value === null) {
-    return null
+    swapNextBorrowValueUsd.value = null
+    return
   }
   const nextBorrow = position.value.borrowed - swapDebtRepaid.value
-  return getVaultPrice(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value)
+  swapNextBorrowValueUsd.value = (await getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value, 'off-chain')) ?? null
 })
 
 const calculateRoe = (
@@ -357,8 +390,8 @@ const swapPriceRatio = computed(() => {
   if (!swapCollateralVault.value || !borrowVault.value) {
     return null
   }
-  const collateralPrice = getVaultPriceInfo(swapCollateralVault.value)
-  const borrowPrice = getVaultPriceInfo(borrowVault.value)
+  const collateralPrice = getAssetOraclePrice(swapCollateralVault.value)
+  const borrowPrice = getAssetOraclePrice(borrowVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -475,20 +508,28 @@ const swapSummary = computed(() => {
     to: `${formatSignificant(amountOut)} ${borrowVault.value.asset.symbol}`,
   }
 })
-const swapPriceImpact = computed(() => {
+// Pre-computed swap price impact (async)
+const swapPriceImpact = ref<number | null>(null)
+
+watchEffect(async () => {
   if (!swapQuote.value || !swapCollateralVault.value || !borrowVault.value) {
-    return null
+    swapPriceImpact.value = null
+    return
   }
-  const amountInUsd = getVaultPrice(BigInt(swapQuote.value.amountIn), swapCollateralVault.value)
-  const amountOutUsd = getVaultPrice(BigInt(swapQuote.value.amountOut), borrowVault.value)
+  const [amountInUsd, amountOutUsd] = await Promise.all([
+    getAssetUsdValue(BigInt(swapQuote.value.amountIn), swapCollateralVault.value, 'off-chain'),
+    getAssetUsdValue(BigInt(swapQuote.value.amountOut), borrowVault.value, 'off-chain'),
+  ])
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    swapPriceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    swapPriceImpact.value = null
+    return
   }
-  return impact
+  swapPriceImpact.value = impact
 })
 const swapLeveragedPriceImpact = computed(() => {
   return swapPriceImpact.value
@@ -730,16 +771,16 @@ watch([swapEffectiveQuote, repaySwapDirection], () => {
   }
 })
 const updateBalance = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value || !position.value || !borrowVault.value) {
     balance.value = 0n
     return
   }
 
-  const borrowedUsd = getVaultPrice(position.value!.borrowed, borrowVault.value!) || 0.01
+  const borrowedUsd = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? 0.01
   const factor = Math.pow(10, 2)
   const borrowedRounded = Math.ceil(borrowedUsd * factor) / factor
   balance.value = FixedNumber.fromValue(valueToNano(borrowedRounded, 4), 4)
-    .div(FixedNumber.fromValue(borrowVault.value!.liabilityPriceInfo.amountOutMid, Number(borrowVault.value!.decimals)))
+    .div(FixedNumber.fromValue(borrowVault.value.liabilityPriceInfo.amountOutMid, Number(borrowVault.value.decimals)))
     .value
 }
 const submit = async () => {
@@ -757,7 +798,7 @@ const submit = async () => {
         borrowVault.value.asset.address,
         amountNano,
         position.value.subAccount,
-        collateralVault.value.address,
+        position.value.collaterals ?? [collateralVault.value.address],
         { includePermit2Call: false },
       )
       : await buildRepayPlan(
@@ -831,6 +872,7 @@ const submitSwap = async () => {
       isRepay: true,
       targetDebt,
       currentDebt,
+      liabilityVault: borrowVault.value?.address,
     })
   }
   catch (e) {
@@ -885,6 +927,7 @@ const sendSwap = async () => {
       isRepay: true,
       targetDebt,
       currentDebt,
+      liabilityVault: borrowVault.value?.address,
     })
 
     modal.close()
@@ -917,7 +960,7 @@ const send = async () => {
       borrowVault.value.asset.address,
       valueToNano(amount.value, borrowVault.value.asset.decimals),
       position.value.subAccount,
-      collateralVault.value.address,
+      position.value.collaterals ?? [collateralVault.value.address],
     )
 
     modal.close()
@@ -947,10 +990,14 @@ const updateEstimates = useDebounceFn(async () => {
     if (balanceFixed.value.lt(amountFixed.value)) {
       throw new Error('You repaying more than required')
     }
+    const [supplyUsd, borrowUsd] = await Promise.all([
+      getAssetUsdValueOrZero((position.value.supplied || 0n), collateralVault.value, 'off-chain'),
+      getAssetUsdValueOrZero((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value, 'off-chain'),
+    ])
     estimateNetAPY.value = getNetAPY(
-      getVaultPrice((position.value.supplied || 0n), collateralVault.value!),
+      supplyUsd,
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
-      getVaultPrice((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value),
+      borrowUsd,
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,

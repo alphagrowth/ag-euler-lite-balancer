@@ -7,10 +7,10 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
-  getEarnVaultPrice,
   type EarnVault,
   type VaultAsset,
 } from '~/entities/vault'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -39,6 +39,10 @@ const sharesBalance = ref(0n)
 const delta = ref(0n)
 const estimateSupplyAPY = ref(0)
 const estimatesError = ref('')
+
+// Reactive USD prices for display
+const assetsBalanceUsd = ref(0)
+const deltaUsd = ref(0)
 
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value?.address || ''))
 const amountFixed = computed(() => {
@@ -205,6 +209,17 @@ const updateEstimates = useDebounceFn(async () => {
 
 load()
 
+// Update USD prices when vault or amounts change
+watchEffect(async () => {
+  if (!vault.value) {
+    assetsBalanceUsd.value = 0
+    deltaUsd.value = 0
+    return
+  }
+  assetsBalanceUsd.value = await getAssetUsdValueOrZero(assetsBalance.value, vault.value, 'off-chain')
+  deltaUsd.value = await getAssetUsdValueOrZero(delta.value, vault.value, 'off-chain')
+})
+
 watch(isConnected, async () => {
   if (vault.value) {
     await fetchShareBalance()
@@ -290,8 +305,8 @@ watch(amount, async () => {
             Deposit
           </p>
           <p class="text-p2 text-content-tertiary">
-            ${{ formatNumber(getEarnVaultPrice(assetsBalance, vault)) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
-              → <span class="text-content-primary">${{ formatNumber(getEarnVaultPrice(delta, vault)) }}</span>
+            ${{ formatNumber(assetsBalanceUsd) }} <template v-if="amount && delta !== assetsBalance && delta >= 0n">
+              → <span class="text-content-primary">${{ formatNumber(deltaUsd) }}</span>
             </template>
           </p>
         </div>
@@ -304,7 +319,7 @@ watch(amount, async () => {
             class="text-p2 flex items-center gap-4"
           >
             {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="text-p3 text-content-tertiary">{{ asset.symbol }}</span>
-            <span class="text-p3 text-content-tertiary">≈ ${{ formatNumber(getEarnVaultPrice(assetsBalance, vault)) }}</span>
+            <span class="text-p3 text-content-tertiary">≈ ${{ formatNumber(assetsBalanceUsd) }}</span>
           </p>
         </div>
       </VaultFormInfoBlock>

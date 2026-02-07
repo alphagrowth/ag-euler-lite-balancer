@@ -1,6 +1,5 @@
 import { ethers } from 'ethers'
 import axios from 'axios'
-import type { Hex } from 'viem'
 import { labelsRepo } from './custom'
 import { SECONDS_IN_YEAR, TARGET_TIME_AGO, USD_ADDRESS } from '~/entities/constants'
 import {
@@ -9,44 +8,24 @@ import {
   vaultMaxWithdrawAbi,
   vaultPreviewWithdrawAbi,
 } from '~/abis/vault'
-import { collectPythFeedIdsForPair, type OracleDetailedInfo } from '~/entities/oracle'
+import type { OracleDetailedInfo, PythFeed } from '~/entities/oracle'
+import { collectPythFeedIds } from '~/entities/oracle'
 import {
-  // eulerAccountLensABI,
   eulerEarnVaultLensABI,
   eulerPerspectiveABI,
   eulerUtilsLensABI,
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
-import { fetchPythPrices } from '~/utils/pyth'
+import { executeLensWithPythSimulation } from '~/utils/pyth'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { nanoToValue } from '~/utils/crypto-utils'
-// import type { AccountBorrowPosition } from '~/entities/account'
+import { batchLensCalls } from '~/utils/multicall'
 
 // Cache for vault factory lookups
 const vaultFactoryCache = new Map<string, string>()
 const unitOfAccountPriceCache = new Map<string, { amountOutMid: bigint } | null>()
 
 const ONE_18 = 10n ** 18n
-const STABLECOIN_SYMBOLS = [
-  'USD',
-  'USDC',
-  'USDT',
-  'DAI',
-  'FRAX',
-  'LUSD',
-  'GUSD',
-  'USDP',
-  'TUSD',
-  'BUSD',
-  'SUSD',
-]
-
-const normalizeSymbol = (symbol?: string) => symbol?.toUpperCase() || ''
-const isStableSymbol = (symbol?: string) => {
-  const normalized = normalizeSymbol(symbol)
-  if (!normalized) return false
-  return STABLECOIN_SYMBOLS.some(stable => normalized.includes(stable))
-}
 
 // Fetch vault factory from subgraph
 export const fetchVaultFactory = async (
@@ -309,11 +288,7 @@ export interface Vault {
   collateralLTVs: VaultCollateralLTV[]
   interestRateInfo: VaultInterestRateInfo
   collateralPrices: VaultCollateralPrice[]
-  collateralPythPrices?: Map<string, { amountOutMid: bigint }> // keyed by collateral address
   liabilityPriceInfo: VaultLiabilityPriceInfo
-  pythPriceInfo?: {
-    amountOutMid: bigint
-  }
   assetPriceInfo?: {
     amountOutMid: bigint
   }
@@ -436,119 +411,16 @@ export interface CollateralOption {
   vaultAddress?: string
 }
 
-const collectVaultPythFeedIds = (
-  oracleInfo: OracleDetailedInfo | undefined,
-  backupOracleInfo: OracleDetailedInfo | undefined,
-  base: string,
-  quote: string,
-) => {
-  const feeds = [
-    ...collectPythFeedIdsForPair(oracleInfo, base, quote, 3),
-    ...collectPythFeedIdsForPair(backupOracleInfo, base, quote, 3),
-  ].filter(feed => feed.pythAddress !== ethers.ZeroAddress)
-
-  const unique = new Map<string, Hex>()
-  feeds.forEach((feed) => {
-    const key = feed.feedId.toLowerCase()
-    if (!unique.has(key)) {
-      unique.set(key, feed.feedId)
-    }
-  })
-
-  return [...unique.values()]
-}
-
-const applyPythPriceInfo = async (vaults: Vault[], hermesEndpoint?: string) => {
-  if (!vaults.length || !hermesEndpoint) return
-
-  const feedToVaults = new Map<string, Vault[]>()
-  const feedIds: Hex[] = []
-
-  vaults.forEach((vault) => {
-    const feeds = collectVaultPythFeedIds(
-      vault.oracleDetailedInfo,
-      vault.backupAssetOracleInfo,
-      vault.asset.address,
-      vault.unitOfAccount,
-    )
-    if (feeds.length !== 1) return
-    const feedId = feeds[0]
-    const key = feedId.toLowerCase()
-    if (!feedToVaults.has(key)) {
-      feedToVaults.set(key, [])
-      feedIds.push(feedId)
-    }
-    feedToVaults.get(key)?.push(vault)
-  })
-
-  if (!feedIds.length) return
-
-  const prices = await fetchPythPrices(feedIds, hermesEndpoint)
-
-  feedToVaults.forEach((vaultList, key) => {
-    const price = prices.get(key)
-    if (price === undefined) return
-    vaultList.forEach((vault) => {
-      vault.pythPriceInfo = { amountOutMid: price }
-    })
-  })
-}
-
-const applyCollateralPythPriceInfo = async (vault: Vault, hermesEndpoint?: string) => {
-  if (!vault.collateralPrices.length || !hermesEndpoint) return
-
-  const feedToCollateral = new Map<string, string>() // feedId → collateralAddress
-  const allFeedIds: Hex[] = []
-
-  for (const collateralPrice of vault.collateralPrices) {
-    const collateralAddress = collateralPrice.asset
-
-    const feeds = collectPythFeedIdsForPair(
-      vault.oracleDetailedInfo,
-      collateralAddress, // base: collateral asset
-      vault.unitOfAccount, // quote: vault's unit of account
-      3,
-    )
-
-    if (feeds.length === 1) {
-      const feedId = feeds[0].feedId
-      const key = feedId.toLowerCase()
-      if (!feedToCollateral.has(key)) {
-        feedToCollateral.set(key, collateralAddress.toLowerCase())
-        allFeedIds.push(feedId)
-      }
-    }
-  }
-
-  if (!allFeedIds.length) return
-
-  const prices = await fetchPythPrices(allFeedIds, hermesEndpoint)
-
-  const collateralPythPrices = new Map<string, { amountOutMid: bigint }>()
-
-  feedToCollateral.forEach((collateralAddress, feedIdKey) => {
-    const pythPrice = prices.get(feedIdKey)
-    if (pythPrice && pythPrice > 0n) {
-      collateralPythPrices.set(collateralAddress, { amountOutMid: pythPrice })
-    }
-  })
-
-  vault.collateralPythPrices = collateralPythPrices
-}
-
 const resolveAssetPriceInfo = async (
   utilsLensContract: ethers.Contract,
   assetAddress: string,
-  assetSymbol?: string,
 ): Promise<{ amountOutMid: bigint } | undefined> => {
   try {
     const priceInfo = await utilsLensContract.getAssetPriceInfo(assetAddress, USD_ADDRESS)
     const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
 
-    if (priceData.queryFailure || !priceData.amountOutMid || priceData.amountOutMid === 0n) {
-      if (isStableSymbol(assetSymbol)) {
-        return { amountOutMid: ONE_18 }
-      }
+    // Note: 0n is a valid price (very small value), only reject null/undefined or explicit failure
+    if (priceData.queryFailure || priceData.amountOutMid === undefined || priceData.amountOutMid === null) {
       return undefined
     }
 
@@ -564,128 +436,43 @@ const resolveUnitOfAccountPriceInfo = async (
   utilsLensContract: ethers.Contract,
   unitOfAccount?: string,
 ): Promise<{ amountOutMid: bigint } | undefined> => {
-  if (!unitOfAccount) return undefined
+  if (!unitOfAccount) {
+    return undefined
+  }
   const normalized = unitOfAccount.toLowerCase()
 
   if (normalized === USD_ADDRESS.toLowerCase()) {
     return { amountOutMid: ONE_18 }
   }
 
-  if (unitOfAccountPriceCache.has(normalized)) {
-    return unitOfAccountPriceCache.get(normalized) || undefined
+  // Check cache
+  const cached = unitOfAccountPriceCache.get(normalized)
+  if (cached) {
+    return cached
+  }
+  if (cached === null) {
+    return undefined
   }
 
   const priceInfo = await resolveAssetPriceInfo(utilsLensContract, unitOfAccount)
   unitOfAccountPriceCache.set(normalized, priceInfo || null)
   return priceInfo
 }
+
 /**
- * WORKAROUND: Override prices for specific vaults with problematic configurations.
- *
- * Context: Some vaults have non-standard unitOfAccount settings (e.g., USDC vault using EUL as unitOfAccount)
- * which causes pricing issues where pythPriceInfo fetches the wrong price pair.
+ * Process raw vault lens data into a Vault object.
+ * Extracted to enable reuse between direct query and simulation-based fetch.
  */
-const applyVaultPriceOverrides = (vaults: Vault[]) => {
-  const VAULT_PRICE_OVERRIDES: Array<{
-    address: string
-    symbol: string
-    priceUSD: bigint | 'fetch_from_pair'
-    fetchFrom?: string
-    reason: string
-  }> = [
-    {
-      address: '0xBEf0c894aB4020DCD533FD753BF427662F3F7ABe', // USDC vault (eUSDC-71) with EUL unitOfAccount
-      symbol: 'USDC',
-      priceUSD: ethers.parseUnits('1', 18), // $1.00
-      reason: 'Vault uses EUL as unitOfAccount instead of USD',
-    },
-    {
-      address: '0x74034eb8d5B2E480825263A975E4CF82A081c959', // EUL vault (eEUL-2) with EUL unitOfAccount
-      symbol: 'EUL',
-      priceUSD: 'fetch_from_pair', // Special value: fetch from USDC vault's pythPriceInfo
-      fetchFrom: '0xBEf0c894aB4020DCD533FD753BF427662F3F7ABe', // USDC vault address
-      reason: 'Vault uses EUL as unitOfAccount (self), so liabilityPriceInfo shows 1.0 instead of actual USD price',
-    },
-  ]
-
-  // First pass: Capture prices from vaults that will be overridden (before we lose them)
-  const capturedPrices = new Map<string, bigint>()
-
-  VAULT_PRICE_OVERRIDES.forEach((override) => {
-    if (override.priceUSD === 'fetch_from_pair' && override.fetchFrom) {
-      const sourceVault = vaults.find(
-        v => v.address.toLowerCase() === override.fetchFrom?.toLowerCase(),
-      )
-
-      if (sourceVault?.pythPriceInfo?.amountOutMid && sourceVault.pythPriceInfo.amountOutMid > 0n) {
-        capturedPrices.set(override.address.toLowerCase(), sourceVault.pythPriceInfo.amountOutMid)
-        console.info(
-          `[Vault Price Override] Captured $${Number(sourceVault.pythPriceInfo.amountOutMid) / 1e18} price for ${override.symbol} from ${override.fetchFrom}`,
-        )
-      }
-    }
-  })
-
-  // Second pass: Apply all overrides
-  vaults.forEach((vault) => {
-    const override = VAULT_PRICE_OVERRIDES.find(
-      p => p.address.toLowerCase() === vault.address.toLowerCase(),
-    )
-
-    if (!override) return
-
-    let priceToApply: bigint | undefined
-
-    if (typeof override.priceUSD === 'bigint') {
-      priceToApply = override.priceUSD
-    }
-    else if (override.priceUSD === 'fetch_from_pair') {
-      priceToApply = capturedPrices.get(vault.address.toLowerCase())
-    }
-
-    if (priceToApply) {
-      console.info(
-        `[Vault Price Override] Applying $${Number(priceToApply) / 1e18} price for ${override.symbol} (${vault.address}). Reason: ${override.reason}`,
-      )
-      vault.pythPriceInfo = { amountOutMid: priceToApply }
-    }
-    else {
-      console.warn(
-        `[Vault Price Override] Could not apply price override for ${override.symbol} (${vault.address}). Reason: ${override.reason}`,
-      )
-    }
-  })
-}
-
-export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
-  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
-  const { loadEulerConfig, isReady } = useEulerAddresses()
-  const { verifiedVaultAddresses } = useEulerLabels()
-
-  if (!isReady.value) {
-    loadEulerConfig()
-    await until(computed(() => isReady.value)).toBeTruthy()
-  }
-  const { eulerLensAddresses } = useEulerAddresses()
-
-  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const vaultLensContract = new ethers.Contract(
-    eulerLensAddresses.value!.vaultLens,
-    eulerVaultLensABI,
-    provider,
-  )
-  const utilsLensContract = eulerLensAddresses.value?.utilsLens
-    ? new ethers.Contract(
-        eulerLensAddresses.value.utilsLens,
-        eulerUtilsLensABI,
-        provider,
-      )
-    : undefined
-  const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const processRawVaultData = (
+  raw: any,
+  vaultAddress: string,
+  verifiedVaultAddresses: string[],
+): Vault => {
   const data = raw.toObject({ deep: true })
 
-  const vault = {
-    verified: verifiedVaultAddresses.value.includes(vaultAddress),
+  return {
+    verified: verifiedVaultAddresses.includes(vaultAddress),
     address: data.vault,
     name: data.vaultName,
     supply: data.totalAssets,
@@ -708,7 +495,6 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
       .map((o: { toObject: () => void }) => o.toObject()),
     liabilityPriceInfo: data.liabilityPriceInfo,
     maxLiquidationDiscount: data.maxLiquidationDiscount,
-    // interestRateInfo: data.irmInfo.interestRateInfo._, // might be a toObject deep conversion bug
     interestRateInfo: !raw.irmInfo?.interestRateInfo?._
       ? {
           borrowAPY: 0n,
@@ -741,19 +527,109 @@ export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
         }
       : undefined,
   } as Vault
+}
+
+/**
+ * Fetch vault using EVC batchSimulation with Pyth updates.
+ * This ensures fresh Pyth prices are available when querying vault info.
+ *
+ * @param vaultAddress - The vault address to fetch
+ * @param feeds - Pre-collected Pyth feeds for this vault
+ * @param provider - JSON-RPC provider
+ * @param vaultLensContract - Vault lens contract instance
+ * @param evcAddress - EVC contract address
+ * @param hermesEndpoint - Pyth Hermes endpoint URL
+ * @param providerUrl - JSON-RPC provider URL for Pyth batch building
+ * @param verifiedVaultAddresses - List of verified vault addresses
+ * @returns Vault with fresh Pyth prices, or undefined if simulation fails
+ */
+const fetchVaultWithPythSimulation = async (
+  vaultAddress: string,
+  feeds: PythFeed[],
+  provider: ethers.JsonRpcProvider,
+  vaultLensContract: ethers.Contract,
+  evcAddress: string,
+  hermesEndpoint: string,
+  providerUrl: string,
+  verifiedVaultAddresses: string[],
+): Promise<Vault | undefined> => {
+  const result = await executeLensWithPythSimulation(
+    feeds,
+    vaultLensContract,
+    'getVaultInfoFull',
+    [vaultAddress],
+    evcAddress,
+    provider,
+    providerUrl,
+    hermesEndpoint,
+  ) as Record<string, unknown>[] | undefined
+
+  if (!result || !result[0]) {
+    return undefined
+  }
+
+  return processRawVaultData(result[0] as Record<string, unknown>, vaultAddress, verifiedVaultAddresses)
+}
+
+export const fetchVault = async (vaultAddress: string): Promise<Vault> => {
+  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
+  const { loadEulerConfig, isReady } = useEulerAddresses()
+  const { verifiedVaultAddresses } = useEulerLabels()
+
+  if (!isReady.value) {
+    loadEulerConfig()
+    await until(computed(() => isReady.value)).toBeTruthy()
+  }
+  const { eulerLensAddresses, eulerCoreAddresses } = useEulerAddresses()
+
+  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const vaultLensContract = new ethers.Contract(
+    eulerLensAddresses.value!.vaultLens,
+    eulerVaultLensABI,
+    provider,
+  )
+  const utilsLensContract = eulerLensAddresses.value?.utilsLens
+    ? new ethers.Contract(
+        eulerLensAddresses.value.utilsLens,
+        eulerUtilsLensABI,
+        provider,
+      )
+    : undefined
+
+  // Standard query first (fast path for non-Pyth vaults)
+  const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
+  let vault = processRawVaultData(raw, vaultAddress, verifiedVaultAddresses.value)
+
+  // Check if vault uses Pyth oracles
+  const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+
+  // ALWAYS re-query with simulation if Pyth detected
+  // Pyth prices are only valid for ~2 minutes after on-chain update,
+  // so we need fresh prices even if current query succeeded
+  if (feeds.length > 0 && eulerCoreAddresses.value?.evc && PYTH_HERMES_URL) {
+    const vaultWithFreshPrice = await fetchVaultWithPythSimulation(
+      vaultAddress,
+      feeds,
+      provider,
+      vaultLensContract,
+      eulerCoreAddresses.value.evc,
+      PYTH_HERMES_URL,
+      EVM_PROVIDER_URL,
+      verifiedVaultAddresses.value,
+    )
+    if (vaultWithFreshPrice) {
+      vault = vaultWithFreshPrice
+    }
+  }
 
   if (utilsLensContract) {
     const [assetPriceInfo, unitOfAccountPriceInfo] = await Promise.all([
-      resolveAssetPriceInfo(utilsLensContract, vault.asset.address, vault.asset.symbol),
+      resolveAssetPriceInfo(utilsLensContract, vault.asset.address),
       resolveUnitOfAccountPriceInfo(utilsLensContract, vault.unitOfAccount),
     ])
     vault.assetPriceInfo = assetPriceInfo
     vault.unitOfAccountPriceInfo = unitOfAccountPriceInfo
   }
-
-  await applyPythPriceInfo([vault], PYTH_HERMES_URL)
-  applyVaultPriceOverrides([vault])
-  await applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)
 
   return vault
 }
@@ -906,8 +782,8 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     const priceInfo = await utilsLensContract.getAssetPriceInfo(data.asset, USD_ADDRESS)
     const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
 
-    // Check if price query failed
-    if (priceData.queryFailure || !priceData.amountOutMid || priceData.amountOutMid === 0n) {
+    // Check if price query failed (0n is valid - very small price)
+    if (priceData.queryFailure || priceData.amountOutMid === undefined || priceData.amountOutMid === null) {
       console.warn(`No price available for asset ${data.asset} (${data.assetSymbol})`)
       assetPriceInfo = undefined
     }
@@ -1013,7 +889,7 @@ export const fetchVaults = async function* (
     unknown
   > {
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
-  const { eulerLensAddresses, chainId } = useEulerAddresses()
+  const { eulerLensAddresses, eulerCoreAddresses, chainId } = useEulerAddresses()
   const { verifiedVaultAddresses } = useEulerLabels()
 
   const startChainId = chainId.value
@@ -1032,6 +908,7 @@ export const fetchVaults = async function* (
     eulerVaultLensABI,
     provider,
   )
+  const vaultLensInterface = new ethers.Interface(eulerVaultLensABI)
   const utilsLensContract = eulerLensAddresses.value.utilsLens
     ? new ethers.Contract(
         eulerLensAddresses.value.utilsLens,
@@ -1049,77 +926,143 @@ export const fetchVaults = async function* (
   const batchCount = Math.ceil(verifiedVaults.length / batchSize)
   const parallelRounds = Math.ceil(batchCount / parallelBatches)
 
-  // Helper to fetch a single batch
-  const fetchBatch = async (batchAddresses: string[]): Promise<Vault[]> => {
-    const batchPromises = batchAddresses.map(async (vaultAddress) => {
-      try {
-        const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
-        const data = raw.toObject({ deep: true })
+  // Helper to process raw vault data into Vault object
+  const processVaultResult = (raw: ethers.Result, vaultAddress: string): Vault | undefined => {
+    try {
+      // The result is a tuple, convert to object
+      const data = raw.toObject({ deep: true })
 
-        if (!data.irmInfo?.interestRateInfo?._) {
-          data.irmInfo.interestRateInfo._ = {
-            borrowAPY: 0n,
-            borrowSPY: 0n,
-            borrows: 0n,
-            cash: 0n,
-            supplyAPY: 0n,
+      if (!data.irmInfo?.interestRateInfo?._) {
+        data.irmInfo.interestRateInfo._ = {
+          borrowAPY: 0n,
+          borrowSPY: 0n,
+          borrows: 0n,
+          cash: 0n,
+          supplyAPY: 0n,
+        }
+      }
+
+      return {
+        verified: true,
+        address: data.vault,
+        name: data.vaultName,
+        supply: data.totalAssets,
+        borrow: data.totalBorrowed,
+        symbol: data.vaultSymbol,
+        decimals: data.vaultDecimals,
+        supplyCap: data.supplyCap,
+        borrowCap: data.borrowCap,
+        totalCash: data.totalCash,
+        totalAssets: data.totalAssets,
+        totalShares: data.totalShares,
+        interestFee: data.interestFee,
+        configFlags: data.configFlags,
+        oracle: data.oracle,
+        collateralLTVs: raw.collateralLTVInfo
+          .toArray()
+          .map((o: { toObject: () => void }) => o.toObject()),
+        collateralPrices: raw.collateralPriceInfo
+          .toArray()
+          .map((o: { toObject: () => void }) => o.toObject()),
+        liabilityPriceInfo: data.liabilityPriceInfo,
+        maxLiquidationDiscount: data.maxLiquidationDiscount,
+        interestRateInfo: data.irmInfo.interestRateInfo._,
+        asset: {
+          address: data.asset,
+          name: data.assetName,
+          symbol: data.assetSymbol,
+          decimals: data.assetDecimals,
+        },
+        oracleDetailedInfo: data.oracleInfo,
+        backupAssetOracleInfo: data.backupAssetOracleInfo,
+        dToken: data.dToken,
+        governorAdmin: data.governorAdmin,
+        governorFeeReceiver: data.governorFeeReceiver,
+        unitOfAccount: data.unitOfAccount,
+        unitOfAccountName: data.unitOfAccountName,
+        unitOfAccountSymbol: data.unitOfAccountSymbol,
+        unitOfAccountDecimals: data.unitOfAccountDecimals,
+        interestRateModelAddress: data.interestRateModel,
+        hookTarget: data.hookTarget,
+        irmInfo: data.irmInfo
+          ? { interestRateModelInfo: data.irmInfo.interestRateModelInfo }
+          : undefined,
+      } as Vault
+    }
+    catch (e) {
+      console.error(`Error processing vault ${vaultAddress}:`, e)
+      return undefined
+    }
+  }
+
+  // Helper to fetch vault individually (used as fallback)
+  const fetchVaultIndividually = async (vaultAddress: string): Promise<Vault | undefined> => {
+    try {
+      const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
+      return processVaultResult(raw, vaultAddress)
+    }
+    catch (e) {
+      console.error(`Error fetching vault ${vaultAddress}:`, e)
+      return undefined
+    }
+  }
+
+  // Helper to fetch a batch of vaults using EVC batchSimulation
+  const fetchBatch = async (batchAddresses: string[]): Promise<Vault[]> => {
+    // Use EVC batchSimulation if available for batched RPC calls
+    if (eulerCoreAddresses.value?.evc) {
+      const calls = batchAddresses.map(vaultAddress => ({
+        functionName: 'getVaultInfoFull',
+        args: [vaultAddress],
+      }))
+
+      const results = await batchLensCalls<ethers.Result>(
+        eulerCoreAddresses.value.evc,
+        eulerLensAddresses.value!.vaultLens,
+        vaultLensInterface,
+        calls,
+        provider,
+      )
+
+      const vaults: Vault[] = []
+      const failedAddresses: string[] = []
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i]
+        if (result.success && result.result) {
+          // batchLensCalls returns decoded result, extract the first element
+          const raw = result.result[0] as ethers.Result
+          const vault = processVaultResult(raw, batchAddresses[i])
+          if (vault) {
+            vaults.push(vault)
+          }
+          else {
+            failedAddresses.push(batchAddresses[i])
           }
         }
-
-        return {
-          verified: true,
-          address: data.vault,
-          name: data.vaultName,
-          supply: data.totalAssets,
-          borrow: data.totalBorrowed,
-          symbol: data.vaultSymbol,
-          decimals: data.vaultDecimals,
-          supplyCap: data.supplyCap,
-          borrowCap: data.borrowCap,
-          totalCash: data.totalCash,
-          totalAssets: data.totalAssets,
-          totalShares: data.totalShares,
-          interestFee: data.interestFee,
-          configFlags: data.configFlags,
-          oracle: data.oracle,
-          collateralLTVs: raw.collateralLTVInfo
-            .toArray()
-            .map((o: { toObject: () => void }) => o.toObject()),
-          collateralPrices: raw.collateralPriceInfo
-            .toArray()
-            .map((o: { toObject: () => void }) => o.toObject()),
-          liabilityPriceInfo: data.liabilityPriceInfo,
-          maxLiquidationDiscount: data.maxLiquidationDiscount,
-          interestRateInfo: data.irmInfo.interestRateInfo._,
-          asset: {
-            address: data.asset,
-            name: data.assetName,
-            symbol: data.assetSymbol,
-            decimals: data.assetDecimals,
-          },
-          oracleDetailedInfo: data.oracleInfo,
-          backupAssetOracleInfo: data.backupAssetOracleInfo,
-          dToken: data.dToken,
-          governorAdmin: data.governorAdmin,
-          governorFeeReceiver: data.governorFeeReceiver,
-          unitOfAccount: data.unitOfAccount,
-          unitOfAccountName: data.unitOfAccountName,
-          unitOfAccountSymbol: data.unitOfAccountSymbol,
-          unitOfAccountDecimals: data.unitOfAccountDecimals,
-          interestRateModelAddress: data.interestRateModel,
-          hookTarget: data.hookTarget,
-          irmInfo: data.irmInfo
-            ? { interestRateModelInfo: data.irmInfo.interestRateModelInfo }
-            : undefined,
-        } as Vault
+        else {
+          failedAddresses.push(batchAddresses[i])
+        }
       }
-      catch (e) {
-        console.error(`Error fetching vault ${vaultAddress}:`, e)
-        return undefined
-      }
-    })
 
-    const res = await Promise.all(batchPromises)
+      // Retry failed items individually
+      if (failedAddresses.length > 0) {
+        console.warn(`[fetchBatch] Retrying ${failedAddresses.length} failed vaults individually`)
+        const retryResults = await Promise.all(
+          failedAddresses.map(addr => fetchVaultIndividually(addr)),
+        )
+        for (const vault of retryResults) {
+          if (vault) {
+            vaults.push(vault)
+          }
+        }
+      }
+
+      return vaults
+    }
+
+    // Fallback to individual calls if EVC not available
+    const res = await Promise.all(batchAddresses.map(addr => fetchVaultIndividually(addr)))
     return res.filter(o => !!o) as Vault[]
   }
 
@@ -1141,12 +1084,53 @@ export const fetchVaults = async function* (
 
     // Fetch all batches in this round in parallel
     const roundResults = await Promise.all(roundBatches.map(batch => fetchBatch(batch)))
-    const validVaults = roundResults.flat()
+    let validVaults = roundResults.flat()
 
-    // Apply Pyth prices
-    await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
-    applyVaultPriceOverrides(validVaults)
-    await Promise.all(validVaults.map(vault => applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)))
+    // Re-fetch Pyth-powered vaults with simulation to get fresh prices
+    // Pyth prices are only valid for ~2 minutes after on-chain update
+    if (eulerCoreAddresses.value?.evc && PYTH_HERMES_URL) {
+      const pythVaultsToRefresh = validVaults.filter((vault) => {
+        const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+        return feeds.length > 0
+      })
+
+      if (pythVaultsToRefresh.length > 0) {
+        const refreshedVaults = await Promise.all(
+          pythVaultsToRefresh.map(async (vault) => {
+            const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+            const refreshed = await fetchVaultWithPythSimulation(
+              vault.address,
+              feeds,
+              provider,
+              vaultLensContract,
+              eulerCoreAddresses.value!.evc,
+              PYTH_HERMES_URL,
+              EVM_PROVIDER_URL,
+              verifiedVaultAddresses.value,
+            )
+            return refreshed || vault // Fall back to original if simulation fails
+          }),
+        )
+
+        // Replace original vaults with refreshed versions
+        const refreshedMap = new Map(refreshedVaults.map(v => [v.address, v]))
+        validVaults = validVaults.map(v => refreshedMap.get(v.address) || v)
+      }
+    }
+
+    // Populate assetPriceInfo and unitOfAccountPriceInfo for USD conversion
+    if (utilsLensContract) {
+      await Promise.all(
+        validVaults.map(async (vault) => {
+          const [assetPriceInfo, unitOfAccountPriceInfo] = await Promise.all([
+            resolveAssetPriceInfo(utilsLensContract, vault.asset.address),
+            resolveUnitOfAccountPriceInfo(utilsLensContract, vault.unitOfAccount),
+          ])
+          vault.assetPriceInfo = assetPriceInfo
+          vault.unitOfAccountPriceInfo = unitOfAccountPriceInfo
+        }),
+      )
+    }
 
     const isFinished = (round + 1) * parallelBatches * batchSize >= verifiedVaults.length
 
@@ -1242,10 +1226,9 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
         const priceInfo = await utilsLensContract.getAssetPriceInfo(data.asset, USD_ADDRESS)
         const priceData = priceInfo.toObject ? priceInfo.toObject({ deep: true }) : priceInfo
 
-        if (priceData.queryFailure || !priceData.amountOutMid || priceData.amountOutMid === 0n) {
-          const stablecoins = ['USD', 'USDC', 'USDT', 'DAI', 'FRAX', 'LUSD', 'GUSD', 'USDP', 'TUSD', 'BUSD', 'SUSD']
-          const isStablecoin = stablecoins.some(stable => data.assetSymbol?.toUpperCase().includes(stable))
-          assetPriceInfo = isStablecoin ? { amountOutMid: ethers.parseUnits('1', 18) } : undefined
+        // Note: 0n is a valid price (very small value)
+        if (priceData.queryFailure || priceData.amountOutMid === undefined || priceData.amountOutMid === null) {
+          assetPriceInfo = undefined
         }
         else {
           assetPriceInfo = { amountOutMid: priceData.amountOutMid }
@@ -1363,7 +1346,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
   void,
   unknown
 > {
-  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerPeripheryAddresses, eulerLensAddresses, chainId } = useEulerAddresses()
 
   const startChainId = chainId.value
@@ -1494,14 +1477,11 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
 
     const res = await Promise.all(batchPromises)
     const validVaults = res.filter(o => !!o) as Vault[]
-    await applyPythPriceInfo(validVaults, PYTH_HERMES_URL)
-    applyVaultPriceOverrides(validVaults)
-    await Promise.all(validVaults.map(vault => applyCollateralPythPriceInfo(vault, PYTH_HERMES_URL)))
 
     await Promise.all(
       validVaults.map(async (vault) => {
         const [assetPriceInfo, unitOfAccountPriceInfo] = await Promise.all([
-          resolveAssetPriceInfo(utilsLensContract, vault.asset.address, vault.asset.symbol),
+          resolveAssetPriceInfo(utilsLensContract, vault.asset.address),
           resolveUnitOfAccountPriceInfo(utilsLensContract, vault.unitOfAccount),
         ])
         vault.assetPriceInfo = assetPriceInfo
@@ -1511,10 +1491,10 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
 
     await Promise.all(
       validVaults.map(async (vault) => {
+        // Refetch price if missing or query failed (0n is valid - very small price)
         if (
           !vault.liabilityPriceInfo
           || vault.liabilityPriceInfo.queryFailure
-          || vault.liabilityPriceInfo.amountOutMid === 0n
         ) {
           try {
             const priceInfo = await utilsLensContract.getAssetPriceInfo(
@@ -1654,279 +1634,11 @@ export const getBorrowVaultPairByMapAndAddresses = (
 
   return obj
 }
-// Common price info shape returned by price helpers
-export type PriceResult = {
-  amountOutAsk: bigint
-  amountOutBid: bigint
-  amountOutMid: bigint
-}
+// ============================================
+// Pricing functions have been moved to:
+// ~/services/pricing/priceProvider.ts
+// ============================================
 
-/**
- * Get price info for a vault's own asset (standalone context).
- * Uses Pyth real-time price first, then falls back to liabilityPriceInfo.
- *
- * IMPORTANT: Does NOT fall back to collateralPrices - that would return a different asset's price.
- */
-export const getVaultPriceInfo = (vault: Vault): PriceResult | undefined => {
-  // 1. Try Pyth real-time price first
-  if (vault.pythPriceInfo?.amountOutMid && vault.pythPriceInfo.amountOutMid > 0n) {
-    const mid = vault.pythPriceInfo.amountOutMid
-    return { amountOutAsk: mid, amountOutBid: mid, amountOutMid: mid }
-  }
-
-  // 2. Check liabilityPriceInfo from lens
-  if (!vault.liabilityPriceInfo || vault.liabilityPriceInfo.queryFailure) {
-    return undefined // No valid price available — DO NOT fall back to collateralPrices
-  }
-
-  const { amountOutAsk, amountOutBid, amountOutMid } = vault.liabilityPriceInfo
-  if (!amountOutMid || amountOutMid === 0n) {
-    return undefined // No valid price available
-  }
-
-  const ask = amountOutAsk && amountOutAsk > 0n ? amountOutAsk : amountOutMid
-  const bid = amountOutBid && amountOutBid > 0n ? amountOutBid : amountOutMid
-
-  return { amountOutAsk: ask, amountOutBid: bid, amountOutMid }
-}
-
-/**
- * Get collateral SHARE price from the liability vault's perspective.
- * Uses Pyth price if available, otherwise falls back to lens collateralPrices.
- *
- * Use when: you have share amounts (e.g., position.shares)
- *
- * @param liabilityVault - The borrow vault that defines the collateral relationship
- * @param collateralAddress - Address of the collateral vault
- */
-export const getCollateralPriceFromLiability = (
-  liabilityVault: Vault,
-  collateralVault: Vault,
-): VaultCollateralPrice | undefined => {
-  const collateralAddress = collateralVault.address.toLowerCase()
-
-  const priceInfo = liabilityVault.collateralPrices.find(
-    p => p.asset.toLowerCase() === collateralAddress,
-  )
-
-  if (!priceInfo) {
-    return undefined // Collateral not configured for this vault
-  }
-
-  const pythPrice = liabilityVault.collateralPythPrices?.get(collateralAddress)
-  if (pythPrice && pythPrice.amountOutMid > 0n) {
-    // Return Pyth price with lens metadata — works even if lens query failed
-    return {
-      ...priceInfo,
-      queryFailure: false, // Override since we have fresh Pyth price
-      amountOutMid: pythPrice.amountOutMid,
-      amountOutAsk: pythPrice.amountOutMid,
-      amountOutBid: pythPrice.amountOutMid,
-    }
-  }
-
-  if (priceInfo.queryFailure || !priceInfo.amountOutMid) {
-    return undefined
-  }
-
-  return priceInfo
-}
-
-export const getCollateralAssetPriceFromLiability = (
-  liabilityVault: Vault,
-  collateralVault: Vault,
-): VaultCollateralPrice | undefined => {
-  const sharePrice = getCollateralPriceFromLiability(liabilityVault, collateralVault)
-
-  if (!sharePrice) {
-    return undefined
-  }
-
-  const { totalAssets, totalShares } = collateralVault
-
-  if (totalAssets === 0n || totalShares === 0n) {
-    return undefined
-  }
-
-  // assetPrice = sharePrice × (totalShares / totalAssets)
-  return {
-    ...sharePrice,
-    amountOutMid: (sharePrice.amountOutMid * totalShares) / totalAssets,
-    amountOutAsk: (sharePrice.amountOutAsk * totalShares) / totalAssets,
-    amountOutBid: (sharePrice.amountOutBid * totalShares) / totalAssets,
-  }
-}
-
-export const getUnitOfAccountUsdPriceInfo = (
-  vault: Vault,
-): { amountOutMid: bigint } | undefined => {
-  if (!vault.unitOfAccount) return undefined
-  if (vault.unitOfAccount.toLowerCase() === USD_ADDRESS.toLowerCase()) {
-    return { amountOutMid: ONE_18 }
-  }
-  if (!vault.unitOfAccountPriceInfo?.amountOutMid || vault.unitOfAccountPriceInfo.amountOutMid === 0n) {
-    return undefined
-  }
-  return { amountOutMid: vault.unitOfAccountPriceInfo.amountOutMid }
-}
-
-export const getUnitOfAccountUsdPrice = (vault: Vault): number => {
-  const info = getUnitOfAccountUsdPriceInfo(vault)
-  if (!info) return 0
-  return nanoToValue(info.amountOutMid, 18)
-}
-
-export const getVaultOraclePriceInfo = (
-  vault: Vault,
-  liabilityContext?: Vault,
-): PriceResult | undefined => {
-  const priceInfo = liabilityContext
-    ? getCollateralAssetPriceFromLiability(liabilityContext, vault)
-    : getVaultPriceInfo(vault)
-
-  if (!priceInfo) {
-    return undefined
-  }
-
-  const unitPrice = getUnitOfAccountUsdPriceInfo(liabilityContext || vault)
-  if (!unitPrice?.amountOutMid) {
-    return undefined
-  }
-
-  const askBase = priceInfo.amountOutAsk && priceInfo.amountOutAsk > 0n ? priceInfo.amountOutAsk : priceInfo.amountOutMid
-  const bidBase = priceInfo.amountOutBid && priceInfo.amountOutBid > 0n ? priceInfo.amountOutBid : priceInfo.amountOutMid
-  const mid = (priceInfo.amountOutMid * unitPrice.amountOutMid) / ONE_18
-  const ask = (askBase * unitPrice.amountOutMid) / ONE_18
-  const bid = (bidBase * unitPrice.amountOutMid) / ONE_18
-
-  if (!mid || mid === 0n) {
-    return undefined
-  }
-
-  return { amountOutAsk: ask, amountOutBid: bid, amountOutMid: mid }
-}
-
-export const getVaultOraclePrice = (
-  amount: number | bigint,
-  vault: Vault,
-  liabilityContext?: Vault,
-) => {
-  const priceInfo = getVaultOraclePriceInfo(vault, liabilityContext)
-  if (!priceInfo) {
-    return 0
-  }
-  const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.decimals) : amount
-  return actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
-}
-
-export const getVaultUsdPriceInfo = (vault: Vault): PriceResult | undefined => {
-  if (vault.assetPriceInfo?.amountOutMid && vault.assetPriceInfo.amountOutMid > 0n) {
-    const mid = vault.assetPriceInfo.amountOutMid
-    return { amountOutAsk: mid, amountOutBid: mid, amountOutMid: mid }
-  }
-
-  return getVaultOraclePriceInfo(vault)
-}
-
-export const getVaultValueUsd = (
-  amount: bigint,
-  vault: Vault,
-  liabilityContext?: Vault,
-): number => {
-  const priceInfo = liabilityContext
-    ? getVaultOraclePriceInfo(vault, liabilityContext)
-    : getVaultUsdPriceInfo(vault)
-
-  if (!priceInfo) {
-    return 0
-  }
-
-  const actualAmount = nanoToValue(amount, vault.decimals)
-  return actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
-}
-
-export const getVaultPrice = (amount: number | bigint, vault: Vault) => {
-  const priceInfo = getVaultUsdPriceInfo(vault)
-  if (!priceInfo) {
-    return 0
-  }
-  const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.decimals) : amount
-  return actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
-}
-
-export const getEarnVaultPrice = (amount: number | bigint, vault: EarnVault) => {
-  if (!vault.assetPriceInfo?.amountOutMid) {
-    return 0
-  }
-  const actualAmount
-    = typeof amount === 'bigint' ? nanoToValue(amount, vault.asset.decimals) : amount
-  return actualAmount * nanoToValue(vault.assetPriceInfo.amountOutMid, 18)
-}
-
-export const getVaultPriceDisplay = (
-  amount: number | bigint,
-  vault: Vault,
-  options: { compact?: boolean, maxDecimals?: number, minDecimals?: number } = {},
-): { display: string, hasPrice: boolean, usdValue: number, assetAmount: number, assetSymbol: string } => {
-  const { maxDecimals = 2, minDecimals = 2 } = options
-  const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.decimals) : amount
-  const priceInfo = getVaultUsdPriceInfo(vault)
-
-  if (!priceInfo) {
-    const formattedAmount = actualAmount.toLocaleString('en-US', {
-      maximumFractionDigits: maxDecimals,
-      minimumFractionDigits: minDecimals,
-    })
-    return {
-      display: `${formattedAmount} ${vault.asset.symbol}`,
-      hasPrice: false,
-      usdValue: 0,
-      assetAmount: actualAmount,
-      assetSymbol: vault.asset.symbol,
-    }
-  }
-
-  const usdValue = actualAmount * nanoToValue(priceInfo.amountOutMid, 18)
-  return {
-    display: '', // Empty - components will format USD themselves
-    hasPrice: true,
-    usdValue,
-    assetAmount: actualAmount,
-    assetSymbol: vault.asset.symbol,
-  }
-}
-
-export const getEarnVaultPriceDisplay = (
-  amount: number | bigint,
-  vault: EarnVault,
-  options: { compact?: boolean, maxDecimals?: number, minDecimals?: number } = {},
-): { display: string, hasPrice: boolean, usdValue: number, assetAmount: number, assetSymbol: string } => {
-  const { maxDecimals = 2, minDecimals = 2 } = options
-  const actualAmount = typeof amount === 'bigint' ? nanoToValue(amount, vault.asset.decimals) : amount
-
-  if (!vault.assetPriceInfo?.amountOutMid) {
-    const formattedAmount = actualAmount.toLocaleString('en-US', {
-      maximumFractionDigits: maxDecimals,
-      minimumFractionDigits: minDecimals,
-    })
-    return {
-      display: `${formattedAmount} ${vault.asset.symbol}`,
-      hasPrice: false,
-      usdValue: 0,
-      assetAmount: actualAmount,
-      assetSymbol: vault.asset.symbol,
-    }
-  }
-
-  const usdValue = actualAmount * nanoToValue(vault.assetPriceInfo.amountOutMid, 18)
-  return {
-    display: '', // Empty - components will format USD themselves
-    hasPrice: true,
-    usdValue,
-    assetAmount: actualAmount,
-    assetSymbol: vault.asset.symbol,
-  }
-}
 export const computeAPYs = (borrowSPY: bigint, cash: bigint, borrows: bigint, interestFee: bigint) => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerLensAddresses } = useEulerAddresses()

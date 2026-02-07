@@ -6,7 +6,9 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, getVaultPrice, getVaultPriceInfo, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
+import { collectPythFeedIds } from '~/entities/oracle'
+import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralUsdPrice, ONE_18 } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -159,21 +161,29 @@ const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.val
 const priceFixed = computed(() => {
   // Use liability vault's view of collateral price
   const collateralPrice = borrowVault.value && collateralVault.value
-    ? getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
+    ? getCollateralOraclePrice(borrowVault.value, collateralVault.value)
     : undefined
-  const borrowPrice = borrowVault.value ? getVaultPriceInfo(borrowVault.value) : undefined
+  const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 1n
   return FixedNumber.fromValue(ask, 18).div(FixedNumber.fromValue(bid, 18))
 })
 
 // USD price per unit of collateral from liability vault's perspective (for AssetInput display)
-const collateralUnitPrice = computed(() => {
-  if (!borrowVault.value || !collateralVault.value) return undefined
-  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
-  if (!priceInfo) return undefined
-  // amountOutMid is the price in unit of account (18 decimals) for 1 unit of collateral
-  return nanoToValue(priceInfo.amountOutMid, 18)
+const collateralUnitPrice = ref<number | undefined>(undefined)
+
+watchEffect(async () => {
+  if (!borrowVault.value || !collateralVault.value) {
+    collateralUnitPrice.value = undefined
+    return
+  }
+  const priceInfo = await getCollateralUsdPrice(borrowVault.value, collateralVault.value as Vault, 'off-chain')
+  if (!priceInfo) {
+    collateralUnitPrice.value = undefined
+    return
+  }
+  // amountOutMid is the price in USD (18 decimals) for 1 unit of collateral
+  collateralUnitPrice.value = nanoToValue(priceInfo.amountOutMid, 18)
 })
 const collateralAmountFixed = computed(() => FixedNumber.fromValue(
   valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals),
@@ -379,12 +389,31 @@ const multiplySavingPosition = computed(() => {
 const multiplySavingBalance = computed(() => {
   return multiplySavingPosition.value?.shares || 0n
 })
+// Reactive collateral option prices
+const walletCollateralPriceUsd = ref(0)
+const savingCollateralPriceUsd = ref(0)
+
+watchEffect(async () => {
+  if (!collateralVault.value) {
+    walletCollateralPriceUsd.value = 0
+    savingCollateralPriceUsd.value = 0
+    return
+  }
+  walletCollateralPriceUsd.value = await getAssetUsdValueOrZero(balance.value, collateralVault.value, 'off-chain')
+  if (savingCollateral.value) {
+    savingCollateralPriceUsd.value = await getAssetUsdValueOrZero(savingCollateral.value.assets, collateralVault.value, 'off-chain')
+  }
+  else {
+    savingCollateralPriceUsd.value = 0
+  }
+})
+
 const collateralOptions = computed(() => {
   const options = [
     {
       type: 'wallet',
       amount: nanoToValue(balance.value, collateralVault.value?.asset.decimals),
-      price: getVaultPrice(nanoToValue(balance.value, collateralVault.value?.asset.decimals) || 0, collateralVault.value!),
+      price: walletCollateralPriceUsd.value,
       apy: collateralSupplyApyWithRewards.value,
     },
   ]
@@ -393,7 +422,7 @@ const collateralOptions = computed(() => {
     options.push({
       type: 'saving',
       amount: nanoToValue(savingCollateral.value.assets, collateralVault.value?.asset.decimals),
-      price: getVaultPrice(nanoToValue(savingCollateral.value.assets, collateralVault.value?.asset.decimals) || 0, collateralVault.value!),
+      price: savingCollateralPriceUsd.value,
       apy: collateralSupplyApyWithRewards.value,
     })
   }
@@ -452,10 +481,11 @@ const multiplyDebtAmountNano = computed(() => {
     return 0n
   }
   // Use helper that applies Pyth-enhanced collateral pricing from the liability vault's perspective
-  const collateralPriceInfo = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplySupplyVault.value)
+  // PriceResult is normalized: price per 1e18 units (no amountIn field)
+  const collateralPriceInfo = getCollateralOraclePrice(multiplyShortVault.value, multiplySupplyVault.value)
   const liabilityPrice = multiplyShortVault.value.liabilityPriceInfo
 
-  if (!collateralPriceInfo || collateralPriceInfo.amountOutMid <= 0n || !collateralPriceInfo.amountIn || collateralPriceInfo.amountIn <= 0n) {
+  if (!collateralPriceInfo || collateralPriceInfo.amountOutMid <= 0n) {
     return 0n
   }
   if (!liabilityPrice || liabilityPrice.queryFailure || !liabilityPrice.amountOutBid || liabilityPrice.amountOutBid <= 0n || !liabilityPrice.amountIn || liabilityPrice.amountIn <= 0n) {
@@ -467,8 +497,8 @@ const multiplyDebtAmountNano = computed(() => {
     ? (suppliedCollateral * totalShares) / totalAssets
     : suppliedCollateral
   const collateralOutBid = collateralPriceInfo.amountOutBid || collateralPriceInfo.amountOutMid
-  const collateralIn = collateralPriceInfo.amountIn
-  const suppliedCollateralValue = (collateralAsShares * collateralOutBid) / collateralIn
+  // PriceResult is normalized to 1e18, so divide by ONE_18 instead of amountIn
+  const suppliedCollateralValue = (collateralAsShares * collateralOutBid) / ONE_18
   if (!suppliedCollateralValue) {
     return 0n
   }
@@ -550,32 +580,32 @@ const multiplySwapReady = computed(() => {
   }
   return Boolean(multiplyEffectiveQuote.value || (multiplyIsSameAsset.value && multiplyDebtAmountNano.value > 0n))
 })
-const multiplySupplyValueUsd = computed(() => {
-  if (!multiplySupplyVault.value) {
-    return null
+// Reactive multiply USD values
+const multiplySupplyValueUsd = ref<number | null>(null)
+const multiplyLongValueUsd = ref<number | null>(null)
+const multiplyBorrowValueUsd = ref<number | null>(null)
+
+watchEffect(async () => {
+  if (!multiplySupplyVault.value || !multiplySupplyAmountNano.value) {
+    multiplySupplyValueUsd.value = null
   }
-  if (!multiplySupplyAmountNano.value) {
-    return null
+  else {
+    multiplySupplyValueUsd.value = await getAssetUsdValueOrZero(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')
   }
-  return getVaultPrice(multiplySupplyAmountNano.value, multiplySupplyVault.value)
-})
-const multiplyLongValueUsd = computed(() => {
-  if (!multiplyLongVault.value) {
-    return null
+
+  if (!multiplyLongVault.value || !multiplySwapAmountOut.value) {
+    multiplyLongValueUsd.value = null
   }
-  if (!multiplySwapAmountOut.value) {
-    return null
+  else {
+    multiplyLongValueUsd.value = await getAssetUsdValueOrZero(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
   }
-  return getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
-})
-const multiplyBorrowValueUsd = computed(() => {
-  if (!multiplyShortVault.value) {
-    return null
+
+  if (!multiplyShortVault.value || !multiplyDebtAmountNano.value) {
+    multiplyBorrowValueUsd.value = null
   }
-  if (!multiplyDebtAmountNano.value) {
-    return null
+  else {
+    multiplyBorrowValueUsd.value = await getAssetUsdValueOrZero(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')
   }
-  return getVaultPrice(multiplyDebtAmountNano.value, multiplyShortVault.value)
 })
 const multiplyTotalSupplyUsd = computed(() => {
   if (multiplySupplyValueUsd.value === null) {
@@ -688,8 +718,8 @@ const multiplyPriceRatio = computed(() => {
     return null
   }
   // Use liability vault's (multiplyShortVault) view of collateral price
-  const collateralPrice = getCollateralAssetPriceFromLiability(multiplyShortVault.value, multiplyLongVault.value)
-  const borrowPrice = getVaultPriceInfo(multiplyShortVault.value)
+  const collateralPrice = getCollateralOraclePrice(multiplyShortVault.value, multiplyLongVault.value)
+  const borrowPrice = getAssetOraclePrice(multiplyShortVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -755,23 +785,30 @@ const multiplySwapSummary = computed(() => {
     to: `${formatNumber(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
   }
 })
-const multiplyPriceImpact = computed(() => {
+// Reactive multiply price impact
+const multiplyPriceImpact = ref<number | null>(null)
+
+watchEffect(async () => {
   if (isMultiplyQuoteLoading.value) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
-  const amountInUsd = getVaultPrice(multiplySwapAmountIn.value, multiplyShortVault.value)
-  const amountOutUsd = getVaultPrice(multiplySwapAmountOut.value, multiplyLongVault.value)
+  const amountInUsd = await getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value, 'off-chain')
+  const amountOutUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    multiplyPriceImpact.value = null
+    return
   }
-  return impact
+  multiplyPriceImpact.value = impact
 })
 const multiplyRoutedVia = computed(() => {
   if (isMultiplyQuoteLoading.value) {
@@ -1267,10 +1304,12 @@ const updateEstimates = useDebounceFn(async () => {
       ? Infinity
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
+    const collateralUsdValue = await getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')
+    const borrowUsdValue = await getAssetUsdValueOrZero(+borrowAmount.value || 0, borrowVault.value!, 'off-chain')
     netAPY.value = getNetAPY(
-      getVaultPrice(+collateralAmount.value || 0, collateralVault.value!),
+      collateralUsdValue,
       collateralSupplyApy.value,
-      getVaultPrice(+borrowAmount.value || 0, borrowVault.value!),
+      borrowUsdValue,
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,
@@ -1287,10 +1326,109 @@ const updateEstimates = useDebounceFn(async () => {
   }
 }, 1000)
 
+// Check if vault uses Pyth oracles (requires fresh prices)
+const hasPythOracles = (vault: Vault | undefined): boolean => {
+  if (!vault) return false
+  const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+  return feeds.length > 0
+}
+
+// Check if borrow vault has a price failure (liabilityPriceInfo missing or query failed)
+// Note: 0n is a valid price (very small value), so we don't treat it as failure
+const hasBorrowPriceFailure = (vault: Vault | undefined): boolean => {
+  if (!vault) return false
+  return (
+    vault.liabilityPriceInfo?.queryFailure ||
+    vault.liabilityPriceInfo?.amountOutMid === undefined ||
+    vault.liabilityPriceInfo?.amountOutMid === null
+  )
+}
+
+// Check if borrow vault has a collateral price failure for the given collateral
+// Note: 0n is a valid price (very small value), so we don't treat it as failure
+const hasCollateralPriceFailure = (borrowVault: Vault | undefined, collateralAddress: string | undefined): boolean => {
+  if (!borrowVault || !collateralAddress) return false
+  const collateralPrice = borrowVault.collateralPrices.find(
+    p => p.asset.toLowerCase() === collateralAddress.toLowerCase(),
+  )
+  if (!collateralPrice) return true // No price entry = failure
+  return (
+    collateralPrice.queryFailure ||
+    collateralPrice.amountOutMid === undefined ||
+    collateralPrice.amountOutMid === null
+  )
+}
+
+// Check if vault needs refresh (Pyth detected OR price failure)
+const needsRefresh = (vault: Vault | undefined): boolean => {
+  return hasPythOracles(vault) || hasBorrowPriceFailure(vault)
+}
+
+// Check if borrow vault needs refresh due to collateral price failure
+const needsRefreshForCollateral = (borrowVault: Vault | undefined, collateralAddress: string | undefined): boolean => {
+  return hasPythOracles(borrowVault) || hasCollateralPriceFailure(borrowVault, collateralAddress)
+}
+
+// Track vaults that have been refreshed to avoid infinite retry loops
+const refreshedVaultAddresses = new Set<string>()
+
+// Clear refresh tracking when navigating to a different borrow pair
+watch(pair, (newVal, oldVal) => {
+  if (oldVal && newVal) {
+    const newBorrow = newVal.borrow.address.toLowerCase()
+    const oldBorrow = oldVal.borrow.address.toLowerCase()
+    if (newBorrow !== oldBorrow) {
+      refreshedVaultAddresses.clear()
+    }
+  }
+}, { immediate: false })
+
+// Clear on unmount to prevent memory leaks
+onUnmounted(() => {
+  refreshedVaultAddresses.clear()
+})
+
 watch(pair, async (val) => {
   if (!val) {
     return
   }
+
+  // Refresh borrow vault if it uses Pyth oracles, has a price failure, or has collateral price failure
+  // Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
+  // Collateral prices come from borrow.collateralPrices[], so refresh borrow vault if those fail
+  const borrowAddr = val.borrow.address.toLowerCase()
+  const collateralAddr = val.collateral.address
+
+  const borrowNeedsRefresh = needsRefresh(val.borrow) || needsRefreshForCollateral(val.borrow, collateralAddr)
+
+  if (borrowNeedsRefresh && !refreshedVaultAddresses.has(borrowAddr)) {
+    refreshedVaultAddresses.add(borrowAddr)
+    const refreshedBorrow = await updateVault(val.borrow.address)
+    pair.value = {
+      ...val,
+      borrow: refreshedBorrow,
+    } as AnyBorrowVaultPair
+    val = pair.value
+  }
+
+  // Also refresh collateral vault if it uses Pyth oracles or has a price failure (only for regular Vaults, not SecuritizeVault)
+  // Note: Collateral prices in borrow context come from borrow.collateralPrices[], but collateral vault
+  // may have its own Pyth oracles for its own liabilityPriceInfo (e.g., when viewed directly on lend page)
+  if ('liabilityPriceInfo' in val.collateral) {
+    const collateralVaultTyped = val.collateral as Vault
+    const collateralAddr = collateralVaultTyped.address.toLowerCase()
+
+    if (needsRefresh(collateralVaultTyped) && !refreshedVaultAddresses.has(collateralAddr)) {
+      refreshedVaultAddresses.add(collateralAddr)
+      const refreshedCollateral = await updateVault(collateralVaultTyped.address)
+      pair.value = {
+        ...pair.value,
+        collateral: refreshedCollateral,
+      } as AnyBorrowVaultPair
+      val = pair.value
+    }
+  }
+
   const supplyAddress = normalizeAddress(multiplySupplyVault.value?.address)
   const isSupplyAllowed = supplyAddress
     ? val.borrow.collateralLTVs.some(ltv => normalizeAddress(ltv.collateral) === supplyAddress)
@@ -1424,7 +1562,7 @@ watch(formTab, () => {
               label="LTV"
               :step="0.1"
               :max="Number(pair.borrowLTV / 100n)"
-              :number-filter="(n: number) => `${n}%`"
+              :number-filter="(n: number) => `${formatNumber(n, 2, 0)}%`"
               @update:model-value="onLtvInput"
             />
 
@@ -1521,7 +1659,7 @@ watch(formTab, () => {
                   :step="0.1"
                   :min="multiplyMinMultiplier"
                   :max="multiplyMaxMultiplier"
-                  :number-filter="(n: number) => `${n}x`"
+                  :number-filter="(n: number) => `${formatNumber(n, 2, 0)}x`"
                   @update:model-value="onMultiplierInput"
                 />
 

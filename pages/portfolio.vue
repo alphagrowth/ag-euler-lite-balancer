@@ -22,7 +22,7 @@ const {
 const { rewards } = useMerkl()
 const { locks } = useREULLocks()
 const { isConnected, address } = useAccount()
-const { isLoaded: isBalancesLoaded, balances, updateBalances } = useWallets()
+const { isLoaded: isBalancesLoaded, updateBalances } = useWallets()
 const { eulerLensAddresses } = useEulerAddresses()
 
 const interval: Ref<NodeJS.Timeout | null> = ref(null)
@@ -53,10 +53,11 @@ const checkTab = () => {
   }
 }
 
-const updatePositions = () => {
+const updatePositions = async () => {
+  // Borrow positions must be loaded first so deposits can filter collateral usage
+  await updateBorrowPositions(eulerLensAddresses.value, address.value as string)
   updateDepositPositions(eulerLensAddresses.value, address.value as string)
-  updateEarnPositions(balances.value, eulerLensAddresses.value, address.value as string)
-  updateBorrowPositions(eulerLensAddresses.value, address.value as string)
+  updateEarnPositions(eulerLensAddresses.value, address.value as string)
 }
 
 watch(tabsModel, checkTab, { immediate: true })
@@ -98,7 +99,7 @@ onDeactivated(() => {
               const netValue = totalSuppliedValueInfo.total - totalBorrowedValueInfo.total
               const hasMissing = totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices
               if (netValue === 0 && hasMissing) return '—'
-              return `$${compactNumber(netValue)}`
+              return formatCompactUsdValue(netValue)
             })() }}
             <UiFootnote
               v-if="(totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices) && (totalSuppliedValueInfo.total - totalBorrowedValueInfo.total) !== 0"
@@ -118,7 +119,7 @@ onDeactivated(() => {
             {{ (() => {
               const { total, hasMissingPrices } = totalSuppliedValueInfo
               if (total === 0 && hasMissingPrices) return '—'
-              return `$${compactNumber(total)}`
+              return formatCompactUsdValue(total)
             })() }}
             <UiFootnote
               v-if="totalSuppliedValueInfo.hasMissingPrices && totalSuppliedValueInfo.total !== 0"
@@ -138,7 +139,7 @@ onDeactivated(() => {
             {{ (() => {
               const { total, hasMissingPrices } = totalBorrowedValueInfo
               if (total === 0 && hasMissingPrices) return '—'
-              return `$${compactNumber(total)}`
+              return formatCompactUsdValue(total)
             })() }}
             <UiFootnote
               v-if="totalBorrowedValueInfo.hasMissingPrices && totalBorrowedValueInfo.total !== 0"

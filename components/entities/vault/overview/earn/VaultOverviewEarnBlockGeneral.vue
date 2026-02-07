@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
 import type { EarnVault } from '~/entities/vault'
-import { getVaultPriceDisplay } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 
@@ -18,9 +18,11 @@ const isDeprecated = computed(() => {
 })
 const deprecationReason = computed(() => isDeprecated.value ? product.deprecationReason : '')
 
-const priceDisplay = computed(() => {
-  const price = getVaultPriceDisplay(1, vault)
-  return price.hasPrice ? `$${formatNumber(price.usdValue)}` : price.display
+const priceDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(1, vault, 'off-chain')
+  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : price.display
 })
 
 const feeDisplay = computed(() => {

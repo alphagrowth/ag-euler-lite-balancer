@@ -9,11 +9,13 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   getNetAPY,
-  getVaultPrice,
-  getCollateralAssetPriceFromLiability,
   type Vault,
   type SecuritizeVault,
 } from '~/entities/vault'
+import {
+  getAssetUsdValueOrZero,
+  getCollateralUsdValueOrZero,
+} from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
@@ -68,18 +70,29 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
 ))
-// Get collateral USD value using liability vault's price perspective
-const getCollateralValueUsd = (amount: bigint) => {
+// Get collateral USD value using liability vault's price perspective (async)
+const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !collateralVault.value) return 0
-  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, collateralVault.value)
-  if (!priceInfo?.amountOutMid) return 0
-  return nanoToValue(amount, collateralVault.value.decimals) * nanoToValue(priceInfo.amountOutMid, 18)
+  return getCollateralUsdValueOrZero(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
 }
-const netAPY = computed(() => {
-  return getNetAPY(
-    getCollateralValueUsd(collateralAssets.value),
+// Pre-computed net APY (async)
+const netAPY = ref(0)
+
+watchEffect(async () => {
+  if (!position.value || !borrowVault.value || !collateralVault.value) {
+    netAPY.value = 0
+    return
+  }
+
+  const [collateralUsd, borrowedUsd] = await Promise.all([
+    getCollateralValueUsdLocal(collateralAssets.value),
+    getAssetUsdValueOrZero(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
+  ])
+
+  netAPY.value = getNetAPY(
+    collateralUsd,
     collateralSupplyApy.value,
-    getVaultPrice(position.value?.borrowed || 0n || 0, borrowVault.value!),
+    borrowedUsd,
     borrowApy.value,
     opportunityInfoForCollateral.value?.apr || null,
     opportunityInfoForBorrow.value?.apr || null,
@@ -159,8 +172,8 @@ const loadSelectedCollateral = async () => {
 
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
-    const res = await accountLensContract.getAccountInfo(position.value.subAccount, targetAddress)
-    selectedCollateralAssets.value = res.vaultAccountInfo.assets
+    const res = await accountLensContract.getVaultAccountInfo(position.value.subAccount, targetAddress)
+    selectedCollateralAssets.value = res.assets
   }
   catch (e) {
     console.warn('[Supply] failed to load collateral', e)
@@ -283,10 +296,14 @@ const updateEstimates = useDebounceFn(async () => {
     if (balanceFixed.value.lt(amountFixed.value)) {
       throw new Error('Not enough balance')
     }
+    const [collateralUsd, borrowedUsd] = await Promise.all([
+      getCollateralValueUsdLocal(collateralAssets.value + valueToNano(amount.value, collateralVault.value.decimals)),
+      getAssetUsdValueOrZero(position.value!.borrowed || 0n, borrowVault.value!, 'off-chain'),
+    ])
     estimateNetAPY.value = getNetAPY(
-      getCollateralValueUsd(collateralAssets.value + valueToNano(amount.value, collateralVault.value.decimals)),
+      collateralUsd,
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
-      getVaultPrice(position.value!.borrowed || 0n, borrowVault.value!),
+      borrowedUsd,
       borrowApy.value,
       opportunityInfoForCollateral.value?.apr || null,
       opportunityInfoForBorrow.value?.apr || null,

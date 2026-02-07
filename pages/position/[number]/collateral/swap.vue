@@ -9,10 +9,14 @@ import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   type Vault,
   type SecuritizeVault,
-  getVaultPrice,
-  getVaultPriceInfo,
-  getCollateralAssetPriceFromLiability,
 } from '~/entities/vault'
+import {
+  getAssetUsdValue,
+  getAssetOraclePrice,
+  getCollateralOraclePrice,
+  getCollateralUsdPrice,
+  getCollateralUsdValueOrZero,
+} from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -168,8 +172,8 @@ const loadSelectedCollateral = async () => {
 
     const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
     const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
-    const res = await accountLensContract.getAccountInfo(position.value.subAccount, targetAddress)
-    selectedCollateralAssets.value = res.vaultAccountInfo.assets
+    const res = await accountLensContract.getVaultAccountInfo(position.value.subAccount, targetAddress)
+    selectedCollateralAssets.value = res.assets
   }
   catch (e) {
     console.warn('[Collateral swap] failed to load collateral', e)
@@ -272,36 +276,47 @@ const borrowApy = computed(() => {
 })
 
 // Get collateral USD value using liability vault's price perspective
-const getCollateralValueUsd = (amount: bigint) => {
+const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !fromVault.value) return 0
-  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, fromVault.value)
-  if (!priceInfo?.amountOutMid) return 0
-  return nanoToValue(amount, fromVault.value.decimals) * nanoToValue(priceInfo.amountOutMid, 18)
+  return getCollateralUsdValueOrZero(amount, borrowVault.value, fromVault.value as Vault, 'off-chain')
 }
-// Price per unit for collateral (from liability vault's perspective)
-const collateralPricePerUnit = computed(() => {
-  if (!borrowVault.value || !fromVault.value) return undefined
-  const priceInfo = getCollateralAssetPriceFromLiability(borrowVault.value, fromVault.value)
-  if (!priceInfo?.amountOutMid) return undefined
-  return nanoToValue(priceInfo.amountOutMid, 18)
+// Price per unit for collateral in USD (from liability vault's perspective)
+const collateralPricePerUnit = ref<number | undefined>(undefined)
+watchEffect(async () => {
+  if (!borrowVault.value || !fromVault.value) {
+    collateralPricePerUnit.value = undefined
+    return
+  }
+  const priceInfo = await getCollateralUsdPrice(borrowVault.value, fromVault.value as Vault, 'off-chain')
+  if (!priceInfo?.amountOutMid) {
+    collateralPricePerUnit.value = undefined
+    return
+  }
+  collateralPricePerUnit.value = nanoToValue(priceInfo.amountOutMid, 18)
 })
-const supplyValueUsd = computed(() => {
+const supplyValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!fromVault.value || !position.value || !borrowVault.value) {
-    return null
+    supplyValueUsd.value = null
+    return
   }
-  return getCollateralValueUsd(selectedCollateralAssets.value)
+  supplyValueUsd.value = await getCollateralValueUsdLocal(selectedCollateralAssets.value)
 })
-const nextSupplyValueUsd = computed(() => {
+const nextSupplyValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!quote.value || !toVault.value) {
-    return null
+    nextSupplyValueUsd.value = null
+    return
   }
-  return getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
+  nextSupplyValueUsd.value = (await getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value, 'off-chain')) ?? null
 })
-const borrowValueUsd = computed(() => {
+const borrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!borrowVault.value || !position.value) {
-    return null
+    borrowValueUsd.value = null
+    return
   }
-  return getVaultPrice(position.value.borrowed, borrowVault.value)
+  borrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
 })
 
 const calculateRoe = (
@@ -335,8 +350,8 @@ const priceRatio = computed(() => {
   if (!toVault.value || !borrowVault.value) {
     return null
   }
-  const collateralPrice = getCollateralAssetPriceFromLiability(borrowVault.value, toVault.value)
-  const borrowPrice = getVaultPriceInfo(borrowVault.value)
+  const collateralPrice = getCollateralOraclePrice(borrowVault.value, toVault.value)
+  const borrowPrice = getAssetOraclePrice(borrowVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -446,20 +461,24 @@ const swapSummary = computed(() => {
   }
 })
 
-const priceImpact = computed(() => {
+const priceImpact = ref<number | null>(null)
+watchEffect(async () => {
   if (!quote.value || !fromVault.value || !toVault.value || !borrowVault.value) {
-    return null
+    priceImpact.value = null
+    return
   }
-  const amountInUsd = getCollateralValueUsd(BigInt(quote.value.amountIn))
-  const amountOutUsd = getVaultPrice(BigInt(quote.value.amountOut), toVault.value)
+  const amountInUsd = await getCollateralValueUsdLocal(BigInt(quote.value.amountIn))
+  const amountOutUsd = await getAssetUsdValue(BigInt(quote.value.amountOut), toVault.value, 'off-chain')
   if (!amountInUsd || !amountOutUsd) {
-    return null
+    priceImpact.value = null
+    return
   }
   const impact = (amountOutUsd / amountInUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    priceImpact.value = null
+    return
   }
-  return impact
+  priceImpact.value = impact
 })
 
 const routedVia = computed(() => {
@@ -660,6 +679,7 @@ const submit = async () => {
         targetDebt: 0n,
         currentDebt: 0n,
         enableCollateral: true,
+        liabilityVault: borrowVault.value?.address,
       })
     }
     catch (e) {
@@ -704,6 +724,7 @@ const send = async () => {
       targetDebt: 0n,
       currentDebt: 0n,
       enableCollateral: true,
+      liabilityVault: borrowVault.value?.address,
     })
     modal.close()
     setTimeout(() => {

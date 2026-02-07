@@ -5,7 +5,8 @@ import { type Address, zeroAddress } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault, getVaultPrice, getVaultPriceInfo, getCollateralAssetPriceFromLiability } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
+import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useSwapDebtOptions } from '~/composables/useSwapDebtOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -195,23 +196,29 @@ const toBorrowApy = computed(() => {
   return withIntrinsicBorrowApy(base, toVault.value.asset.symbol) - (toOpportunity.value?.apr || 0)
 })
 
-const supplyValueUsd = computed(() => {
+const supplyValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!collateralVault.value || !position.value) {
-    return null
+    supplyValueUsd.value = null
+    return
   }
-  return getVaultPrice(position.value.supplied, collateralVault.value)
+  supplyValueUsd.value = (await getAssetUsdValue(position.value.supplied, collateralVault.value, 'off-chain')) ?? null
 })
-const currentBorrowValueUsd = computed(() => {
+const currentBorrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!fromVault.value || !position.value) {
-    return null
+    currentBorrowValueUsd.value = null
+    return
   }
-  return getVaultPrice(position.value.borrowed, fromVault.value)
+  currentBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, fromVault.value, 'off-chain')) ?? null
 })
-const nextBorrowValueUsd = computed(() => {
+const nextBorrowValueUsd = ref<number | null>(null)
+watchEffect(async () => {
   if (!quote.value || !toVault.value) {
-    return null
+    nextBorrowValueUsd.value = null
+    return
   }
-  return getVaultPrice(BigInt(quote.value.amountIn), toVault.value)
+  nextBorrowValueUsd.value = (await getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value, 'off-chain')) ?? null
 })
 
 const calculateRoe = (
@@ -245,8 +252,8 @@ const priceRatio = computed(() => {
   if (!collateralVault.value || !toVault.value) {
     return null
   }
-  const collateralPrice = getCollateralAssetPriceFromLiability(toVault.value, collateralVault.value)
-  const borrowPrice = getVaultPriceInfo(toVault.value)
+  const collateralPrice = getCollateralOraclePrice(toVault.value, collateralVault.value)
+  const borrowPrice = getAssetOraclePrice(toVault.value)
   const ask = collateralPrice?.amountOutAsk || 0n
   const bid = borrowPrice?.amountOutBid || 0n
   if (!ask || !bid) {
@@ -357,20 +364,24 @@ const swapSummary = computed(() => {
   }
 })
 
-const priceImpact = computed(() => {
+const priceImpact = ref<number | null>(null)
+watchEffect(async () => {
   if (!quote.value || !fromVault.value || !toVault.value) {
-    return null
+    priceImpact.value = null
+    return
   }
-  const amountOutUsd = getVaultPrice(BigInt(quote.value.amountOut), fromVault.value)
-  const amountInUsd = getVaultPrice(BigInt(quote.value.amountIn), toVault.value)
+  const amountOutUsd = await getAssetUsdValue(BigInt(quote.value.amountOut), fromVault.value, 'off-chain')
+  const amountInUsd = await getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value, 'off-chain')
   if (!amountOutUsd || !amountInUsd) {
-    return null
+    priceImpact.value = null
+    return
   }
   const impact = (amountInUsd / amountOutUsd - 1) * 100
   if (!Number.isFinite(impact)) {
-    return null
+    priceImpact.value = null
+    return
   }
-  return impact
+  priceImpact.value = impact
 })
 
 const routedVia = computed(() => {
@@ -601,6 +612,7 @@ const submit = async () => {
         isRepay: true,
         targetDebt: 0n,
         currentDebt: 0n,
+        liabilityVault: fromVault.value?.address,
       })
     }
     catch (e) {
@@ -644,6 +656,7 @@ const send = async () => {
       isRepay: true,
       targetDebt: 0n,
       currentDebt: 0n,
+      liabilityVault: fromVault.value?.address,
     })
     modal.close()
     setTimeout(() => {

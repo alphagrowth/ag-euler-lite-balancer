@@ -2,9 +2,10 @@
 import { useVaults } from '~/composables/useVaults'
 import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getVaultPrice, getVaultUtilization } from '~/entities/vault'
+import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
-import { getProductByVault } from '~/composables/useEulerLabels'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
+import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
 
 const getMaxRoe = (pair: BorrowVaultPair) => {
   const borrowLTV = nanoToValue(pair.borrowLTV, 2)
@@ -25,10 +26,45 @@ const { chainId } = useEulerAddresses()
 const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value)
 const { products, entities } = useEulerLabels()
 
+const activeBorrowList = computed(() =>
+  borrowList.value.filter(pair =>
+    !isVaultDeprecated(pair.borrow.address) && !isVaultDeprecated(pair.collateral.address),
+  ),
+)
+
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Liquidity')
+
+// Cache for USD values used in sorting (keyed by pair identifier: collateral+borrow address)
+const pairLiquidityUsd = ref<Map<string, number>>(new Map())
+const pairBorrowedUsd = ref<Map<string, number>>(new Map())
+
+// Helper to create a unique key for a borrow pair
+const getPairKey = (pair: AnyBorrowVaultPair) => `${pair.collateral.address}-${pair.borrow.address}`
+
+// Fetch USD values for all borrow pairs
+watchEffect(async () => {
+  const pairs = borrowList.value
+  if (!pairs.length) return
+
+  const liquidityValues = new Map<string, number>()
+  const borrowedValues = new Map<string, number>()
+  await Promise.all(
+    pairs.map(async (pair) => {
+      const key = getPairKey(pair)
+      const [liquidity, borrowed] = await Promise.all([
+        getAssetUsdValueOrZero(pair.borrow.supply - pair.borrow.borrow, pair.borrow, 'off-chain'),
+        getAssetUsdValueOrZero(pair.borrow.borrow, pair.borrow, 'off-chain'),
+      ])
+      liquidityValues.set(key, liquidity)
+      borrowedValues.set(key, borrowed)
+    }),
+  )
+  pairLiquidityUsd.value = liquidityValues
+  pairBorrowedUsd.value = borrowedValues
+})
 
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
@@ -39,7 +75,7 @@ watch(chainId, (newChainId, oldChainId) => {
 })
 
 const collateralAssetOptions = computed(() => {
-  return borrowList.value
+  return activeBorrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.collateral.asset.address === item.collateral.asset.address))
     .map(pair => ({
       label: pair.collateral.asset.symbol,
@@ -52,7 +88,7 @@ const collateralAssetOptions = computed(() => {
 })
 
 const debtAssetOptions = computed(() => {
-  return borrowList.value
+  return activeBorrowList.value
     .filter((item, idx, self) => idx === self.findIndex(t => t.borrow.asset.address === item.borrow.asset.address))
     .map(pair => ({
       label: pair.borrow.asset.symbol,
@@ -65,7 +101,7 @@ const debtAssetOptions = computed(() => {
 })
 
 const marketOptions = computed(() => {
-  return borrowList.value.reduce((result, pair) => {
+  return activeBorrowList.value.reduce((result, pair) => {
     const market = Object.values(products).find(product => product.vaults.includes(pair.collateral.address))
     const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
     const entityObj = entityName ? entities[entityName] : null
@@ -79,7 +115,7 @@ const marketOptions = computed(() => {
 })
 
 const filteredBorrowList = computed(() => {
-  return borrowList.value
+  return activeBorrowList.value
     .filter(pair =>
       selectedCollateral.value.length || selectedDebt.value.length
         ? ((!selectedCollateral.value.length || selectedCollateral.value.includes(pair.collateral.asset.address))
@@ -93,7 +129,9 @@ const sortedBorrowList = computed(() => {
   switch (sortBy.value) {
     case 'Liquidity':
       return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
-        return getVaultPrice(b.borrow.supply - b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.supply - a.borrow.borrow, a.borrow)
+        const aValue = pairLiquidityUsd.value.get(getPairKey(a)) ?? 0
+        const bValue = pairLiquidityUsd.value.get(getPairKey(b)) ?? 0
+        return bValue - aValue
       })
     case 'Borrow APY':
       return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
@@ -105,7 +143,9 @@ const sortedBorrowList = computed(() => {
       })
     case 'Total Borrowed':
       return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-        return getVaultPrice(b.borrow.borrow, b.borrow) - getVaultPrice(a.borrow.borrow, a.borrow)
+        const aValue = pairBorrowedUsd.value.get(getPairKey(a)) ?? 0
+        const bValue = pairBorrowedUsd.value.get(getPairKey(b)) ?? 0
+        return bValue - aValue
       })
     case 'Max ROE':
       return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {

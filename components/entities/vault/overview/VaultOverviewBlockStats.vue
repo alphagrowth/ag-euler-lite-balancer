@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { getVaultPrice, type Vault } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
@@ -18,9 +19,24 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   vault.asset.symbol,
 ) - (rewardBorrowAPY.value || 0))
 
-const calcPrice = (amount: bigint) => {
-  return getVaultPrice(nanoToValue(amount, vault.decimals), vault)
-}
+const totalSupplyDisplay = ref('-')
+const totalBorrowedDisplay = ref('-')
+const availableLiquidityDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.supply, vault, 'off-chain')
+  totalSupplyDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.borrow, vault, 'off-chain')
+  totalBorrowedDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.supply - vault.borrow, vault, 'off-chain')
+  availableLiquidityDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
 </script>
 
 <template>
@@ -31,19 +47,19 @@ const calcPrice = (amount: bigint) => {
     <div class="flex flex-col items-start gap-24">
       <VaultOverviewLabelValue
         label="Total supply"
-        :value="`$${compactNumber(calcPrice(vault.supply))}`"
+        :value="totalSupplyDisplay"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
         v-if="isBorrowable"
         label="Total borrowed"
-        :value="`$${compactNumber(calcPrice(vault.borrow))}`"
+        :value="totalBorrowedDisplay"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
         v-if="isBorrowable"
         label="Available liquidity"
-        :value="`$${compactNumber(calcPrice(vault.supply - vault.borrow))}`"
+        :value="availableLiquidityDisplay"
         orientation="horizontal"
       />
       <VaultOverviewLabelValue

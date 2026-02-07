@@ -5,6 +5,7 @@ import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getExplorerLink } from '~/utils/block-explorer'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolean }>()
 
@@ -87,13 +88,32 @@ const loadRiskParameters = async () => {
 
 loadRiskParameters()
 
+// Price display
+const priceDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(1, vault as unknown as Vault, 'off-chain')
+  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : price.display
+})
+
+// Total supply display with USD if available
+const totalSupplyDisplay = ref('-')
+
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.totalAssets, vault as unknown as Vault, 'off-chain')
+  totalSupplyDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
+
 // Supply cap display - supplyCap is in shares denomination (vault.decimals), same as regular vaults
-const supplyCapDisplay = computed(() => {
+const supplyCapDisplay = ref('∞')
+
+watchEffect(async () => {
   if (!vault.supplyCap || vault.supplyCap === 0n || vault.supplyCap >= MaxUint256) {
-    return '∞'
+    supplyCapDisplay.value = '∞'
+    return
   }
-  // Display in shares (like regular vaults, but without USD conversion since we don't have price info)
-  return `${compactNumber(nanoToValue(vault.supplyCap, vault.decimals))} ${vault.symbol}`
+  const price = await formatAssetValue(vault.supplyCap, vault as unknown as Vault, 'off-chain')
+  supplyCapDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
 const supplyCapPercentageDisplay = computed(() => {
@@ -127,6 +147,10 @@ const supplyCapPercentageDisplay = computed(() => {
             <p class="text-p3 text-warning-500">{{ deprecationReason }}</p>
           </div>
         </div>
+        <VaultOverviewLabelValue
+          label="Price"
+          :value="priceDisplay"
+        />
         <VaultOverviewLabelValue
           label="Market"
           :value="product.name"
@@ -205,7 +229,7 @@ const supplyCapPercentageDisplay = computed(() => {
       <div class="flex flex-col items-start gap-24">
         <VaultOverviewLabelValue
           label="Total supply"
-          :value="`${compactNumber(nanoToValue(vault.totalAssets, vault.asset.decimals))} ${vault.asset.symbol}`"
+          :value="totalSupplyDisplay"
           orientation="horizontal"
         />
         <VaultOverviewLabelValue
@@ -265,7 +289,7 @@ const supplyCapPercentageDisplay = computed(() => {
       </p>
       <div class="flex flex-col items-start gap-24">
         <VaultOverviewLabelValue
-          :label="`Underlying ${vault.asset.symbol} token`"
+          :label="`${vault.asset.symbol} token`"
           orientation="horizontal"
         >
           <div class="flex gap-4 items-center">

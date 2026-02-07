@@ -30,7 +30,24 @@ const isRewardsLoading = ref(true)
 
 let interval: NodeJS.Timeout | null = null
 
-const loadTokens = async (chainId: number, isInitialLoading = true) => {
+// Cache state for Merkl data
+const MERKL_CACHE_TTL_MS = 60 * 1000 // 1 minute cache
+const cacheState = {
+  tokens: { chainId: 0, timestamp: 0 },
+  opportunities: { chainId: 0, timestamp: 0 },
+  rewards: { chainId: 0, address: '', timestamp: 0 },
+}
+
+const loadTokens = async (chainId: number, isInitialLoading = true, forceRefresh = false) => {
+  const now = Date.now()
+  // Skip if cached and not expired
+  if (!forceRefresh
+    && cacheState.tokens.chainId === chainId
+    && rewardTokens.value.length > 0
+    && (now - cacheState.tokens.timestamp) < MERKL_CACHE_TTL_MS) {
+    return
+  }
+
   try {
     if (isInitialLoading) {
       isTokensLoading.value = true
@@ -38,6 +55,7 @@ const loadTokens = async (chainId: number, isInitialLoading = true) => {
     const res = await axios.get(endpoints.tokens)
     const data: RewardToken[] = res.data[chainId]
     rewardTokens.value = data || []
+    cacheState.tokens = { chainId, timestamp: Date.now() }
   }
   catch (e) {
     console.warn(e)
@@ -47,7 +65,16 @@ const loadTokens = async (chainId: number, isInitialLoading = true) => {
   }
 }
 
-const loadOpportunities = async (chainId: number, isInitialLoading = true) => {
+const loadOpportunities = async (chainId: number, isInitialLoading = true, forceRefresh = false) => {
+  const now = Date.now()
+  // Skip if cached and not expired
+  if (!forceRefresh
+    && cacheState.opportunities.chainId === chainId
+    && (lendOpportunities.value.length > 0 || borrowOpportunities.value.length > 0)
+    && (now - cacheState.opportunities.timestamp) < MERKL_CACHE_TTL_MS) {
+    return
+  }
+
   try {
     if (isInitialLoading) {
       isOpportunitiesLoading.value = true
@@ -96,6 +123,8 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true) => {
       lendOpportunities.value = lends
       borrowOpportunities.value = borrows
     }
+
+    cacheState.opportunities = { chainId, timestamp: Date.now() }
   }
   catch (e) {
     console.warn(e)
@@ -104,12 +133,22 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true) => {
     isOpportunitiesLoading.value = false
   }
 }
-const loadRewards = async (chainId: number, isInitialLoading = true) => {
+const loadRewards = async (chainId: number, isInitialLoading = true, forceRefresh = false) => {
+  if (!address.value) {
+    rewards.value = []
+    return
+  }
+
+  const now = Date.now()
+  // Skip if cached and not expired (check address too since rewards are per-user)
+  if (!forceRefresh
+    && cacheState.rewards.chainId === chainId
+    && cacheState.rewards.address === address.value
+    && (now - cacheState.rewards.timestamp) < MERKL_CACHE_TTL_MS) {
+    return
+  }
+
   try {
-    if (!address.value) {
-      rewards.value = []
-      return
-    }
     if (isInitialLoading) {
       isRewardsLoading.value = true
     }
@@ -127,6 +166,7 @@ const loadRewards = async (chainId: number, isInitialLoading = true) => {
       }, [] as Reward[])
 
     rewards.value = rewardsList.filter(reward => reward.claimed !== reward.amount)
+    cacheState.rewards = { chainId, address: address.value, timestamp: Date.now() }
   }
   catch (e) {
     console.warn(e)

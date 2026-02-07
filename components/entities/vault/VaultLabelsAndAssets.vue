@@ -82,7 +82,7 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
         <span class="text-content-tertiary">
           <VaultDisplayName
             :name="pairVault ? displayLabel : displayName"
-            :is-unverified="('verified' in vault && !vault.verified) || (pairVault && 'verified' in pairVault && !pairVault.verified)"
+            :is-unverified="('verified' in vault && !vault.verified) || !!(pairVault && 'verified' in pairVault && !pairVault.verified)"
           />
         </span>
         <span

@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { useAccount } from "@wagmi/vue";
-import {
-  getEarnVaultPrice,
-  getEarnVaultPriceDisplay,
-  type EarnVault,
-} from "~/entities/vault";
-import { useEulerProductOfVault } from "~/composables/useEulerLabels";
-import { getAssetLogoUrl } from "~/composables/useTokens";
-import BaseLoadableContent from "~/components/base/BaseLoadableContent.vue";
-import { useModal } from "~/components/ui/composables/useModal";
-import { VaultSupplyApyModal } from "#components";
+import { useAccount } from '@wagmi/vue'
+import { type EarnVault } from '~/entities/vault'
+import { formatAssetValue } from '~/services/pricing/priceProvider'
+import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { getAssetLogoUrl } from '~/composables/useTokens'
+import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultSupplyApyModal } from '#components'
 
 const { isConnected } = useAccount();
 const { vault } = defineProps<{ vault: EarnVault }>();
@@ -36,23 +33,28 @@ const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value);
 const isUnverified = computed(() => !vault.verified);
 const displayName = computed(() => product.name || vault.name);
 
-const totalSupplyPrice = computed(() => {
-  const price = getEarnVaultPriceDisplay(vault.totalAssets, vault);
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display;
-});
+const totalSupplyPrice = ref('-')
+const liquidityPrice = ref('-')
+const walletBalancePrice = ref('-')
 
-const liquidityPrice = computed(() => {
-  return `$${compactNumber(getEarnVaultPrice(vault.availableAssets, vault))}`;
-});
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.totalAssets, vault, 'off-chain')
+  totalSupplyPrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
 
-const walletBalancePrice = computed(() => {
-  const price = getEarnVaultPriceDisplay(balance.value, vault);
-  return price.hasPrice ? `$${compactNumber(price.usdValue)}` : price.display;
-});
+watchEffect(async () => {
+  const price = await formatAssetValue(vault.availableAssets, vault, 'off-chain')
+  liquidityPrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
+
+watchEffect(async () => {
+  const price = await formatAssetValue(balance.value, vault, 'off-chain')
+  walletBalancePrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+})
 
 const onSupplyInfoIconClick = (event: MouseEvent) => {
-  event.preventDefault();
-  event.stopPropagation();
+  event.preventDefault()
+  event.stopPropagation()
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: vault.supplyAPY || 0,
@@ -60,8 +62,8 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
       opportunityInfo: opportunityInfo.value,
       brevisInfo: brevisInfo.value,
     },
-  });
-};
+  })
+}
 </script>
 
 <template>

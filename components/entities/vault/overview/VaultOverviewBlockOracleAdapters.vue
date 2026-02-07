@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import type { Address } from 'viem'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
-import { EUR_ADDRESS, USD_ADDRESS } from '~/entities/constants'
 import { collectOracleAdapters, type OracleAdapterEntry, type OracleAdapterMeta } from '~/entities/oracle'
+import { getOracleProviderLogo } from '~/entities/oracle-providers'
 import { getExplorerLink } from '~/utils/block-explorer'
+import { formatNumber } from '~/utils/string-utils'
+import { useOracleAdapterPrices } from '~/composables/useOracleAdapterPrices'
 
 const props = defineProps<{
   vault?: Vault
   vaults?: Vault[]
   collateralVaults?: (Vault | SecuritizeVault)[]
 }>()
-const { tokens, loadTokens } = useTokens()
 const { oracleAdapters, loadOracleAdapter } = useEulerLabels()
 const { chainId } = useEulerAddresses()
+const { buildKnownSymbols, resolveSymbol: resolveTokenSymbol, shortenAddress } = useTokenSymbolResolver()
 
 const sourceVaults = computed(() => {
   if (props.vaults?.length) {
@@ -26,31 +28,39 @@ const sourceVaults = computed(() => {
   return []
 })
 
+const skipERC4626Bases = computed(() => {
+  const bases = new Set<string>()
+  props.collateralVaults?.forEach((vault) => {
+    bases.add(vault.address.toLowerCase())
+  })
+  return bases
+})
+
 const adapters = computed(() => {
   const entries: OracleAdapterEntry[] = []
   const deduped = new Map<string, OracleAdapterEntry>()
 
   sourceVaults.value.forEach((vault) => {
     entries.push(...collectOracleAdapters(vault.oracleDetailedInfo, 3, {
-      base: vault.asset.address,
-      quote: vault.unitOfAccount,
+      base: vault.asset.address as Address,
+      quote: vault.unitOfAccount as Address,
       leafOnly: true,
     }))
 
     if (props.collateralVaults?.length) {
       props.collateralVaults.forEach((collateralVault) => {
         entries.push(...collectOracleAdapters(vault.oracleDetailedInfo, 3, {
-          base: collateralVault.address,
-          quote: vault.unitOfAccount,
+          base: collateralVault.address as Address,
+          quote: vault.unitOfAccount as Address,
           leafOnly: true,
+          skipERC4626Bases: skipERC4626Bases.value,
         }))
       })
     }
   })
 
   entries.forEach((adapter) => {
-    // Dedupe by oracle address - same oracle shows same provider/methodology
-    const key = adapter.oracle.toLowerCase()
+    const key = `${adapter.oracle.toLowerCase()}:${adapter.base.toLowerCase()}:${adapter.quote.toLowerCase()}`
     if (!deduped.has(key)) {
       deduped.set(key, adapter)
     }
@@ -59,59 +69,16 @@ const adapters = computed(() => {
   return [...deduped.values()]
 })
 
-const adapterViews = computed(() => adapters.value.map((adapter) => {
-  const meta: OracleAdapterMeta | undefined = oracleAdapters[adapter.oracle.toLowerCase()]
-
-  return {
-    ...adapter,
-    name: meta?.name || adapter.name,
-    provider: meta?.provider,
-    methodology: meta?.methodology,
-  }
-}))
-
-onMounted(() => {
-  if (!Object.keys(tokens).length) {
-    loadTokens()
-  }
-})
-
-watch(
-  () => adapters.value,
-  async (adapterList) => {
-    if (!chainId.value || !adapterList.length) return
-
-    // Load only the adapters we need
-    await Promise.all(
-      adapterList.map(a => loadOracleAdapter(chainId.value, a.oracle))
-    )
-  },
-  { immediate: true }
-)
-
-const shortenAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`
-
-const tokenSymbolsByAddress = computed(() => {
-  const map = new Map<string, string>()
-
-  map.set(USD_ADDRESS, 'USD')
-  map.set(EUR_ADDRESS, 'EUR')
-
-  Object.values(tokens).forEach((token) => {
-    if (token.address && token.symbol) {
-      map.set(token.address.toLowerCase(), token.symbol)
-    }
-  })
+const knownSymbols = computed(() => {
+  const map = buildKnownSymbols()
 
   sourceVaults.value.forEach((vault) => {
     map.set(vault.asset.address.toLowerCase(), vault.asset.symbol)
-
     if (vault.unitOfAccountSymbol) {
       map.set(vault.unitOfAccount.toLowerCase(), vault.unitOfAccountSymbol)
     }
   })
 
-  // Map collateral vault addresses to their underlying asset symbols
   props.collateralVaults?.forEach((vault) => {
     map.set(vault.address.toLowerCase(), vault.asset.symbol)
   })
@@ -119,17 +86,56 @@ const tokenSymbolsByAddress = computed(() => {
   return map
 })
 
-const resolveSymbol = (address: string) => {
-  const symbol = tokenSymbolsByAddress.value.get(address.toLowerCase())
-  return symbol || shortenAddress(address)
-}
+const adapterViews = computed(() => adapters.value.map((adapter) => {
+  const meta: OracleAdapterMeta | undefined = oracleAdapters[adapter.oracle.toLowerCase()]
+  const isERC4626 = adapter.name === 'ERC4626Vault'
+  const provider = meta?.provider || (isERC4626 ? 'ERC4626Vault' : undefined)
+  const name = meta?.name || adapter.name
+
+  return {
+    ...adapter,
+    name,
+    provider,
+    methodology: meta?.methodology || (isERC4626 ? 'Exchange Rate' : undefined),
+    logo: getOracleProviderLogo(provider, name),
+  }
+}))
+
+watch(
+  () => adapters.value,
+  async (adapterList) => {
+    if (!chainId.value || !adapterList.length) return
+
+    await Promise.all(
+      adapterList
+        .filter(a => a.name !== 'ERC4626Vault')
+        .map(a => loadOracleAdapter(chainId.value, a.oracle)),
+    )
+  },
+  { immediate: true },
+)
+
+const resolveSymbol = (address: string) => resolveTokenSymbol(address, knownSymbols.value)
 
 const onCopyClick = (address: string) => {
   navigator.clipboard.writeText(address)
 }
 
-const getAdapterKey = (adapter: OracleAdapterEntry) => adapter.oracle.toLowerCase()
+const getAdapterKey = (adapter: OracleAdapterEntry) => `${adapter.oracle.toLowerCase()}:${adapter.base.toLowerCase()}:${adapter.quote.toLowerCase()}`
 const getExplorerAddressLink = (address: string) => getExplorerLink(address, chainId.value, true)
+
+const { prices: adapterPrices, isLoading: isPriceLoading } = useOracleAdapterPrices(
+  adapters,
+  sourceVaults,
+  computed(() => props.collateralVaults ?? []),
+)
+
+const formatAdapterPrice = (adapter: OracleAdapterEntry) => {
+  const key = getAdapterKey(adapter)
+  const info = adapterPrices.value.get(key)
+  if (!info?.success) return '-'
+  return formatNumber(info.rate, 4)
+}
 </script>
 
 <template>
@@ -174,14 +180,37 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
             />
           </button>
         </div>
-        <div class="grid grid-cols-2 gap-12 text-p4">
+        <div class="grid grid-cols-3 gap-12 text-p4">
           <div class="flex flex-col gap-4">
             <span class="text-content-tertiary">Provider</span>
-            <span class="text-content-primary">{{ adapter.provider || '-' }}</span>
+            <div class="flex items-center gap-8">
+              <BaseAvatar
+                v-if="adapter.logo"
+                :src="adapter.logo"
+                class="icon--20"
+              />
+              <SvgIcon
+                v-else
+                name="question-circle"
+                class="!w-20 !h-20 text-content-tertiary"
+              />
+              <span class="text-content-primary">{{ adapter.provider || 'Unknown' }}</span>
+            </div>
           </div>
           <div class="flex flex-col gap-4">
             <span class="text-content-tertiary">Methodology</span>
-            <span class="text-content-primary">{{ adapter.methodology || '-' }}</span>
+            <span class="text-content-primary">{{ adapter.methodology || 'Unknown' }}</span>
+          </div>
+          <div class="flex flex-col gap-4">
+            <span class="text-content-tertiary">Price</span>
+            <span
+              v-if="isPriceLoading"
+              class="text-content-secondary animate-pulse"
+            >...</span>
+            <span
+              v-else
+              class="text-content-primary"
+            >{{ formatAdapterPrice(adapter) }}</span>
           </div>
         </div>
       </div>
