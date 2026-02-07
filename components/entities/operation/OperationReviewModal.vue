@@ -177,7 +177,7 @@ const feeDisplay = computed(() => {
           <div class="flex gap-8 items-center">
             <BaseAvatar
               class="icon--20"
-              :src="''"
+              :src="getAssetLogoUrl(supplyingAssetForBorrow.symbol)"
               :label="supplyingAssetForBorrow.symbol"
             />
             <p class="text-p2">
@@ -195,7 +195,7 @@ const feeDisplay = computed(() => {
           <div class="flex gap-8 items-center">
             <BaseAvatar
               class="icon--20"
-              :src="''"
+              :src="getAssetLogoUrl(asset.symbol)"
               :label="asset.symbol"
             />
             <p class="text-p2">
