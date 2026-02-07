@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onClickOutside, useWindowSize } from '@vueuse/core'
-import { offset, useFloating, type AlignedPlacement } from '@floating-ui/vue'
+import { flip, offset, shift, useFloating, type AlignedPlacement } from '@floating-ui/vue'
 import { useModal } from '~/components/ui/composables/useModal'
 import { UiFootnoteModal } from '#components'
 
@@ -21,6 +21,8 @@ const { floatingStyles, update } = useFloating(reference, floating, {
   placement: tooltipPlacement,
   middleware: [
     offset({ mainAxis: 15, crossAxis: -15 }),
+    flip({ padding: 8 }),
+    shift({ padding: 8 }),
   ],
 })
 
