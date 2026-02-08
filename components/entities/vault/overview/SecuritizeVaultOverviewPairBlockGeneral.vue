@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { type SecuritizeBorrowVaultPair } from '~/entities/vault'
 import { getAssetOraclePrice } from '~/services/pricing/priceProvider'
+import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
 
@@ -30,6 +31,11 @@ const collateralRewardAPY = computed(() => getOpportunityOfLendVault(pair.collat
 const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol, 'supply'))
 const supplyApyWithRewards = computed(() => intrinsicSupplyApy.value + collateralRewardAPY.value)
 const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(pair.collateral.address))
+
+const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV))
+const maxRoe = computed(() =>
+  getMaxRoe(maxMultiplier.value, supplyApyWithRewards.value, borrowApyWithRewards.value),
+)
 
 // Calculate price using collateral prices from borrow vault
 const price = computed(() => {
@@ -113,11 +119,19 @@ const onBorrowInfoIconClick = () => {
         </p>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
+        label="Max ROE"
+        :value="`${formatNumber(maxRoe, 2, 2)}%`"
+      />
+      <VaultOverviewLabelValue
+        label="Max Multiplier"
+        :value="`${formatNumber(maxMultiplier, 2, 2)}x`"
+      />
+      <VaultOverviewLabelValue
         label="Max LTV"
         :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
       />
       <VaultOverviewLabelValue
-        label="LLTV"
+        label="Liquidation LTV"
         :value="`${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%`"
       />
     </div>

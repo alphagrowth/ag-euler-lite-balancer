@@ -853,7 +853,7 @@ watch(isConnected, () => {
                 class="flex justify-between gap-8 flex-wrap mb-16"
               >
                 <div class="text-neutral-500 text-p3">
-                  LLTV
+                  Liquidation LTV
                 </div>
                 <div class="text-neutral-800 text-p3">
                   {{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%

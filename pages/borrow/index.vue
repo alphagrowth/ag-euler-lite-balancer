@@ -6,14 +6,13 @@ import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
+import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 
-const getMaxRoe = (pair: BorrowVaultPair) => {
-  const borrowLTV = nanoToValue(pair.borrowLTV, 2)
-  const maxMultiplier = Math.max(1, Math.floor(100 / (100 - borrowLTV) * 100) / 100)
+const getSortMaxRoe = (pair: BorrowVaultPair) => {
+  const multiplier = getMaxMultiplier(pair.borrowLTV)
   const supplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
   const borrowApy = nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25)
-  const netApy = supplyApy - borrowApy
-  return supplyApy + (maxMultiplier - 1) * netApy
+  return getMaxRoe(multiplier, supplyApy, borrowApy)
 }
 
 defineOptions({
@@ -149,7 +148,7 @@ const sortedBorrowList = computed(() => {
       })
     case 'Max ROE':
       return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-        return getMaxRoe(b) - getMaxRoe(a)
+        return getSortMaxRoe(b) - getSortMaxRoe(a)
       })
     default:
       return filteredBorrowList.value

@@ -2,6 +2,7 @@
 import { ethers } from 'ethers'
 import { type AnyBorrowVaultPair, getVaultUtilization } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
+import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -89,35 +90,10 @@ const supplyApyWithRewards = computed(
 const borrowApyWithRewards = computed(
   () => borrowApy.value - totalRewardsAPY.value,
 );
-const maxMultiplier = computed(() => {
-  const ltv = pair.borrowLTV || 0n;
-  const base = 10000n;
-  if (ltv <= 0n || ltv >= base) {
-    return 1;
-  }
-  const result = (base * ltv) / (base - ltv) - 200n + base;
-  const value = Number(result) / 10000;
-  if (!Number.isFinite(value)) {
-    return 1;
-  }
-  return Math.max(1, Math.floor(value * 100) / 100);
-});
-const netApy = computed(
-  () => supplyApyWithRewards.value - borrowApyWithRewards.value,
+const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV));
+const maxRoe = computed(() =>
+  getMaxRoe(maxMultiplier.value, supplyApyWithRewards.value, borrowApyWithRewards.value),
 );
-const maxRoe = computed(() => {
-  const multiplier = maxMultiplier.value;
-  const base = supplyApyWithRewards.value;
-  const net = netApy.value;
-  if (
-    !Number.isFinite(multiplier) ||
-    !Number.isFinite(base) ||
-    !Number.isFinite(net)
-  ) {
-    return 0;
-  }
-  return base + (multiplier - 1) * net;
-});
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2));
 const utilization = computed(() => getVaultUtilization(pair.borrow));
 
@@ -180,20 +156,10 @@ const linkPath = computed(
       </div>
       <div class="flex flex-col items-end">
         <div class="text-content-tertiary text-p3 mb-4 text-right">
-          Borrow APY
+          Max ROE
         </div>
-        <div class="text-p2 flex items-center text-accent-600 font-semibold">
-          <SvgIcon
-            v-if="hasRewards"
-            class="!w-20 !h-20 text-accent-500 mr-4"
-            name="sparks"
-          />
-          {{ formatNumber(borrowApyWithRewards) }}%
-          <SvgIcon
-            class="!w-20 !h-20 text-content-muted hover:text-content-secondary transition-colors cursor-pointer ml-4"
-            name="info-circle"
-            @click="onBorrowInfoIconClick"
-          />
+        <div class="text-p2 text-accent-600 font-semibold">
+          {{ formatNumber(maxRoe, 2, 2) }}%
         </div>
       </div>
     </div>
@@ -209,15 +175,9 @@ const linkPath = computed(
         </div>
       </div>
       <div class="text-center">
-        <div class="text-content-tertiary text-p3 mb-4">Supply APY</div>
+        <div class="text-content-tertiary text-p3 mb-4">Borrow APY</div>
         <div class="text-p2 text-content-primary">
-          {{ formatNumber(supplyApyWithRewards) }}%
-        </div>
-      </div>
-      <div class="text-center mobile:!hidden">
-        <div class="text-content-tertiary text-p3 mb-4">Max ROE</div>
-        <div class="text-p2 text-content-primary">
-          {{ formatNumber(maxRoe, 2, 2) }}%
+          {{ formatNumber(borrowApyWithRewards) }}%
         </div>
       </div>
       <div class="text-center mobile:!hidden">
@@ -258,16 +218,6 @@ const linkPath = computed(
         <div class="flex gap-8 justify-end items-center text-right flex-1">
           <div class="text-p2 text-content-primary">
             {{ compactNumber(maxLTV, 2, 2) }}%
-          </div>
-        </div>
-      </div>
-      <div class="flex w-full justify-between">
-        <div class="flex-1">
-          <div class="text-content-tertiary text-p3">Max ROE</div>
-        </div>
-        <div class="flex gap-8 justify-end items-center text-right flex-1">
-          <div class="text-p2 text-content-primary">
-            {{ formatNumber(maxRoe, 2, 2) }}%
           </div>
         </div>
       </div>

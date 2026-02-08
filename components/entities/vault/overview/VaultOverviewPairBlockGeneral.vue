@@ -2,6 +2,7 @@
 import { type AnyBorrowVaultPair } from '~/entities/vault'
 import { getCollateralOraclePrice, getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
@@ -29,6 +30,11 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
   pair.borrow.asset.symbol,
 ) - (borrowRewardAPY.value || 0))
+
+const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV))
+const maxRoe = computed(() =>
+  getMaxRoe(maxMultiplier.value, supplyApyWithRewards.value, borrowApyWithRewards.value),
+)
 
 const baseSupplyApy = computed(() => nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25))
 const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25))
@@ -118,11 +124,21 @@ const onBorrowInfoIconClick = () => {
         </p>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
+        v-if="isBorrowable"
+        label="Max ROE"
+        :value="`${formatNumber(maxRoe, 2, 2)}%`"
+      />
+      <VaultOverviewLabelValue
+        v-if="isBorrowable"
+        label="Max Multiplier"
+        :value="`${formatNumber(maxMultiplier, 2, 2)}x`"
+      />
+      <VaultOverviewLabelValue
         label="Max LTV"
         :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
       />
       <VaultOverviewLabelValue
-        label="LLTV"
+        label="Liquidation LTV"
         :value="`${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%`"
       />
     </div>
