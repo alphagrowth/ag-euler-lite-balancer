@@ -229,10 +229,16 @@ const displaySteps = computed((): DisplayStep[] => {
     }
     else {
       index++
+      const isPermit2 = step.type === 'permit2-approve'
+      const stepAssetSymbol = isPermit2
+        ? (type === 'borrow' && supplyingAssetForBorrow ? supplyingAssetForBorrow.symbol : asset.symbol)
+        : undefined
+
       steps.push({
         index,
         label: cleanStepLabel(step.label || step.functionName),
-        isSeparateTx: step.type === 'approve',
+        isSeparateTx: step.type === 'approve' || isPermit2,
+        assetInfo: stepAssetSymbol ? { symbol: stepAssetSymbol } : undefined,
       })
     }
   }
@@ -318,6 +324,12 @@ const disclaimerText = computed(() => {
 
   return `You're claiming ${totalClaimAmount.value} tokens, ${eulerClaimAmount.value} of them from Euler, ${otherClaimAmount.value} of them earned elsewhere`
 })
+
+const hasPermit2Approval = computed(() => {
+  return plan?.steps?.some(step => step.type === 'permit2-approve') ?? false
+})
+
+const permit2DisclaimerText = 'You are granting the Permit2 contract unlimited access to your tokens. This is a safe, one-time setup — Permit2 (by Uniswap) is a widely trusted and audited contract that replaces repeated approval transactions with gasless signatures. Each future transaction still requires your explicit signature, limited in both amount and duration.'
 
 const feeDisplay = computed(() => {
   if (isEstimatingFee.value) {
@@ -439,6 +451,13 @@ const feeDisplay = computed(() => {
         title="Disclaimer"
         variant="warning"
         description="Disabling collateral will move this deposit to savings"
+        size="compact"
+      />
+      <UiToast
+        v-if="hasPermit2Approval"
+        title="Infinite approval"
+        variant="info"
+        :description="permit2DisclaimerText"
         size="compact"
       />
 
