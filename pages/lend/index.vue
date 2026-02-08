@@ -6,7 +6,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
+import { getProductByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
 
 defineOptions({
   name: 'LendPage',
@@ -107,24 +107,32 @@ const filteredList = computed(() => {
     .filter(vault => selectedMarkets.value.length ? selectedMarkets.value.includes(getProductByVault(vault.address).name) : true)
 })
 
+const applyFeaturedSort = <T extends { address: string }>(sorted: T[]): T[] => {
+  return [...sorted].sort((a, b) => {
+    const af = isVaultFeatured(a.address) ? 1 : 0
+    const bf = isVaultFeatured(b.address) ? 1 : 0
+    return bf - af
+  })
+}
+
 const sortedList = computed(() => {
   switch (sortBy.value) {
     case 'Total Supply':
-      return [...filteredList.value].sort((a: Vault, b: Vault) => {
+      return applyFeaturedSort([...filteredList.value].sort((a: Vault, b: Vault) => {
         const aValue = vaultUsdValues.value.get(a.address) ?? 0
         const bValue = vaultUsdValues.value.get(b.address) ?? 0
         return bValue - aValue
-      })
+      }))
     case 'Supply APY':
-      return [...filteredList.value].sort((a: Vault, b: Vault) => {
+      return applyFeaturedSort([...filteredList.value].sort((a: Vault, b: Vault) => {
         return Number(b.interestRateInfo.supplyAPY) - Number(a.interestRateInfo.supplyAPY)
-      })
+      }))
     case 'Utilization':
-      return [...filteredList.value].sort((a: Vault, b: Vault) => {
+      return applyFeaturedSort([...filteredList.value].sort((a: Vault, b: Vault) => {
         return getVaultUtilization(b) - getVaultUtilization(a)
-      })
+      }))
     default:
-      return filteredList.value
+      return applyFeaturedSort([...filteredList.value])
   }
 })
 

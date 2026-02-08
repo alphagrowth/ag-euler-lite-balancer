@@ -34,6 +34,7 @@ export const useEulerOperations = () => {
   const { eulerCoreAddresses, eulerPeripheryAddresses } = useEulerAddresses()
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { get: registryGet } = useVaultRegistry()
+  const { permit2Enabled } = usePermit2Preference()
 
   const rpcProvider = getPublicClient(EVM_PROVIDER_URL)
   const resolvePermit2Address = (): Address | undefined => {
@@ -710,7 +711,7 @@ export const useEulerOperations = () => {
     const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
     const permit2Address = resolvePermit2Address()
     const includePermit2Call = options.includePermit2Call ?? true
-    const canUsePermit2 = !!chainId.value && !!permit2Address
+    const canUsePermit2 = !!chainId.value && !!permit2Address && permit2Enabled.value
 
     const steps: TxStep[] = []
 
@@ -978,7 +979,7 @@ export const useEulerOperations = () => {
     if (amount > 0n) {
       const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
       const includePermit2Call = options.includePermit2Call ?? true
-      const canUsePermit2 = !!chainId.value && !!permit2Address
+      const canUsePermit2 = !!chainId.value && !!permit2Address && permit2Enabled.value
       usesPermit2 = canUsePermit2 && allowance < amount
 
       if (usesPermit2 && permit2Address) {
@@ -1268,7 +1269,7 @@ export const useEulerOperations = () => {
       }
 
       const allowance = await checkAllowance(assetAddr, vaultAddr, userAddr)
-      const canUsePermit2 = !!chainId.value && !!permit2Addr
+      const canUsePermit2 = !!chainId.value && !!permit2Addr && permit2Enabled.value
       usesPermit2Local = canUsePermit2 && allowance < amount
 
       if (usesPermit2Local && permit2Addr) {
@@ -1513,7 +1514,7 @@ export const useEulerOperations = () => {
     const steps: TxStep[] = []
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
     const includePermit2Call = options.includePermit2Call ?? true
-    const canUsePermit2 = !!chainId.value && !!permit2Address
+    const canUsePermit2 = !!chainId.value && !!permit2Address && permit2Enabled.value
     let permitCall: EVCCall | undefined
     const adjustedAmount = adjustForInterest(amount)
     const usesPermit2 = canUsePermit2 && allowance < amount
@@ -1621,7 +1622,7 @@ export const useEulerOperations = () => {
     const tosData = await getTosData()
     const allowance = await checkAllowance(borrowAssetAddr, borrowVaultAddr, userAddr)
     const includePermit2Call = options.includePermit2Call ?? true
-    const canUsePermit2 = !!chainId.value && !!permit2Address
+    const canUsePermit2 = !!chainId.value && !!permit2Address && permit2Enabled.value
     let permitCall: EVCCall | undefined
     const usesPermit2 = canUsePermit2 && allowance < amount
 

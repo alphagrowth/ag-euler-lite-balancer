@@ -96,7 +96,18 @@ const setFromAmountToMax = () => {
     fromAmount.value = ''
     return
   }
-  fromAmount.value = formatSignificant(nanoToValue(currentDebt.value, fromVault.value.decimals), 6)
+  const exact = formatUnits(currentDebt.value, fromVault.value.decimals)
+  const [intPart, decPart = ''] = exact.split('.')
+  const sigDigitsInInt = intPart.replace(/^0+/, '').length
+  if (sigDigitsInInt >= 6) {
+    fromAmount.value = intPart
+  }
+  else {
+    const decLen = Math.max(0, 6 - sigDigitsInInt)
+    fromAmount.value = decPart.length > 0
+      ? `${intPart}.${decPart.slice(0, decLen)}`
+      : intPart
+  }
 }
 
 const loadPosition = async () => {

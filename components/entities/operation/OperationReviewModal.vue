@@ -164,6 +164,7 @@ interface StepAssetInfo {
 interface DisplayStep {
   index: number
   label: string
+  labelSuffix?: string
   isSeparateTx: boolean
   assetInfo?: StepAssetInfo
   toAssetInfo?: StepAssetInfo
@@ -282,15 +283,22 @@ const displaySteps = computed((): DisplayStep[] => {
     }
     else {
       index++
-      const isPermit2 = step.type === 'permit2-approve'
-      const stepAssetSymbol = isPermit2
+      const isApproval = step.type === 'approve' || step.type === 'permit2-approve'
+      const stepAssetSymbol = isApproval
         ? (type === 'borrow' && supplyingAssetForBorrow ? supplyingAssetForBorrow.symbol : asset.symbol)
         : undefined
 
+      const labelSuffix = step.type === 'approve'
+        ? 'for vault'
+        : step.type === 'permit2-approve'
+          ? 'for permit2'
+          : undefined
+
       steps.push({
         index,
-        label: cleanStepLabel(step.label || step.functionName),
-        isSeparateTx: step.type === 'approve' || isPermit2,
+        label: isApproval ? 'Approve' : cleanStepLabel(step.label || step.functionName),
+        labelSuffix,
+        isSeparateTx: isApproval,
         assetInfo: stepAssetSymbol ? { symbol: stepAssetSymbol } : undefined,
       })
     }
@@ -382,7 +390,11 @@ const hasPermit2Approval = computed(() => {
   return plan?.steps?.some(step => step.type === 'permit2-approve') ?? false
 })
 
-const permit2DisclaimerText = 'You are granting the Permit2 contract unlimited access to your tokens. This is a safe, one-time setup — Permit2 (by Uniswap) is a widely trusted and audited contract that replaces repeated approval transactions with gasless signatures. Each future transaction still requires your explicit signature, limited in both amount and duration.'
+const usesPermit2 = computed(() => {
+  return plan?.steps?.some(step => step.label?.includes('Permit2')) ?? false
+})
+
+const permit2DisclaimerText = 'You are granting the permit2 contract unlimited access to your tokens. This is a safe, one-time setup — permit2 (by Uniswap) is a widely trusted and audited contract that replaces repeated approval transactions with gasless signatures. Each future transaction still requires your explicit signature, limited in both amount and duration.'
 
 const feeDisplay = computed(() => {
   if (isEstimatingFee.value) {
@@ -432,6 +444,12 @@ const feeDisplay = computed(() => {
                   <template v-if="step.assetInfo.amount !== undefined">{{ formatNumber(step.assetInfo.amount, 8, 0) }}&nbsp;</template>{{ step.assetInfo.symbol }}
                 </p>
               </template>
+              <p
+                v-if="step.labelSuffix"
+                class="text-p3"
+              >
+                {{ step.labelSuffix }}
+              </p>
               <template v-if="step.toAssetInfo">
                 <p class="text-p3 text-euler-dark-900">
                   &rarr;
@@ -501,6 +519,12 @@ const feeDisplay = computed(() => {
           Simulate on Tenderly
         </button>
       </div>
+      <p
+        v-if="usesPermit2"
+        class="text-p4 text-euler-dark-900 text-center"
+      >
+        Final calldata may contain an additional permit() call. It is only known after the permit2 message is signed.
+      </p>
 
       <!-- Tenderly error -->
       <UiToast

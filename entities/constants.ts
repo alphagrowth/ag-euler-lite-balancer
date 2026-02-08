@@ -49,6 +49,7 @@ export const TTL_ERROR = -BigInt(2)
 export const DEFAULT_PRICE_CACHE_TTL_MS = 15_000
 export const SWAP_DEFAULT_DEADLINE_SECONDS = 1800
 export const SLIPPAGE_STORAGE_KEY = 'swap-slippage'
+export const PERMIT2_PREFERENCE_STORAGE_KEY = 'permit2-enabled'
 export const DEFAULT_SLIPPAGE = 0.5
 export const MIN_SLIPPAGE = 0
 export const MAX_SLIPPAGE = 50

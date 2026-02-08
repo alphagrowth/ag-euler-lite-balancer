@@ -16,7 +16,14 @@ export const useWallets = () => {
   const { address, isConnected, chain } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
   const { chainId } = useEulerAddresses()
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const requestUrl = useRequestURL()
+
+  // useEulerConfig().EVM_PROVIDER_URL is a plain string captured at call time,
+  // not reactive to chainId changes. Compute the RPC URL reactively instead.
+  const rpcUrl = computed(() => {
+    if (!chainId.value) return ''
+    return `${requestUrl.origin}/api/rpc/${chainId.value}`
+  })
 
   const updateBalances = async () => {
     // Guard: must be connected
@@ -69,7 +76,7 @@ export const useWallets = () => {
     try {
       const client = createPublicClient({
         chain: chain.value,
-        transport: http(EVM_PROVIDER_URL),
+        transport: http(rpcUrl.value),
       })
 
       // Try batch call first, fall back to individual calls if it fails
@@ -142,11 +149,12 @@ export const useWallets = () => {
     fetchPromise = updateBalances()
   }
 
-  // Handle chain changes
-  if (lastFetchChainId.value !== null && lastFetchChainId.value !== chainId.value) {
+  const resetBalances = () => {
     balances.value = new Map()
     isLoaded.value = false
+    isFetching.value = false
     lastFetchChainId.value = null
+    fetchPromise = null
   }
 
   const getBalance = (tokenAddress: Address): bigint => {
@@ -170,7 +178,7 @@ export const useWallets = () => {
     try {
       const client = createPublicClient({
         chain: chain.value,
-        transport: http(EVM_PROVIDER_URL),
+        transport: http(rpcUrl.value),
       })
       const result = await client.readContract({
         address: getAddress(tokenAddress) as Address,
@@ -196,7 +204,7 @@ export const useWallets = () => {
     try {
       const client = createPublicClient({
         chain: chain.value,
-        transport: http(EVM_PROVIDER_URL),
+        transport: http(rpcUrl.value),
       })
       const result = await client.readContract({
         address: getAddress(vaultAddress) as Address,
@@ -220,6 +228,7 @@ export const useWallets = () => {
     isLoading,
     getBalance,
     updateBalances,
+    resetBalances,
     fetchSingleBalance,
     fetchVaultShareBalance,
   }
