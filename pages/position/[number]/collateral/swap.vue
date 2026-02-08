@@ -241,6 +241,12 @@ const resetQuoteState = () => {
   toAmount.value = ''
 }
 
+const onRefreshQuotes = () => {
+  resetQuoteState()
+  isQuoteLoading.value = true
+  requestQuote()
+}
+
 const fromOpportunity = computed(() => {
   return fromVault.value ? getOpportunityOfLendVault(fromVault.value.address) : null
 })
@@ -777,6 +783,7 @@ const send = async () => {
               :is-loading="isQuoteLoading"
               :empty-message="swapRouteEmptyMessage"
               @select="selectProvider"
+              @refresh="onRefreshQuotes"
             />
 
             <AssetInput

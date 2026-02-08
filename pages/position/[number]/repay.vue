@@ -594,6 +594,15 @@ const resetSwapQuoteState = () => {
   targetDebtQuotes.reset()
 }
 
+const onRefreshSwapQuotes = () => {
+  resetSwapQuoteState()
+  const activeQuotes = repaySwapDirection.value === SwapperMode.EXACT_IN
+    ? exactInQuotes
+    : targetDebtQuotes
+  activeQuotes.isLoading.value = true
+  requestSwapQuote()
+}
+
 const onCollateralInput = () => {
   clearSimulationError()
   debtAmount.value = ''
@@ -1309,6 +1318,7 @@ onUnmounted(() => {
           :is-loading="swapIsQuoteLoading"
           :empty-message="swapRouteEmptyMessage"
           @select="selectSwapProvider"
+          @refresh="onRefreshSwapQuotes"
         />
 
         <UiToast
