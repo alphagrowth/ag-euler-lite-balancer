@@ -82,11 +82,11 @@ const parseSwapProvidersResponse = (payload: { success?: boolean; data?: string[
 }
 
 export const useSwapApi = () => {
-  const { SWAP_API_URL, SWAP_API_FALLBACK_URL } = useEulerConfig()
+  const { SWAP_API_URL } = useEulerConfig()
   const { chainId } = useEulerAddresses()
   const { address } = useWagmi()
 
-  const baseUrl = SWAP_API_URL || SWAP_API_FALLBACK_URL
+  const baseUrl = SWAP_API_URL
 
   const getSwapQuotes = async (
     params: SwapApiRequestInput,

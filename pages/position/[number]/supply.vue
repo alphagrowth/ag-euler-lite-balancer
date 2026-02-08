@@ -229,7 +229,6 @@ const submit = async () => {
         collateralVault.value.address,
         collateralVault.value.asset.address,
         valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
-        collateralVault.value.asset.symbol,
         position.value?.subAccount,
         { includePermit2Call: false },
       )
@@ -274,7 +273,6 @@ const send = async () => {
       collateralVault.value.address,
       asset.value.address,
       valueToNano(amount.value || '0', asset.value.decimals),
-      asset.value.symbol,
       position.value?.subAccount,
       { includePermit2Call: true },
     )

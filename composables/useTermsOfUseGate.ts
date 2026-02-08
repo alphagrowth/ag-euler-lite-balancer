@@ -80,8 +80,8 @@ export const useTermsOfUseGate = () => {
     return enableTermsOfUseSignature && hasSigned.value === false && !sessionAccepted.value
   })
 
-  const getSubmitLabel = (defaultLabel: string) => {
-    return computed(() => (isTermsRequired.value ? 'Accept Terms Of Use' : defaultLabel))
+  const getSubmitLabel = (defaultLabel: string | Ref<string> | ComputedRef<string>) => {
+    return computed(() => (isTermsRequired.value ? 'Accept Terms Of Use' : unref(defaultLabel)))
   }
 
   const getSubmitDisabled = (baseDisabled: boolean | Ref<boolean> | ComputedRef<boolean>) => {

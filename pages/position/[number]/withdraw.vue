@@ -228,7 +228,7 @@ const submit = async () => {
         collateralVault.value.address,
         valueToNano(amount.value || '0', asset.value.decimals),
         position.value?.subAccount,
-        { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address },
+        { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address, enabledCollaterals: position.value?.collaterals },
       )
     }
     catch (e) {
@@ -271,7 +271,7 @@ const send = async () => {
       collateralVault.value!.address,
       valueToNano(amount.value || '0', asset.value.decimals),
       position.value?.subAccount,
-      { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address },
+      { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address, enabledCollaterals: position.value?.collaterals },
     )
     await executeTxPlan(txPlan)
 

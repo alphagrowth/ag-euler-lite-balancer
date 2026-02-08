@@ -449,6 +449,7 @@ const disableCollateral = async (vault: Vault) => {
       position.value!.subAccount,
       vault.address,
       position.value!.borrow.address,
+      position.value!.collaterals,
     )
   }
   catch (e) {
@@ -486,6 +487,7 @@ const send = async (collateralAddress: string) => {
       position.value!.subAccount,
       collateralAddress,
       position.value!.borrow.address,
+      position.value!.collaterals,
     )
     await executeTxPlan(txPlan)
 
@@ -729,6 +731,12 @@ watch(isConnected, () => {
               </div>
             </div>
             <div
+              v-if="isEligibleForLiquidation"
+              class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 mb-8"
+            >
+              This position is eligible for liquidation. Multiply, borrow, and withdraw are disabled.
+            </div>
+            <div
               class="flex justify-between gap-8"
               @click.stop
             >
@@ -855,6 +863,12 @@ watch(isConnected, () => {
                 <div class="text-neutral-800 text-p3">
                   {{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%
                 </div>
+              </div>
+              <div
+                v-if="!hasNoBorrow && isEligibleForLiquidation"
+                class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 mb-8"
+              >
+                Withdraw is disabled while this position is eligible for liquidation.
               </div>
               <div
                 v-if="!hasNoBorrow"

@@ -170,7 +170,7 @@ const submit = async () => {
         borrowVault.value.address,
         valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
         position.value?.subAccount,
-        { includePermit2Call: false },
+        { includePermit2Call: false, enabledCollaterals: position.value?.collaterals },
       )
     }
     catch (e) {
@@ -215,7 +215,7 @@ const send = async () => {
       borrowVault.value.address,
       borrowAmountFixed.value.toFormat({ decimals: Number(borrowVault.value.decimals) }).value,
       position.value.subAccount,
-      { includePermit2Call: true },
+      { includePermit2Call: true, enabledCollaterals: position.value?.collaterals },
     )
     await executeTxPlan(txPlan)
 

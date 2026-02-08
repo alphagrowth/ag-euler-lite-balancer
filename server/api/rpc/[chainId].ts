@@ -1,5 +1,42 @@
-import { createError, getHeader, getMethod, readRawBody, setResponseHeader, setResponseStatus } from 'h3'
+import { createError, getMethod, readBody, setResponseHeader, setResponseStatus } from 'h3'
 import { resolveRpcUrl } from '~/server/utils/rpc'
+
+const ALLOWED_METHODS = new Set([
+  'eth_call',
+  'eth_estimateGas',
+  'eth_sendRawTransaction',
+  'eth_getTransactionReceipt',
+  'eth_getTransactionByHash',
+  'eth_blockNumber',
+  'eth_getBlockByNumber',
+  'eth_getBalance',
+  'eth_getCode',
+  'eth_getLogs',
+  'eth_chainId',
+  'eth_gasPrice',
+  'eth_maxPriorityFeePerGas',
+  'eth_feeHistory',
+  'eth_getTransactionCount',
+  'net_version',
+])
+
+const MAX_BATCH_SIZE = 100
+const UPSTREAM_TIMEOUT_MS = 30_000
+
+interface JsonRpcRequest {
+  jsonrpc?: string
+  method?: string
+  params?: unknown
+  id?: unknown
+}
+
+function validateRpcRequest(req: unknown): req is JsonRpcRequest {
+  return typeof req === 'object' && req !== null && 'method' in req
+}
+
+function validateMethod(method: unknown): method is string {
+  return typeof method === 'string' && ALLOWED_METHODS.has(method)
+}
 
 export default defineEventHandler(async (event) => {
   const chainIdRaw = event.context.params?.chainId
@@ -13,25 +50,61 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
   }
 
-  const { public: { network } } = useRuntimeConfig()
-  const rpcUrl = resolveRpcUrl(chainId, network)
+  const rpcUrl = resolveRpcUrl(chainId)
   if (!rpcUrl) {
     throw createError({ statusCode: 404, statusMessage: 'RPC not configured' })
   }
 
-  const rawBody = await readRawBody(event)
-  const contentType = getHeader(event, 'content-type') || 'application/json'
+  const body = await readBody(event)
 
-  const response = await fetch(rpcUrl, {
-    method: 'POST',
-    body: rawBody ?? undefined,
-    headers: {
-      'content-type': contentType,
-    },
-  })
+  if (body === null || body === undefined) {
+    throw createError({ statusCode: 400, statusMessage: 'Missing request body' })
+  }
 
-  setResponseStatus(event, response.status)
-  setResponseHeader(event, 'content-type', response.headers.get('content-type') || 'application/json')
+  const isBatch = Array.isArray(body)
 
-  return await response.text()
+  if (isBatch) {
+    if (body.length === 0) {
+      throw createError({ statusCode: 400, statusMessage: 'Empty batch request' })
+    }
+    if (body.length > MAX_BATCH_SIZE) {
+      throw createError({ statusCode: 400, statusMessage: `Batch size exceeds maximum of ${MAX_BATCH_SIZE}` })
+    }
+    for (const req of body) {
+      if (!validateRpcRequest(req) || !validateMethod(req.method)) {
+        throw createError({ statusCode: 403, statusMessage: `Method not allowed: ${(req as JsonRpcRequest)?.method ?? 'unknown'}` })
+      }
+    }
+  }
+  else {
+    if (!validateRpcRequest(body) || !validateMethod(body.method)) {
+      throw createError({ statusCode: 403, statusMessage: `Method not allowed: ${body?.method ?? 'unknown'}` })
+    }
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+      signal: controller.signal,
+    })
+
+    setResponseStatus(event, response.status)
+    setResponseHeader(event, 'content-type', response.headers.get('content-type') || 'application/json')
+
+    return await response.text()
+  }
+  catch (error: unknown) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw createError({ statusCode: 504, statusMessage: 'Upstream RPC timeout' })
+    }
+    throw createError({ statusCode: 502, statusMessage: 'Upstream RPC error' })
+  }
+  finally {
+    clearTimeout(timeout)
+  }
 })

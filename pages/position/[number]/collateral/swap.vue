@@ -37,7 +37,7 @@ const { buildSwapPlan, executeTxPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-const reviewSwapLabel = getSubmitLabel('Review Swap')
+const reviewSwapLabel = getSubmitLabel(computed(() => selectedQuote.value ? 'Review Swap' : 'Select a Quote'))
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -187,7 +187,7 @@ const loadSelectedCollateral = async () => {
   }
 
   if (!fromAmount.value && selectedCollateral.value) {
-    fromAmount.value = `${nanoToValue(selectedCollateralAssets.value || 0n, selectedCollateral.value.decimals)}`
+    fromAmount.value = formatSignificant(nanoToValue(selectedCollateralAssets.value || 0n, selectedCollateral.value.decimals), 6)
   }
 }
 
@@ -684,6 +684,7 @@ const submit = async () => {
         currentDebt: 0n,
         enableCollateral: true,
         liabilityVault: borrowVault.value?.address,
+        enabledCollaterals: position.value?.collaterals,
       })
     }
     catch (e) {
@@ -703,6 +704,8 @@ const submit = async () => {
         type: 'swap',
         asset: fromVault.value.asset,
         amount: fromAmount.value,
+        swapToAsset: toVault.value?.asset,
+        swapToAmount: toAmount.value,
         plan: plan.value || undefined,
         onConfirm: () => {
           setTimeout(() => {
@@ -729,6 +732,7 @@ const send = async () => {
       currentDebt: 0n,
       enableCollateral: true,
       liabilityVault: borrowVault.value?.address,
+      enabledCollaterals: position.value?.collaterals,
     })
     await executeTxPlan(txPlan)
     modal.close()

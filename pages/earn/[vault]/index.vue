@@ -107,7 +107,6 @@ const submit = async () => {
         vaultAddress,
         asset.value.address,
         valueToNano(amount.value || '0', asset.value.decimals),
-        asset.value.symbol,
         undefined,
         { includePermit2Call: false },
       )
@@ -145,7 +144,7 @@ const send = async () => {
     if (!asset.value?.address) {
       return
     }
-    const txPlan = await buildSupplyPlan(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), asset.value.symbol, undefined, { includePermit2Call: true })
+    const txPlan = await buildSupplyPlan(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), undefined, { includePermit2Call: true })
     await executeTxPlan(txPlan)
 
     modal.close()

@@ -9,22 +9,18 @@ EXPOSE ${APP_PORT}
 ARG NETWORK=mainnet
 ENV NETWORK=${NETWORK}
 
-ARG APPKIT_PROJECT_ID
-ENV APPKIT_PROJECT_ID=${APPKIT_PROJECT_ID}
-
-ARG APP_URL
-ENV APP_URL=${APP_URL}
-
-# Create app directory
 WORKDIR /usr/src/app
-# Copy package.json for installing dependencies
-COPY package.json .
-COPY package-lock.json .
-# Install app dependencies
+COPY package.json package-lock.json ./
 RUN npm i
-# Copy app source with common folder
 COPY . /usr/src/app
-# Build app
 RUN npm run build
-# Start server
-CMD [ "node", ".output/server/index.mjs" ]
+
+# Install Doppler CLI for runtime secret injection
+RUN (curl -Ls --tlsv1.2 --proto "=https" --retry 3 https://cli.doppler.com/install.sh || wget -t 3 -qO- https://cli.doppler.com/install.sh) | sh -s -- --no-package-manager --no-install
+
+# Add non-root user
+RUN groupadd -r appuser && useradd -r -g appuser -m appuser
+USER appuser
+
+# Doppler injects all secrets at runtime via DOPPLER_TOKEN, DOPPLER_PROJECT, DOPPLER_CONFIG env vars
+CMD ["./doppler", "run", "--", "node", ".output/server/index.mjs"]
