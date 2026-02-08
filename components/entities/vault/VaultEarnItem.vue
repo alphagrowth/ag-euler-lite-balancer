@@ -2,7 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { type EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
-import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useEulerProductOfVault, isVaultFeatured } from '~/composables/useEulerLabels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
@@ -32,6 +32,7 @@ const totalRewardsAPY = computed(
 );
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value);
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
+const isFeatured = computed(() => isVaultFeatured(vault.address))
 const isUnverified = computed(() => !vault.verified);
 const displayName = computed(() => product.name || vault.name);
 
@@ -83,6 +84,14 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
           <VaultDisplayName :name="displayName" :is-unverified="isUnverified" />
+          <span
+            v-if="isFeatured"
+            class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-accent-100 text-accent-600 text-p5"
+            title="Featured Vault"
+          >
+            <SvgIcon name="star" class="!w-14 !h-14" />
+            Featured
+          </span>
           <span
             v-if="isGeoBlocked"
             class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"

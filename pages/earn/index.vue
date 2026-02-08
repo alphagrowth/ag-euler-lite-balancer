@@ -5,7 +5,7 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { EarnVault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { isVaultDeprecated } from '~/composables/useEulerLabels'
+import { isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
 
 defineOptions({
   name: 'EarnPage',
@@ -89,26 +89,34 @@ const filteredList = computed(() => {
   return list.value.filter(vault => selectedCollateral.value.includes(vault.asset.address))
 })
 
+const applyFeaturedSort = <T extends { address: string }>(sorted: T[]): T[] => {
+  return [...sorted].sort((a, b) => {
+    const af = isVaultFeatured(a.address) ? 1 : 0
+    const bf = isVaultFeatured(b.address) ? 1 : 0
+    return bf - af
+  })
+}
+
 const sortedList = computed(() => {
   switch (sortBy.value) {
     case 'Total Supply':
-      return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+      return applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
         const aValue = vaultTotalSupplyUsd.value.get(a.address) ?? 0
         const bValue = vaultTotalSupplyUsd.value.get(b.address) ?? 0
         return bValue - aValue
-      })
+      }))
     case 'Supply APY':
-      return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+      return applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
         return Number(b.supplyAPY) - Number(a.supplyAPY)
-      })
+      }))
     case 'Liquidity':
-      return [...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+      return applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
         const aValue = vaultLiquidityUsd.value.get(a.address) ?? 0
         const bValue = vaultLiquidityUsd.value.get(b.address) ?? 0
         return bValue - aValue
-      })
+      }))
     default:
-      return filteredList.value
+      return applyFeaturedSort([...filteredList.value])
   }
 })
 

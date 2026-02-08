@@ -5,7 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
+import { getProductByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
 
 const { getOpportunityOfBorrowVault } = useMerkl()
 const { getCampaignOfBorrowVault } = useBrevis()
@@ -144,6 +144,17 @@ const filteredBorrowList = computed(() => {
     .filter(pair => selectedMarkets.value.length ? selectedMarkets.value.includes(getProductByVault(pair.collateral.address).name) : true)
 })
 
+const isPairFeatured = (pair: AnyBorrowVaultPair) =>
+  isVaultFeatured(pair.collateral.address) || isVaultFeatured(pair.borrow.address)
+
+const applyFeaturedPairSort = (sorted: AnyBorrowVaultPair[]): AnyBorrowVaultPair[] => {
+  return [...sorted].sort((a, b) => {
+    const af = isPairFeatured(a) ? 1 : 0
+    const bf = isPairFeatured(b) ? 1 : 0
+    return bf - af
+  })
+}
+
 const sortedBorrowList = computed(() => {
   switch (sortBy.value) {
     case 'Recommended': {
@@ -171,38 +182,38 @@ const sortedBorrowList = computed(() => {
         return b.compositeScore - a.compositeScore
       })
 
-      return scored.map(s => s.pair)
+      return applyFeaturedPairSort(scored.map(s => s.pair))
     }
     case 'Liquidity':
-      return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         const aValue = pairLiquidityUsd.value.get(getPairKey(a)) ?? 0
         const bValue = pairLiquidityUsd.value.get(getPairKey(b)) ?? 0
         return bValue - aValue
-      })
+      }))
     case 'Borrow APY':
-      return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return Number(a.borrow.interestRateInfo.borrowAPY) - Number(b.borrow.interestRateInfo.borrowAPY)
-      })
+      }))
     case 'Utilization':
-      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
         return getVaultUtilization(b.borrow) - getVaultUtilization(a.borrow)
-      })
+      }))
     case 'Total Borrowed':
-      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
         const aValue = pairBorrowedUsd.value.get(getPairKey(a)) ?? 0
         const bValue = pairBorrowedUsd.value.get(getPairKey(b)) ?? 0
         return bValue - aValue
-      })
+      }))
     case 'Max ROE':
-      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
         return getSortMaxRoe(b) - getSortMaxRoe(a)
-      })
+      }))
     case 'Net APY':
-      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
         return getNetApy(b) - getNetApy(a)
-      })
+      }))
     default:
-      return filteredBorrowList.value
+      return applyFeaturedPairSort([...filteredBorrowList.value])
   }
 })
 </script>

@@ -22,6 +22,7 @@ export type EulerLabelProduct = {
   deprecationReason?: string
   isGovernanceLimited?: boolean
   block?: string[]
+  featured?: boolean
 }
 export type EulerLabelPoint = {
   name: string

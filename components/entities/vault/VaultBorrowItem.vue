@@ -4,7 +4,7 @@ import { type AnyBorrowVaultPair, getVaultUtilization } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
-import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useEulerProductOfVault, isVaultFeatured } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -39,6 +39,7 @@ const isAnyUnverified = computed(() => {
 });
 
 const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(pair.collateral.address, pair.borrow.address))
+const isFeatured = computed(() => isVaultFeatured(pair.collateral.address) || isVaultFeatured(pair.borrow.address))
 
 const isAnyDeprecated = computed(() => {
   const collateralAddr = ethers.getAddress(pair.collateral.address);
@@ -166,6 +167,14 @@ const linkPath = computed(
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
             <VaultDisplayName :name="pairName" :is-unverified="isAnyUnverified" />
+            <span
+              v-if="isFeatured"
+              class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-accent-100 text-accent-600 text-p5"
+              title="Featured Vault"
+            >
+              <SvgIcon name="star" class="!w-14 !h-14" />
+              Featured
+            </span>
             <span
               v-if="isGeoBlocked"
               class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
