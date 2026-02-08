@@ -55,6 +55,7 @@ const onDisconnectClick = () => {
       </div>
     </div>
     <SlippageSettings />
+    <Permit2Settings />
     <UiButton
       variant="primary-stroke"
       size="xlarge"
