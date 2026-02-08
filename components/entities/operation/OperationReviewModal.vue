@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { encodeFunctionData, getAddress, toFunctionSelector } from 'viem'
+import type { Address, Hex } from 'viem'
 import type { Reward } from '~/entities/merkl'
 import type { Campaign } from '~/entities/brevis'
 import type { VaultAsset } from '~/entities/vault'
@@ -58,13 +59,65 @@ const { type, asset, rewardInfo, campaignInfo, reulUnlockInfo, amount, onConfirm
   hasBorrows?: boolean
 }>()
 
-const { chain } = useWagmi()
+const { chain, address: walletAddress, chainId: currentChainId } = useWagmi()
 const { estimatePlanFees } = useEstimatePlanFees()
 const { getVault } = useVaultRegistry()
+const { buildSimulationStateOverride } = useEulerOperations()
+const { eulerCoreAddresses } = useEulerAddresses()
+const { isSimulating: isTenderlySimulating, simulationError: tenderlyError, simulate: tenderlySimulate, clearSimulation: clearTenderly, fetchEnabled: fetchTenderlyEnabled } = useTenderlySimulation()
 
 const isEstimatingFee = ref(false)
 const feeEstimate = ref<string | null>(null)
 const copied = ref(false)
+const tenderlyEnabled = ref(false)
+
+fetchTenderlyEnabled().then((enabled) => { tenderlyEnabled.value = enabled })
+
+const handleTenderlySimulate = async () => {
+  if (!plan?.steps || !walletAddress.value || !currentChainId.value) return
+  clearTenderly()
+
+  try {
+    const owner = walletAddress.value as Address
+    const stateOverrides = await buildSimulationStateOverride(plan, owner)
+
+    const mainStep = plan.steps.find(s => s.type === 'evc-batch')
+    if (!mainStep) return
+
+    const batchItems = mainStep.args?.[0] as EVCCall[] | undefined
+    if (!batchItems?.length) return
+
+    const permit2Address = eulerCoreAddresses.value?.permit2 as string | undefined
+
+    const filteredItems = permit2Address
+      ? batchItems.filter(
+        call => call.targetContract.toLowerCase() !== permit2Address.toLowerCase(),
+      )
+      : batchItems
+
+    const data = encodeFunctionData({
+      abi: mainStep.abi,
+      functionName: mainStep.functionName,
+      args: [filteredItems],
+    })
+
+    const url = await tenderlySimulate({
+      chainId: currentChainId.value,
+      from: owner,
+      to: mainStep.to,
+      data: data as Hex,
+      value: mainStep.value?.toString() || '0',
+      stateOverrides,
+    })
+
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+  catch {
+    // Error is already captured in tenderlyError ref by the composable
+  }
+}
 
 const nativeSymbol = computed(() => chain.value?.nativeCurrency?.symbol || 'ETH')
 
@@ -405,19 +458,46 @@ const feeDisplay = computed(() => {
         </div>
       </div>
 
-      <!-- Copy calldata -->
-      <button
+      <!-- Copy calldata & Tenderly simulate -->
+      <div
         v-if="plan?.steps?.length"
-        type="button"
-        class="flex items-center gap-6 text-p3 text-euler-dark-900 hover:text-euler-dark-1000 transition-colors self-center"
-        @click="copyCalldata"
+        class="flex items-center justify-center gap-16"
       >
-        <SvgIcon
-          name="copy"
-          class="!w-16 !h-16"
-        />
-        {{ copied ? 'Copied!' : 'Copy calldata' }}
-      </button>
+        <button
+          type="button"
+          class="flex items-center gap-6 text-p3 text-euler-dark-900 hover:text-euler-dark-1000 transition-colors"
+          @click="copyCalldata"
+        >
+          <SvgIcon
+            name="copy"
+            class="!w-16 !h-16"
+          />
+          {{ copied ? 'Copied!' : 'Copy calldata' }}
+        </button>
+        <button
+          v-if="tenderlyEnabled"
+          type="button"
+          class="flex items-center gap-6 text-p3 text-euler-dark-900 hover:text-euler-dark-1000 transition-colors"
+          :disabled="isTenderlySimulating"
+          @click="handleTenderlySimulate"
+        >
+          <SvgIcon
+            :name="isTenderlySimulating ? 'loading' : 'arrow-top-right'"
+            class="!w-16 !h-16"
+            :class="{ 'animate-spin': isTenderlySimulating }"
+          />
+          Simulate on Tenderly
+        </button>
+      </div>
+
+      <!-- Tenderly error -->
+      <UiToast
+        v-if="tenderlyError"
+        title="Simulation failed"
+        variant="warning"
+        :description="tenderlyError"
+        size="compact"
+      />
 
       <!-- Disclaimers -->
       <UiToast
