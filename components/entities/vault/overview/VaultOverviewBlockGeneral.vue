@@ -4,6 +4,7 @@ import { type Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
+import { enableEntityBrandingDisplay, enableVaultTypeDisplay } from '~/entities/custom'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
@@ -78,7 +79,7 @@ const vaultGovernanceType = computed(() => {
         label="Market"
         :value="product.name"
       />
-      <VaultOverviewLabelValue label="Risk manager(s)">
+      <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager(s)">
         <div
           v-if="!isGovernorVerified"
           class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"
@@ -118,7 +119,7 @@ const vaultGovernanceType = computed(() => {
           -
         </div>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue label="Vault type">
+      <VaultOverviewLabelValue v-if="enableVaultTypeDisplay" label="Vault type">
         <VaultTypeChip
           :vault="vault"
           :type="vaultGovernanceType"

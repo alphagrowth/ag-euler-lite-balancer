@@ -4,6 +4,7 @@ import type { EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
+import { enableEntityBrandingDisplay, enableVaultTypeDisplay } from '~/entities/custom'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
 
@@ -53,7 +54,7 @@ const feeDisplay = computed(() => {
         label="Performance fee"
         :value="feeDisplay"
       />
-      <VaultOverviewLabelValue label="Capital allocator(s)">
+      <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Capital allocator(s)">
         <div
           v-if="entities.length && isOwnerVerified"
           class="flex flex-col gap-16"
@@ -88,7 +89,7 @@ const feeDisplay = computed(() => {
           -
         </div>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue label="Vault type">
+      <VaultOverviewLabelValue v-if="enableVaultTypeDisplay" label="Vault type">
         <VaultTypeChip
           :vault="vault"
           :type="entities.length ? 'managed' : 'unknown'"
