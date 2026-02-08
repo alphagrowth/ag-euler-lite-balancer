@@ -132,7 +132,7 @@ export const useWagmi = () => {
     const path = route.path
 
     if (path.startsWith('/lend/')) {
-      return '/'
+      return '/lend'
     }
 
     if (path.startsWith('/earn/') && path !== '/earn') {

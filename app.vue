@@ -109,7 +109,7 @@ onUnmounted(() => {
             <template #default>
           <NuxtPage
             :transition="{ name: 'page', mode: 'out-in' }"
-            :keepalive="{ include: ['EarnPage', 'IndexPage', 'BorrowPage', 'PortfolioPage'] }"
+            :keepalive="{ include: ['EarnPage', 'LendPage', 'BorrowPage', 'PortfolioPage'] }"
               />
             </template>
             <template #fallback>

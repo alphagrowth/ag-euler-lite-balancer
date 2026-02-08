@@ -3,6 +3,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { BlockedAddressModal } from '#components'
 import { detectVpn, resetVpnCache } from '~/services/vpn'
 import { screenAddress } from '~/services/trm'
+import { defaultPageRoute } from '~/entities/menu'
 
 // Track last screened address to avoid duplicate API calls
 let lastScreenedAddress: string | null = null
@@ -24,7 +25,7 @@ export const useAddressScreen = () => {
         onClose: () => {
           modal.close()
           blockedAddress.value = null
-          router.push('/')
+          router.push({ name: defaultPageRoute })
         },
       },
     })

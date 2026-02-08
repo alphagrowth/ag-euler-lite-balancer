@@ -43,10 +43,6 @@ const onLogoClick = () => {
   isSocialsTooltipVisible.value = !isSocialsTooltipVisible.value
 }
 const getIsMenuItemActive = (link: MenuItem) => {
-  if (link.name === 'index') {
-    return route.name === 'index' || route.name?.toString().startsWith('lend')
-  }
-
   return route.name?.toString().startsWith(link.name)
 }
 
