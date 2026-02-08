@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ethers } from 'ethers'
 import { type AnyBorrowVaultPair, getVaultUtilization } from '~/entities/vault'
+import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -102,6 +103,8 @@ const maxRoe = computed(() =>
 );
 const maxLTV = computed(() => formatNumber(nanoToValue(pair.borrowLTV, 2), 2));
 const utilization = computed(() => getVaultUtilization(pair.borrow));
+const utilisationWarning = computed(() => getUtilisationWarning(pair.borrow, 'borrow'));
+const borrowCapInfo = computed(() => getBorrowCapWarning(pair.borrow));
 
 const liquidityDisplay = ref('-')
 
@@ -228,7 +231,8 @@ const linkPath = computed(
         <div class="text-content-tertiary text-p3 mb-4">
           Available liquidity
         </div>
-        <div class="text-p2 text-content-primary">
+        <div class="text-p2 text-content-primary flex items-center gap-4">
+          <VaultWarningIcon :warning="borrowCapInfo" tooltip-placement="top-start" />
           {{ liquidityDisplay }}
         </div>
       </div>
@@ -253,14 +257,7 @@ const linkPath = computed(
       <div class="pr-16 py-12 pb-12 flex flex-col items-end mobile:!hidden">
         <div class="text-content-tertiary text-p3 mb-4">Utilization</div>
         <div class="flex gap-8 justify-end items-center text-right">
-          <UiFootnote
-            v-if="utilization >= 95"
-            icon="warning"
-            title="High usage warning"
-            text="High utilization on this market. A large proportion of the available liquidity has been borrowed."
-            tooltip-placement="top-end"
-            class="[--ui-footnote-icon-color:var(--warning-500)]"
-          />
+          <VaultWarningIcon :warning="utilisationWarning" />
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
@@ -316,14 +313,7 @@ const linkPath = computed(
           <div class="text-content-tertiary text-p3">Utilization</div>
         </div>
         <div class="flex gap-8 justify-end items-center text-right flex-1">
-          <UiFootnote
-            v-if="utilization >= 95"
-            icon="warning"
-            title="High usage warning"
-            text="High utilization on this market. A large proportion of the available liquidity has been borrowed."
-            tooltip-placement="top-end"
-            class="[--ui-footnote-icon-color:var(--warning-500)]"
-          />
+          <VaultWarningIcon :warning="utilisationWarning" />
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%

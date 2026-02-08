@@ -2,6 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { ethers } from 'ethers'
 import { getVaultUtilization, type Vault } from '~/entities/vault'
+import { getUtilisationWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
@@ -46,6 +47,8 @@ const supplyApyWithRewards = computed(
 );
 const utilization = computed(() => getVaultUtilization(vault));
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
+const utilisationWarning = computed(() => getUtilisationWarning(vault, 'lend'));
+const supplyCapWarning = computed(() => getSupplyCapWarning(vault));
 const isDeprecated = computed(() => {
   try {
     const addr = ethers.getAddress(vault.address);
@@ -158,7 +161,8 @@ watchEffect(async () => {
     >
       <div class="flex-1">
         <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
-        <div class="text-p2 text-content-primary">
+        <div class="text-p2 text-content-primary flex items-center gap-4">
+          <VaultWarningIcon :warning="supplyCapWarning" tooltip-placement="top-start" />
           {{ totalSupplyPrice }}
         </div>
       </div>
@@ -178,14 +182,7 @@ watchEffect(async () => {
       >
         <div class="text-content-tertiary text-p3 mb-4">Utilization</div>
         <div class="flex gap-8 justify-end items-center text-right">
-          <UiFootnote
-            v-if="utilization >= 95"
-            icon="warning"
-            title="High usage warning"
-            text="High utilization on this market. A large proportion of the available liquidity has been borrowed."
-            tooltip-placement="top-end"
-            class="[--ui-footnote-icon-color:var(--warning-500)]"
-          />
+          <VaultWarningIcon :warning="utilisationWarning" />
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
@@ -209,14 +206,7 @@ watchEffect(async () => {
         <div class="text-content-tertiary text-p3">Utilization</div>
       </div>
       <div class="flex gap-8 justify-end items-center text-right flex-1">
-        <UiFootnote
-          v-if="utilization >= 95"
-          icon="warning"
-          title="High usage warning"
-          text="High utilization on this market. A large proportion of the available liquidity has been borrowed."
-          tooltip-placement="top-end"
-          class="[--ui-footnote-icon-color:var(--warning-500)]"
-        />
+        <VaultWarningIcon :warning="utilisationWarning" />
         <UiRadialProgress :value="utilization" :max="100" />
         <div class="text-p2 text-content-primary">
           {{ compactNumber(utilization, 2, 2) }}%

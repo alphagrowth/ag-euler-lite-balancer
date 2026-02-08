@@ -13,6 +13,7 @@ import {
   type SecuritizeVault,
   type VaultAsset,
 } from '~/entities/vault'
+import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 
@@ -41,6 +42,11 @@ const asset: Ref<VaultAsset | undefined> = ref()
 
 // Check if vault is securitize (for things like supply/borrow which securitize doesn't have)
 const isSecuritizeVaultType = computed(() => vault.value && 'type' in vault.value && vault.value.type === 'securitize')
+
+const withdrawWarnings = computed(() => {
+  if (!vault.value || isSecuritizeVaultType.value) return []
+  return [getUtilisationWarning(vault.value as Vault, 'lend')]
+})
 const assetsBalance = ref(0n)
 const sharesBalance = ref(0n)
 const delta = ref(0n)
@@ -296,6 +302,8 @@ watch(amount, async () => {
         :description="simulationError"
         size="compact"
       />
+
+      <VaultWarningBanner :warnings="withdrawWarnings" />
 
       <VaultFormInfoBlock
         :loading="isEstimatesLoading"
