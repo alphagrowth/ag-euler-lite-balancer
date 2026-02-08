@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import { unref } from 'vue'
+import { unref, type Ref, type ComputedRef } from 'vue'
 import type { Address } from 'viem'
 import { AcknowledgeTermsModal } from '#components'
 import { tosSignerReadAbi } from '~/abis/tos'
@@ -82,8 +82,8 @@ export const useTermsOfUseGate = () => {
     return enableTermsOfUseSignature && hasSigned.value === false && !sessionAccepted.value
   })
 
-  const getSubmitLabel = (defaultLabel: string) => {
-    return computed(() => (isTermsRequired.value ? 'Accept Terms Of Use' : defaultLabel))
+  const getSubmitLabel = (defaultLabel: string | Ref<string> | ComputedRef<string>) => {
+    return computed(() => (isTermsRequired.value ? 'Accept Terms Of Use' : unref(defaultLabel)))
   }
 
   const getSubmitDisabled = (baseDisabled: boolean | Ref<boolean> | ComputedRef<boolean>) => {

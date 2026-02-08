@@ -164,9 +164,12 @@ const getAssetInfoForStep = (label: string, data: string, usedSupply: { value: b
     return { symbol: asset.symbol, amount }
   }
 
-  if (label === 'Verify min received' && swapToAsset && swapToAmount && !usedSwapTo.value) {
-    usedSwapTo.value = true
-    return { symbol: swapToAsset.symbol, amount: swapToAmount }
+  if (label === 'Verify min received') {
+    if (swapToAsset && swapToAmount && !usedSwapTo.value) {
+      usedSwapTo.value = true
+      return { symbol: swapToAsset.symbol, amount: swapToAmount }
+    }
+    return { symbol: asset.symbol, amount }
   }
 
   if (label === 'Verify max debt') {
@@ -406,7 +409,7 @@ const feeDisplay = computed(() => {
       <button
         v-if="plan?.steps?.length"
         type="button"
-        class="flex items-center gap-6 text-p3 text-euler-dark-900 hover:text-euler-dark-1000 transition-colors self-start"
+        class="flex items-center gap-6 text-p3 text-euler-dark-900 hover:text-euler-dark-1000 transition-colors self-center"
         @click="copyCalldata"
       >
         <SvgIcon
