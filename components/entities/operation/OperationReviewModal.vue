@@ -417,7 +417,7 @@ const feeDisplay = computed(() => {
                   :label="step.assetInfo.symbol"
                 />
                 <p class="text-p3">
-                  <template v-if="step.assetInfo.amount !== undefined">{{ formatNumber(step.assetInfo.amount, 8, 0) }} </template>{{ step.assetInfo.symbol }}
+                  <template v-if="step.assetInfo.amount !== undefined">{{ formatNumber(step.assetInfo.amount, 8, 0) }}&nbsp;</template>{{ step.assetInfo.symbol }}
                 </p>
               </template>
               <template v-if="step.toAssetInfo">
@@ -430,7 +430,7 @@ const feeDisplay = computed(() => {
                   :label="step.toAssetInfo.symbol"
                 />
                 <p class="text-p3">
-                  <template v-if="step.toAssetInfo.amount !== undefined">{{ formatNumber(step.toAssetInfo.amount, 8, 0) }} </template>{{ step.toAssetInfo.symbol }}
+                  <template v-if="step.toAssetInfo.amount !== undefined">{{ formatNumber(step.toAssetInfo.amount, 8, 0) }}&nbsp;</template>{{ step.toAssetInfo.symbol }}
                 </p>
               </template>
             </div>
