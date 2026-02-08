@@ -911,6 +911,13 @@ const resetMultiplyQuoteState = () => {
   resetMultiplyQuoteStateInternal()
   setMultiplyAmounts(null, null)
 }
+
+const onRefreshMultiplyQuotes = () => {
+  resetMultiplyQuoteState()
+  isMultiplyQuoteLoading.value = true
+  requestMultiplyQuote()
+}
+
 const requestMultiplyQuote = useDebounceFn(async () => {
   multiplyQuoteError.value = null
 
@@ -1682,6 +1689,7 @@ watch(formTab, () => {
                   :is-loading="isMultiplyQuoteLoading"
                   :empty-message="multiplyRouteEmptyMessage"
                   @select="selectMultiplyQuote"
+                  @refresh="onRefreshMultiplyQuotes"
                 />
 
                 <AssetInput

@@ -161,6 +161,12 @@ const resetQuoteState = () => {
   toAmount.value = ''
 }
 
+const onRefreshQuotes = () => {
+  resetQuoteState()
+  isQuoteLoading.value = true
+  requestQuote()
+}
+
 const savingPosition = computed(() => {
   if (!fromVault.value) {
     return null
@@ -321,6 +327,7 @@ const isSubmitDisabled = computed(() => {
   }
   const amountOut = getQuoteAmount(selectedQuote.value, 'amountOut')
   return isLoading.value
+    || isQuoteLoading.value
     || balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)
     || !(+fromAmount.value)
     || !toAmount.value
@@ -528,6 +535,7 @@ const send = async () => {
               :is-loading="isQuoteLoading"
               :empty-message="swapRouteEmptyMessage"
               @select="selectProvider"
+              @refresh="onRefreshQuotes"
             />
 
             <AssetInput
