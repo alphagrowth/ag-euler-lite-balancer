@@ -54,7 +54,7 @@ const activeBorrowList = computed(() =>
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
-const sortBy = ref<string>('Liquidity')
+const sortBy = ref<string>('Recommended')
 
 // Cache for USD values used in sorting (keyed by pair identifier: collateral+borrow address)
 const pairLiquidityUsd = ref<Map<string, number>>(new Map())
@@ -146,6 +146,33 @@ const filteredBorrowList = computed(() => {
 
 const sortedBorrowList = computed(() => {
   switch (sortBy.value) {
+    case 'Recommended': {
+      const list = [...filteredBorrowList.value]
+
+      const scores = list.map((pair) => {
+        const maxRoe = 'borrowLTV' in pair ? getSortMaxRoe(pair as BorrowVaultPair) : 0
+        const liquidityUsd = pairLiquidityUsd.value.get(getPairKey(pair)) ?? 0
+        return { pair, maxRoe, liquidityUsd }
+      })
+
+      const maxMaxRoe = Math.max(...scores.map(s => s.maxRoe), 0)
+      const maxLiquidity = Math.max(...scores.map(s => s.liquidityUsd), 0)
+
+      const scored = scores.map(({ pair, maxRoe, liquidityUsd }) => {
+        const normalizedRoe = maxMaxRoe === 0 ? 0 : maxRoe / maxMaxRoe
+        const normalizedLiquidity = maxLiquidity === 0 ? 0 : liquidityUsd / maxLiquidity
+        const roeBucket = maxRoe >= 0 ? 0 : 1
+        const compositeScore = normalizedRoe * normalizedLiquidity
+        return { pair, roeBucket, compositeScore }
+      })
+
+      scored.sort((a, b) => {
+        if (a.roeBucket !== b.roeBucket) return a.roeBucket - b.roeBucket
+        return b.compositeScore - a.compositeScore
+      })
+
+      return scored.map(s => s.pair)
+    }
     case 'Liquidity':
       return [...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         const aValue = pairLiquidityUsd.value.get(getPairKey(a)) ?? 0
@@ -196,7 +223,7 @@ const sortedBorrowList = computed(() => {
         <VaultSortButton
           v-model="sortBy"
           class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
-          :options="['Liquidity', 'Total Borrowed', 'Utilization', 'Borrow APY', 'Net APY', 'Max ROE']"
+          :options="['Recommended', 'Liquidity', 'Total Borrowed', 'Utilization', 'Borrow APY', 'Net APY', 'Max ROE']"
           placeholder="Sort By"
           title="Sorting type"
         />
