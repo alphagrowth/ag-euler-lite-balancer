@@ -21,13 +21,9 @@ The pricing functions support two price sources:
 
 Configure the backend URL in `entities/config.ts`:
 
-```typescript
-export default {
-  mainnet: {
-    PRICE_BACKEND_URL: 'https://api.example.com/prices', // Empty = disabled
-    // ...
-  }
-}
+```bash
+# In .env or Doppler
+PRICE_API_URL=https://api.example.com/prices  # Empty = disabled
 ```
 
 Use `usePriceBackend()` composable to access the configuration:

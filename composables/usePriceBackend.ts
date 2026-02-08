@@ -4,7 +4,7 @@ import type { BackendConfig } from '~/services/pricing'
 /**
  * Composable for accessing price backend configuration.
  *
- * The backend URL is configured in entities/config.ts under PRICE_BACKEND_URL.
+ * The backend URL is configured via PRICE_API_URL environment variable.
  * When empty, the system uses on-chain prices only.
  *
  * Usage:
@@ -20,8 +20,7 @@ export const usePriceBackend = () => {
   const config = useEulerConfig()
   const { chainId } = useEulerAddresses()
 
-  // Get URL from config (set in entities/config.ts)
-  const backendUrl = (config as { PRICE_BACKEND_URL?: string }).PRICE_BACKEND_URL || ''
+  const backendUrl = (config as { PRICE_API_URL?: string }).PRICE_API_URL || ''
 
   // Configure the backend client when URL or chainId changes
   watchEffect(() => {
