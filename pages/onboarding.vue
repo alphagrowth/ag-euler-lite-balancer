@@ -2,6 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { useAppKit } from '@reown/appkit/vue'
 import { onboardingInfo } from '~/entities/custom'
+import { defaultPageRoute } from '~/entities/menu'
 
 const { isConnected } = useAccount()
 
@@ -15,13 +16,13 @@ const onConnectWalletClick = () => {
 
 const onConnectLaterClick = () => {
   isOnboardingCompleted.value = true
-  navigateTo('/')
+  navigateTo({ name: defaultPageRoute })
 }
 
 watch(isConnected, (value) => {
   if (value) {
     isOnboardingCompleted.value = true
-    navigateTo('/')
+    navigateTo({ name: defaultPageRoute })
   }
 }, { immediate: true })
 </script>

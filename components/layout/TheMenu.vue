@@ -4,10 +4,6 @@ import { type MenuItem, menuItems } from '~/entities/menu'
 const route = useRoute()
 
 const getMenuIcon = (item: MenuItem) => {
-  if (item.name === 'index') {
-    return route.name === 'index' || route.name?.toString().startsWith('lend') ? item.activeIcon : item.icon
-  }
-
   return route.name?.toString().startsWith(item.name) ? item.activeIcon : item.icon
 }
 </script>

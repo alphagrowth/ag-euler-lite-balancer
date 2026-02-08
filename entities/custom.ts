@@ -82,3 +82,6 @@ export const enableEntityBrandingDisplay = true
 // Toggle vault type chip (governed / ungoverned / escrow / managed) in vault overview.
 // Set to false when all vaults share the same governance type.
 export const enableVaultTypeDisplay = true
+
+export const enableEarnPage = true
+export const enableLendPage = true
