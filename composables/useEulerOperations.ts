@@ -23,6 +23,7 @@ import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities
 import { isNonBlockingSimulationError } from '~/utils/tx-errors'
 
 const allowanceSlotIndexCache = new Map<string, bigint>()
+/** Pad amount by 0.01% to cover interest accrual between plan build and tx execution */
 const adjustForInterest = (amount: bigint) => (amount * 10_001n) / 10_000n
 
 export const useEulerOperations = () => {
@@ -680,7 +681,6 @@ export const useEulerOperations = () => {
     vaultAddress: string,
     assetAddress: string,
     amount: bigint,
-    _symbol: string,
     subAccount?: string,
     options: { includePermit2Call?: boolean } = {},
   ): Promise<TxPlan> => {

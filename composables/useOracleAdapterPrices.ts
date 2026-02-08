@@ -98,18 +98,17 @@ const fetchMissingDecimals = async (
           result.set(addresses[i].toLowerCase(), Number(decimals))
         }
         catch {
-          // Default to 18 if decode fails
-          result.set(addresses[i].toLowerCase(), 18)
+          // Skip tokens whose decimals can't be decoded
         }
       }
-      else {
-        result.set(addresses[i].toLowerCase(), 18)
-      }
+      // Skip tokens whose decimals() call failed — omitting them
+      // from the map causes their adapters to be filtered out later,
+      // which is safer than defaulting to 18 (would misquote USDC/WBTC).
     })
   }
   catch {
-    // If batch fails, default all to 18
-    addresses.forEach(addr => result.set(addr.toLowerCase(), 18))
+    // Batch call failed — return empty map so all adapters with
+    // unknown decimals are skipped rather than mis-priced.
   }
 
   return result
@@ -123,23 +122,34 @@ const evcInterface_decodeFunctionResult = (data: string): [bigint] => {
 const buildPriceQueryItems = (
   adapters: OracleAdapterEntry[],
   decimals: Map<string, number>,
-): BatchItem[] => {
-  return adapters.map((adapter) => {
-    const baseDecimals = decimals.get(adapter.base.toLowerCase()) ?? 18
+): { filteredAdapters: OracleAdapterEntry[]; items: BatchItem[] } => {
+  const filteredAdapters: OracleAdapterEntry[] = []
+  const items: BatchItem[] = []
+
+  for (const adapter of adapters) {
+    const baseDecimals = decimals.get(adapter.base.toLowerCase())
+    const quoteDecimals = decimals.get(adapter.quote.toLowerCase())
+    if (baseDecimals === undefined || quoteDecimals === undefined) continue
+
     const inAmount = 10n ** BigInt(baseDecimals)
 
     if (adapter.name === 'ERC4626Vault') {
       const callData = vaultInterface.encodeFunctionData('convertToAssets', [inAmount])
-      return buildBatchItem(adapter.oracle, callData)
+      items.push(buildBatchItem(adapter.oracle, callData))
+    }
+    else {
+      const callData = oracleInterface.encodeFunctionData('getQuote', [
+        inAmount,
+        adapter.base,
+        adapter.quote,
+      ])
+      items.push(buildBatchItem(adapter.oracle, callData))
     }
 
-    const callData = oracleInterface.encodeFunctionData('getQuote', [
-      inAmount,
-      adapter.base,
-      adapter.quote,
-    ])
-    return buildBatchItem(adapter.oracle, callData)
-  })
+    filteredAdapters.push(adapter)
+  }
+
+  return { filteredAdapters, items }
 }
 
 const decodePriceResults = (
@@ -189,6 +199,8 @@ export const useOracleAdapterPrices = (
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { eulerCoreAddresses } = useEulerAddresses()
 
+  let provider: ethers.JsonRpcProvider | undefined
+
   const fetchPrices = async () => {
     const adapterList = adapters.value
     const evcAddress = eulerCoreAddresses.value?.evc
@@ -198,7 +210,9 @@ export const useOracleAdapterPrices = (
     }
 
     try {
-      const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+      if (!provider) {
+        provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+      }
 
       // 1. Build known decimals
       const knownDecimals = buildKnownDecimals(sourceVaults.value, collateralVaults.value)
@@ -219,8 +233,8 @@ export const useOracleAdapterPrices = (
         PYTH_HERMES_URL,
       )
 
-      // 5. Build price query batch items
-      const priceItems = buildPriceQueryItems(adapterList, knownDecimals)
+      // 5. Build price query batch items (skipping adapters with unknown decimals)
+      const { filteredAdapters, items: priceItems } = buildPriceQueryItems(adapterList, knownDecimals)
 
       // 6. Execute single batchSimulation
       const allItems = [...pythItems, ...priceItems]
@@ -232,7 +246,7 @@ export const useOracleAdapterPrices = (
 
       // 7. Decode price results (skip Pyth update results)
       const priceResults = batchResults.slice(pythItems.length)
-      prices.value = decodePriceResults(adapterList, priceResults, knownDecimals)
+      prices.value = decodePriceResults(filteredAdapters, priceResults, knownDecimals)
     }
     catch (err) {
       console.warn('[useOracleAdapterPrices] fetchPrices failed:', err)

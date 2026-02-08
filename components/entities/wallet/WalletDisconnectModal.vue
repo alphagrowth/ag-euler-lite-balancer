@@ -40,6 +40,7 @@ const onDisconnectClick = () => {
           @click="onCopyAddressClick"
         />
         <NuxtLink
+          v-if="address"
           :to="explorerLink"
           target="_blank"
           external
