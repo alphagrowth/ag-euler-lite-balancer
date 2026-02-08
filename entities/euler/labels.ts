@@ -21,6 +21,7 @@ export type EulerLabelProduct = {
   deprecatedVaults?: string[]
   deprecationReason?: string
   isGovernanceLimited?: boolean
+  block?: string[]
 }
 export type EulerLabelPoint = {
   name: string

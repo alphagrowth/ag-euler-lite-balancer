@@ -18,6 +18,7 @@ import {
   getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { SwapperMode } from '~/entities/swap'
@@ -559,7 +560,13 @@ const isSubmitDisabled = computed(() => {
     || isSameVault.value
     || amountOut <= 0n
 })
-const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
+const isGeoBlocked = computed(() => {
+  const addresses: string[] = []
+  if (fromVault.value) addresses.push(fromVault.value.address)
+  if (borrowVault.value) addresses.push(borrowVault.value.address)
+  return isAnyVaultBlockedByCountry(...addresses)
+})
+const reviewSwapDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
 
 const onFromInput = async () => {
   clearSimulationError()
@@ -659,6 +666,7 @@ const onToVaultChange = (selectedIndex: number) => {
 }
 
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
       return
@@ -789,6 +797,13 @@ const send = async () => {
               No collateral swap options available
             </div>
 
+            <UiToast
+              v-if="isGeoBlocked"
+              title="Region restricted"
+              description="This operation is not available in your region. You can still repay existing debt."
+              variant="warning"
+              size="compact"
+            />
             <UiToast
               v-show="errorText"
               title="Error"

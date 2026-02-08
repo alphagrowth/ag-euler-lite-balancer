@@ -18,6 +18,7 @@ import {
   getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
 const router = useRouter()
@@ -128,7 +129,13 @@ const isSubmitDisabled = computed(() => {
   return collateralAssets.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
-const reviewWithdrawDisabled = getSubmitDisabled(computed(() => isLoading.value || isSubmitDisabled.value))
+const isGeoBlocked = computed(() => {
+  const addresses: string[] = []
+  if (borrowVault.value) addresses.push(borrowVault.value.address)
+  if (collateralVault.value) addresses.push(collateralVault.value.address)
+  return isAnyVaultBlockedByCountry(...addresses)
+})
+const reviewWithdrawDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isLoading.value || isSubmitDisabled.value))
 
 const normalizeAddress = (address?: string) => {
   if (!address) {
@@ -212,6 +219,7 @@ const load = async () => {
   }
 }
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (!asset.value?.address || !collateralVault.value?.address) {
       return
@@ -386,6 +394,13 @@ watch(amount, async () => {
         maxable
       />
 
+      <UiToast
+        v-if="isGeoBlocked"
+        title="Region restricted"
+        description="This operation is not available in your region. You can still repay existing debt."
+        variant="warning"
+        size="compact"
+      />
       <UiToast
         v-show="estimatesError"
         title="Error"

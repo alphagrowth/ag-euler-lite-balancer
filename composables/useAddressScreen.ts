@@ -2,6 +2,7 @@ import { useDisconnect } from '@wagmi/vue'
 import { useModal } from '~/components/ui/composables/useModal'
 import { BlockedAddressModal } from '#components'
 import { detectVpn, resetVpnCache } from '~/services/vpn'
+import { resetCountryCache } from '~/services/country'
 import { screenAddress } from '~/services/trm'
 
 // Track last screened address to avoid duplicate API calls
@@ -61,6 +62,7 @@ export const useAddressScreen = () => {
   const resetScreeningCache = () => {
     lastScreenedAddress = null
     resetVpnCache()
+    resetCountryCache()
   }
 
   return {

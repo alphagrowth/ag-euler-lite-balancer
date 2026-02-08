@@ -21,6 +21,7 @@ import {
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -84,6 +85,15 @@ const hasNoBorrow = computed(() => position.value?.borrow.borrow === 0n)
 const isEligibleForLiquidation = computed(() => {
   if (!position.value || position.value.liabilityValueLiquidation === 0n) return false
   return position.value.liabilityValueLiquidation > position.value.collateralValueLiquidation
+})
+const isPositionGeoBlocked = computed(() => {
+  if (!position.value) return false
+  const addresses = [position.value.borrow.address]
+  const collateralAddresses = position.value.collaterals?.length
+    ? position.value.collaterals
+    : [position.value.collateral.address]
+  addresses.push(...collateralAddresses)
+  return isAnyVaultBlockedByCountry(...addresses)
 })
 
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
@@ -732,6 +742,13 @@ watch(isConnected, () => {
               This position is eligible for liquidation. Multiply, borrow, and withdraw are disabled.
             </div>
             <div
+              v-if="isPositionGeoBlocked"
+              class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500 text-p4 mb-8"
+            >
+              <SvgIcon name="warning" class="!w-16 !h-16 shrink-0" />
+              This vault is not available in your region. You can still repay debt.
+            </div>
+            <div
               class="flex justify-between gap-8"
               @click.stop
             >
@@ -739,8 +756,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary"
                 rounded
-                :disabled="isEligibleForLiquidation"
-                :to="isEligibleForLiquidation ? undefined : `/position/${positionIndex}/multiply`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/multiply`"
               >
                 Multiply
               </UiButton>
@@ -748,8 +765,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :disabled="isEligibleForLiquidation"
-                :to="isEligibleForLiquidation ? undefined : `/position/${positionIndex}/borrow`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/borrow`"
               >
                 Borrow
               </UiButton>
@@ -765,7 +782,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :to="`/position/${positionIndex}/borrow/swap`"
+                :disabled="isPositionGeoBlocked"
+                :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/borrow/swap`"
               >
                 Debt swap
               </UiButton>
@@ -874,7 +892,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary"
                   rounded
-                  :to="`/position/${positionIndex}/supply?collateral=${collateral.vault.address}`"
+                  :disabled="isPositionGeoBlocked"
+                  :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/supply?collateral=${collateral.vault.address}`"
                 >
                   Supply
                 </UiButton>
@@ -882,8 +901,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :disabled="isEligibleForLiquidation"
-                  :to="isEligibleForLiquidation ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
+                  :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
+                  :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
                 >
                   Withdraw
                 </UiButton>
@@ -891,7 +910,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :to="`/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
+                  :disabled="isPositionGeoBlocked"
+                  :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
                 >
                   Collateral swap
                 </UiButton>

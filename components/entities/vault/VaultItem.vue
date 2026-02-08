@@ -4,6 +4,7 @@ import { ethers } from 'ethers'
 import { getVaultUtilization, type Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -44,6 +45,7 @@ const supplyApyWithRewards = computed(
   () => supplyApy.value + totalRewardsAPY.value,
 );
 const utilization = computed(() => getVaultUtilization(vault));
+const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
 const isDeprecated = computed(() => {
   try {
     const addr = ethers.getAddress(vault.address);
@@ -94,7 +96,8 @@ watchEffect(async () => {
 <template>
   <NuxtLink
     class="block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
-    :to="`/lend/${vault.address}`"
+    :class="isGeoBlocked ? 'opacity-50 border-l-4 border-l-warning-500/50' : ''"
+    :to="isGeoBlocked ? undefined : `/lend/${vault.address}`"
   >
     <div class="flex pb-12 p-16 border-b border-line-subtle">
       <BaseAvatar
@@ -105,6 +108,14 @@ watchEffect(async () => {
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
           <VaultDisplayName :name="displayName" :is-unverified="isUnverified" />
+          <span
+            v-if="isGeoBlocked"
+            class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+            title="This vault is not available in your region"
+          >
+            <SvgIcon name="warning" class="!w-14 !h-14" />
+            Restricted
+          </span>
           <span
             v-if="isDeprecated"
             class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"

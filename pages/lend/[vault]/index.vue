@@ -10,6 +10,7 @@ import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
@@ -219,7 +220,8 @@ const isSubmitDisabled = computed(() => {
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value)
 })
-const reviewSupplyDisabled = getSubmitDisabled(isSubmitDisabled)
+const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
+const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vaultAddress))
 const brevisInfo = computed(() => getCampaignOfLendVault(vaultAddress))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
@@ -284,6 +286,7 @@ const load = async () => {
 }
 
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (!asset.value?.address) {
       return
@@ -483,6 +486,13 @@ watch(amount, async () => {
           maxable
         />
 
+        <UiToast
+          v-if="isGeoBlocked"
+          title="Region restricted"
+          description="This operation is not available in your region. You can still withdraw existing deposits."
+          variant="warning"
+          size="compact"
+        />
         <UiToast
           v-show="errorText"
           title="Error"

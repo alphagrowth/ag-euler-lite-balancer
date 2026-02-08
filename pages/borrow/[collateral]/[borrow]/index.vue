@@ -11,6 +11,7 @@ import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
@@ -152,8 +153,9 @@ const isMultiplySubmitDisabled = computed(() => {
   }
   return false
 })
-const reviewBorrowDisabled = getSubmitDisabled(isSubmitDisabled)
-const reviewMultiplyDisabled = getSubmitDisabled(isMultiplySubmitDisabled)
+const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(collateralAddress, borrowAddress))
+const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
+const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplySubmitDisabled.value))
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
 const multiplyLongVault = computed(() => collateralVault.value)
@@ -1010,6 +1012,7 @@ const onMultiplyCollateralChange = (selectedIndex: number) => {
   }
 }
 const submitMultiply = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (isMultiplySubmitting.value || !isConnected.value) {
       return
@@ -1143,6 +1146,7 @@ const sendMultiply = async () => {
   }
 }
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     // TODO: Validate
     if (!isConnected.value) {
@@ -1589,6 +1593,13 @@ watch(formTab, () => {
             />
 
             <UiToast
+              v-if="isGeoBlocked"
+              title="Region restricted"
+              description="This operation is not available in your region. You can still repay existing debt."
+              variant="warning"
+              size="compact"
+            />
+            <UiToast
               v-show="errorText"
               title="Error"
               variant="error"
@@ -1702,6 +1713,13 @@ watch(formTab, () => {
                   :readonly="true"
                 />
 
+                <UiToast
+                  v-if="isGeoBlocked"
+                  title="Region restricted"
+                  description="This operation is not available in your region. You can still repay existing debt."
+                  variant="warning"
+                  size="compact"
+                />
                 <UiToast
                   v-show="multiplyErrorText"
                   title="Error"
