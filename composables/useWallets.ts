@@ -16,7 +16,14 @@ export const useWallets = () => {
   const { address, isConnected, chain } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
   const { chainId } = useEulerAddresses()
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const requestUrl = useRequestURL()
+
+  // useEulerConfig().EVM_PROVIDER_URL is a plain string captured at call time,
+  // not reactive to chainId changes. Compute the RPC URL reactively instead.
+  const rpcUrl = computed(() => {
+    if (!chainId.value) return ''
+    return `${requestUrl.origin}/api/rpc/${chainId.value}`
+  })
 
   const updateBalances = async () => {
     // Guard: must be connected
@@ -65,6 +72,8 @@ export const useWallets = () => {
 
     const currentChainId = chainId.value
     isFetching.value = true
+
+    const { EVM_PROVIDER_URL } = useEulerConfig()
 
     try {
       const client = createPublicClient({
@@ -142,11 +151,12 @@ export const useWallets = () => {
     fetchPromise = updateBalances()
   }
 
-  // Handle chain changes
-  if (lastFetchChainId.value !== null && lastFetchChainId.value !== chainId.value) {
+  const resetBalances = () => {
     balances.value = new Map()
     isLoaded.value = false
+    isFetching.value = false
     lastFetchChainId.value = null
+    fetchPromise = null
   }
 
   const getBalance = (tokenAddress: Address): bigint => {
@@ -168,6 +178,7 @@ export const useWallets = () => {
       return 0n
     }
     try {
+      const { EVM_PROVIDER_URL } = useEulerConfig()
       const client = createPublicClient({
         chain: chain.value,
         transport: http(EVM_PROVIDER_URL),
@@ -194,6 +205,7 @@ export const useWallets = () => {
       return 0n
     }
     try {
+      const { EVM_PROVIDER_URL } = useEulerConfig()
       const client = createPublicClient({
         chain: chain.value,
         transport: http(EVM_PROVIDER_URL),
@@ -220,6 +232,7 @@ export const useWallets = () => {
     isLoading,
     getBalance,
     updateBalances,
+    resetBalances,
     fetchSingleBalance,
     fetchVaultShareBalance,
   }

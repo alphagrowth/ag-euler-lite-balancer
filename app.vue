@@ -6,8 +6,8 @@ const { loadVaults, isReady: isVaultsReady, resetVaultsState } = useVaults()
 const { loadTokens } = useTokens()
 const { loadLabels } = useEulerLabels()
 const { loadCountry } = useGeoBlock()
-const { updateBalances } = useWallets()
-const { isConnected } = useWagmi()
+const { updateBalances, resetBalances } = useWallets()
+const { isConnected, address } = useWagmi()
 
 // Initialize price backend (configures endpoint when chainId changes)
 usePriceBackend()
@@ -66,6 +66,7 @@ checkOnboarding()
 
 watch(chainId, () => {
   resetVaultsState()
+  resetBalances()
   const targetChainId = chainId.value
   const labelsPromise = loadLabels()
   void loadTokens()
@@ -90,6 +91,13 @@ watch([isConnected, isVaultsReady], ([val]) => {
     }, 10000)
   }
 }, { immediate: true })
+
+watch(address, () => {
+  resetBalances()
+  if (isConnected.value && isVaultsReady.value) {
+    updateBalances()
+  }
+})
 
 onUnmounted(() => {
   if (interval) {
