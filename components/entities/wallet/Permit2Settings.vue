@@ -11,7 +11,7 @@ const onToggle = (value: boolean) => {
     <div class="flex items-center justify-between">
       <div>
         <div class="text-p2">
-          Permit2 Approvals
+          permit2 approvals
         </div>
         <div class="text-p3 text-euler-dark-700">
           Use gasless token approvals
