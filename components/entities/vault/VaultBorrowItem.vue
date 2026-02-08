@@ -3,6 +3,7 @@ import { ethers } from 'ethers'
 import { type AnyBorrowVaultPair, getVaultUtilization } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal } from '#components'
@@ -34,6 +35,8 @@ const isAnyUnverified = computed(() => {
   const borrowUnverified = "verified" in pair.borrow && !pair.borrow.verified;
   return collateralUnverified || borrowUnverified;
 });
+
+const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(pair.collateral.address, pair.borrow.address))
 
 const isAnyDeprecated = computed(() => {
   const collateralAddr = ethers.getAddress(pair.collateral.address);
@@ -148,8 +151,9 @@ const linkPath = computed(
 
 <template>
   <NuxtLink
-    :to="linkPath"
+    :to="isGeoBlocked ? undefined : linkPath"
     class="block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
+    :class="isGeoBlocked ? 'opacity-50 border-l-4 border-l-warning-500/50' : ''"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-line-subtle">
       <BaseAvatar
@@ -164,6 +168,14 @@ const linkPath = computed(
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
           <VaultDisplayName :name="pairName" :is-unverified="isAnyUnverified" />
+          <span
+            v-if="isGeoBlocked"
+            class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+            title="This vault is not available in your region"
+          >
+            <SvgIcon name="warning" class="!w-14 !h-14" />
+            Restricted
+          </span>
           <span
             v-if="isAnyDeprecated"
             class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"

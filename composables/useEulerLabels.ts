@@ -27,6 +27,7 @@ const products: Record<string, EulerLabelProduct> = shallowReactive({})
 const entities: Record<string, EulerLabelEntity> = shallowReactive({})
 const points: Record<string, EulerLabelPointReward[]> = shallowReactive({})
 const earnVaults: Ref<string[]> = ref([]) // string of earn vault addresses
+const earnVaultBlocks: Record<string, string[]> = shallowReactive({}) // address (lowercase) -> blocked country codes
 // Derived from products - all unique vault addresses across all products
 const verifiedVaultAddresses: Ref<string[]> = ref([])
 const oracleAdapters: Record<string, OracleAdapterMeta> = shallowReactive({})
@@ -174,6 +175,7 @@ export const useEulerLabels = () => {
       Object.keys(entities).forEach(key => delete entities[key])
       Object.keys(points).forEach(key => delete points[key])
       Object.keys(oracleAdapters).forEach(key => delete oracleAdapters[key])
+      Object.keys(earnVaultBlocks).forEach(key => delete earnVaultBlocks[key])
       earnVaults.value = []
       verifiedVaultAddresses.value = []
 
@@ -185,7 +187,15 @@ export const useEulerLabels = () => {
 
       if (labelsRepo !== 'euler-xyz/euler-labels') {
         const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
-        earnVaults.value = earnRes.data.map(normalizeAddress)
+        const earnEntries = earnRes.data as Array<string | { address: string, block?: string[] }>
+        earnVaults.value = earnEntries.map((entry) => {
+          if (typeof entry === 'string') return normalizeAddress(entry)
+          const addr = normalizeAddress(entry.address)
+          if (entry.block?.length) {
+            earnVaultBlocks[addr.toLowerCase()] = entry.block
+          }
+          return addr
+        })
       }
 
       const normalizedProducts = normalizeProducts(productRes.data)
@@ -243,6 +253,11 @@ export const getProductByVault = (vaultAddress: string) => {
     || product.deprecatedVaults?.includes(normalized),
   )
     || eulerLabelProductEmpty
+}
+
+export const getEarnVaultBlock = (vaultAddress: string): string[] | undefined => {
+  const normalized = normalizeAddress(vaultAddress).toLowerCase()
+  return earnVaultBlocks[normalized]
 }
 
 export const isVaultDeprecated = (vaultAddress: string): boolean => {
