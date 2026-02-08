@@ -160,9 +160,11 @@ watchEffect(async () => {
       class="flex-1 flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-line-subtle"
     >
       <div class="flex-1">
-        <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
-        <div class="text-p2 text-content-primary flex items-center gap-4">
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
+          Total supply
           <VaultWarningIcon :warning="supplyCapWarning" tooltip-placement="top-start" />
+        </div>
+        <div class="text-p2 text-content-primary">
           {{ totalSupplyPrice }}
         </div>
       </div>
@@ -180,9 +182,11 @@ watchEffect(async () => {
           isConnected ? 'justify-center items-center' : 'items-end text-right'
         "
       >
-        <div class="text-content-tertiary text-p3 mb-4">Utilization</div>
-        <div class="flex gap-8 justify-end items-center text-right">
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
+          Utilization
           <VaultWarningIcon :warning="utilisationWarning" />
+        </div>
+        <div class="flex gap-8 justify-end items-center text-right">
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
@@ -203,10 +207,12 @@ watchEffect(async () => {
     </div>
     <div class="hidden mobile:flex py-12 px-16 pb-16">
       <div class="flex-1">
-        <div class="text-content-tertiary text-p3">Utilization</div>
+        <div class="text-content-tertiary text-p3 flex items-center gap-4">
+          Utilization
+          <VaultWarningIcon :warning="utilisationWarning" />
+        </div>
       </div>
       <div class="flex gap-8 justify-end items-center text-right flex-1">
-        <VaultWarningIcon :warning="utilisationWarning" />
         <UiRadialProgress :value="utilization" :max="100" />
         <div class="text-p2 text-content-primary">
           {{ compactNumber(utilization, 2, 2) }}%

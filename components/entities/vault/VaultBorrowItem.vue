@@ -228,11 +228,11 @@ const linkPath = computed(
     <!-- Body stats: contents on desktop (children become grid items), flex on mobile -->
     <div class="contents mobile:!flex mobile:py-12 mobile:px-16 mobile:pb-12 mobile:justify-between mobile:border-b mobile:border-line-subtle">
       <div class="pl-16 py-12 pb-12 mobile:!p-0">
-        <div class="text-content-tertiary text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
           Available liquidity
-        </div>
-        <div class="text-p2 text-content-primary flex items-center gap-4">
           <VaultWarningIcon :warning="borrowCapInfo" tooltip-placement="top-start" />
+        </div>
+        <div class="text-p2 text-content-primary">
           {{ liquidityDisplay }}
         </div>
       </div>
@@ -255,9 +255,11 @@ const linkPath = computed(
         </div>
       </div>
       <div class="pr-16 py-12 pb-12 flex flex-col items-end mobile:!hidden">
-        <div class="text-content-tertiary text-p3 mb-4">Utilization</div>
-        <div class="flex gap-8 justify-end items-center text-right">
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
+          Utilization
           <VaultWarningIcon :warning="utilisationWarning" />
+        </div>
+        <div class="flex gap-8 justify-end items-center text-right">
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
@@ -310,10 +312,12 @@ const linkPath = computed(
       </div>
       <div class="flex w-full justify-between">
         <div class="flex-1">
-          <div class="text-content-tertiary text-p3">Utilization</div>
+          <div class="text-content-tertiary text-p3 flex items-center gap-4">
+            Utilization
+            <VaultWarningIcon :warning="utilisationWarning" />
+          </div>
         </div>
         <div class="flex gap-8 justify-end items-center text-right flex-1">
-          <VaultWarningIcon :warning="utilisationWarning" />
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%

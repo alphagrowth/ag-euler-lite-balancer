@@ -128,11 +128,15 @@ watchEffect(async () => {
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="isBorrowable"
-        label="Utilization"
         orientation="horizontal"
       >
+        <template #label>
+          <span class="flex items-center gap-4">
+            Utilization
+            <VaultWarningIcon :warning="utilisationWarning" />
+          </span>
+        </template>
         <div class="flex gap-4 items-center">
-          <VaultWarningIcon :warning="utilisationWarning" />
           {{ compactNumber(utilization, 2, 2) }}%
           <UiRadialProgress
             :value="utilization"
