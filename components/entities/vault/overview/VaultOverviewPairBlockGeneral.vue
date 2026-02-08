@@ -32,6 +32,7 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
 ) - (borrowRewardAPY.value || 0))
 
 const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV))
+const netApy = computed(() => supplyApyWithRewards.value - borrowApyWithRewards.value)
 const maxRoe = computed(() =>
   getMaxRoe(maxMultiplier.value, supplyApyWithRewards.value, borrowApyWithRewards.value),
 )
@@ -53,26 +54,6 @@ const price = computed(() => {
   }
 
   return nanoToValue(collateralPrice.amountOutMid, 18) / nanoToValue(borrowPrice.amountOutMid, 18)
-})
-
-const netApy = computed(() => supplyApyWithRewards.value - borrowApyWithRewards.value)
-
-const maxMultiplier = computed(() => {
-  const ltv = pair.borrowLTV || 0n
-  const base = 10000n
-  if (ltv <= 0n || ltv >= base) return 1
-  const result = (base * ltv) / (base - ltv) - 200n + base
-  const value = Number(result) / 10000
-  if (!Number.isFinite(value)) return 1
-  return Math.max(1, Math.floor(value * 100) / 100)
-})
-
-const maxRoe = computed(() => {
-  const multiplier = maxMultiplier.value
-  const base = supplyApyWithRewards.value
-  const net = netApy.value
-  if (!Number.isFinite(multiplier) || !Number.isFinite(base) || !Number.isFinite(net)) return 0
-  return base + (multiplier - 1) * net
 })
 
 const onNetApyInfoIconClick = () => {
@@ -148,11 +129,6 @@ const onMaxRoeInfoIconClick = () => {
           </span>
         </template>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue
-        v-if="isBorrowable"
-        label="Max ROE"
-        :value="`${formatNumber(maxRoe, 2, 2)}%`"
-      />
       <VaultOverviewLabelValue
         v-if="isBorrowable"
         label="Max Multiplier"
