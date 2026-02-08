@@ -8,6 +8,7 @@ import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   getNetAPY,
@@ -121,7 +122,13 @@ const isSubmitDisabled = computed(() => {
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
 })
-const reviewSupplyDisabled = getSubmitDisabled(computed(() => isLoading.value || isSubmitDisabled.value))
+const isGeoBlocked = computed(() => {
+  const addresses: string[] = []
+  if (borrowVault.value) addresses.push(borrowVault.value.address)
+  if (collateralVault.value) addresses.push(collateralVault.value.address)
+  return isAnyVaultBlockedByCountry(...addresses)
+})
+const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isLoading.value || isSubmitDisabled.value))
 const { name } = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
 
 const normalizeAddress = (address?: string) => {
@@ -219,6 +226,7 @@ const updateBalance = async () => {
   balance.value = await fetchSingleBalance(collateralVault.value.asset.address)
 }
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (!collateralVault.value?.asset.address) {
       return
@@ -405,6 +413,13 @@ onUnmounted(() => {
         maxable
       />
 
+      <UiToast
+        v-if="isGeoBlocked"
+        title="Region restricted"
+        description="This operation is not available in your region. You can still repay existing debt."
+        variant="warning"
+        size="compact"
+      />
       <UiToast
         v-show="estimatesError"
         title="Error"

@@ -7,13 +7,32 @@ import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
 
-const getMaxRoe = (pair: BorrowVaultPair) => {
+const { getOpportunityOfBorrowVault } = useMerkl()
+const { getCampaignOfBorrowVault } = useBrevis()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+
+const getNetApy = (pair: BorrowVaultPair) => {
+  const baseSupplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
+  const baseBorrowApy = nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25)
+  const supplyApy = withIntrinsicSupplyApy(baseSupplyApy, pair.collateral.asset.symbol)
+  const borrowApy = withIntrinsicBorrowApy(baseBorrowApy, pair.borrow.asset.symbol)
+  const opportunityInfo = getOpportunityOfBorrowVault(pair.borrow.asset.address)
+  const brevisInfo = getCampaignOfBorrowVault(pair.borrow.address)
+  const totalRewardsAPY = (opportunityInfo?.apr || 0) + (brevisInfo?.reward_info.apr || 0) * 100
+  return (supplyApy + totalRewardsAPY) - (borrowApy - totalRewardsAPY)
+}
+
+const getSortMaxRoe = (pair: BorrowVaultPair) => {
   const borrowLTV = nanoToValue(pair.borrowLTV, 2)
   const maxMultiplier = Math.max(1, Math.floor(100 / (100 - borrowLTV) * 100) / 100)
-  const supplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
-  const borrowApy = nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25)
-  const netApy = supplyApy - borrowApy
-  return supplyApy + (maxMultiplier - 1) * netApy
+  const baseSupplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
+  const supplyApy = withIntrinsicSupplyApy(baseSupplyApy, pair.collateral.asset.symbol)
+  const opportunityInfo = getOpportunityOfBorrowVault(pair.borrow.asset.address)
+  const brevisInfo = getCampaignOfBorrowVault(pair.borrow.address)
+  const totalRewardsAPY = (opportunityInfo?.apr || 0) + (brevisInfo?.reward_info.apr || 0) * 100
+  const supplyApyWithRewards = supplyApy + totalRewardsAPY
+  const netApy = getNetApy(pair)
+  return supplyApyWithRewards + (maxMultiplier - 1) * netApy
 }
 
 defineOptions({
@@ -149,7 +168,11 @@ const sortedBorrowList = computed(() => {
       })
     case 'Max ROE':
       return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-        return getMaxRoe(b) - getMaxRoe(a)
+        return getSortMaxRoe(b) - getSortMaxRoe(a)
+      })
+    case 'Net APY':
+      return [...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+        return getNetApy(b) - getNetApy(a)
       })
     default:
       return filteredBorrowList.value
@@ -173,7 +196,7 @@ const sortedBorrowList = computed(() => {
         <VaultSortButton
           v-model="sortBy"
           class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
-          :options="['Liquidity', 'Total Borrowed', 'Utilization', 'Borrow APY', 'Max ROE']"
+          :options="['Liquidity', 'Total Borrowed', 'Utilization', 'Borrow APY', 'Net APY', 'Max ROE']"
           placeholder="Sort By"
           title="Sorting type"
         />

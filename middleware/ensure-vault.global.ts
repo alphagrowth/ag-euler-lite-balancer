@@ -1,5 +1,6 @@
 import { getAddress } from 'viem'
 import { useToast } from '~/components/ui/composables/useToast'
+import { defaultPageRoute } from '~/entities/menu'
 
 const normalizeParam = (value: unknown) => (Array.isArray(value) ? value[0] : value)
 
@@ -58,7 +59,7 @@ const scheduleVaultCheck = (vaultParam: string, path: string, expectedChainId: n
 
       info('This vault could not be found on this chain!')
       void navigateTo({
-        path: '/',
+        name: defaultPageRoute,
         query: { ...route.query },
         hash: route.hash,
       }, { replace: true })
@@ -97,7 +98,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   catch {
     info('This vault could not be found on this chain!')
     return navigateTo({
-      path: '/',
+      name: defaultPageRoute,
       query: { ...to.query },
       hash: to.hash,
     }, { replace: true })
@@ -118,7 +119,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       console.warn('[ensure-vault] failed to load vault')
       info('This vault could not be found on this chain!')
       return navigateTo({
-        path: '/',
+        name: defaultPageRoute,
         query: { ...to.query },
         hash: to.hash,
       }, { replace: true })

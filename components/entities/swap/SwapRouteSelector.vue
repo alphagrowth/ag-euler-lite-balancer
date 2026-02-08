@@ -29,6 +29,7 @@ withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'select', provider: string): void
+  (e: 'refresh'): void
 }>()
 
 const onSelect = (provider: string) => {
@@ -42,9 +43,24 @@ const onSelect = (provider: string) => {
       <p class="text-p2 text-content-primary">
         {{ title }}
       </p>
-      <p class="text-p3 text-content-secondary">
-        {{ statusLabel || '-' }}
-      </p>
+      <div class="flex items-center gap-8">
+        <p class="text-p3 text-content-secondary">
+          {{ statusLabel || '-' }}
+        </p>
+        <button
+          type="button"
+          aria-label="Refresh swap quotes"
+          class="text-content-secondary hover:text-accent-600 transition-colors disabled:opacity-50"
+          :disabled="isLoading || !items.length"
+          @click="emit('refresh')"
+        >
+          <SvgIcon
+            name="refresh"
+            class="!w-16 !h-16"
+            :class="{ 'animate-spin': isLoading }"
+          />
+        </button>
+      </div>
     </div>
     <div class="flex flex-col gap-8 max-h-[240px] overflow-y-auto pr-4">
       <template v-if="items.length">

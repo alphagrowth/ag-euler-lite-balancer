@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { type Vault } from '~/entities/vault'
+import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountDepositPosition } from '~/entities/account'
@@ -13,6 +14,10 @@ const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const vault = computed(() => position.vault)
+const utilisationWarning = computed(() => {
+  if ('type' in vault.value && vault.value.type === 'securitize') return null
+  return getUtilisationWarning(vault.value as Vault, 'lend')
+})
 
 // Check if securitize vault by type field
 const isSecuritize = computed(() => 'type' in vault.value && vault.value.type === 'securitize')
@@ -194,11 +199,12 @@ const onClick = () => {
           :label="vault.asset.symbol"
         />
         <div class="flex-grow ml-12">
-          <div class="text-content-tertiary text-p3 mb-4">
+          <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
             <VaultDisplayName
               :name="displayName"
               :is-unverified="isUnverified"
             />
+            <VaultWarningIcon :warning="utilisationWarning" tooltip-placement="top-start" />
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}

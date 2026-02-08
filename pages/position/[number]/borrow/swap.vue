@@ -7,6 +7,7 @@ import type { AccountBorrowPosition } from '~/entities/account'
 import { type Vault } from '~/entities/vault'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useSwapDebtOptions } from '~/composables/useSwapDebtOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { SwapperMode } from '~/entities/swap'
@@ -162,6 +163,12 @@ watch([borrowVaults, fromVault, () => route.query.to], () => {
 const resetQuoteState = () => {
   resetQuoteStateInternal()
   toAmount.value = ''
+}
+
+const onRefreshQuotes = () => {
+  resetQuoteState()
+  isQuoteLoading.value = true
+  requestQuote()
 }
 
 const fromOpportunity = computed(() => {
@@ -483,7 +490,13 @@ const isSubmitDisabled = computed(() => {
     || !!healthError.value
     || isSameVault.value
 })
-const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
+const isGeoBlocked = computed(() => {
+  const addresses: string[] = []
+  if (fromVault.value) addresses.push(fromVault.value.address)
+  if (collateralVault.value) addresses.push(collateralVault.value.address)
+  return isAnyVaultBlockedByCountry(...addresses)
+})
+const reviewSwapDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
 
 const onFromInput = async () => {
   clearSimulationError()
@@ -599,6 +612,7 @@ const onToVaultChange = (selectedIndex: number) => {
 }
 
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
       return
@@ -705,6 +719,7 @@ const send = async () => {
               :is-loading="isQuoteLoading"
               :empty-message="swapRouteEmptyMessage"
               @select="selectProvider"
+              @refresh="onRefreshQuotes"
             />
 
             <AssetInput
@@ -718,6 +733,13 @@ const send = async () => {
               @change-collateral="onToVaultChange"
             />
 
+            <UiToast
+              v-if="isGeoBlocked"
+              title="Region restricted"
+              description="This operation is not available in your region. You can still repay existing debt."
+              variant="warning"
+              size="compact"
+            />
             <UiToast
               v-show="errorText"
               title="Error"

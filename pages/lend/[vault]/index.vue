@@ -6,10 +6,12 @@ import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerMod
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { computeAPYs, getCurrentLiquidationLTV, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
+import { getUtilisationWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
@@ -219,7 +221,8 @@ const isSubmitDisabled = computed(() => {
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
     || isLoading.value || !(+amount.value)
 })
-const reviewSupplyDisabled = getSubmitDisabled(isSubmitDisabled)
+const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
+const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vaultAddress))
 const brevisInfo = computed(() => getCampaignOfLendVault(vaultAddress))
 const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
@@ -238,6 +241,15 @@ const supplyAPYDisplay = computed(() => {
 })
 const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(nanoToValue(estimateSupplyAPY.value, 25))
+})
+
+// Vault warnings for lend context
+const lendWarnings = computed(() => {
+  if (!evkVault.value) return []
+  return [
+    getUtilisationWarning(evkVault.value, 'lend'),
+    getSupplyCapWarning(evkVault.value),
+  ]
 })
 
 // Check if vault data is loaded
@@ -284,6 +296,7 @@ const load = async () => {
 }
 
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (!asset.value?.address) {
       return
@@ -444,8 +457,14 @@ watch(amount, async () => {
           />
 
           <div class="flex flex-col items-end justify-end">
-            <p class="mb-4 text-content-tertiary">
+            <p class="mb-4 text-content-tertiary flex items-center gap-4">
               Supply APY
+              <SvgIcon
+                v-if="features.hasApyBreakdown"
+                class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+                name="info-circle"
+                @click="onSupplyInfoIconClick"
+              />
             </p>
 
             <p class="flex justify-end gap-4 text-h3">
@@ -462,12 +481,6 @@ watch(amount, async () => {
               <span>
                 {{ supplyAPYDisplay }}%
               </span>
-              <SvgIcon
-                v-if="features.hasApyBreakdown"
-                class="!w-24 !h-24 text-content-muted cursor-pointer"
-                name="info-circle"
-                @click="onSupplyInfoIconClick"
-              />
             </p>
           </div>
         </div>
@@ -484,6 +497,13 @@ watch(amount, async () => {
         />
 
         <UiToast
+          v-if="isGeoBlocked"
+          title="Region restricted"
+          description="This operation is not available in your region. You can still withdraw existing deposits."
+          variant="warning"
+          size="compact"
+        />
+        <UiToast
           v-show="errorText"
           title="Error"
           variant="error"
@@ -497,6 +517,8 @@ watch(amount, async () => {
           :description="simulationError"
           size="compact"
         />
+
+        <VaultWarningBanner :warnings="lendWarnings" />
 
         <VaultFormInfoBlock
           v-if="isVaultLoaded && asset"

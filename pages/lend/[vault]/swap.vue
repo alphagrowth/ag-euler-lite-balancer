@@ -6,6 +6,7 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { type Vault, type SecuritizeVault, isSecuritizeVault, fetchSecuritizeVault } from '~/entities/vault'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { SwapperMode } from '~/entities/swap'
@@ -162,6 +163,12 @@ watch([quote, toVault], () => {
 const resetQuoteState = () => {
   resetQuoteStateInternal()
   toAmount.value = ''
+}
+
+const onRefreshQuotes = () => {
+  resetQuoteState()
+  isQuoteLoading.value = true
+  requestQuote()
 }
 
 const savingPosition = computed(() => {
@@ -327,13 +334,15 @@ const isSubmitDisabled = computed(() => {
   }
   const amountOut = getQuoteAmount(selectedQuote.value, 'amountOut')
   return isLoading.value
+    || isQuoteLoading.value
     || balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)
     || !(+fromAmount.value)
     || !toAmount.value
     || isSameVault.value
     || amountOut <= 0n
 })
-const reviewSwapDisabled = getSubmitDisabled(isSubmitDisabled)
+const isGeoBlocked = computed(() => isVaultBlockedByCountry(getVaultAddress()))
+const reviewSwapDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
 
 const onFromInput = async () => {
   clearSimulationError()
@@ -431,6 +440,7 @@ const onToVaultChange = (selectedIndex: number) => {
 }
 
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
       return
@@ -534,6 +544,7 @@ const send = async () => {
               :is-loading="isQuoteLoading"
               :empty-message="swapRouteEmptyMessage"
               @select="selectProvider"
+              @refresh="onRefreshQuotes"
             />
 
             <AssetInput
@@ -554,6 +565,13 @@ const send = async () => {
               No asset swap options available
             </div>
 
+            <UiToast
+              v-if="isGeoBlocked"
+              title="Region restricted"
+              description="This operation is not available in your region. You can still withdraw existing deposits."
+              variant="warning"
+              size="compact"
+            />
             <UiToast
               v-show="errorText"
               title="Error"

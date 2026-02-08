@@ -16,7 +16,7 @@ const { chainId: siteChainId } = useEulerAddresses()
 const { chainId: walletChainId, switchChain } = useWagmi()
 const { runSimulation, simulationError } = useTxPlanSimulation()
 
-const vault = ref(await getVault(campaign.vault_address))
+const vault = ref(campaign.vault_address ? await getVault(campaign.vault_address) : undefined)
 const isClaiming = ref(false)
 const plan = ref<TxPlan | null>(null)
 const rewardAmount = computed(() => Number.parseFloat(campaign.reward_info.reward_amt))

@@ -9,6 +9,7 @@ import type { AccountBorrowPosition } from '~/entities/account'
 import { type Vault, type VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
@@ -556,6 +557,12 @@ const resetMultiplyQuoteState = () => {
   setMultiplyAmounts(null, null)
 }
 
+const onRefreshMultiplyQuotes = () => {
+  resetMultiplyQuoteState()
+  isMultiplyQuoteLoading.value = true
+  requestMultiplyQuote()
+}
+
 const requestMultiplyQuote = useDebounceFn(async () => {
   multiplyQuoteError.value = null
 
@@ -616,6 +623,7 @@ const onMultiplierInput = () => {
 }
 
 const submitMultiply = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (isSubmitting.value || !isConnected.value) {
       return
@@ -737,7 +745,13 @@ const isMultiplySubmitDisabled = computed(() => {
   }
   return false
 })
-const reviewMultiplyDisabled = getSubmitDisabled(isMultiplySubmitDisabled)
+const isGeoBlocked = computed(() => {
+  const addresses: string[] = []
+  if (multiplyLongVault.value) addresses.push(multiplyLongVault.value.address)
+  if (multiplyShortVault.value) addresses.push(multiplyShortVault.value.address)
+  return isAnyVaultBlockedByCountry(...addresses)
+})
+const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplySubmitDisabled.value))
 
 const loadPosition = async () => {
   if (!isConnected.value) {
@@ -837,6 +851,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             :is-loading="isMultiplyQuoteLoading"
             :empty-message="multiplyRouteEmptyMessage"
             @select="selectMultiplyQuote"
+            @refresh="onRefreshMultiplyQuotes"
           />
 
           <AssetInput
@@ -857,6 +872,13 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             :readonly="true"
           />
 
+          <UiToast
+            v-if="isGeoBlocked"
+            title="Region restricted"
+            description="This operation is not available in your region. You can still repay existing debt."
+            variant="warning"
+            size="compact"
+          />
           <UiToast
             v-show="multiplyErrorText"
             title="Error"

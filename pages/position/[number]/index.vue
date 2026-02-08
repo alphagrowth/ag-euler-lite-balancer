@@ -5,12 +5,13 @@ import { getPublicClient } from '~/utils/public-client'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   getNetAPY,
+  getRoe,
   type Vault,
   type SecuritizeVault,
 } from '~/entities/vault'
+import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import {
   getAssetUsdValue,
-  getAssetUsdValueOrZero,
   getAssetUsdPrice,
   getCollateralUsdPrice,
   getCollateralUsdValue,
@@ -19,9 +20,10 @@ import {
   toUsdAmount,
   type UsdAmount,
 } from '~/services/pricing/priceProvider'
-import type { AccountBorrowPosition } from '~/entities/account'
+import { type AccountBorrowPosition, isPositionEligibleForLiquidation } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -82,9 +84,15 @@ const pairAssets = computed(() => {
   return [collateralVault.value.asset, borrowVault.value.asset]
 })
 const hasNoBorrow = computed(() => position.value?.borrow.borrow === 0n)
-const isEligibleForLiquidation = computed(() => {
-  if (!position.value || position.value.liabilityValueLiquidation === 0n) return false
-  return position.value.liabilityValueLiquidation > position.value.collateralValueLiquidation
+const isEligibleForLiquidation = computed(() => isPositionEligibleForLiquidation(position.value))
+const isPositionGeoBlocked = computed(() => {
+  if (!position.value) return false
+  const addresses = [position.value.borrow.address]
+  const collateralAddresses = position.value.collaterals?.length
+    ? position.value.collaterals
+    : [position.value.collateral.address]
+  addresses.push(...collateralAddresses)
+  return isAnyVaultBlockedByCountry(...addresses)
 })
 
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
@@ -104,6 +112,15 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   borrowVault.value?.asset.symbol,
 ))
 const borrowApyWithRewards = computed(() => borrowApy.value - (opportunityInfoForBorrow.value?.apr || 0))
+
+// Warnings for borrow vault
+const positionWarnings = computed(() => {
+  if (!borrowVault.value) return []
+  return [
+    getUtilisationWarning(borrowVault.value, 'borrow'),
+    getBorrowCapWarning(borrowVault.value),
+  ]
+})
 
 // Pre-computed collateral row data (USD values computed asynchronously)
 const collateralRowsData = ref<{
@@ -293,6 +310,18 @@ const timeToLiquidationDisplay = computed(() => {
 const netAPY = computed(() => {
   if (!position.value || !borrowVault.value) return 0
   return getNetAPY(
+    collateralValue.value.usd,
+    collateralSupplyApy.value,
+    borrowMarketValue.value.usd,
+    borrowApy.value,
+    opportunityInfoForCollateral.value?.apr || null,
+    opportunityInfoForBorrow.value?.apr || null,
+  )
+})
+
+const roe = computed(() => {
+  if (!position.value || !borrowVault.value) return 0
+  return getRoe(
     collateralValue.value.usd,
     collateralSupplyApy.value,
     borrowMarketValue.value.usd,
@@ -550,28 +579,6 @@ const openPairInfoModal = () => {
     },
   })
 }
-const onNetApyInfoIconClick = async () => {
-  if (!position.value) return
-
-  const supplyUSD = await getAssetUsdValueOrZero(position.value.supplied || 0n, collateralVault.value!, 'off-chain')
-  const borrowUSD = await getAssetUsdValueOrZero(position.value.borrowed || 0n, borrowVault.value!, 'off-chain')
-
-  modal.open(VaultNetApyModal, {
-    props: {
-      supplyUSD,
-      borrowUSD,
-      baseSupplyAPY: baseSupplyAPY.value,
-      baseBorrowAPY: baseBorrowAPY.value,
-      intrinsicSupplyAPY: intrinsicSupplyAPY.value,
-      intrinsicBorrowAPY: intrinsicBorrowAPY.value,
-      supplyRewardAPY: opportunityInfoForCollateral.value?.apr || null,
-      borrowRewardAPY: opportunityInfoForBorrow.value?.apr || null,
-      netAPY: netAPY.value,
-      supplyOpportunityInfo: opportunityInfoForCollateral.value,
-      borrowOpportunityInfo: opportunityInfoForBorrow.value,
-    },
-  })
-}
 watch(isConnected, () => {
   load()
 }, { immediate: true })
@@ -596,23 +603,44 @@ watch(isConnected, () => {
         class="flex flex-col gap-16 p-16 rounded-12 border border-line-default bg-card shadow-card"
       >
         <div class="flex justify-between items-center">
-          <div class="text-p2 text-neutral-500">
+          <div class="flex items-center gap-4 text-p2 text-content-secondary">
             Net APY
-          </div>
-          <div class="text-h5 text-neutral-800 flex justify-end items-center gap-4">
-            {{ formatNumber(netAPY) }}%
-            <SvgIcon
-              class="!w-24 !h-24 text-neutral-400 cursor-pointer"
-              name="info-circle"
-              @click="onNetApyInfoIconClick"
+            <UiFootnote
+              title="Net APY"
+              text="Net annual percentage yield for this position. Calculated as supply income minus borrow costs, divided by total supplied value."
+              tooltip-placement="bottom-start"
+              class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
             />
+          </div>
+          <div
+            class="text-h5"
+            :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
+          >
+            {{ formatNumber(netAPY) }}%
           </div>
         </div>
         <div class="flex justify-between items-center">
-          <div class="text-p2 text-neutral-500">
+          <div class="flex items-center gap-4 text-p2 text-content-secondary">
+            ROE
+            <UiFootnote
+              title="ROE"
+              text="Return on equity for this position. Calculated as net yield (supply income minus borrow costs) divided by equity (collateral value minus debt)."
+              tooltip-placement="bottom-start"
+              class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
+            />
+          </div>
+          <div
+            class="text-h5"
+            :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
+          >
+            {{ formatNumber(roe) }}%
+          </div>
+        </div>
+        <div class="flex justify-between items-center">
+          <div class="text-p2 text-content-secondary">
             Net asset value
           </div>
-          <div class="text-h5 text-neutral-800">
+          <div class="text-h5 text-content-primary">
             {{ isCollateralsLoading ? '-' : netAssetValue.hasPrice ? formatCompactUsdValue(netAssetValue.usd) : '-' }}
           </div>
         </div>
@@ -668,15 +696,23 @@ watch(isConnected, () => {
           Borrow
         </div>
         <div class="rounded-12 bg-card border border-line-default shadow-card">
-          <div class="flex gap-16 p-16 pb-12 border-b border-line-default">
+          <div class="flex justify-between items-center p-16 pb-12 border-b border-line-default">
             <VaultLabelsAndAssets
               :vault="position.borrow"
               :assets="[position.borrow.asset]"
             />
+            <div class="flex flex-col items-end">
+              <div class="text-content-tertiary text-p3 mb-4">
+                Borrow APY
+              </div>
+              <div class="text-p2 text-accent-600 font-semibold">
+                {{ formatNumber(borrowApyWithRewards) }}%
+              </div>
+            </div>
           </div>
           <div class="pt-12 px-16 pb-16">
             <div class="flex justify-between gap-8 flex-wrap mb-16">
-              <div class="text-neutral-500 text-p3">
+              <div class="text-content-secondary text-p3">
                 Market value
               </div>
               <div class="flex justify-between gap-8 justify-self-end">
@@ -692,14 +728,6 @@ watch(isConnected, () => {
                 >
                   ~ {{ roundAndCompactTokens(position.borrowed, borrowVault.decimals) }} {{ borrowVault.asset.symbol }}
                 </div>
-              </div>
-            </div>
-            <div class="flex justify-between gap-8 flex-wrap mb-16">
-              <div class="text-neutral-500 text-p3">
-                Borrow APY
-              </div>
-              <div class="text-neutral-800 text-p3">
-                {{ formatNumber(borrowApyWithRewards) }}%
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
@@ -730,11 +758,19 @@ watch(isConnected, () => {
                 ${{ borrowLiquidationPrice ? formatNumber(borrowLiquidationPrice) : '-' }}
               </div>
             </div>
+            <VaultWarningBanner :warnings="positionWarnings" />
             <div
               v-if="isEligibleForLiquidation"
               class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 mb-8"
             >
-              This position is eligible for liquidation. Multiply, borrow, and withdraw are disabled.
+              This position is eligible for liquidation. Multiply and borrow are disabled.
+            </div>
+            <div
+              v-if="isPositionGeoBlocked"
+              class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500 text-p4 mb-8"
+            >
+              <SvgIcon name="warning" class="!w-16 !h-16 shrink-0" />
+              This vault is not available in your region. You can still repay debt.
             </div>
             <div
               class="flex justify-between gap-8"
@@ -744,8 +780,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary"
                 rounded
-                :disabled="isEligibleForLiquidation"
-                :to="isEligibleForLiquidation ? undefined : `/position/${positionIndex}/multiply`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/multiply`"
               >
                 Multiply
               </UiButton>
@@ -753,8 +789,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :disabled="isEligibleForLiquidation"
-                :to="isEligibleForLiquidation ? undefined : `/position/${positionIndex}/borrow`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/borrow`"
               >
                 Borrow
               </UiButton>
@@ -770,7 +806,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :to="`/position/${positionIndex}/borrow/swap`"
+                :disabled="isPositionGeoBlocked"
+                :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/borrow/swap`"
               >
                 Debt swap
               </UiButton>
@@ -789,19 +826,27 @@ watch(isConnected, () => {
             class="rounded-12 bg-card border border-line-default shadow-card cursor-pointer"
             @click="openCollateralInfoModal(collateral.vault)"
           >
-            <div class="flex gap-16 p-16 pb-12 border-b border-line-default">
+            <div class="flex justify-between items-center p-16 pb-12 border-b border-line-default">
               <VaultLabelsAndAssets
                 :vault="collateral.vault"
                 :assets="[collateral.vault.asset]"
               />
+              <div class="flex flex-col items-end">
+                <div class="text-content-tertiary text-p3 mb-4">
+                  Supply APY
+                </div>
+                <div class="text-p2 text-accent-600 font-semibold">
+                  {{ formatNumber(collateral.supplyApyWithRewards) }}%
+                </div>
+              </div>
             </div>
             <div class="pt-12 px-16 pb-16">
               <div class="flex justify-between gap-8 flex-wrap mb-16">
-                <div class="text-neutral-500 text-p3">
+                <div class="text-content-secondary text-p3">
                   {{ !hasNoBorrow ? 'Market value' : 'Supply value' }}
                 </div>
                 <div class="flex justify-between gap-8 justify-self-end">
-                  <div class="text-neutral-800 text-p3">
+                  <div class="text-content-primary text-p3">
                     {{ collateral.value.hasPrice
                       ? formatCompactUsdValue(collateral.value.usd)
                       : `${roundAndCompactTokens(collateral.assets, collateral.vault.decimals)} ${collateral.vault.asset.symbol}`
@@ -809,19 +854,11 @@ watch(isConnected, () => {
                   </div>
                   <div
                     v-if="collateral.value.hasPrice"
-                    class="text-neutral-500 text-p3"
+                    class="text-content-tertiary text-p3"
                   >
                     ~ {{ roundAndCompactTokens(collateral.assets, collateral.vault.decimals) }}
                     {{ collateral.vault.asset.symbol }}
                   </div>
-                </div>
-              </div>
-              <div class="flex justify-between gap-8 flex-wrap mb-16">
-                <div class="text-neutral-500 text-p3">
-                  Supply APY
-                </div>
-                <div class="text-neutral-800 text-p3">
-                  {{ formatNumber(collateral.supplyApyWithRewards) }}%
                 </div>
               </div>
               <div class="flex justify-between gap-8 flex-wrap mb-16">
@@ -858,7 +895,7 @@ watch(isConnected, () => {
                 class="flex justify-between gap-8 flex-wrap mb-16"
               >
                 <div class="text-neutral-500 text-p3">
-                  LLTV
+                  Liquidation LTV
                 </div>
                 <div class="text-neutral-800 text-p3">
                   {{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%
@@ -879,7 +916,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary"
                   rounded
-                  :to="`/position/${positionIndex}/supply?collateral=${collateral.vault.address}`"
+                  :disabled="isPositionGeoBlocked"
+                  :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/supply?collateral=${collateral.vault.address}`"
                 >
                   Supply
                 </UiButton>
@@ -887,8 +925,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :disabled="isEligibleForLiquidation"
-                  :to="isEligibleForLiquidation ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
+                  :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
+                  :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
                 >
                   Withdraw
                 </UiButton>
@@ -896,7 +934,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :to="`/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
+                  :disabled="isPositionGeoBlocked"
+                  :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
                 >
                   Collateral swap
                 </UiButton>

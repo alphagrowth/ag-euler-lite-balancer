@@ -101,7 +101,7 @@ const formatTimeRemaining = (seconds: bigint): string => {
             :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
           />
           <VaultOverviewLabelValue
-            label="LLTV"
+            label="Liquidation LTV"
             orientation="horizontal"
           >
             <div class="flex items-center gap-8">
@@ -110,7 +110,7 @@ const formatTimeRemaining = (seconds: bigint): string => {
                 <span @click.stop.prevent>
                   <UiFootnote
                     title="LTV Ramping"
-                    :text="`The LLTV for this collateral is currently being reduced. Target LLTV: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair))}.`"
+                    :text="`The Liquidation LTV for this collateral is currently being reduced. Target Liquidation LTV: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair))}.`"
                     class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
                   />
                 </span>

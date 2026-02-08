@@ -5,9 +5,11 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY, type Vault } from '~/entities/vault'
+import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 
@@ -75,9 +77,22 @@ const isSubmitDisabled = computed(() => {
     || isLoading.value || !(+collateralAmount.value)
     || ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals))
 })
-const reviewBorrowDisabled = getSubmitDisabled(isSubmitDisabled)
+const isGeoBlocked = computed(() => {
+  const addresses: string[] = []
+  if (pair.value?.borrow) addresses.push(pair.value.borrow.address)
+  if (pair.value?.collateral) addresses.push(pair.value.collateral.address)
+  return isAnyVaultBlockedByCountry(...addresses)
+})
+const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
+const borrowWarnings = computed(() => {
+  if (!borrowVault.value) return []
+  return [
+    getUtilisationWarning(borrowVault.value, 'borrow'),
+    getBorrowCapWarning(borrowVault.value),
+  ]
+})
 const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
 const priceFixed = computed(() => {
   const collateralPrice = borrowVault.value && collateralVault.value
@@ -157,6 +172,7 @@ const updateBalance = async () => {
   isBalanceLoading.value = false
 }
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (!borrowVault.value || !collateralVault.value) {
       return
@@ -349,6 +365,13 @@ onUnmounted(() => {
       />
 
       <UiToast
+        v-if="isGeoBlocked"
+        title="Region restricted"
+        description="This operation is not available in your region. You can still repay existing debt."
+        variant="warning"
+        size="compact"
+      />
+      <UiToast
         v-show="errorText"
         title="Error"
         variant="error"
@@ -362,6 +385,8 @@ onUnmounted(() => {
         :description="simulationError"
         size="compact"
       />
+
+      <VaultWarningBanner :warnings="borrowWarnings" />
 
       <VaultFormInfoBlock
         v-if="pair"

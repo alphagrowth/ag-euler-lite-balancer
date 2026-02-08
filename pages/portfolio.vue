@@ -13,6 +13,8 @@ const {
   earnPositions,
   totalSuppliedValueInfo,
   totalBorrowedValueInfo,
+  portfolioRoe,
+  portfolioNetApy,
   isPositionsLoaded,
   isShowAllPositions,
   updateBorrowPositions,
@@ -94,6 +96,44 @@ onDeactivated(() => {
     </div>
 
     <div class="flex flex-col gap-16 p-16 rounded-12 mx-16 border border-line-default bg-card shadow-card">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-4 text-p2 text-content-secondary">
+          Portfolio Net APY
+          <UiFootnote
+            title="Portfolio Net APY"
+            text="Net annual percentage yield across all borrow positions. Calculated as total net yield (supply income minus borrow costs) divided by total supplied value."
+            tooltip-placement="bottom-start"
+            class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
+          />
+        </div>
+        <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
+          <div
+            class="text-h5"
+            :class="[portfolioNetApy >= 0 ? 'text-accent-600' : 'text-error-500']"
+          >
+            {{ formatNumber(portfolioNetApy) }}%
+          </div>
+        </BaseLoadableContent>
+      </div>
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-4 text-p2 text-content-secondary">
+          Portfolio ROE
+          <UiFootnote
+            title="Portfolio ROE"
+            text="Return on equity across all borrow positions. Calculated as total net yield divided by total equity (supplied value minus borrowed value)."
+            tooltip-placement="bottom-start"
+            class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
+          />
+        </div>
+        <BaseLoadableContent :loading="isConnected && (!isPositionsLoaded || !isBalancesLoaded)">
+          <div
+            class="text-h5"
+            :class="[portfolioRoe >= 0 ? 'text-accent-600' : 'text-error-500']"
+          >
+            {{ formatNumber(portfolioRoe) }}%
+          </div>
+        </BaseLoadableContent>
+      </div>
       <div class="flex justify-between items-center">
         <div class="text-p2 text-content-secondary">
           Net asset value

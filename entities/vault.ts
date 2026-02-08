@@ -1626,6 +1626,22 @@ export const getNetAPY = (
       - borrowUSD * (borrowAPY - (borrowRewardAPY || 0))
   return sum / supplyUSD
 }
+export const getRoe = (
+  supplyUSD: number,
+  supplyAPY: number,
+  borrowUSD: number,
+  borrowAPY: number,
+  supplyRewardAPY?: number | null,
+  borrowRewardAPY?: number | null,
+) => {
+  const equity = supplyUSD - borrowUSD
+  if (equity <= 0) return 0
+  const netYield
+    = supplyUSD * (supplyAPY + (supplyRewardAPY || 0))
+      - borrowUSD * (borrowAPY - (borrowRewardAPY || 0))
+  return netYield / equity
+}
+
 export const convertSharesToAssets = (
   vaultAddress: string,
   sharesAmount: bigint,

@@ -66,6 +66,11 @@ export interface AccountEarnPosition {
   assets: bigint
 }
 
+export const isPositionEligibleForLiquidation = (position: AccountBorrowPosition | undefined): boolean => {
+  if (!position || position.liabilityValueLiquidation === 0n) return false
+  return position.liabilityValueLiquidation > position.collateralValueLiquidation
+}
+
 const checkGetController = async (subAccount: string) => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { eulerCoreAddresses } = useEulerAddresses()

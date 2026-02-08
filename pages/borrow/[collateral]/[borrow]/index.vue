@@ -7,10 +7,12 @@ import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerM
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
+import { getUtilisationWarning, getBorrowCapWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
@@ -152,8 +154,9 @@ const isMultiplySubmitDisabled = computed(() => {
   }
   return false
 })
-const reviewBorrowDisabled = getSubmitDisabled(isSubmitDisabled)
-const reviewMultiplyDisabled = getSubmitDisabled(isMultiplySubmitDisabled)
+const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(collateralAddress, borrowAddress))
+const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
+const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplySubmitDisabled.value))
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
 const multiplyLongVault = computed(() => collateralVault.value)
@@ -296,6 +299,23 @@ const multiplyRouteEmptyMessage = computed(() => {
     return 'Enter amount to fetch quotes'
   }
   return 'No quotes found'
+})
+
+// Borrow form warnings: utilisation + borrow cap on the borrow vault, supply cap on collateral
+const borrowFormWarnings = computed(() => {
+  if (!borrowVault.value) return []
+  return [
+    getUtilisationWarning(borrowVault.value, 'borrow'),
+    getBorrowCapWarning(borrowVault.value),
+    collateralVault.value && !('type' in collateralVault.value) ? getSupplyCapWarning(collateralVault.value) : null,
+  ]
+})
+const multiplyFormWarnings = computed(() => {
+  if (!multiplyShortVault.value) return []
+  return [
+    getUtilisationWarning(multiplyShortVault.value, 'borrow'),
+    getBorrowCapWarning(multiplyShortVault.value),
+  ]
 })
 
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
@@ -911,6 +931,13 @@ const resetMultiplyQuoteState = () => {
   resetMultiplyQuoteStateInternal()
   setMultiplyAmounts(null, null)
 }
+
+const onRefreshMultiplyQuotes = () => {
+  resetMultiplyQuoteState()
+  isMultiplyQuoteLoading.value = true
+  requestMultiplyQuote()
+}
+
 const requestMultiplyQuote = useDebounceFn(async () => {
   multiplyQuoteError.value = null
 
@@ -1010,6 +1037,7 @@ const onMultiplyCollateralChange = (selectedIndex: number) => {
   }
 }
 const submitMultiply = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     if (isMultiplySubmitting.value || !isConnected.value) {
       return
@@ -1143,6 +1171,7 @@ const sendMultiply = async () => {
   }
 }
 const submit = async () => {
+  if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
     // TODO: Validate
     if (!isConnected.value) {
@@ -1589,6 +1618,13 @@ watch(formTab, () => {
             />
 
             <UiToast
+              v-if="isGeoBlocked"
+              title="Region restricted"
+              description="This operation is not available in your region. You can still repay existing debt."
+              variant="warning"
+              size="compact"
+            />
+            <UiToast
               v-show="errorText"
               title="Error"
               variant="error"
@@ -1602,6 +1638,8 @@ watch(formTab, () => {
               :description="borrowSimulationError"
               size="compact"
             />
+
+            <VaultWarningBanner :warnings="borrowFormWarnings" />
 
             <VaultFormInfoBlock
               v-if="pair"
@@ -1682,6 +1720,7 @@ watch(formTab, () => {
                   :is-loading="isMultiplyQuoteLoading"
                   :empty-message="multiplyRouteEmptyMessage"
                   @select="selectMultiplyQuote"
+                  @refresh="onRefreshMultiplyQuotes"
                 />
 
                 <AssetInput
@@ -1702,6 +1741,13 @@ watch(formTab, () => {
                   :readonly="true"
                 />
 
+                <UiToast
+                  v-if="isGeoBlocked"
+                  title="Region restricted"
+                  description="This operation is not available in your region. You can still repay existing debt."
+                  variant="warning"
+                  size="compact"
+                />
                 <UiToast
                   v-show="multiplyErrorText"
                   title="Error"
@@ -1724,6 +1770,8 @@ watch(formTab, () => {
                   :description="multiplyQuoteError"
                   size="compact"
                 />
+
+                <VaultWarningBanner :warnings="multiplyFormWarnings" />
               </div>
 
               <div class="flex flex-col gap-16 w-full">

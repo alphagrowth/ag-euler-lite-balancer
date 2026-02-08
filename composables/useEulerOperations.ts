@@ -1877,6 +1877,7 @@ export const useEulerOperations = () => {
   return {
     executeTxPlan,
     simulateTxPlan,
+    buildSimulationStateOverride,
     buildSupplyPlan,
     buildWithdrawPlan,
     buildRedeemPlan,

@@ -5,6 +5,7 @@ import type { SecuritizeVault, Vault, VaultCollateralLTV } from '~/entities/vaul
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
+import { enableEntityBrandingDisplay, enableVaultTypeDisplay } from '~/entities/custom'
 import { getExplorerLink } from '~/utils/block-explorer'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 
@@ -156,7 +157,7 @@ const supplyCapPercentageDisplay = computed(() => {
           label="Market"
           :value="product.name"
         />
-        <VaultOverviewLabelValue label="Risk manager(s)">
+        <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager(s)">
           <div
             v-if="entities.length && isGovernorVerified"
             class="flex flex-col gap-16"
@@ -191,7 +192,7 @@ const supplyCapPercentageDisplay = computed(() => {
             -
           </div>
         </VaultOverviewLabelValue>
-        <VaultOverviewLabelValue label="Vault type">
+        <VaultOverviewLabelValue v-if="enableVaultTypeDisplay" label="Vault type">
           <VaultTypeChip
             :vault="vault as unknown as Vault"
             type="securitize"

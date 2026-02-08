@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { type EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -30,6 +31,7 @@ const totalRewardsAPY = computed(
     (brevisInfo.value?.reward_info.apr || 0) * 100,
 );
 const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value);
+const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
 const isUnverified = computed(() => !vault.verified);
 const displayName = computed(() => product.name || vault.name);
 
@@ -69,7 +71,8 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
 <template>
   <NuxtLink
     class="block no-underline bg-surface rounded-xl border border-line-subtle shadow-card transition-all duration-default ease-default hover:shadow-card-hover hover:border-line-emphasis"
-    :to="`/earn/${vault.address}`"
+    :class="isGeoBlocked ? 'opacity-50 border-l-4 border-l-warning-500/50' : ''"
+    :to="isGeoBlocked ? undefined : `/earn/${vault.address}`"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-line-default">
       <BaseAvatar
@@ -78,16 +81,29 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
         :label="vault.asset.symbol"
       />
       <div class="flex-grow ml-12">
-        <div class="text-content-tertiary text-p3 mb-4">
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
           <VaultDisplayName :name="displayName" :is-unverified="isUnverified" />
+          <span
+            v-if="isGeoBlocked"
+            class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+            title="This vault is not available in your region"
+          >
+            <SvgIcon name="warning" class="!w-14 !h-14" />
+            Restricted
+          </span>
         </div>
         <div class="text-h5 text-content-primary">
           {{ vault.asset.symbol }}
         </div>
       </div>
       <div class="flex flex-col items-end">
-        <div class="text-content-tertiary text-p3 mb-4 text-right">
+        <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
           Supply APY
+          <SvgIcon
+            class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+            name="info-circle"
+            @click="onSupplyInfoIconClick"
+          />
         </div>
         <div class="text-p2 flex items-center text-accent-600">
           <div class="mr-6">
@@ -99,11 +115,6 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
             name="sparks"
           />
           {{ formatNumber((vault.supplyAPY || 0) + totalRewardsAPY) }}%
-          <SvgIcon
-            class="!w-20 !h-20 text-content-muted hover:text-content-secondary transition-colors cursor-pointer ml-4"
-            name="info-circle"
-            @click="onSupplyInfoIconClick"
-          />
         </div>
       </div>
     </div>

@@ -2,8 +2,10 @@
 import { useAccount } from '@wagmi/vue'
 import { getAddress } from 'viem'
 import { getVaultUtilization, type Vault } from '~/entities/vault'
+import { getUtilisationWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -44,6 +46,9 @@ const supplyApyWithRewards = computed(
   () => supplyApy.value + totalRewardsAPY.value,
 );
 const utilization = computed(() => getVaultUtilization(vault));
+const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
+const utilisationWarning = computed(() => getUtilisationWarning(vault, 'lend'));
+const supplyCapWarning = computed(() => getSupplyCapWarning(vault));
 const isDeprecated = computed(() => {
   try {
     const addr = getAddress(vault.address);
@@ -94,7 +99,8 @@ watchEffect(async () => {
 <template>
   <NuxtLink
     class="block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
-    :to="`/lend/${vault.address}`"
+    :class="isGeoBlocked ? 'opacity-50 border-l-4 border-l-warning-500/50' : ''"
+    :to="isGeoBlocked ? undefined : `/lend/${vault.address}`"
   >
     <div class="flex pb-12 p-16 border-b border-line-subtle">
       <BaseAvatar
@@ -105,6 +111,14 @@ watchEffect(async () => {
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
           <VaultDisplayName :name="displayName" :is-unverified="isUnverified" />
+          <span
+            v-if="isGeoBlocked"
+            class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+            title="This vault is not available in your region"
+          >
+            <SvgIcon name="warning" class="!w-14 !h-14" />
+            Restricted
+          </span>
           <span
             v-if="isDeprecated"
             class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
@@ -119,8 +133,13 @@ watchEffect(async () => {
         </div>
       </div>
       <div class="flex flex-col items-end">
-        <div class="text-content-tertiary text-p3 mb-4 text-right">
+        <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
           Supply APY
+          <SvgIcon
+            class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+            name="info-circle"
+            @click="onSupplyInfoIconClick"
+          />
         </div>
         <div class="flex items-center">
           <div class="mr-6">
@@ -133,11 +152,6 @@ watchEffect(async () => {
               name="sparks"
             />
             {{ formatNumber(supplyApyWithRewards) }}%
-            <SvgIcon
-              class="!w-20 !h-20 text-content-muted hover:text-content-secondary transition-colors cursor-pointer ml-4"
-              name="info-circle"
-              @click="onSupplyInfoIconClick"
-            />
           </div>
         </div>
       </div>
@@ -146,7 +160,10 @@ watchEffect(async () => {
       class="flex-1 flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-line-subtle"
     >
       <div class="flex-1">
-        <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
+          Total supply
+          <VaultWarningIcon :warning="supplyCapWarning" tooltip-placement="top-start" />
+        </div>
         <div class="text-p2 text-content-primary">
           {{ totalSupplyPrice }}
         </div>
@@ -165,16 +182,11 @@ watchEffect(async () => {
           isConnected ? 'justify-center items-center' : 'items-end text-right'
         "
       >
-        <div class="text-content-tertiary text-p3 mb-4">Utilization</div>
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
+          Utilization
+          <VaultWarningIcon :warning="utilisationWarning" />
+        </div>
         <div class="flex gap-8 justify-end items-center text-right">
-          <UiFootnote
-            v-if="utilization >= 95"
-            icon="warning"
-            title="High usage warning"
-            text="High utilization on this market. A large proportion of the available liquidity has been borrowed."
-            tooltip-placement="top-end"
-            class="[--ui-footnote-icon-color:var(--warning-500)]"
-          />
           <UiRadialProgress :value="utilization" :max="100" />
           <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
@@ -195,17 +207,12 @@ watchEffect(async () => {
     </div>
     <div class="hidden mobile:flex py-12 px-16 pb-16">
       <div class="flex-1">
-        <div class="text-content-tertiary text-p3">Utilization</div>
+        <div class="text-content-tertiary text-p3 flex items-center gap-4">
+          Utilization
+          <VaultWarningIcon :warning="utilisationWarning" />
+        </div>
       </div>
       <div class="flex gap-8 justify-end items-center text-right flex-1">
-        <UiFootnote
-          v-if="utilization >= 95"
-          icon="warning"
-          title="High usage warning"
-          text="High utilization on this market. A large proportion of the available liquidity has been borrowed."
-          tooltip-placement="top-end"
-          class="[--ui-footnote-icon-color:var(--warning-500)]"
-        />
         <UiRadialProgress :value="utilization" :max="100" />
         <div class="text-p2 text-content-primary">
           {{ compactNumber(utilization, 2, 2) }}%
