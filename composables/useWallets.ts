@@ -73,12 +73,10 @@ export const useWallets = () => {
     const currentChainId = chainId.value
     isFetching.value = true
 
-    const { EVM_PROVIDER_URL } = useEulerConfig()
-
     try {
       const client = createPublicClient({
         chain: chain.value,
-        transport: http(EVM_PROVIDER_URL),
+        transport: http(rpcUrl.value),
       })
 
       // Try batch call first, fall back to individual calls if it fails
@@ -178,10 +176,9 @@ export const useWallets = () => {
       return 0n
     }
     try {
-      const { EVM_PROVIDER_URL } = useEulerConfig()
       const client = createPublicClient({
         chain: chain.value,
-        transport: http(EVM_PROVIDER_URL),
+        transport: http(rpcUrl.value),
       })
       const result = await client.readContract({
         address: getAddress(tokenAddress) as Address,
@@ -205,10 +202,9 @@ export const useWallets = () => {
       return 0n
     }
     try {
-      const { EVM_PROVIDER_URL } = useEulerConfig()
       const client = createPublicClient({
         chain: chain.value,
-        transport: http(EVM_PROVIDER_URL),
+        transport: http(rpcUrl.value),
       })
       const result = await client.readContract({
         address: getAddress(vaultAddress) as Address,
