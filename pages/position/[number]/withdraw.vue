@@ -11,6 +11,7 @@ import {
   type Vault,
   type SecuritizeVault,
 } from '~/entities/vault'
+import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import {
   getAssetUsdValueOrZero,
   getAssetOraclePrice,
@@ -56,6 +57,10 @@ const position = computed(() => getPositionBySubAccountIndex(+positionIndex))
 const isPositionLoaded = computed(() => !!position.value)
 const collateralVault = computed(() => selectedCollateral.value || position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
+const withdrawWarnings = computed(() => {
+  if (!borrowVault.value) return []
+  return [getUtilisationWarning(borrowVault.value, 'borrow')]
+})
 const asset = computed(() => collateralVault.value?.asset)
 const collateralAssets = computed(() => selectedCollateralAssets.value)
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
@@ -400,6 +405,8 @@ watch(amount, async () => {
         :description="simulationError"
         size="compact"
       />
+
+      <VaultWarningBanner :warnings="withdrawWarnings" />
 
       <VaultFormInfoBlock
         v-if="position && borrowVault"

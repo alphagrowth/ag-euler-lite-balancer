@@ -7,6 +7,7 @@ import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerM
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
+import { getUtilisationWarning, getBorrowCapWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
@@ -296,6 +297,23 @@ const multiplyRouteEmptyMessage = computed(() => {
     return 'Enter amount to fetch quotes'
   }
   return 'No quotes found'
+})
+
+// Borrow form warnings: utilisation + borrow cap on the borrow vault, supply cap on collateral
+const borrowFormWarnings = computed(() => {
+  if (!borrowVault.value) return []
+  return [
+    getUtilisationWarning(borrowVault.value, 'borrow'),
+    getBorrowCapWarning(borrowVault.value),
+    collateralVault.value && !('type' in collateralVault.value) ? getSupplyCapWarning(collateralVault.value) : null,
+  ]
+})
+const multiplyFormWarnings = computed(() => {
+  if (!multiplyShortVault.value) return []
+  return [
+    getUtilisationWarning(multiplyShortVault.value, 'borrow'),
+    getBorrowCapWarning(multiplyShortVault.value),
+  ]
 })
 
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
@@ -1603,6 +1621,8 @@ watch(formTab, () => {
               size="compact"
             />
 
+            <VaultWarningBanner :warnings="borrowFormWarnings" />
+
             <VaultFormInfoBlock
               v-if="pair"
               :loading="isEstimatesLoading"
@@ -1724,6 +1744,8 @@ watch(formTab, () => {
                   :description="multiplyQuoteError"
                   size="compact"
                 />
+
+                <VaultWarningBanner :warnings="multiplyFormWarnings" />
               </div>
 
               <div class="flex flex-col gap-16 w-full">

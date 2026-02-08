@@ -9,6 +9,7 @@ import {
   getNetAPY,
   type Vault,
 } from '~/entities/vault'
+import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import {
   getAssetUsdValue,
   formatAssetValue,
@@ -47,6 +48,7 @@ const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = 
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const borrowVault = computed(() => position.borrow)
+const utilisationWarning = computed(() => getUtilisationWarning(position.borrow, 'borrow'))
 const collateralVault = computed(() => position.collateral)
 const hasMultipleCollaterals = computed(() => (position.collaterals?.length || 0) > 1)
 const collateralSymbolLabel = computed(() => {
@@ -345,8 +347,9 @@ onMounted(() => {
           </div>
         </div>
         <div class="flex justify-between">
-          <div class="text-content-tertiary text-p3">
+          <div class="text-content-tertiary text-p3 flex items-center gap-4">
             Health score
+            <VaultWarningIcon :warning="utilisationWarning" tooltip-placement="top-start" />
           </div>
           <div class="text-content-primary text-p3">
             {{ formatNumber(nanoToValue(position.health, 18)) }}

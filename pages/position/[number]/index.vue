@@ -7,6 +7,7 @@ import {
   type Vault,
   type SecuritizeVault,
 } from '~/entities/vault'
+import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import {
   getAssetUsdValue,
   getAssetUsdValueOrZero,
@@ -103,6 +104,15 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   borrowVault.value?.asset.symbol,
 ))
 const borrowApyWithRewards = computed(() => borrowApy.value - (opportunityInfoForBorrow.value?.apr || 0))
+
+// Warnings for borrow vault
+const positionWarnings = computed(() => {
+  if (!borrowVault.value) return []
+  return [
+    getUtilisationWarning(borrowVault.value, 'borrow'),
+    getBorrowCapWarning(borrowVault.value),
+  ]
+})
 
 // Pre-computed collateral row data (USD values computed asynchronously)
 const collateralRowsData = ref<{
@@ -725,6 +735,7 @@ watch(isConnected, () => {
                 ${{ borrowLiquidationPrice ? formatNumber(borrowLiquidationPrice) : '-' }}
               </div>
             </div>
+            <VaultWarningBanner :warnings="positionWarnings" />
             <div
               v-if="isEligibleForLiquidation"
               class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 mb-8"

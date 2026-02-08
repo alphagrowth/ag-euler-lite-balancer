@@ -2,6 +2,7 @@
 import { MaxUint256, ethers } from 'ethers'
 import { vaultConvertToAssetsAbi } from '~/abis/vault'
 import { type Vault } from '~/entities/vault'
+import { getSupplyCapPercentage, getBorrowCapPercentage } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: Vault }>()
@@ -17,19 +18,8 @@ const borrowCount = computed(() => {
 
 const isBorrowable = computed(() => borrowCount.value > 0)
 
-const supplyCapPercentageDisplay = computed(() => {
-  if (vault.supplyCap >= MaxUint256 || vault.supplyCap === 0n) return 0
-  const scale = 10n ** 2n
-  const fraction = (vault.supply * scale * 100n) / vault.supplyCap
-  return parseFloat(`${fraction / scale}.${fraction % scale}`)
-})
-
-const borrowCapPercentageDisplay = computed(() => {
-  if (vault.borrowCap >= MaxUint256 || vault.borrowCap === 0n) return 0
-  const scale = 10n ** 2n
-  const fraction = (vault.borrow * scale * 100n) / vault.borrowCap
-  return parseFloat(`${fraction / scale}.${fraction % scale}`)
-})
+const supplyCapPercentageDisplay = computed(() => getSupplyCapPercentage(vault))
+const borrowCapPercentageDisplay = computed(() => getBorrowCapPercentage(vault))
 
 const supplyCapDisplay = ref('-')
 const borrowCapDisplay = ref('-')

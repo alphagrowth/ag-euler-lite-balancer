@@ -5,7 +5,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY, type Vault } from '~/entities/vault'
+import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { AccountBorrowPosition } from '~/entities/account'
@@ -78,6 +79,13 @@ const isSubmitDisabled = computed(() => {
 const reviewBorrowDisabled = getSubmitDisabled(isSubmitDisabled)
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
+const borrowWarnings = computed(() => {
+  if (!borrowVault.value) return []
+  return [
+    getUtilisationWarning(borrowVault.value, 'borrow'),
+    getBorrowCapWarning(borrowVault.value),
+  ]
+})
 const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
 const priceFixed = computed(() => {
   const collateralPrice = borrowVault.value && collateralVault.value
@@ -362,6 +370,8 @@ onUnmounted(() => {
         :description="simulationError"
         size="compact"
       />
+
+      <VaultWarningBanner :warnings="borrowWarnings" />
 
       <VaultFormInfoBlock
         v-if="pair"

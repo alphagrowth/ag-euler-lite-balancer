@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { type Vault } from '~/entities/vault'
+import { getVaultUtilization, type Vault } from '~/entities/vault'
+import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: Vault }>()
@@ -18,6 +19,9 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(vault.interestRateInfo.borrowAPY, 25),
   vault.asset.symbol,
 ) - (rewardBorrowAPY.value || 0))
+
+const utilization = computed(() => getVaultUtilization(vault))
+const utilisationWarning = computed(() => getUtilisationWarning(vault, 'general'))
 
 const totalSupplyDisplay = ref('-')
 const totalBorrowedDisplay = ref('-')
@@ -79,14 +83,14 @@ watchEffect(async () => {
         orientation="horizontal"
       >
         <div class="flex gap-4 items-center">
-          {{ Number(vault.supply) > 0 ? formatNumber(Number(vault.borrow) / (Number(vault.supply) / 100), 2) : '0.00' }}%
-
+          <VaultWarningIcon :warning="utilisationWarning" />
+          {{ compactNumber(utilization, 2, 2) }}%
           <UiRadialProgress
-            :value="Number(vault.supply) > 0 ? Number(vault.borrow) / Number(vault.supply) : 0"
-            :max="1"
+            :value="utilization"
+            :max="100"
           />
         </div>
-      </vaultoverviewlabelvalue>
+      </VaultOverviewLabelValue>
     </div>
   </div>
 </template>

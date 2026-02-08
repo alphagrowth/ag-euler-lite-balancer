@@ -6,6 +6,7 @@ import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerMod
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { computeAPYs, getCurrentLiquidationLTV, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
+import { getUtilisationWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
@@ -238,6 +239,15 @@ const supplyAPYDisplay = computed(() => {
 })
 const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(nanoToValue(estimateSupplyAPY.value, 25))
+})
+
+// Vault warnings for lend context
+const lendWarnings = computed(() => {
+  if (!evkVault.value) return []
+  return [
+    getUtilisationWarning(evkVault.value, 'lend'),
+    getSupplyCapWarning(evkVault.value),
+  ]
 })
 
 // Check if vault data is loaded
@@ -497,6 +507,8 @@ watch(amount, async () => {
           :description="simulationError"
           size="compact"
         />
+
+        <VaultWarningBanner :warnings="lendWarnings" />
 
         <VaultFormInfoBlock
           v-if="isVaultLoaded && asset"
