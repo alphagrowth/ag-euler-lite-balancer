@@ -77,7 +77,6 @@ onClickOutside(reference, () => {
             {{ text }}
           </div>
         </div>
-        <div class="ui-footnote__arrow" />
       </div>
     </Transition>
   </div>
@@ -132,14 +131,5 @@ onClickOutside(reference, () => {
     hyphens: auto;
   }
 
-  &__arrow {
-    position: absolute;
-    bottom: -6px;
-    left: 20px;
-    width: 12px;
-    height: 12px;
-    background-color: var(--ui-footnote-arrow-background-color);
-    transform: rotate(45deg);
-  }
 }
 </style>

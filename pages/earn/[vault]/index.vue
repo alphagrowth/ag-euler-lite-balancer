@@ -235,8 +235,13 @@ watch(amount, async () => {
         />
 
         <div class="flex flex-col items-end justify-end">
-          <p class="mb-4 text-content-tertiary">
+          <p class="mb-4 text-content-tertiary flex items-center gap-4">
             Supply APY
+            <SvgIcon
+              class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click="onSupplyInfoIconClick"
+            />
           </p>
 
           <p class="flex justify-end gap-4 text-h3">
@@ -251,11 +256,6 @@ watch(amount, async () => {
             <span>
               {{ supplyAPYDisplay }}%
             </span>
-            <SvgIcon
-              class="!w-24 !h-24 text-euler-dark-800 cursor-pointer"
-              name="info-circle"
-              @click="onSupplyInfoIconClick"
-            />
           </p>
         </div>
       </div>

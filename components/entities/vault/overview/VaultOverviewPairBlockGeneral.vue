@@ -4,7 +4,7 @@ import { getCollateralOraclePrice, getAssetOraclePrice } from '~/services/pricin
 import { nanoToValue } from '~/utils/crypto-utils'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { useModal } from '~/components/ui/composables/useModal'
-import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
+import { VaultNetApyPairModal, VaultMaxRoeModal } from '#components'
 
 const { pair } = defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition }>()
 
@@ -49,22 +49,47 @@ const price = computed(() => {
   return nanoToValue(collateralPrice.amountOutMid, 18) / nanoToValue(borrowPrice.amountOutMid, 18)
 })
 
-const onSupplyInfoIconClick = () => {
-  modal.open(VaultSupplyApyModal, {
+const netApy = computed(() => supplyApyWithRewards.value - borrowApyWithRewards.value)
+
+const maxMultiplier = computed(() => {
+  const ltv = pair.borrowLTV || 0n
+  const base = 10000n
+  if (ltv <= 0n || ltv >= base) return 1
+  const result = (base * ltv) / (base - ltv) - 200n + base
+  const value = Number(result) / 10000
+  if (!Number.isFinite(value)) return 1
+  return Math.max(1, Math.floor(value * 100) / 100)
+})
+
+const maxRoe = computed(() => {
+  const multiplier = maxMultiplier.value
+  const base = supplyApyWithRewards.value
+  const net = netApy.value
+  if (!Number.isFinite(multiplier) || !Number.isFinite(base) || !Number.isFinite(net)) return 0
+  return base + (multiplier - 1) * net
+})
+
+const onNetApyInfoIconClick = () => {
+  modal.open(VaultNetApyPairModal, {
     props: {
-      lendingAPY: baseSupplyApy.value,
-      intrinsicAPY: intrinsicSupplyApy.value,
-      opportunityInfo: supplyOpportunityInfo.value,
+      supplyAPY: baseSupplyApy.value,
+      borrowAPY: baseBorrowApy.value,
+      intrinsicSupplyAPY: intrinsicSupplyApy.value,
+      intrinsicBorrowAPY: intrinsicBorrowApy.value,
+      supplyRewardAPY: collateralRewardAPY.value || null,
+      borrowRewardAPY: borrowRewardAPY.value || null,
     },
   })
 }
 
-const onBorrowInfoIconClick = () => {
-  modal.open(VaultBorrowApyModal, {
+const onMaxRoeInfoIconClick = () => {
+  modal.open(VaultMaxRoeModal, {
     props: {
-      borrowingAPY: baseBorrowApy.value,
-      intrinsicAPY: intrinsicBorrowApy.value,
-      opportunityInfo: borrowOpportunityInfo.value,
+      maxRoe: maxRoe.value,
+      maxMultiplier: maxMultiplier.value,
+      supplyAPY: supplyApyWithRewards.value,
+      borrowAPY: borrowApyWithRewards.value,
+      borrowLTV: nanoToValue(pair.borrowLTV, 2),
     },
   })
 }
@@ -89,33 +114,33 @@ const onBorrowInfoIconClick = () => {
         </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
-        label="Supply APY"
+        :value="`${formatNumber(netApy)}%`"
       >
-        <p class="flex items-center gap-4">
-          <span>
-            {{ formatNumber(supplyApyWithRewards) }}%
+        <template #label>
+          <span class="flex items-center gap-4">
+            Net APY
+            <SvgIcon
+              class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click="onNetApyInfoIconClick"
+            />
           </span>
-          <SvgIcon
-            class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
-            name="info-circle"
-            @click="onSupplyInfoIconClick"
-          />
-        </p>
+        </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="isBorrowable"
-        label="Borrow APY"
+        :value="`${formatNumber(maxRoe)}%`"
       >
-        <p class="flex items-center gap-4">
-          <span>
-            {{ formatNumber(borrowApyWithRewards) }}%
+        <template #label>
+          <span class="flex items-center gap-4">
+            Max ROE
+            <SvgIcon
+              class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click="onMaxRoeInfoIconClick"
+            />
           </span>
-          <SvgIcon
-            class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
-            name="info-circle"
-            @click="onBorrowInfoIconClick"
-          />
-        </p>
+        </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Max LTV"

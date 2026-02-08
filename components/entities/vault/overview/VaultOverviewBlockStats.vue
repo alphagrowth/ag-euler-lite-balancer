@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { type Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
+const modal = useModal()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { getCampaignOfBorrowVault } = useBrevis()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
 const isBorrowable = computed(() => vault.collateralLTVs.some(ltv => ltv.borrowLTV > 0n))
 
 const rewardBorrowAPY = computed(() => getOpportunityOfBorrowVault(vault.asset.address)?.apr)
@@ -18,6 +22,31 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(vault.interestRateInfo.borrowAPY, 25),
   vault.asset.symbol,
 ) - (rewardBorrowAPY.value || 0))
+
+const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
+const borrowOpportunityInfo = computed(() => getOpportunityOfBorrowVault(vault.asset.address))
+const brevisInfo = computed(() => getCampaignOfBorrowVault(vault.address))
+
+const onSupplyInfoIconClick = () => {
+  modal.open(VaultSupplyApyModal, {
+    props: {
+      lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
+      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      opportunityInfo: supplyOpportunityInfo.value,
+      brevisInfo: brevisInfo.value,
+    },
+  })
+}
+
+const onBorrowInfoIconClick = () => {
+  modal.open(VaultBorrowApyModal, {
+    props: {
+      borrowingAPY: nanoToValue(vault.interestRateInfo.borrowAPY, 25),
+      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      opportunityInfo: borrowOpportunityInfo.value,
+    },
+  })
+}
 
 const totalSupplyDisplay = ref('-')
 const totalBorrowedDisplay = ref('-')
@@ -63,16 +92,36 @@ watchEffect(async () => {
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
-        label="Supply APY"
-        :value="`${formatNumber(supplyApyWithRewards)}%`"
         orientation="horizontal"
-      />
+        :value="`${formatNumber(supplyApyWithRewards)}%`"
+      >
+        <template #label>
+          <span class="flex items-center gap-4">
+            Supply APY
+            <SvgIcon
+              class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click="onSupplyInfoIconClick"
+            />
+          </span>
+        </template>
+      </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="isBorrowable"
-        label="Borrow APY"
-        :value="`${formatNumber(borrowApyWithRewards)}%`"
         orientation="horizontal"
-      />
+        :value="`${formatNumber(borrowApyWithRewards)}%`"
+      >
+        <template #label>
+          <span class="flex items-center gap-4">
+            Borrow APY
+            <SvgIcon
+              class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click="onBorrowInfoIconClick"
+            />
+          </span>
+        </template>
+      </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="isBorrowable"
         label="Utilization"
@@ -86,7 +135,7 @@ watchEffect(async () => {
             :max="1"
           />
         </div>
-      </vaultoverviewlabelvalue>
+      </VaultOverviewLabelValue>
     </div>
   </div>
 </template>

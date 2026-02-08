@@ -119,8 +119,13 @@ watchEffect(async () => {
         </div>
       </div>
       <div class="flex flex-col items-end">
-        <div class="text-content-tertiary text-p3 mb-4 text-right">
+        <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
           Supply APY
+          <SvgIcon
+            class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+            name="info-circle"
+            @click="onSupplyInfoIconClick"
+          />
         </div>
         <div class="flex items-center">
           <div class="mr-6">
@@ -133,11 +138,6 @@ watchEffect(async () => {
               name="sparks"
             />
             {{ formatNumber(supplyApyWithRewards) }}%
-            <SvgIcon
-              class="!w-20 !h-20 text-content-muted hover:text-content-secondary transition-colors cursor-pointer ml-4"
-              name="info-circle"
-              @click="onSupplyInfoIconClick"
-            />
           </div>
         </div>
       </div>
