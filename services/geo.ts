@@ -1,0 +1,25 @@
+const CACHE_TTL_MS = 5 * 60 * 1000
+
+let cached: { value: string | null, timestamp: number } | null = null
+
+export async function detectCountry(): Promise<string | null> {
+  if (cached !== null && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.value
+  }
+
+  try {
+    const resp = await fetch(window.location.origin, { method: 'HEAD' })
+    const header = resp.headers.get('x-country-code')
+    const value = header && header.trim() ? header.trim() : null
+    cached = { value, timestamp: Date.now() }
+  }
+  catch {
+    cached = { value: null, timestamp: Date.now() }
+  }
+
+  return cached.value
+}
+
+export function resetCountryCache(): void {
+  cached = null
+}

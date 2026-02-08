@@ -91,32 +91,32 @@ const onBorrowInfoIconClick = () => {
         </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
-        label="Supply APY"
+        :value="`${formatNumber(supplyApyWithRewards)}%`"
       >
-        <p class="flex items-center gap-4">
-          <span>
-            {{ formatNumber(supplyApyWithRewards) }}%
+        <template #label>
+          <span class="flex items-center gap-4">
+            Supply APY
+            <SvgIcon
+              class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click="onSupplyInfoIconClick"
+            />
           </span>
-          <SvgIcon
-            class="!w-20 !h-20 text-euler-dark-800 cursor-pointer"
-            name="info-circle"
-            @click="onSupplyInfoIconClick"
-          />
-        </p>
+        </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
-        label="Borrow APY"
+        :value="`${formatNumber(borrowApyWithRewards)}%`"
       >
-        <p class="flex items-center gap-4">
-          <span>
-            {{ formatNumber(borrowApyWithRewards) }}%
+        <template #label>
+          <span class="flex items-center gap-4">
+            Borrow APY
+            <SvgIcon
+              class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click="onBorrowInfoIconClick"
+            />
           </span>
-          <SvgIcon
-            class="!w-20 !h-20 text-euler-dark-800 cursor-pointer"
-            name="info-circle"
-            @click="onBorrowInfoIconClick"
-          />
-        </p>
+        </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Max ROE"

@@ -7,6 +7,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import {
   getNetAPY,
+  getRoe,
   type Vault,
 } from '~/entities/vault'
 import {
@@ -170,6 +171,17 @@ const netAPY = computed(() => {
   )
 })
 
+const roe = computed(() => {
+  return getRoe(
+    collateralValue.value.usd,
+    collateralSupplyApy.value,
+    borrowedValue.value.usd,
+    borrowApy.value,
+    opportunityInfoForCollateral.value?.apr || null,
+    opportunityInfoForBorrow.value?.apr || null,
+  )
+})
+
 const loadCollaterals = async () => {
   // Only load additional collaterals if position has multiple
   if (!position.collaterals?.length || position.collaterals.length <= 1) return
@@ -264,13 +276,13 @@ onMounted(() => {
         >
           Position {{ subAccountIndex }}
         </div>
-        <div class="flex gap-12">
+        <div class="flex gap-12 w-full">
           <BaseAvatar
             :src="[position.collateral.asset.symbol, position.borrow.asset.symbol].map(s => getAssetLogoUrl(s))"
             :label="[position.collateral.asset.symbol, position.borrow.asset.symbol]"
             class="icon--40"
           />
-          <div>
+          <div class="flex-grow">
             <div class="text-content-tertiary text-p3 mb-4">
               <VaultDisplayName
                 :name="pairName"
@@ -279,6 +291,30 @@ onMounted(() => {
             </div>
             <div class="text-h5 text-content-primary">
               {{ pairSymbols }}
+            </div>
+          </div>
+          <div class="flex gap-16 items-start">
+            <div class="flex flex-col items-end">
+              <div class="text-content-tertiary text-p3 mb-4">
+                Net APY
+              </div>
+              <div
+                class="text-p2"
+                :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
+              >
+                {{ formatNumber(netAPY) }}%
+              </div>
+            </div>
+            <div class="flex flex-col items-end">
+              <div class="text-content-tertiary text-p3 mb-4">
+                ROE
+              </div>
+              <div
+                class="text-p2"
+                :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
+              >
+                {{ formatNumber(roe) }}%
+              </div>
             </div>
           </div>
         </div>
@@ -331,17 +367,6 @@ onMounted(() => {
               ~ {{ roundAndCompactTokens(collateralItems[0].assets, position.collateral.decimals) }}
               {{ position.collateral.asset.symbol }} {{ collateralItems.length > 1 ? '& others' : '' }}
             </div>
-          </div>
-        </div>
-        <div class="flex justify-between">
-          <div class="text-content-tertiary text-p3">
-            Net APY
-          </div>
-          <div
-            :class="[netAPY <= 0 ? 'text-error-500' : 'text-accent-600']"
-            class="text-p2"
-          >
-            {{ formatNumber(netAPY) }}%
           </div>
         </div>
         <div class="flex justify-between">

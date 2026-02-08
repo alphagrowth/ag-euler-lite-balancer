@@ -4,12 +4,12 @@ import { ethers } from 'ethers'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   getNetAPY,
+  getRoe,
   type Vault,
   type SecuritizeVault,
 } from '~/entities/vault'
 import {
   getAssetUsdValue,
-  getAssetUsdValueOrZero,
   getAssetUsdPrice,
   getCollateralUsdPrice,
   getCollateralUsdValue,
@@ -311,6 +311,18 @@ const netAPY = computed(() => {
   )
 })
 
+const roe = computed(() => {
+  if (!position.value || !borrowVault.value) return 0
+  return getRoe(
+    collateralValue.value.usd,
+    collateralSupplyApy.value,
+    borrowMarketValue.value.usd,
+    borrowApy.value,
+    opportunityInfoForCollateral.value?.apr || null,
+    opportunityInfoForBorrow.value?.apr || null,
+  )
+})
+
 const isPrimaryCollateral = (vault: Vault | SecuritizeVault) => {
   if (!primaryCollateralAddress.value) {
     return false
@@ -555,28 +567,6 @@ const openPairInfoModal = () => {
     },
   })
 }
-const onNetApyInfoIconClick = async () => {
-  if (!position.value) return
-
-  const supplyUSD = await getAssetUsdValueOrZero(position.value.supplied || 0n, collateralVault.value!, 'off-chain')
-  const borrowUSD = await getAssetUsdValueOrZero(position.value.borrowed || 0n, borrowVault.value!, 'off-chain')
-
-  modal.open(VaultNetApyModal, {
-    props: {
-      supplyUSD,
-      borrowUSD,
-      baseSupplyAPY: baseSupplyAPY.value,
-      baseBorrowAPY: baseBorrowAPY.value,
-      intrinsicSupplyAPY: intrinsicSupplyAPY.value,
-      intrinsicBorrowAPY: intrinsicBorrowAPY.value,
-      supplyRewardAPY: opportunityInfoForCollateral.value?.apr || null,
-      borrowRewardAPY: opportunityInfoForBorrow.value?.apr || null,
-      netAPY: netAPY.value,
-      supplyOpportunityInfo: opportunityInfoForCollateral.value,
-      borrowOpportunityInfo: opportunityInfoForBorrow.value,
-    },
-  })
-}
 watch(isConnected, () => {
   load()
 }, { immediate: true })
@@ -601,23 +591,44 @@ watch(isConnected, () => {
         class="flex flex-col gap-16 p-16 rounded-12 border border-line-default bg-card shadow-card"
       >
         <div class="flex justify-between items-center">
-          <div class="text-p2 text-neutral-500">
+          <div class="flex items-center gap-4 text-p2 text-content-secondary">
             Net APY
-          </div>
-          <div class="text-h5 text-neutral-800 flex justify-end items-center gap-4">
-            {{ formatNumber(netAPY) }}%
-            <SvgIcon
-              class="!w-24 !h-24 text-neutral-400 cursor-pointer"
-              name="info-circle"
-              @click="onNetApyInfoIconClick"
+            <UiFootnote
+              title="Net APY"
+              text="Net annual percentage yield for this position. Calculated as supply income minus borrow costs, divided by total supplied value."
+              tooltip-placement="bottom-start"
+              class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
             />
+          </div>
+          <div
+            class="text-h5"
+            :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
+          >
+            {{ formatNumber(netAPY) }}%
           </div>
         </div>
         <div class="flex justify-between items-center">
-          <div class="text-p2 text-neutral-500">
+          <div class="flex items-center gap-4 text-p2 text-content-secondary">
+            ROE
+            <UiFootnote
+              title="ROE"
+              text="Return on equity for this position. Calculated as net yield (supply income minus borrow costs) divided by equity (collateral value minus debt)."
+              tooltip-placement="bottom-start"
+              class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
+            />
+          </div>
+          <div
+            class="text-h5"
+            :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
+          >
+            {{ formatNumber(roe) }}%
+          </div>
+        </div>
+        <div class="flex justify-between items-center">
+          <div class="text-p2 text-content-secondary">
             Net asset value
           </div>
-          <div class="text-h5 text-neutral-800">
+          <div class="text-h5 text-content-primary">
             {{ isCollateralsLoading ? '-' : netAssetValue.hasPrice ? formatCompactUsdValue(netAssetValue.usd) : '-' }}
           </div>
         </div>
@@ -673,15 +684,23 @@ watch(isConnected, () => {
           Borrow
         </div>
         <div class="rounded-12 bg-card border border-line-default shadow-card">
-          <div class="flex gap-16 p-16 pb-12 border-b border-line-default">
+          <div class="flex justify-between items-center p-16 pb-12 border-b border-line-default">
             <VaultLabelsAndAssets
               :vault="position.borrow"
               :assets="[position.borrow.asset]"
             />
+            <div class="flex flex-col items-end">
+              <div class="text-content-tertiary text-p3 mb-4">
+                Borrow APY
+              </div>
+              <div class="text-p2 text-accent-600 font-semibold">
+                {{ formatNumber(borrowApyWithRewards) }}%
+              </div>
+            </div>
           </div>
           <div class="pt-12 px-16 pb-16">
             <div class="flex justify-between gap-8 flex-wrap mb-16">
-              <div class="text-neutral-500 text-p3">
+              <div class="text-content-secondary text-p3">
                 Market value
               </div>
               <div class="flex justify-between gap-8 justify-self-end">
@@ -697,14 +716,6 @@ watch(isConnected, () => {
                 >
                   ~ {{ roundAndCompactTokens(position.borrowed, borrowVault.decimals) }} {{ borrowVault.asset.symbol }}
                 </div>
-              </div>
-            </div>
-            <div class="flex justify-between gap-8 flex-wrap mb-16">
-              <div class="text-neutral-500 text-p3">
-                Borrow APY
-              </div>
-              <div class="text-neutral-800 text-p3">
-                {{ formatNumber(borrowApyWithRewards) }}%
               </div>
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
@@ -802,19 +813,27 @@ watch(isConnected, () => {
             class="rounded-12 bg-card border border-line-default shadow-card cursor-pointer"
             @click="openCollateralInfoModal(collateral.vault)"
           >
-            <div class="flex gap-16 p-16 pb-12 border-b border-line-default">
+            <div class="flex justify-between items-center p-16 pb-12 border-b border-line-default">
               <VaultLabelsAndAssets
                 :vault="collateral.vault"
                 :assets="[collateral.vault.asset]"
               />
+              <div class="flex flex-col items-end">
+                <div class="text-content-tertiary text-p3 mb-4">
+                  Supply APY
+                </div>
+                <div class="text-p2 text-accent-600 font-semibold">
+                  {{ formatNumber(collateral.supplyApyWithRewards) }}%
+                </div>
+              </div>
             </div>
             <div class="pt-12 px-16 pb-16">
               <div class="flex justify-between gap-8 flex-wrap mb-16">
-                <div class="text-neutral-500 text-p3">
+                <div class="text-content-secondary text-p3">
                   {{ !hasNoBorrow ? 'Market value' : 'Supply value' }}
                 </div>
                 <div class="flex justify-between gap-8 justify-self-end">
-                  <div class="text-neutral-800 text-p3">
+                  <div class="text-content-primary text-p3">
                     {{ collateral.value.hasPrice
                       ? formatCompactUsdValue(collateral.value.usd)
                       : `${roundAndCompactTokens(collateral.assets, collateral.vault.decimals)} ${collateral.vault.asset.symbol}`
@@ -822,19 +841,11 @@ watch(isConnected, () => {
                   </div>
                   <div
                     v-if="collateral.value.hasPrice"
-                    class="text-neutral-500 text-p3"
+                    class="text-content-tertiary text-p3"
                   >
                     ~ {{ roundAndCompactTokens(collateral.assets, collateral.vault.decimals) }}
                     {{ collateral.vault.asset.symbol }}
                   </div>
-                </div>
-              </div>
-              <div class="flex justify-between gap-8 flex-wrap mb-16">
-                <div class="text-neutral-500 text-p3">
-                  Supply APY
-                </div>
-                <div class="text-neutral-800 text-p3">
-                  {{ formatNumber(collateral.supplyApyWithRewards) }}%
                 </div>
               </div>
               <div class="flex justify-between gap-8 flex-wrap mb-16">
