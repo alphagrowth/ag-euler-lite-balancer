@@ -18,7 +18,7 @@ import {
   toUsdAmount,
   type UsdAmount,
 } from '~/services/pricing/priceProvider'
-import type { AccountBorrowPosition } from '~/entities/account'
+import { type AccountBorrowPosition, isPositionEligibleForLiquidation } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl } from '~/utils/crypto-utils'
 import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal } from '#components'
@@ -81,10 +81,7 @@ const pairAssets = computed(() => {
   return [collateralVault.value.asset, borrowVault.value.asset]
 })
 const hasNoBorrow = computed(() => position.value?.borrow.borrow === 0n)
-const isEligibleForLiquidation = computed(() => {
-  if (!position.value || position.value.liabilityValueLiquidation === 0n) return false
-  return position.value.liabilityValueLiquidation > position.value.collateralValueLiquidation
-})
+const isEligibleForLiquidation = computed(() => isPositionEligibleForLiquidation(position.value))
 
 const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
 const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
@@ -729,7 +726,7 @@ watch(isConnected, () => {
               v-if="isEligibleForLiquidation"
               class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 mb-8"
             >
-              This position is eligible for liquidation. Multiply, borrow, and withdraw are disabled.
+              This position is eligible for liquidation. Multiply and borrow are disabled.
             </div>
             <div
               class="flex justify-between gap-8"

@@ -8,7 +8,7 @@ import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, type VaultAsset, type Vault } from '~/entities/vault'
 import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice } from '~/services/pricing/priceProvider'
-import type { AccountBorrowPosition } from '~/entities/account'
+import { type AccountBorrowPosition, isPositionEligibleForLiquidation } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { SwapperMode } from '~/entities/swap'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
@@ -64,6 +64,8 @@ const swapCollateralVault: Ref<Vault | undefined> = ref()
 const swapCollateralAssets = ref(0n)
 const swapCollateralBalance = computed(() => swapCollateralAssets.value)
 const swapDebtBalance = computed(() => position.value?.borrowed || 0n)
+const isEligibleForLiquidation = computed(() => isPositionEligibleForLiquidation(position.value))
+
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   return isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
@@ -82,7 +84,16 @@ const isSwapSubmitDisabled = computed(() => {
   if (!swapSelectedQuote.value) {
     return true
   }
+  if (isSwapHealthInsufficient.value) {
+    return true
+  }
   return false
+})
+const swapDisabledReason = computed(() => {
+  if (isSwapHealthInsufficient.value) {
+    return 'This swap will not restore account health. Repay the full debt from your wallet instead.'
+  }
+  return undefined
 })
 const reviewRepayLabel = getSubmitLabel('Review Repay')
 const reviewRepayDisabled = getSubmitDisabled(computed(() => {
@@ -441,8 +452,11 @@ const swapNextLiquidationLtv = computed(() => {
   return swapCurrentLiquidationLtv.value
 })
 const swapNextLtv = computed(() => {
-  if (!swapBorrowAmountAfter.value || !swapCollateralAmountAfter.value || !swapPriceRatio.value) {
+  if (swapBorrowAmountAfter.value === null || swapCollateralAmountAfter.value === null || !swapPriceRatio.value) {
     return null
+  }
+  if (swapBorrowAmountAfter.value === 0) {
+    return 0
   }
   if (swapPriceRatio.value <= 0 || swapCollateralAmountAfter.value <= 0) {
     return null
@@ -456,14 +470,20 @@ const swapCurrentHealth = computed(() => {
   return nanoToValue(position.value.health, 18)
 })
 const swapNextHealth = computed(() => {
-  if (!swapNextLiquidationLtv.value || !swapNextLtv.value) {
+  if (!swapNextLiquidationLtv.value || swapNextLtv.value === null) {
     return null
   }
   if (swapNextLtv.value <= 0) {
-    return null
+    return Infinity
   }
   return swapNextLiquidationLtv.value / swapNextLtv.value
 })
+const isSwapHealthInsufficient = computed(() => {
+  if (!isEligibleForLiquidation.value) return false
+  if (swapNextHealth.value === null) return false
+  return swapNextHealth.value < 1
+})
+
 const swapCurrentLiquidationPrice = computed(() => {
   if (!swapPriceRatio.value || !swapCurrentHealth.value) {
     return null
@@ -1267,6 +1287,14 @@ onUnmounted(() => {
       </template>
 
       <template v-else>
+        <UiToast
+          v-if="isEligibleForLiquidation"
+          title="Position in violation"
+          variant="warning"
+          description="This position is eligible for liquidation. Collateral swaps that don't fully clear the debt will fail. If repaying partially, consider repaying from your wallet instead."
+          size="compact"
+        />
+
         <AssetInput
           v-if="swapCollateralVault"
           v-model="collateralAmount"
@@ -1488,6 +1516,7 @@ onUnmounted(() => {
       <VaultFormSubmit
         v-else
         :disabled="reviewRepayDisabled"
+        :disabled-reason="swapDisabledReason"
         :loading="isSubmitting"
       >
         {{ reviewRepayLabel }}
