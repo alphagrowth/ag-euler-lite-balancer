@@ -143,7 +143,7 @@ const openChooseCollateralModal = () => {
         @click="openChooseCollateralModal"
       >
         <BaseAvatar
-          :src="getAssetLogoUrl(asset.symbol)"
+          :src="getAssetLogoUrl(asset.address, asset.symbol)"
           :label="asset.symbol"
           class="icon--20"
         />

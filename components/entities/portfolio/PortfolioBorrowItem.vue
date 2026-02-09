@@ -49,6 +49,8 @@ const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
+const hasQueryFailure = computed(() => Boolean(position.liquidityQueryFailure))
+
 const borrowVault = computed(() => position.borrow)
 const utilisationWarning = computed(() => getUtilisationWarning(position.borrow, 'borrow'))
 const collateralVault = computed(() => position.collateral)
@@ -285,7 +287,7 @@ onMounted(() => {
         </div>
         <div class="flex gap-12 w-full">
           <BaseAvatar
-            :src="[position.collateral.asset.symbol, position.borrow.asset.symbol].map(s => getAssetLogoUrl(s))"
+            :src="[position.collateral, position.borrow].map(v => getAssetLogoUrl(v.asset.address, v.asset.symbol))"
             :label="[position.collateral.asset.symbol, position.borrow.asset.symbol]"
             class="icon--40"
           />
@@ -306,6 +308,13 @@ onMounted(() => {
                 Net APY
               </div>
               <div
+                v-if="hasQueryFailure"
+                class="text-p2 text-content-tertiary"
+              >
+                -
+              </div>
+              <div
+                v-else
                 class="text-p2"
                 :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
               >
@@ -317,6 +326,13 @@ onMounted(() => {
                 ROE
               </div>
               <div
+                v-if="hasQueryFailure"
+                class="text-p2 text-content-tertiary"
+              >
+                -
+              </div>
+              <div
+                v-else
                 class="text-p2"
                 :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
               >
@@ -327,6 +343,13 @@ onMounted(() => {
         </div>
 
       </div>
+    </div>
+    <div
+      v-if="hasQueryFailure"
+      class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500 text-p4 mx-16 mt-8"
+    >
+      <SvgIcon name="warning" class="!w-16 !h-16 shrink-0" />
+      Oracle pricing unavailable. Some details may be missing.
     </div>
     <div class="flex py-12 px-16 pb-16">
       <div
@@ -382,27 +405,35 @@ onMounted(() => {
             <VaultWarningIcon :warning="utilisationWarning" tooltip-placement="top-start" />
           </div>
           <div class="text-content-primary text-p3">
-            {{ formatNumber(nanoToValue(position.health, 18)) }}
+            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <template v-else>
+              {{ formatNumber(nanoToValue(position.health, 18)) }}
+            </template>
           </div>
         </div>
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Your LTV
           </div>
-          <div class="flex justify-between items-center gap-16">
-            <UiProgress
-              style="width: 111px"
-              :model-value="nanoToValue(position.userLTV, 18)"
-              :max="nanoToValue(position.liquidationLTV, 2)"
-              :color="nanoToValue(position.userLTV, 18) >= (nanoToValue(position.liquidationLTV, 2) - 2) ? 'danger' : undefined"
-              size="small"
-            />
-            <div class="flex justify-between gap-8 text-right">
-              <div class="text-content-primary text-p3">
-                {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
+          <template v-if="hasQueryFailure">
+            <span class="text-warning-500 text-p3">Unknown</span>
+          </template>
+          <template v-else>
+            <div class="flex justify-between items-center gap-16">
+              <UiProgress
+                style="width: 111px"
+                :model-value="nanoToValue(position.userLTV, 18)"
+                :max="nanoToValue(position.liquidationLTV, 2)"
+                :color="nanoToValue(position.userLTV, 18) >= (nanoToValue(position.liquidationLTV, 2) - 2) ? 'danger' : undefined"
+                size="small"
+              />
+              <div class="flex justify-between gap-8 text-right">
+                <div class="text-content-primary text-p3">
+                  {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
+                </div>
               </div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
     </div>

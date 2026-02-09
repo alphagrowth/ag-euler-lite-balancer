@@ -115,7 +115,7 @@ const onClick = () => {
       <div class="flex w-full">
         <BaseAvatar
           class="icon--40"
-          :src="getAssetLogoUrl(vault.asset.symbol)"
+          :src="getAssetLogoUrl(vault.asset.address, vault.asset.symbol)"
           :label="vault.asset.symbol"
         />
         <div class="flex-grow ml-12">
@@ -195,7 +195,7 @@ const onClick = () => {
       <div class="flex w-full">
         <BaseAvatar
           class="icon--40"
-          :src="getAssetLogoUrl(vault.asset.symbol)"
+          :src="getAssetLogoUrl(vault.asset.address, vault.asset.symbol)"
           :label="vault.asset.symbol"
         />
         <div class="flex-grow ml-12">

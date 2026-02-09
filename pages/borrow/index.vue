@@ -99,7 +99,7 @@ const collateralAssetOptions = computed(() => {
     .map(pair => ({
       label: pair.collateral.asset.symbol,
       value: pair.collateral.asset.address,
-      icon: getAssetLogoUrl(pair.collateral.asset.symbol),
+      icon: getAssetLogoUrl(pair.collateral.asset.address, pair.collateral.asset.symbol),
     }))
     .reduce((prev, curr) =>
       prev.find(vault => vault.value === curr.value) ? prev : [...prev, curr], [] as { label: string, value: string, icon: string }[],
@@ -112,7 +112,7 @@ const debtAssetOptions = computed(() => {
     .map(pair => ({
       label: pair.borrow.asset.symbol,
       value: pair.borrow.asset.address,
-      icon: getAssetLogoUrl(pair.borrow.asset.symbol),
+      icon: getAssetLogoUrl(pair.borrow.asset.address, pair.borrow.asset.symbol),
     }))
     .reduce((prev, curr) =>
       prev.find(vault => vault.value === curr.value) ? prev : [...prev, curr], [] as { label: string, value: string, icon: string }[],

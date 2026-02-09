@@ -78,7 +78,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
     <div class="flex py-16 px-16 pb-12 border-b border-line-default">
       <BaseAvatar
         class="icon--40"
-        :src="getAssetLogoUrl(vault.asset.symbol)"
+        :src="getAssetLogoUrl(vault.asset.address, vault.asset.symbol)"
         :label="vault.asset.symbol"
       />
       <div class="flex-grow ml-12">

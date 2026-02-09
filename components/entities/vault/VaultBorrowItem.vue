@@ -157,8 +157,8 @@ const linkPath = computed(
       <div class="col-span-3 flex pl-16 py-16 pb-12 mobile:!p-0 mobile:flex-1 mobile:min-w-0">
         <BaseAvatar
           :src="
-            [pair.collateral.asset.symbol, pair.borrow.asset.symbol].map((s) =>
-              getAssetLogoUrl(s),
+            [pair.collateral, pair.borrow].map((v) =>
+              getAssetLogoUrl(v.asset.address, v.asset.symbol),
             )
           "
           :label="[pair.collateral.asset.symbol, pair.borrow.asset.symbol]"

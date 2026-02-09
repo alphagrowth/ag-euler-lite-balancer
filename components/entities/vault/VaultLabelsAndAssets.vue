@@ -62,7 +62,7 @@ const displayLabel = computed(() => {
 })
 
 const displayAssetsLabel = computed(() => assetsLabel || assets.map(asset => asset.symbol).join('/'))
-const avatarSrcs = computed(() => assets.map(asset => getAssetLogoUrl(asset.symbol)))
+const avatarSrcs = computed(() => assets.map(asset => getAssetLogoUrl(asset.address, asset.symbol)))
 const avatarLabels = computed(() => assets.map(asset => asset.symbol))
 </script>
 

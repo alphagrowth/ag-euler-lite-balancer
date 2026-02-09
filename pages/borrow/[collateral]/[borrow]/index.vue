@@ -213,19 +213,19 @@ const tabs = computed(() => {
     {
       label: 'Pair details',
       value: undefined,
-      avatars: [getAssetLogoUrl(pair.value.collateral.asset.symbol), getAssetLogoUrl(pair.value.borrow.asset.symbol)],
+      avatars: [getAssetLogoUrl(pair.value.collateral.asset.address, pair.value.collateral.asset.symbol), getAssetLogoUrl(pair.value.borrow.asset.address, pair.value.borrow.asset.symbol)],
       symbols: [pair.value.collateral.asset.symbol, pair.value.borrow.asset.symbol],
     },
     {
       label: pair.value.collateral.asset.symbol,
       value: 'collateral',
-      avatars: [getAssetLogoUrl(pair.value.collateral.asset.symbol)],
+      avatars: [getAssetLogoUrl(pair.value.collateral.asset.address, pair.value.collateral.asset.symbol)],
       symbols: [pair.value.collateral.asset.symbol],
     },
     {
       label: pair.value.borrow.asset.symbol,
       value: 'borrow',
-      avatars: [getAssetLogoUrl(pair.value.borrow.asset.symbol)],
+      avatars: [getAssetLogoUrl(pair.value.borrow.asset.address, pair.value.borrow.asset.symbol)],
       symbols: [pair.value.borrow.asset.symbol],
     },
   ]
@@ -237,7 +237,7 @@ const tabs = computed(() => {
       list.splice(1, 0, {
         label: multiplySupplyVault.value.asset.symbol,
         value: 'multiply-collateral',
-        avatars: [getAssetLogoUrl(multiplySupplyVault.value.asset.symbol)],
+        avatars: [getAssetLogoUrl(multiplySupplyVault.value.asset.address, multiplySupplyVault.value.asset.symbol)],
         symbols: [multiplySupplyVault.value.asset.symbol],
       })
     }

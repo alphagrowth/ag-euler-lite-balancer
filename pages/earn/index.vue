@@ -56,7 +56,7 @@ const assetOptions = computed(() => {
     .map(vault => ({
       label: vault.asset.symbol,
       value: vault.asset.address,
-      icon: getAssetLogoUrl(vault.asset.symbol),
+      icon: getAssetLogoUrl(vault.asset.address, vault.asset.symbol),
     }))
     .reduce((prev, curr) =>
       prev.find(vault => vault.value === curr.value) ? prev : [...prev, curr], [] as { label: string, value: string, icon: string }[],
@@ -75,7 +75,7 @@ const topOptions = computed(() => {
     .map(vault => ({
       label: vault.asset.symbol,
       value: vault.asset.address,
-      icon: getAssetLogoUrl(vault.asset.symbol),
+      icon: getAssetLogoUrl(vault.asset.address, vault.asset.symbol),
     }))
     .reduce((prev, curr) =>
       prev.find(vault => vault.value === curr.value) ? prev : [...prev, curr], [] as { label: string, value: string, icon: string }[],

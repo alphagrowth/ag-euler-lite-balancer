@@ -158,6 +158,7 @@ const cleanStepLabel = (label: string) => {
 
 interface StepAssetInfo {
   symbol: string
+  address?: string
   amount?: number | string
 }
 
@@ -437,7 +438,7 @@ const feeDisplay = computed(() => {
               <template v-if="step.assetInfo">
                 <BaseAvatar
                   class="icon--16"
-                  :src="getAssetLogoUrl(step.assetInfo.symbol)"
+                  :src="getAssetLogoUrl(step.assetInfo.address || '', step.assetInfo.symbol)"
                   :label="step.assetInfo.symbol"
                 />
                 <p class="text-p3">
@@ -456,7 +457,7 @@ const feeDisplay = computed(() => {
                 </p>
                 <BaseAvatar
                   class="icon--16"
-                  :src="getAssetLogoUrl(step.toAssetInfo.symbol)"
+                  :src="getAssetLogoUrl(step.toAssetInfo.address || '', step.toAssetInfo.symbol)"
                   :label="step.toAssetInfo.symbol"
                 />
                 <p class="text-p3">
