@@ -109,6 +109,10 @@ export class FixedPoint {
     return new FixedPoint(isNeg ? -rounded : rounded, targetDecimals)
   }
 
+  toFormat({ decimals }: { decimals: number }): FixedPoint {
+    return this.round(decimals)
+  }
+
   toUnsafeFloat(): number {
     if (this.decimals === 0) {
       return Number(this.value)

@@ -254,7 +254,7 @@ const onCollateralInput = async () => {
   const result = collateralAmountFixed.value
     .mul(priceFixed.value)
     .mul(ltvFixed.value)
-    .div(FixedPoint.fromValue(100n)).round(Number(borrowVault.value?.decimals || 18))
+    .div(FixedPoint.fromValue(100n, 0)).round(Number(borrowVault.value?.decimals || 18))
     .subUnsafe(FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
   const zero = FixedPoint.fromValue(0n, Number(borrowVault.value?.decimals || 18))
   borrowAmount.value = result.lt(zero) ? zero.toString() : result.toString()
@@ -267,7 +267,7 @@ const onBorrowInput = async () => {
   ltv.value = +borrowAmountFixed.value
     .addUnsafe(FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
     .div(collateralAmountFixed.value.mul(priceFixed.value))
-    .mul(FixedPoint.fromValue(100n))
+    .mul(FixedPoint.fromValue(100n, 0))
     .toUnsafeFloat().toFixed(2)
 }
 const onLtvInput = async () => {

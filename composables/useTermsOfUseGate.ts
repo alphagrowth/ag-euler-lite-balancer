@@ -1,5 +1,5 @@
 import { unref } from 'vue'
-import type { Address } from 'viem'
+import type { Address, Hex } from 'viem'
 import { AcknowledgeTermsModal } from '#components'
 import { tosSignerReadAbi } from '~/abis/tos'
 import { enableTermsOfUseSignature } from '~/entities/custom'
@@ -45,7 +45,7 @@ export const useTermsOfUseGate = () => {
         address: eulerPeripheryAddresses.value.termsOfUseSigner as Address,
         abi: tosSignerReadAbi,
         functionName: 'lastTermsOfUseSignatureTimestamp',
-        args: [address.value as Address, tosMessageHash as Address],
+        args: [address.value as Address, tosMessageHash as Hex],
       })
       const signed = lastSignTimestamp > 0
       hasSigned.value = signed

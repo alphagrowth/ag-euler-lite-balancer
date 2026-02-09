@@ -450,7 +450,7 @@ const updateBorrowPositions = async (
           res.vaultAccountInfo.borrowed,
           borrow.decimals,
         )
-        const userLTVPercent = userLTVFixed.div(FixedPoint.fromValue(100n))
+        const userLTVPercent = userLTVFixed.div(FixedPoint.fromValue(100n, 0))
         const supplied = userLTVPercent.isZero()
           ? 0n
           : borrowedFixed

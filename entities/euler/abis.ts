@@ -1589,7 +1589,7 @@ export const eulerUtilsLensABI = [
     ],
     stateMutability: 'view',
   },
-]
+] as const
 export const eulerVaultLensABI = [
   {
     type: 'constructor',

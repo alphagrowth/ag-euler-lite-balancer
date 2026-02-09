@@ -48,9 +48,6 @@ export const useEulerOperations = () => {
     }
 
     const receipt = await rpcProvider.waitForTransactionReceipt({ hash: txHash })
-    if (!receipt) {
-      throw new Error('Transaction not found')
-    }
     if (receipt.status === 'reverted') {
       throw new Error('Transaction reverted')
     }

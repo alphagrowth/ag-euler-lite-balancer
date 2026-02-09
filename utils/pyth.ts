@@ -585,7 +585,7 @@ export const executeLensWithPythSimulation = async <T>(
     })
 
     const callResult = await client.call({
-      to: evcAddress as Hex,
+      to: evcAddress as Address,
       data: batchCallData,
       value: totalFee,
     })

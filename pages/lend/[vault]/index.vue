@@ -373,7 +373,7 @@ const updateEstimates = useDebounceFn(async () => {
       if (!asset.value?.address) {
         return
       }
-      const { supplyAPY } = await computeAPYs(
+      const [, supplyAPY] = await computeAPYs(
         evkVault.value.interestRateInfo.borrowSPY,
         evkVault.value.interestRateInfo.cash + valueToNano(amount.value, evkVault.value.decimals),
         evkVault.value.interestRateInfo.borrows,

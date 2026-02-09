@@ -6,7 +6,7 @@ export const vaultBorrowAbi = [
       { name: 'amount', type: 'uint256' },
       { name: 'receiver', type: 'address' },
     ],
-    outputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'nonpayable',
   },
 ] as const
@@ -19,7 +19,7 @@ export const vaultRepayAbi = [
       { name: 'amount', type: 'uint256' },
       { name: 'receiver', type: 'address' },
     ],
-    outputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'nonpayable',
   },
 ] as const
@@ -32,7 +32,7 @@ export const vaultDepositAbi = [
       { name: 'amount', type: 'uint256' },
       { name: 'receiver', type: 'address' },
     ],
-    outputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'nonpayable',
   },
 ] as const
@@ -46,7 +46,7 @@ export const vaultWithdrawAbi = [
       { name: 'receiver', type: 'address' },
       { name: 'owner', type: 'address' },
     ],
-    outputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'nonpayable',
   },
 ] as const
@@ -60,7 +60,7 @@ export const vaultRedeemAbi = [
       { name: 'receiver', type: 'address' },
       { name: 'owner', type: 'address' },
     ],
-    outputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'nonpayable',
   },
 ] as const

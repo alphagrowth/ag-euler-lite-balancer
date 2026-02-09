@@ -1,4 +1,4 @@
-import { encodeFunctionData, decodeFunctionResult, type Hex } from 'viem'
+import { encodeFunctionData, decodeFunctionResult, type Address, type Hex } from 'viem'
 import type { ComputedRef } from 'vue'
 import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
 import { erc20DecimalsAbi } from '~/abis/erc20'
@@ -93,7 +93,7 @@ const fetchMissingDecimals = async (
     })
 
     const callResult = await client.call({
-      to: evcAddress as Hex,
+      to: evcAddress as Address,
       data: callData,
       value: 0n,
     })
@@ -272,7 +272,7 @@ export const useOracleAdapterPrices = (
       })
 
       const callResult = await client.call({
-        to: evcAddress as Hex,
+        to: evcAddress as Address,
         data: batchCallData,
         value: totalFee,
       })

@@ -330,7 +330,7 @@ const updateEstimates = useDebounceFn(async () => {
       ? FixedPoint.fromValue(0n, 18)
       : borrowedFixed.value
           .div(collateralValue)
-          .mul(FixedPoint.fromValue(100n))
+          .mul(FixedPoint.fromValue(100n, 0))
 
     estimateUserLTV.value = userLtvFixed.value
     estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())

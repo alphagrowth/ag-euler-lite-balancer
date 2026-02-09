@@ -6,7 +6,7 @@ export const erc20ApproveAbi = [
       { name: 'spender', type: 'address' },
       { name: 'amount', type: 'uint256' },
     ],
-    outputs: [],
+    outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'nonpayable',
   },
 ] as const
@@ -19,7 +19,7 @@ export const erc20TransferAbi = [
       { name: 'to', type: 'address' },
       { name: 'amount', type: 'uint256' },
     ],
-    outputs: [],
+    outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'nonpayable',
   },
 ] as const

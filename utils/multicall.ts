@@ -1,4 +1,4 @@
-import { encodeFunctionData, decodeFunctionResult, zeroAddress, type Hex, type Abi } from 'viem'
+import { encodeFunctionData, decodeFunctionResult, zeroAddress, type Address, type Hex, type Abi } from 'viem'
 import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
 import { getPublicClient } from '~/utils/public-client'
 
@@ -36,7 +36,7 @@ export const evcBatchCall = async (
     })
 
     const result = await client.call({
-      to: evcAddress as Hex,
+      to: evcAddress as Address,
       data: callData,
       value: 0n,
     })
