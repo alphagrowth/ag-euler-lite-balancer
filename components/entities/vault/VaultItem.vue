@@ -177,7 +177,7 @@ watchEffect(async () => {
           {{ totalSupplyPrice }}
         </div>
       </div>
-      <div class="flex-1 flex flex-col items-center">
+      <div class="flex-1 flex flex-col items-center mobile:items-end">
         <div class="text-content-tertiary text-p3 mb-4">
           Available liquidity
         </div>
@@ -202,7 +202,7 @@ watchEffect(async () => {
           </div>
         </div>
       </div>
-      <div v-if="isConnected" class="flex flex-col flex-1 items-end text-right">
+      <div v-if="isConnected" class="flex flex-col flex-1 items-end text-right mobile:!hidden">
         <div class="text-content-tertiary text-p3 mb-4">In wallet</div>
         <BaseLoadableContent
           :loading="isBalancesLoading"
@@ -214,17 +214,34 @@ watchEffect(async () => {
         </BaseLoadableContent>
       </div>
     </div>
-    <div class="hidden mobile:flex py-12 px-16 pb-16">
-      <div class="flex-1">
-        <div class="text-content-tertiary text-p3 flex items-center gap-4">
-          Utilization
-          <VaultWarningIcon :warning="utilisationWarning" />
+    <div class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
+      <div class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-content-tertiary text-p3 flex items-center gap-4">
+            Utilization
+            <VaultWarningIcon :warning="utilisationWarning" />
+          </div>
+        </div>
+        <div class="flex gap-8 justify-end items-center text-right flex-1">
+          <UiRadialProgress :value="utilization" :max="100" />
+          <div class="text-p2 text-content-primary">
+            {{ compactNumber(utilization, 2, 2) }}%
+          </div>
         </div>
       </div>
-      <div class="flex gap-8 justify-end items-center text-right flex-1">
-        <UiRadialProgress :value="utilization" :max="100" />
-        <div class="text-p2 text-content-primary">
-          {{ compactNumber(utilization, 2, 2) }}%
+      <div v-if="isConnected" class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-content-tertiary text-p3">In wallet</div>
+        </div>
+        <div class="flex gap-8 justify-end items-center text-right flex-1">
+          <BaseLoadableContent
+            :loading="isBalancesLoading"
+            style="min-width: 70px; height: 20px"
+          >
+            <div class="text-p2 text-content-primary whitespace-nowrap">
+              {{ walletBalancePrice }}
+            </div>
+          </BaseLoadableContent>
         </div>
       </div>
     </div>

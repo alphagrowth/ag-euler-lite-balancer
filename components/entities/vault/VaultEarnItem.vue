@@ -127,14 +127,14 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
         </div>
       </div>
     </div>
-    <div class="flex py-12 px-16 pb-16">
+    <div class="flex py-12 px-16 pb-12 mobile:border-b mobile:border-line-subtle mobile:pb-12">
       <div class="flex-1">
         <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
         <div class="text-p2 text-content-primary">
           {{ totalSupplyPrice }}
         </div>
       </div>
-      <div class="flex-1 flex flex-col items-center">
+      <div class="flex-1 flex flex-col items-center mobile:items-end">
         <div class="text-content-tertiary text-p3 mb-4">
           Available liquidity
         </div>
@@ -142,7 +142,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
           {{ liquidityPrice }}
         </div>
       </div>
-      <div class="flex flex-col flex-1 items-end text-right">
+      <div class="flex flex-col flex-1 items-end text-right mobile:!hidden">
         <template v-if="isConnected">
           <div class="text-content-tertiary text-p3 mb-4">In wallet</div>
           <BaseLoadableContent
@@ -154,6 +154,23 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
             </div>
           </BaseLoadableContent>
         </template>
+      </div>
+    </div>
+    <div v-if="isConnected" class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
+      <div class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-content-tertiary text-p3">In wallet</div>
+        </div>
+        <div class="flex gap-8 justify-end items-center text-right flex-1">
+          <BaseLoadableContent
+            :loading="isBalancesLoading"
+            style="min-width: 70px; height: 20px"
+          >
+            <div class="text-p2 text-content-primary whitespace-nowrap">
+              {{ walletBalancePrice }}
+            </div>
+          </BaseLoadableContent>
+        </div>
       </div>
     </div>
   </NuxtLink>

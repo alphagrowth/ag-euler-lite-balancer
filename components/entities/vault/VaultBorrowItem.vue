@@ -154,7 +154,7 @@ const linkPath = computed(
   >
     <!-- Header: contents on desktop (children become grid items), flex on mobile -->
     <div class="contents mobile:!flex mobile:py-16 mobile:px-16 mobile:pb-12 mobile:border-b mobile:border-line-subtle">
-      <div class="col-span-3 flex pl-16 py-16 pb-12 mobile:!p-0 mobile:flex-1 mobile:min-w-0">
+      <div class="col-span-3 flex pl-16 py-16 pb-12 mobile:!p-0 mobile:flex-1 mobile:min-w-0 mobile:items-center">
         <BaseAvatar
           :src="
             [pair.collateral, pair.borrow].map((v) =>
@@ -214,6 +214,19 @@ const linkPath = computed(
             name="sparks"
           />
           {{ formatNumber(borrowApyWithRewards) }}%
+        </div>
+        <div class="hidden mobile:!flex mobile:flex-col mobile:items-end mobile:mt-8">
+          <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
+            Max ROE
+            <SvgIcon
+              class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+              name="info-circle"
+              @click="onMaxRoeInfoIconClick"
+            />
+          </div>
+          <div class="text-p2 text-accent-600 font-semibold">
+            {{ formatNumber(maxRoe, 2, 2) }}%
+          </div>
         </div>
       </div>
       <div class="flex flex-col items-end pr-16 py-16 pb-12 mobile:!hidden">
@@ -286,16 +299,6 @@ const linkPath = computed(
         <div class="flex gap-8 justify-end items-center text-right flex-1">
           <div class="text-p2 text-content-primary">
             {{ compactNumber(maxLTV, 2, 2) }}%
-          </div>
-        </div>
-      </div>
-      <div class="flex w-full justify-between">
-        <div class="flex-1">
-          <div class="text-content-tertiary text-p3">Max ROE</div>
-        </div>
-        <div class="flex gap-8 justify-end items-center text-right flex-1">
-          <div class="text-p2 text-accent-600 font-semibold">
-            {{ formatNumber(maxRoe, 2, 2) }}%
           </div>
         </div>
       </div>
