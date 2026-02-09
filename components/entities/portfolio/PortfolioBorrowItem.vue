@@ -345,13 +345,15 @@ onMounted(() => {
 
       </div>
     </div>
-    <div
+    <UiToast
       v-if="hasQueryFailure"
-      class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500 text-p4 mx-16 mt-8"
-    >
-      <SvgIcon name="warning" class="!w-16 !h-16 shrink-0" />
-      Oracle pricing unavailable. Some details may be missing.
-    </div>
+      title="Oracle unavailable"
+      description="Oracle pricing unavailable. Some details may be missing."
+      variant="warning"
+      size="compact"
+      persistent
+      class="mx-16 mt-8"
+    />
     <div class="flex py-12 px-16 pb-16">
       <div
         class="flex flex-col gap-12 w-full"

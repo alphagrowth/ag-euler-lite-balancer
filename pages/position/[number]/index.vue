@@ -599,14 +599,14 @@ watch(isConnected, () => {
         :assets-label="pairAssetsLabel"
       />
 
-      <div
+      <UiToast
         v-if="hasQueryFailure"
-        class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500 text-p4"
-      >
-        <SvgIcon name="warning" class="!w-16 !h-16 shrink-0" />
-        Oracle pricing is currently unavailable. Some position details cannot be displayed.
-        You can still repay debt and supply collateral.
-      </div>
+        title="Oracle unavailable"
+        description="Oracle pricing is currently unavailable. Some position details cannot be displayed. You can still repay debt and supply collateral."
+        variant="warning"
+        size="compact"
+        persistent
+      />
 
       <div
         v-if="!hasNoBorrow"
@@ -793,19 +793,22 @@ watch(isConnected, () => {
               </div>
             </div>
             <VaultWarningBanner :warnings="positionWarnings" />
-            <div
+            <UiToast
               v-if="isEligibleForLiquidation"
-              class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 mb-8"
-            >
-              This position is eligible for liquidation. Multiply and borrow are disabled.
-            </div>
-            <div
+              title="Liquidation risk"
+              description="This position is eligible for liquidation. Multiply and borrow are disabled."
+              variant="error"
+              size="compact"
+              persistent
+            />
+            <UiToast
               v-if="isPositionGeoBlocked"
-              class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500 text-p4 mb-8"
-            >
-              <SvgIcon name="warning" class="!w-16 !h-16 shrink-0" />
-              This vault is not available in your region. You can still repay debt.
-            </div>
+              title="Region restricted"
+              description="This vault is not available in your region. You can still repay debt."
+              variant="warning"
+              size="compact"
+              persistent
+            />
             <div
               class="flex justify-between gap-8"
               @click.stop
@@ -935,12 +938,14 @@ watch(isConnected, () => {
                   {{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%
                 </div>
               </div>
-              <div
+              <UiToast
                 v-if="!hasNoBorrow && isEligibleForLiquidation"
-                class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 mb-8"
-              >
-                Withdraw is disabled while this position is eligible for liquidation.
-              </div>
+                title="Liquidation risk"
+                description="Withdraw is disabled while this position is eligible for liquidation."
+                variant="error"
+                size="compact"
+                persistent
+              />
               <div
                 v-if="!hasNoBorrow"
                 class="flex gap-8"
