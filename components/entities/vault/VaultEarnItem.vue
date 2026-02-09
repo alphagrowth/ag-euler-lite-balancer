@@ -60,7 +60,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
   event.stopPropagation()
   modal.open(VaultSupplyApyModal, {
     props: {
-      lendingAPY: vault.supplyAPY || 0,
+      lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
       intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
       opportunityInfo: opportunityInfo.value,
       brevisInfo: brevisInfo.value,
@@ -123,7 +123,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
             class="!w-20 !h-20 text-accent-600 mr-4"
             name="sparks"
           />
-          {{ formatNumber((vault.supplyAPY || 0) + totalRewardsAPY) }}%
+          {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + totalRewardsAPY) }}%
         </div>
       </div>
     </div>

@@ -107,7 +107,7 @@ const sortedList = computed(() => {
       }))
     case 'Supply APY':
       return applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
-        return Number(b.supplyAPY) - Number(a.supplyAPY)
+        return Number(b.interestRateInfo.supplyAPY) - Number(a.interestRateInfo.supplyAPY)
       }))
     case 'Liquidity':
       return applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {

@@ -9,12 +9,13 @@ Every on-chain deposit a user holds falls into one of three categories:
 | Category | Description | Data Source |
 |----------|-------------|-------------|
 | **Borrow Position** | A deposit used as collateral backing a loan | Subgraph `borrows` + AccountLens |
-| **Savings (Deposit)** | A standalone deposit not used as collateral | Subgraph `deposits` + AccountLens |
-| **Earn Position** | A deposit in an EulerEarn aggregator vault | Subgraph `deposits` + AccountLens |
+| **Savings (Deposit/Earn)** | A standalone deposit not used as collateral (includes both EVK and EulerEarn vaults) | Subgraph `deposits` + AccountLens |
+
+Savings positions are stored in a single `depositPositions` array. The UI splits them into "Managed lending" (earn vaults) and "Direct lending" (EVK/securitize vaults) using `isEarnVault()` from the vault registry.
 
 ### How Categorization Works
 
-Categorization depends on a strict loading order: **borrows first, then deposits**.
+Categorization depends on a strict loading order: **borrows first, then savings**.
 
 #### Step 1: Load Borrow Positions
 
@@ -57,9 +58,9 @@ borrow entry (from subgraph)
 
 After processing all entries, a `collateralUsageSet` is built containing every `"subAccount:collateralVaultAddress"` pair. This is the key data structure that enables the savings/position split — deposits that appear in this set are shown under their borrow position rather than as standalone savings.
 
-#### Step 2: Load Deposit (Savings) Positions
+#### Step 2: Load Savings Positions
 
-`updateDepositPositions()` queries the same subgraph for deposits:
+`updateSavingsPositions()` makes a **single** subgraph query for deposits and processes all vault types (EVK, securitize, and earn) in one pass:
 
 ```graphql
 query AccountDeposits {
@@ -69,7 +70,7 @@ query AccountDeposits {
 }
 ```
 
-For each deposit entry, a series of filters are applied:
+Entries are processed in batches of 5 for performance. For each deposit entry:
 
 ```
 deposit entry
@@ -77,8 +78,8 @@ deposit entry
   |-- Is (subAccount:vaultAddress) in collateralUsageSet?
   |     YES -> skip (this deposit is collateral, shown under borrow position)
   |
-  |-- Is vault an earn vault?
-  |     YES -> skip (handled by updateEarnPositions)
+  |-- Resolve vault via getOrFetch (handles all vault types uniformly)
+  |     NOT FOUND -> skip
   |
   |-- Is vault unverified and !showAllPositions?
   |     YES -> skip
@@ -86,32 +87,12 @@ deposit entry
   |-- Does accountLens return shares > 0?
   |     NO  -> skip
   |
-  +-- Include as savings position
+  +-- Include as savings position (in depositPositions array)
 ```
 
-#### Step 3: Load Earn Positions
-
-`updateEarnPositions()` handles EulerEarn aggregator vaults. It always uses the subgraph for position discovery (same pattern as `updateDepositPositions`):
-
-```
-deposit entry (from subgraph)
-  |
-  |-- Is vault already known as 'evk' or 'securitize'?
-  |     YES -> skip (no getOrFetch needed)
-  |
-  |-- Resolve vault via getOrFetch (populates registry for unknowns)
-  |
-  |-- Is vault type 'earn'?
-  |     NO  -> skip (handled by updateDepositPositions)
-  |
-  |-- Is vault unverified and !showAllPositions?
-  |     YES -> skip
-  |
-  |-- Does accountLens return shares > 0?
-  |     NO  -> skip
-  |
-  +-- Include as earn position
-```
+The UI then filters the unified `depositPositions` array:
+- **Managed lending (earn)**: `depositPositions.filter(p => isEarnVault(p.vault.address))`
+- **Direct lending (EVK/securitize)**: `depositPositions.filter(p => !isEarnVault(p.vault.address))`
 
 ### Position Types
 
@@ -134,18 +115,14 @@ interface AccountBorrowPosition {
 }
 
 interface AccountDepositPosition {
-  vault: Vault                 // The deposit vault
+  vault: Vault | SecuritizeVault | EarnVault  // Any savings vault type
   subAccount: string           // EVC sub-account address
   shares: bigint               // Vault share balance
   assets: bigint               // Equivalent asset amount
 }
-
-interface AccountEarnPosition {
-  vault: EarnVault             // The EulerEarn vault
-  shares: bigint               // Share balance
-  assets: bigint               // Equivalent asset amount
-}
 ```
+
+All vault types now have `interestRateInfo: VaultInterestRateInfo` with a unified `supplyAPY` field (bigint, 25-decimal precision). For earn vaults, `borrowAPY`/`borrowSPY`/`borrows` are `0n` and `cash` equals `totalAssets`.
 
 ## Lens Contract Usage
 
@@ -274,9 +251,8 @@ The backend is a **soft fallback** - on-chain pricing is always available. The b
 
 ```
 totalSuppliedValue = sum of:
-  - deposit positions: getAssetUsdValue(assets, vault, 'off-chain')
+  - deposit positions (all types): getAssetUsdValue(assets, vault, 'off-chain')
   - borrow collateral: getCollateralUsdValue(supplied, borrowVault, collateralVault, 'off-chain')
-  - earn positions:    getAssetUsdValue(assets, earnVault, 'off-chain')
 
 totalBorrowedValue = sum of:
   - borrow positions:  getAssetUsdValue(borrowed, borrowVault, 'off-chain')
@@ -368,21 +344,21 @@ When submitting transactions that interact with Pyth-priced vaults, Pyth update 
               |                  |
     borrows[] |                  | deposits[]
               v                  v
-   +-------------------+  +-------------------+
-   | updateBorrowPos() |  | updateDepositPos()|
-   +-------------------+  +-------------------+
-              |                  |
-              |  AccountLens     |  AccountLens
-              |  (+ Pyth sim)   |
-              v                  v
-   +-------------------+  +-------------------+
-   | BorrowPosition[]  |  | DepositPosition[] |
-   +-------------------+  +-------------------+
-              |                  |
-              | collateralUsage  |
-              | Set (filters     |
-              | deposits)        |
-              v                  v
+   +-------------------+  +------------------------+
+   | updateBorrowPos() |  | updateSavingsPos()     |
+   +-------------------+  | (single query, all     |
+              |           |  vault types, batched)  |
+              |  AccountLens  +------------------------+
+              |  (+ Pyth sim)        |
+              v                      v
+   +-------------------+  +------------------------+
+   | BorrowPosition[]  |  | DepositPosition[]      |
+   +-------------------+  | (EVK + Earn + Securitize)|
+              |           +------------------------+
+              | collateralUsage      |
+              | Set (filters         |
+              | deposits)            |
+              v                      v
           +-----------------------------+
           | priceProvider (3-layer)     |
           |  Layer 1: Oracle (UoA)      |

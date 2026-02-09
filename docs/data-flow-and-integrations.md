@@ -820,7 +820,7 @@ export const getBorrowVaultsByMap = (vaultsMap: Map<string, Vault>) => {
 
 - [Back to the top](#table-of-contents)
 
-#### updateDepositPositions and updateBorrowPositions in useEulerAccount composable, uses Euler and Goldsky
+#### updateSavingsPositions and updateBorrowPositions in useEulerAccount composable, uses Euler and Goldsky
 
 ```typescript
 const depositPositions: Ref<AccountDepositPosition[]> = ref([]);

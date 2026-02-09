@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import type { AccountEarnPosition } from '~/entities/account'
+import type { AccountDepositPosition } from '~/entities/account'
+import type { EarnVault } from '~/entities/vault'
 import { VaultOverviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
-const { position } = defineProps<{ position: AccountEarnPosition }>()
+const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()
 
 const { getOpportunityOfLendVault } = useMerkl()
 
-const vault = computed(() => position.vault)
+const vault = computed(() => position.vault as EarnVault)
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
@@ -28,7 +29,7 @@ watchEffect(() => {
   updateSupplyValueDisplay()
 })
 
-const supplyApyWithRewards = computed(() => (vault.value.supplyAPY || 0) + (opportunityInfo.value?.apr || 0))
+const supplyApyWithRewards = computed(() => nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))
 
 const hasPrice = ref(false)
 

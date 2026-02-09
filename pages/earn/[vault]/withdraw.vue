@@ -62,7 +62,7 @@ const isSubmitDisabled = computed(() => {
 const reviewWithdrawDisabled = getSubmitDisabled(isSubmitDisabled)
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
-  return formatNumber(vault.value.supplyAPY || 0 + (opportunityInfo.value?.apr || 0))
+  return formatNumber(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))
 })
 const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(estimateSupplyAPY.value + (opportunityInfo.value?.apr || 0))
@@ -72,7 +72,7 @@ const load = async () => {
   isLoading.value = true
   try {
     vault.value = await getEarnVault(vaultAddress)
-    estimateSupplyAPY.value = vault.value?.supplyAPY || 0
+    estimateSupplyAPY.value = nanoToValue(vault.value?.interestRateInfo.supplyAPY ?? 0n, 25)
     asset.value = vault.value?.asset
 
     // Fetch fresh share balance and convert to assets
@@ -188,12 +188,12 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('Not enough balance')
     }
     delta.value = assetsBalance.value - amountFixed.value.value
-    estimateSupplyAPY.value = vault.value.supplyAPY || 0
+    estimateSupplyAPY.value = nanoToValue(vault.value.interestRateInfo.supplyAPY, 25)
   }
   catch (e) {
     console.warn(e)
     delta.value = assetsBalance.value || 0n
-    estimateSupplyAPY.value = vault.value.supplyAPY || 0
+    estimateSupplyAPY.value = nanoToValue(vault.value.interestRateInfo.supplyAPY, 25)
     estimatesError.value = (e as { message: string }).message
   }
   finally {

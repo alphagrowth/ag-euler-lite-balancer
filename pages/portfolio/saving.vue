@@ -2,8 +2,12 @@
 import { useAccount } from '@wagmi/vue'
 
 const { isConnected } = useAccount()
-const { depositPositions, earnPositions, isDepositsLoaded } = useEulerAccount()
+const { depositPositions, isDepositsLoaded } = useEulerAccount()
 const { isReady } = useVaults()
+const { isEarnVault } = useVaultRegistry()
+
+const earnItems = computed(() => depositPositions.value.filter(p => isEarnVault(p.vault.address)))
+const lendItems = computed(() => depositPositions.value.filter(p => !isEarnVault(p.vault.address)))
 </script>
 
 <template>
@@ -18,13 +22,13 @@ const { isReady } = useVaults()
     </p>
     <div class="flex flex-1 p-8 rounded-12 mb-16 border border-line-default bg-card">
       <div
-        v-if="isConnected && (!isDepositsLoaded || (!isReady && earnPositions.length === 0))"
+        v-if="isConnected && (!isDepositsLoaded || (!isReady && earnItems.length === 0))"
         class="flex flex-1 justify-center items-center"
       >
         <UiLoader class="text-neutral-500 my-8" />
       </div>
       <div
-        v-else-if="earnPositions.length === 0"
+        v-else-if="earnItems.length === 0"
         class="flex flex-1 justify-center items-center"
       >
         <div class="flex flex-col gap-8 items-center text-neutral-500 py-32">
@@ -44,7 +48,7 @@ const { isReady } = useVaults()
         class="flex-1"
       >
         <PortfolioList
-          :items="earnPositions"
+          :items="earnItems"
           type="earn"
         />
         <div
@@ -72,7 +76,7 @@ const { isReady } = useVaults()
         <UiLoader class="text-neutral-500 my-8" />
       </div>
       <div
-        v-else-if="depositPositions.length === 0"
+        v-else-if="lendItems.length === 0"
         class="flex flex-1 justify-center items-center"
       >
         <div class="flex flex-col gap-8 items-center text-neutral-500 py-32">
@@ -92,7 +96,7 @@ const { isReady } = useVaults()
         class="flex-1"
       >
         <PortfolioList
-          :items="depositPositions"
+          :items="lendItems"
           type="lend"
         />
       </div>

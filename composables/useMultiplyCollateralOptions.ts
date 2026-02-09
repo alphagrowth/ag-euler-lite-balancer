@@ -81,9 +81,14 @@ export const useMultiplyCollateralOptions = ({
   })
 
   const savingItemsInput = computed(() => {
+    const liability = liabilityVault?.value
+    if (!liability) return []
+    const validCollaterals = new Set(
+      liability.collateralLTVs.filter(ltv => ltv.borrowLTV > 0n).map(ltv => getAddress(ltv.collateral)),
+    )
     return depositPositions.value
-      .filter(position => position.assets > 0n)
-      .map(position => ({ vault: position.vault, assets: position.assets }))
+      .filter(position => position.assets > 0n && validCollaterals.has(getAddress(position.vault.address)))
+      .map(position => ({ vault: position.vault as Vault, assets: position.assets }))
   })
 
   const savingItems = ref<CollateralItem[]>([])

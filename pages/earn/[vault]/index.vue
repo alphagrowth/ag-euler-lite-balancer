@@ -93,7 +93,7 @@ const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
 const intrinsicApy = computed(() => getIntrinsicApy(vault.value?.asset.symbol))
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
-  return formatNumber((vault.value!.supplyAPY || 0) + totalRewardsAPY.value)
+  return formatNumber(nanoToValue(vault.value!.interestRateInfo.supplyAPY, 25) + totalRewardsAPY.value)
 })
 const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(estimateSupplyAPY.value)
@@ -173,7 +173,7 @@ const updateEstimates = useDebounceFn(async () => {
     if (!asset.value?.address) {
       return
     }
-    estimateSupplyAPY.value = (vault.value.supplyAPY || 0) + totalRewardsAPY.value
+    estimateSupplyAPY.value = nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + totalRewardsAPY.value
     monthlyEarnings.value = !amount.value
       ? 0
       : +(amount.value || 0) * (estimateSupplyAPY.value / 12 / 100)
@@ -188,7 +188,7 @@ const updateEstimates = useDebounceFn(async () => {
 const onSupplyInfoIconClick = () => {
   modal.open(VaultSupplyApyModal, {
     props: {
-      lendingAPY: vault.value!.supplyAPY || 0,
+      lendingAPY: nanoToValue(vault.value!.interestRateInfo.supplyAPY, 25),
       intrinsicAPY: intrinsicApy.value,
       opportunityInfo: opportunityInfo.value,
       brevisInfo: brevisInfo.value,
@@ -197,7 +197,7 @@ const onSupplyInfoIconClick = () => {
 }
 
 // Initialize estimateSupplyAPY after vault is loaded
-estimateSupplyAPY.value = (vault.value?.supplyAPY || 0) + totalRewardsAPY.value
+estimateSupplyAPY.value = nanoToValue(vault.value?.interestRateInfo.supplyAPY ?? 0n, 25) + totalRewardsAPY.value
 
 // Update USD value when monthlyEarnings or vault changes
 watchEffect(async () => {

@@ -18,7 +18,7 @@ import {
 } from '~/entities/euler/abis'
 import { executeLensWithPythSimulation } from '~/utils/pyth'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { nanoToValue } from '~/utils/crypto-utils'
+import { nanoToValue, valueToNano } from '~/utils/crypto-utils'
 import { batchLensCalls } from '~/utils/multicall'
 import { getPublicClient } from '~/utils/public-client'
 
@@ -395,7 +395,7 @@ export interface EarnVault {
   supplyQueue: string[]
   asset: VaultAsset
   strategies: EarnVaultStrategyInfo[]
-  supplyAPY?: number
+  interestRateInfo: VaultInterestRateInfo
   assetPriceInfo?: {
     amountOutMid: bigint
   }
@@ -757,7 +757,7 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     }
   })
 
-  const supplyAPY = await calculateEarnVaultAPYFromExchangeRate(
+  const supplyAPYNumber = await calculateEarnVaultAPYFromExchangeRate(
     vaultAddress,
     EVM_PROVIDER_URL,
     data.vaultDecimals as bigint,
@@ -822,7 +822,13 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
       decimals: data.assetDecimals,
     },
     strategies,
-    supplyAPY,
+    interestRateInfo: {
+      borrowAPY: 0n,
+      borrowSPY: 0n,
+      borrows: 0n,
+      cash: data.totalAssets as bigint,
+      supplyAPY: valueToNano(supplyAPYNumber, 25),
+    },
     assetPriceInfo,
   } as EarnVault
 }
@@ -1159,7 +1165,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
   const blockCachePromise = fetchBlockDataForAPY(_EVM_PROVIDER_URL)
 
   // Helper to fetch a single vault (lens + price only, APY calculated after)
-  type PartialEarnVault = Omit<EarnVault, 'supplyAPY'> & { decimals: bigint }
+  type PartialEarnVault = Omit<EarnVault, 'interestRateInfo'> & { decimals: bigint }
 
   const fetchVaultData = async (vaultAddress: string): Promise<PartialEarnVault | undefined> => {
     try {
@@ -1259,10 +1265,19 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
     allVaultData
       .filter((v): v is PartialEarnVault => v !== undefined)
       .map(async (vaultData) => {
-        const supplyAPY = blockCache
+        const supplyAPYNumber = blockCache
           ? await calculateEarnVaultAPYWithCache(vaultData.address, _EVM_PROVIDER_URL, vaultData.decimals, blockCache)
           : 0
-        return { ...vaultData, supplyAPY } as EarnVault
+        return {
+          ...vaultData,
+          interestRateInfo: {
+            borrowAPY: 0n,
+            borrowSPY: 0n,
+            borrows: 0n,
+            cash: vaultData.totalAssets,
+            supplyAPY: valueToNano(supplyAPYNumber, 25),
+          },
+        } as EarnVault
       }),
   )
 
