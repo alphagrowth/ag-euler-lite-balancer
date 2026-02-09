@@ -108,7 +108,7 @@ onDeactivated(() => {
             class="text-h5"
             :class="[portfolioNetApy >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
-            {{ formatNumber(portfolioNetApy) }}%
+            {{ Number.isFinite(portfolioNetApy) ? `${formatNumber(portfolioNetApy)}%` : '-' }}
           </div>
         </BaseLoadableContent>
       </div>
@@ -127,7 +127,7 @@ onDeactivated(() => {
             class="text-h5"
             :class="[portfolioRoe >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
-            {{ formatNumber(portfolioRoe) }}%
+            {{ Number.isFinite(portfolioRoe) ? `${formatNumber(portfolioRoe)}%` : '-' }}
           </div>
         </BaseLoadableContent>
       </div>

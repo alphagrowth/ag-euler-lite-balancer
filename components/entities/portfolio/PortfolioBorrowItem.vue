@@ -292,34 +292,27 @@ onMounted(() => {
             :label="[position.collateral.asset.symbol, position.borrow.asset.symbol]"
             class="icon--40"
           />
-          <div class="flex-grow">
+          <div class="flex-grow min-w-0">
             <div class="text-content-tertiary text-p3 mb-4">
               <VaultDisplayName
                 :name="pairName"
                 :is-unverified="isAnyUnverified"
               />
             </div>
-            <div class="text-h5 text-content-primary">
+            <div class="text-h5 text-content-primary truncate">
               {{ pairSymbols }}
             </div>
           </div>
-          <div class="flex gap-16 items-start">
+          <div class="flex gap-16 items-start shrink-0">
             <div class="flex flex-col items-end">
               <div class="text-content-tertiary text-p3 mb-4">
                 Net APY
               </div>
               <div
-                v-if="hasQueryFailure"
-                class="text-p2 text-content-tertiary"
-              >
-                -
-              </div>
-              <div
-                v-else
                 class="text-p2"
                 :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
               >
-                {{ formatNumber(netAPY) }}%
+                {{ Number.isFinite(netAPY) ? `${formatNumber(netAPY)}%` : '-' }}
               </div>
             </div>
             <div class="flex flex-col items-end">
@@ -327,17 +320,10 @@ onMounted(() => {
                 ROE
               </div>
               <div
-                v-if="hasQueryFailure"
-                class="text-p2 text-content-tertiary"
-              >
-                -
-              </div>
-              <div
-                v-else
                 class="text-p2"
                 :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
               >
-                {{ formatNumber(roe) }}%
+                {{ Number.isFinite(roe) ? `${formatNumber(roe)}%` : '-' }}
               </div>
             </div>
           </div>
@@ -345,19 +331,17 @@ onMounted(() => {
 
       </div>
     </div>
-    <UiToast
-      v-if="hasQueryFailure"
-      title="Oracle unavailable"
-      description="Oracle pricing unavailable. Some details may be missing."
-      variant="warning"
-      size="compact"
-      persistent
-      class="mx-16 mt-8"
-    />
     <div class="flex py-12 px-16 pb-16">
       <div
         class="flex flex-col gap-12 w-full"
       >
+        <div
+          v-if="hasQueryFailure"
+          class="flex items-center gap-6 text-warning-500 text-p4"
+        >
+          <UiIcon name="info-circle" class="!w-14 !h-14 shrink-0" />
+          Oracle pricing unavailable. Some details may be missing.
+        </div>
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Net asset value

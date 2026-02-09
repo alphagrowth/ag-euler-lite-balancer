@@ -1233,8 +1233,8 @@ onUnmounted(() => {
               Current price
             </p>
             <p class="text-p2 flex items-center gap-4">
-              ${{ formatNumber(nanoToValue(position.price, 18)) }}
-              <span class="text-content-tertiary text-p3">
+              {{ nanoToValue(position.price, 18) > 0 ? `$${formatNumber(nanoToValue(position.price, 18))}` : '-' }}
+              <span v-if="nanoToValue(position.price, 18) > 0" class="text-content-tertiary text-p3">
                 {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
               </span>
             </p>
@@ -1244,8 +1244,8 @@ onUnmounted(() => {
               Liquidation price
             </p>
             <p class="text-p2 flex items-center gap-4">
-              ${{ formatNumber(liquidationPrice) }}
-              <span class="text-content-tertiary text-p3">
+              {{ liquidationPrice ? `$${formatNumber(liquidationPrice)}` : '-' }}
+              <span v-if="liquidationPrice" class="text-content-tertiary text-p3">
                 {{ collateralVault.asset.symbol }}
               </span>
             </p>

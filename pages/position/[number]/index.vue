@@ -623,17 +623,10 @@ watch(isConnected, () => {
             />
           </div>
           <div
-            v-if="hasQueryFailure"
-            class="text-h5 text-content-tertiary"
-          >
-            -
-          </div>
-          <div
-            v-else
             class="text-h5"
             :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
-            {{ formatNumber(netAPY) }}%
+            {{ Number.isFinite(netAPY) ? `${formatNumber(netAPY)}%` : '-' }}
           </div>
         </div>
         <div class="flex justify-between items-center">
@@ -647,17 +640,10 @@ watch(isConnected, () => {
             />
           </div>
           <div
-            v-if="hasQueryFailure"
-            class="text-h5 text-content-tertiary"
-          >
-            -
-          </div>
-          <div
-            v-else
             class="text-h5"
             :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
-            {{ formatNumber(roe) }}%
+            {{ Number.isFinite(roe) ? `${formatNumber(roe)}%` : '-' }}
           </div>
         </div>
         <div class="flex justify-between items-center">
@@ -789,7 +775,7 @@ watch(isConnected, () => {
                 Liquidation price
               </div>
               <div class="text-neutral-800 text-p3">
-                ${{ borrowLiquidationPrice ? formatNumber(borrowLiquidationPrice) : '-' }}
+                {{ borrowLiquidationPrice ? `$${formatNumber(borrowLiquidationPrice)}` : '-' }}
               </div>
             </div>
             <VaultWarningBanner :warnings="positionWarnings" />
@@ -924,7 +910,7 @@ watch(isConnected, () => {
                   Liquidation price
                 </div>
                 <div class="text-neutral-800 text-p3">
-                  ${{ liquidationPrice ? formatNumber(liquidationPrice) : '-' }}
+                  {{ liquidationPrice ? `$${formatNumber(liquidationPrice)}` : '-' }}
                 </div>
               </div>
               <div

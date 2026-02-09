@@ -18,8 +18,6 @@ import {
 } from '~/entities/vault'
 import {
   getAssetUsdValue,
-  getAssetOraclePrice,
-  getCollateralOraclePrice,
   getCollateralUsdPrice,
   getCollateralUsdValue,
   getCollateralUsdValueOrZero,
@@ -111,7 +109,6 @@ const updateTotalSuppliedValue = async () => {
 
   // Borrow position collateral (liability vault context) — use borrow vault's collateral pricing with USD conversion
   const collateralValuePromises = borrowPositions.value.map(async (position) => {
-    if (position.liquidityQueryFailure) return 0
     const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) return 0
     return getCollateralUsdValueOrZero(position.supplied, borrowVault, position.collateral, 'off-chain')
@@ -148,11 +145,6 @@ const updateTotalSuppliedValueInfo = async () => {
   }
 
   for (const position of borrowPositions.value) {
-    if (position.liquidityQueryFailure) {
-      hasMissingPrices = true
-      continue
-    }
-
     const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) {
       if (position.supplied > 0n) hasMissingPrices = true
@@ -183,7 +175,6 @@ const totalBorrowedValue = ref(0)
 
 const updateTotalBorrowedValue = async () => {
   const promises = borrowPositions.value
-    .filter(pair => !pair.liquidityQueryFailure)
     .map(pair => getAssetUsdValue(pair.borrowed, pair.borrow, 'off-chain'))
   const values = await Promise.all(promises)
   totalBorrowedValue.value = values.reduce<number>((result, val) => result + (val ?? 0), 0)
@@ -205,10 +196,6 @@ const updateTotalBorrowedValueInfo = async () => {
   let hasMissingPrices = false
 
   for (const pair of borrowPositions.value) {
-    if (pair.liquidityQueryFailure) {
-      hasMissingPrices = true
-      continue
-    }
     const price = await getAssetUsdValue(pair.borrowed, pair.borrow, 'off-chain')
     if (price === undefined) {
       hasMissingPrices = true
@@ -382,6 +369,21 @@ const updateBorrowPositions = async (
           return undefined
         }
 
+        // Fetch actual collateral balance — doesn't depend on the oracle
+        let suppliedAssets = 0n
+        try {
+          const collateralRes = await client.readContract({
+            address: eulerLensAddresses.accountLens as Address,
+            abi: eulerAccountLensABI as Abi,
+            functionName: 'getVaultAccountInfo',
+            args: [subAccount, collateralAddress],
+          }) as Record<string, unknown>
+          suppliedAssets = toBigInt((collateralRes as any).assets)
+        }
+        catch {
+          // Collateral amount unavailable
+        }
+
         const liquidityInfo = res.vaultAccountInfo.liquidityInfo
         const hasQueryFailure = Boolean(liquidityInfo.queryFailure)
 
@@ -397,8 +399,7 @@ const updateBorrowPositions = async (
             collaterals,
             subAccount,
             borrowed: res.vaultAccountInfo.borrowed,
-            // Collateral amount will be fetched by UI via loadCollaterals
-            supplied: 0n,
+            supplied: suppliedAssets,
             borrowLTV: ltvConfig?.borrowLTV ?? 0n,
             liquidationLTV: ltvConfig?.liquidationLTV ?? 0n,
             // Oracle-dependent fields — genuinely unavailable
@@ -441,21 +442,13 @@ const updateBorrowPositions = async (
           : FixedPoint.fromValue(liquidationLTV, 2).div(healthFixed)
         const userLTV = userLTVFixed.value
 
-        // Get collateral price in UoA for ratio calculation (UoA cancels in ratio)
-        const collateralPriceUoA = getCollateralOraclePrice(borrow, collateral)
-        const borrowPriceUoA = getAssetOraclePrice(borrow)
-
-        // Get collateral price in USD for display (off-chain for display purposes)
+        // Get collateral price in USD for liquidation price calculation
         const collateralPriceUsd = await getCollateralUsdPrice(borrow, collateral, 'off-chain')
 
         // Guard against missing price
-        if (!collateralPriceUoA || !borrowPriceUoA || !collateralPriceUsd) {
+        if (!collateralPriceUsd) {
           return undefined
         }
-
-        // Price ratio calculation uses UoA prices (UoA cancels)
-        const priceFixed = FixedPoint.fromValue(collateralPriceUoA.amountOutAsk, 18)
-          .div(FixedPoint.fromValue(borrowPriceUoA.amountOutBid || 1n, 18))
 
         const supplyLiquidationPriceRatio = collateralValueLiquidation === 0n
           ? FixedPoint.fromValue(0n, 18)
@@ -469,18 +462,6 @@ const updateBorrowPositions = async (
 
         const price = currentCollateralPriceUsd.mul(supplyLiquidationPriceRatio).value
 
-        const borrowedFixed = FixedPoint.fromValue(
-          res.vaultAccountInfo.borrowed,
-          borrow.decimals,
-        )
-        const userLTVPercent = userLTVFixed.div(FixedPoint.fromValue(100n, 0))
-        const supplied = userLTVPercent.isZero()
-          ? 0n
-          : borrowedFixed
-            .div(userLTVPercent)
-            .div(priceFixed).round(Number(collateral.decimals))
-            .toFormat({ decimals: Number(collateral.decimals) }).value
-
         return {
           borrow,
           collateral,
@@ -492,7 +473,7 @@ const updateBorrowPositions = async (
           borrowed: res.vaultAccountInfo.borrowed,
           price,
           userLTV,
-          supplied,
+          supplied: suppliedAssets,
           liabilityValueBorrowing,
           liabilityValueLiquidation: liquidityInfo.liabilityValueLiquidation,
           liquidationLTV,
@@ -688,8 +669,6 @@ export const useEulerAccount = () => {
     let totalSupplyUSD = 0
 
     for (const position of borrowPositions.value) {
-      if (position.liquidityQueryFailure) continue
-
       const registryVault = registryGetVault(position.borrow.address) as Vault | undefined
       const borrowVault = registryVault || position.borrow
 
