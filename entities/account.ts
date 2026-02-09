@@ -1,7 +1,8 @@
-import { ethers } from 'ethers'
+import { getAddress, pad, toHex, type Address } from 'viem'
 import { evcGetControllersAbi } from '~/abis/evc'
 import axios from 'axios'
 import type { EarnVault, SecuritizeVault, Vault } from '~/entities/vault'
+import { getPublicClient } from '~/utils/public-client'
 
 export interface AccountVaultLiquidity {
   queryFailure: boolean
@@ -52,21 +53,18 @@ export interface AccountBorrowPosition {
   liabilityValueLiquidation: bigint
   timeToLiquidation: bigint
   collateralValueLiquidation: bigint
+  liquidityQueryFailure?: boolean
 }
 export interface AccountDepositPosition {
-  vault: Vault | SecuritizeVault
+  vault: Vault | SecuritizeVault | EarnVault
   subAccount: string
-  shares: bigint
-  assets: bigint
-}
-export interface AccountEarnPosition {
-  vault: EarnVault
   shares: bigint
   assets: bigint
 }
 
 export const isPositionEligibleForLiquidation = (position: AccountBorrowPosition | undefined): boolean => {
   if (!position || position.liabilityValueLiquidation === 0n) return false
+  if (position.liquidityQueryFailure) return false
   return position.liabilityValueLiquidation > position.collateralValueLiquidation
 }
 
@@ -79,16 +77,16 @@ const checkGetController = async (subAccount: string) => {
     return true
   }
 
-  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const contract = new ethers.Contract(
-    eulerCoreAddresses.value.evc,
-    evcGetControllersAbi,
-    provider,
-  )
+  const client = getPublicClient(EVM_PROVIDER_URL)
 
   try {
-    const controllers = await contract.getControllers(subAccount)
-    return controllers.length === 0 // Return true if NO controllers (account is free)
+    const controllers = await client.readContract({
+      address: eulerCoreAddresses.value.evc as Address,
+      abi: evcGetControllersAbi,
+      functionName: 'getControllers',
+      args: [subAccount as Address],
+    })
+    return (controllers as Address[]).length === 0
   }
   catch (e) {
     console.error('[checkGetController] Error:', e)
@@ -102,8 +100,8 @@ const checkGetController = async (subAccount: string) => {
  * So: index = ownerAddress XOR subAccountAddress
  */
 export const getSubAccountIndex = (ownerAddress: string, subAccountAddress: string): number => {
-  const owner = BigInt(ethers.getAddress(ownerAddress))
-  const subAccount = BigInt(ethers.getAddress(subAccountAddress))
+  const owner = BigInt(getAddress(ownerAddress))
+  const subAccount = BigInt(getAddress(subAccountAddress))
   return Number(owner ^ subAccount)
 }
 
@@ -115,7 +113,7 @@ export const getNewSubAccount = async (ownerAddress: string) => {
     await loadEulerConfig()
   }
 
-  const address = ethers.getAddress(ownerAddress)
+  const address = getAddress(ownerAddress)
   const { data } = await axios.post(SUBGRAPH_URL, {
     query: `query AccountBorrows {
       trackingActiveAccount(id: "${ownerAddress}") {
@@ -125,11 +123,11 @@ export const getNewSubAccount = async (ownerAddress: string) => {
     operationName: 'AccountBorrows',
   })
   const entries = data.data?.trackingActiveAccount?.borrows || []
-  const subAccounts = entries.map((e: string) => ethers.getAddress(e.substring(0, 42)))
+  const subAccounts = entries.map((e: string) => getAddress(e.substring(0, 42)))
 
   for (let index = 1; index <= 256; index++) {
     const hex = BigInt(address) ^ BigInt(index)
-    const subAccountAddress = ethers.getAddress(ethers.zeroPadValue(ethers.toBeHex(hex, 20), 20))
+    const subAccountAddress = getAddress(pad(toHex(hex, { size: 20 }), { size: 20 }))
 
     const isNotInBorrows = !subAccounts.includes(subAccountAddress)
     const hasNoController = await checkGetController(subAccountAddress)

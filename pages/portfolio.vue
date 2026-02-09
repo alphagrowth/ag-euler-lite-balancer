@@ -10,7 +10,6 @@ const router = useRouter()
 const {
   borrowPositions,
   depositPositions,
-  earnPositions,
   totalSuppliedValueInfo,
   totalBorrowedValueInfo,
   portfolioRoe,
@@ -18,8 +17,7 @@ const {
   isPositionsLoaded,
   isShowAllPositions,
   updateBorrowPositions,
-  updateDepositPositions,
-  updateEarnPositions,
+  updateSavingsPositions,
 } = useEulerAccount()
 const { rewards } = useMerkl()
 const { locks } = useREULLocks()
@@ -40,7 +38,7 @@ const tabs = computed(() => [
   {
     label: 'Savings',
     value: 'portfolio-saving',
-    badge: depositPositions.value.length + earnPositions.value.length || null,
+    badge: depositPositions.value.length || null,
   },
   {
     label: 'Rewards',
@@ -58,8 +56,7 @@ const checkTab = () => {
 const updatePositions = async () => {
   // Borrow positions must be loaded first so deposits can filter collateral usage
   await updateBorrowPositions(eulerLensAddresses.value, address.value as string)
-  updateDepositPositions(eulerLensAddresses.value, address.value as string)
-  updateEarnPositions(eulerLensAddresses.value, address.value as string)
+  updateSavingsPositions(eulerLensAddresses.value, address.value as string)
 }
 
 watch(tabsModel, checkTab, { immediate: true })
@@ -111,7 +108,7 @@ onDeactivated(() => {
             class="text-h5"
             :class="[portfolioNetApy >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
-            {{ formatNumber(portfolioNetApy) }}%
+            {{ Number.isFinite(portfolioNetApy) ? `${formatNumber(portfolioNetApy)}%` : '-' }}
           </div>
         </BaseLoadableContent>
       </div>
@@ -130,7 +127,7 @@ onDeactivated(() => {
             class="text-h5"
             :class="[portfolioRoe >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
-            {{ formatNumber(portfolioRoe) }}%
+            {{ Number.isFinite(portfolioRoe) ? `${formatNumber(portfolioRoe)}%` : '-' }}
           </div>
         </BaseLoadableContent>
       </div>

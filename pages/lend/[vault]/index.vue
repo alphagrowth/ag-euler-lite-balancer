@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress } from 'viem'
+import { getAddress, formatUnits, isAddress } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -373,7 +373,7 @@ const updateEstimates = useDebounceFn(async () => {
       if (!asset.value?.address) {
         return
       }
-      const { supplyAPY } = await computeAPYs(
+      const [, supplyAPY] = await computeAPYs(
         evkVault.value.interestRateInfo.borrowSPY,
         evkVault.value.interestRateInfo.cash + valueToNano(amount.value, evkVault.value.decimals),
         evkVault.value.interestRateInfo.borrows,

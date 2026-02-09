@@ -1,6 +1,6 @@
 import { useAccount, useWriteContract } from '@wagmi/vue'
-import { ethers } from 'ethers'
 import type { Address, Abi } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 
 import { reulLockAbi, reulWithdrawABI } from '~/abis/reul'
 import type { REULLock } from '~/entities/reul'
@@ -57,10 +57,14 @@ const loadREULLocksInfo = async (userAddress: string, isInitialLoading = true) =
     }
 
     const { EVM_PROVIDER_URL } = useEulerConfig()
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const contract = new ethers.Contract(reulTokenContractAddress.value, reulLockAbi, provider)
+    const client = getPublicClient(EVM_PROVIDER_URL)
 
-    const [lockTimestamps, amounts] = await contract.getLockedAmounts(userAddress)
+    const [lockTimestamps, amounts] = await client.readContract({
+      address: reulTokenContractAddress.value as Address,
+      abi: reulLockAbi,
+      functionName: 'getLockedAmounts',
+      args: [userAddress as Address],
+    }) as [bigint[], bigint[]]
     const withdrawAmountsData: { unlockableAmount: bigint, amountToBeBurned: bigint }[] = []
 
     const batchSize = 5
@@ -68,8 +72,13 @@ const loadREULLocksInfo = async (userAddress: string, isInitialLoading = true) =
     for (let i = 0; i < lockTimestamps.length; i += batchSize) {
       const batch = lockTimestamps
         .slice(i, i + batchSize)
-        .map(async (timestamp: string) => {
-          const [unlockableAmount, amountToBeBurned] = await contract.getWithdrawAmountsByLockTimestamp(userAddress, timestamp)
+        .map(async (timestamp: bigint) => {
+          const [unlockableAmount, amountToBeBurned] = await client.readContract({
+            address: reulTokenContractAddress.value as Address,
+            abi: reulLockAbi,
+            functionName: 'getWithdrawAmountsByLockTimestamp',
+            args: [userAddress as Address, timestamp],
+          }) as [bigint, bigint]
           return {
             unlockableAmount,
             amountToBeBurned,

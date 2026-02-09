@@ -8,6 +8,7 @@ import { useAddressScreen } from '~/composables/useAddressScreen'
 let isChangingChain = false
 let isRouterReplacing = false
 let isInitialRouteSync = true
+let hasWalletConnectedBefore = false
 const isLoaded = ref(false)
 const walletName = ref('Wallet')
 const routeNetworkId: Ref<number | null> = ref(null)
@@ -255,7 +256,7 @@ export const useWagmi = () => {
     syncRouteNetwork(val)
   }, { immediate: true })
 
-  watch(wagmiChain, (val) => {
+  watch(wagmiChain, async (val, oldVal) => {
     if (!val?.id || isChangingChain) {
       return
     }
@@ -265,9 +266,38 @@ export const useWagmi = () => {
       return
     }
 
+    // On initial wallet connection, app chain (from URL) takes priority
+    const isInitialConnection = !hasWalletConnectedBefore && !oldVal?.id
+    if (isInitialConnection) {
+      hasWalletConnectedBefore = true
+      if (currentChainId.value && currentChainId.value !== val.id) {
+        isChangingChain = true
+        try {
+          await switchChain({ chainId: currentChainId.value })
+        }
+        catch {
+          // Wallet rejected switch — fall back to wallet's chain
+          changeCurrentChainId(val.id)
+          localStorage.setItem('chainId', String(val.id))
+          await syncRouteNetwork(val.id)
+        }
+        finally {
+          isChangingChain = false
+        }
+        return
+      }
+    }
+
+    // Normal flow: user-initiated wallet chain change
     changeCurrentChainId(val.id)
     localStorage.setItem('chainId', String(val.id))
     syncRouteNetwork(val.id)
+  })
+
+  watch(isConnected, (connected, wasConnected) => {
+    if (wasConnected && !connected) {
+      hasWalletConnectedBefore = false
+    }
   })
 
   return {

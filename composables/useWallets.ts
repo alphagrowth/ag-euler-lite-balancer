@@ -1,4 +1,4 @@
-import { type Address, createPublicClient, http, getAddress, parseAbi } from 'viem'
+import { type Address, createPublicClient, http, getAddress } from 'viem'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import { erc20BalanceOfAbi } from '~/abis/erc20'
@@ -96,7 +96,7 @@ export const useWallets = () => {
             try {
               const balance = await client.readContract({
                 address: tokenAddr,
-                abi: parseAbi(erc20BalanceOfAbi),
+                abi: erc20BalanceOfAbi,
                 functionName: 'balanceOf',
                 args: [address.value as Address],
               }) as bigint
@@ -182,7 +182,7 @@ export const useWallets = () => {
       })
       const result = await client.readContract({
         address: getAddress(tokenAddress) as Address,
-        abi: parseAbi(erc20BalanceOfAbi),
+        abi: erc20BalanceOfAbi,
         functionName: 'balanceOf',
         args: [address.value as Address],
       }) as bigint
@@ -208,7 +208,7 @@ export const useWallets = () => {
       })
       const result = await client.readContract({
         address: getAddress(vaultAddress) as Address,
-        abi: parseAbi(erc20BalanceOfAbi),
+        abi: erc20BalanceOfAbi,
         functionName: 'balanceOf',
         args: [address.value as Address],
       }) as bigint

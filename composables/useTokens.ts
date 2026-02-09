@@ -7,7 +7,7 @@ import { CUSTOM_ICON_TOKENS } from '~/entities/constants'
 import { useEulerConfig } from '~/composables/useEulerConfig'
 
 const isLoading = ref(false)
-const tokens: Record<string, TokenData> = shallowReactive({})
+const tokensByAddress: Record<string, TokenData> = shallowReactive({})
 
 export const useTokens = () => {
   const { getCurrentChainConfig, chainId } = useEulerAddresses()
@@ -16,7 +16,7 @@ export const useTokens = () => {
   const loadTokens = async () => {
     try {
       isLoading.value = true
-      Object.keys(tokens).forEach(key => delete tokens[key])
+      Object.keys(tokensByAddress).forEach(key => delete tokensByAddress[key])
 
       await until(getCurrentChainConfig).toBeTruthy()
 
@@ -27,7 +27,7 @@ export const useTokens = () => {
 
       const tokensArr = res.data as TokenData[]
 
-      Object.assign(tokens, Object.fromEntries(tokensArr.map(token => [token.symbol, token])))
+      Object.assign(tokensByAddress, Object.fromEntries(tokensArr.map(token => [token.address.toLowerCase(), token])))
     }
     catch (e) {
       console.warn(e)
@@ -37,19 +37,17 @@ export const useTokens = () => {
     }
   }
 
-  watch(chainId, loadTokens)
-
   return {
     isLoading,
-    tokens,
+    tokens: tokensByAddress,
     loadTokens,
   }
 }
 
-export const getAssetLogoUrl = (symbol: string) => {
+export const getAssetLogoUrl = (address: string, symbol: string) => {
   if (CUSTOM_ICON_TOKENS.has(symbol.toLowerCase())) {
     return `/tokens/${symbol.toLowerCase()}.png`
   }
 
-  return tokens[symbol]?.logoURI ?? `/tokens/${symbol.toLowerCase()}.png`
+  return tokensByAddress[address.toLowerCase()]?.logoURI ?? `/tokens/${symbol.toLowerCase()}.png`
 }

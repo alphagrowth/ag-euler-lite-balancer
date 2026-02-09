@@ -79,7 +79,7 @@ watch(customInput, () => {
   <div class="mb-20 rounded-16 border border-euler-dark-600 bg-euler-dark-500 p-16">
     <div class="flex flex-col gap-8">
       <div class="text-p2">
-        Slippage Settings
+        Slippage settings
       </div>
       <div class="text-p3 text-euler-dark-700">
         Set slippage for this transaction

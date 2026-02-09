@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers, FixedNumber } from 'ethers'
+import { getAddress, formatUnits, type Address, type Abi } from 'viem'
+import { FixedPoint } from '~/utils/fixed-point'
+import { getPublicClient } from '~/utils/public-client'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -99,14 +101,14 @@ watchEffect(async () => {
     opportunityInfoForBorrow.value?.apr || null,
   )
 })
-const amountFixed = computed(() => FixedNumber.fromValue(
+const amountFixed = computed(() => FixedPoint.fromValue(
   valueToNano(amount.value || '0', collateralVault.value?.decimals),
   Number(collateralVault.value?.decimals),
 ))
-const borrowedFixed = computed(() => FixedNumber.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
-const suppliedFixed = computed(() => FixedNumber.fromValue(collateralAssets.value, collateralVault.value?.decimals || 18))
-const priceFixed = computed(() => FixedNumber.fromValue(position.value?.price || 0n, 18))
-const balanceFixed = computed(() => FixedNumber.fromValue(balance.value, collateralVault.value?.decimals || 18))
+const borrowedFixed = computed(() => FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
+const suppliedFixed = computed(() => FixedPoint.fromValue(collateralAssets.value, collateralVault.value?.decimals || 18))
+const priceFixed = computed(() => FixedPoint.fromValue(position.value?.price || 0n, 18))
+const balanceFixed = computed(() => FixedPoint.fromValue(balance.value, collateralVault.value?.decimals || 18))
 const liquidationPrice = computed(() => {
   if (nanoToValue(position.value?.health || 0n, 18) < 0.1) {
     return Infinity
@@ -134,7 +136,7 @@ const normalizeAddress = (address?: string) => {
     return ''
   }
   try {
-    return ethers.getAddress(address)
+    return getAddress(address)
   }
   catch {
     return ''
@@ -177,9 +179,13 @@ const loadSelectedCollateral = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
-    const res = await accountLensContract.getVaultAccountInfo(position.value.subAccount, targetAddress)
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    const res = await client.readContract({
+      address: lensAddress as Address,
+      abi: eulerAccountLensABI as Abi,
+      functionName: 'getVaultAccountInfo',
+      args: [position.value.subAccount, targetAddress],
+    }) as Record<string, any>
     selectedCollateralAssets.value = res.assets
   }
   catch (e) {
@@ -318,14 +324,14 @@ const updateEstimates = useDebounceFn(async () => {
     )
     const collateralValue = (suppliedFixed.value.add(amountFixed.value)).mul(priceFixed.value)
     const userLtvFixed = collateralValue.isZero()
-      ? FixedNumber.fromValue(0n, 18)
+      ? FixedPoint.fromValue(0n, 18)
       : borrowedFixed.value
           .div(collateralValue)
-          .mul(FixedNumber.fromValue(100n))
+          .mul(FixedPoint.fromValue(100n, 0))
     estimateUserLTV.value = userLtvFixed.value
     estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
       ? 0n
-      : FixedNumber.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
+      : FixedPoint.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
   }
   catch (e: unknown) {
     console.warn(e)
@@ -457,8 +463,8 @@ onUnmounted(() => {
             Current price
           </p>
           <p class="text-p2 flex items-center gap-4">
-            ${{ formatNumber(nanoToValue(position.price, 18)) }}
-            <span class="text-content-tertiary text-p3">
+            {{ nanoToValue(position.price, 18) > 0 ? `$${formatNumber(nanoToValue(position.price, 18))}` : '-' }}
+            <span v-if="nanoToValue(position.price, 18) > 0" class="text-content-tertiary text-p3">
               {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
             </span>
           </p>
@@ -468,8 +474,8 @@ onUnmounted(() => {
             Liquidation price
           </p>
           <p class="text-p2 flex items-center gap-4">
-            ${{ formatNumber(liquidationPrice) }}
-            <span class="text-content-tertiary text-p3">
+            {{ liquidationPrice ? `$${formatNumber(liquidationPrice)}` : '-' }}
+            <span v-if="liquidationPrice" class="text-content-tertiary text-p3">
               {{ collateralVault.asset.symbol }}
             </span>
           </p>

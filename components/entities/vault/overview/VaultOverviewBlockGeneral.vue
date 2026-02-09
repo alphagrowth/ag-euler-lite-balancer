@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ethers } from 'ethers'
+import { getAddress, zeroAddress } from 'viem'
 import { type Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -10,7 +10,7 @@ const { vault } = defineProps<{ vault: Vault }>()
 
 const { borrowList, isVaultGovernorVerified } = useVaults()
 
-const vaultAddress = computed(() => ethers.getAddress(vault.address))
+const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfVault(vault)
 
@@ -48,7 +48,7 @@ const vaultGovernanceType = computed(() => {
     return 'governed'
   }
   // Zero governorAdmin → ungoverned
-  if (!vault.governorAdmin || vault.governorAdmin === ethers.ZeroAddress) {
+  if (!vault.governorAdmin || vault.governorAdmin === zeroAddress) {
     return 'ungoverned'
   }
   // Non-zero but no matching entity → unknown

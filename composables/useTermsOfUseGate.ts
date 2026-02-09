@@ -1,11 +1,11 @@
-import { ethers } from 'ethers'
-import { unref, type Ref, type ComputedRef } from 'vue'
-import type { Address } from 'viem'
+import { unref } from 'vue'
+import type { Address, Hex } from 'viem'
 import { AcknowledgeTermsModal } from '#components'
 import { tosSignerReadAbi } from '~/abis/tos'
 import { enableTermsOfUseSignature } from '~/entities/custom'
 import { useModal } from '~/components/ui/composables/useModal'
 import { getTosData } from '~/composables/useTosData'
+import { getPublicClient } from '~/utils/public-client'
 
 export const useTermsOfUseGate = () => {
   const modal = useModal()
@@ -40,15 +40,13 @@ export const useTermsOfUseGate = () => {
     try {
       isChecking.value = true
       const { tosMessageHash } = await getTosData()
-      const contract = new ethers.Contract(
-        eulerPeripheryAddresses.value.termsOfUseSigner,
-        tosSignerReadAbi,
-        new ethers.JsonRpcProvider(EVM_PROVIDER_URL),
-      )
-      const lastSignTimestamp = await contract.lastTermsOfUseSignatureTimestamp(
-        address.value as Address,
-        tosMessageHash,
-      )
+      const client = getPublicClient(EVM_PROVIDER_URL)
+      const lastSignTimestamp = await client.readContract({
+        address: eulerPeripheryAddresses.value.termsOfUseSigner as Address,
+        abi: tosSignerReadAbi,
+        functionName: 'lastTermsOfUseSignatureTimestamp',
+        args: [address.value as Address, tosMessageHash as Hex],
+      })
       const signed = lastSignTimestamp > 0
       hasSigned.value = signed
       return signed

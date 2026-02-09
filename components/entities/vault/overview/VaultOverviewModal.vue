@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ethers } from 'ethers'
+import { getAddress } from 'viem'
 import type { AnyBorrowVaultPair, EarnVault, SecuritizeVault, Vault } from '~/entities/vault'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountBorrowPosition } from '~/entities/account'
@@ -15,7 +15,7 @@ const normalizeAddress = (address?: string) => {
     return ''
   }
   try {
-    return ethers.getAddress(address)
+    return getAddress(address)
   }
   catch {
     return ''
@@ -29,7 +29,7 @@ const tabs = computed(() => {
     {
       label: 'Position details',
       value: undefined,
-      avatars: [getAssetLogoUrl(pair.collateral.asset.symbol), getAssetLogoUrl(pair.borrow.asset.symbol)],
+      avatars: [getAssetLogoUrl(pair.collateral.asset.address, pair.collateral.asset.symbol), getAssetLogoUrl(pair.borrow.asset.address, pair.borrow.asset.symbol)],
       symbols: [pair.collateral.asset.symbol, pair.borrow.asset.symbol],
     },
   ]
@@ -41,7 +41,7 @@ const tabs = computed(() => {
       list.push({
         label: extraVault.asset.symbol,
         value: 'multiply-collateral',
-        avatars: [getAssetLogoUrl(extraVault.asset.symbol)],
+        avatars: [getAssetLogoUrl(extraVault.asset.address, extraVault.asset.symbol)],
         symbols: [extraVault.asset.symbol],
       })
     }
@@ -52,7 +52,7 @@ const tabs = computed(() => {
     list.push({
       label: vault.asset.symbol,
       value: `collateral-${index}`,
-      avatars: [getAssetLogoUrl(vault.asset.symbol)],
+      avatars: [getAssetLogoUrl(vault.asset.address, vault.asset.symbol)],
       symbols: [vault.asset.symbol],
     })
   })
@@ -60,7 +60,7 @@ const tabs = computed(() => {
   list.push({
     label: pair.borrow.asset.symbol,
     value: 'borrow',
-    avatars: [getAssetLogoUrl(pair.borrow.asset.symbol)],
+    avatars: [getAssetLogoUrl(pair.borrow.asset.address, pair.borrow.asset.symbol)],
     symbols: [pair.borrow.asset.symbol],
   })
   return list

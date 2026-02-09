@@ -54,7 +54,7 @@ load()
       />
       <VaultOverviewLabelValue
         label="Supply APY"
-        :value="`${formatNumber((vault.supplyAPY || 0) + (rewardSupplyAPY || 0))}%`"
+        :value="`${formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + (rewardSupplyAPY || 0))}%`"
         orientation="horizontal"
       />
     </div>

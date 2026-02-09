@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete */
 import axios from 'axios'
-import { ethers } from 'ethers'
+import { getAddress } from 'viem'
 import {
   type EulerLabelEntity,
   type EulerLabelProduct, eulerLabelProductEmpty,
@@ -35,7 +35,7 @@ const oracleAdapters: Record<string, OracleAdapterMeta> = shallowReactive({})
 
 const normalizeAddress = (address: string) => {
   try {
-    return ethers.getAddress(address)
+    return getAddress(address)
   }
   catch {
     return address.toLowerCase()
@@ -112,7 +112,7 @@ const normalizeOracleAdapters = (data: unknown) => {
 }
 
 const loadOracleAdapter = async (chainId: number, oracleAddress: string): Promise<OracleAdapterMeta | undefined> => {
-  const checksummed = ethers.getAddress(oracleAddress)
+  const checksummed = getAddress(oracleAddress)
   const key = checksummed.toLowerCase()
 
   // Already cached

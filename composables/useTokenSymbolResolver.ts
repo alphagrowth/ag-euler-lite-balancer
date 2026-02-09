@@ -1,27 +1,25 @@
-import { ethers } from 'ethers'
 import type { Address } from 'viem'
 import { USD_ADDRESS, EUR_ADDRESS } from '~/entities/constants'
 import { erc20SymbolAbi } from '~/abis/erc20'
+import { getPublicClient } from '~/utils/public-client'
 
 const resolvedSymbols: Ref<Map<string, string>> = shallowRef(new Map())
 const pendingAddresses = new Set<string>()
 const failedAddresses = new Set<string>()
-let cachedProvider: ethers.JsonRpcProvider | null = null
 let cachedProviderUrl: string | null = null
 
 export const useTokenSymbolResolver = () => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { getAll } = useVaultRegistry()
 
-  const getProvider = (): ethers.JsonRpcProvider => {
-    if (!cachedProvider || cachedProviderUrl !== EVM_PROVIDER_URL) {
-      cachedProvider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
+  const ensureClient = () => {
+    if (cachedProviderUrl !== EVM_PROVIDER_URL) {
       cachedProviderUrl = EVM_PROVIDER_URL
       resolvedSymbols.value = new Map()
       pendingAddresses.clear()
       failedAddresses.clear()
     }
-    return cachedProvider
+    return getPublicClient(EVM_PROVIDER_URL)
   }
 
   const buildKnownSymbols = (): Map<string, string> => {
@@ -48,10 +46,13 @@ export const useTokenSymbolResolver = () => {
     if (failedAddresses.has(key)) return
 
     pendingAddresses.add(key)
+    const client = ensureClient()
 
-    const contract = new ethers.Contract(address, erc20SymbolAbi, getProvider())
-
-    contract.symbol()
+    client.readContract({
+      address: address as Address,
+      abi: erc20SymbolAbi,
+      functionName: 'symbol',
+    })
       .then((symbol: string) => {
         const updated = new Map(resolvedSymbols.value)
         updated.set(key, symbol)

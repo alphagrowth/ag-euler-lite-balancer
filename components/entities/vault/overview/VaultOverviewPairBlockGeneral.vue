@@ -97,7 +97,10 @@ const onMaxRoeInfoIconClick = () => {
           </span>
         </template>
         <template v-else>
-          <span class="text-content-tertiary">-</span>
+          <span class="flex items-center text-warning-500">
+            <SvgIcon name="warning" class="mr-2 !w-20 !h-20" />
+            Unknown
+          </span>
         </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue

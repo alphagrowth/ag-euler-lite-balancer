@@ -1,4 +1,4 @@
-import { MaxUint256 } from 'ethers'
+import { maxUint256 } from 'viem'
 import { getVaultUtilization, type Vault } from '~/entities/vault'
 
 export type WarningLevel = 'info' | 'high' | 'critical'
@@ -70,12 +70,12 @@ const bigintPercentage = (numerator: bigint, denominator: bigint): number => {
 }
 
 export const getSupplyCapPercentage = (vault: Vault): number => {
-  if (vault.supplyCap >= MaxUint256 || vault.supplyCap === 0n) return 0
+  if (vault.supplyCap >= maxUint256 || vault.supplyCap === 0n) return 0
   return bigintPercentage(vault.supply, vault.supplyCap)
 }
 
 export const getBorrowCapPercentage = (vault: Vault): number => {
-  if (vault.borrowCap >= MaxUint256 || vault.borrowCap === 0n) return 0
+  if (vault.borrowCap >= maxUint256 || vault.borrowCap === 0n) return 0
   return bigintPercentage(vault.borrow, vault.borrowCap)
 }
 

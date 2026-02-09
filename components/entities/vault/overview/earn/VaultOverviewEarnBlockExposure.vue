@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ethers } from 'ethers'
+import { getAddress } from 'viem'
 import { type EarnVault, type Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -68,8 +68,8 @@ const loadExposureUsdPrices = async () => {
 }
 
 const getExposureVaultByAddress = (address: string) => {
-  const normalized = ethers.getAddress(address)
-  return exposureVaults.value.find(vlt => normalized === ethers.getAddress(vlt.address))
+  const normalized = getAddress(address)
+  return exposureVaults.value.find(vlt => normalized === getAddress(vlt.address))
 }
 
 const hasExposureUsdPrice = (exposure: typeof exposureList.value[0]) => {

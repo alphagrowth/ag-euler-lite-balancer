@@ -130,6 +130,12 @@ const { prices: adapterPrices, isLoading: isPriceLoading } = useOracleAdapterPri
   computed(() => props.collateralVaults ?? []),
 )
 
+const isAdapterPriceFailed = (adapter: OracleAdapterEntry) => {
+  const key = getAdapterKey(adapter)
+  const info = adapterPrices.value.get(key)
+  return !info?.success
+}
+
 const formatAdapterPrice = (adapter: OracleAdapterEntry) => {
   const key = getAdapterKey(adapter)
   const info = adapterPrices.value.get(key)
@@ -208,6 +214,13 @@ const formatAdapterPrice = (adapter: OracleAdapterEntry) => {
               v-if="isPriceLoading"
               class="text-content-secondary animate-pulse"
             >...</span>
+            <span
+              v-else-if="isAdapterPriceFailed(adapter)"
+              class="flex items-center text-warning-500"
+            >
+              <SvgIcon name="warning" class="mr-2 !w-20 !h-20" />
+              Unknown
+            </span>
             <span
               v-else
               class="text-content-primary"

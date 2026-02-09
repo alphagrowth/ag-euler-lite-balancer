@@ -1,5 +1,4 @@
-import { ethers } from 'ethers'
-import type { Address } from 'viem'
+import { getAddress, type Address } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
@@ -27,7 +26,7 @@ export const useMultiplyCollateralOptions = ({
 
   const currentVaultAddress = computed(() => {
     const current = currentVault.value
-    return current ? ethers.getAddress(current.address) : ''
+    return current ? getAddress(current.address) : ''
   })
 
   const walletItemsInput = computed(() => {
@@ -45,7 +44,7 @@ export const useMultiplyCollateralOptions = ({
 
         const balance = getBalance(vault.asset.address as Address)
         const isCurrent = currentVaultAddress.value
-          && ethers.getAddress(vault.address) === currentVaultAddress.value
+          && getAddress(vault.address) === currentVaultAddress.value
         if (!balance && !isCurrent) return
 
         items.push({ vault, balance })
@@ -82,9 +81,14 @@ export const useMultiplyCollateralOptions = ({
   })
 
   const savingItemsInput = computed(() => {
+    const liability = liabilityVault?.value
+    if (!liability) return []
+    const validCollaterals = new Set(
+      liability.collateralLTVs.filter(ltv => ltv.borrowLTV > 0n).map(ltv => getAddress(ltv.collateral)),
+    )
     return depositPositions.value
-      .filter(position => position.assets > 0n)
-      .map(position => ({ vault: position.vault, assets: position.assets }))
+      .filter(position => position.assets > 0n && validCollaterals.has(getAddress(position.vault.address)))
+      .map(position => ({ vault: position.vault as Vault, assets: position.assets }))
   })
 
   const savingItems = ref<CollateralItem[]>([])

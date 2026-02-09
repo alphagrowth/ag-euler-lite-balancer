@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { FixedNumber } from 'ethers'
+import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -46,7 +46,7 @@ const deltaUsd = ref(0)
 
 const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value?.address || ''))
 const amountFixed = computed(() => {
-  return FixedNumber.fromValue(
+  return FixedPoint.fromValue(
     valueToNano(amount.value || '0', asset.value?.decimals || 0),
     Number(asset.value?.decimals || 0),
     { decimals: Number(asset.value?.decimals || 0) },
@@ -62,7 +62,7 @@ const isSubmitDisabled = computed(() => {
 const reviewWithdrawDisabled = getSubmitDisabled(isSubmitDisabled)
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
-  return formatNumber(vault.value.supplyAPY || 0 + (opportunityInfo.value?.apr || 0))
+  return formatNumber(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))
 })
 const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(estimateSupplyAPY.value + (opportunityInfo.value?.apr || 0))
@@ -72,7 +72,7 @@ const load = async () => {
   isLoading.value = true
   try {
     vault.value = await getEarnVault(vaultAddress)
-    estimateSupplyAPY.value = vault.value?.supplyAPY || 0
+    estimateSupplyAPY.value = nanoToValue(vault.value?.interestRateInfo.supplyAPY ?? 0n, 25)
     asset.value = vault.value?.asset
 
     // Fetch fresh share balance and convert to assets
@@ -116,7 +116,7 @@ const submit = async () => {
       return
     }
 
-    const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+    const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
 
     try {
       plan.value = isMax
@@ -158,7 +158,7 @@ const send = async () => {
       return
     }
 
-    const isMax = FixedNumber.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+    const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
     const txPlan = isMax
       ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
       : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
@@ -188,12 +188,12 @@ const updateEstimates = useDebounceFn(async () => {
       throw new Error('Not enough balance')
     }
     delta.value = assetsBalance.value - amountFixed.value.value
-    estimateSupplyAPY.value = vault.value.supplyAPY || 0
+    estimateSupplyAPY.value = nanoToValue(vault.value.interestRateInfo.supplyAPY, 25)
   }
   catch (e) {
     console.warn(e)
     delta.value = assetsBalance.value || 0n
-    estimateSupplyAPY.value = vault.value.supplyAPY || 0
+    estimateSupplyAPY.value = nanoToValue(vault.value.interestRateInfo.supplyAPY, 25)
     estimatesError.value = (e as { message: string }).message
   }
   finally {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers } from 'ethers'
+import { getAddress, type Address, type Abi } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { getSubAccountIndex } from '~/entities/account'
 import { getAssetLogoUrl } from '~/composables/useTokens'
@@ -47,6 +48,8 @@ const { isReady: isVaultsReady } = useVaults()
 const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
+
+const hasQueryFailure = computed(() => Boolean(position.liquidityQueryFailure))
 
 const borrowVault = computed(() => position.borrow)
 const utilisationWarning = computed(() => getUtilisationWarning(position.borrow, 'borrow'))
@@ -185,8 +188,9 @@ const roe = computed(() => {
 })
 
 const loadCollaterals = async () => {
-  // Only load additional collaterals if position has multiple
-  if (!position.collaterals?.length || position.collaterals.length <= 1) return
+  // Only load additional collaterals if position has multiple,
+  // unless oracle failed — then always fetch actual assets from lens
+  if ((!position.collaterals?.length || position.collaterals.length <= 1) && !position.liquidityQueryFailure) return
 
   const collateralAddresses = position.collaterals?.length
     ? position.collaterals
@@ -194,7 +198,7 @@ const loadCollaterals = async () => {
 
   const normalized = collateralAddresses.reduce<string[]>((acc, address) => {
     try {
-      acc.push(ethers.getAddress(address))
+      acc.push(getAddress(address))
     }
     catch {
       return acc
@@ -202,7 +206,7 @@ const loadCollaterals = async () => {
     return acc
   }, [])
 
-  const primaryAddress = ethers.getAddress(position.collateral.address)
+  const primaryAddress = getAddress(position.collateral.address)
   const unique = Array.from(new Set(normalized))
   const orderedAddresses = [primaryAddress, ...unique.filter(address => address !== primaryAddress)]
 
@@ -218,8 +222,7 @@ const loadCollaterals = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
+    const client = getPublicClient(EVM_PROVIDER_URL)
 
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {
@@ -228,7 +231,12 @@ const loadCollaterals = async () => {
           let assets = 0n
 
           try {
-            const res = await accountLensContract.getVaultAccountInfo(position.subAccount, address)
+            const res = await client.readContract({
+              address: lensAddress as Address,
+              abi: eulerAccountLensABI as Abi,
+              functionName: 'getVaultAccountInfo',
+              args: [position.subAccount, address],
+            }) as Record<string, any>
             assets = res.assets
           }
           catch {
@@ -280,22 +288,22 @@ onMounted(() => {
         </div>
         <div class="flex gap-12 w-full">
           <BaseAvatar
-            :src="[position.collateral.asset.symbol, position.borrow.asset.symbol].map(s => getAssetLogoUrl(s))"
+            :src="[position.collateral, position.borrow].map(v => getAssetLogoUrl(v.asset.address, v.asset.symbol))"
             :label="[position.collateral.asset.symbol, position.borrow.asset.symbol]"
             class="icon--40"
           />
-          <div class="flex-grow">
+          <div class="flex-grow min-w-0">
             <div class="text-content-tertiary text-p3 mb-4">
               <VaultDisplayName
                 :name="pairName"
                 :is-unverified="isAnyUnverified"
               />
             </div>
-            <div class="text-h5 text-content-primary">
+            <div class="text-h5 text-content-primary truncate">
               {{ pairSymbols }}
             </div>
           </div>
-          <div class="flex gap-16 items-start">
+          <div class="flex gap-16 items-start shrink-0">
             <div class="flex flex-col items-end">
               <div class="text-content-tertiary text-p3 mb-4">
                 Net APY
@@ -304,7 +312,7 @@ onMounted(() => {
                 class="text-p2"
                 :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
               >
-                {{ formatNumber(netAPY) }}%
+                {{ Number.isFinite(netAPY) ? `${formatNumber(netAPY)}%` : '-' }}
               </div>
             </div>
             <div class="flex flex-col items-end">
@@ -315,7 +323,7 @@ onMounted(() => {
                 class="text-p2"
                 :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
               >
-                {{ formatNumber(roe) }}%
+                {{ Number.isFinite(roe) ? `${formatNumber(roe)}%` : '-' }}
               </div>
             </div>
           </div>
@@ -327,6 +335,13 @@ onMounted(() => {
       <div
         class="flex flex-col gap-12 w-full"
       >
+        <div
+          v-if="hasQueryFailure"
+          class="flex items-center gap-6 text-warning-500 text-p4"
+        >
+          <UiIcon name="info-circle" class="!w-14 !h-14 shrink-0" />
+          Oracle pricing unavailable. Some details may be missing.
+        </div>
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Net asset value
@@ -377,27 +392,35 @@ onMounted(() => {
             <VaultWarningIcon :warning="utilisationWarning" tooltip-placement="top-start" />
           </div>
           <div class="text-content-primary text-p3">
-            {{ formatNumber(nanoToValue(position.health, 18)) }}
+            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <template v-else>
+              {{ formatNumber(nanoToValue(position.health, 18)) }}
+            </template>
           </div>
         </div>
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Your LTV
           </div>
-          <div class="flex justify-between items-center gap-16">
-            <UiProgress
-              style="width: 111px"
-              :model-value="nanoToValue(position.userLTV, 18)"
-              :max="nanoToValue(position.liquidationLTV, 2)"
-              :color="nanoToValue(position.userLTV, 18) >= (nanoToValue(position.liquidationLTV, 2) - 2) ? 'danger' : undefined"
-              size="small"
-            />
-            <div class="flex justify-between gap-8 text-right">
-              <div class="text-content-primary text-p3">
-                {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
+          <template v-if="hasQueryFailure">
+            <span class="text-warning-500 text-p3">Unknown</span>
+          </template>
+          <template v-else>
+            <div class="flex justify-between items-center gap-16">
+              <UiProgress
+                style="width: 111px"
+                :model-value="nanoToValue(position.userLTV, 18)"
+                :max="nanoToValue(position.liquidationLTV, 2)"
+                :color="nanoToValue(position.userLTV, 18) >= (nanoToValue(position.liquidationLTV, 2) - 2) ? 'danger' : undefined"
+                size="small"
+              />
+              <div class="flex justify-between gap-8 text-right">
+                <div class="text-content-primary text-p3">
+                  {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
+                </div>
               </div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
     </div>

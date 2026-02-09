@@ -1,12 +1,12 @@
 import { PriceServiceConnection } from '@pythnetwork/price-service-client'
-import { ethers } from 'ethers'
-import type { Address, Hex } from 'viem'
+import { encodeFunctionData, decodeFunctionResult, zeroAddress, type Address, type Hex, type Abi } from 'viem'
 import { PYTH_ABI } from '~/abis/pyth'
 import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
 import { DEFAULT_PRICE_CACHE_TTL_MS } from '~/entities/constants'
 import { collectPythFeedIds, collectPythFeedIdsForPair, type PythFeed } from '~/entities/oracle'
 import type { Vault } from '~/entities/vault'
 import type { EVCCall } from './evc-converter'
+import { getPublicClient } from '~/utils/public-client'
 
 const normalizeHex = (value: string): Hex => (value.startsWith('0x') ? value : (`0x${value}` as Hex))
 const normalizeFeedId = (value: string): Hex => normalizeHex(value).toLowerCase() as Hex
@@ -294,7 +294,7 @@ export const buildPythUpdateCallsFromFeeds = async (
     grouped.get(key)?.feedIds.add(feed.feedId)
   })
 
-  const provider = new ethers.JsonRpcProvider(providerUrl)
+  const client = getPublicClient(providerUrl)
   const calls: EVCCall[] = []
   let totalFee = 0n
 
@@ -302,11 +302,14 @@ export const buildPythUpdateCallsFromFeeds = async (
     const updateData = await fetchPythUpdateData([...feedSet], hermesEndpoint)
     if (!updateData.length) continue
 
-    const pythContract = new ethers.Contract(pythAddress, PYTH_ABI, provider)
-
     let fee = 0n
     try {
-      fee = await pythContract.getUpdateFee(updateData)
+      fee = await client.readContract({
+        address: pythAddress,
+        abi: PYTH_ABI,
+        functionName: 'getUpdateFee',
+        args: [updateData],
+      }) as bigint
     }
     catch (err) {
       console.warn('[buildPythUpdateCalls] getUpdateFee failed', err)
@@ -317,7 +320,11 @@ export const buildPythUpdateCallsFromFeeds = async (
       targetContract: pythAddress,
       onBehalfOfAccount: sender,
       value: fee,
-      data: pythContract.interface.encodeFunctionData('updatePriceFeeds', [updateData]) as Hex,
+      data: encodeFunctionData({
+        abi: PYTH_ABI,
+        functionName: 'updatePriceFeeds',
+        args: [updateData],
+      }) as Hex,
     })
 
     totalFee += fee
@@ -414,7 +421,7 @@ export const buildPythBatchItems = async (
     grouped.get(key)?.add(feed.feedId)
   })
 
-  const provider = new ethers.JsonRpcProvider(providerUrl)
+  const client = getPublicClient(providerUrl)
   const items: BatchItem[] = []
   let totalFee = 0n
 
@@ -422,11 +429,14 @@ export const buildPythBatchItems = async (
     const updateData = await fetchPythUpdateData([...feedSet], hermesEndpoint)
     if (!updateData.length) continue
 
-    const pythContract = new ethers.Contract(pythAddress, PYTH_ABI, provider)
-
     let fee = 0n
     try {
-      fee = await pythContract.getUpdateFee(updateData)
+      fee = await client.readContract({
+        address: pythAddress,
+        abi: PYTH_ABI,
+        functionName: 'getUpdateFee',
+        args: [updateData],
+      }) as bigint
     }
     catch (err) {
       console.warn('[buildPythBatchItems] getUpdateFee failed', err)
@@ -435,9 +445,13 @@ export const buildPythBatchItems = async (
 
     items.push({
       targetContract: pythAddress,
-      onBehalfOfAccount: ethers.ZeroAddress,
+      onBehalfOfAccount: zeroAddress,
       value: fee,
-      data: pythContract.interface.encodeFunctionData('updatePriceFeeds', [updateData]),
+      data: encodeFunctionData({
+        abi: PYTH_ABI,
+        functionName: 'updatePriceFeeds',
+        args: [updateData],
+      }),
     })
     totalFee += fee
   }
@@ -472,7 +486,7 @@ export const buildPythBatchItemsFromFeeds = async (
     grouped.get(key)?.add(feed.feedId)
   })
 
-  const provider = new ethers.JsonRpcProvider(providerUrl)
+  const client = getPublicClient(providerUrl)
   const items: BatchItem[] = []
   let totalFee = 0n
 
@@ -480,11 +494,14 @@ export const buildPythBatchItemsFromFeeds = async (
     const updateData = await fetchPythUpdateData([...feedSet], hermesEndpoint)
     if (!updateData.length) continue
 
-    const pythContract = new ethers.Contract(pythAddress, PYTH_ABI, provider)
-
     let fee = 0n
     try {
-      fee = await pythContract.getUpdateFee(updateData)
+      fee = await client.readContract({
+        address: pythAddress,
+        abi: PYTH_ABI,
+        functionName: 'getUpdateFee',
+        args: [updateData],
+      }) as bigint
     }
     catch (err) {
       console.warn('[buildPythBatchItemsFromFeeds] getUpdateFee failed', err)
@@ -493,9 +510,13 @@ export const buildPythBatchItemsFromFeeds = async (
 
     items.push({
       targetContract: pythAddress,
-      onBehalfOfAccount: ethers.ZeroAddress,
+      onBehalfOfAccount: zeroAddress,
       value: fee,
-      data: pythContract.interface.encodeFunctionData('updatePriceFeeds', [updateData]),
+      data: encodeFunctionData({
+        abi: PYTH_ABI,
+        functionName: 'updatePriceFeeds',
+        args: [updateData],
+      }),
     })
     totalFee += fee
   }
@@ -512,22 +533,22 @@ export const buildPythBatchItemsFromFeeds = async (
  * 4. Returning the decoded lens result
  *
  * @param feeds - Pyth feeds to update
- * @param lensContract - The lens contract instance
+ * @param lensAddress - Address of the lens contract
+ * @param lensAbi - ABI of the lens contract
  * @param lensMethod - Method name to call on the lens
  * @param lensArgs - Arguments for the lens method
  * @param evcAddress - EVC contract address
- * @param provider - JSON-RPC provider
- * @param providerUrl - Provider URL for Pyth batch building
+ * @param providerUrl - Provider URL for Pyth batch building and RPC calls
  * @param hermesEndpoint - Pyth Hermes endpoint
  * @returns Decoded lens result, or undefined if simulation fails
  */
 export const executeLensWithPythSimulation = async <T>(
   feeds: PythFeed[],
-  lensContract: ethers.Contract,
+  lensAddress: Address,
+  lensAbi: Abi | readonly unknown[],
   lensMethod: string,
   lensArgs: unknown[],
   evcAddress: string,
-  provider: ethers.JsonRpcProvider,
   providerUrl: string,
   hermesEndpoint: string,
 ): Promise<T | undefined> => {
@@ -540,10 +561,14 @@ export const executeLensWithPythSimulation = async <T>(
     )
 
     // Build lens batch item
-    const lensCallData = lensContract.interface.encodeFunctionData(lensMethod, lensArgs)
+    const lensCallData = encodeFunctionData({
+      abi: lensAbi as Abi,
+      functionName: lensMethod,
+      args: lensArgs,
+    })
     const lensBatchItem: BatchItem = {
-      targetContract: await lensContract.getAddress(),
-      onBehalfOfAccount: ethers.ZeroAddress,
+      targetContract: lensAddress,
+      onBehalfOfAccount: zeroAddress,
       value: 0n,
       data: lensCallData,
     }
@@ -551,12 +576,31 @@ export const executeLensWithPythSimulation = async <T>(
     // Combine: Pyth updates first, then lens call
     const batchItems = [...pythItems, lensBatchItem]
 
-    // Execute batch simulation
-    const evcContract = new ethers.Contract(evcAddress, EVC_ABI, provider)
-    const [batchResults] = await evcContract.batchSimulation.staticCall(
-      batchItems,
-      { value: totalFee },
-    ) as [BatchItemResult[], unknown, unknown]
+    // Execute batch simulation via low-level call
+    const client = getPublicClient(providerUrl)
+    const batchCallData = encodeFunctionData({
+      abi: EVC_ABI,
+      functionName: 'batchSimulation',
+      args: [batchItems],
+    })
+
+    const callResult = await client.call({
+      to: evcAddress as Address,
+      data: batchCallData,
+      value: totalFee,
+    })
+
+    if (!callResult.data) {
+      return undefined
+    }
+
+    const decoded = decodeFunctionResult({
+      abi: EVC_ABI,
+      functionName: 'batchSimulation',
+      data: callResult.data,
+    })
+
+    const batchResults = decoded[0] as unknown as BatchItemResult[]
 
     // Validate and get the last result (lens call)
     if (!batchResults || batchResults.length === 0) {
@@ -569,7 +613,11 @@ export const executeLensWithPythSimulation = async <T>(
     }
 
     // Decode the lens result
-    const decodedResult = lensContract.interface.decodeFunctionResult(lensMethod, lensResult.result)
+    const decodedResult = decodeFunctionResult({
+      abi: lensAbi as Abi,
+      functionName: lensMethod,
+      data: lensResult.result as Hex,
+    })
     return decodedResult as T
   }
   catch (err) {

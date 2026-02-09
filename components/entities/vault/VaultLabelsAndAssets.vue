@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ethers } from 'ethers'
+import { getAddress } from 'viem'
 import type { EarnVault, SecuritizeVault, Vault, VaultAsset } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
@@ -11,7 +11,7 @@ const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
   assetsLabel?: string
   pairVault?: Vault
 }>()
-const vaultAddress = computed(() => ethers.getAddress(vault.address))
+const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const displayName = computed(() => {
   if ('vaultCategory' in vault && vault.vaultCategory === 'escrow') {
@@ -20,7 +20,7 @@ const displayName = computed(() => {
   return product.name || vault.name
 })
 
-const pairVaultAddress = computed(() => pairVault ? ethers.getAddress(pairVault.address) : '')
+const pairVaultAddress = computed(() => pairVault ? getAddress(pairVault.address) : '')
 const pairProduct = useEulerProductOfVault(pairVaultAddress)
 
 const isVaultDeprecated = computed(() => {
@@ -38,7 +38,7 @@ const getVaultLabel = (v: Vault | EarnVault | SecuritizeVault) => {
   if ('vaultCategory' in v && v.vaultCategory === 'escrow') {
     return 'Escrowed collateral'
   }
-  const addr = ethers.getAddress(v.address)
+  const addr = getAddress(v.address)
   if (addr === vaultAddress.value) {
     return product.name || vault.name
   }
@@ -62,7 +62,7 @@ const displayLabel = computed(() => {
 })
 
 const displayAssetsLabel = computed(() => assetsLabel || assets.map(asset => asset.symbol).join('/'))
-const avatarSrcs = computed(() => assets.map(asset => getAssetLogoUrl(asset.symbol)))
+const avatarSrcs = computed(() => assets.map(asset => getAssetLogoUrl(asset.address, asset.symbol)))
 const avatarLabels = computed(() => assets.map(asset => asset.symbol))
 </script>
 

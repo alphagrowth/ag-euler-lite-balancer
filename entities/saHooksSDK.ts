@@ -1,4 +1,4 @@
-import { ethers, Interface } from 'ethers'
+import { encodeFunctionData, encodeAbiParameters, zeroAddress, type Abi } from 'viem'
 
 export interface PreHook {
   isFromSAPerspective: boolean
@@ -37,9 +37,30 @@ export interface SaHooks {
   mainCallHook: MainCallHook
 }
 
+const hookTupleType = {
+  type: 'tuple',
+  components: [
+    { name: 'isFromSAPerspective', type: 'bool' },
+    { name: 'contractAddress', type: 'address' },
+    { name: 'value', type: 'uint256' },
+    { name: 'data', type: 'bytes' },
+  ],
+} as const
+
+const saHooksAbiParameters = [
+  {
+    type: 'tuple',
+    components: [
+      { name: 'preHooks', type: 'tuple[]', components: hookTupleType.components },
+      { name: 'postHooks', type: 'tuple[]', components: hookTupleType.components },
+      { name: 'mainCallHook', type: 'tuple', components: hookTupleType.components },
+    ],
+  },
+] as const
+
 export class SaHooksBuilder {
   private hooks: SaHooks
-  private contractInterfaces: { [address: string]: Interface }
+  private contractAbis: { [address: string]: Abi }
 
   constructor() {
     this.hooks = {
@@ -47,40 +68,32 @@ export class SaHooksBuilder {
       postHooks: [],
       mainCallHook: {
         isFromSAPerspective: false,
-        contractAddress: ethers.ZeroAddress,
+        contractAddress: zeroAddress,
         value: 0n,
         data: '0x',
       },
     }
-    this.contractInterfaces = {}
+    this.contractAbis = {}
   }
 
-  /**
-   * Add a contract interface for a specific address
-   * @param address Contract address
-   * @param abi Contract ABI
-   */
-  public addContractInterface(address: string, abi: any[]): SaHooksBuilder {
-    this.contractInterfaces[address] = new Interface(abi)
+  public addContractInterface(address: string, abi: Abi | readonly unknown[]): SaHooksBuilder {
+    this.contractAbis[address] = abi as Abi
     return this
   }
 
-  /**
-   * Encode a function call using the stored contract interface
-   * @param address Contract address
-   * @param functionName Function name
-   * @param params Function parameters
-   * @returns Encoded function call
-   */
   private encodeFunctionCall(
     address: string,
     functionName: string,
-    params: any[],
+    params: unknown[],
   ): string {
-    if (!this.contractInterfaces[address]) {
+    if (!this.contractAbis[address]) {
       throw new Error(`No interface found for contract at ${address}`)
     }
-    return this.contractInterfaces[address].encodeFunctionData(functionName, params)
+    return encodeFunctionData({
+      abi: this.contractAbis[address],
+      functionName,
+      args: params,
+    })
   }
 
   // Pre-hooks methods
@@ -107,34 +120,20 @@ export class SaHooksBuilder {
     })
   }
 
-  /**
-   * Add a pre-hook with function call from SA perspective
-   * @param contractAddress Contract address
-   * @param functionName Function name
-   * @param params Function parameters
-   * @param value ETH value to send
-   */
   addPreHookCallFromSA(
     contractAddress: string,
     functionName: string,
-    params: any[],
+    params: unknown[],
     value: bigint = 0n,
   ): SaHooksBuilder {
     const data = this.encodeFunctionCall(contractAddress, functionName, params)
     return this.addPreHookFromSA(contractAddress, value, data)
   }
 
-  /**
-   * Add a pre-hook with function call from self perspective
-   * @param contractAddress Contract address
-   * @param functionName Function name
-   * @param params Function parameters
-   * @param value ETH value to send
-   */
   addPreHookCallFromSelf(
     contractAddress: string,
     functionName: string,
-    params: any[],
+    params: unknown[],
     value: bigint = 0n,
   ): SaHooksBuilder {
     const data = this.encodeFunctionCall(contractAddress, functionName, params)
@@ -165,41 +164,27 @@ export class SaHooksBuilder {
     })
   }
 
-  /**
-   * Add a post-hook with function call from SA perspective
-   * @param contractAddress Contract address
-   * @param functionName Function name
-   * @param params Function parameters
-   * @param value ETH value to send
-   */
   addPostHookCallFromSA(
     contractAddress: string,
     functionName: string,
-    params: any[],
+    params: unknown[],
     value: bigint = 0n,
   ): SaHooksBuilder {
     const data = this.encodeFunctionCall(contractAddress, functionName, params)
     return this.addPostHookFromSA(contractAddress, value, data)
   }
 
-  /**
-   * Add a post-hook with function call from self perspective
-   * @param contractAddress Contract address
-   * @param functionName Function name
-   * @param params Function parameters
-   * @param value ETH value to send
-   */
   addPostHookCallFromSelf(
     contractAddress: string,
     functionName: string,
-    params: any[],
+    params: unknown[],
     value: bigint = 0n,
   ): SaHooksBuilder {
     const data = this.encodeFunctionCall(contractAddress, functionName, params)
     return this.addPostHookFromSelf(contractAddress, value, data)
   }
 
-  getDataForCall(contractAddress: string, functionName: string, params: any[]): string {
+  getDataForCall(contractAddress: string, functionName: string, params: unknown[]): string {
     return this.encodeFunctionCall(contractAddress, functionName, params)
   }
 
@@ -227,34 +212,20 @@ export class SaHooksBuilder {
     })
   }
 
-  /**
-   * Set main call hook with function call from SA perspective
-   * @param contractAddress Contract address
-   * @param functionName Function name
-   * @param params Function parameters
-   * @param value ETH value to send
-   */
   setMainCallHookCallFromSA(
     contractAddress: string,
     functionName: string,
-    params: any[],
+    params: unknown[],
     value: bigint = 0n,
   ): SaHooksBuilder {
     const data = this.encodeFunctionCall(contractAddress, functionName, params)
     return this.setMainCallHookFromSA(contractAddress, value, data)
   }
 
-  /**
-   * Set main call hook with function call from self perspective
-   * @param contractAddress Contract address
-   * @param functionName Function name
-   * @param params Function parameters
-   * @param value ETH value to send
-   */
   setMainCallHookCallFromSelf(
     contractAddress: string,
     functionName: string,
-    params: any[],
+    params: unknown[],
     value: bigint = 0n,
   ): SaHooksBuilder {
     const data = this.encodeFunctionCall(contractAddress, functionName, params)
@@ -294,23 +265,15 @@ export class SaHooksBuilder {
     )
   }
 
-  // addTransferFromToSaHook()
-
   // Build and encode methods
   build(): SaHooks {
     return this.hooks
   }
 
   encode(): string {
-    return ethers.AbiCoder.defaultAbiCoder().encode(
-      [
-        'tuple('
-        + 'tuple(bool isFromSAPerspective, address contractAddress, uint256 value, bytes data)[] preHooks,'
-        + 'tuple(bool isFromSAPerspective, address contractAddress, uint256 value, bytes data)[] postHooks,'
-        + 'tuple(bool isFromSAPerspective, address contractAddress, uint256 value, bytes data) mainCallHook'
-        + ')',
-      ],
-      [this.hooks],
+    return encodeAbiParameters(
+      saHooksAbiParameters,
+      [this.hooks as any],
     )
   }
 
@@ -326,28 +289,3 @@ export class SaHooksBuilder {
     return 'tuple(address[])'
   }
 }
-
-// Example usage:
-/*
-const hooks = new SaHooksBuilder()
-    .addContractInterface(tokenAddress, tokenABI)
-    .addPreHookCallFromSA(
-        tokenAddress,
-        "approve",
-        [spenderAddress, amount]
-    )
-    .addPostHookCallFromSelf(
-        tokenAddress,
-        "balanceOf",
-        [recipientAddress]
-    )
-    .addNFTBridgeHook({
-        isFromSAPerspective: true,
-        tokenAddress: nftAddress,
-        tokenId: 1n,
-        amount: 1n
-    })
-    .build();
-
-const encodedHooks = hooks.encode();
-*/

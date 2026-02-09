@@ -1,16 +1,14 @@
 import { useAccount, useConfig } from '@wagmi/vue'
 import { estimateGas } from '@wagmi/vue/actions'
 import { formatEther, type Address, encodeFunctionData } from 'viem'
-import { ethers } from 'ethers'
 import { useEulerConfig } from '~/composables/useEulerConfig'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
+import { getPublicClient } from '~/utils/public-client'
 
 export const useEstimatePlanFees = () => {
   const { address } = useAccount()
   const config = useConfig()
   const { EVM_PROVIDER_URL } = useEulerConfig()
-
-  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
 
   const getFallbackGasLimit = (step: TxStep) => {
     if (step.type === 'approve' || step.type === 'permit2-approve') {
@@ -30,8 +28,9 @@ export const useEstimatePlanFees = () => {
       throw new Error('Wallet not connected')
     }
 
-    const feeData = await provider.getFeeData()
-    const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    const fees = await client.estimateFeesPerGas()
+    const gasPrice = fees.maxFeePerGas ?? fees.gasPrice
     if (!gasPrice) {
       throw new Error('Failed to fetch gas price')
     }

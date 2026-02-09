@@ -1,5 +1,4 @@
-import { ethers } from 'ethers'
-import type { Address } from 'viem'
+import { getAddress, type Address } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
 import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
@@ -22,7 +21,7 @@ export const useSwapCollateralOptions = ({
 
   const collateralVaults = computed(() => {
     const current = currentVault.value
-    const currentAddress = current ? ethers.getAddress(current.address) : null
+    const currentAddress = current ? getAddress(current.address) : null
     const liability = liabilityVault?.value
 
     let candidates: Vault[] = []
@@ -37,12 +36,12 @@ export const useSwapCollateralOptions = ({
     else {
       // Without liability vault, show borrowable vaults + all escrow vaults
       const borrowable = new Set(
-        borrowList.value.map(pair => ethers.getAddress(pair.borrow.address)),
+        borrowList.value.map(pair => getAddress(pair.borrow.address)),
       )
       // Get verified EVK vaults that are borrowable and non-escrow
       const standardVaults = getVerifiedEvkVaults()
         .filter(vault => vault.vaultCategory !== 'escrow')
-        .filter(vault => borrowable.has(ethers.getAddress(vault.address)))
+        .filter(vault => borrowable.has(getAddress(vault.address)))
       // Get all escrow vaults (always valid as collateral, already have verified: true)
       const escrowVaults = getEscrowVaults()
 
@@ -51,7 +50,7 @@ export const useSwapCollateralOptions = ({
 
     const unique = new Map<string, Vault>()
     candidates.forEach((vault) => {
-      const address = ethers.getAddress(vault.address)
+      const address = getAddress(vault.address)
       if (currentAddress && address === currentAddress) {
         return
       }

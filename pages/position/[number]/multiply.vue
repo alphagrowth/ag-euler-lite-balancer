@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers } from 'ethers'
-import type { Address } from 'viem'
+import { getAddress, formatUnits, isAddress, type Address } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -102,7 +101,7 @@ const normalizeAddress = (address?: string) => {
     return ''
   }
   try {
-    return ethers.getAddress(address)
+    return getAddress(address)
   }
   catch {
     return ''
@@ -117,7 +116,7 @@ const multiplyRouteItems = computed(() => {
   return multiplyQuoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
     const amount = formatSignificant(
-      ethers.formatUnits(amountOut, Number(multiplyLongVault.value.asset.decimals)),
+      formatUnits(amountOut, Number(multiplyLongVault.value.asset.decimals)),
     )
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
@@ -451,8 +450,8 @@ const multiplyCurrentPrice = computed(() => {
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
     return null
   }
-  const amountIn = Number(ethers.formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals)))
-  const amountOut = Number(ethers.formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals)))
+  const amountIn = Number(formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals)))
+  const amountOut = Number(formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals)))
   if (!amountIn || !amountOut) {
     return null
   }
@@ -468,8 +467,8 @@ const multiplySwapSummary = computed(() => {
   if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
     return null
   }
-  const amountIn = ethers.formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals))
-  const amountOut = ethers.formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals))
+  const amountIn = formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals))
+  const amountOut = formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals))
   return {
     from: `${formatNumber(amountIn)} ${multiplyShortVault.value.asset.symbol}`,
     to: `${formatSignificant(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
@@ -528,10 +527,10 @@ const setMultiplyAmounts = (longDelta?: bigint | null, shortDelta?: bigint | nul
   const totalLong = baseLong + (longDelta && longDelta > 0n ? longDelta : 0n)
   const totalShort = baseShort + (shortDelta && shortDelta > 0n ? shortDelta : 0n)
   multiplyLongAmount.value = totalLong > 0n
-    ? ethers.formatUnits(totalLong, Number(multiplyLongVault.value.asset.decimals))
+    ? formatUnits(totalLong, Number(multiplyLongVault.value.asset.decimals))
     : ''
   multiplyShortAmount.value = totalShort > 0n
-    ? ethers.formatUnits(totalShort, Number(multiplyShortVault.value.asset.decimals))
+    ? formatUnits(totalShort, Number(multiplyShortVault.value.asset.decimals))
     : ''
 }
 
@@ -610,7 +609,7 @@ const requestMultiplyQuote = useDebounceFn(async () => {
     logContext: {
       fromVault: multiplyShortVault.value?.address,
       toVault: multiplyLongVault.value?.address,
-      amount: ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+      amount: formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
       slippage: multiplySlippage.value,
       swapperMode: SwapperMode.EXACT_IN,
       isRepay: false,
@@ -688,7 +687,7 @@ const submitMultiply = async () => {
       props: {
         type: 'borrow',
         asset: multiplyShortVault.value.asset,
-        amount: multiplyShortAmount.value || ethers.formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+        amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
         plan: plan.value || undefined,
         subAccount,
         onConfirm: () => {

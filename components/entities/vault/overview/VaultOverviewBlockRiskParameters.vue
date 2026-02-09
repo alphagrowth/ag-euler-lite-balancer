@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { MaxUint256, ethers } from 'ethers'
+import { maxUint256, type Address } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import { vaultConvertToAssetsAbi } from '~/abis/vault'
 import { type Vault } from '~/entities/vault'
 import { getSupplyCapPercentage, getBorrowCapPercentage } from '~/composables/useVaultWarnings'
@@ -25,7 +26,7 @@ const supplyCapDisplay = ref('-')
 const borrowCapDisplay = ref('-')
 
 watchEffect(async () => {
-  if (vault.supplyCap >= MaxUint256) {
+  if (vault.supplyCap >= maxUint256) {
     supplyCapDisplay.value = '∞'
     return
   }
@@ -34,7 +35,7 @@ watchEffect(async () => {
 })
 
 watchEffect(async () => {
-  if (vault.borrowCap >= MaxUint256) {
+  if (vault.borrowCap >= maxUint256) {
     borrowCapDisplay.value = '∞'
     return
   }
@@ -43,13 +44,13 @@ watchEffect(async () => {
 })
 
 const load = async () => {
-  const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-  const contract = new ethers.Contract(
-    vault.address,
-    vaultConvertToAssetsAbi,
-    provider,
-  )
-  shareTokenExchangeRate.value = await contract.convertToAssets(1n * 10n ** vault.decimals)
+  const client = getPublicClient(EVM_PROVIDER_URL)
+  shareTokenExchangeRate.value = await client.readContract({
+    address: vault.address as Address,
+    abi: vaultConvertToAssetsAbi,
+    functionName: 'convertToAssets',
+    args: [1n * 10n ** vault.decimals],
+  }) as bigint
 }
 
 load()
@@ -74,10 +75,10 @@ load()
         <div class="flex gap-4 items-center">
           <span>
             {{ supplyCapDisplay }}
-            <span v-if="vault.supplyCap < MaxUint256">({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
+            <span v-if="vault.supplyCap < maxUint256">({{ compactNumber(supplyCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress
-            v-if="vault.supplyCap < MaxUint256"
+            v-if="vault.supplyCap < maxUint256"
             :value="supplyCapPercentageDisplay"
             :max="100"
           />
@@ -91,10 +92,10 @@ load()
         <div class="flex gap-4 items-center">
           <span>
             {{ borrowCapDisplay }}
-            <span v-if="vault.borrowCap < MaxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
+            <span v-if="vault.borrowCap < maxUint256">({{ compactNumber(borrowCapPercentageDisplay, 2) }}%)</span>
           </span>
           <UiRadialProgress
-            v-if="vault.borrowCap < MaxUint256"
+            v-if="vault.borrowCap < maxUint256"
             :value="borrowCapPercentageDisplay"
             :max="100"
           />

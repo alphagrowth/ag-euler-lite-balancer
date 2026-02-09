@@ -1,4 +1,4 @@
-import { ethers } from 'ethers'
+import { encodeFunctionData, decodeFunctionResult, type Address, type Hex } from 'viem'
 import type { ComputedRef } from 'vue'
 import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
 import { erc20DecimalsAbi } from '~/abis/erc20'
@@ -10,15 +10,12 @@ import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { buildPythBatchItems } from '~/utils/pyth'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { buildBatchItem } from '~/utils/multicall'
+import { getPublicClient } from '~/utils/public-client'
 
 export type AdapterPriceInfo = {
   rate: number
   success: boolean
 }
-
-const oracleInterface = new ethers.Interface(priceOracleAbi)
-const erc20Interface = new ethers.Interface(erc20DecimalsAbi)
-const vaultInterface = new ethers.Interface(vaultConvertToAssetsAbi)
 
 const getAdapterKey = (adapter: OracleAdapterEntry) =>
   `${adapter.oracle.toLowerCase()}:${adapter.base.toLowerCase()}:${adapter.quote.toLowerCase()}`
@@ -74,28 +71,55 @@ const findUnknownDecimalsAddresses = (
 const fetchMissingDecimals = async (
   addresses: string[],
   evcAddress: string,
-  provider: ethers.JsonRpcProvider,
+  rpcUrl: string,
 ): Promise<Map<string, number>> => {
   const result = new Map<string, number>()
   if (!addresses.length) return result
 
   const items: BatchItem[] = addresses.map(addr =>
-    buildBatchItem(addr, erc20Interface.encodeFunctionData('decimals')),
+    buildBatchItem(addr, encodeFunctionData({
+      abi: erc20DecimalsAbi,
+      functionName: 'decimals',
+    })),
   )
 
-  const evcContract = new ethers.Contract(evcAddress, EVC_ABI, provider)
+  const client = getPublicClient(rpcUrl)
 
   try {
-    const [batchResults] = await evcContract.batchSimulation.staticCall(
-      items,
-      { value: 0n },
-    ) as [BatchItemResult[], unknown, unknown]
+    const callData = encodeFunctionData({
+      abi: EVC_ABI,
+      functionName: 'batchSimulation',
+      args: [items],
+    })
+
+    const callResult = await client.call({
+      to: evcAddress as Address,
+      data: callData,
+      value: 0n,
+    })
+
+    if (!callResult.data) {
+      addresses.forEach(addr => result.set(addr.toLowerCase(), 18))
+      return result
+    }
+
+    const decoded = decodeFunctionResult({
+      abi: EVC_ABI,
+      functionName: 'batchSimulation',
+      data: callResult.data,
+    })
+
+    const batchResults = decoded[0] as unknown as BatchItemResult[]
 
     batchResults.forEach((res, i) => {
       if (res.success) {
         try {
-          const [decimals] = evcInterface_decodeFunctionResult(res.result)
-          result.set(addresses[i].toLowerCase(), Number(decimals))
+          const decimals = decodeFunctionResult({
+            abi: erc20DecimalsAbi,
+            functionName: 'decimals',
+            data: res.result as Hex,
+          }) as number
+          result.set(addresses[i].toLowerCase(), decimals)
         }
         catch {
           // Skip tokens whose decimals can't be decoded
@@ -114,11 +138,6 @@ const fetchMissingDecimals = async (
   return result
 }
 
-// Decode decimals result inline (avoids extra ethers.Interface allocation)
-const evcInterface_decodeFunctionResult = (data: string): [bigint] => {
-  return erc20Interface.decodeFunctionResult('decimals', data) as unknown as [bigint]
-}
-
 const buildPriceQueryItems = (
   adapters: OracleAdapterEntry[],
   decimals: Map<string, number>,
@@ -134,15 +153,19 @@ const buildPriceQueryItems = (
     const inAmount = 10n ** BigInt(baseDecimals)
 
     if (adapter.name === 'ERC4626Vault') {
-      const callData = vaultInterface.encodeFunctionData('convertToAssets', [inAmount])
+      const callData = encodeFunctionData({
+        abi: vaultConvertToAssetsAbi,
+        functionName: 'convertToAssets',
+        args: [inAmount],
+      })
       items.push(buildBatchItem(adapter.oracle, callData))
     }
     else {
-      const callData = oracleInterface.encodeFunctionData('getQuote', [
-        inAmount,
-        adapter.base,
-        adapter.quote,
-      ])
+      const callData = encodeFunctionData({
+        abi: priceOracleAbi,
+        functionName: 'getQuote',
+        args: [inAmount, adapter.base, adapter.quote],
+      })
       items.push(buildBatchItem(adapter.oracle, callData))
     }
 
@@ -171,10 +194,18 @@ const decodePriceResults = (
     try {
       const isERC4626 = adapter.name === 'ERC4626Vault'
       const decoded = isERC4626
-        ? vaultInterface.decodeFunctionResult('convertToAssets', res.result)
-        : oracleInterface.decodeFunctionResult('getQuote', res.result)
+        ? decodeFunctionResult({
+          abi: vaultConvertToAssetsAbi,
+          functionName: 'convertToAssets',
+          data: res.result as Hex,
+        })
+        : decodeFunctionResult({
+          abi: priceOracleAbi,
+          functionName: 'getQuote',
+          data: res.result as Hex,
+        })
 
-      const outAmount = decoded[0] as bigint
+      const outAmount = decoded as bigint
       const quoteDecimals = decimals.get(adapter.quote.toLowerCase()) ?? 18
       const rate = nanoToValue(outAmount, quoteDecimals)
 
@@ -199,8 +230,6 @@ export const useOracleAdapterPrices = (
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { eulerCoreAddresses } = useEulerAddresses()
 
-  let provider: ethers.JsonRpcProvider | undefined
-
   const fetchPrices = async () => {
     const adapterList = adapters.value
     const evcAddress = eulerCoreAddresses.value?.evc
@@ -210,9 +239,7 @@ export const useOracleAdapterPrices = (
     }
 
     try {
-      if (!provider) {
-        provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-      }
+      const client = getPublicClient(EVM_PROVIDER_URL)
 
       // 1. Build known decimals
       const knownDecimals = buildKnownDecimals(sourceVaults.value, collateralVaults.value)
@@ -222,7 +249,7 @@ export const useOracleAdapterPrices = (
 
       // 3. Fetch missing decimals if needed
       if (unknownAddresses.length) {
-        const fetched = await fetchMissingDecimals(unknownAddresses, evcAddress, provider)
+        const fetched = await fetchMissingDecimals(unknownAddresses, evcAddress, EVM_PROVIDER_URL)
         fetched.forEach((dec, addr) => knownDecimals.set(addr, dec))
       }
 
@@ -238,11 +265,30 @@ export const useOracleAdapterPrices = (
 
       // 6. Execute single batchSimulation
       const allItems = [...pythItems, ...priceItems]
-      const evcContract = new ethers.Contract(evcAddress, EVC_ABI, provider)
-      const [batchResults] = await evcContract.batchSimulation.staticCall(
-        allItems,
-        { value: totalFee },
-      ) as [BatchItemResult[], unknown, unknown]
+      const batchCallData = encodeFunctionData({
+        abi: EVC_ABI,
+        functionName: 'batchSimulation',
+        args: [allItems],
+      })
+
+      const callResult = await client.call({
+        to: evcAddress as Address,
+        data: batchCallData,
+        value: totalFee,
+      })
+
+      if (!callResult.data) {
+        prices.value = new Map()
+        return
+      }
+
+      const decoded = decodeFunctionResult({
+        abi: EVC_ABI,
+        functionName: 'batchSimulation',
+        data: callResult.data,
+      })
+
+      const batchResults = decoded[0] as unknown as BatchItemResult[]
 
       // 7. Decode price results (skip Pyth update results)
       const priceResults = batchResults.slice(pythItems.length)

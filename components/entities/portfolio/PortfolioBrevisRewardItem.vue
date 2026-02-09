@@ -109,7 +109,7 @@ const onClaimClick = async () => {
         <div class="flex items-center">
           <BaseAvatar
             v-if="vault"
-            :src="getAssetLogoUrl(vault.asset.symbol)"
+            :src="getAssetLogoUrl(vault.asset.address, vault.asset.symbol)"
             :label="vault.asset.symbol"
             class="icon--40"
           />

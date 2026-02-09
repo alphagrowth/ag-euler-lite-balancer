@@ -1,4 +1,5 @@
-import { ethers } from 'ethers'
+import { getAddress, type Address } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import {
   type Vault,
   type EarnVault,
@@ -32,7 +33,7 @@ const escrowAddresses: Ref<Set<string>> = shallowRef(new Set())
 
 // Normalize address for consistent lookups
 const normalizeAddress = (address: string): string => {
-  return ethers.getAddress(address)
+  return getAddress(address)
 }
 
 // Get vault entry from registry
@@ -205,13 +206,19 @@ const isInEscrowPerspective = async (address: string): Promise<boolean> => {
   }
 
   try {
-    const provider = new ethers.JsonRpcProvider(EVM_PROVIDER_URL)
-    const perspectiveContract = new ethers.Contract(
-      eulerPeripheryAddresses.value.escrowedCollateralPerspective,
-      ['function isVerified(address vault) view returns (bool)'],
-      provider,
-    )
-    return await perspectiveContract.isVerified(address)
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    return await client.readContract({
+      address: eulerPeripheryAddresses.value.escrowedCollateralPerspective as Address,
+      abi: [{
+        type: 'function',
+        name: 'isVerified',
+        inputs: [{ name: 'vault', type: 'address' }],
+        outputs: [{ name: '', type: 'bool' }],
+        stateMutability: 'view',
+      }] as const,
+      functionName: 'isVerified',
+      args: [address as Address],
+    })
   }
   catch {
     return false

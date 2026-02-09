@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { ethers } from 'ethers'
+import { getAddress, formatUnits, isAddress, type Address, type Abi } from 'viem'
+import { getPublicClient } from '~/utils/public-client'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   getNetAPY,
@@ -63,7 +64,7 @@ const { EVM_PROVIDER_URL } = useEulerConfig()
 
 const borrowVault = computed(() => position.value?.borrow)
 const collateralVault = computed(() => position.value?.collateral)
-const primaryCollateralAddress = computed(() => position.value ? ethers.getAddress(position.value.collateral.address) : '')
+const primaryCollateralAddress = computed(() => position.value ? getAddress(position.value.collateral.address) : '')
 const collateralCount = computed(() => position.value?.collaterals?.length ?? collateralItems.value.length)
 const collateralSymbolLabel = computed(() => {
   if (!position.value) {
@@ -83,6 +84,7 @@ const pairAssets = computed(() => {
   return [collateralVault.value.asset, borrowVault.value.asset]
 })
 const hasNoBorrow = computed(() => position.value?.borrow.borrow === 0n)
+const hasQueryFailure = computed(() => Boolean(position.value?.liquidityQueryFailure))
 const isEligibleForLiquidation = computed(() => isPositionEligibleForLiquidation(position.value))
 const isPositionGeoBlocked = computed(() => {
   if (!position.value) return false
@@ -335,7 +337,7 @@ const isPrimaryCollateral = (vault: Vault | SecuritizeVault) => {
     return false
   }
 
-  return ethers.getAddress(vault.address) === primaryCollateralAddress.value
+  return getAddress(vault.address) === primaryCollateralAddress.value
 }
 
 // Pre-computed borrow oracle price for display (always on-chain)
@@ -381,7 +383,7 @@ const isDisableCollateralError = (vault: Vault | SecuritizeVault) => {
     return false
   }
   try {
-    return ethers.getAddress(vault.address) === disableCollateralErrorVault.value
+    return getAddress(vault.address) === disableCollateralErrorVault.value
   }
   catch {
     return false
@@ -400,7 +402,7 @@ const loadCollaterals = async () => {
 
   const normalized = collateralAddresses.reduce<string[]>((acc, address) => {
     try {
-      acc.push(ethers.getAddress(address))
+      acc.push(getAddress(address))
     }
     catch {
       return acc
@@ -408,7 +410,7 @@ const loadCollaterals = async () => {
     return acc
   }, [])
 
-  const primaryAddress = ethers.getAddress(position.value.collateral.address)
+  const primaryAddress = getAddress(position.value.collateral.address)
   const unique = Array.from(new Set(normalized))
   const orderedAddresses = [primaryAddress, ...unique.filter(address => address !== primaryAddress)]
 
@@ -426,8 +428,7 @@ const loadCollaterals = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const provider = ethers.getDefaultProvider(EVM_PROVIDER_URL)
-    const accountLensContract = new ethers.Contract(lensAddress, eulerAccountLensABI, provider)
+    const client = getPublicClient(EVM_PROVIDER_URL)
 
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {
@@ -436,7 +437,12 @@ const loadCollaterals = async () => {
           let assets = 0n
 
           try {
-            const res = await accountLensContract.getAccountInfo(position.value!.subAccount, address)
+            const res = await client.readContract({
+              address: lensAddress as Address,
+              abi: eulerAccountLensABI as Abi,
+              functionName: 'getAccountInfo',
+              args: [position.value!.subAccount, address],
+            }) as Record<string, any>
             assets = res.vaultAccountInfo.assets
           }
           catch {
@@ -483,7 +489,7 @@ const disableCollateral = async (vault: Vault) => {
   if (plan) {
     const ok = await runDisableCollateralSimulation(plan)
     if (!ok) {
-      disableCollateralErrorVault.value = ethers.getAddress(vault.address)
+      disableCollateralErrorVault.value = getAddress(vault.address)
       return
     }
   }
@@ -543,8 +549,8 @@ const load = async () => {
         vault: position.value.collateral as Vault,
         assets: position.value.supplied,
       }]
-      // Only load additional collaterals if position has multiple
-      if (position.value.collaterals?.length && position.value.collaterals.length > 1) {
+      // Load collaterals: always for multi-collateral, or when oracle failed (to get actual assets)
+      if ((position.value.collaterals?.length && position.value.collaterals.length > 1) || position.value.liquidityQueryFailure) {
         await loadCollaterals()
       }
     }
@@ -593,6 +599,15 @@ watch(isConnected, () => {
         :assets-label="pairAssetsLabel"
       />
 
+      <UiToast
+        v-if="hasQueryFailure"
+        title="Oracle unavailable"
+        description="Oracle pricing is currently unavailable. Some position details cannot be displayed. You can still repay debt and supply collateral."
+        variant="warning"
+        size="compact"
+        persistent
+      />
+
       <div
         v-if="!hasNoBorrow"
         class="flex flex-col gap-16 p-16 rounded-12 border border-line-default bg-card shadow-card"
@@ -611,7 +626,7 @@ watch(isConnected, () => {
             class="text-h5"
             :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
-            {{ formatNumber(netAPY) }}%
+            {{ Number.isFinite(netAPY) ? `${formatNumber(netAPY)}%` : '-' }}
           </div>
         </div>
         <div class="flex justify-between items-center">
@@ -628,7 +643,7 @@ watch(isConnected, () => {
             class="text-h5"
             :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
-            {{ formatNumber(roe) }}%
+            {{ Number.isFinite(roe) ? `${formatNumber(roe)}%` : '-' }}
           </div>
         </div>
         <div class="flex justify-between items-center">
@@ -656,7 +671,10 @@ watch(isConnected, () => {
             Health score
           </div>
           <div class="text-neutral-800 text-p3">
-            {{ formatNumber(nanoToValue(position.health, 18)) }}
+            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <template v-else>
+              {{ formatNumber(nanoToValue(position.health, 18)) }}
+            </template>
           </div>
         </div>
         <div class="flex justify-between gap-8 flex-wrap mb-16">
@@ -664,7 +682,10 @@ watch(isConnected, () => {
             Time to liquidation
           </div>
           <div class="text-neutral-800 text-p3">
-            {{ timeToLiquidationDisplay }}
+            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <template v-else>
+              {{ timeToLiquidationDisplay }}
+            </template>
           </div>
         </div>
         <div class="flex justify-between gap-8 flex-wrap mb-12">
@@ -672,10 +693,14 @@ watch(isConnected, () => {
             Your LTV
           </div>
           <div class="text-neutral-800 text-p3">
-            {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
+            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <template v-else>
+              {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
+            </template>
           </div>
         </div>
         <UiProgress
+          v-if="!hasQueryFailure"
           :model-value="nanoToValue(position.userLTV, 18)"
           :max="nanoToValue(position.liquidationLTV, 2)"
           :color="nanoToValue(position.userLTV, 18) >= (nanoToValue(position.liquidationLTV, 2) - 2) ? 'danger' : undefined"
@@ -750,23 +775,26 @@ watch(isConnected, () => {
                 Liquidation price
               </div>
               <div class="text-neutral-800 text-p3">
-                ${{ borrowLiquidationPrice ? formatNumber(borrowLiquidationPrice) : '-' }}
+                {{ borrowLiquidationPrice ? `$${formatNumber(borrowLiquidationPrice)}` : '-' }}
               </div>
             </div>
             <VaultWarningBanner :warnings="positionWarnings" />
-            <div
+            <UiToast
               v-if="isEligibleForLiquidation"
-              class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 mb-8"
-            >
-              This position is eligible for liquidation. Multiply and borrow are disabled.
-            </div>
-            <div
+              title="Liquidation risk"
+              description="This position is eligible for liquidation. Multiply and borrow are disabled."
+              variant="error"
+              size="compact"
+              persistent
+            />
+            <UiToast
               v-if="isPositionGeoBlocked"
-              class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500 text-p4 mb-8"
-            >
-              <SvgIcon name="warning" class="!w-16 !h-16 shrink-0" />
-              This vault is not available in your region. You can still repay debt.
-            </div>
+              title="Region restricted"
+              description="This vault is not available in your region. You can still repay debt."
+              variant="warning"
+              size="compact"
+              persistent
+            />
             <div
               class="flex justify-between gap-8"
               @click.stop
@@ -775,8 +803,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary"
                 rounded
-                :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
-                :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/multiply`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/multiply`"
               >
                 Multiply
               </UiButton>
@@ -784,8 +812,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
-                :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/borrow`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow`"
               >
                 Borrow
               </UiButton>
@@ -801,8 +829,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :disabled="isPositionGeoBlocked"
-                :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/borrow/swap`"
+                :disabled="isPositionGeoBlocked || hasQueryFailure"
+                :to="isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow/swap`"
               >
                 Debt swap
               </UiButton>
@@ -882,7 +910,7 @@ watch(isConnected, () => {
                   Liquidation price
                 </div>
                 <div class="text-neutral-800 text-p3">
-                  ${{ liquidationPrice ? formatNumber(liquidationPrice) : '-' }}
+                  {{ liquidationPrice ? `$${formatNumber(liquidationPrice)}` : '-' }}
                 </div>
               </div>
               <div
@@ -896,12 +924,14 @@ watch(isConnected, () => {
                   {{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%
                 </div>
               </div>
-              <div
+              <UiToast
                 v-if="!hasNoBorrow && isEligibleForLiquidation"
-                class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p4 mb-8"
-              >
-                Withdraw is disabled while this position is eligible for liquidation.
-              </div>
+                title="Liquidation risk"
+                description="Withdraw is disabled while this position is eligible for liquidation."
+                variant="error"
+                size="compact"
+                persistent
+              />
               <div
                 v-if="!hasNoBorrow"
                 class="flex gap-8"
@@ -920,8 +950,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
-                  :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
+                  :disabled="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure"
+                  :to="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
                 >
                   Withdraw
                 </UiButton>
@@ -929,8 +959,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :disabled="isPositionGeoBlocked"
-                  :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
+                  :disabled="isPositionGeoBlocked || hasQueryFailure"
+                  :to="isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
                 >
                   Collateral swap
                 </UiButton>
