@@ -167,9 +167,11 @@ const priceFixed = computed(() => {
     ? getCollateralOraclePrice(borrowVault.value, collateralVault.value)
     : undefined
   const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
-  const ask = collateralPrice?.amountOutAsk || 0n
-  const bid = borrowPrice?.amountOutBid || 1n
-  return FixedPoint.fromValue(ask, 18).div(FixedPoint.fromValue(bid, 18))
+  if (!collateralPrice || !borrowPrice || borrowPrice.amountOutBid === 0n) {
+    return FixedPoint.fromValue(0n, 18)
+  }
+  return FixedPoint.fromValue(collateralPrice.amountOutAsk, 18)
+    .div(FixedPoint.fromValue(borrowPrice.amountOutBid, 18))
 })
 
 // USD price per unit of collateral from liability vault's perspective (for AssetInput display)

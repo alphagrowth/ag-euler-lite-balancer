@@ -7,8 +7,11 @@ export const truncateAddressForSubgraph = (address: string): string => {
   return address.toLowerCase().slice(0, 40)
 }
 
-export const formatNumber = (value: string | number = 0, maximumFractionDigits = 2, minimumFractionDigits = 2) =>
-  Number(value).toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits })
+export const formatNumber = (value: string | number = 0, maximumFractionDigits = 2, minimumFractionDigits = 2) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '-'
+  return num.toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits })
+}
 
 /**
  * Format USD value with smart handling of small amounts.
