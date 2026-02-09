@@ -53,6 +53,7 @@ export interface AccountBorrowPosition {
   liabilityValueLiquidation: bigint
   timeToLiquidation: bigint
   collateralValueLiquidation: bigint
+  liquidityQueryFailure?: boolean
 }
 export interface AccountDepositPosition {
   vault: Vault | SecuritizeVault | EarnVault
@@ -63,6 +64,7 @@ export interface AccountDepositPosition {
 
 export const isPositionEligibleForLiquidation = (position: AccountBorrowPosition | undefined): boolean => {
   if (!position || position.liabilityValueLiquidation === 0n) return false
+  if (position.liquidityQueryFailure) return false
   return position.liabilityValueLiquidation > position.collateralValueLiquidation
 }
 

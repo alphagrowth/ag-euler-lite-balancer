@@ -64,7 +64,6 @@ const toBigInt = (value: unknown) => {
   }
 }
 const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>, fallback: string[]) => {
-  const fallbackNormalized = fallback.map(addr => normalizeAddress(addr)).filter(Boolean)
   const infoCollaterals = (liquidityInfo?.collaterals || [])
     .map((addr: string) => normalizeAddress(addr))
     .filter(Boolean)
@@ -79,11 +78,13 @@ const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>, fall
     }
   }
 
+  // Lens populated collaterals but all values are 0 (e.g. LTV ramped to 0)
   if (infoCollaterals.length) {
     return infoCollaterals
   }
 
-  return fallbackNormalized
+  // queryFailure: lens didn't populate collaterals at all, fall back to EVC enabled list
+  return fallback.map(addr => normalizeAddress(addr)).filter(Boolean)
 }
 
 /**
@@ -110,6 +111,7 @@ const updateTotalSuppliedValue = async () => {
 
   // Borrow position collateral (liability vault context) — use borrow vault's collateral pricing with USD conversion
   const collateralValuePromises = borrowPositions.value.map(async (position) => {
+    if (position.liquidityQueryFailure) return 0
     const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) return 0
     return getCollateralUsdValueOrZero(position.supplied, borrowVault, position.collateral, 'off-chain')
@@ -146,6 +148,11 @@ const updateTotalSuppliedValueInfo = async () => {
   }
 
   for (const position of borrowPositions.value) {
+    if (position.liquidityQueryFailure) {
+      hasMissingPrices = true
+      continue
+    }
+
     const borrowVault = registryGetVault(position.borrow.address) as Vault | undefined
     if (!borrowVault) {
       if (position.supplied > 0n) hasMissingPrices = true
@@ -175,9 +182,9 @@ watchEffect(() => {
 const totalBorrowedValue = ref(0)
 
 const updateTotalBorrowedValue = async () => {
-  const promises = borrowPositions.value.map(pair =>
-    getAssetUsdValue(pair.borrowed, pair.borrow, 'off-chain'),
-  )
+  const promises = borrowPositions.value
+    .filter(pair => !pair.liquidityQueryFailure)
+    .map(pair => getAssetUsdValue(pair.borrowed, pair.borrow, 'off-chain'))
   const values = await Promise.all(promises)
   totalBorrowedValue.value = values.reduce<number>((result, val) => result + (val ?? 0), 0)
 }
@@ -198,6 +205,10 @@ const updateTotalBorrowedValueInfo = async () => {
   let hasMissingPrices = false
 
   for (const pair of borrowPositions.value) {
+    if (pair.liquidityQueryFailure) {
+      hasMissingPrices = true
+      continue
+    }
     const price = await getAssetUsdValue(pair.borrowed, pair.borrow, 'off-chain')
     if (price === undefined) {
       hasMissingPrices = true
@@ -294,14 +305,13 @@ const updateBorrowPositions = async (
               EVM_PROVIDER_URL,
               PYTH_HERMES_URL!,
             ) as Record<string, unknown> | undefined
-            // Result is the account info struct (viem unwraps single outputs)
-            if (!result) {
-              return undefined
+            if (result) {
+              res = result
             }
-            res = result
           }
-          else {
-            // Direct call for non-Pyth vaults
+
+          // Direct call: either non-Pyth vault, or Pyth simulation failed/returned nothing
+          if (!res) {
             res = await client.readContract({
               address: eulerLensAddresses.accountLens as Address,
               abi: eulerAccountLensABI as Abi,
@@ -373,6 +383,35 @@ const updateBorrowPositions = async (
         }
 
         const liquidityInfo = res.vaultAccountInfo.liquidityInfo
+        const hasQueryFailure = Boolean(liquidityInfo.queryFailure)
+
+        if (hasQueryFailure) {
+          // LTV config comes from vault governance, not oracle
+          const ltvConfig = borrow.collateralLTVs.find(ltv =>
+            getAddress(ltv.collateral) === getAddress(collateral.address),
+          )
+
+          return {
+            borrow,
+            collateral,
+            collaterals,
+            subAccount,
+            borrowed: res.vaultAccountInfo.borrowed,
+            // Collateral amount will be fetched by UI via loadCollaterals
+            supplied: 0n,
+            borrowLTV: ltvConfig?.borrowLTV ?? 0n,
+            liquidationLTV: ltvConfig?.liquidationLTV ?? 0n,
+            // Oracle-dependent fields — genuinely unavailable
+            health: 0n,
+            userLTV: 0n,
+            price: 0n,
+            liabilityValueBorrowing: 0n,
+            liabilityValueLiquidation: 0n,
+            timeToLiquidation: 0n,
+            collateralValueLiquidation: 0n,
+            liquidityQueryFailure: true,
+          } as AccountBorrowPosition
+        }
 
         const collateralValueLiquidation = liquidityInfo.collateralValueLiquidation
         const collateralValueRaw = liquidityInfo.collateralValueRaw
@@ -649,6 +688,8 @@ export const useEulerAccount = () => {
     let totalSupplyUSD = 0
 
     for (const position of borrowPositions.value) {
+      if (position.liquidityQueryFailure) continue
+
       const registryVault = registryGetVault(position.borrow.address) as Vault | undefined
       const borrowVault = registryVault || position.borrow
 

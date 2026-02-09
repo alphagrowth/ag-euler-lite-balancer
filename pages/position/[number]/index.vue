@@ -84,6 +84,7 @@ const pairAssets = computed(() => {
   return [collateralVault.value.asset, borrowVault.value.asset]
 })
 const hasNoBorrow = computed(() => position.value?.borrow.borrow === 0n)
+const hasQueryFailure = computed(() => Boolean(position.value?.liquidityQueryFailure))
 const isEligibleForLiquidation = computed(() => isPositionEligibleForLiquidation(position.value))
 const isPositionGeoBlocked = computed(() => {
   if (!position.value) return false
@@ -548,8 +549,8 @@ const load = async () => {
         vault: position.value.collateral as Vault,
         assets: position.value.supplied,
       }]
-      // Only load additional collaterals if position has multiple
-      if (position.value.collaterals?.length && position.value.collaterals.length > 1) {
+      // Load collaterals: always for multi-collateral, or when oracle failed (to get actual assets)
+      if ((position.value.collaterals?.length && position.value.collaterals.length > 1) || position.value.liquidityQueryFailure) {
         await loadCollaterals()
       }
     }
@@ -599,6 +600,15 @@ watch(isConnected, () => {
       />
 
       <div
+        v-if="hasQueryFailure"
+        class="flex gap-8 items-center py-8 px-12 rounded-8 bg-warning-100 text-warning-500 text-p4"
+      >
+        <SvgIcon name="warning" class="!w-16 !h-16 shrink-0" />
+        Oracle pricing is currently unavailable. Some position details cannot be displayed.
+        You can still repay debt and supply collateral.
+      </div>
+
+      <div
         v-if="!hasNoBorrow"
         class="flex flex-col gap-16 p-16 rounded-12 border border-line-default bg-card shadow-card"
       >
@@ -613,6 +623,13 @@ watch(isConnected, () => {
             />
           </div>
           <div
+            v-if="hasQueryFailure"
+            class="text-h5 text-content-tertiary"
+          >
+            -
+          </div>
+          <div
+            v-else
             class="text-h5"
             :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
@@ -630,6 +647,13 @@ watch(isConnected, () => {
             />
           </div>
           <div
+            v-if="hasQueryFailure"
+            class="text-h5 text-content-tertiary"
+          >
+            -
+          </div>
+          <div
+            v-else
             class="text-h5"
             :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
@@ -661,7 +685,10 @@ watch(isConnected, () => {
             Health score
           </div>
           <div class="text-neutral-800 text-p3">
-            {{ formatNumber(nanoToValue(position.health, 18)) }}
+            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <template v-else>
+              {{ formatNumber(nanoToValue(position.health, 18)) }}
+            </template>
           </div>
         </div>
         <div class="flex justify-between gap-8 flex-wrap mb-16">
@@ -669,7 +696,10 @@ watch(isConnected, () => {
             Time to liquidation
           </div>
           <div class="text-neutral-800 text-p3">
-            {{ timeToLiquidationDisplay }}
+            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <template v-else>
+              {{ timeToLiquidationDisplay }}
+            </template>
           </div>
         </div>
         <div class="flex justify-between gap-8 flex-wrap mb-12">
@@ -677,10 +707,14 @@ watch(isConnected, () => {
             Your LTV
           </div>
           <div class="text-neutral-800 text-p3">
-            {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
+            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <template v-else>
+              {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
+            </template>
           </div>
         </div>
         <UiProgress
+          v-if="!hasQueryFailure"
           :model-value="nanoToValue(position.userLTV, 18)"
           :max="nanoToValue(position.liquidationLTV, 2)"
           :color="nanoToValue(position.userLTV, 18) >= (nanoToValue(position.liquidationLTV, 2) - 2) ? 'danger' : undefined"
@@ -780,8 +814,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary"
                 rounded
-                :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
-                :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/multiply`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/multiply`"
               >
                 Multiply
               </UiButton>
@@ -789,8 +823,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
-                :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/borrow`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow`"
               >
                 Borrow
               </UiButton>
@@ -806,8 +840,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :disabled="isPositionGeoBlocked"
-                :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/borrow/swap`"
+                :disabled="isPositionGeoBlocked || hasQueryFailure"
+                :to="isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow/swap`"
               >
                 Debt swap
               </UiButton>
@@ -925,8 +959,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :disabled="isEligibleForLiquidation || isPositionGeoBlocked"
-                  :to="isEligibleForLiquidation || isPositionGeoBlocked ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
+                  :disabled="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure"
+                  :to="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
                 >
                   Withdraw
                 </UiButton>
@@ -934,8 +968,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :disabled="isPositionGeoBlocked"
-                  :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
+                  :disabled="isPositionGeoBlocked || hasQueryFailure"
+                  :to="isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
                 >
                   Collateral swap
                 </UiButton>

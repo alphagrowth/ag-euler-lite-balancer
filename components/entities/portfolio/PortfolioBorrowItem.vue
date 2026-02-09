@@ -188,8 +188,9 @@ const roe = computed(() => {
 })
 
 const loadCollaterals = async () => {
-  // Only load additional collaterals if position has multiple
-  if (!position.collaterals?.length || position.collaterals.length <= 1) return
+  // Only load additional collaterals if position has multiple,
+  // unless oracle failed — then always fetch actual assets from lens
+  if ((!position.collaterals?.length || position.collaterals.length <= 1) && !position.liquidityQueryFailure) return
 
   const collateralAddresses = position.collaterals?.length
     ? position.collaterals
