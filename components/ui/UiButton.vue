@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { NuxtLink } from '#components'
+import type { RouteLocationRaw } from 'vue-router'
 
 const emits = defineEmits<{
   (e: 'click', event: Event): void
@@ -9,7 +10,7 @@ const props = withDefaults(defineProps<{
   variant?: 'primary' | 'primary-stroke' | 'secondary' | 'secondary-ghost' | 'red' | 'red-destructive'
   type?: HTMLButtonElement['type']
   icon?: string
-  to?: string
+  to?: RouteLocationRaw
   href?: string
   target?: string
   disabled?: boolean
