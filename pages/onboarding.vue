@@ -17,13 +17,13 @@ const onConnectWalletClick = () => {
 
 const onConnectLaterClick = () => {
   isOnboardingCompleted.value = true
-  navigateTo({ name: defaultPageRoute })
+  navigateTo(`/${defaultPageRoute}`)
 }
 
 watch(isConnected, (value) => {
   if (value) {
     isOnboardingCompleted.value = true
-    navigateTo({ name: defaultPageRoute })
+    navigateTo(`/${defaultPageRoute}`)
   }
 }, { immediate: true })
 </script>

@@ -3,9 +3,51 @@ import type { Address } from 'viem'
 import axios from 'axios'
 
 import { brevisClaimABI } from '~/abis/brevis'
-import type { Campaign, CampaignsRequest, MerkleProofRequest } from '~/entities/brevis'
+import type { Campaign, CampaignsRequest, MerkleProofRequest, RewardInfo } from '~/entities/brevis'
 import type { TxPlan } from '~/entities/txPlan'
 import { CampaignAction } from '~/entities/brevis'
+
+const ACTION_MAP: Record<string, CampaignAction> = {
+  EULER_BORROW: CampaignAction.BORROW,
+  EULER_LEND: CampaignAction.LEND,
+}
+
+// Brevis API may return camelCase or snake_case — normalize to snake_case
+const normalizeRewardInfo = (raw: Record<string, unknown>): RewardInfo => ({
+  submission_chain_id: (raw.submission_chain_id ?? raw.submissionChainId ?? 0) as number,
+  submission_contract: (raw.submission_contract ?? raw.submissionContract ?? '') as string,
+  claim_chain_id: (raw.claim_chain_id ?? raw.claimChainId ?? 0) as number,
+  claim_contract: (raw.claim_contract ?? raw.claimContract ?? '') as string,
+  token_address: (raw.token_address ?? raw.tokenAddress ?? '') as string,
+  token_symbol: (raw.token_symbol ?? raw.tokenSymbol ?? '') as string,
+  reward_amt: (raw.reward_amt ?? raw.rewardAmt ?? '0') as string,
+  reward_usd_price: (raw.reward_usd_price ?? raw.rewardUsdPrice ?? '0') as string,
+  reward_per_hour: (raw.reward_per_hour ?? raw.rewardPerHour ?? '0') as string,
+  apr: (raw.apr ?? 0) as number,
+  tvl: (raw.tvl ?? 0) as number,
+})
+
+const normalizeCampaign = (raw: Record<string, unknown>): Campaign => {
+  const rawAction = raw.action
+  const action = typeof rawAction === 'number'
+    ? rawAction as CampaignAction
+    : ACTION_MAP[rawAction as string] ?? CampaignAction.LEND
+
+  const rawReward = (raw.reward_info ?? raw.rewardInfo ?? {}) as Record<string, unknown>
+
+  return {
+    chain_id: (raw.chain_id ?? raw.chainId ?? 0) as number,
+    vault_address: (raw.vault_address ?? raw.vaultAddress ?? '') as string,
+    action,
+    campaign_id: (raw.campaign_id ?? raw.campaignId ?? '') as string,
+    campaign_name: (raw.campaign_name ?? raw.campaignName ?? '') as string,
+    start_time: (raw.start_time ?? raw.startTime ?? 0) as number,
+    end_time: (raw.end_time ?? raw.endTime ?? 0) as number,
+    reward_info: normalizeRewardInfo(rawReward),
+    last_reward_attestation_time: (raw.last_reward_attestation_time ?? raw.lastRewardAttestationTime ?? 0) as number,
+    status: (raw.status ?? 0) as number,
+  }
+}
 
 const address = ref('')
 
@@ -79,7 +121,7 @@ export const useBrevis = () => {
         return
       }
 
-      const campaigns: Campaign[] = res.data.campaigns || []
+      const campaigns: Campaign[] = (res.data.campaigns || []).map(normalizeCampaign)
 
       const lends: Campaign[] = []
       const borrows: Campaign[] = []
@@ -127,6 +169,7 @@ export const useBrevis = () => {
       const request: CampaignsRequest = {
         chain_id: [1],
         user_address: [address.value],
+        status: [3, 4],
       }
 
       const res = await axios.post(BREVIS_API_URL, request)
@@ -136,7 +179,7 @@ export const useBrevis = () => {
         return
       }
 
-      userRewards.value = res.data.campaigns || []
+      userRewards.value = (res.data.campaigns || []).map(normalizeCampaign)
       cacheState.rewards.timestamp = Date.now()
       cacheState.rewards.address = address.value
     }

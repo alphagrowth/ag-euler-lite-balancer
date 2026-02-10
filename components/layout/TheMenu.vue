@@ -21,7 +21,7 @@ const getMenuIcon = (item: MenuItem) => {
       <NuxtLink
         v-for="link in menuItems"
         :key="link.name"
-        :to="{ name: link.name }"
+        :to="'/' + link.name"
         class="text-white flex flex-col items-center text-center flex-1 text-decoration-none text-[12px]"
       >
         <UiIcon

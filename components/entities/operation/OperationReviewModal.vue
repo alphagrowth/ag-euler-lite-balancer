@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { encodeFunctionData, getAddress, toFunctionSelector } from 'viem'
 import type { Address, Hex } from 'viem'
-import type { Reward } from '~/entities/merkl'
 import type { Campaign } from '~/entities/brevis'
 import type { VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
@@ -41,9 +40,10 @@ interface REULUnlockInfo {
   daysUntilMaturity: number
 }
 
-const { type, asset, rewardInfo, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount } = defineProps<{
+const { type, asset, assetIconUrl, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount } = defineProps<{
   type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral'
   asset: VaultAsset
+  assetIconUrl?: string
   amount: number | string
   fee?: number | string
   plan?: TxPlan
@@ -51,7 +51,6 @@ const { type, asset, rewardInfo, campaignInfo, reulUnlockInfo, amount, onConfirm
   supplyingAmount?: number | string
   swapToAsset?: VaultAsset
   swapToAmount?: number | string
-  rewardInfo?: Reward
   campaignInfo?: Campaign
   reulUnlockInfo?: REULUnlockInfo
   onConfirm: () => void
@@ -160,6 +159,7 @@ interface StepAssetInfo {
   symbol: string
   address?: string
   amount?: number | string
+  iconUrl?: string
 }
 
 interface DisplayStep {
@@ -302,12 +302,27 @@ const displaySteps = computed((): DisplayStep[] => {
           ? 'for permit2'
           : undefined
 
+      const isRewardOrUnlock = !isApproval && (type === 'reward' || type === 'brevis-reward' || type === 'reul-unlock')
+      const rewardIconUrl = ['EUL', 'rEUL'].includes(asset.symbol)
+        ? '/img/euler-default.png'
+        : assetIconUrl
+      const stepAsset: StepAssetInfo | undefined = isApproval
+        ? (approvalAsset ? { symbol: approvalAsset.symbol, address: approvalAsset.address } : undefined)
+        : isRewardOrUnlock
+          ? {
+              symbol: asset.symbol,
+              address: asset.address,
+              amount,
+              iconUrl: rewardIconUrl,
+            }
+          : undefined
+
       steps.push({
         index,
         label: isApproval ? 'Approve' : cleanStepLabel(step.label || step.functionName),
         labelSuffix,
         isSeparateTx: isApproval,
-        assetInfo: approvalAsset ? { symbol: approvalAsset.symbol, address: approvalAsset.address } : undefined,
+        assetInfo: stepAsset,
       })
     }
   }
@@ -366,32 +381,10 @@ const reulUnlockDisclaimerText = computed(() => {
 
   return `This action will unlock ${formatNumber(reulUnlockInfo.unlockableAmount, 6)} EUL, and ${formatNumber(reulUnlockInfo.amountToBeBurned, 6)} EUL will be permanently burned. To fully redeem your EUL rewards, you must wait for the 6-month vesting period to complete (${reulUnlockInfo.daysUntilMaturity} days remaining, maturity date: ${reulUnlockInfo.maturityDate}).`
 })
-const anyNonEulerReward = computed(() => {
-  return !!(rewardInfo?.breakdowns.find(breakdown => !breakdown.reason.startsWith('EULER')))
-})
-const eulerOnlyRewardsAmount = computed(() => {
-  return rewardInfo?.breakdowns
-    .filter(breakdown => breakdown.reason.startsWith('EULER'))
-    .reduce((prev, curr) => {
-      return prev + nanoToValue(BigInt(curr.amount) - BigInt(curr.claimed), rewardInfo.token.decimals)
-    }, 0)
-})
-const totalClaimAmount = computed(() => {
-  return Number(amount) < 0.01 ? '< 0.01' : formatNumber(amount)
-})
-const eulerClaimAmount = computed(() => {
-  const eulerAmount = eulerOnlyRewardsAmount.value || 0
-  return eulerAmount < 0.01 && eulerAmount > 0 ? '< 0.01' : formatNumber(eulerAmount)
-})
-const otherClaimAmount = computed(() => {
-  const eulerAmount = eulerOnlyRewardsAmount.value || 0
-  const otherAmount = Math.max(0, Number(amount) - eulerAmount)
-  return otherAmount < 0.01 && otherAmount > 0 ? '< 0.01' : formatNumber(otherAmount)
-})
 const disclaimerText = computed(() => {
   if (type !== 'reward') return
-
-  return `You're claiming ${totalClaimAmount.value} tokens, ${eulerClaimAmount.value} of them from Euler, ${otherClaimAmount.value} of them earned elsewhere`
+  const displayAmount = Number(amount) < 0.01 ? '< 0.01' : formatNumber(amount)
+  return `You're claiming all ${displayAmount} ${asset.symbol} on Merkl. Part of this amount could have been earned outside of Euler.`
 })
 
 const hasPermit2Approval = computed(() => {
@@ -445,7 +438,7 @@ const feeDisplay = computed(() => {
               <template v-if="step.assetInfo">
                 <BaseAvatar
                   class="icon--16"
-                  :src="getAssetLogoUrl(step.assetInfo.address || '', step.assetInfo.symbol)"
+                  :src="step.assetInfo.iconUrl || getAssetLogoUrl(step.assetInfo.address || '', step.assetInfo.symbol)"
                   :label="step.assetInfo.symbol"
                 />
                 <p
@@ -554,7 +547,7 @@ const feeDisplay = computed(() => {
 
       <!-- Disclaimers -->
       <UiToast
-        v-if="type === 'reward' && anyNonEulerReward"
+        v-if="type === 'reward'"
         title="Disclaimer"
         variant="warning"
         :description="disclaimerText"

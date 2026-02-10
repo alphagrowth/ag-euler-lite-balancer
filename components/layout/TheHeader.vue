@@ -69,7 +69,7 @@ onClickOutside(reference, () => {
 
 <template>
   <header
-    class="sticky top-0 right-0 left-0 z-[101] min-h-[72px] border-b border-line-default py-16 px-24 mobile:min-h-[56px] mobile:border-b-0 mobile:p-16 flex items-center bg-header backdrop-blur-[20px]"
+    class="sticky top-0 right-0 left-0 z-[101] min-h-[72px] border-b border-line-default py-16 px-24 mobile:min-h-[56px] mobile:border-b-0 mobile:p-16 flex items-center justify-between bg-header backdrop-blur-[20px]"
   >
     <!-- Left: Logo -->
     <button
@@ -148,7 +148,7 @@ onClickOutside(reference, () => {
         <NuxtLink
           v-for="item in menuItems"
           :key="item.name"
-          :to="{ name: item.name }"
+          :to="'/' + item.name"
           class="flex gap-8 text-[13px] font-medium no-underline py-10 px-16 rounded-8 text-content-secondary items-center justify-center hover:text-content-primary hover:bg-surface-secondary transition-all"
           :class="[getIsMenuItemActive(item) ? 'bg-surface-secondary text-content-primary' : '']"
         >

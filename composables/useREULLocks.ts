@@ -141,7 +141,7 @@ export const useREULLocks = () => {
       steps: [
         {
           type: 'other',
-          label: 'Unlock REUL',
+          label: 'Unlock rEUL',
           to: reulTokenContractAddress.value as Address,
           abi: reulWithdrawABI as Abi,
           functionName: 'withdrawToByLockTimestamp',

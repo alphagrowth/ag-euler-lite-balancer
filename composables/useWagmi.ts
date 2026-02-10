@@ -181,6 +181,7 @@ export const useWagmi = () => {
 
     isRouterReplacing = true
     await router.replace({
+      path: route.path,
       query: {
         ...route.query,
         network: targetChainId,

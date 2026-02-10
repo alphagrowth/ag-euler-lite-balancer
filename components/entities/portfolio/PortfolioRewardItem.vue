@@ -83,8 +83,8 @@ const onClaimClick = async () => {
       props: {
         type: 'reward',
         asset: reward.token,
+        assetIconUrl: tokenIconUrl.value || undefined,
         amount: amountToClaim.value,
-        rewardInfo: reward,
         plan: plan.value || undefined,
         onConfirm: () => {
           setTimeout(() => {
