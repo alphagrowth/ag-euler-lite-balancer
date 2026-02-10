@@ -1,5 +1,6 @@
 export const useDeployConfig = () => {
   const rc = useRuntimeConfig().public
+  const envConfig = useEnvConfig()
 
   const isEnabled = (val: unknown) => {
     const s = String(val)
@@ -16,9 +17,9 @@ export const useDeployConfig = () => {
     telegramUrl: rc.configTelegramUrl,
     githubUrl: rc.configGithubUrl,
 
-    // Branding
-    appTitle: rc.configAppTitle || 'Euler Lite',
-    appDescription: rc.configAppDescription || 'Lightweight interface for Euler Finance.',
+    // Branding (from useEnvConfig, not runtimeConfig)
+    appTitle: envConfig.appTitle,
+    appDescription: envConfig.appDescription,
 
     // Repos
     labelsRepo: rc.configLabelsRepo || 'euler-xyz/euler-labels',

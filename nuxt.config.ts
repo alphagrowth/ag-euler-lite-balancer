@@ -103,8 +103,6 @@ export default defineNuxtConfig({
       configDiscordUrl: '',
       configTelegramUrl: '',
       configGithubUrl: '',
-      configAppTitle: 'Euler Lite',
-      configAppDescription: 'Lightweight interface for Euler Finance.',
       configLabelsRepo: 'euler-xyz/euler-labels',
       configOracleChecksRepo: 'euler-xyz/oracle-checks',
       // Feature flags: enabled by default. Set to 'false' to disable.
