@@ -12,7 +12,7 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
-import { formatNumber } from '~/utils/string-utils'
+import { formatNumber, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
@@ -259,7 +259,7 @@ const onCollateralInput = async () => {
     .div(FixedPoint.fromValue(100n, 0)).round(Number(borrowVault.value?.decimals || 18))
     .subUnsafe(FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
   const zero = FixedPoint.fromValue(0n, Number(borrowVault.value?.decimals || 18))
-  borrowAmount.value = result.lt(zero) ? zero.toString() : result.toString()
+  borrowAmount.value = result.lt(zero) ? zero.toString() : trimTrailingZeros(result.toString())
 }
 const onBorrowInput = async () => {
   await nextTick()

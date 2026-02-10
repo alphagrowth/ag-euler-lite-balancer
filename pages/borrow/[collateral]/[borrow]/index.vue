@@ -17,7 +17,7 @@ import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollatera
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
-import { formatNumber } from '~/utils/string-utils'
+import { formatNumber, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import type { TxPlan } from '~/entities/txPlan'
 
@@ -907,10 +907,10 @@ const setMultiplyAmounts = (longAmount?: bigint | null, shortAmount?: bigint | n
     return
   }
   multiplyLongAmount.value = longAmount && longAmount > 0n
-    ? formatUnits(longAmount, Number(multiplyLongVault.value.asset.decimals))
+    ? trimTrailingZeros(formatUnits(longAmount, Number(multiplyLongVault.value.asset.decimals)))
     : ''
   multiplyShortAmount.value = shortAmount && shortAmount > 0n
-    ? formatUnits(shortAmount, Number(multiplyShortVault.value.asset.decimals))
+    ? trimTrailingZeros(formatUnits(shortAmount, Number(multiplyShortVault.value.asset.decimals)))
     : ''
 }
 watch([multiplyEffectiveQuote, multiplyIsSameAsset, multiplyDebtAmountNano], () => {
@@ -1315,11 +1315,11 @@ const onChangeCollateral = (selection: boolean | number) => {
 }
 const onCollateralInput = async () => {
   await nextTick()
-  borrowAmount.value = collateralAmountFixed.value
+  borrowAmount.value = trimTrailingZeros(collateralAmountFixed.value
     .mul(priceFixed.value)
     .mul(ltvFixed.value)
     .div(FixedPoint.fromValue(100n, 0)).round(Number(borrowVault.value?.decimals || 18))
-    .toString()
+    .toString())
 }
 const onBorrowInput = async () => {
   await nextTick()

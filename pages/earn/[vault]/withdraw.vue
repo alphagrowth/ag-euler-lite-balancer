@@ -12,7 +12,7 @@ import {
 } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
-import { formatNumber } from '~/utils/string-utils'
+import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
@@ -314,7 +314,7 @@ watch(amount, async () => {
             v-if="asset"
             class="text-p2 flex items-center gap-4"
           >
-            {{ formatNumber(nanoToValue(assetsBalance, asset.decimals), 2) }} <span class="text-p3 text-content-tertiary">{{ asset.symbol }}</span>
+            {{ formatSmartAmount(nanoToValue(assetsBalance, asset.decimals)) }} <span class="text-p3 text-content-tertiary">{{ asset.symbol }}</span>
             <span class="text-p3 text-content-tertiary">≈ ${{ formatNumber(assetsBalanceUsd) }}</span>
           </p>
         </div>

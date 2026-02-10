@@ -15,7 +15,7 @@ import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
-import { formatNumber } from '~/utils/string-utils'
+import { formatNumber, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
@@ -518,10 +518,10 @@ const setMultiplyAmounts = (longDelta?: bigint | null, shortDelta?: bigint | nul
   const totalLong = baseLong + (longDelta && longDelta > 0n ? longDelta : 0n)
   const totalShort = baseShort + (shortDelta && shortDelta > 0n ? shortDelta : 0n)
   multiplyLongAmount.value = totalLong > 0n
-    ? formatUnits(totalLong, Number(multiplyLongVault.value.asset.decimals))
+    ? trimTrailingZeros(formatUnits(totalLong, Number(multiplyLongVault.value.asset.decimals)))
     : ''
   multiplyShortAmount.value = totalShort > 0n
-    ? formatUnits(totalShort, Number(multiplyShortVault.value.asset.decimals))
+    ? trimTrailingZeros(formatUnits(totalShort, Number(multiplyShortVault.value.asset.decimals)))
     : ''
 }
 

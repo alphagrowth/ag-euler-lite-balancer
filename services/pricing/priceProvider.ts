@@ -6,6 +6,7 @@ import type {
   VaultCollateralPrice,
 } from '~/entities/vault'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { formatSmartAmount } from '~/utils/string-utils'
 import {
   fetchBackendPrice,
   backendPriceToBigInt,
@@ -529,10 +530,7 @@ export const formatAssetValue = async (
   const price = await getAssetUsdPrice(vault, source, backend)
 
   if (!price) {
-    const formattedAmount = actualAmount.toLocaleString('en-US', {
-      maximumFractionDigits: maxDecimals,
-      minimumFractionDigits: minDecimals,
-    })
+    const formattedAmount = formatSmartAmount(actualAmount, maxDecimals)
     return {
       display: `${formattedAmount} ${symbol}`,
       hasPrice: false,

@@ -72,6 +72,59 @@ export const formatCompactUsdValue = (value: string | number = 0, maximumFractio
   return `$${compactNumber(numericValue, maximumFractionDigits)}`
 }
 
+/**
+ * Trim trailing zeros from a decimal string while keeping it parseable.
+ * Intended for input fields where values are set programmatically.
+ * "0.363002000000000000" → "0.363002"
+ * "1.000000000000000000" → "1"
+ * "0.10"                 → "0.1"
+ */
+export const trimTrailingZeros = (value: string): string => {
+  if (!value.includes('.')) return value
+  const trimmed = value.replace(/0+$/, '')
+  return trimmed.endsWith('.') ? trimmed.slice(0, -1) : trimmed
+}
+
+/**
+ * Format a token amount with smart precision based on magnitude.
+ * - >= 1000: no decimals (e.g., "1,234")
+ * - >= 1: up to 4 decimals (e.g., "1.43")
+ * - < 1 and > 0: shows enough decimals to display 2 significant digits (e.g., "0.0012")
+ * - 0: "0"
+ */
+export const formatSmartAmount = (value: string | number = 0, maxDecimals = 6): string => {
+  const num = Number(value)
+  if (!Number.isFinite(num) || num === 0) return '0'
+
+  const abs = Math.abs(num)
+
+  if (abs >= 1000) {
+    return formatNumber(num, 0, 0)
+  }
+  if (abs >= 1) {
+    return formatNumber(num, 4, 0)
+  }
+
+  // For small values, find first significant digit and show 2 significant figures
+  const str = abs.toFixed(18)
+  const decimalIndex = str.indexOf('.')
+  if (decimalIndex === -1) return formatNumber(num, 2, 0)
+
+  const fractional = str.substring(decimalIndex + 1)
+  let firstSigIndex = -1
+  for (let i = 0; i < fractional.length; i++) {
+    if (fractional[i] !== '0') {
+      firstSigIndex = i
+      break
+    }
+  }
+
+  if (firstSigIndex === -1) return '0'
+
+  const precision = Math.min(firstSigIndex + 2, maxDecimals)
+  return formatNumber(num, precision, 0)
+}
+
 export const preciseNumber = (value: string | number, decimals = 36) => {
   return Intl.NumberFormat('en-US', { maximumFractionDigits: decimals, useGrouping: false }).format(Number(value))
 }

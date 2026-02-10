@@ -4,7 +4,7 @@ import { type Vault, type SecuritizeVault, type VaultAsset, type CollateralOptio
 import { getAssetUsdPrice } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { compactNumber, formatNumber } from '~/utils/string-utils'
+import { compactNumber, formatNumber, formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
@@ -57,7 +57,7 @@ watchEffect(async () => {
 
 const hasPrice = computed(() => price.value !== null)
 const setMax = () => {
-  model.value = formatUnits(props.balance ?? 0n, Number(props.asset.decimals))
+  model.value = trimTrailingZeros(formatUnits(props.balance ?? 0n, Number(props.asset.decimals)))
   emits('input')
   if (inputEl.value) {
     inputEl.value.value = model.value || ''
@@ -178,7 +178,7 @@ const openChooseCollateralModal = () => {
         :loading="balanceLoading"
       >
         <p @click="setMax">
-          <span class="text-euler-dark-800">{{ formatNumber(friendlyBalance) }} {{ asset.symbol }}</span> <span
+          <span class="text-euler-dark-800">{{ formatSmartAmount(friendlyBalance) }} {{ asset.symbol }}</span> <span
             class="text-aquamarine-700 font-semibold px-4 cursor-pointer select-none text-[12px] leading-[16px]"
           >Max</span> <!-- TODO: button -->
         </p>

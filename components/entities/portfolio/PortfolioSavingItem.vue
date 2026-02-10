@@ -3,7 +3,7 @@ import { type Vault } from '~/entities/vault'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { formatNumber, compactNumber, formatCompactUsdValue, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import type { AccountDepositPosition } from '~/entities/account'
 import { VaultOverviewModal } from '#components'
@@ -46,7 +46,7 @@ const supplyValueDisplay = ref('-')
 
 const updateSupplyValueDisplay = async () => {
   if (!regularVault.value) {
-    supplyValueDisplay.value = `${formatNumber(nanoToValue(position.assets, vault.value.asset.decimals))} ${vault.value.asset.symbol}`
+    supplyValueDisplay.value = `${formatSmartAmount(nanoToValue(position.assets, vault.value.asset.decimals))} ${vault.value.asset.symbol}`
     return
   }
   const price = await formatAssetValue(position.assets, regularVault.value, 'off-chain')
@@ -154,7 +154,7 @@ const onClick = () => {
           </div>
           <div class="flex justify-between gap-8 text-right">
             <div class="text-content-primary text-p3">
-              {{ formatNumber(assetAmount) }} {{ vault.asset.symbol }}
+              {{ formatSmartAmount(assetAmount) }} {{ vault.asset.symbol }}
             </div>
           </div>
         </div>

@@ -17,7 +17,7 @@ import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { getQuoteAmount } from '~/utils/swapQuotes'
-import { formatNumber } from '~/utils/string-utils'
+import { formatNumber, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
@@ -669,7 +669,7 @@ const onRepayPercentInput = () => {
   }
   const percent = Math.min(100, Math.max(0, repayDebtPercent.value || 0))
   const amountNano = (currentDebt * BigInt(Math.round(percent * 100))) / 10_000n
-  debtAmount.value = formatUnits(amountNano, Number(borrowVault.value.asset.decimals))
+  debtAmount.value = trimTrailingZeros(formatUnits(amountNano, Number(borrowVault.value.asset.decimals)))
   requestSwapQuote()
 }
 
