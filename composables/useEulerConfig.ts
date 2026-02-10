@@ -20,6 +20,7 @@ const getRpcUrlByChainId = (chainId?: number, origin?: string): string => {
 export const useEulerConfig = () => {
   const rc = useRuntimeConfig().public
   const { labelsRepo } = useDeployConfig()
+  const { subgraphUris } = useChainConfig()
   const { chainId } = useEulerAddresses()
   const requestUrl = useRequestURL()
 
@@ -48,7 +49,7 @@ export const useEulerConfig = () => {
 
     // Chain-specific (computed)
     EVM_PROVIDER_URL: computed(() => getRpcUrlByChainId(chainId.value, requestUrl.origin)).value,
-    SUBGRAPH_URL: computed(() => (rc.subgraphUris as Record<string, string>)[String(chainId.value)] || '').value,
+    SUBGRAPH_URL: computed(() => subgraphUris[String(chainId.value)] || '').value,
     MERKL_ADDRESS: MERKL_DISTRIBUTOR_ADDRESS,
   }
 }

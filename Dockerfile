@@ -22,5 +22,6 @@ RUN (curl -Ls --tlsv1.2 --proto "=https" --retry 3 https://cli.doppler.com/insta
 RUN groupadd -r appuser && useradd -r -g appuser -m appuser
 USER appuser
 
-# Doppler injects all secrets at runtime via DOPPLER_TOKEN, DOPPLER_PROJECT, DOPPLER_CONFIG env vars
+# Doppler injects all secrets at runtime via DOPPLER_TOKEN, DOPPLER_PROJECT, DOPPLER_CONFIG env vars.
+# server/plugins/chain-config.ts scans env vars and injects chain config via render:html hook.
 CMD ["./doppler", "run", "--", "node", ".output/server/index.mjs"]

@@ -1,21 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
-// Derive enabled chains from RPC_URL_HTTP_* env vars (build-time defaults).
-// When env vars are injected at runtime (e.g. Doppler), server/plugins/runtime-config.ts
-// re-scans process.env and patches these values before any SSR render.
-const enabledChainIds = Object.keys(process.env)
-  .filter(k => /^RPC_URL_HTTP_\d+$/.test(k) && process.env[k])
-  .map(k => Number(k.replace('RPC_URL_HTTP_', '')))
-
-// Collect subgraph URIs from NUXT_PUBLIC_SUBGRAPH_URI_*
-const subgraphUris: Record<string, string> = {}
-for (const [key, value] of Object.entries(process.env)) {
-  const match = key.match(/^NUXT_PUBLIC_SUBGRAPH_URI_(\d+)$/)
-  if (match && value) {
-    subgraphUris[match[1]] = value
-  }
-}
-
 const appTitle = process.env.NUXT_PUBLIC_CONFIG_APP_TITLE || process.env.CONFIG_APP_TITLE || 'Euler Lite'
 const appDescription = process.env.NUXT_PUBLIC_CONFIG_APP_DESCRIPTION || process.env.CONFIG_APP_DESCRIPTION || 'Lightweight interface for Euler Finance lending and borrowing.'
 
@@ -139,10 +123,6 @@ export default defineNuxtConfig({
       configEnableVaultType: '',
       configEnableEarnPage: '',
       configEnableLendPage: '',
-
-      // Computed at startup (populated by scanning process.env)
-      enabledChainIds,
-      subgraphUris,
     },
   },
 

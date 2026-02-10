@@ -88,8 +88,7 @@ const initAllowedChainIds = () => {
   if (initialized) return
   initialized = true
 
-  const rc = useRuntimeConfig().public
-  const enabledChainIds = rc.enabledChainIds as number[]
+  const { enabledChainIds } = useChainConfig()
   allowedChainIds.value = [...enabledChainIds]
   chainId.value = allowedChainIds.value[0] || 0
 }

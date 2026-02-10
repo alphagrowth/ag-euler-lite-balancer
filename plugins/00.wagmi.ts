@@ -9,7 +9,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const projectId = config.public.appKitProjectId
   const appUrl = config.public.appUrl
   const normalizedAppUrl = appUrl ? appUrl.replace(/\/+$/, '') : ''
-  const enabledChainIds = config.public.enabledChainIds as number[]
+  const { enabledChainIds } = useChainConfig()
   const configAppTitle = (config.public.configAppTitle as string) || 'Euler Lite'
   const configAppDescription = (config.public.configAppDescription as string) || 'Lightweight interface for Euler Finance.'
 

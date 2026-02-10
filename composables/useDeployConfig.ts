@@ -32,8 +32,7 @@ export const useDeployConfig = () => {
     enableEarnPage: isEnabled(rc.configEnableEarnPage),
     enableLendPage: isEnabled(rc.configEnableLendPage),
 
-    // Chains (derived from env scanning in nuxt.config.ts)
-    enabledChainIds: rc.enabledChainIds as number[],
-    subgraphUris: rc.subgraphUris as Record<string, string>,
+    // Chains (derived from env vars at runtime via useChainConfig)
+    ...useChainConfig(),
   }
 }
