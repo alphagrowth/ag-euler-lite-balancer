@@ -26,7 +26,7 @@ export const useDeployConfig = () => {
     isCustomLabelsRepo: computed(() => (rc.configLabelsRepo || 'euler-xyz/euler-labels') !== 'euler-xyz/euler-labels'),
 
     // Feature flags: all enabled by default, set env var to 'false' to disable
-    enableTosSignature: isEnabled(rc.configEnableTosSignature),
+    enableTosSignature: !!rc.configTosMdUrl,
     enableEntityBranding: isEnabled(rc.configEnableEntityBranding),
     enableVaultType: isEnabled(rc.configEnableVaultType),
     enableEarnPage: isEnabled(rc.configEnableEarnPage),

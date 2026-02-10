@@ -38,6 +38,10 @@ export async function getTosData(): Promise<TosData> {
       cachedTosData = { tosMessage, tosMessageHash }
       return cachedTosData
     })
+    .catch((error) => {
+      console.error('[TOS] Failed to load Terms of Use markdown:', error)
+      throw error
+    })
     .finally(() => {
       fetchPromise = null
     })

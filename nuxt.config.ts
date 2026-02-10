@@ -140,7 +140,6 @@ export default defineNuxtConfig({
       configLabelsRepo: 'euler-xyz/euler-labels',
       configOracleChecksRepo: 'euler-xyz/oracle-checks',
       // Feature flags: enabled by default. Set to 'false' to disable.
-      configEnableTosSignature: '',
       configEnableEntityBranding: '',
       configEnableVaultType: '',
       configEnableEarnPage: '',
