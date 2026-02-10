@@ -928,11 +928,11 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
               </template>
             </p>
           </div>
-          <div class="flex justify-between items-center">
-            <p class="text-content-tertiary">
+          <div class="flex justify-between items-start">
+            <p class="text-content-tertiary shrink-0 mr-12">
               Current price
             </p>
-            <p class="text-p2">
+            <p class="text-p2 text-right">
               {{ multiplyCurrentPrice ? `${formatNumber(multiplyCurrentPrice.value)} ${multiplyCurrentPrice.symbol}` : '-' }}
             </p>
           </div>
