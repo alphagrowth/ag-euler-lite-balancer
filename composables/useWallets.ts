@@ -197,11 +197,12 @@ export const useWallets = () => {
    * Fetch vault share balance via balanceOf on the vault address.
    * Use this for savings/deposit positions where user holds vault shares.
    */
-  const fetchVaultShareBalance = async (vaultAddress: string): Promise<bigint> => {
+  const fetchVaultShareBalance = async (vaultAddress: string, subAccount?: string): Promise<bigint> => {
     if (!isConnected.value || !address.value || !chain.value || !vaultAddress) {
       return 0n
     }
     try {
+      const balanceOfAddress = subAccount || address.value
       const client = createPublicClient({
         chain: chain.value,
         transport: http(rpcUrl.value),
@@ -210,7 +211,7 @@ export const useWallets = () => {
         address: getAddress(vaultAddress) as Address,
         abi: erc20BalanceOfAbi,
         functionName: 'balanceOf',
-        args: [address.value as Address],
+        args: [balanceOfAddress as Address],
       }) as bigint
       return result
     }

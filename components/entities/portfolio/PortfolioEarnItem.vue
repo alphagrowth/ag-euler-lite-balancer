@@ -159,7 +159,7 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/earn/${vault.address}/withdraw`"
+            :to="{ path: `/earn/${vault.address}/withdraw`, query: { subAccount: position.subAccount } }"
             rounded
           >
             Withdraw

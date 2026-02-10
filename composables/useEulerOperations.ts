@@ -875,6 +875,7 @@ export const useEulerOperations = () => {
     assetsAmount: bigint,
     maxSharesAmount?: bigint,
     isMax?: boolean,
+    subAccount?: string,
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -884,6 +885,7 @@ export const useEulerOperations = () => {
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const redeemFromAddr = subAccount ? (subAccount as Address) : userAddr
 
     const hasSigned = await hasSignature(userAddr)
     const tosData = await getTosData()
@@ -909,10 +911,15 @@ export const useEulerOperations = () => {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
-    hooks.setMainCallHookCallFromSelf(vaultAddr, 'redeem', [sharesAmount, userAddr, userAddr])
+    if (subAccount) {
+      hooks.setMainCallHookCallFromSA(vaultAddr, 'redeem', [sharesAmount, userAddr, redeemFromAddr])
+    }
+    else {
+      hooks.setMainCallHookCallFromSelf(vaultAddr, 'redeem', [sharesAmount, userAddr, redeemFromAddr])
+    }
 
     const saHooks = hooks.build()
-    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, redeemFromAddr)
 
     if (!hasSigned && enableTermsOfUseSignature) {
       const tosCall = {
@@ -1099,6 +1106,7 @@ export const useEulerOperations = () => {
     borrowAmount: bigint,
     subAccount?: string,
     enabledCollaterals?: string[],
+    savingsSubAccount?: string,
   ): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -1111,6 +1119,9 @@ export const useEulerOperations = () => {
     const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
 
     const subAccountAddr = subAccount || await getNewSubAccount(address.value)
+
+    const isSavingsAtSubAccount = savingsSubAccount
+      && getAddress(savingsSubAccount) !== getAddress(userAddr)
 
     const hasSigned = await hasSignature(userAddr)
     const tosData = await getTosData()
@@ -1125,7 +1136,9 @@ export const useEulerOperations = () => {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
-    hooks.addPreHookCallFromSelf(vaultAddr, 'transfer', [subAccountAddr, amount])
+    if (!isSavingsAtSubAccount) {
+      hooks.addPreHookCallFromSelf(vaultAddr, 'transfer', [subAccountAddr, amount])
+    }
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
@@ -1138,6 +1151,16 @@ export const useEulerOperations = () => {
         data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
       }
       evcCalls.unshift(tosCall)
+    }
+
+    if (isSavingsAtSubAccount) {
+      const transferCall: EVCCall = {
+        targetContract: vaultAddr,
+        onBehalfOfAccount: getAddress(savingsSubAccount!) as Address,
+        value: 0n,
+        data: hooks.getDataForCall(vaultAddr, 'transfer', [subAccountAddr, amount]) as Hash,
+      }
+      evcCalls.push(transferCall)
     }
 
     const enableControllerCall = {

@@ -168,14 +168,14 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/lend/${vault.address}/withdraw`"
+            :to="{ path: `/lend/${vault.address}/withdraw`, query: { subAccount: position.subAccount } }"
             rounded
           >
             Withdraw
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/lend/${vault.address}/swap`"
+            :to="{ path: `/lend/${vault.address}/swap`, query: { subAccount: position.subAccount } }"
             rounded
           >
             Asset swap
@@ -274,14 +274,14 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/lend/${vault.address}/withdraw`"
+            :to="{ path: `/lend/${vault.address}/withdraw`, query: { subAccount: position.subAccount } }"
             rounded
           >
             Withdraw
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/lend/${vault.address}/swap`"
+            :to="{ path: `/lend/${vault.address}/swap`, query: { subAccount: position.subAccount } }"
             rounded
           >
             Asset swap

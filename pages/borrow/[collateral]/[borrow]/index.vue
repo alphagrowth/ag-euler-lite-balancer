@@ -875,7 +875,10 @@ const updateBalance = async () => {
 
   // Fetch vault share balance (for savings positions)
   if (collateralVault.value?.address) {
-    savingBalance.value = await fetchVaultShareBalance(collateralVault.value.address)
+    savingBalance.value = await fetchVaultShareBalance(
+      collateralVault.value.address,
+      savingCollateral.value?.subAccount,
+    )
   }
   else {
     savingBalance.value = 0n
@@ -1205,6 +1208,9 @@ const submit = async () => {
           collateralAmountForPlan,
           borrowVault.value.address,
           borrowAmountNano,
+          undefined,
+          undefined,
+          savingCollateral.value?.subAccount,
         )
         : await buildBorrowPlan(
           collateralVault.value.address,
@@ -1267,6 +1273,9 @@ const send = async () => {
         collateralAmountForPlan,
         borrowVault.value.address,
         borrowAmountNano,
+        undefined,
+        undefined,
+        savingCollateral.value?.subAccount,
       )
       : await buildBorrowPlan(
         collateralVault.value.address,

@@ -26,6 +26,7 @@ const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getOpportunityOfLendVault } = useMerkl()
 const vaultAddress = route.params.vault as string
+const subAccount = route.query.subAccount as string | undefined
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -93,7 +94,7 @@ const fetchShareBalance = async () => {
     sharesBalance.value = 0n
     return
   }
-  sharesBalance.value = await fetchVaultShareBalance(vault.value.address)
+  sharesBalance.value = await fetchVaultShareBalance(vault.value.address, subAccount)
 }
 
 const updateBalance = async () => {
@@ -120,8 +121,8 @@ const submit = async () => {
 
     try {
       plan.value = isMax
-        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
-        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
+        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount)
+        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount)
     }
     catch (e) {
       console.warn('[OperationReviewModal] failed to build plan', e)
@@ -160,8 +161,8 @@ const send = async () => {
 
     const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
     const txPlan = isMax
-      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax)
-      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value)
+      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount)
+      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount)
     await executeTxPlan(txPlan)
 
     modal.close()

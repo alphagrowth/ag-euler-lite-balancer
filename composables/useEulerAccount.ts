@@ -644,7 +644,7 @@ export const useEulerAccount = () => {
       false,
       { forceAllPositions: shouldShowAll },
     )
-    updateSavingsPositions(
+    await updateSavingsPositions(
       eulerLensAddresses.value,
       targetAddress,
       depositEntries,
@@ -773,7 +773,7 @@ export const useEulerAccount = () => {
       ? await fetchPositionEntries(SUBGRAPH_URL, walletAddress)
       : { borrowEntries: [], depositEntries: [] }
     await updateBorrowPositions(lensAddresses, walletAddress, borrowEntries)
-    updateSavingsPositions(lensAddresses, walletAddress, depositEntries)
+    await updateSavingsPositions(lensAddresses, walletAddress, depositEntries)
   }
 
   return {
