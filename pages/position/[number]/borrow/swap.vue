@@ -83,9 +83,8 @@ watch([quote, toVault], () => {
   }
   const formatted = formatUnits(amountIn, Number(toVault.value.decimals))
   const numericValue = Number(formatted)
-  // Use more precision for very small amounts
   toAmount.value = numericValue < 0.01
-    ? numericValue.toExponential(2)
+    ? formatSignificant(formatted, 3)
     : formatSignificant(formatted)
 }, { immediate: true })
 const currentDebt = computed(() => position.value?.borrowed || 0n)
@@ -411,7 +410,7 @@ const formatSmallAmount = (value: bigint, decimals: number) => {
   const formatted = formatUnits(value, decimals)
   const numericValue = Number(formatted)
   return numericValue < 0.01 && numericValue > 0
-    ? numericValue.toExponential(2)
+    ? formatSignificant(formatted, 3)
     : formatSignificant(formatted)
 }
 

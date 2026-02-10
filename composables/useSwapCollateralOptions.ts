@@ -82,6 +82,7 @@ export const useSwapCollateralOptions = ({
         price: await getAssetUsdValueOrZero(amount, vault, 'off-chain'),
         apy,
         symbol: vault.asset.symbol,
+        assetAddress: vault.asset.address,
         label: product.name || vault.name,
         vaultAddress: vault.address,
       }

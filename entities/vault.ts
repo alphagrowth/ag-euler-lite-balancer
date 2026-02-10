@@ -409,6 +409,7 @@ export interface CollateralOption {
   apy?: number
   label?: string
   symbol?: string
+  assetAddress?: string
   vaultAddress?: string
 }
 

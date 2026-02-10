@@ -441,6 +441,7 @@ const collateralOptions = computed(() => {
       amount: nanoToValue(balance.value, collateralVault.value?.asset.decimals),
       price: walletCollateralPriceUsd.value,
       apy: collateralSupplyApyWithRewards.value,
+      assetAddress: collateralVault.value?.asset.address,
     },
   ]
 
@@ -450,6 +451,7 @@ const collateralOptions = computed(() => {
       amount: nanoToValue(savingCollateral.value.assets, collateralVault.value?.asset.decimals),
       price: savingCollateralPriceUsd.value,
       apy: collateralSupplyApyWithRewards.value,
+      assetAddress: collateralVault.value?.asset.address,
     })
   }
   return options

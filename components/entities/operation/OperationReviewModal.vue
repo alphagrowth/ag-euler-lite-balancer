@@ -169,6 +169,7 @@ interface DisplayStep {
   isSeparateTx: boolean
   assetInfo?: StepAssetInfo
   toAssetInfo?: StepAssetInfo
+  iconOnly?: boolean
 }
 
 // Extract the second address param from enableCollateral/enableController calldata
@@ -184,55 +185,60 @@ const decodeVaultAddressFromData = (data: string): string | undefined => {
   }
 }
 
-const getAssetSymbolForVault = (data: string): string | undefined => {
+const getVaultAssetInfo = (data: string, targetContract: string): StepAssetInfo | undefined => {
   const vaultAddress = decodeVaultAddressFromData(data)
-  if (!vaultAddress) return undefined
-  const vault = getVault(vaultAddress)
-  return vault?.asset?.symbol
+  const vault = vaultAddress ? getVault(vaultAddress) : undefined
+  if (vault?.asset) return { symbol: vault.asset.symbol, address: vault.asset.address }
+
+  try {
+    const targetVault = getVault(getAddress(targetContract))
+    if (targetVault?.asset) return { symbol: targetVault.asset.symbol, address: targetVault.asset.address }
+  }
+  catch { /* ignore */ }
+
+  return undefined
 }
 
-const getAssetInfoForStep = (label: string, data: string, usedSupply: { value: boolean }, usedBorrow: { value: boolean }, usedSwapTo: { value: boolean }): StepAssetInfo | undefined => {
-  if (label === 'Enable collateral' || label === 'Enable controller') {
-    const symbol = getAssetSymbolForVault(data)
-    if (symbol) return { symbol }
-    return undefined
+const getAssetInfoForStep = (label: string, data: string, targetContract: string, usedSupply: { value: boolean }, usedBorrow: { value: boolean }, usedSwapTo: { value: boolean }): StepAssetInfo | undefined => {
+  if (label === 'Enable collateral' || label === 'Enable controller' || label === 'Disable collateral' || label === 'Disable controller') {
+    return getVaultAssetInfo(data, targetContract)
   }
 
   if (label === 'Supply' || label === 'Withdraw') {
     // For borrow type with supplyingAssetForBorrow, the supply step uses that asset
     if (type === 'borrow' && !usedSupply.value && label === 'Supply' && supplyingAssetForBorrow && supplyingAmount) {
       usedSupply.value = true
-      return { symbol: supplyingAssetForBorrow.symbol, amount: supplyingAmount }
+      return { symbol: supplyingAssetForBorrow.symbol, address: supplyingAssetForBorrow.address, amount: supplyingAmount }
     }
     // Otherwise use the main asset
-    return { symbol: asset.symbol, amount }
+    return { symbol: asset.symbol, address: asset.address, amount }
   }
 
   if (label === 'Borrow' || label === 'Repay') {
     if (!usedBorrow.value) {
       usedBorrow.value = true
-      return { symbol: asset.symbol, amount }
+      return { symbol: asset.symbol, address: asset.address, amount }
     }
   }
 
   if (label === 'Swap') {
-    return { symbol: asset.symbol, amount }
+    return { symbol: asset.symbol, address: asset.address, amount }
   }
 
   if (label === 'Verify min received') {
     if (swapToAsset && swapToAmount && !usedSwapTo.value) {
       usedSwapTo.value = true
-      return { symbol: swapToAsset.symbol, amount: swapToAmount }
+      return { symbol: swapToAsset.symbol, address: swapToAsset.address, amount: swapToAmount }
     }
-    return { symbol: asset.symbol, amount }
+    return { symbol: asset.symbol, address: asset.address, amount }
   }
 
   if (label === 'Verify max debt') {
-    return { symbol: asset.symbol, amount }
+    return { symbol: asset.symbol, address: asset.address, amount }
   }
 
   if (label === 'Update price feeds') {
-    return { symbol: asset.symbol }
+    return { symbol: asset.symbol, address: asset.address }
   }
 
   return undefined
@@ -255,14 +261,14 @@ const displaySteps = computed((): DisplayStep[] => {
         for (const item of batchItems) {
           index++
           const label = decodeBatchItemLabel(item.data)
-          const stepAssetInfo = getAssetInfoForStep(label, item.data, usedSupply, usedBorrow, usedSwapTo)
+          const stepAssetInfo = getAssetInfoForStep(label, item.data, item.targetContract, usedSupply, usedBorrow, usedSwapTo)
           const secondAsset = supplyingAssetForBorrow || swapToAsset
           let toAssetInfo: StepAssetInfo | undefined
           if (label === 'Swap' && swapToAsset && swapToAmount) {
-            toAssetInfo = { symbol: swapToAsset.symbol, amount: swapToAmount }
+            toAssetInfo = { symbol: swapToAsset.symbol, address: swapToAsset.address, amount: swapToAmount }
           }
           else if (label === 'Update price feeds' && stepAssetInfo && secondAsset && secondAsset.symbol !== asset.symbol) {
-            toAssetInfo = { symbol: secondAsset.symbol }
+            toAssetInfo = { symbol: secondAsset.symbol, address: secondAsset.address }
           }
           steps.push({
             index,
@@ -270,6 +276,7 @@ const displaySteps = computed((): DisplayStep[] => {
             isSeparateTx: false,
             assetInfo: stepAssetInfo,
             toAssetInfo,
+            iconOnly: label === 'Update price feeds',
           })
         }
       }
@@ -285,8 +292,8 @@ const displaySteps = computed((): DisplayStep[] => {
     else {
       index++
       const isApproval = step.type === 'approve' || step.type === 'permit2-approve'
-      const stepAssetSymbol = isApproval
-        ? (type === 'borrow' && supplyingAssetForBorrow ? supplyingAssetForBorrow.symbol : asset.symbol)
+      const approvalAsset = isApproval
+        ? (type === 'borrow' && supplyingAssetForBorrow ? supplyingAssetForBorrow : asset)
         : undefined
 
       const labelSuffix = step.type === 'approve'
@@ -300,7 +307,7 @@ const displaySteps = computed((): DisplayStep[] => {
         label: isApproval ? 'Approve' : cleanStepLabel(step.label || step.functionName),
         labelSuffix,
         isSeparateTx: isApproval,
-        assetInfo: stepAssetSymbol ? { symbol: stepAssetSymbol } : undefined,
+        assetInfo: approvalAsset ? { symbol: approvalAsset.symbol, address: approvalAsset.address } : undefined,
       })
     }
   }
@@ -441,7 +448,10 @@ const feeDisplay = computed(() => {
                   :src="getAssetLogoUrl(step.assetInfo.address || '', step.assetInfo.symbol)"
                   :label="step.assetInfo.symbol"
                 />
-                <p class="text-p3">
+                <p
+                  v-if="!step.iconOnly"
+                  class="text-p3"
+                >
                   <template v-if="step.assetInfo.amount !== undefined">{{ formatNumber(step.assetInfo.amount, 8, 0) }}&nbsp;</template>{{ step.assetInfo.symbol }}
                 </p>
               </template>
@@ -452,7 +462,10 @@ const feeDisplay = computed(() => {
                 {{ step.labelSuffix }}
               </p>
               <template v-if="step.toAssetInfo">
-                <p class="text-p3 text-euler-dark-900">
+                <p
+                  v-if="!step.iconOnly"
+                  class="text-p3 text-euler-dark-900"
+                >
                   &rarr;
                 </p>
                 <BaseAvatar
@@ -460,7 +473,10 @@ const feeDisplay = computed(() => {
                   :src="getAssetLogoUrl(step.toAssetInfo.address || '', step.toAssetInfo.symbol)"
                   :label="step.toAssetInfo.symbol"
                 />
-                <p class="text-p3">
+                <p
+                  v-if="!step.iconOnly"
+                  class="text-p3"
+                >
                   <template v-if="step.toAssetInfo.amount !== undefined">{{ formatNumber(step.toAssetInfo.amount, 8, 0) }}&nbsp;</template>{{ step.toAssetInfo.symbol }}
                 </p>
               </template>
