@@ -9,7 +9,7 @@ export const useDeployConfig = () => {
   return {
     // URLs (empty string = not configured, hide UI element)
     docsUrl: rc.configDocsUrl,
-    tosUrl: rc.configTosUrl,
+    tosUrl: rc.configTosUrl || 'https://www.euler.finance/terms',
     tosMdUrl: rc.configTosMdUrl,
     xUrl: rc.configXUrl,
     discordUrl: rc.configDiscordUrl,

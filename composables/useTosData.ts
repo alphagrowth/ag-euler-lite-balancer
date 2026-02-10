@@ -1,5 +1,5 @@
 import type { Hex } from 'viem'
-import { keccak256, stringToHex, toHex } from 'viem'
+import { hashMessage, keccak256, stringToHex } from 'viem'
 
 let cachedTosData: TosData | null = null
 let fetchPromise: Promise<TosData> | null = null
@@ -31,9 +31,9 @@ export async function getTosData(): Promise<TosData> {
       return response.text()
     })
     .then((content) => {
-      const tosHash = keccak256(toHex(content))
+      const tosHash = hashMessage(content)
       const tosHashShort = `0x${tosHash.slice(-6)}`
-      const tosMessage = `By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: ${tosUrl}  hash:${tosHashShort}`
+      const tosMessage = `By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: ${tosUrl}\n\nhash:${tosHashShort}`
       const tosMessageHash = keccak256(stringToHex(tosMessage))
       cachedTosData = { tosMessage, tosMessageHash }
       return cachedTosData
