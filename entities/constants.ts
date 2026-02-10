@@ -1,7 +1,5 @@
-import { CUSTOM_ICON_TOKENS } from './customTokens'
+import type { Address } from 'viem'
 import { EVC_ERROR_SIGNATURES } from './evc-error-signatures'
-
-export { CUSTOM_ICON_TOKENS }
 
 export const ERROR_MESSAGE_MAP: Record<string, string> = {
   E_SupplyCapExceeded: 'Supply cap reached for this vault.',
@@ -54,8 +52,8 @@ export const DEFAULT_SLIPPAGE = 0.5
 export const MIN_SLIPPAGE = 0
 export const MAX_SLIPPAGE = 50
 
-export const USD_ADDRESS = '0x0000000000000000000000000000000000000348'
-export const EUR_ADDRESS = '0x00000000000000000000000000000000000003d2'
+export const USD_ADDRESS: Address = '0x0000000000000000000000000000000000000348'
+export const EUR_ADDRESS: Address = '0x00000000000000000000000000000000000003d2'
 
 export const ALLOWANCE_SLOT_CANDIDATES = [0n, 1n, 2n, 3n] as const
 export const PERMIT2_SIG_WINDOW = 60n * 60n

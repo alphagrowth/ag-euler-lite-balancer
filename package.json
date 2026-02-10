@@ -3,10 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run generate:tokens && nuxt build",
-    "dev": "npm run generate:tokens && nuxt dev",
-    "generate": "npm run generate:tokens && nuxt generate",
-    "generate:tokens": "node scripts/generate-custom-tokens.mjs",
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
   },

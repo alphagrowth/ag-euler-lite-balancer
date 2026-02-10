@@ -3,7 +3,6 @@ import axios from 'axios'
 import type {
   TokenData,
 } from '~/entities/token'
-import { CUSTOM_ICON_TOKENS } from '~/entities/constants'
 import { useEulerConfig } from '~/composables/useEulerConfig'
 
 const isLoading = ref(false)
@@ -44,10 +43,17 @@ export const useTokens = () => {
   }
 }
 
-export const getAssetLogoUrl = (address: string, symbol: string) => {
-  if (CUSTOM_ICON_TOKENS.has(symbol.toLowerCase())) {
-    return `/tokens/${symbol.toLowerCase()}.png`
-  }
+const tokenIconOverrides = new Map(
+  Object.entries(
+    import.meta.glob('~/assets/tokens/*', { eager: true, query: '?url', import: 'default' }),
+  ).map(([path, url]) => {
+    const symbol = path.split('/').pop()?.split('.')[0]?.toLowerCase() ?? ''
+    return [symbol, url as string]
+  }),
+)
 
-  return tokensByAddress[address.toLowerCase()]?.logoURI ?? `/tokens/${symbol.toLowerCase()}.png`
+export const getAssetLogoUrl = (address: string, symbol: string) => {
+  return tokenIconOverrides.get(symbol.toLowerCase())
+    ?? tokensByAddress[address.toLowerCase()]?.logoURI
+    ?? ''
 }

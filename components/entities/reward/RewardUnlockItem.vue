@@ -5,6 +5,9 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { REULLock } from '~/entities/reul'
 import type { TxPlan } from '~/entities/txPlan'
+import { getAssetLogoUrl } from '~/composables/useTokens'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const modal = useModal()
 const { error } = useToast()
@@ -134,7 +137,7 @@ const onUnlockClick = async () => {
       class="flex justify-between items-center p-16 pb-12 border-b border-border-primary"
     >
       <BaseAvatar
-        src="/img/euler-default.png"
+        :src="getAssetLogoUrl('', 'EUL')"
         label="EUL"
         class="icon--40"
       />

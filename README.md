@@ -288,7 +288,6 @@ Nuxt uses those values for the document title and SEO meta tags.
 
 - `favicon.ico`
 - `favicon.svg`
-- `favicon-96x96.png`
 
 The favicon paths are already configured in `nuxt.config.ts` to point to `/favicons/favicon.ico`.
 

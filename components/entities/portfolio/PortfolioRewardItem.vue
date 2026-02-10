@@ -4,6 +4,9 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { Reward } from '~/entities/merkl'
 import type { TxPlan } from '~/entities/txPlan'
+import { getAssetLogoUrl } from '~/composables/useTokens'
+import { formatNumber, formatUsdValue } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const { reward } = defineProps<{ reward: Reward }>()
 
@@ -24,7 +27,7 @@ const amountInUsd = computed(() => amountToClaim.value * reward.token.price)
 const tokenIconUrl = computed(() => {
   if (isTokensLoading.value) return null
   return ['rEUL', 'EUL'].includes(reward.token.symbol)
-    ? '/img/euler-default.png'
+    ? getAssetLogoUrl(reward.token.address, 'EUL')
     : rewardTokens.value.find(token => token.address === reward.token.address)?.icon
       || null
 })

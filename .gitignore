@@ -24,5 +24,3 @@ logs
 !.env.example
 
 *storybook.log
-
-entities/customTokens.ts

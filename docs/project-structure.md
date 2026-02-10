@@ -120,7 +120,6 @@ entities/
 ├── config.ts                # Configuration constants and addresses
 ├── constants.ts             # Shared constants
 ├── custom.ts                # Custom entity definitions
-├── customTokens.ts          # Custom token configurations
 ├── evc-error-signatures.ts  # EVC error signature decoding
 ├── euler/                   # Euler Finance specific entities
 │   ├── abis.ts              # Smart contract ABIs

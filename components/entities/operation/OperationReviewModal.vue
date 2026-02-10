@@ -6,6 +6,8 @@ import type { VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
 import type { EVCCall } from '~/utils/evc-converter'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { formatNumber } from '~/utils/string-utils'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 
 // Map function selectors to human-readable labels for batch items
 const SELECTOR_LABELS: Record<string, string> = {
@@ -336,7 +338,7 @@ const displaySteps = computed((): DisplayStep[] => {
 
       const isRewardOrUnlock = !isApproval && (type === 'reward' || type === 'brevis-reward' || type === 'reul-unlock')
       const rewardIconUrl = ['EUL', 'rEUL'].includes(asset.symbol)
-        ? '/img/euler-default.png'
+        ? getAssetLogoUrl(asset.address, 'EUL')
         : assetIconUrl
       const stepAsset: StepAssetInfo | undefined = isApproval
         ? (approvalAsset ? { symbol: approvalAsset.symbol, address: approvalAsset.address } : undefined)
