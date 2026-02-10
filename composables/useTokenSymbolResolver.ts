@@ -1,5 +1,5 @@
 import type { Address } from 'viem'
-import { USD_ADDRESS, EUR_ADDRESS } from '~/entities/constants'
+import { USD_ADDRESS, EUR_ADDRESS, BTC_ADDRESS, ETH_ADDRESS } from '~/entities/constants'
 import { erc20SymbolAbi } from '~/abis/erc20'
 import { getPublicClient } from '~/utils/public-client'
 
@@ -27,6 +27,8 @@ export const useTokenSymbolResolver = () => {
 
     map.set(USD_ADDRESS.toLowerCase(), 'USD')
     map.set(EUR_ADDRESS.toLowerCase(), 'EUR')
+    map.set(BTC_ADDRESS.toLowerCase(), 'BTC')
+    map.set(ETH_ADDRESS.toLowerCase(), 'ETH')
 
     getAll().forEach(({ vault }) => {
       if (vault.asset?.address && vault.asset?.symbol) {

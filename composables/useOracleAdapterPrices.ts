@@ -4,7 +4,7 @@ import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
 import { erc20DecimalsAbi } from '~/abis/erc20'
 import { priceOracleAbi } from '~/abis/oracle'
 import { vaultConvertToAssetsAbi } from '~/abis/vault'
-import { USD_ADDRESS, EUR_ADDRESS } from '~/entities/constants'
+import { USD_ADDRESS, EUR_ADDRESS, BTC_ADDRESS, ETH_ADDRESS } from '~/entities/constants'
 import type { OracleAdapterEntry } from '~/entities/oracle'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { buildPythBatchItems } from '~/utils/pyth'
@@ -29,6 +29,10 @@ const buildKnownDecimals = (
   // UoA constants
   decimals.set(USD_ADDRESS.toLowerCase(), 18)
   decimals.set(EUR_ADDRESS.toLowerCase(), 18)
+
+  // Well-known non-ERC20 placeholder addresses
+  decimals.set(BTC_ADDRESS.toLowerCase(), 18)
+  decimals.set(ETH_ADDRESS.toLowerCase(), 18)
 
   const addVaultDecimals = (vault: Vault | SecuritizeVault) => {
     if (vault.asset?.address && vault.asset?.decimals !== undefined) {
@@ -122,12 +126,15 @@ const fetchMissingDecimals = async (
           result.set(addresses[i].toLowerCase(), decimals)
         }
         catch {
-          // Skip tokens whose decimals can't be decoded
+          result.set(addresses[i].toLowerCase(), 18)
         }
       }
-      // Skip tokens whose decimals() call failed — omitting them
-      // from the map causes their adapters to be filtered out later,
-      // which is safer than defaulting to 18 (would misquote USDC/WBTC).
+      else {
+        // Non-ERC20 addresses (e.g. BTC/ETH placeholders) will fail
+        // decimals() calls — default to 18 so their adapters are not
+        // filtered out of price queries.
+        result.set(addresses[i].toLowerCase(), 18)
+      }
     })
   }
   catch {

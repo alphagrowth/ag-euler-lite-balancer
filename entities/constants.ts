@@ -54,6 +54,8 @@ export const MAX_SLIPPAGE = 50
 
 export const USD_ADDRESS: Address = '0x0000000000000000000000000000000000000348'
 export const EUR_ADDRESS: Address = '0x00000000000000000000000000000000000003d2'
+export const BTC_ADDRESS: Address = '0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB'
+export const ETH_ADDRESS: Address = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 
 export const ALLOWANCE_SLOT_CANDIDATES = [0n, 1n, 2n, 3n] as const
 export const PERMIT2_SIG_WINDOW = 60n * 60n
