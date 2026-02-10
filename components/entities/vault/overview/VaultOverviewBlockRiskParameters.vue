@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { maxUint256, type Address } from 'viem'
+import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 import { getPublicClient } from '~/utils/public-client'
 import { vaultConvertToAssetsAbi } from '~/abis/vault'
 import { type Vault } from '~/entities/vault'

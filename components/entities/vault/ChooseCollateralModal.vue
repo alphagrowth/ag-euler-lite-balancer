@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { CollateralOption } from '~/entities/vault'
+import { formatNumber } from '~/utils/string-utils'
 
 const emits = defineEmits(['close'])
 const { productName, symbol, collateralOptions, selected = 0, onSave } = defineProps<{

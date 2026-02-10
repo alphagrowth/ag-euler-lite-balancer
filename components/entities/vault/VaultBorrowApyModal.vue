@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
 import type { Opportunity } from '~/entities/merkl'
+import { formatNumber } from '~/utils/string-utils'
 
 const emits = defineEmits(['close'])
 const { borrowingAPY, intrinsicAPY, opportunityInfo } = defineProps<{

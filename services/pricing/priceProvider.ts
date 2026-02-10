@@ -95,7 +95,7 @@ export const getAssetOraclePrice = (vault: Vault | null | undefined): PriceResul
  */
 export const getCollateralShareOraclePrice = (
   liabilityVault: Vault | null | undefined,
-  collateralVault: Vault | null | undefined,
+  collateralVault: Vault | SecuritizeVault | null | undefined,
 ): VaultCollateralPrice | undefined => {
   if (!liabilityVault || !collateralVault) return undefined
   const collateralAddress = collateralVault.address.toLowerCase()
@@ -128,7 +128,7 @@ export const getCollateralShareOraclePrice = (
  */
 export const getCollateralOraclePrice = (
   liabilityVault: Vault | null | undefined,
-  collateralVault: Vault | null | undefined,
+  collateralVault: Vault | SecuritizeVault | null | undefined,
 ): PriceResult | undefined => {
   if (!liabilityVault || !collateralVault) {
     return undefined
@@ -318,7 +318,7 @@ const getAssetUsdPriceFromOracle = async (
  */
 const getCollateralUsdPriceFromOracle = async (
   liabilityVault: Vault | null | undefined,
-  collateralVault: Vault | null | undefined,
+  collateralVault: Vault | SecuritizeVault | null | undefined,
   source: PriceSource,
   backend?: BackendConfig,
 ): Promise<PriceResult | undefined> => {
@@ -391,7 +391,7 @@ export const getAssetUsdPrice = async (
  */
 export const getCollateralUsdPrice = async (
   liabilityVault: Vault | null | undefined,
-  collateralVault: Vault | null | undefined,
+  collateralVault: Vault | SecuritizeVault | null | undefined,
   source: PriceSource = 'on-chain',
   backend?: BackendConfig,
 ): Promise<PriceResult | undefined> => {
@@ -462,7 +462,7 @@ export const getAssetUsdValue = async (
 export const getCollateralUsdValue = async (
   assetAmount: bigint,
   liabilityVault: Vault | null | undefined,
-  collateralVault: Vault | null | undefined,
+  collateralVault: Vault | SecuritizeVault | null | undefined,
   source: PriceSource = 'on-chain',
   backend?: BackendConfig,
 ): Promise<number | undefined> => {

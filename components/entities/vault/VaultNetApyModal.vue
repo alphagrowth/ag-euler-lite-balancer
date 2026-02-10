@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
+import { formatNumber } from '~/utils/string-utils'
 import type { Opportunity } from '~/entities/merkl'
 
 const emits = defineEmits(['close'])
@@ -147,7 +148,7 @@ const handleClose = () => {
           </p>
         </div>
         <div class="flex flex-shrink-0 text-h5">
-          + {{ formatNumber(rewardsTotalAPY) }}%
+          + {{ formatNumber(rewardsTotalAPY ?? 0) }}%
         </div>
       </div>
       <div

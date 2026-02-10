@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatNumber } from '~/utils/string-utils'
+
 const emits = defineEmits(['close'])
 const {
   maxRoe,

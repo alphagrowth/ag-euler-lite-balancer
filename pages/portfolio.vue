@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
 
 defineOptions({
   name: 'PortfolioPage',

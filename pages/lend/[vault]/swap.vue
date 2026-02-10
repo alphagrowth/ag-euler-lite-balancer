@@ -15,6 +15,8 @@ import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -122,7 +124,7 @@ const syncToVault = () => {
   }
   if (!collateralVaults.value.length) {
     if (!toVault.value) {
-      toVault.value = fromVault.value
+      toVault.value = fromVault.value as Vault | undefined
     }
     return
   }
@@ -269,7 +271,7 @@ const swapRouteItems = computed(() => {
   const bestProvider = quoteCardsSorted.value[0]?.provider
   return quoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amount = formatSmallAmount(amountOut, Number(toVault.value.decimals))
+    const amount = formatSmallAmount(amountOut, Number(toVault.value!.decimals))
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
       ? { label: 'Best', tone: 'best' as const }
@@ -279,7 +281,7 @@ const swapRouteItems = computed(() => {
     return {
       provider: card.provider,
       amount,
-      symbol: toVault.value.asset.symbol,
+      symbol: toVault.value!.asset.symbol,
       routeLabel: card.quote.route?.length
         ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
         : '-',
@@ -609,7 +611,7 @@ const send = async () => {
             </div>
             <div class="flex justify-between items-center">
               <p class="text-content-tertiary">
-                {{ toVault.asset.symbol || 'Token2' }} supply APY
+                {{ toVault?.asset?.symbol || 'Token2' }} supply APY
               </p>
               <p class="text-p2">
                 {{ toSupplyApy !== null ? `${formatNumber(toSupplyApy)}%` : '-' }}

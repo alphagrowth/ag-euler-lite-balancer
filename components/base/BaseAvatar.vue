@@ -4,6 +4,7 @@ const loadedImages = new Set<string>()
 
 <script setup lang="ts">
 import { useImage } from '@vueuse/core'
+import { stringToColor } from '~/utils/string-utils'
 
 defineOptions({
   inheritAttrs: false,

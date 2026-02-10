@@ -6,7 +6,7 @@ const props = withDefaults(
     label?: string
     helpText?: string
     type?: string
-    inputMode?: string
+    inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url'
     disabled?: boolean
     error?: boolean
     fullWidth?: boolean

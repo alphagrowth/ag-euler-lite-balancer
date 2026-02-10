@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
+import { formatNumber } from '~/utils/string-utils'
 import type { Opportunity } from '~/entities/merkl'
 import type { Campaign } from '~/entities/brevis'
 
@@ -22,14 +23,14 @@ const hasIntrinsicApy = computed(() => intrinsicApyValue.value > 0)
 const totalSupplyApy = computed(() => lendingAPY + intrinsicApyValue.value + (rewardsTotalAPY.value || 0))
 
 const rewardsInfo = computed(() => {
-  const rewards = opportunityInfo?.campaigns
+  const rewards: Array<{ id: string; apr: number; endDate: DateTime; rewardToken: { symbol: string; icon: string }; source: string }> = opportunityInfo?.campaigns
     .map((campaign) => {
       return {
         id: campaign.id,
         apr: campaign.apr,
         endDate: DateTime.fromSeconds(campaign.endTimestamp),
-        rewardToken: campaign.rewardToken,
-        source: 'merkl',
+        rewardToken: { symbol: campaign.rewardToken.symbol, icon: campaign.rewardToken.icon },
+        source: 'merkl' as const,
       }
     })
     .filter(campaign => campaign.endDate > DateTime.now()) || []

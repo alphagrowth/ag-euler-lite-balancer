@@ -16,6 +16,7 @@ import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
 import SecuritizeVaultOverview from '~/components/entities/vault/overview/SecuritizeVaultOverview.vue'
+import { formatNumber, compactNumber } from '~/utils/string-utils'
 
 // Type definitions for vault display
 type VaultType = 'evk' | 'securitize'

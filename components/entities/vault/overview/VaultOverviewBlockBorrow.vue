@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatNumber, compactNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'

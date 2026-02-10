@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatNumber, compactNumber, formatSignificant } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 import { type SecuritizeBorrowVaultPair } from '~/entities/vault'
 import { getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
@@ -25,7 +27,7 @@ const borrowRewardInfo = computed(() => getBorrowRewardInfo(pair.borrow.asset.ad
 
 // Supply APY (for securitize collateral - intrinsic + rewards only, no interest rate)
 const collateralRewardAPY = computed(() => getSupplyRewardApy(pair.collateral.address))
-const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol, 'supply'))
+const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol))
 const supplyApyWithRewards = computed(() => intrinsicSupplyApy.value + collateralRewardAPY.value)
 const supplyRewardInfo = computed(() => getSupplyRewardInfo(pair.collateral.address))
 

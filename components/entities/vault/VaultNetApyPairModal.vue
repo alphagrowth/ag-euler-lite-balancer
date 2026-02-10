@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatNumber } from '~/utils/string-utils'
+
 const emits = defineEmits(['close'])
 const {
   supplyAPY,
@@ -82,7 +84,7 @@ const handleClose = () => {
             </p>
           </div>
           <div class="text-h5">
-            + {{ formatNumber(supplyRewardAPY) }}%
+            + {{ formatNumber(supplyRewardAPY ?? 0) }}%
           </div>
         </div>
       </div>
@@ -130,7 +132,7 @@ const handleClose = () => {
             </p>
           </div>
           <div class="text-h5">
-            - {{ formatNumber(borrowRewardAPY) }}%
+            - {{ formatNumber(borrowRewardAPY ?? 0) }}%
           </div>
         </div>
       </div>

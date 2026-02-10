@@ -226,9 +226,9 @@ const loadVaults = async () => {
     // (need EVK collateralLTVs + Earn strategies to know which escrow vaults are needed)
 
     // Signals for coordination
-    let evkResolve: () => void
-    let earnResolve: () => void
-    let escrowAddrsResolve: (addrs: string[]) => void
+    let evkResolve: () => void = () => {}
+    let earnResolve: () => void = () => {}
+    let escrowAddrsResolve: (addrs: string[]) => void = () => {}
     const evkLoaded = new Promise<void>(resolve => { evkResolve = resolve })
     const earnLoaded = new Promise<void>(resolve => { earnResolve = resolve })
     const escrowAddrsLoaded = new Promise<string[]>(resolve => { escrowAddrsResolve = resolve })

@@ -16,7 +16,7 @@ const UTILISATION_CRITICAL = 99
 const CAP_HIGH = 95
 const CAP_CRITICAL = 99
 
-const utilisationMessages: Record<WarningContext, Record<WarningLevel, { title: string, message: string }>> = {
+const utilisationMessages: Record<WarningContext, Record<'high' | 'critical', { title: string, message: string }>> = {
   lend: {
     high: {
       title: 'High utilisation',
@@ -49,7 +49,7 @@ const utilisationMessages: Record<WarningContext, Record<WarningLevel, { title: 
   },
 }
 
-const getUtilisationLevel = (utilisation: number): WarningLevel | null => {
+const getUtilisationLevel = (utilisation: number): 'high' | 'critical' | null => {
   if (utilisation >= UTILISATION_CRITICAL) return 'critical'
   if (utilisation >= UTILISATION_HIGH) return 'high'
   return null

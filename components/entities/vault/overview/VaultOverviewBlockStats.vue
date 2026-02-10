@@ -2,6 +2,8 @@
 import { getVaultUtilization, type Vault } from '~/entities/vault'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
+import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
 

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete */
 import axios from 'axios'
-import { getAddress } from 'viem'
+import { getAddress, type Address } from 'viem'
 import {
   type EulerLabelEntity,
   type EulerLabelProduct, eulerLabelProductEmpty,
@@ -42,12 +42,12 @@ const featuredEarnVaults: Set<string> = shallowReactive(new Set())
 const verifiedVaultAddresses: Ref<string[]> = ref([])
 const oracleAdapters: Record<string, OracleAdapterMeta> = shallowReactive({})
 
-const normalizeAddress = (address: string) => {
+const normalizeAddress = (address: string): Address => {
   try {
     return getAddress(address)
   }
   catch {
-    return address.toLowerCase()
+    return address.toLowerCase() as Address
   }
 }
 
@@ -111,7 +111,7 @@ const normalizeOracleAdapters = (data: unknown) => {
       provider: typeof raw.provider === 'string' ? raw.provider : undefined,
       methodology: typeof raw.methodology === 'string' ? raw.methodology : undefined,
       label: typeof raw.label === 'string' ? raw.label : undefined,
-      checks: Array.isArray(raw.checks) ? raw.checks.filter(v => typeof v === 'string') : undefined,
+      checks: Array.isArray(raw.checks) ? raw.checks.filter((v): v is string => typeof v === 'string') : undefined,
     }
 
     normalized[meta.oracle.toLowerCase()] = meta

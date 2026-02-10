@@ -12,6 +12,8 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
 const route = useRoute()
@@ -149,7 +151,7 @@ const load = async () => {
   userLTV.value = Number(formatNumber(nanoToValue(position.value.userLTV, 18)))
   ltv.value = userLTV.value
   try {
-    pair.value = await getBorrowVaultPair(collateralAddress as string, borrowAddress as string)
+    pair.value = await getBorrowVaultPair(collateralAddress as string, borrowAddress as string) as BorrowVaultPair
     // Fetch fresh underlying asset balance for this specific vault
     await updateBalance()
   }

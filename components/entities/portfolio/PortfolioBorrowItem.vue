@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getAddress, type Address, type Abi } from 'viem'
+import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { getPublicClient } from '~/utils/public-client'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { getSubAccountIndex } from '~/entities/account'
@@ -10,6 +12,7 @@ import {
   getNetAPY,
   getRoe,
   type Vault,
+  type SecuritizeVault,
 } from '~/entities/vault'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import {
@@ -39,7 +42,7 @@ const { name: collateralProductName } = useEulerProductOfVault(position.collater
 const { name: borrowProductName } = useEulerProductOfVault(position.borrow.address)
 
 type PositionCollateral = {
-  vault: Vault
+  vault: Vault | SecuritizeVault
   assets: bigint
 }
 
@@ -227,7 +230,7 @@ const loadCollaterals = async () => {
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {
         try {
-          const vault = await getOrFetch(address) as Vault | undefined
+          const vault = await getOrFetch(address) as Vault | SecuritizeVault | undefined
           let assets = 0n
 
           try {
@@ -263,7 +266,7 @@ const loadCollaterals = async () => {
 
 // Initialize collateralItems - for securitize, we won't load additional collaterals
 collateralItems.value = [{
-  vault: position.collateral as Vault,
+  vault: position.collateral,
   assets: position.supplied,
 }]
 

@@ -25,7 +25,7 @@ const tabs = computed(() => {
   if (!pair) {
     return []
   }
-  const list = [
+  const list: Array<{ label: string; value: string | undefined; avatars: string[]; symbols: string[] }> = [
     {
       label: 'Position details',
       value: undefined,
@@ -103,7 +103,7 @@ const onVaultClick = (address: string) => {
     >
       <template #default="{ tab: slotTab }">
         <div class="flex items-center gap-8">
-          <BaseAvatar :src="slotTab.avatars as string[]" :label="slotTab.symbols" />
+          <BaseAvatar :src="(slotTab.avatars as string[])" :label="(slotTab.symbols as string[])" />
           {{ slotTab.label }}
         </div>
       </template>

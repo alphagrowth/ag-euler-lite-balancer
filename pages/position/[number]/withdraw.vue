@@ -23,6 +23,8 @@ import {
 import type { TxPlan } from '~/entities/txPlan'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
 const route = useRoute()
@@ -82,7 +84,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 // Get collateral USD value using liability vault's price perspective (async)
 const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !collateralVault.value) return 0
-  return getCollateralUsdValueOrZero(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
+  return getCollateralUsdValueOrZero(amount, borrowVault.value, collateralVault.value, 'off-chain')
 }
 // Pre-computed net APY (async)
 const netAPY = ref(0)
@@ -218,8 +220,8 @@ const load = async () => {
   try {
     await loadSelectedCollateral()
     estimateNetAPY.value = netAPY.value
-    estimateUserLTV.value = position.value.userLTV
-    estimateHealth.value = position.value.health
+    estimateUserLTV.value = position.value!.userLTV
+    estimateHealth.value = position.value!.health
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -400,7 +402,7 @@ watch(amount, async () => {
         v-model="amount"
         label="Withdraw amount"
         :asset="asset"
-        :vault="collateralVault"
+        :vault="(collateralVault as Vault)"
         :balance="collateralAssets"
         maxable
       />

@@ -14,6 +14,7 @@ import {
   getNetAPY,
   type Vault,
   type SecuritizeVault,
+  type VaultAsset,
 } from '~/entities/vault'
 import {
   getAssetUsdValueOrZero,
@@ -21,6 +22,8 @@ import {
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
 const route = useRoute()
@@ -116,7 +119,7 @@ const liquidationPrice = computed(() => {
   return nanoToValue(position.value?.price || 0n, 18) / nanoToValue(position.value?.health || 1n, 18)
 })
 const asset = computed(() => collateralVault.value?.asset)
-const assets = computed(() => [asset.value])
+const assets = computed(() => [asset.value].filter((v): v is VaultAsset => !!v))
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   return balance.value < valueToNano(amount.value, asset.value?.decimals)
@@ -207,8 +210,8 @@ const load = async () => {
     // Fetch fresh underlying asset balance for this specific vault
     await updateBalance()
     estimateNetAPY.value = netAPY.value
-    estimateUserLTV.value = position.value.userLTV
-    estimateHealth.value = position.value.health
+    estimateUserLTV.value = position.value!.userLTV
+    estimateHealth.value = position.value!.health
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -278,7 +281,7 @@ const send = async () => {
     }
 
     const txPlan = await buildSupplyPlan(
-      collateralVault.value.address,
+      collateralVault.value!.address,
       asset.value.address,
       valueToNano(amount.value || '0', asset.value.decimals),
       position.value?.subAccount,
@@ -408,7 +411,7 @@ onUnmounted(() => {
         label="Deposit amount"
         :desc="name"
         :asset="asset"
-        :vault="collateralVault"
+        :vault="(collateralVault as Vault)"
         :balance="balance"
         maxable
       />
@@ -465,7 +468,7 @@ onUnmounted(() => {
           <p class="text-p2 flex items-center gap-4">
             {{ nanoToValue(position.price, 18) > 0 ? `$${formatNumber(nanoToValue(position.price, 18))}` : '-' }}
             <span v-if="nanoToValue(position.price, 18) > 0" class="text-content-tertiary text-p3">
-              {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
+              {{ collateralVault?.asset?.symbol }}/{{ borrowVault?.asset?.symbol }}
             </span>
           </p>
         </div>

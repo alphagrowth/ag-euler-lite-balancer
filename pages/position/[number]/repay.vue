@@ -17,6 +17,8 @@ import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { getQuoteAmount } from '~/utils/swapQuotes'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -179,7 +181,7 @@ const load = async () => {
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value?.userLTV || 0n
     estimateHealth.value = position.value?.health || 0n
-    swapCollateralVault.value = position.value?.collateral
+    swapCollateralVault.value = position.value?.collateral as Vault | undefined
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -590,9 +592,9 @@ const swapRouteItems = computed(() => {
   const isExactIn = repaySwapDirection.value === SwapperMode.EXACT_IN
   return swapQuoteCardsSorted.value.map((card) => {
     const amount = getQuoteAmount(card.quote, isExactIn ? 'amountOut' : 'amountIn')
-    const symbol = isExactIn ? borrowVault.value.asset.symbol : swapCollateralVault.value.asset.symbol
+    const symbol = isExactIn ? borrowVault.value!.asset.symbol : swapCollateralVault.value!.asset.symbol
     const amountLabel = formatSignificant(
-      formatUnits(amount, Number(isExactIn ? borrowVault.value.asset.decimals : swapCollateralVault.value.asset.decimals)),
+      formatUnits(amount, Number(isExactIn ? borrowVault.value!.asset.decimals : swapCollateralVault.value!.asset.decimals)),
     )
     const diffPct = (isExactIn ? exactInQuotes.getQuoteDiffPct : targetDebtQuotes.getQuoteDiffPct)(card.quote)
     const badge = card.provider === bestProvider
@@ -687,7 +689,7 @@ const onSwapCollateralChange = (selectedIndex: number) => {
     return
   }
   if (!swapCollateralVault.value || normalizeAddress(swapCollateralVault.value.address) !== normalizeAddress(nextVault.address)) {
-    swapCollateralVault.value = nextVault
+    swapCollateralVault.value = nextVault as Vault
     collateralAmount.value = ''
     debtAmount.value = ''
     resetSwapQuoteState()

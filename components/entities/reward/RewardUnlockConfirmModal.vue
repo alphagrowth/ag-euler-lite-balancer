@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { REULLock } from '~/entities/reul'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const { rewardTokens } = useMerkl()
 

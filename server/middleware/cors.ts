@@ -27,7 +27,7 @@ export default defineEventHandler((event) => {
   setResponseHeader(event, 'Access-Control-Allow-Headers', 'Content-Type')
 
   if (event.node.req.method === 'OPTIONS') {
-    setResponseHeader(event, 'Access-Control-Max-Age', '86400')
+    setResponseHeader(event, 'Access-Control-Max-Age', 86400)
     return sendNoContent(event)
   }
 })

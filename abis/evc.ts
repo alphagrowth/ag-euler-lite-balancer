@@ -72,10 +72,10 @@ export const EVC_ABI = [
 ] as const
 
 export type BatchItem = {
-  targetContract: string
-  onBehalfOfAccount: string
+  targetContract: `0x${string}`
+  onBehalfOfAccount: `0x${string}`
   value: bigint
-  data: string
+  data: `0x${string}`
 }
 
 export type BatchItemResult = {

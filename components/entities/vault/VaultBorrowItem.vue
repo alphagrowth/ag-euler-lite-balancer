@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { getAddress } from 'viem'
+import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 import { type AnyBorrowVaultPair, type Vault, getVaultUtilization } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'

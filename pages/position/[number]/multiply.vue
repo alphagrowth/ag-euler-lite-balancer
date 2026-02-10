@@ -15,6 +15,8 @@ import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -115,7 +117,7 @@ const multiplyRouteItems = computed(() => {
   return multiplyQuoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
     const amount = formatSignificant(
-      formatUnits(amountOut, Number(multiplyLongVault.value.asset.decimals)),
+      formatUnits(amountOut, Number(multiplyLongVault.value!.asset.decimals)),
     )
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
@@ -126,7 +128,7 @@ const multiplyRouteItems = computed(() => {
     return {
       provider: card.provider,
       amount,
-      symbol: multiplyLongVault.value.asset.symbol,
+      symbol: multiplyLongVault.value!.asset.symbol,
       routeLabel: card.quote.route?.length
         ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
         : '-',
@@ -755,7 +757,7 @@ const loadPosition = async () => {
     isLoading.value = false
     return
   }
-  multiplySupplyVault.value = position.value.collateral
+  multiplySupplyVault.value = position.value.collateral as Vault
   isLoading.value = false
 }
 
@@ -848,7 +850,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             :desc="multiplyLongProduct.name"
             label="Long"
             :asset="multiplyLongVault.asset"
-            :vault="multiplyLongVault"
+            :vault="(multiplyLongVault as Vault)"
             :readonly="true"
           />
 

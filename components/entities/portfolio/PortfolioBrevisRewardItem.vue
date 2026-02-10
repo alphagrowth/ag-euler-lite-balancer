@@ -5,6 +5,7 @@ import { useToast } from '~/components/ui/composables/useToast'
 import type { Campaign } from '~/entities/brevis'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { TxPlan } from '~/entities/txPlan'
+import { formatNumber, formatUsdValue } from '~/utils/string-utils'
 
 const { campaign } = defineProps<{ campaign: Campaign }>()
 

@@ -9,7 +9,7 @@ import { useToast } from '~/components/ui/composables/useToast'
 import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { collectPythFeedIds } from '~/entities/oracle'
-import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice } from '~/services/pricing/priceProvider'
+import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
@@ -17,6 +17,8 @@ import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollatera
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 import type { TxPlan } from '~/entities/txPlan'
 
 const router = useRouter()
@@ -277,7 +279,7 @@ const multiplyRouteItems = computed(() => {
   return multiplyQuoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
     const amount = formatNumber(
-      formatUnits(amountOut, Number(multiplyLongVault.value.asset.decimals)),
+      formatUnits(amountOut, Number(multiplyLongVault.value!.asset.decimals)),
     )
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
@@ -288,7 +290,7 @@ const multiplyRouteItems = computed(() => {
     return {
       provider: card.provider,
       amount,
-      symbol: multiplyLongVault.value.asset.symbol,
+      symbol: multiplyLongVault.value!.asset.symbol,
       routeLabel: card.quote.route?.length
         ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
         : '-',
@@ -1478,7 +1480,7 @@ watch(pair, async (val) => {
     ? val.borrow.collateralLTVs.some(ltv => normalizeAddress(ltv.collateral) === supplyAddress)
     : false
   if (!multiplySupplyVault.value || !isSupplyAllowed) {
-    multiplySupplyVault.value = val.collateral
+    multiplySupplyVault.value = val.collateral as Vault
     isMultiplySavingCollateral.value = false
   }
   if (!val.collateral.verified) {
@@ -1731,7 +1733,7 @@ watch(formTab, () => {
                   :desc="multiplyLongProduct.name"
                   label="Long"
                   :asset="multiplyLongVault.asset"
-                  :vault="multiplyLongVault"
+                  :vault="(multiplyLongVault as Vault)"
                   :readonly="true"
                 />
 
@@ -1919,7 +1921,7 @@ watch(formTab, () => {
 
         <template #buttons>
           <VaultFormInfoButton
-            :pair="pair"
+            :pair="(pair as BorrowVaultPair)"
             :extra-vault="formTab === 'multiply' ? multiplySupplyVault : undefined"
             class="laptop:!hidden"
           />
@@ -1952,7 +1954,7 @@ watch(formTab, () => {
       >
         <template #default="{ tab: slotTab }">
           <div class="flex items-center gap-8">
-            <BaseAvatar :src="slotTab.avatars as string[]" :label="slotTab.symbols" />
+            <BaseAvatar :src="(slotTab.avatars as string[])" :label="(slotTab.symbols as string[])" />
 
             {{ slotTab.label }}
           </div>

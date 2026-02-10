@@ -28,6 +28,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -502,7 +504,7 @@ const swapRouteItems = computed(() => {
   const bestProvider = quoteCardsSorted.value[0]?.provider
   return quoteCardsSorted.value.map((card) => {
     const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amount = formatSmallAmount(amountOut, Number(toVault.value.decimals))
+    const amount = formatSmallAmount(amountOut, Number(toVault.value!.decimals))
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
       ? { label: 'Best', tone: 'best' as const }
@@ -512,7 +514,7 @@ const swapRouteItems = computed(() => {
     return {
       provider: card.provider,
       amount,
-      symbol: toVault.value.asset.symbol,
+      symbol: toVault.value!.asset.symbol,
       routeLabel: card.quote.route?.length
         ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
         : '-',

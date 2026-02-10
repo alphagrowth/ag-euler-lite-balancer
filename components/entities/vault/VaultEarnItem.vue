@@ -6,6 +6,8 @@ import { useEulerProductOfVault, useEulerEntitiesOfEarnVault, isVaultFeatured } 
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
+import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultSupplyApyModal } from '#components'

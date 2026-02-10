@@ -38,7 +38,7 @@ defineEmits(['close'])
         </div>
         <UiSwitch
           :model-value="settings.enableIntrinsicApy"
-          @update:model-value="updateSetting('enableIntrinsicApy', $event)"
+          @update:model-value="updateSetting('enableIntrinsicApy', $event ?? false)"
         />
       </div>
     </div>
@@ -54,7 +54,7 @@ defineEmits(['close'])
         </div>
         <UiSwitch
           :model-value="settings.enableRewardsApy"
-          @update:model-value="updateSetting('enableRewardsApy', $event)"
+          @update:model-value="updateSetting('enableRewardsApy', $event ?? false)"
         />
       </div>
     </div>

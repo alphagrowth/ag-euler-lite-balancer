@@ -60,5 +60,5 @@ export const useAppConfig = (): AppConfig => {
     cached = { ...DEFAULTS }
   }
 
-  return cached
+  return cached!
 }

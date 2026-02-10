@@ -16,6 +16,8 @@ import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -94,7 +96,7 @@ const setFromAmountToMax = () => {
     fromAmount.value = ''
     return
   }
-  const exact = formatUnits(currentDebt.value, fromVault.value.decimals)
+  const exact = formatUnits(currentDebt.value, Number(fromVault.value.decimals))
   const [intPart, decPart = ''] = exact.split('.')
   const sigDigitsInInt = intPart.replace(/^0+/, '').length
   if (sigDigitsInInt >= 6) {
@@ -411,7 +413,7 @@ const swapRouteItems = computed(() => {
   const bestProvider = quoteCardsSorted.value[0]?.provider
   return quoteCardsSorted.value.map((card) => {
     const amountIn = getQuoteAmount(card.quote, 'amountIn')
-    const amount = formatSmallAmount(amountIn, Number(toVault.value.decimals))
+    const amount = formatSmallAmount(amountIn, Number(toVault.value!.decimals))
     const diffPct = getQuoteDiffPct(card.quote)
     const badge = card.provider === bestProvider
       ? { label: 'Best', tone: 'best' as const }
@@ -421,7 +423,7 @@ const swapRouteItems = computed(() => {
     return {
       provider: card.provider,
       amount,
-      symbol: toVault.value.asset.symbol,
+      symbol: toVault.value!.asset.symbol,
       routeLabel: card.quote.route?.length
         ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
         : '-',

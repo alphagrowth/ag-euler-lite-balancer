@@ -11,6 +11,7 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
+import { formatNumber, compactNumber } from '~/utils/string-utils'
 
 const router = useRouter()
 const route = useRoute()

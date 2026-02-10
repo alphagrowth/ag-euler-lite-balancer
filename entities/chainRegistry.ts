@@ -2,9 +2,9 @@ import * as allChains from '@reown/appkit/networks'
 import type { AppKitNetwork } from '@reown/appkit/networks'
 
 const chainMap = new Map<number, AppKitNetwork>(
-  Object.values(allChains)
+  (Object.values(allChains) as unknown[])
     .filter((v): v is AppKitNetwork => v != null && typeof v === 'object' && 'id' in v)
-    .map(chain => [chain.id as number, chain]),
+    .map((chain): [number, AppKitNetwork] => [chain.id as number, chain]),
 )
 
 export const getNetworksByChainIds = (ids: readonly number[]): AppKitNetwork[] =>

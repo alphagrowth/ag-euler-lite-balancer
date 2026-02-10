@@ -1,8 +1,8 @@
 <script setup lang="ts">
 const { permit2Enabled, setPermit2Enabled } = usePermit2Preference()
 
-const onToggle = (value: boolean) => {
-  setPermit2Enabled(value)
+const onToggle = (value: boolean | undefined) => {
+  setPermit2Enabled(value ?? false)
 }
 </script>
 

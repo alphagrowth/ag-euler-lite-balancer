@@ -8,7 +8,7 @@ import type { Vault } from '~/entities/vault'
 import type { EVCCall } from './evc-converter'
 import { getPublicClient } from '~/utils/public-client'
 
-const normalizeHex = (value: string): Hex => (value.startsWith('0x') ? value : (`0x${value}` as Hex))
+const normalizeHex = (value: string): Hex => (value.startsWith('0x') ? value as Hex : (`0x${value}` as Hex))
 const normalizeFeedId = (value: string): Hex => normalizeHex(value).toLowerCase() as Hex
 
 type PriceFeedLike = {
@@ -567,10 +567,10 @@ export const executeLensWithPythSimulation = async <T>(
       args: lensArgs,
     })
     const lensBatchItem: BatchItem = {
-      targetContract: lensAddress,
+      targetContract: lensAddress as `0x${string}`,
       onBehalfOfAccount: zeroAddress,
       value: 0n,
-      data: lensCallData,
+      data: lensCallData as `0x${string}`,
     }
 
     // Combine: Pyth updates first, then lens call

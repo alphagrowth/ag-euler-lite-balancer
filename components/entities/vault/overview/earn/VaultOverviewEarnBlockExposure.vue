@@ -3,6 +3,8 @@ import { getAddress } from 'viem'
 import { type EarnVault, type Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 
 const emits = defineEmits<{
   'vault-click': [address: string]

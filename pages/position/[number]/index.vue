@@ -22,7 +22,8 @@ import {
 } from '~/services/pricing/priceProvider'
 import { type AccountBorrowPosition, isPositionEligibleForLiquidation } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
-import { formatTtl } from '~/utils/crypto-utils'
+import { formatTtl, nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
+import { formatNumber, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -739,14 +740,14 @@ watch(isConnected, () => {
                 <div class="text-neutral-800 text-p3">
                   {{ borrowMarketValue.hasPrice
                     ? formatCompactUsdValue(borrowMarketValue.usd)
-                    : `${roundAndCompactTokens(position.borrowed, borrowVault.decimals)} ${borrowVault.asset.symbol}`
+                    : `${roundAndCompactTokens(position.borrowed, borrowVault?.decimals ?? 0n)} ${borrowVault?.asset?.symbol}`
                   }}
                 </div>
                 <div
                   v-if="borrowMarketValue.hasPrice"
                   class="text-neutral-500 text-p3"
                 >
-                  ~ {{ roundAndCompactTokens(position.borrowed, borrowVault.decimals) }} {{ borrowVault.asset.symbol }}
+                  ~ {{ roundAndCompactTokens(position.borrowed, borrowVault?.decimals ?? 0n) }} {{ borrowVault?.asset?.symbol }}
                 </div>
               </div>
             </div>
@@ -974,7 +975,7 @@ watch(isConnected, () => {
                   variant="primary"
                   rounded
                   :loading="isSubmitting"
-                  @click="disableCollateral(collateral.vault)"
+                  @click="disableCollateral(collateral.vault as Vault)"
                 >
                   Disable collateral
                 </UiButton>

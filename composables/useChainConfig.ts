@@ -43,5 +43,5 @@ export const useChainConfig = (): ChainConfig => {
     cached = { enabledChainIds: [], subgraphUris: {} }
   }
 
-  return cached
+  return cached!
 }

@@ -16,6 +16,8 @@ import {
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
+import { formatNumber } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
 const route = useRoute()
@@ -59,7 +61,6 @@ const amountFixed = computed(() => {
   return FixedPoint.fromValue(
     valueToNano(amount.value || '0', asset.value?.decimals || 0),
     Number(asset.value?.decimals || 0),
-    { decimals: Number(asset.value?.decimals || 0) },
   )
 })
 const isSubmitDisabled = computed(() => {
@@ -284,7 +285,7 @@ watch(amount, async () => {
         v-model="amount"
         label="Withdraw amount"
         :asset="asset"
-        :vault="vault"
+        :vault="(vault as Vault)"
         :balance="assetsBalance"
         maxable
       />

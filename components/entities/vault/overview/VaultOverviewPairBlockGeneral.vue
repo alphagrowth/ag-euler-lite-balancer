@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { type AnyBorrowVaultPair } from '~/entities/vault'
 import { getCollateralOraclePrice, getAssetOraclePrice } from '~/services/pricing/priceProvider'
+import { formatNumber, formatSignificant } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import type { AccountBorrowPosition } from '~/entities/account'

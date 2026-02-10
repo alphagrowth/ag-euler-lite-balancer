@@ -74,10 +74,10 @@ export const buildBatchItem = (
   callData: string,
   value: bigint = 0n,
 ): BatchItem => ({
-  targetContract,
+  targetContract: targetContract as `0x${string}`,
   onBehalfOfAccount: zeroAddress,
   value,
-  data: callData,
+  data: callData as `0x${string}`,
 })
 
 /**

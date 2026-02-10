@@ -5,6 +5,8 @@ import type { AccountDepositPosition } from '~/entities/account'
 import type { EarnVault } from '~/entities/vault'
 import { VaultOverviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
+import { formatNumber, formatCompactUsdValue, compactNumber } from '~/utils/string-utils'
+import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 
 const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()

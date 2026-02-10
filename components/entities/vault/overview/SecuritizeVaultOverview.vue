@@ -7,6 +7,8 @@ import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getExplorerLink } from '~/utils/block-explorer'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
+import { formatNumber, compactNumber, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolean }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
@@ -61,7 +63,7 @@ const collateralCount = computed(() => borrowMarkets.value.length)
 
 // Supply APY calculation (intrinsic + rewards, no base interest for securitize vaults)
 const rewardSupplyAPY = computed(() => getSupplyRewardApy(vault.address))
-const intrinsicApy = computed(() => getIntrinsicApy(vault.asset.symbol, 'supply'))
+const intrinsicApy = computed(() => getIntrinsicApy(vault.asset.symbol))
 const supplyApyWithRewards = computed(() => intrinsicApy.value + rewardSupplyAPY.value)
 
 // Risk parameters - fetch share token exchange rate (ERC4626 standard)

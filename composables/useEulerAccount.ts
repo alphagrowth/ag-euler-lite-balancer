@@ -26,6 +26,65 @@ import { nanoToValue } from '~/utils/crypto-utils'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { executeLensWithPythSimulation } from '~/utils/pyth'
 
+/** Decoded shape of the AccountLiquidityInfo struct from the Euler lens */
+interface LensLiquidityInfo {
+  queryFailure: boolean
+  queryFailureReason: string
+  account: Address
+  vault: Address
+  unitOfAccount: Address
+  timeToLiquidation: bigint
+  liabilityValueBorrowing: bigint
+  liabilityValueLiquidation: bigint
+  collateralValueBorrowing: bigint
+  collateralValueLiquidation: bigint
+  collateralValueRaw: bigint
+  collaterals: Address[]
+  collateralValuesBorrowing: bigint[]
+  collateralValuesLiquidation: bigint[]
+  collateralValuesRaw: bigint[]
+}
+
+/** Decoded shape of the VaultAccountInfo struct from the Euler lens */
+interface LensVaultAccountInfo {
+  timestamp: bigint
+  account: Address
+  vault: Address
+  asset: Address
+  assetsAccount: bigint
+  shares: bigint
+  assets: bigint
+  borrowed: bigint
+  assetAllowanceVault: bigint
+  assetAllowanceVaultPermit2: bigint
+  assetAllowanceExpirationVaultPermit2: bigint
+  assetAllowancePermit2: bigint
+  balanceForwarderEnabled: boolean
+  isController: boolean
+  isCollateral: boolean
+  liquidityInfo: LensLiquidityInfo
+}
+
+/** Decoded shape of the EVCAccountInfo struct from the Euler lens */
+interface LensEvcAccountInfo {
+  timestamp: bigint
+  evc: Address
+  account: Address
+  addressPrefix: string
+  owner: Address
+  isLockdownMode: boolean
+  isPermitDisabledMode: boolean
+  lastAccountStatusCheckTimestamp: bigint
+  enabledControllers: Address[]
+  enabledCollaterals: Address[]
+}
+
+/** Decoded shape of the AccountInfo struct (getAccountInfo return value) */
+interface LensAccountInfo {
+  evcAccountInfo: LensEvcAccountInfo
+  vaultAccountInfo: LensVaultAccountInfo
+}
+
 const depositPositions: Ref<AccountDepositPosition[]> = ref([])
 const borrowPositions: Ref<AccountBorrowPosition[]> = ref([])
 
@@ -61,16 +120,16 @@ const toBigInt = (value: unknown) => {
     return 0n
   }
 }
-const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>, fallback: string[]) => {
+const resolvePositionCollaterals = (liquidityInfo: LensLiquidityInfo, fallback: string[]) => {
   const infoCollaterals = (liquidityInfo?.collaterals || [])
-    .map((addr: string) => normalizeAddress(addr))
+    .map(addr => normalizeAddress(addr))
     .filter(Boolean)
   const values = liquidityInfo?.collateralValuesRaw
     || liquidityInfo?.collateralValuesLiquidation
     || liquidityInfo?.collateralValuesBorrowing
 
   if (infoCollaterals.length && Array.isArray(values) && values.length === infoCollaterals.length) {
-    const withValue = infoCollaterals.filter((_, idx) => toBigInt(values[idx]) > 0n)
+    const withValue = infoCollaterals.filter((_: string, idx: number) => toBigInt(values[idx]) > 0n)
     if (withValue.length) {
       return withValue
     }
@@ -90,8 +149,9 @@ const resolvePositionCollaterals = (liquidityInfo: Record<string, unknown>, fall
  * Always returns true if Pyth oracles are detected, because Pyth prices
  * are only valid for ~2 minutes and require continuous updates.
  */
-const hasPythOracles = (vault: Vault): boolean => {
-  const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+const hasPythOracles = (vault: Vault | SecuritizeVault): boolean => {
+  if ('type' in vault && vault.type === 'securitize') return false
+  const feeds = collectPythFeedIds((vault as Vault).oracleDetailedInfo)
   return feeds.length > 0
 }
 
@@ -286,7 +346,7 @@ const updateBorrowPositions = async (
         // Pre-fetch borrow vault to check for Pyth oracles
         const borrowVault = await getOrFetch(vaultAddress) as Vault | undefined
 
-        let res
+        let res: LensAccountInfo | undefined
         try {
           // Check if vault uses Pyth oracles and we can use simulation
           const pythFeeds = borrowVault ? collectPythFeedIds(borrowVault.oracleDetailedInfo) : []
@@ -305,7 +365,7 @@ const updateBorrowPositions = async (
               eulerCoreAddresses.value!.evc,
               EVM_PROVIDER_URL,
               PYTH_HERMES_URL!,
-            ) as Record<string, unknown> | undefined
+            ) as LensAccountInfo | undefined
             if (result) {
               res = result
             }
@@ -318,7 +378,7 @@ const updateBorrowPositions = async (
               abi: eulerAccountLensABI as Abi,
               functionName: 'getAccountInfo',
               args: [subAccount, vaultAddress],
-            }) as Record<string, unknown>
+            }) as LensAccountInfo
           }
         }
         catch (err) {
@@ -326,11 +386,11 @@ const updateBorrowPositions = async (
           return undefined
         }
 
-        if (!res.evcAccountInfo.enabledControllers.length || !res.evcAccountInfo.enabledCollaterals.length || res.vaultAccountInfo.borrowed === 0n) {
+        if (!res || !res.evcAccountInfo.enabledControllers.length || !res.evcAccountInfo.enabledCollaterals.length || res.vaultAccountInfo.borrowed === 0n) {
           return undefined
         }
 
-        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map((collateral: string) => getAddress(collateral))
+        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map(collateral => getAddress(collateral))
         const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
 
         const borrowAddress = getAddress(res.evcAccountInfo.enabledControllers[0])
@@ -372,7 +432,7 @@ const updateBorrowPositions = async (
         // Note: Collateral PRICES come from borrow.collateralPrices[], which are already
         // refreshed when we fetch the borrow vault with Pyth simulation above.
         // The collateral vault only provides totalAssets/totalShares for share→asset conversion.
-        const collateral = await getOrFetch(collateralAddress) as Vault | undefined
+        const collateral = await getOrFetch(collateralAddress) as Vault | SecuritizeVault | undefined
 
         if (!collateral) {
           return undefined
@@ -391,8 +451,8 @@ const updateBorrowPositions = async (
             abi: eulerAccountLensABI as Abi,
             functionName: 'getVaultAccountInfo',
             args: [subAccount, collateralAddress],
-          }) as Record<string, unknown>
-          suppliedAssets = toBigInt((collateralRes as any).assets)
+          }) as LensVaultAccountInfo
+          suppliedAssets = toBigInt(collateralRes.assets)
         }
         catch {
           // Collateral amount unavailable
@@ -584,18 +644,18 @@ const updateSavingsPositions = async (
             abi: eulerAccountLensABI as Abi,
             functionName: 'getAccountInfo',
             args: [subAccount, vaultAddress],
-          }) as Record<string, unknown>
+          }) as LensAccountInfo
 
           // Only include if there are shares
-          if ((res as any).vaultAccountInfo.shares === 0n) {
+          if (res.vaultAccountInfo.shares === 0n) {
             return undefined
           }
 
           return {
             vault,
             subAccount,
-            shares: (res as any).vaultAccountInfo.shares,
-            assets: (res as any).vaultAccountInfo.assets,
+            shares: res.vaultAccountInfo.shares,
+            assets: res.vaultAccountInfo.assets,
           } as AccountDepositPosition
         }
         catch (e) {
@@ -622,7 +682,7 @@ export const useEulerAccount = () => {
   const { eulerLensAddresses, isReady: isEulerLensAddressesReady, chainId } = useEulerAddresses()
   const { address } = useAccount()
   const { public: { debugPortfolioAddress } } = useRuntimeConfig()
-  const normalizedDebugAddress = computed(() => normalizeAddress(debugPortfolioAddress))
+  const normalizedDebugAddress = computed(() => normalizeAddress(debugPortfolioAddress as string | undefined))
   const portfolioAddress = computed(() => normalizedDebugAddress.value || normalizeAddress(address.value))
   const isDebugPortfolio = computed(() => Boolean(normalizedDebugAddress.value))
 

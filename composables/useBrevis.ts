@@ -223,7 +223,7 @@ export const useBrevis = () => {
       functionName: 'claim',
       args: [
         wagmiAddress.value,
-        merkleData.cumulativeRewards.map(r => BigInt(r)),
+        merkleData.cumulativeRewards.map((r: string) => BigInt(r)),
         BigInt(merkleData.epoch),
         merkleData.merkleProof as Address[],
       ],

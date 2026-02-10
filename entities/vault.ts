@@ -424,7 +424,7 @@ const resolveAssetPriceInfo = async (
       address: utilsLensAddress as Address,
       abi: eulerUtilsLensABI,
       functionName: 'getAssetPriceInfo',
-      args: [assetAddress, USD_ADDRESS],
+      args: [assetAddress as Address, USD_ADDRESS],
     }) as Record<string, unknown>
 
     // Note: 0n is a valid price (very small value), only reject null/undefined or explicit failure
@@ -554,7 +554,7 @@ const fetchVaultWithPythSimulation = async (
 ): Promise<Vault | undefined> => {
   const result = await executeLensWithPythSimulation(
     feeds,
-    vaultLensAddress,
+    vaultLensAddress as Address,
     eulerVaultLensABI,
     'getVaultInfoFull',
     [vaultAddress],
@@ -641,7 +641,7 @@ export const fetchSecuritizeVault = async (vaultAddress: string): Promise<Securi
     address: eulerLensAddresses.value!.utilsLens as Address,
     abi: eulerUtilsLensABI,
     functionName: 'getVaultInfoERC4626',
-    args: [vaultAddress],
+    args: [vaultAddress as Address],
   }) as Record<string, unknown>
 
   const governorAdminAbi = [
@@ -770,7 +770,7 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
       address: eulerLensAddresses.value!.utilsLens as Address,
       abi: eulerUtilsLensABI,
       functionName: 'getAssetPriceInfo',
-      args: [data.asset, USD_ADDRESS],
+      args: [data.asset as Address, USD_ADDRESS],
     }) as Record<string, unknown>
 
     // Check if price query failed (0n is valid - very small price)
@@ -847,7 +847,7 @@ export const fetchEscrowVault = async (vaultAddress: string): Promise<Vault> => 
       address: eulerLensAddresses.value!.utilsLens as Address,
       abi: eulerUtilsLensABI,
       functionName: 'getAssetPriceInfo',
-      args: [vault.asset.address, USD_ADDRESS],
+      args: [vault.asset.address as Address, USD_ADDRESS],
     }) as Record<string, unknown>
 
     if (!priceInfo.queryFailure && priceInfo.amountOutMid && (priceInfo.amountOutMid as bigint) > 0n) {
@@ -1198,7 +1198,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
           address: eulerLensAddresses.value!.utilsLens as Address,
           abi: eulerUtilsLensABI,
           functionName: 'getAssetPriceInfo',
-          args: [data.asset, USD_ADDRESS],
+          args: [data.asset as Address, USD_ADDRESS],
         }) as Record<string, unknown>
 
         // Note: 0n is a valid price (very small value)
@@ -1469,7 +1469,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
               address: utilsLensAddress as Address,
               abi: eulerUtilsLensABI,
               functionName: 'getAssetPriceInfo',
-              args: [vault.asset.address, USD_ADDRESS],
+              args: [vault.asset.address as Address, USD_ADDRESS],
             }) as Record<string, unknown>
 
             if (!priceInfo.queryFailure && priceInfo.amountOutMid && (priceInfo.amountOutMid as bigint) > 0n) {
@@ -1703,7 +1703,7 @@ export const getMaxWithdraw = (vaultAddress: string, account: string): Promise<b
     address: vaultAddress as Address,
     abi: vaultMaxWithdrawAbi,
     functionName: 'maxWithdraw',
-    args: [account],
+    args: [account as Address],
   }) as Promise<bigint>
 }
 

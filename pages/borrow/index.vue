@@ -6,6 +6,7 @@ import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { formatNumber } from '~/utils/string-utils'
 
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
@@ -191,22 +192,22 @@ const sortedBorrowList = computed(() => {
         return Number(a.borrow.interestRateInfo.borrowAPY) - Number(b.borrow.interestRateInfo.borrowAPY)
       }))
     case 'Utilization':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return getVaultUtilization(b.borrow) - getVaultUtilization(a.borrow)
       }))
     case 'Total Borrowed':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         const aValue = pairBorrowedUsd.value.get(getPairKey(a)) ?? 0
         const bValue = pairBorrowedUsd.value.get(getPairKey(b)) ?? 0
         return bValue - aValue
       }))
     case 'Max ROE':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-        return getSortMaxRoe(b) - getSortMaxRoe(a)
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+        return getSortMaxRoe(b as BorrowVaultPair) - getSortMaxRoe(a as BorrowVaultPair)
       }))
     case 'Net APY':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: BorrowVaultPair, b: BorrowVaultPair) => {
-        return getNetApy(b) - getNetApy(a)
+      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+        return getNetApy(b as BorrowVaultPair) - getNetApy(a as BorrowVaultPair)
       }))
     default:
       return applyFeaturedPairSort([...filteredBorrowList.value])

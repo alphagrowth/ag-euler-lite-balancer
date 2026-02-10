@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { formatUnits } from 'viem'
-import { type Vault, type VaultAsset, type CollateralOption, type EarnVault } from '~/entities/vault'
+import { type Vault, type SecuritizeVault, type VaultAsset, type CollateralOption, type EarnVault } from '~/entities/vault'
 import { getAssetUsdPrice } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { getAssetLogoUrl } from '~/composables/useTokens'
+import { compactNumber, formatNumber } from '~/utils/string-utils'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
@@ -11,7 +12,7 @@ const props = defineProps<{
   label?: string
   desc?: string
   maxable?: boolean
-  vault?: Vault | EarnVault
+  vault?: Vault | EarnVault | SecuritizeVault
   asset: VaultAsset
   balance?: bigint
   balanceLoading?: boolean
@@ -62,8 +63,9 @@ const setMax = () => {
     inputEl.value.value = model.value || ''
   }
 }
-const onInput = (e: InputEvent) => {
-  if (props.readonly || e.data === '-') {
+const onInput = (e: Event) => {
+  const inputEvent = e as InputEvent
+  if (props.readonly || inputEvent.data === '-') {
     (e.target as HTMLInputElement).value = String(model.value ?? '')
     return
   }

@@ -15,6 +15,7 @@ import { convertSaHooksToEVCCalls, type EVCCall } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
 import { erc20ABI, swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
+import type { Vault } from '~/entities/vault'
 import { buildPythUpdateCalls, buildPythUpdateCallsFromFeeds, collectPythFeedsForHealthCheck, sumCallValues } from '~/utils/pyth'
 import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -248,9 +249,10 @@ export const useEulerOperations = () => {
         functionName: 'allowance',
         args: [owner, token, spender],
       })
-      const amount = ((result as unknown[])[0] ?? 0n) as bigint
-      const expiration = ((result as unknown[])[1] ?? 0n) as bigint
-      const nonce = ((result as unknown[])[2] ?? 0n) as bigint
+      const tuple = result as unknown as readonly [bigint, bigint, bigint]
+      const amount = tuple[0] ?? 0n
+      const expiration = tuple[1] ?? 0n
+      const nonce = tuple[2] ?? 0n
 
       return { amount, expiration, nonce }
     }
@@ -276,8 +278,8 @@ export const useEulerOperations = () => {
       details: {
         token,
         amount: requiredAmount > MAX_UINT160 ? MAX_UINT160 : requiredAmount,
-        expiration: currentTime + PERMIT2_SIG_WINDOW,
-        nonce: allowance.nonce,
+        expiration: Number(currentTime + PERMIT2_SIG_WINDOW),
+        nonce: Number(allowance.nonce),
       },
       spender,
       sigDeadline: currentTime + PERMIT2_SIG_WINDOW,
@@ -312,7 +314,7 @@ export const useEulerOperations = () => {
     try {
       const { getVault: registryGetVault } = useVaultRegistry()
       const vaults = vaultAddresses.map((addr) => {
-        return registryGetVault(getAddress(addr))
+        return registryGetVault(getAddress(addr)) as Vault | undefined
       })
       return await buildPythUpdateCalls(vaults, EVM_PROVIDER_URL, PYTH_HERMES_URL, sender)
     }
@@ -334,7 +336,7 @@ export const useEulerOperations = () => {
   ) => {
     try {
       const { getVault: registryGetVault } = useVaultRegistry()
-      const liabilityVault = registryGetVault(getAddress(liabilityVaultAddress))
+      const liabilityVault = registryGetVault(getAddress(liabilityVaultAddress)) as Vault | undefined
       if (!liabilityVault) {
         console.warn('[preparePythUpdatesForHealthCheck] liability vault not found:', liabilityVaultAddress)
         return { calls: [], totalFee: 0n }
