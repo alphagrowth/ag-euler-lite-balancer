@@ -5,13 +5,11 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { getNetworksByChainIds } from '~/entities/chainRegistry'
 
 export default defineNuxtPlugin((nuxtApp) => {
-  const config = useRuntimeConfig()
-  const projectId = config.public.appKitProjectId
-  const appUrl = config.public.appUrl
+  const appConfig = useAppConfig()
+  const projectId = appConfig.appKitProjectId
+  const appUrl = appConfig.appUrl
   const normalizedAppUrl = appUrl ? appUrl.replace(/\/+$/, '') : ''
   const { enabledChainIds } = useChainConfig()
-  const configAppTitle = (config.public.configAppTitle as string) || 'Euler Lite'
-  const configAppDescription = (config.public.configAppDescription as string) || 'Lightweight interface for Euler Finance.'
 
   if (!projectId) {
     console.warn('[wagmi] Missing APPKIT_PROJECT_ID in runtime config')
@@ -32,8 +30,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   ]
 
   const metadata = {
-    name: configAppTitle,
-    description: configAppDescription,
+    name: appConfig.appTitle,
+    description: appConfig.appDescription,
     url: normalizedAppUrl,
     icons: normalizedAppUrl ? [`${normalizedAppUrl}/manifest-img.png`] : [],
   }

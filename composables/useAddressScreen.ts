@@ -10,7 +10,7 @@ import { getDefaultPageRoute } from '~/entities/menu'
 let lastScreenedAddress: string | null = null
 
 export const useAddressScreen = () => {
-  const { public: { walletScreeningUri } } = useRuntimeConfig()
+  const { walletScreeningUri } = useAppConfig()
   const modal = useModal()
   const { disconnect } = useDisconnect()
   const router = useRouter()

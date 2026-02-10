@@ -1,6 +1,6 @@
 {
-  "name": "Euler TMA",
-  "short_name": "Euler TMA",
+  "name": "Euler Lite",
+  "short_name": "Euler Lite",
   "prefer-related-application": "false",
   "start_url": "./",
   "scope": ".",

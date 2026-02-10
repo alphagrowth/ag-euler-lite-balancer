@@ -1,8 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
-const appTitle = process.env.NUXT_PUBLIC_CONFIG_APP_TITLE || process.env.CONFIG_APP_TITLE || 'Euler Lite'
-const appDescription = process.env.NUXT_PUBLIC_CONFIG_APP_DESCRIPTION || process.env.CONFIG_APP_DESCRIPTION || 'Lightweight interface for Euler Finance lending and borrowing.'
-
 const cspHeaderValue = `default-src 'self'; script-src 'unsafe-inline' 'wasm-unsafe-eval' 'self' https://static.cloudflareinsights.com; style-src 'unsafe-inline' 'self'; object-src 'none'; base-uri 'self'; connect-src 'self' https://indexer.euler.finance https://swap.euler.finance https://swap-dev.euler.finance https://api.merkl.xyz https://incentra-prd.brevis.network https://hermes.pyth.network https://raw.githubusercontent.com https://oracle-checks-data.euler.finance https://data.euler.finance https://rpc.walletconnect.org https://api.web3modal.org https://explorer-api.walletconnect.com https://verify.walletconnect.org https://pulse.walletconnect.org https://rpc.monad.xyz https://chain-proxy.wallet.coinbase.com https://cca-lite.coinbase.com https://yields.llama.fi https://rpc.plasma.to https://registry.npmjs.org https://*.quiknode.pro https://*.alchemy.com https://*.ankr.com https://*.goldsky.com wss://www.walletlink.org wss://relay.walletconnect.com wss://relay.walletconnect.org; font-src 'self' https://fonts.reown.com; frame-src 'self' https://verify.walletconnect.org https://verify.walletconnect.com; img-src 'self' data: blob: https://raw.githubusercontent.com https://storage.googleapis.com https://token-images.euler.finance; manifest-src 'self'; media-src 'self'; worker-src 'self' blob:; form-action 'self';`
 
 export default defineNuxtConfig({
@@ -25,14 +22,14 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: appTitle,
+      title: 'Euler Lite',
       htmlAttrs: {
         lang: 'en',
       },
       meta: [
         {
           name: 'description',
-          content: appDescription,
+          content: 'Lightweight interface for Euler Finance lending and borrowing.',
         },
         { charset: 'utf-8' },
         {
@@ -41,11 +38,11 @@ export default defineNuxtConfig({
         },
         {
           property: 'og:title',
-          content: appTitle,
+          content: 'Euler Lite',
         },
         {
           property: 'og:description',
-          content: appDescription,
+          content: 'Lightweight interface for Euler Finance lending and borrowing.',
         },
         {
           property: 'og:type',
@@ -57,11 +54,11 @@ export default defineNuxtConfig({
         },
         {
           name: 'twitter:title',
-          content: appTitle,
+          content: 'Euler Lite',
         },
         {
           name: 'twitter:description',
-          content: appDescription,
+          content: 'Lightweight interface for Euler Finance lending and borrowing.',
         },
         {
           name: 'theme-color',
@@ -98,14 +95,6 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      pythHermesUrl: process.env.PYTH_HERMES_URL || 'https://hermes.pyth.network',
-      appKitProjectId: process.env.APPKIT_PROJECT_ID,
-      appUrl: process.env.NUXT_PUBLIC_APP_URL,
-      walletScreeningUri: process.env.WALLET_SCREENING_URI || '',
-      eulerApiUrl: process.env.EULER_API_URL || '',
-      swapApiUrl: process.env.SWAP_API_URL || '',
-      priceApiUrl: process.env.PRICE_API_URL || '',
-
       // CONFIG_ vars (Doppler: NUXT_PUBLIC_CONFIG_*)
       configDocsUrl: '',
       configTosUrl: '',

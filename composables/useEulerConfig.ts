@@ -18,7 +18,7 @@ const getRpcUrlByChainId = (chainId?: number, origin?: string): string => {
 }
 
 export const useEulerConfig = () => {
-  const rc = useRuntimeConfig().public
+  const appConfig = useAppConfig()
   const { labelsRepo } = useDeployConfig()
   const { subgraphUris } = useChainConfig()
   const { chainId } = useEulerAddresses()
@@ -41,11 +41,11 @@ export const useEulerConfig = () => {
     getEulerLabelsPointsUrl: (id: number) => `${labelsBaseUrl}/${id}/points.json`,
     EULER_LABELS_ENTITY_LOGO_URL: `${labelsBaseUrl}/logo`,
 
-    // Runtime config APIs
-    EULER_API_URL: rc.eulerApiUrl,
-    SWAP_API_URL: rc.swapApiUrl,
-    PRICE_API_URL: rc.priceApiUrl,
-    PYTH_HERMES_URL: rc.pythHermesUrl,
+    // Runtime app config APIs
+    EULER_API_URL: appConfig.eulerApiUrl,
+    SWAP_API_URL: appConfig.swapApiUrl,
+    PRICE_API_URL: appConfig.priceApiUrl,
+    PYTH_HERMES_URL: appConfig.pythHermesUrl,
 
     // Chain-specific (computed)
     EVM_PROVIDER_URL: computed(() => getRpcUrlByChainId(chainId.value, requestUrl.origin)).value,
