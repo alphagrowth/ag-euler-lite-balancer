@@ -5,18 +5,18 @@ import type { SecuritizeVault, Vault, VaultCollateralLTV } from '~/entities/vaul
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
-import { enableEntityBrandingDisplay, enableVaultTypeDisplay } from '~/entities/custom'
 import { getExplorerLink } from '~/utils/block-explorer'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolean }>()
+const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
 
 const { EVM_PROVIDER_URL } = useEulerConfig()
 const { chainId } = useEulerAddresses()
 const { borrowList, isVaultGovernorVerified } = useVaults()
 const { getEvkVaults } = useVaultRegistry()
-const { getOpportunityOfLendVault } = useMerkl()
 const { getIntrinsicApy } = useIntrinsicApy()
+const { getSupplyRewardApy } = useRewardsApy()
 const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
@@ -60,7 +60,7 @@ const borrowMarkets = computed(() => {
 const collateralCount = computed(() => borrowMarkets.value.length)
 
 // Supply APY calculation (intrinsic + rewards, no base interest for securitize vaults)
-const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?.apr || 0)
+const rewardSupplyAPY = computed(() => getSupplyRewardApy(vault.address))
 const intrinsicApy = computed(() => getIntrinsicApy(vault.asset.symbol, 'supply'))
 const supplyApyWithRewards = computed(() => intrinsicApy.value + rewardSupplyAPY.value)
 
@@ -95,7 +95,7 @@ const priceDisplay = ref('-')
 
 watchEffect(async () => {
   const price = await formatAssetValue(1, vault as unknown as Vault, 'off-chain')
-  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : price.display
+  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : '-'
 })
 
 // Total supply display with USD if available

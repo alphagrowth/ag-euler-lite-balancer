@@ -10,8 +10,8 @@ import { useModal } from '~/components/ui/composables/useModal'
 const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()
 
-const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy()
 
 const vault = computed(() => position.vault)
 const utilisationWarning = computed(() => {
@@ -23,14 +23,14 @@ const utilisationWarning = computed(() => {
 const isSecuritize = computed(() => 'type' in vault.value && vault.value.type === 'securitize')
 const regularVault = computed(() => isSecuritize.value ? null : vault.value as Vault)
 
-const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
+const rewardInfo = computed(() => getSupplyRewardInfo(vault.value.address))
 const supplyApy = computed(() => {
   return withIntrinsicSupplyApy(
     nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
     vault.value.asset.symbol,
   )
 })
-const supplyApyWithRewards = computed(() => supplyApy.value + (opportunityInfo.value?.apr || 0))
+const supplyApyWithRewards = computed(() => supplyApy.value + getSupplyRewardApy(vault.value.address))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
 const isEscrow = computed(() => 'vaultCategory' in vault.value && vault.value.vaultCategory === 'escrow')
@@ -135,7 +135,7 @@ const onClick = () => {
           </div>
           <div class="text-p2 flex text-accent-600">
             <SvgIcon
-              v-if="opportunityInfo?.apr"
+              v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
               name="sparks"
               class="!w-20 !h-20 text-accent-600 mr-4"
             />
@@ -216,7 +216,7 @@ const onClick = () => {
           </div>
           <div class="text-p2 flex text-accent-600">
             <SvgIcon
-              v-if="opportunityInfo?.apr"
+              v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
               name="sparks"
               class="!w-20 !h-20 text-accent-600 mr-4"
             />
@@ -254,7 +254,7 @@ const onClick = () => {
           <div class="flex justify-between gap-8 text-right">
             <div class="text-content-primary text-p3 flex items-center gap-4">
               <SvgIcon
-                v-if="opportunityInfo?.apr"
+                v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
                 name="sparks"
                 class="!w-18 !h-18 text-accent-600"
               />

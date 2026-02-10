@@ -1,6 +1,5 @@
 import { getAddress, type Address } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
-import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
@@ -21,8 +20,8 @@ export const useMultiplyCollateralOptions = ({
   const { getVault } = useVaultRegistry()
   const { getBalance } = useWallets()
   const { depositPositions } = useEulerAccount()
-  const { getOpportunityOfLendVault } = useMerkl()
-  const { withIntrinsicSupplyApy } = useIntrinsicApy()
+  const { withIntrinsicSupplyApy, version: intrinsicVersion } = useIntrinsicApy()
+  const { getSupplyRewardApy, version: rewardsVersion } = useRewardsApy()
 
   const currentVaultAddress = computed(() => {
     const current = currentVault.value
@@ -57,12 +56,13 @@ export const useMultiplyCollateralOptions = ({
 
   watchEffect(async () => {
     const inputs = walletItemsInput.value
+    void rewardsVersion.value
+    void intrinsicVersion.value
     const items = await Promise.all(inputs.map(async ({ vault, balance }) => {
       const amount = nanoToValue(balance, vault.asset.decimals)
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
-      const opportunity = getOpportunityOfLendVault(vault.address)
-      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
+      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
 
       return {
         vault,
@@ -96,12 +96,13 @@ export const useMultiplyCollateralOptions = ({
 
   watchEffect(async () => {
     const inputs = savingItemsInput.value
+    void rewardsVersion.value
+    void intrinsicVersion.value
     const items = await Promise.all(inputs.map(async ({ vault, assets }) => {
       const amount = nanoToValue(assets, vault.asset.decimals)
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
-      const opportunity = getOpportunityOfLendVault(vault.address)
-      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + (opportunity?.apr || 0)
+      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
 
       return {
         vault,

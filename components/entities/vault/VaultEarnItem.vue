@@ -13,24 +13,16 @@ const { isConnected } = useAccount();
 const { vault } = defineProps<{ vault: EarnVault }>();
 const product = useEulerProductOfVault(vault.address);
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
-const { getOpportunityOfLendVault } = useMerkl();
-const { getCampaignOfLendVault } = useBrevis();
 const { getIntrinsicApy } = useIntrinsicApy();
+const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy();
 const modal = useModal();
 
 const balance = computed(() =>
   getBalance(vault.asset.address as `0x${string}`),
 );
-const opportunityInfo = computed(() =>
-  getOpportunityOfLendVault(vault.address),
-);
-const brevisInfo = computed(() => getCampaignOfLendVault(vault.address));
-const totalRewardsAPY = computed(
-  () =>
-    (opportunityInfo.value?.apr || 0) +
-    (brevisInfo.value?.reward_info.apr || 0) * 100,
-);
-const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value);
+const totalRewardsAPY = computed(() => getSupplyRewardApy(vault.address));
+const rewardInfo = computed(() => getSupplyRewardInfo(vault.address));
+const hasRewards = computed(() => rewardInfo.value.opportunity || rewardInfo.value.campaign);
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
 const isFeatured = computed(() => isVaultFeatured(vault.address))
 const isUnverified = computed(() => !vault.verified);
@@ -58,12 +50,13 @@ watchEffect(async () => {
 const onSupplyInfoIconClick = (event: MouseEvent) => {
   event.preventDefault()
   event.stopPropagation()
+  const info = rewardInfo.value
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
       intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
-      opportunityInfo: opportunityInfo.value,
-      brevisInfo: brevisInfo.value,
+      opportunityInfo: info.opportunity,
+      brevisInfo: info.campaign,
     },
   })
 }

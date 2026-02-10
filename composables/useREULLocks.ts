@@ -8,115 +8,90 @@ import type { TxPlan } from '~/entities/txPlan'
 
 const isLoaded = ref(false)
 const isLocksLoading = ref(true)
-const isAddressesLoading = ref(false)
-const addressLoadError = ref<string | null>(null)
 const locks: Ref<REULLock[]> = ref([])
-const reulTokenContractAddress = ref('')
-const eulTokenContractAddress = ref('')
 
 let interval: NodeJS.Timeout | null = null
 
-const loadReulTokenContractAddresses = async (chainId: number) => {
-  try {
-    isAddressesLoading.value = true
-    addressLoadError.value = null
-
-    const { getEulerInterfacesTokenAddressesUrl } = useEulerConfig()
-    const url = getEulerInterfacesTokenAddressesUrl?.(chainId)
-    if (!url) {
-      throw new Error('Token addresses URL is not configured')
-    }
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Euler config: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    reulTokenContractAddress.value = data.rEUL
-    eulTokenContractAddress.value = data.EUL
-  }
-  catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-    addressLoadError.value = errorMessage
-    console.error('Failed to load Reul token contract addresses:', err)
-  }
-  finally {
-    isAddressesLoading.value = false
-  }
-}
-
-const loadREULLocksInfo = async (userAddress: string, isInitialLoading = true) => {
-  await until(computed(() => reulTokenContractAddress.value && eulTokenContractAddress.value)).toBeTruthy()
-  try {
-    if (!userAddress) {
-      locks.value = []
-      return
-    }
-    if (isInitialLoading) {
-      isLocksLoading.value = true
-    }
-
-    const { EVM_PROVIDER_URL } = useEulerConfig()
-    const client = getPublicClient(EVM_PROVIDER_URL)
-
-    const [lockTimestamps, amounts] = await client.readContract({
-      address: reulTokenContractAddress.value as Address,
-      abi: reulLockAbi,
-      functionName: 'getLockedAmounts',
-      args: [userAddress as Address],
-    }) as [bigint[], bigint[]]
-    const withdrawAmountsData: { unlockableAmount: bigint, amountToBeBurned: bigint }[] = []
-
-    const batchSize = 5
-
-    for (let i = 0; i < lockTimestamps.length; i += batchSize) {
-      const batch = lockTimestamps
-        .slice(i, i + batchSize)
-        .map(async (timestamp: bigint) => {
-          const [unlockableAmount, amountToBeBurned] = await client.readContract({
-            address: reulTokenContractAddress.value as Address,
-            abi: reulLockAbi,
-            functionName: 'getWithdrawAmountsByLockTimestamp',
-            args: [userAddress as Address, timestamp],
-          }) as [bigint, bigint]
-          return {
-            unlockableAmount,
-            amountToBeBurned,
-          }
-        })
-
-      withdrawAmountsData.push(...(await Promise.all(batch)))
-    }
-
-    locks.value = withdrawAmountsData.map((item, index) => ({
-      timestamp: lockTimestamps[index],
-      amount: amounts[index],
-      unlockableAmount: item.unlockableAmount,
-      amountToBeBurned: item.amountToBeBurned,
-    }))
-  }
-  catch (e) {
-    console.warn(e)
-  }
-  finally {
-    isLocksLoading.value = false
-  }
-}
 export const useREULLocks = () => {
   const { isConnected, address: wagmiAddress, chainId } = useAccount()
   const { writeContractAsync } = useWriteContract()
+  const { eulerTokenAddresses } = useEulerAddresses()
+
+  const reulTokenContractAddress = computed(() => eulerTokenAddresses.value?.rEUL ?? '')
+  const eulTokenContractAddress = computed(() => eulerTokenAddresses.value?.EUL ?? '')
+  const addressesReady = computed(() => !!reulTokenContractAddress.value && !!eulTokenContractAddress.value)
+
+  const loadREULLocksInfo = async (userAddress: string, isInitialLoading = true) => {
+    await until(addressesReady).toBeTruthy({ timeout: 10_000, throwOnTimeout: false })
+    if (!addressesReady.value) {
+      isLocksLoading.value = false
+      return
+    }
+
+    try {
+      if (!userAddress) {
+        locks.value = []
+        return
+      }
+      if (isInitialLoading) {
+        isLocksLoading.value = true
+      }
+
+      const { EVM_PROVIDER_URL } = useEulerConfig()
+      const client = getPublicClient(EVM_PROVIDER_URL)
+
+      const [lockTimestamps, amounts] = await client.readContract({
+        address: reulTokenContractAddress.value as Address,
+        abi: reulLockAbi,
+        functionName: 'getLockedAmounts',
+        args: [userAddress as Address],
+      }) as [bigint[], bigint[]]
+      const withdrawAmountsData: { unlockableAmount: bigint, amountToBeBurned: bigint }[] = []
+
+      const batchSize = 5
+
+      for (let i = 0; i < lockTimestamps.length; i += batchSize) {
+        const batch = lockTimestamps
+          .slice(i, i + batchSize)
+          .map(async (timestamp: bigint) => {
+            const [unlockableAmount, amountToBeBurned] = await client.readContract({
+              address: reulTokenContractAddress.value as Address,
+              abi: reulLockAbi,
+              functionName: 'getWithdrawAmountsByLockTimestamp',
+              args: [userAddress as Address, timestamp],
+            }) as [bigint, bigint]
+            return {
+              unlockableAmount,
+              amountToBeBurned,
+            }
+          })
+
+        withdrawAmountsData.push(...(await Promise.all(batch)))
+      }
+
+      locks.value = withdrawAmountsData.map((item, index) => ({
+        timestamp: lockTimestamps[index],
+        amount: amounts[index],
+        unlockableAmount: item.unlockableAmount,
+        amountToBeBurned: item.amountToBeBurned,
+      }))
+    }
+    catch (e) {
+      console.warn(e)
+    }
+    finally {
+      isLocksLoading.value = false
+    }
+  }
 
   watch([isConnected, chainId], ([connected, currentChainId], [_oldConnected, oldChainId]) => {
     if (oldChainId && currentChainId !== oldChainId) {
       isLoaded.value = false
       locks.value = []
-      reulTokenContractAddress.value = ''
-      eulTokenContractAddress.value = ''
     }
 
     if (!isLoaded.value && wagmiAddress.value) {
       loadREULLocksInfo(wagmiAddress.value)
-      loadReulTokenContractAddresses(currentChainId || 1)
       isLoaded.value = true
     }
 
@@ -138,7 +113,7 @@ export const useREULLocks = () => {
       throw new Error('Wallet not connected')
     }
 
-    if (!reulTokenContractAddress.value || reulTokenContractAddress.value === '') {
+    if (!reulTokenContractAddress.value) {
       throw new Error('REUL contract address not available')
     }
 
@@ -157,7 +132,7 @@ export const useREULLocks = () => {
       throw new Error('Wallet not connected')
     }
 
-    if (!reulTokenContractAddress.value || reulTokenContractAddress.value === '') {
+    if (!reulTokenContractAddress.value) {
       throw new Error('REUL contract address not available')
     }
 
@@ -180,10 +155,8 @@ export const useREULLocks = () => {
   return {
     locks,
     isLocksLoading,
-    isAddressesLoading,
-    addressLoadError,
-    reulTokenContractAddress: computed(() => reulTokenContractAddress.value),
-    eulTokenContractAddress: computed(() => eulTokenContractAddress.value),
+    reulTokenContractAddress,
+    eulTokenContractAddress,
     loadREULLocksInfo: (address: string, isInitial?: boolean) => loadREULLocksInfo(address, isInitial),
     unlockREUL,
     buildUnlockREULPlan,

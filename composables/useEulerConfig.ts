@@ -1,4 +1,11 @@
-import config from '~/entities/config'
+import {
+  DEFILLAMA_YIELDS_URL,
+  BREVIS_API_URL,
+  BREVIS_MERKLE_PROOF_URL,
+  EULER_INTERFACES_CHAINS_URL,
+  MERKL_API_BASE_URL,
+  MERKL_DISTRIBUTOR_ADDRESS,
+} from '~/entities/constants'
 
 const getRpcUrlByChainId = (chainId?: number, origin?: string): string => {
   if (!chainId) {
@@ -9,30 +16,39 @@ const getRpcUrlByChainId = (chainId?: number, origin?: string): string => {
   }
   return `${origin}/api/rpc/${chainId}`
 }
-const getSubgraphUrlByChainId = (chainId: number, config: object): string => {
-  const key = `SUBGRAPH_URI_${chainId}`
-  return (config[key as keyof typeof config] as string) || ''
-}
-const getMerklAddressByChainId = (chainId: number, config: object): string => {
-  const key = `MERKL_ADDRESS_${chainId}`
-  return (config[key as keyof typeof config] as string) || ''
-}
 
 export const useEulerConfig = () => {
-  const { network, pythHermesUrl, eulerApiUrl, swapApiUrl, priceApiUrl } = useRuntimeConfig().public
+  const rc = useRuntimeConfig().public
+  const { labelsRepo } = useDeployConfig()
   const { chainId } = useEulerAddresses()
   const requestUrl = useRequestURL()
 
-  const baseConfig = config[network as keyof typeof config]
+  const labelsBaseUrl = `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master`
 
   return {
-    ...baseConfig,
-    EULER_API_URL: eulerApiUrl,
-    SWAP_API_URL: swapApiUrl,
-    PRICE_API_URL: priceApiUrl,
+    // APIs (from constants)
+    DEFILLAMA_YIELDS_URL,
+    BREVIS_API_URL,
+    BREVIS_MERKLE_PROOF_URL,
+    EULER_INTERFACES_CHAINS_URL,
+    MERKL_API_BASE_URL,
+
+    // Labels (built from CONFIG_LABELS_REPO)
+    getEulerLabelsEntitiesUrl: (id: number) => `${labelsBaseUrl}/${id}/entities.json`,
+    getEulerLabelsProductsUrl: (id: number) => `${labelsBaseUrl}/${id}/products.json`,
+    getEulerLabelsEarnVaultsUrl: (id: number) => `${labelsBaseUrl}/${id}/earn-vaults.json`,
+    getEulerLabelsPointsUrl: (id: number) => `${labelsBaseUrl}/${id}/points.json`,
+    EULER_LABELS_ENTITY_LOGO_URL: `${labelsBaseUrl}/logo`,
+
+    // Runtime config APIs
+    EULER_API_URL: rc.eulerApiUrl,
+    SWAP_API_URL: rc.swapApiUrl,
+    PRICE_API_URL: rc.priceApiUrl,
+    PYTH_HERMES_URL: rc.pythHermesUrl,
+
+    // Chain-specific (computed)
     EVM_PROVIDER_URL: computed(() => getRpcUrlByChainId(chainId.value, requestUrl.origin)).value,
-    SUBGRAPH_URL: computed(() => getSubgraphUrlByChainId(chainId.value, baseConfig)).value,
-    MERKL_ADDRESS: computed(() => getMerklAddressByChainId(chainId.value, baseConfig)).value,
-    PYTH_HERMES_URL: pythHermesUrl,
+    SUBGRAPH_URL: computed(() => (rc.subgraphUris as Record<string, string>)[String(chainId.value)] || '').value,
+    MERKL_ADDRESS: MERKL_DISTRIBUTOR_ADDRESS,
   }
 }

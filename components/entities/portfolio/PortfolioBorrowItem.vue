@@ -32,8 +32,8 @@ const subAccountIndex = computed(() => {
   return getSubAccountIndex(ownerAddress.value, position.subAccount)
 })
 
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 
 const { name: collateralProductName } = useEulerProductOfVault(position.collateral.address)
 const { name: borrowProductName } = useEulerProductOfVault(position.borrow.address)
@@ -81,8 +81,8 @@ const pairName = computed(() => {
   }
   return `${collateralLabel.value} / ${borrowLabel.value}`
 })
-const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value.asset.address || ''))
-const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value.address || ''))
+const supplyRewardAPY = computed(() => getSupplyRewardApy(collateralVault.value.address || ''))
+const borrowRewardAPY = computed(() => getBorrowRewardApy(borrowVault.value.asset.address || '', borrowVault.value.address || ''))
 const collateralSupplyApy = computed(() => {
   return withIntrinsicSupplyApy(
     nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
@@ -171,8 +171,8 @@ const netAPY = computed(() => {
     collateralSupplyApy.value,
     borrowedValue.value.usd,
     borrowApy.value,
-    opportunityInfoForCollateral.value?.apr || null,
-    opportunityInfoForBorrow.value?.apr || null,
+    supplyRewardAPY.value || null,
+    borrowRewardAPY.value || null,
   )
 })
 
@@ -182,8 +182,8 @@ const roe = computed(() => {
     collateralSupplyApy.value,
     borrowedValue.value.usd,
     borrowApy.value,
-    opportunityInfoForCollateral.value?.apr || null,
-    opportunityInfoForBorrow.value?.apr || null,
+    supplyRewardAPY.value || null,
+    borrowRewardAPY.value || null,
   )
 })
 

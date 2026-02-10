@@ -1,6 +1,6 @@
 import axios from 'axios'
-import { DEFI_LLAMA_CHAIN_BY_CHAIN_ID } from '~/entities/constants'
-import { enableIntrinsicApy, intrinsicApySources } from '~/entities/custom'
+import { getDefiLlamaChainName } from '~/entities/chainRegistry'
+import { intrinsicApySources } from '~/entities/custom'
 
 type DefiLlamaPool = {
   symbol?: string
@@ -20,12 +20,13 @@ const intrinsicApyBySymbol: Ref<Record<string, number>> = ref({})
 const intrinsicApyPools: Ref<DefiLlamaPool[]> = ref([])
 const isLoading = ref(false)
 const isLoaded = ref(false)
+const _versionCounter = ref(0)
 
 const normalize = (value?: string) => value?.toLowerCase() || ''
 
 const resolvePreferredChain = (chainId?: number, chainName?: string) => {
   if (chainId !== undefined) {
-    const mapped = DEFI_LLAMA_CHAIN_BY_CHAIN_ID[chainId]
+    const mapped = getDefiLlamaChainName(chainId)
     if (mapped) return mapped
   }
 
@@ -74,9 +75,12 @@ export const useIntrinsicApy = () => {
   const { chainId, getCurrentChainConfig } = useEulerAddresses()
   const preferredChain = computed(() => resolvePreferredChain(chainId.value, getCurrentChainConfig.value?.name))
   const { DEFILLAMA_YIELDS_URL } = useEulerConfig()
+  const { settings } = useUserSettings()
+
+  const enableIntrinsicApy = computed(() => settings.value.enableIntrinsicApy)
 
   const updateIntrinsicApy = () => {
-    if (!enableIntrinsicApy) return
+    if (!enableIntrinsicApy.value) return
     if (!intrinsicApyPools.value.length) return
     intrinsicApyBySymbol.value = buildIntrinsicApyMap(
       intrinsicApyPools.value,
@@ -87,7 +91,7 @@ export const useIntrinsicApy = () => {
 
   const loadIntrinsicApy = async () => {
     if (isLoading.value || isLoaded.value) return
-    if (!enableIntrinsicApy) {
+    if (!enableIntrinsicApy.value) {
       intrinsicApyPools.value = []
       intrinsicApyBySymbol.value = {}
       isLoaded.value = true
@@ -120,7 +124,7 @@ export const useIntrinsicApy = () => {
   }
 
   const getIntrinsicApy = (symbol?: string) => {
-    if (!enableIntrinsicApy || !symbol) return 0
+    if (!enableIntrinsicApy.value || !symbol) return 0
     return intrinsicApyBySymbol.value[normalize(symbol)] || 0
   }
 
@@ -133,9 +137,31 @@ export const useIntrinsicApy = () => {
   }
 
   watch(preferredChain, () => {
-    if (!enableIntrinsicApy) return
+    if (!enableIntrinsicApy.value) return
     if (!isLoaded.value) return
     updateIntrinsicApy()
+  })
+
+  watch(enableIntrinsicApy, (enabled) => {
+    if (enabled) {
+      if (intrinsicApyPools.value.length) {
+        updateIntrinsicApy()
+      }
+      else {
+        isLoaded.value = false
+        loadIntrinsicApy()
+      }
+    }
+    else {
+      intrinsicApyBySymbol.value = {}
+    }
+  })
+
+  // Reactive version counter — bumps when intrinsic APY data or settings change.
+  // Consumers should read `version.value` in the sync phase of watchEffect(async).
+  const version = computed(() => _versionCounter.value)
+  watch(intrinsicApyBySymbol, () => {
+    _versionCounter.value++
   })
 
   onMounted(() => {
@@ -144,6 +170,7 @@ export const useIntrinsicApy = () => {
 
   return {
     intrinsicApyBySymbol,
+    version,
     isLoading: computed(() => isLoading.value),
     isLoaded: computed(() => isLoaded.value),
     loadIntrinsicApy,

@@ -5,8 +5,7 @@ import { useAppKit } from '@reown/appkit/vue'
 import { useAccount } from '@wagmi/vue'
 import { WalletDisconnectModal, SelectChainModal, SettingsModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
-import { links, socials } from '~/entities/custom'
-import { type MenuItem, menuItems } from '~/entities/menu'
+import { type MenuItem, getMenuItems } from '~/entities/menu'
 
 // AppKit modal controls
 const { open } = useAppKit()
@@ -16,6 +15,20 @@ const { address, isConnected } = useAccount()
 const { chainId } = useEulerAddresses()
 const modal = useModal()
 const route = useRoute()
+const { docsUrl, tosUrl, xUrl, discordUrl, telegramUrl, githubUrl, appTitle, enableEarnPage, enableLendPage } = useDeployConfig()
+const menuItems = getMenuItems(enableEarnPage, enableLendPage)
+
+const links = computed(() => [
+  docsUrl ? { title: 'Docs', url: docsUrl } : null,
+  tosUrl ? { title: 'Terms of Use', url: tosUrl } : null,
+].filter(Boolean) as Array<{ title: string, url: string }>)
+
+const socials = computed(() => [
+  xUrl ? { name: 'x', url: xUrl } : null,
+  discordUrl ? { name: 'discord', url: discordUrl } : null,
+  telegramUrl ? { name: 'telegram', url: telegramUrl } : null,
+  githubUrl ? { name: 'github', url: githubUrl } : null,
+].filter(Boolean) as Array<{ name: string, url: string }>)
 
 const reference = ref(null)
 const floating = ref(null)
@@ -70,7 +83,7 @@ onClickOutside(reference, () => {
         alt="Euler"
       >
       <div class="flex flex-col items-start mr-4">
-        <span class="text-[14px] font-semibold text-content-primary leading-tight">Euler Institutional</span>
+        <span class="text-[14px] font-semibold text-content-primary leading-tight">{{ appTitle }}</span>
         <span class="text-[10px] text-content-tertiary leading-tight">Powered by Euler</span>
       </div>
       <SvgIcon
@@ -91,7 +104,7 @@ onClickOutside(reference, () => {
           @click.stop
         >
           <div class="flex flex-col gap-4 w-full">
-            <div class="mb-24">
+            <div v-if="links.length" class="mb-24">
               <p class="mb-8 text-content-tertiary text-h6 text-left">
                 Explore
               </p>
@@ -110,17 +123,17 @@ onClickOutside(reference, () => {
                 />
               </a>
             </div>
-            <div class="flex gap-12">
+            <div v-if="socials.length" class="flex gap-12">
               <a
-                v-for="item in Object.entries(socials)"
-                :key="item[0]"
-                :href="item[1]"
+                v-for="item in socials"
+                :key="item.name"
+                :href="item.url"
                 class="flex justify-center items-center p-8 text-content-secondary bg-surface-secondary w-36 h-36 rounded-[32px] border border-line-default hover:bg-card-hover transition-colors"
                 target="_blank"
               >
                 <SvgIcon
                   class="!w-20 !h-20"
-                  :name="item[0]"
+                  :name="item.name"
                 />
               </a>
             </div>

@@ -9,13 +9,22 @@ import {
 } from '~/entities/euler/labels'
 import type { EarnVault, Vault } from '~/entities/vault'
 import type { OracleAdapterMeta } from '~/entities/oracle'
-import { labelsRepo, oracleChecksRepo } from '~/entities/custom'
+let _labelsRepo = 'euler-xyz/euler-labels'
+let _oracleChecksRepo = 'euler-xyz/oracle-checks'
+let _isCustomLabelsRepo = false
+
+const initRepos = () => {
+  const { labelsRepo, oracleChecksRepo, isCustomLabelsRepo } = useDeployConfig()
+  _labelsRepo = labelsRepo
+  _oracleChecksRepo = oracleChecksRepo
+  _isCustomLabelsRepo = isCustomLabelsRepo.value
+}
 
 const getLabelsUrl = (chainId: number, file: string) =>
-  `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master/${chainId}/${file}`
+  `https://raw.githubusercontent.com/${_labelsRepo}/refs/heads/master/${chainId}/${file}`
 
 const getOracleChecksUrl = (chainId: number, file: string) =>
-  `https://raw.githubusercontent.com/${oracleChecksRepo}/refs/heads/master/data/${chainId}/${file}`
+  `https://raw.githubusercontent.com/${_oracleChecksRepo}/refs/heads/master/data/${chainId}/${file}`
 
 const isLoading = ref(false)
 
@@ -150,6 +159,8 @@ const loadOracleAdapters = async (chainId: number, addresses?: string[]) => {
 }
 
 export const useEulerLabels = () => {
+  initRepos()
+
   const loadLabels = async (forceRefresh = false) => {
     try {
       const { getCurrentChainConfig, loadEulerConfig } = useEulerAddresses()
@@ -187,7 +198,7 @@ export const useEulerLabels = () => {
         axios.get(getLabelsUrl(chainId, 'points.json')),
       ])
 
-      if (labelsRepo !== 'euler-xyz/euler-labels') {
+      if (_isCustomLabelsRepo) {
         const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
         const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], featured?: boolean }>
         earnVaults.value = earnEntries.map((entry) => {

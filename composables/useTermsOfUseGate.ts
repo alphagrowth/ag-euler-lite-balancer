@@ -2,7 +2,6 @@ import { unref } from 'vue'
 import type { Address, Hex } from 'viem'
 import { AcknowledgeTermsModal } from '#components'
 import { tosSignerReadAbi } from '~/abis/tos'
-import { enableTermsOfUseSignature } from '~/entities/custom'
 import { useModal } from '~/components/ui/composables/useModal'
 import { getTosData } from '~/composables/useTosData'
 import { getPublicClient } from '~/utils/public-client'
@@ -12,6 +11,7 @@ export const useTermsOfUseGate = () => {
   const { address } = useWagmi()
   const { eulerPeripheryAddresses, isReady, loadEulerConfig } = useEulerAddresses()
   const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { enableTosSignature: enableTermsOfUseSignature } = useDeployConfig()
 
   const hasSigned = useState<boolean | null>('tosHasSigned', () => null)
   const sessionAccepted = useState<boolean>('tosSessionAccepted', () => false)

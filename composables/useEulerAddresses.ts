@@ -1,5 +1,4 @@
-import config from '~/entities/config'
-import { availableNetworkIds } from '~/entities/custom'
+import { EULER_INTERFACES_CHAINS_URL } from '~/entities/constants'
 
 export type EulerLensAddresses = {
   accountLens: string
@@ -8,6 +7,13 @@ export type EulerLensAddresses = {
   oracleLens: string
   utilsLens: string
   vaultLens: string
+} | null
+
+export type EulerTokenAddresses = {
+  EUL: string | undefined
+  rEUL: string | undefined
+  eUSD: string | undefined
+  seUSD: string | undefined
 } | null
 
 interface EulerChainConfig {
@@ -35,6 +41,12 @@ interface EulerChainConfig {
       permit2: string
       protocolConfig: string
       sequenceRegistry: string
+    }
+    tokenAddrs?: {
+      EUL?: string
+      rEUL?: string
+      eUSD?: string
+      seUSD?: string
     }
     peripheryAddrs: {
       adaptiveCurveIRMFactory: string
@@ -64,19 +76,29 @@ interface EulerChainConfig {
   }
 }
 
-const allowedChainIds = availableNetworkIds.length ? [...availableNetworkIds] : [1]
+const allowedChainIds = ref<number[]>([])
 const eulerChainsConfig = ref<EulerChainConfig[]>([])
 const isLoading = ref(false)
-const chainId = ref<number>(allowedChainIds[0] || 0)
+const chainId = ref<number>(0)
 const error = ref<string | null>(null)
 
+let initialized = false
+
+const initAllowedChainIds = () => {
+  if (initialized) return
+  initialized = true
+
+  const rc = useRuntimeConfig().public
+  const enabledChainIds = rc.enabledChainIds as number[]
+  allowedChainIds.value = [...enabledChainIds]
+  chainId.value = allowedChainIds.value[0] || 0
+}
+
 export const useEulerAddresses = () => {
-  const { network } = useRuntimeConfig().public
-  const baseConfig = config[network as keyof typeof config]
-  const { EULER_INTERFACES_CHAINS_URL } = baseConfig
+  initAllowedChainIds()
 
   const changeCurrentChainId = (_chainId: number) => {
-    if (!allowedChainIds.includes(_chainId)) {
+    if (!allowedChainIds.value.includes(_chainId)) {
       console.warn(`[useEulerAddresses] chainId ${_chainId} is not allowed`)
       return
     }
@@ -99,10 +121,10 @@ export const useEulerAddresses = () => {
       }
 
       const data: EulerChainConfig[] = await response.json()
-      const filteredData = data.filter(chain => allowedChainIds.includes(chain.chainId))
+      const filteredData = data.filter(chain => allowedChainIds.value.includes(chain.chainId))
 
       if (!filteredData.length) {
-        console.warn('[useEulerAddresses] availableNetworkIds did not match any remote chains, using full list')
+        console.warn('[useEulerAddresses] enabledChainIds did not match any remote chains, using full list')
       }
 
       eulerChainsConfig.value = filteredData.length ? filteredData : data
@@ -119,7 +141,7 @@ export const useEulerAddresses = () => {
   const getCurrentChainConfig = computed(() => {
     if (eulerChainsConfig.value.length === 0) return undefined
 
-    const targetChainId = chainId.value || allowedChainIds.find(id => eulerChainsConfig.value.some(chain => chain.chainId === id)) || null
+    const targetChainId = chainId.value || allowedChainIds.value.find(id => eulerChainsConfig.value.some(chain => chain.chainId === id)) || null
 
     if (targetChainId) {
       return eulerChainsConfig.value.find(chain => chain.chainId === targetChainId)
@@ -155,6 +177,17 @@ export const useEulerAddresses = () => {
       permit2: config.addresses.coreAddrs.permit2,
       protocolConfig: config.addresses.coreAddrs.protocolConfig,
       sequenceRegistry: config.addresses.coreAddrs.sequenceRegistry,
+    }
+  })
+
+  const eulerTokenAddresses = computed<EulerTokenAddresses>(() => {
+    const config = getCurrentChainConfig.value
+    if (!config?.addresses.tokenAddrs) return null
+    return {
+      EUL: config.addresses.tokenAddrs.EUL,
+      rEUL: config.addresses.tokenAddrs.rEUL,
+      eUSD: config.addresses.tokenAddrs.eUSD,
+      seUSD: config.addresses.tokenAddrs.seUSD,
     }
   })
 
@@ -194,9 +227,11 @@ export const useEulerAddresses = () => {
     eulerLensAddresses,
     eulerCoreAddresses,
     eulerPeripheryAddresses,
+    eulerTokenAddresses,
     getCurrentChainConfig,
     eulerChainsConfig,
     chainId,
+    allowedChainIds,
     changeCurrentChainId,
     isLoading,
     error,

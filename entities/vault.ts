@@ -1,6 +1,6 @@
 import { getAddress, zeroAddress, parseUnits, encodeFunctionData, decodeFunctionResult, type Address, type Hex, type Abi } from 'viem'
 import axios from 'axios'
-import { labelsRepo } from './custom'
+// labelsRepo is accessed via useDeployConfig() at call sites
 import { SECONDS_IN_YEAR, TARGET_TIME_AGO, USD_ADDRESS } from '~/entities/constants'
 import {
   vaultConvertToAssetsAbi,
@@ -789,7 +789,8 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     assetPriceInfo = undefined
   }
 
-  const verified = labelsRepo !== 'euler-xyz/euler-labels' ? earnVaults.value.includes(vaultAddress) : verifiedEarnVaults.includes(vaultAddress)
+  const { isCustomLabelsRepo } = useDeployConfig()
+  const verified = isCustomLabelsRepo.value ? earnVaults.value.includes(vaultAddress) : verifiedEarnVaults.includes(vaultAddress)
 
   return {
     verified,
@@ -1154,7 +1155,8 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
 
   const client = getPublicClient(_EVM_PROVIDER_URL)
 
-  const verifiedVaults = labelsRepo !== 'euler-xyz/euler-labels'
+  const { isCustomLabelsRepo: _isCustomLabelsRepo } = useDeployConfig()
+  const verifiedVaults = _isCustomLabelsRepo.value
     ? earnVaults.value
     : await client.readContract({
         address: eulerPeripheryAddresses.value.eulerEarnGovernedPerspective as Address,

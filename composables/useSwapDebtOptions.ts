@@ -1,6 +1,5 @@
 import { getAddress } from 'viem'
 import { getProductByVault } from '~/composables/useEulerLabels'
-import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
@@ -14,8 +13,8 @@ export const useSwapDebtOptions = ({
   currentBorrowVault?: Ref<Vault | undefined>
 }) => {
   const { getVerifiedEvkVaults } = useVaultRegistry()
-  const { getOpportunityOfBorrowVault } = useMerkl()
-  const { withIntrinsicBorrowApy } = useIntrinsicApy()
+  const { withIntrinsicBorrowApy, version: intrinsicVersion } = useIntrinsicApy()
+  const { getBorrowRewardApy, version: rewardsVersion } = useRewardsApy()
 
   const borrowVaults = computed(() => {
     const collateral = collateralVault.value
@@ -49,11 +48,12 @@ export const useSwapDebtOptions = ({
 
   watchEffect(async () => {
     const vaults = borrowVaults.value
+    void rewardsVersion.value
+    void intrinsicVersion.value
     const options = await Promise.all(vaults.map(async (vault) => {
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.borrowAPY || 0n, 25)
-      const opportunity = getOpportunityOfBorrowVault(vault.asset.address)
-      const apy = withIntrinsicBorrowApy(baseApy, vault.asset.symbol) - (opportunity?.apr || 0)
+      const apy = withIntrinsicBorrowApy(baseApy, vault.asset.symbol) - getBorrowRewardApy(vault.asset.address, vault.address)
 
       return {
         type: 'vault',

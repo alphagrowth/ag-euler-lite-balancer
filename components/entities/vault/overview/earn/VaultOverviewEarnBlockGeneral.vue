@@ -4,9 +4,8 @@ import type { EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
-import { enableEntityBrandingDisplay, enableVaultTypeDisplay } from '~/entities/custom'
-
 const { vault } = defineProps<{ vault: EarnVault }>()
+const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
 
 const { isEarnVaultOwnerVerified } = useVaults()
 const vaultAddress = computed(() => getAddress(vault.address))
@@ -23,7 +22,7 @@ const priceDisplay = ref('-')
 
 watchEffect(async () => {
   const price = await formatAssetValue(1, vault, 'off-chain')
-  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : price.display
+  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : '-'
 })
 
 const feeDisplay = computed(() => {

@@ -4,9 +4,8 @@ import { type Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
-import { enableEntityBrandingDisplay, enableVaultTypeDisplay } from '~/entities/custom'
-
 const { vault } = defineProps<{ vault: Vault }>()
+const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
 
 const { borrowList, isVaultGovernorVerified } = useVaults()
 
@@ -35,7 +34,7 @@ const priceDisplay = ref('-')
 
 watchEffect(async () => {
   const price = await formatAssetValue(1, vault, 'off-chain')
-  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : price.display
+  priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : '-'
 })
 
 const vaultGovernanceType = computed(() => {

@@ -26,7 +26,7 @@ const { buildRepayPlan, buildFullRepayPlan, buildSwapPlan, executeTxPlan } = use
 const { isConnected, address } = useAccount()
 const positionIndex = route.params.number as string
 const { isPositionsLoading, isPositionsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
 const { EVM_PROVIDER_URL } = useEulerConfig()
@@ -100,8 +100,8 @@ const reviewRepayLabel = getSubmitLabel('Review Repay')
 const reviewRepayDisabled = getSubmitDisabled(computed(() => {
   return formTab.value === 'wallet' ? isSubmitDisabled.value : isSwapSubmitDisabled.value
 }))
-const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
-const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
+const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
+const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.asset.address || '', borrowVault.value?.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
   collateralVault.value?.asset.symbol,
@@ -129,8 +129,8 @@ watchEffect(async () => {
     collateralSupplyApy.value,
     borrowUsd,
     borrowApy.value,
-    opportunityInfoForCollateral.value?.apr || null,
-    opportunityInfoForBorrow.value?.apr || null,
+    collateralSupplyRewardApy.value || null,
+    borrowRewardApy.value || null,
   )
 })
 
@@ -295,16 +295,14 @@ const swapCollateralSupplyApy = computed(() => {
     return null
   }
   const base = nanoToValue(swapCollateralVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  const opportunity = getOpportunityOfLendVault(swapCollateralVault.value.address)
-  return withIntrinsicSupplyApy(base, swapCollateralVault.value.asset.symbol) + (opportunity?.apr || 0)
+  return withIntrinsicSupplyApy(base, swapCollateralVault.value.asset.symbol) + getSupplyRewardApy(swapCollateralVault.value.address)
 })
 const swapBorrowApy = computed(() => {
   if (!borrowVault.value) {
     return null
   }
   const base = nanoToValue(borrowVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  const opportunity = getOpportunityOfBorrowVault(borrowVault.value.asset.address || '')
-  return withIntrinsicBorrowApy(base, borrowVault.value.asset.symbol) - (opportunity?.apr || 0)
+  return withIntrinsicBorrowApy(base, borrowVault.value.asset.symbol) - getBorrowRewardApy(borrowVault.value.asset.address || '', borrowVault.value.address)
 })
 
 const swapCollateralSpent = computed(() => {
@@ -1044,8 +1042,8 @@ const updateEstimates = useDebounceFn(async () => {
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
       borrowUsd,
       borrowApy.value,
-      opportunityInfoForCollateral.value?.apr || null,
-      opportunityInfoForBorrow.value?.apr || null,
+      collateralSupplyRewardApy.value || null,
+      borrowRewardApy.value || null,
     )
     const collateralValue = (suppliedFixed.value).mul(priceFixed.value)
     const userLtvFixed = collateralValue.isZero()

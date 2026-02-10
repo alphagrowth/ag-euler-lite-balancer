@@ -15,7 +15,6 @@ import {
   isSecuritizeVault,
   type Vault,
 } from '~/entities/vault'
-import { labelsRepo } from '~/entities/custom'
 import { getProductByVault } from '~/composables/useEulerLabels'
 
 const isReady = ref(false)
@@ -316,7 +315,8 @@ const getEarnVault = async (address: string): Promise<EarnVault> => {
   const normalizedAddress = getAddress(address)
 
   // For custom labels repo, skip waiting and fetch directly
-  if (labelsRepo !== 'euler-xyz/euler-labels') {
+  const { isCustomLabelsRepo } = useDeployConfig()
+  if (isCustomLabelsRepo.value) {
     const { earnVaults } = useEulerLabels()
 
     if (earnVaults.value.includes(normalizedAddress)) {

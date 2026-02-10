@@ -1,52 +1,17 @@
 import { WagmiPlugin } from '@wagmi/vue'
 import { createAppKit } from '@reown/appkit/vue'
-import {
-  arbitrum, mainnet, base, swellchain, sonic,
-  bob, berachain, avalanche, bsc, unichain, monad,
-  tac, linea, plasma, type AppKitNetwork } from '@reown/appkit/networks'
+import type { AppKitNetwork } from '@reown/appkit/networks'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
-import { availableNetworkIds, appKitMetadata } from '~/entities/custom'
-
-const allNetworks: AppKitNetwork[] = [
-  mainnet,
-  arbitrum,
-  base,
-  swellchain,
-  sonic,
-  bob,
-  berachain,
-  avalanche,
-  bsc,
-  unichain,
-  tac,
-  linea,
-  plasma,
-  monad,
-]
-
-const networkMap = new Map<number | string, AppKitNetwork>(
-  allNetworks.map((network) => [network.id, network]),
-)
-const filteredNetworks = availableNetworkIds
-  .map((id) => networkMap.get(id) || networkMap.get(String(id)))
-  .filter(Boolean) as AppKitNetwork[]
-
-if (!filteredNetworks.length) {
-  console.warn(
-    "[wagmi] availableNetworkIds is empty or contains unknown ids, falling back to the full network list",
-  )
-}
-
-const networks = (filteredNetworks.length ? filteredNetworks : allNetworks) as [
-  AppKitNetwork,
-  ...AppKitNetwork[],
-]
+import { getNetworksByChainIds } from '~/entities/chainRegistry'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const projectId = config.public.appKitProjectId
   const appUrl = config.public.appUrl
   const normalizedAppUrl = appUrl ? appUrl.replace(/\/+$/, '') : ''
+  const enabledChainIds = config.public.enabledChainIds as number[]
+  const configAppTitle = (config.public.configAppTitle as string) || 'Euler Lite'
+  const configAppDescription = (config.public.configAppDescription as string) || 'Lightweight interface for Euler Finance.'
 
   if (!projectId) {
     console.warn('[wagmi] Missing APPKIT_PROJECT_ID in runtime config')
@@ -55,14 +20,23 @@ export default defineNuxtPlugin((nuxtApp) => {
     console.warn('[wagmi] Missing APP_URL in runtime config')
   }
 
-  const buildAppKitMetadata = (url: string) => ({
-    name: appKitMetadata.name,
-    description: appKitMetadata.description,
-    url,
-    icons: url ? [`${url}${appKitMetadata.iconPath}`] : [],
-  })
+  if (!enabledChainIds.length) {
+    throw new Error(
+      '[wagmi] No enabled chains. Set at least one RPC_URL_HTTP_<chainId> env var.',
+    )
+  }
 
-  const metadata = buildAppKitMetadata(normalizedAppUrl)
+  const networks = getNetworksByChainIds(enabledChainIds) as [
+    AppKitNetwork,
+    ...AppKitNetwork[],
+  ]
+
+  const metadata = {
+    name: configAppTitle,
+    description: configAppDescription,
+    url: normalizedAppUrl,
+    icons: normalizedAppUrl ? [`${normalizedAppUrl}/manifest-img.png`] : [],
+  }
 
   const wagmiAdapter = new WagmiAdapter({
     networks,

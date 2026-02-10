@@ -1,6 +1,5 @@
 import type { Hex } from 'viem'
 import { keccak256, stringToHex, toHex } from 'viem'
-import { TOS_MD, TOS_PUBLIC } from '~/entities/constants'
 
 let cachedTosData: TosData | null = null
 let fetchPromise: Promise<TosData> | null = null
@@ -18,7 +17,13 @@ export async function getTosData(): Promise<TosData> {
     return fetchPromise
   }
 
-  fetchPromise = fetch(TOS_MD)
+  const { tosUrl, tosMdUrl } = useDeployConfig()
+
+  if (!tosMdUrl) {
+    throw new Error('TOS markdown URL not configured (NUXT_PUBLIC_CONFIG_TOS_MD_URL)')
+  }
+
+  fetchPromise = fetch(tosMdUrl)
     .then((response) => {
       if (!response.ok) {
         throw new Error(`Failed to fetch ToS: ${response.status} ${response.statusText}`)
@@ -28,7 +33,7 @@ export async function getTosData(): Promise<TosData> {
     .then((content) => {
       const tosHash = keccak256(toHex(content))
       const tosHashShort = `0x${tosHash.slice(-6)}`
-      const tosMessage = `By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: ${TOS_PUBLIC}  hash:${tosHashShort}`
+      const tosMessage = `By proceeding to engage with and use Euler, you accept and agree to abide by the Terms of Use: ${tosUrl}  hash:${tosHashShort}`
       const tosMessageHash = keccak256(stringToHex(tosMessage))
       cachedTosData = { tosMessage, tosMessageHash }
       return cachedTosData

@@ -7,19 +7,17 @@ import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
 
-const { getOpportunityOfBorrowVault } = useMerkl()
-const { getCampaignOfBorrowVault } = useBrevis()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 
 const getNetApy = (pair: BorrowVaultPair) => {
   const baseSupplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
   const baseBorrowApy = nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25)
   const supplyApy = withIntrinsicSupplyApy(baseSupplyApy, pair.collateral.asset.symbol)
   const borrowApy = withIntrinsicBorrowApy(baseBorrowApy, pair.borrow.asset.symbol)
-  const opportunityInfo = getOpportunityOfBorrowVault(pair.borrow.asset.address)
-  const brevisInfo = getCampaignOfBorrowVault(pair.borrow.address)
-  const totalRewardsAPY = (opportunityInfo?.apr || 0) + (brevisInfo?.reward_info.apr || 0) * 100
-  return (supplyApy + totalRewardsAPY) - (borrowApy - totalRewardsAPY)
+  const supplyRewards = getSupplyRewardApy(pair.collateral.address)
+  const borrowRewards = getBorrowRewardApy(pair.borrow.asset.address, pair.borrow.address)
+  return (supplyApy + supplyRewards) - (borrowApy - borrowRewards)
 }
 
 const getSortMaxRoe = (pair: BorrowVaultPair) => {
@@ -27,10 +25,8 @@ const getSortMaxRoe = (pair: BorrowVaultPair) => {
   const maxMultiplier = Math.max(1, Math.floor(100 / (100 - borrowLTV) * 100) / 100)
   const baseSupplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
   const supplyApy = withIntrinsicSupplyApy(baseSupplyApy, pair.collateral.asset.symbol)
-  const opportunityInfo = getOpportunityOfBorrowVault(pair.borrow.asset.address)
-  const brevisInfo = getCampaignOfBorrowVault(pair.borrow.address)
-  const totalRewardsAPY = (opportunityInfo?.apr || 0) + (brevisInfo?.reward_info.apr || 0) * 100
-  const supplyApyWithRewards = supplyApy + totalRewardsAPY
+  const supplyRewards = getSupplyRewardApy(pair.collateral.address)
+  const supplyApyWithRewards = supplyApy + supplyRewards
   const netApy = getNetApy(pair)
   return supplyApyWithRewards + (maxMultiplier - 1) * netApy
 }

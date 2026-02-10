@@ -17,24 +17,16 @@ const product = useEulerProductOfVault(vault.address);
 const isUnverified = computed(() => !vault.verified);
 const displayName = computed(() => product.name || vault.name);
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
-const { getOpportunityOfLendVault } = useMerkl();
-const { getCampaignOfLendVault } = useBrevis();
 const { withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy();
+const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy();
 const modal = useModal();
 
 const balance = computed(() =>
   getBalance(vault.asset.address as `0x${string}`),
 );
-const opportunityInfo = computed(() =>
-  getOpportunityOfLendVault(vault.address),
-);
-const brevisInfo = computed(() => getCampaignOfLendVault(vault.address));
-const totalRewardsAPY = computed(
-  () =>
-    (opportunityInfo.value?.apr || 0) +
-    (brevisInfo.value?.reward_info.apr || 0) * 100,
-);
-const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value);
+const totalRewardsAPY = computed(() => getSupplyRewardApy(vault.address));
+const rewardInfo = computed(() => getSupplyRewardInfo(vault.address));
+const hasRewards = computed(() => rewardInfo.value.opportunity || rewardInfo.value.campaign);
 const lendingAPY = computed(() =>
   nanoToValue(vault.interestRateInfo.supplyAPY, 25),
 );
@@ -65,12 +57,13 @@ const deprecationReason = computed(() =>
 const onSupplyInfoIconClick = (event: MouseEvent) => {
   event.preventDefault();
   event.stopPropagation();
+  const info = rewardInfo.value
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: lendingAPY.value,
       intrinsicAPY: intrinsicAPY.value,
-      opportunityInfo: opportunityInfo.value,
-      brevisInfo: brevisInfo.value,
+      opportunityInfo: info.opportunity,
+      brevisInfo: info.campaign,
     },
   });
 };

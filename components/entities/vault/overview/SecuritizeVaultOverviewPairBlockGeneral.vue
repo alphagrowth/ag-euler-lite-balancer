@@ -8,14 +8,11 @@ import { VaultBorrowApyModal, VaultSupplyApyModal } from '#components'
 const { pair } = defineProps<{ pair: SecuritizeBorrowVaultPair }>()
 
 const modal = useModal()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { getCampaignOfBorrowVault } = useBrevis()
 const { withIntrinsicBorrowApy, getIntrinsicApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardInfo, getBorrowRewardInfo } = useRewardsApy()
 
 // Borrow APY (from EVK borrow vault)
-const borrowRewardAPY = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address)?.apr)
-const brevisInfo = computed(() => getCampaignOfBorrowVault(pair.borrow.address))
-const totalBorrowRewardsAPY = computed(() => (borrowRewardAPY.value || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
+const totalBorrowRewardsAPY = computed(() => getBorrowRewardApy(pair.borrow.asset.address, pair.borrow.address))
 
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
@@ -24,13 +21,13 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
 
 const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25))
 const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.symbol))
-const borrowOpportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address))
+const borrowRewardInfo = computed(() => getBorrowRewardInfo(pair.borrow.asset.address, pair.borrow.address))
 
 // Supply APY (for securitize collateral - intrinsic + rewards only, no interest rate)
-const collateralRewardAPY = computed(() => getOpportunityOfLendVault(pair.collateral.address)?.apr || 0)
+const collateralRewardAPY = computed(() => getSupplyRewardApy(pair.collateral.address))
 const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol, 'supply'))
 const supplyApyWithRewards = computed(() => intrinsicSupplyApy.value + collateralRewardAPY.value)
-const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(pair.collateral.address))
+const supplyRewardInfo = computed(() => getSupplyRewardInfo(pair.collateral.address))
 
 const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV))
 const maxRoe = computed(() =>
@@ -56,7 +53,7 @@ const onSupplyInfoIconClick = () => {
     props: {
       lendingAPY: 0, // Securitize vaults don't have interest rates
       intrinsicAPY: intrinsicSupplyApy.value,
-      opportunityInfo: supplyOpportunityInfo.value,
+      opportunityInfo: supplyRewardInfo.value.opportunity,
     },
   })
 }
@@ -66,7 +63,7 @@ const onBorrowInfoIconClick = () => {
     props: {
       borrowingAPY: baseBorrowApy.value,
       intrinsicAPY: intrinsicBorrowApy.value,
-      opportunityInfo: borrowOpportunityInfo.value,
+      opportunityInfo: borrowRewardInfo.value.opportunity,
     },
   })
 }

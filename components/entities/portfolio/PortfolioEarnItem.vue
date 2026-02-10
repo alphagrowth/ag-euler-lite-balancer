@@ -9,10 +9,10 @@ import { useModal } from '~/components/ui/composables/useModal'
 const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()
 
-const { getOpportunityOfLendVault } = useMerkl()
+const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy()
 
 const vault = computed(() => position.vault as EarnVault)
-const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value.address))
+const rewardInfo = computed(() => getSupplyRewardInfo(vault.value.address))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
 const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
@@ -29,7 +29,7 @@ watchEffect(() => {
   updateSupplyValueDisplay()
 })
 
-const supplyApyWithRewards = computed(() => nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + (opportunityInfo.value?.apr || 0))
+const supplyApyWithRewards = computed(() => nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + getSupplyRewardApy(vault.value.address))
 
 const hasPrice = ref(false)
 
@@ -100,7 +100,7 @@ const onClick = () => {
             class="text-p2 flex text-accent-600"
           >
             <SvgIcon
-              v-if="opportunityInfo?.apr"
+              v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
               name="sparks"
               class="!w-20 !h-20 text-accent-600 mr-4"
             />
@@ -139,7 +139,7 @@ const onClick = () => {
           <div class="flex justify-between gap-8 text-right">
             <div class="text-content-primary text-p3 flex items-center gap-4">
               <SvgIcon
-                v-if="opportunityInfo?.apr"
+                v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
                 name="sparks"
                 class="!w-18 !h-18 text-accent-600"
               />

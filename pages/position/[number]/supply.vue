@@ -33,7 +33,7 @@ const { isConnected } = useAccount()
 const { fetchSingleBalance } = useWallets()
 const positionIndex = route.params.number as string
 const { isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { isReady: isVaultsReady } = useVaults()
@@ -60,8 +60,8 @@ const isPositionLoaded = computed(() => !!position.value)
 const collateralVault = computed(() => selectedCollateral.value || position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
 const collateralAssets = computed(() => selectedCollateralAssets.value)
-const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
-const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
+const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
+const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.asset.address || '', borrowVault.value?.address || ''))
 const collateralSupplyApy = computed(() => {
   if (!collateralVault.value) return 0
   return withIntrinsicSupplyApy(
@@ -97,8 +97,8 @@ watchEffect(async () => {
     collateralSupplyApy.value,
     borrowedUsd,
     borrowApy.value,
-    opportunityInfoForCollateral.value?.apr || null,
-    opportunityInfoForBorrow.value?.apr || null,
+    collateralSupplyRewardApy.value || null,
+    borrowRewardApy.value || null,
   )
 })
 const amountFixed = computed(() => FixedPoint.fromValue(
@@ -319,8 +319,8 @@ const updateEstimates = useDebounceFn(async () => {
       collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
       borrowedUsd,
       borrowApy.value,
-      opportunityInfoForCollateral.value?.apr || null,
-      opportunityInfoForBorrow.value?.apr || null,
+      collateralSupplyRewardApy.value || null,
+      borrowRewardApy.value || null,
     )
     const collateralValue = (suppliedFixed.value.add(amountFixed.value)).mul(priceFixed.value)
     const userLtvFixed = collateralValue.isZero()

@@ -15,7 +15,6 @@ import { getQuoteAmount } from '~/utils/swapQuotes'
 import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
-import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 
 const route = useRoute()
@@ -27,8 +26,8 @@ const modal = useModal()
 const { error: showError } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSwapLabel = getSubmitLabel(computed(() => selectedQuote.value ? 'Review Swap' : 'Select a Quote'))
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const openSlippageSettings = () => {
   modal.open(SlippageSettingsModal)
@@ -181,35 +180,26 @@ const onRefreshQuotes = () => {
   requestQuote()
 }
 
-const fromOpportunity = computed(() => {
-  return fromVault.value ? getOpportunityOfBorrowVault(fromVault.value.asset.address) : null
-})
-const toOpportunity = computed(() => {
-  return toVault.value ? getOpportunityOfBorrowVault(toVault.value.asset.address) : null
-})
-const collateralOpportunity = computed(() => {
-  return collateralVault.value ? getOpportunityOfLendVault(collateralVault.value.address) : null
-})
 const collateralSupplyApy = computed(() => {
   if (!collateralVault.value) {
     return null
   }
   const base = nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, collateralVault.value.asset.symbol) + (collateralOpportunity.value?.apr || 0)
+  return withIntrinsicSupplyApy(base, collateralVault.value.asset.symbol) + getSupplyRewardApy(collateralVault.value.address)
 })
 const fromBorrowApy = computed(() => {
   if (!fromVault.value) {
     return null
   }
   const base = nanoToValue(fromVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, fromVault.value.asset.symbol) - (fromOpportunity.value?.apr || 0)
+  return withIntrinsicBorrowApy(base, fromVault.value.asset.symbol) - getBorrowRewardApy(fromVault.value.asset.address, fromVault.value.address)
 })
 const toBorrowApy = computed(() => {
   if (!toVault.value) {
     return null
   }
   const base = nanoToValue(toVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, toVault.value.asset.symbol) - (toOpportunity.value?.apr || 0)
+  return withIntrinsicBorrowApy(base, toVault.value.asset.symbol) - getBorrowRewardApy(toVault.value.asset.address, toVault.value.address)
 })
 
 const supplyValueUsd = ref<number | null>(null)

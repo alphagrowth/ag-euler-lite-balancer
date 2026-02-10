@@ -4,12 +4,12 @@ import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
 
-const { getOpportunityOfLendVault } = useMerkl()
 const { getVault } = useVaults()
+const { getSupplyRewardApy } = useRewardsApy()
 
 const availableLiquidityOfStrategies = ref(0n)
 
-const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?.apr)
+const rewardSupplyAPY = computed(() => getSupplyRewardApy(vault.address))
 
 const totalSupplyDisplay = ref('-')
 
@@ -54,7 +54,7 @@ load()
       />
       <VaultOverviewLabelValue
         label="Supply APY"
-        :value="`${formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + (rewardSupplyAPY || 0))}%`"
+        :value="`${formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + rewardSupplyAPY)}%`"
         orientation="horizontal"
       />
     </div>

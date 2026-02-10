@@ -5,7 +5,7 @@ import { encodeFunctionData, encodePacked, getAddress, hexToBigInt, keccak256, m
 import { getPublicClient } from '~/utils/public-client'
 import { ALLOWANCE_SLOT_CANDIDATES, PERMIT2_SIG_WINDOW } from '~/entities/constants'
 import { getTosData } from '~/composables/useTosData'
-import { enableTermsOfUseSignature } from '~/entities/custom'
+// enableTermsOfUseSignature is read from useDeployConfig() inside useEulerOperations()
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { erc20ApproveAbi, erc20TransferAbi } from '~/abis/erc20'
 import { EVC_ABI, evcDisableCollateralAbi, evcDisableControllerAbi, evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
@@ -32,6 +32,7 @@ export const useEulerOperations = () => {
   const { signTypedDataAsync } = useSignTypedData()
   const config = useConfig()
   const { eulerCoreAddresses, eulerPeripheryAddresses } = useEulerAddresses()
+  const { enableTosSignature: enableTermsOfUseSignature } = useDeployConfig()
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { get: registryGet } = useVaultRegistry()
   const { permit2Enabled } = usePermit2Preference()

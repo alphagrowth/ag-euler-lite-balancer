@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { defaultPageRoute } from '~/entities/menu'
+import { getDefaultPageRoute } from '~/entities/menu'
+
+const { enableEarnPage, enableLendPage } = useDeployConfig()
+const defaultPageRoute = getDefaultPageRoute(enableEarnPage, enableLendPage)
 
 const route = useRoute()
 await navigateTo(

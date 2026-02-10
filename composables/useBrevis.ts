@@ -18,6 +18,12 @@ const isRewardsLoading = ref(true)
 
 let interval: NodeJS.Timeout | null = null
 
+const BREVIS_CACHE_TTL_MS = 60 * 1000
+const cacheState = {
+  campaigns: { timestamp: 0 },
+  rewards: { timestamp: 0, address: '' },
+}
+
 const getCampaignOfLendVault = (vaultAddress: string) => {
   return lendCampaigns.value.find(campaign => campaign.vault_address.toLowerCase() === vaultAddress.toLowerCase())
 }
@@ -47,8 +53,15 @@ export const useBrevis = () => {
     await switchChain({ chainId: targetChainId })
   }
 
-  const loadCampaigns = async (isInitialLoading = true) => {
+  const loadCampaigns = async (isInitialLoading = true, forceRefresh = false) => {
     try {
+      const now = Date.now()
+      if (!forceRefresh
+        && lendCampaigns.value.length + borrowCampaigns.value.length > 0
+        && (now - cacheState.campaigns.timestamp) < BREVIS_CACHE_TTL_MS) {
+        return
+      }
+
       if (isInitialLoading) {
         isCampaignsLoading.value = true
       }
@@ -82,6 +95,7 @@ export const useBrevis = () => {
 
       lendCampaigns.value = lends
       borrowCampaigns.value = borrows
+      cacheState.campaigns.timestamp = Date.now()
     }
     catch (e) {
       console.warn(e)
@@ -91,12 +105,21 @@ export const useBrevis = () => {
     }
   }
 
-  const loadRewards = async (isInitialLoading = true) => {
+  const loadRewards = async (isInitialLoading = true, forceRefresh = false) => {
     try {
       if (!address.value) {
         userRewards.value = []
         return
       }
+
+      const now = Date.now()
+      if (!forceRefresh
+        && cacheState.rewards.address === address.value
+        && userRewards.value.length > 0
+        && (now - cacheState.rewards.timestamp) < BREVIS_CACHE_TTL_MS) {
+        return
+      }
+
       if (isInitialLoading) {
         isRewardsLoading.value = true
       }
@@ -114,6 +137,8 @@ export const useBrevis = () => {
       }
 
       userRewards.value = res.data.campaigns || []
+      cacheState.rewards.timestamp = Date.now()
+      cacheState.rewards.address = address.value
     }
     catch (e) {
       console.warn(e)
@@ -218,18 +243,20 @@ export const useBrevis = () => {
     }
   }, { immediate: true })
 
-  watch(isConnected, () => {
-    if (!isLoaded.value) {
-      loadCampaigns()
-      loadRewards()
-      isLoaded.value = true
-    }
+  watch(isConnected, (connected) => {
+    if (connected) {
+      if (!isLoaded.value) {
+        loadCampaigns()
+        loadRewards()
+        isLoaded.value = true
+      }
 
-    if (!interval) {
-      interval = setInterval(() => {
-        loadRewards(false)
-        loadCampaigns(false)
-      }, 10000)
+      if (!interval) {
+        interval = setInterval(() => {
+          loadRewards(false)
+          loadCampaigns(false)
+        }, 10000)
+      }
     }
     else {
       if (interval) {

@@ -14,7 +14,6 @@ import { getQuoteAmount } from '~/utils/swapQuotes'
 import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
-import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 
 const route = useRoute()
@@ -27,8 +26,8 @@ const modal = useModal()
 const { error: showError } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSwapLabel = getSubmitLabel(computed(() => selectedQuote.value ? 'Review Swap' : 'Select a Quote'))
-const { getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
+const { getSupplyRewardApy } = useRewardsApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const openSlippageSettings = () => {
   modal.open(SlippageSettingsModal)
@@ -185,25 +184,19 @@ const balance = computed(() => {
   return savingPosition.value?.assets || 0n
 })
 
-const fromOpportunity = computed(() => {
-  return fromVault.value ? getOpportunityOfLendVault(fromVault.value.address) : null
-})
-const toOpportunity = computed(() => {
-  return toVault.value ? getOpportunityOfLendVault(toVault.value.address) : null
-})
 const fromSupplyApy = computed(() => {
   if (!fromVault.value) {
     return null
   }
   const base = nanoToValue(fromVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, fromVault.value.asset.symbol) + (fromOpportunity.value?.apr || 0)
+  return withIntrinsicSupplyApy(base, fromVault.value.asset.symbol) + getSupplyRewardApy(fromVault.value.address)
 })
 const toSupplyApy = computed(() => {
   if (!toVault.value) {
     return null
   }
   const base = nanoToValue(toVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, toVault.value.asset.symbol) + (toOpportunity.value?.apr || 0)
+  return withIntrinsicSupplyApy(base, toVault.value.asset.symbol) + getSupplyRewardApy(toVault.value.address)
 })
 
 const currentPrice = computed(() => {

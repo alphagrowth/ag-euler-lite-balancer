@@ -30,7 +30,7 @@ const { buildBorrowPlan, buildBorrowBySavingPlan, buildMultiplyPlan, executeTxPl
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
 const { refreshAllPositions, depositPositions } = useEulerAccount()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
 const { getBalance, fetchSingleBalance, fetchVaultShareBalance } = useWallets()
@@ -326,13 +326,13 @@ const multiplySupplyProduct = useEulerProductOfVault(computed(() => multiplySupp
 const multiplyLongProduct = useEulerProductOfVault(computed(() => multiplyLongVault.value?.address || ''))
 const multiplyShortProduct = useEulerProductOfVault(computed(() => multiplyShortVault.value?.address || ''))
 
-const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(pair.value?.borrow.asset.address || ''))
-const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(pair.value?.collateral.address || ''))
+const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(pair.value?.collateral.address || ''))
+const borrowRewardApy = computed(() => getBorrowRewardApy(pair.value?.borrow.asset.address || '', pair.value?.borrow.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
   collateralVault.value?.asset.symbol,
 ))
-const collateralSupplyApyWithRewards = computed(() => collateralSupplyApy.value + (opportunityInfoForCollateral.value?.apr || 0))
+const collateralSupplyApyWithRewards = computed(() => collateralSupplyApy.value + collateralSupplyRewardApy.value)
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
   borrowVault.value?.asset.symbol,
@@ -358,36 +358,26 @@ const calculateRoe = (
   return net / equity
 }
 
-const multiplySupplyOpportunity = computed(() => {
-  return multiplySupplyVault.value ? getOpportunityOfLendVault(multiplySupplyVault.value.address) : null
-})
-const multiplyLongOpportunity = computed(() => {
-  return multiplyLongVault.value ? getOpportunityOfLendVault(multiplyLongVault.value.address) : null
-})
-const multiplyBorrowOpportunity = computed(() => {
-  return multiplyShortVault.value ? getOpportunityOfBorrowVault(multiplyShortVault.value.asset.address) : null
-})
-
 const multiplySupplyApy = computed(() => {
   if (!multiplySupplyVault.value) {
     return null
   }
   const base = nanoToValue(multiplySupplyVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, multiplySupplyVault.value.asset.symbol) + (multiplySupplyOpportunity.value?.apr || 0)
+  return withIntrinsicSupplyApy(base, multiplySupplyVault.value.asset.symbol) + getSupplyRewardApy(multiplySupplyVault.value.address)
 })
 const multiplyLongApy = computed(() => {
   if (!multiplyLongVault.value) {
     return null
   }
   const base = nanoToValue(multiplyLongVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, multiplyLongVault.value.asset.symbol) + (multiplyLongOpportunity.value?.apr || 0)
+  return withIntrinsicSupplyApy(base, multiplyLongVault.value.asset.symbol) + getSupplyRewardApy(multiplyLongVault.value.address)
 })
 const multiplyBorrowApy = computed(() => {
   if (!multiplyShortVault.value) {
     return null
   }
   const base = nanoToValue(multiplyShortVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - (multiplyBorrowOpportunity.value?.apr || 0)
+  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - getBorrowRewardApy(multiplyShortVault.value.asset.address, multiplyShortVault.value.address)
 })
 
 const normalizeAddress = (address?: string) => {
@@ -1365,8 +1355,8 @@ const updateEstimates = useDebounceFn(async () => {
       collateralSupplyApy.value,
       borrowUsdValue,
       borrowApy.value,
-      opportunityInfoForCollateral.value?.apr || null,
-      opportunityInfoForBorrow.value?.apr || null,
+      collateralSupplyRewardApy.value || null,
+      borrowRewardApy.value || null,
     )
   }
   catch (e) {

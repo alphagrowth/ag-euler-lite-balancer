@@ -1,6 +1,6 @@
 import { getAddress } from 'viem'
 import { useToast } from '~/components/ui/composables/useToast'
-import { defaultPageRoute } from '~/entities/menu'
+import { getDefaultPageRoute } from '~/entities/menu'
 
 const normalizeParam = (value: unknown) => (Array.isArray(value) ? value[0] : value)
 
@@ -13,6 +13,11 @@ const parseChainId = (value: unknown): number | null => {
       : NaN
 
   return Number.isFinite(parsed) ? parsed : null
+}
+
+const getDefaultRoute = () => {
+  const { enableEarnPage, enableLendPage } = useDeployConfig()
+  return getDefaultPageRoute(enableEarnPage, enableLendPage)
 }
 
 const scheduleVaultCheck = (vaultParam: string, path: string, expectedChainId: number | null) => {
@@ -59,7 +64,7 @@ const scheduleVaultCheck = (vaultParam: string, path: string, expectedChainId: n
 
       info('This vault could not be found on this chain!')
       void navigateTo({
-        name: defaultPageRoute,
+        name: getDefaultRoute(),
         query: { ...route.query },
         hash: route.hash,
       }, { replace: true })
@@ -98,7 +103,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   catch {
     info('This vault could not be found on this chain!')
     return navigateTo({
-      name: defaultPageRoute,
+      name: getDefaultRoute(),
       query: { ...to.query },
       hash: to.hash,
     }, { replace: true })
@@ -119,7 +124,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       console.warn('[ensure-vault] failed to load vault')
       info('This vault could not be found on this chain!')
       return navigateTo({
-        name: defaultPageRoute,
+        name: getDefaultRoute(),
         query: { ...to.query },
         hash: to.hash,
       }, { replace: true })

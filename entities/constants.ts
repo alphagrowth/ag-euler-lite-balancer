@@ -57,26 +57,8 @@ export const MAX_SLIPPAGE = 50
 export const USD_ADDRESS = '0x0000000000000000000000000000000000000348'
 export const EUR_ADDRESS = '0x00000000000000000000000000000000000003d2'
 
-export const TOS_MD = 'https://raw.githubusercontent.com/euler-xyz/euler-docs/refs/heads/20260129-update-legal-pages/legal/termsOfUse-20260129.md'
-export const TOS_PUBLIC = 'https://www.euler.finance/terms'
 export const ALLOWANCE_SLOT_CANDIDATES = [0n, 1n, 2n, 3n] as const
 export const PERMIT2_SIG_WINDOW = 60n * 60n
-
-export const DEFI_LLAMA_CHAIN_BY_CHAIN_ID: Record<number, string> = {
-  1: 'Ethereum',
-  56: 'BSC',
-  130: 'Unichain',
-  146: 'Sonic',
-  239: 'TAC',
-  1923: 'Swell',
-  42161: 'Arbitrum',
-  43114: 'Avalanche',
-  59144: 'Linea',
-  60808: 'BOB',
-  80094: 'Berachain',
-  8453: 'Base',
-  9745: 'Plasma',
-} as const
 
 export const INTEREST_RATE_MODEL_TYPE = {
   KINK: 1,
@@ -138,3 +120,10 @@ export const PERMIT2_TYPES = {
 
 export const MAX_UINT48 = (1n << 48n) - 1n
 export const MAX_UINT160 = (1n << 160n) - 1n
+
+export const MERKL_DISTRIBUTOR_ADDRESS = '0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae'
+export const MERKL_API_BASE_URL = 'https://api.merkl.xyz/v4'
+export const EULER_INTERFACES_CHAINS_URL = 'https://raw.githubusercontent.com/euler-xyz/euler-interfaces/refs/heads/master/EulerChains.json'
+export const DEFILLAMA_YIELDS_URL = 'https://yields.llama.fi/pools'
+export const BREVIS_API_URL = 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns'
+export const BREVIS_MERKLE_PROOF_URL = 'https://incentra-prd.brevis.network/v1/getMerkleProofsBatch'

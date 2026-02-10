@@ -12,7 +12,7 @@ export default defineEventHandler((event) => {
     return
   }
 
-  const allowedOrigin = process.env.APP_URL || '*'
+  const allowedOrigin = process.env.NUXT_PUBLIC_APP_URL || '*'
   const origin = event.node.req.headers.origin
 
   if (allowedOrigin === '*') {

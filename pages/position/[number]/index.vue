@@ -35,8 +35,8 @@ const modal = useModal()
 const { error } = useToast()
 const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { buildDisableCollateralPlan, executeTxPlan } = useEulerOperations()
 const {
   runSimulation: runDisableCollateralSimulation,
@@ -96,8 +96,8 @@ const isPositionGeoBlocked = computed(() => {
   return isAnyVaultBlockedByCountry(...addresses)
 })
 
-const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
-const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
+const supplyRewardAPY = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
+const borrowRewardAPY = computed(() => getBorrowRewardApy(borrowVault.value?.asset.address || '', borrowVault.value?.address || ''))
 const baseSupplyAPY = computed(() => {
   return nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25)
 })
@@ -112,7 +112,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   baseBorrowAPY.value,
   borrowVault.value?.asset.symbol,
 ))
-const borrowApyWithRewards = computed(() => borrowApy.value - (opportunityInfoForBorrow.value?.apr || 0))
+const borrowApyWithRewards = computed(() => borrowApy.value - borrowRewardAPY.value)
 
 // Warnings for borrow vault
 const positionWarnings = computed(() => {
@@ -157,7 +157,7 @@ watchEffect(async () => {
 
   const results = await Promise.all(
     collateralItems.value.map(async (item) => {
-      const opportunity = getOpportunityOfLendVault(item.vault.address || '')
+      const rewardApy = getSupplyRewardApy(item.vault.address || '')
       const supplyApy = withIntrinsicSupplyApy(
         nanoToValue(item.vault.interestRateInfo.supplyAPY || 0n, 25),
         item.vault.asset.symbol,
@@ -183,7 +183,7 @@ watchEffect(async () => {
         unitPriceUsd,
         oraclePriceUsd,
         supplyApy,
-        supplyApyWithRewards: supplyApy + (opportunity?.apr || 0),
+        supplyApyWithRewards: supplyApy + rewardApy,
       }
     }),
   )
@@ -315,8 +315,8 @@ const netAPY = computed(() => {
     collateralSupplyApy.value,
     borrowMarketValue.value.usd,
     borrowApy.value,
-    opportunityInfoForCollateral.value?.apr || null,
-    opportunityInfoForBorrow.value?.apr || null,
+    supplyRewardAPY.value || null,
+    borrowRewardAPY.value || null,
   )
 })
 
@@ -327,8 +327,8 @@ const roe = computed(() => {
     collateralSupplyApy.value,
     borrowMarketValue.value.usd,
     borrowApy.value,
-    opportunityInfoForCollateral.value?.apr || null,
-    opportunityInfoForBorrow.value?.apr || null,
+    supplyRewardAPY.value || null,
+    borrowRewardAPY.value || null,
   )
 })
 

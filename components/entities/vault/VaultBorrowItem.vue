@@ -12,10 +12,9 @@ import { VaultBorrowApyModal, VaultMaxRoeModal } from '#components'
 
 const { pair } = defineProps<{ pair: AnyBorrowVaultPair }>();
 
-const { getOpportunityOfBorrowVault } = useMerkl();
-const { getCampaignOfBorrowVault } = useBrevis();
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } =
   useIntrinsicApy();
+const { getBorrowRewardApy, getBorrowRewardInfo } = useRewardsApy();
 const modal = useModal();
 
 const collateralProduct = useEulerProductOfVault(
@@ -61,18 +60,13 @@ const pairName = computed(() => {
   }
   return `${collateralName}/${borrowName}`;
 });
-const opportunityInfo = computed(() =>
-  getOpportunityOfBorrowVault(pair.borrow.asset.address),
+const totalRewardsAPY = computed(() =>
+  getBorrowRewardApy(pair.borrow.asset.address, pair.borrow.address),
 );
-const brevisInfo = computed(() =>
-  getCampaignOfBorrowVault(pair.borrow.address),
+const rewardInfo = computed(() =>
+  getBorrowRewardInfo(pair.borrow.asset.address, pair.borrow.address),
 );
-const totalRewardsAPY = computed(
-  () =>
-    (opportunityInfo.value?.apr || 0) +
-    (brevisInfo.value?.reward_info.apr || 0) * 100,
-);
-const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value);
+const hasRewards = computed(() => rewardInfo.value.opportunity || rewardInfo.value.campaign);
 const supplyApy = computed(() => {
   const interestRateInfo =
     "interestRateInfo" in pair.collateral
@@ -122,7 +116,7 @@ const onBorrowInfoIconClick = (event: MouseEvent) => {
     props: {
       borrowingAPY: nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
       intrinsicAPY: getIntrinsicApy(pair.borrow.asset.symbol),
-      opportunityInfo: opportunityInfo.value,
+      opportunityInfo: rewardInfo.value.opportunity,
     },
   });
 };

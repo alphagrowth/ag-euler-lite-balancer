@@ -1,39 +1,4 @@
-import {
-  arbitrum,
-  avalanche,
-  base,
-  berachain,
-  bob,
-  bsc,
-  linea,
-  mainnet,
-  monad,
-  plasma,
-  sonic,
-  swellchain,
-  tac,
-  unichain,
-  type Chain,
-} from '@reown/appkit/networks'
-
-const explorerChains: Chain[] = [
-  mainnet,
-  arbitrum,
-  base,
-  swellchain,
-  sonic,
-  bob,
-  berachain,
-  avalanche,
-  bsc,
-  unichain,
-  tac,
-  linea,
-  plasma,
-  monad,
-]
-
-const chainById = new Map<number, Chain>(explorerChains.map(chain => [chain.id, chain]))
+import { getChainById } from '~/entities/chainRegistry'
 
 const cleanUrl = (url?: string) => {
   if (!url) return ''
@@ -41,11 +6,14 @@ const cleanUrl = (url?: string) => {
 }
 
 const resolveExplorerBase = (chainId?: number) => {
-  if (!chainId) {
-    return cleanUrl(mainnet.blockExplorers?.default.url) || 'https://etherscan.io/'
+  if (chainId) {
+    const chain = getChainById(chainId)
+    const url = cleanUrl(chain?.blockExplorers?.default.url)
+    if (url) return url
   }
-  const chain = chainById.get(chainId)
-  return cleanUrl(chain?.blockExplorers?.default.url) || cleanUrl(mainnet.blockExplorers?.default.url) || 'https://etherscan.io/'
+
+  const mainnet = getChainById(1)
+  return cleanUrl(mainnet?.blockExplorers?.default.url) || 'https://etherscan.io/'
 }
 
 export const getExplorerLink = (
@@ -58,7 +26,7 @@ export const getExplorerLink = (
     return baseUrl
   }
 
-  const chain = chainId ? chainById.get(chainId) : undefined
+  const chain = chainId ? getChainById(chainId) : undefined
   const explorerName = chain?.blockExplorers?.default?.name
   const path = isAddress
     ? 'address'

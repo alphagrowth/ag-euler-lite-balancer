@@ -1,5 +1,3 @@
-import { enableEarnPage, enableLendPage } from '~/entities/custom'
-
 export interface MenuItem {
   name: string
   label: string
@@ -34,13 +32,19 @@ const allMenuItems: MenuItem[] = [
   },
 ]
 
-export const menuItems = allMenuItems.filter((item) => {
-  if (item.name === 'earn' && !enableEarnPage) return false
-  if (item.name === 'lend' && !enableLendPage) return false
-  return true
-})
+export const getMenuItems = (enableEarnPage: boolean, enableLendPage: boolean) => {
+  return allMenuItems.filter((item) => {
+    if (item.name === 'earn' && !enableEarnPage) return false
+    if (item.name === 'lend' && !enableLendPage) return false
+    return true
+  })
+}
 
 const preferredDefaultOrder = ['lend', 'earn', 'borrow', 'portfolio'] as const
-export const defaultPageRoute = preferredDefaultOrder.find(name =>
-  menuItems.some(item => item.name === name),
-) ?? 'portfolio'
+
+export const getDefaultPageRoute = (enableEarnPage: boolean, enableLendPage: boolean) => {
+  const items = getMenuItems(enableEarnPage, enableLendPage)
+  return preferredDefaultOrder.find(name =>
+    items.some(item => item.name === name),
+  ) ?? 'portfolio'
+}

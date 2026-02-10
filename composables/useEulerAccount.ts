@@ -671,8 +671,8 @@ export const useEulerAccount = () => {
   })
 
   // Portfolio ROE calculation — composables must be called in setup context
-  const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-  const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+  const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, version: intrinsicVersion } = useIntrinsicApy()
+  const { getSupplyRewardApy, getBorrowRewardApy, version: rewardsVersion } = useRewardsApy()
 
   const computePortfolioRoe = async () => {
     const { getVault: registryGetVault } = useVaultRegistry()
@@ -697,8 +697,8 @@ export const useEulerAccount = () => {
         position.borrow.asset.symbol,
       )
 
-      const supplyRewardAPY = getOpportunityOfLendVault(position.collateral.address)?.apr || 0
-      const borrowRewardAPY = getOpportunityOfBorrowVault(position.borrow.asset.address)?.apr || 0
+      const supplyRewardAPY = getSupplyRewardApy(position.collateral.address)
+      const borrowRewardAPY = getBorrowRewardApy(position.borrow.asset.address, position.borrow.address)
 
       const netYield
         = supplyUSD * (supplyApy + supplyRewardAPY)
@@ -717,6 +717,8 @@ export const useEulerAccount = () => {
   watchEffect(() => {
     const _supplyTotal = totalSuppliedValueInfo.value.total
     const _borrowTotal = totalBorrowedValueInfo.value.total
+    void rewardsVersion.value
+    void intrinsicVersion.value
     if (borrowPositions.value.length) {
       computePortfolioRoe()
     }

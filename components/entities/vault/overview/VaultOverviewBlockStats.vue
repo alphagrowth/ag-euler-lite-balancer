@@ -8,33 +8,30 @@ import { VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
 const { vault } = defineProps<{ vault: Vault }>()
 
 const modal = useModal()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
-const { getCampaignOfBorrowVault } = useBrevis()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardInfo, getBorrowRewardInfo } = useRewardsApy()
 const isBorrowable = computed(() => vault.collateralLTVs.some(ltv => ltv.borrowLTV > 0n))
 
-const rewardBorrowAPY = computed(() => getOpportunityOfBorrowVault(vault.asset.address)?.apr)
-const rewardSupplyAPY = computed(() => getOpportunityOfLendVault(vault.address)?.apr)
 const supplyApyWithRewards = computed(() => withIntrinsicSupplyApy(
   nanoToValue(vault.interestRateInfo.supplyAPY, 25),
   vault.asset.symbol,
-) + (rewardSupplyAPY.value || 0))
+) + getSupplyRewardApy(vault.address))
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(vault.interestRateInfo.borrowAPY, 25),
   vault.asset.symbol,
-) - (rewardBorrowAPY.value || 0))
+) - getBorrowRewardApy(vault.asset.address, vault.address))
 
-const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(vault.address))
-const borrowOpportunityInfo = computed(() => getOpportunityOfBorrowVault(vault.asset.address))
-const brevisInfo = computed(() => getCampaignOfBorrowVault(vault.address))
+const supplyRewardInfo = computed(() => getSupplyRewardInfo(vault.address))
+const borrowRewardInfo = computed(() => getBorrowRewardInfo(vault.asset.address, vault.address))
 
 const onSupplyInfoIconClick = () => {
+  const info = supplyRewardInfo.value
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
       intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
-      opportunityInfo: supplyOpportunityInfo.value,
-      brevisInfo: brevisInfo.value,
+      opportunityInfo: info.opportunity,
+      brevisInfo: info.campaign,
     },
   })
 }
@@ -44,7 +41,7 @@ const onBorrowInfoIconClick = () => {
     props: {
       borrowingAPY: nanoToValue(vault.interestRateInfo.borrowAPY, 25),
       intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
-      opportunityInfo: borrowOpportunityInfo.value,
+      opportunityInfo: borrowRewardInfo.value.opportunity,
     },
   })
 }

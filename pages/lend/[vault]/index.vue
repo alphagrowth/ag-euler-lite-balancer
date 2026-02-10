@@ -65,9 +65,8 @@ const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
-const { getOpportunityOfLendVault } = useMerkl()
-const { getCampaignOfLendVault } = useBrevis()
 const { getIntrinsicApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy()
 
 // State
 const isLoading = ref(false)
@@ -223,10 +222,9 @@ const isSubmitDisabled = computed(() => {
 })
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
 const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
-const opportunityInfo = computed(() => getOpportunityOfLendVault(vaultAddress))
-const brevisInfo = computed(() => getCampaignOfLendVault(vaultAddress))
-const totalRewardsAPY = computed(() => (opportunityInfo.value?.apr || 0) + (brevisInfo.value?.reward_info.apr || 0) * 100)
-const hasRewards = computed(() => opportunityInfo.value || brevisInfo.value)
+const totalRewardsAPY = computed(() => getSupplyRewardApy(vaultAddress))
+const rewardInfo = computed(() => getSupplyRewardInfo(vaultAddress))
+const hasRewards = computed(() => rewardInfo.value.opportunity || rewardInfo.value.campaign)
 const intrinsicApy = computed(() => getIntrinsicApy(asset.value?.symbol))
 
 const baseSupplyApy = computed(() => {
@@ -401,12 +399,13 @@ const updateEstimates = useDebounceFn(async () => {
 }, 500)
 
 const onSupplyInfoIconClick = () => {
+  const info = rewardInfo.value
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: baseSupplyApy.value,
       intrinsicAPY: intrinsicApy.value,
-      opportunityInfo: opportunityInfo.value,
-      brevisInfo: brevisInfo.value,
+      opportunityInfo: info.opportunity,
+      brevisInfo: info.campaign,
     },
   })
 }

@@ -14,7 +14,6 @@ import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 import type { TxPlan } from '~/entities/txPlan'
-import { useMerkl } from '~/composables/useMerkl'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 
 const route = useRoute()
@@ -27,7 +26,7 @@ const { address, isConnected } = useAccount()
 const { isPositionsLoading, isPositionsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { buildMultiplyPlan, executeTxPlan } = useEulerOperations()
 const { eulerLensAddresses } = useEulerAddresses()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const {
   runSimulation: runMultiplySimulation,
@@ -142,36 +141,26 @@ const multiplyRouteEmptyMessage = computed(() => {
   return 'No quotes found'
 })
 
-const multiplySupplyOpportunity = computed(() => {
-  return multiplySupplyVault.value ? getOpportunityOfLendVault(multiplySupplyVault.value.address) : null
-})
-const multiplyLongOpportunity = computed(() => {
-  return multiplyLongVault.value ? getOpportunityOfLendVault(multiplyLongVault.value.address) : null
-})
-const multiplyBorrowOpportunity = computed(() => {
-  return multiplyShortVault.value ? getOpportunityOfBorrowVault(multiplyShortVault.value.asset.address) : null
-})
-
 const multiplySupplyApy = computed(() => {
   if (!multiplySupplyVault.value) {
     return null
   }
   const base = nanoToValue(multiplySupplyVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, multiplySupplyVault.value.asset.symbol) + (multiplySupplyOpportunity.value?.apr || 0)
+  return withIntrinsicSupplyApy(base, multiplySupplyVault.value.asset.symbol) + getSupplyRewardApy(multiplySupplyVault.value.address)
 })
 const multiplyLongApy = computed(() => {
   if (!multiplyLongVault.value) {
     return null
   }
   const base = nanoToValue(multiplyLongVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, multiplyLongVault.value.asset.symbol) + (multiplyLongOpportunity.value?.apr || 0)
+  return withIntrinsicSupplyApy(base, multiplyLongVault.value.asset.symbol) + getSupplyRewardApy(multiplyLongVault.value.address)
 })
 const multiplyBorrowApy = computed(() => {
   if (!multiplyShortVault.value) {
     return null
   }
   const base = nanoToValue(multiplyShortVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - (multiplyBorrowOpportunity.value?.apr || 0)
+  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - getBorrowRewardApy(multiplyShortVault.value.asset.address, multiplyShortVault.value.address)
 })
 
 const multiplyDebtAmountNano = computed(() => {

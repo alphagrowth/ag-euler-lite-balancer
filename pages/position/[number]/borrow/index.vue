@@ -26,7 +26,7 @@ const { isPositionsLoading, isPositionsLoaded, getPositionBySubAccountIndex } = 
 const positionIndex = route.params.number as string
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 
 const ltv = ref(0)
@@ -121,8 +121,8 @@ const ltvFixed = computed(() => {
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
 const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
 
-const opportunityInfoForBorrow = computed(() => getOpportunityOfBorrowVault(borrowVault.value?.asset.address || ''))
-const opportunityInfoForCollateral = computed(() => getOpportunityOfLendVault(collateralVault.value?.address || ''))
+const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
+const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.asset.address || '', borrowVault.value?.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
   collateralVault.value?.asset.symbol,
@@ -293,8 +293,8 @@ const updateEstimates = useDebounceFn(async () => {
       collateralSupplyApy.value,
       borrowUsd,
       borrowApy.value,
-      opportunityInfoForCollateral.value?.apr || null,
-      opportunityInfoForBorrow.value?.apr || null,
+      collateralSupplyRewardApy.value || null,
+      borrowRewardApy.value || null,
     )
   }
   catch (e) {

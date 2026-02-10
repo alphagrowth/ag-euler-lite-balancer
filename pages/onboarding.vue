@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { useAppKit } from '@reown/appkit/vue'
-import { onboardingInfo } from '~/entities/custom'
-import { defaultPageRoute } from '~/entities/menu'
+import { getDefaultPageRoute } from '~/entities/menu'
 
 const { isConnected } = useAccount()
 
 const { open } = useAppKit()
+const { appTitle, appDescription, enableEarnPage, enableLendPage } = useDeployConfig()
+const defaultPageRoute = getDefaultPageRoute(enableEarnPage, enableLendPage)
 
 const isOnboardingCompleted = useLocalStorage('is-onboarding-completed', false)
 
@@ -35,15 +36,15 @@ watch(isConnected, (value) => {
       />
       <div class="flex flex-col items-center gap-24 w-full px-16">
         <img
-          :src="onboardingInfo.logoUrl"
+          src="/logo.png"
           alt="Euler Logo"
           class="w-[75px] h-[75px]"
         >
         <div class="text-h1 text-center w-[240px]">
-          {{ onboardingInfo.title }}
+          {{ appTitle }}
         </div>
         <div class="text-euler-dark-900 text-center">
-          {{ onboardingInfo.description }}
+          {{ appDescription }}
         </div>
         <div class="flex flex-col gap-8 w-full">
           <UiButton

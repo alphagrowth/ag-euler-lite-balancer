@@ -2,7 +2,6 @@ import { useAccount, useAccountEffect, useDisconnect, useBalance, useSwitchChain
 import { useAppKit } from '@reown/appkit/vue'
 import { formatUnits, getAddress, isAddress, type Address } from 'viem'
 import { truncate } from '~/utils/string-utils'
-import { availableNetworkIds } from '~/entities/custom'
 import { useAddressScreen } from '~/composables/useAddressScreen'
 
 let isChangingChain = false
@@ -12,7 +11,6 @@ let hasWalletConnectedBefore = false
 const isLoaded = ref(false)
 const walletName = ref('Wallet')
 const routeNetworkId: Ref<number | null> = ref(null)
-const allowedChainIds = availableNetworkIds.length ? [...availableNetworkIds] : [1]
 
 let cachedWagmiData: ReturnType<typeof initializeWagmi> | null = null
 
@@ -84,7 +82,7 @@ export const useWagmi = () => {
 
   const route = useRoute()
   const router = useRouter()
-  const { changeCurrentChainId, chainId: currentChainId } = useEulerAddresses()
+  const { changeCurrentChainId, chainId: currentChainId, allowedChainIds } = useEulerAddresses()
   const {
     wagmiAddress,
     wagmiIsConnected,
@@ -192,7 +190,7 @@ export const useWagmi = () => {
   }
 
   const changeChain = async (targetChainId: number) => {
-    if (!allowedChainIds.includes(targetChainId)) {
+    if (!allowedChainIds.value.includes(targetChainId)) {
       console.warn(`[useWagmi] chainId ${targetChainId} is not allowed`)
       return
     }
@@ -243,8 +241,8 @@ export const useWagmi = () => {
     }
 
     const parsed = parseChainId(network)
-    routeNetworkId.value = parsed && allowedChainIds.includes(parsed) ? parsed : null
-    await changeChain(routeNetworkId.value || 1)
+    routeNetworkId.value = parsed && allowedChainIds.value.includes(parsed) ? parsed : null
+    await changeChain(routeNetworkId.value || allowedChainIds.value[0])
     isInitialRouteSync = false
   }, { immediate: true })
 
@@ -261,7 +259,7 @@ export const useWagmi = () => {
       return
     }
 
-    if (!allowedChainIds.includes(val.id)) {
+    if (!allowedChainIds.value.includes(val.id)) {
       console.warn(`[useWagmi] chainId ${val.id} is not allowed`)
       return
     }

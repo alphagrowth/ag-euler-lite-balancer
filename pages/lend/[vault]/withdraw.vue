@@ -28,7 +28,7 @@ const { getVault } = useVaults()
 const { isConnected } = useAccount()
 const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
-const { getOpportunityOfLendVault } = useMerkl()
+const { getSupplyRewardApy } = useRewardsApy()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const vaultAddress = route.params.vault as string
 const subAccount = route.query.subAccount as string | undefined
@@ -54,7 +54,7 @@ const delta = ref(0n)
 const estimateSupplyAPY = ref(0n)
 const estimatesError = ref('')
 
-const opportunityInfo = computed(() => getOpportunityOfLendVault(vault.value?.address || ''))
+const rewardApy = computed(() => getSupplyRewardApy(vault.value?.address || ''))
 const amountFixed = computed(() => {
   return FixedPoint.fromValue(
     valueToNano(amount.value || '0', asset.value?.decimals || 0),
@@ -73,11 +73,11 @@ const reviewWithdrawDisabled = getSubmitDisabled(isSubmitDisabled)
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
   const base = withIntrinsicSupplyApy(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25), vault.value.asset.symbol)
-  return formatNumber(base + (opportunityInfo.value?.apr || 0))
+  return formatNumber(base + rewardApy.value)
 })
 const estimateSupplyAPYDisplay = computed(() => {
   const base = withIntrinsicSupplyApy(nanoToValue(estimateSupplyAPY.value, 25), vault.value?.asset.symbol)
-  return formatNumber(base + (opportunityInfo.value?.apr || 0))
+  return formatNumber(base + rewardApy.value)
 })
 
 // Reactive USD prices for display

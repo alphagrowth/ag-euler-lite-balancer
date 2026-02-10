@@ -10,8 +10,8 @@ import { VaultNetApyPairModal, VaultMaxRoeModal } from '#components'
 const { pair } = defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition }>()
 
 const modal = useModal()
-const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { borrowList } = useVaults()
 
 const borrowCount = computed(() => {
@@ -20,16 +20,16 @@ const borrowCount = computed(() => {
 
 const isBorrowable = computed(() => borrowCount.value > 0)
 
-const borrowRewardAPY = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address)?.apr)
-const collateralRewardAPY = computed(() => getOpportunityOfLendVault(pair.collateral.address)?.apr)
+const collateralRewardAPY = computed(() => getSupplyRewardApy(pair.collateral.address))
+const borrowRewardAPY = computed(() => getBorrowRewardApy(pair.borrow.asset.address, pair.borrow.address))
 const supplyApyWithRewards = computed(() => withIntrinsicSupplyApy(
   nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25),
   pair.collateral.asset.symbol,
-) + (collateralRewardAPY.value || 0))
+) + collateralRewardAPY.value)
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
   pair.borrow.asset.symbol,
-) - (borrowRewardAPY.value || 0))
+) - borrowRewardAPY.value)
 
 const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV))
 const netApy = computed(() => supplyApyWithRewards.value - borrowApyWithRewards.value)
@@ -41,8 +41,6 @@ const baseSupplyApy = computed(() => nanoToValue(pair.collateral.interestRateInf
 const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25))
 const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol))
 const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.symbol))
-const supplyOpportunityInfo = computed(() => getOpportunityOfLendVault(pair.collateral.address))
-const borrowOpportunityInfo = computed(() => getOpportunityOfBorrowVault(pair.borrow.asset.address))
 
 const price = computed(() => {
   const collateralPrice = getCollateralOraclePrice(pair.borrow, pair.collateral)
