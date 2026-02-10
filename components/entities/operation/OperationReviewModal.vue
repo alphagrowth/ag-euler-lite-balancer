@@ -533,7 +533,7 @@ const feeDisplay = computed(() => {
         v-if="usesPermit2"
         class="text-p4 text-euler-dark-900 text-center"
       >
-        Final calldata may contain an additional permit() call. It is only known after the permit2 message is signed.
+        Copied calldata does not contain the permit() call. It is only known after the permit2 message is signed.
       </p>
 
       <!-- Tenderly error -->
