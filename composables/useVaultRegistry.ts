@@ -27,6 +27,9 @@ export interface VaultEntry {
 const registry: Ref<Map<string, VaultEntry>> = shallowRef(new Map())
 const isLoading = ref(false)
 
+// In-flight resolution promises — deduplicates concurrent getOrFetch() calls for the same vault
+const pendingResolutions = new Map<string, Promise<AnyVault | undefined>>()
+
 // Escrow address set - populated early, before full vault info is loaded
 // Used for O(1) lookups to determine if an address is an escrow vault
 const escrowAddresses: Ref<Set<string>> = shallowRef(new Set())
@@ -75,6 +78,7 @@ const setMany = (entries: Array<{ address: string, vault: AnyVault, type: VaultT
 const clear = (): void => {
   registry.value = new Map()
   escrowAddresses.value = new Set()
+  pendingResolutions.clear()
 }
 
 // Set escrow addresses (populated early, before vault info is loaded)
@@ -287,15 +291,27 @@ const getOrFetch = async (address: string): Promise<AnyVault | undefined> => {
     return existing.vault
   }
 
-  // Try to resolve unknown vault
-  try {
-    const entry = await resolveUnknown(address)
-    return entry.vault
+  const normalized = normalizeAddress(address)
+
+  // Return existing in-flight promise if one exists (deduplicates concurrent calls)
+  const pending = pendingResolutions.get(normalized)
+  if (pending) {
+    return pending
   }
-  catch (e) {
-    console.warn(`Failed to resolve vault ${address}:`, e)
-    return undefined
-  }
+
+  // Create and track new resolution promise
+  const resolution = resolveUnknown(address)
+    .then(entry => entry.vault)
+    .catch((e) => {
+      console.warn(`Failed to resolve vault ${address}:`, e)
+      return undefined
+    })
+    .finally(() => {
+      pendingResolutions.delete(normalized)
+    })
+
+  pendingResolutions.set(normalized, resolution)
+  return resolution
 }
 
 export const useVaultRegistry = () => {

@@ -31,7 +31,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const modal = useModal()
-const { isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
+const { isPositionsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { isConnected, address } = useAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -289,7 +289,7 @@ const send = async () => {
     await executeTxPlan(txPlan)
 
     modal.close()
-    updateBorrowPositions(eulerLensAddresses.value, address.value as string)
+    refreshAllPositions(eulerLensAddresses.value, address.value as string)
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)

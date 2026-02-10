@@ -16,8 +16,7 @@ const {
   portfolioNetApy,
   isPositionsLoaded,
   isShowAllPositions,
-  updateBorrowPositions,
-  updateSavingsPositions,
+  refreshAllPositions,
 } = useEulerAccount()
 const { rewards } = useMerkl()
 const { locks } = useREULLocks()
@@ -54,9 +53,7 @@ const checkTab = () => {
 }
 
 const updatePositions = async () => {
-  // Borrow positions must be loaded first so deposits can filter collateral usage
-  await updateBorrowPositions(eulerLensAddresses.value, address.value as string)
-  updateSavingsPositions(eulerLensAddresses.value, address.value as string)
+  await refreshAllPositions(eulerLensAddresses.value, address.value as string)
 }
 
 watch(tabsModel, checkTab, { immediate: true })

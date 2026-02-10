@@ -76,6 +76,11 @@ export default defineNuxtConfig({
           href: 'https://rsms.me',
         },
         {
+          rel: 'preconnect',
+          href: 'https://fonts.reown.com',
+          crossorigin: 'anonymous',
+        },
+        {
           rel: 'icon',
           href: '/favicons/favicon.ico',
         },

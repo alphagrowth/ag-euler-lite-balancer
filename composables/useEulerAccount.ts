@@ -95,6 +95,29 @@ const hasPythOracles = (vault: Vault): boolean => {
   return feeds.length > 0
 }
 
+/**
+ * Fetch both borrow and deposit entries from the subgraph in a single query.
+ */
+const fetchPositionEntries = async (
+  subgraphUrl: string,
+  address: string,
+): Promise<{ borrowEntries: string[]; depositEntries: string[] }> => {
+  const { data } = await axios.post(subgraphUrl, {
+    query: `query AccountPositions {
+      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
+        borrows
+        deposits
+      }
+    }`,
+    operationName: 'AccountPositions',
+  })
+  const account = data.data.trackingActiveAccount
+  return {
+    borrowEntries: account?.borrows || [],
+    depositEntries: account?.deposits || [],
+  }
+}
+
 const totalSuppliedValue = ref(0)
 
 const updateTotalSuppliedValue = async () => {
@@ -221,6 +244,7 @@ const portfolioNetApy = ref(0)
 const updateBorrowPositions = async (
   eulerLensAddresses: EulerLensAddresses,
   address: string,
+  borrowEntries: string[],
   isInitialLoading = false,
   options: { forceAllPositions?: boolean } = {},
 ) => {
@@ -237,7 +261,7 @@ const updateBorrowPositions = async (
     return
   }
 
-  const { EVM_PROVIDER_URL, SUBGRAPH_URL, PYTH_HERMES_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
   const { getOrFetch } = useVaultRegistry()
   const { eulerCoreAddresses } = useEulerAddresses()
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
@@ -248,16 +272,6 @@ const updateBorrowPositions = async (
   }
 
   const client = getPublicClient(EVM_PROVIDER_URL)
-
-  const { data } = await axios.post(SUBGRAPH_URL, {
-    query: `query AccountBorrows {
-      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
-        borrows
-      }
-    }`,
-    operationName: 'AccountBorrows',
-  })
-  const borrowEntries = data.data.trackingActiveAccount?.borrows || []
 
   let borrows: AccountBorrowPosition[] = []
   const batchSize = 5
@@ -509,6 +523,7 @@ const updateBorrowPositions = async (
 const updateSavingsPositions = async (
   eulerLensAddresses: EulerLensAddresses,
   address: string,
+  depositEntries: string[],
   isInitialLoading = false,
   options: { forceAllPositions?: boolean } = {},
 ) => {
@@ -526,7 +541,7 @@ const updateSavingsPositions = async (
   }
 
   const { getOrFetch, getType: registryGetType } = useVaultRegistry()
-  const { SUBGRAPH_URL, EVM_PROVIDER_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL } = useEulerConfig()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -536,17 +551,6 @@ const updateSavingsPositions = async (
   }
 
   const client = getPublicClient(EVM_PROVIDER_URL)
-
-  // Single subgraph query for ALL deposits
-  const { data } = await axios.post(SUBGRAPH_URL, {
-    query: `query AccountDeposits {
-      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
-        deposits
-      }
-    }`,
-    operationName: 'AccountDeposits',
-  })
-  const depositEntries: string[] = data.data.trackingActiveAccount?.deposits || []
 
   let deposits: AccountDepositPosition[] = []
 
@@ -625,16 +629,25 @@ export const useEulerAccount = () => {
   const updatePositions = async () => {
     const targetAddress = portfolioAddress.value
     const shouldShowAll = isShowAllPositions.value || isDebugPortfolio.value
+    const { SUBGRAPH_URL } = useEulerConfig()
+
+    // Fetch both borrow and deposit entries in a single subgraph query
+    const { borrowEntries, depositEntries } = targetAddress
+      ? await fetchPositionEntries(SUBGRAPH_URL, targetAddress)
+      : { borrowEntries: [], depositEntries: [] }
+
     // Borrow positions must be loaded first so deposits can filter against them
     await updateBorrowPositions(
       eulerLensAddresses.value,
       targetAddress,
+      borrowEntries,
       false,
       { forceAllPositions: shouldShowAll },
     )
     updateSavingsPositions(
       eulerLensAddresses.value,
       targetAddress,
+      depositEntries,
       false,
       { forceAllPositions: shouldShowAll },
     )
@@ -747,6 +760,22 @@ export const useEulerAccount = () => {
     })
   }
 
+  /**
+   * Refresh all positions (borrows + savings) by fetching entries from subgraph.
+   * Used by portfolio page for periodic refresh.
+   */
+  const refreshAllPositions = async (
+    lensAddresses: EulerLensAddresses,
+    walletAddress: string,
+  ) => {
+    const { SUBGRAPH_URL } = useEulerConfig()
+    const { borrowEntries, depositEntries } = walletAddress
+      ? await fetchPositionEntries(SUBGRAPH_URL, walletAddress)
+      : { borrowEntries: [], depositEntries: [] }
+    await updateBorrowPositions(lensAddresses, walletAddress, borrowEntries)
+    updateSavingsPositions(lensAddresses, walletAddress, depositEntries)
+  }
+
   return {
     borrowPositions,
     depositPositions,
@@ -757,8 +786,7 @@ export const useEulerAccount = () => {
     isShowAllPositions,
     portfolioAddress,
     isDebugPortfolio,
-    updateBorrowPositions,
-    updateSavingsPositions,
+    refreshAllPositions,
     getPositionBySubAccountIndex,
     totalSuppliedValue,
     totalSuppliedValueInfo,

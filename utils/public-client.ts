@@ -9,7 +9,12 @@ export const getPublicClient = (rpcUrl: string): PublicClient => {
   }
 
   const client = createPublicClient({
-    transport: http(rpcUrl),
+    transport: http(rpcUrl, {
+      batch: {
+        batchSize: 100,
+        wait: 50,
+      },
+    }),
   })
 
   clientCache.set(rpcUrl, client)

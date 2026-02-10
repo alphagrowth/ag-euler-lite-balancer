@@ -24,7 +24,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
 const { address, isConnected } = useAccount()
-const { isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { buildMultiplyPlan, executeTxPlan } = useEulerOperations()
 const { eulerLensAddresses } = useEulerAddresses()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
@@ -714,7 +714,7 @@ const sendMultiply = async () => {
     plan.value = nextPlan
     await executeTxPlan(nextPlan)
     modal.close()
-    updateBorrowPositions(eulerLensAddresses.value, address.value || '')
+    refreshAllPositions(eulerLensAddresses.value, address.value || '')
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)

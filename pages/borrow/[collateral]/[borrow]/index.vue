@@ -29,7 +29,7 @@ const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
 const { buildBorrowPlan, buildBorrowBySavingPlan, buildMultiplyPlan, executeTxPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
-const { updateBorrowPositions, depositPositions } = useEulerAccount()
+const { refreshAllPositions, depositPositions } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -1159,7 +1159,7 @@ const sendMultiply = async () => {
     await executeTxPlan(plan)
     modal.close()
     updateBalance()
-    updateBorrowPositions(eulerLensAddresses.value, address.value || '')
+    refreshAllPositions(eulerLensAddresses.value, address.value || '')
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)
@@ -1281,7 +1281,7 @@ const send = async () => {
 
     modal.close()
     updateBalance()
-    updateBorrowPositions(eulerLensAddresses.value, address.value || '')
+    refreshAllPositions(eulerLensAddresses.value, address.value || '')
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)

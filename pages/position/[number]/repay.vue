@@ -25,7 +25,7 @@ const { error } = useToast()
 const { buildRepayPlan, buildFullRepayPlan, buildSwapPlan, executeTxPlan } = useEulerOperations()
 const { isConnected, address } = useAccount()
 const positionIndex = route.params.number as string
-const { isPositionsLoading, isPositionsLoaded, updateBorrowPositions, getPositionBySubAccountIndex } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getOpportunityOfBorrowVault, getOpportunityOfLendVault } = useMerkl()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
@@ -968,7 +968,7 @@ const sendSwap = async () => {
     await executeTxPlan(txPlan)
 
     modal.close()
-    updateBorrowPositions(eulerLensAddresses.value, address.value as string)
+    refreshAllPositions(eulerLensAddresses.value, address.value as string)
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)
@@ -1009,7 +1009,7 @@ const send = async () => {
     await executeTxPlan(txPlan)
 
     modal.close()
-    updateBorrowPositions(eulerLensAddresses.value, address.value as string)
+    refreshAllPositions(eulerLensAddresses.value, address.value as string)
     setTimeout(() => {
       router.replace('/portfolio')
     }, 400)
