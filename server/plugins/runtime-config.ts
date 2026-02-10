@@ -5,6 +5,9 @@
  * injected at *runtime* (e.g. via Doppler on Railway) the build-time values
  * are empty. This plugin re-scans process.env at server startup so the
  * correct values are embedded in SSR payloads and available to the client.
+ *
+ * Nuxt freezes runtimeConfig properties, so we mutate array/object contents
+ * in-place rather than reassigning.
  */
 export default defineNitroPlugin(() => {
   const config = useRuntimeConfig()
@@ -15,7 +18,8 @@ export default defineNitroPlugin(() => {
     .map(k => Number(k.replace('RPC_URL_HTTP_', '')))
 
   if (chainIds.length) {
-    config.public.enabledChainIds = chainIds
+    const arr = config.public.enabledChainIds as number[]
+    arr.splice(0, arr.length, ...chainIds)
   }
 
   // Re-derive subgraphUris from NUXT_PUBLIC_SUBGRAPH_URI_* env vars
@@ -27,6 +31,8 @@ export default defineNitroPlugin(() => {
     }
   }
   if (Object.keys(subgraphUris).length) {
-    config.public.subgraphUris = subgraphUris
+    const obj = config.public.subgraphUris as Record<string, string>
+    for (const k of Object.keys(obj)) delete obj[k]
+    Object.assign(obj, subgraphUris)
   }
 })
