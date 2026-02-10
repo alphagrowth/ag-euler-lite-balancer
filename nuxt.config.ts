@@ -104,6 +104,7 @@ export default defineNuxtConfig({
       configTelegramUrl: '',
       configGithubUrl: '',
       configLabelsRepo: 'euler-xyz/euler-labels',
+      configLabelsRepoBranch: 'master',
       configOracleChecksRepo: 'euler-xyz/oracle-checks',
       // Feature flags: enabled by default. Set to 'false' to disable.
       configEnableEntityBranding: '',

@@ -23,6 +23,7 @@ export const useDeployConfig = () => {
 
     // Repos
     labelsRepo: rc.configLabelsRepo || 'euler-xyz/euler-labels',
+    labelsRepoBranch: rc.configLabelsRepoBranch || 'master',
     oracleChecksRepo: rc.configOracleChecksRepo || 'euler-xyz/oracle-checks',
     isCustomLabelsRepo: computed(() => (rc.configLabelsRepo || 'euler-xyz/euler-labels') !== 'euler-xyz/euler-labels'),
 

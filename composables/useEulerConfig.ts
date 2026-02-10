@@ -19,12 +19,12 @@ const getRpcUrlByChainId = (chainId?: number, origin?: string): string => {
 
 export const useEulerConfig = () => {
   const envConfig = useEnvConfig()
-  const { labelsRepo } = useDeployConfig()
+  const { labelsRepo, labelsRepoBranch } = useDeployConfig()
   const { subgraphUris } = useChainConfig()
   const { chainId } = useEulerAddresses()
   const requestUrl = useRequestURL()
 
-  const labelsBaseUrl = `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/master`
+  const labelsBaseUrl = `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/${labelsRepoBranch}`
 
   return {
     // APIs (from constants)
