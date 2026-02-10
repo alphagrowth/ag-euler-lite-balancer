@@ -680,6 +680,8 @@ const submitMultiply = async () => {
         asset: multiplyShortVault.value.asset,
         amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
         plan: plan.value || undefined,
+        swapToAsset: quote ? multiplyLongVault.value.asset : undefined,
+        swapToAmount: quote ? multiplyLongAmount.value : undefined,
         subAccount,
         onConfirm: () => {
           setTimeout(() => {

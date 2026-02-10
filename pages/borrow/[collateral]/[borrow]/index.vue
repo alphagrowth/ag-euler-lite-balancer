@@ -1132,6 +1132,8 @@ const submitMultiply = async () => {
         plan: multiplyPlan.value || undefined,
         supplyingAssetForBorrow: multiplySupplyVault.value.asset,
         supplyingAmount: multiplyInputAmount.value,
+        swapToAsset: quote ? multiplyLongVault.value.asset : undefined,
+        swapToAmount: quote ? multiplyLongAmount.value : undefined,
         subAccount,
         onConfirm: () => {
           setTimeout(() => {
