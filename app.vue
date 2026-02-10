@@ -20,10 +20,20 @@ watch(theme, (newTheme) => {
   }
 }, { immediate: true })
 
+const envConfig = useEnvConfig()
+
 useHead({
+  title: envConfig.appTitle,
   htmlAttrs: {
     'data-theme': theme,
   },
+  meta: [
+    { name: 'description', content: envConfig.appDescription },
+    { property: 'og:title', content: envConfig.appTitle },
+    { property: 'og:description', content: envConfig.appDescription },
+    { name: 'twitter:title', content: envConfig.appTitle },
+    { name: 'twitter:description', content: envConfig.appDescription },
+  ],
 })
 
 const isMenuVisible = ref(true)

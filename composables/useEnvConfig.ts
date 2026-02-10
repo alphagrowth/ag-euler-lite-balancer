@@ -1,12 +1,13 @@
 /**
  * Provides app-level configuration derived from environment variables.
  *
- * On the server, reads process.env directly (for SSR or API routes).
- * On the client, reads from window.__APP_CONFIG__ which is injected
- * by server/plugins/app-config.ts via the render:html hook.
+ * Resolution order (first non-empty wins):
+ *   1. window.__APP_CONFIG__  – injected at runtime by server/plugins/app-config.ts
+ *   2. useRuntimeConfig().public – build-time values from NUXT_PUBLIC_* env vars
+ *   3. Hard-coded DEFAULTS
  *
- * This avoids runtimeConfig (which is frozen in production) and works
- * with runtime-injected env vars (e.g. Doppler on Railway).
+ * (1) supports Doppler-injected env vars that change without a rebuild.
+ * (2) covers static / CDN deployments where the Nitro render hook never fires.
  */
 
 interface EnvConfig {
@@ -56,6 +57,23 @@ function scanEnv(): EnvConfig {
   }
 }
 
+function fromRuntimeConfig(): EnvConfig {
+  const rc = useRuntimeConfig().public
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+  return {
+    appTitle: str(rc.configAppTitle) || DEFAULTS.appTitle,
+    appDescription: str(rc.configAppDescription) || DEFAULTS.appDescription,
+    pythHermesUrl: str(rc.pythHermesUrl) || DEFAULTS.pythHermesUrl,
+    appKitProjectId: str(rc.appKitProjectId) || DEFAULTS.appKitProjectId,
+    appUrl: str(rc.appUrl) || DEFAULTS.appUrl,
+    walletScreeningUri: str(rc.walletScreeningUri) || DEFAULTS.walletScreeningUri,
+    eulerApiUrl: str(rc.eulerApiUrl) || DEFAULTS.eulerApiUrl,
+    swapApiUrl: str(rc.swapApiUrl) || DEFAULTS.swapApiUrl,
+    priceApiUrl: str(rc.priceApiUrl) || DEFAULTS.priceApiUrl,
+  }
+}
+
 export const useEnvConfig = (): EnvConfig => {
   if (cached) return cached
 
@@ -64,7 +82,7 @@ export const useEnvConfig = (): EnvConfig => {
   } else if (typeof window !== 'undefined' && (window as any).__APP_CONFIG__) {
     cached = (window as any).__APP_CONFIG__
   } else {
-    cached = { ...DEFAULTS }
+    cached = fromRuntimeConfig()
   }
 
   return cached!
