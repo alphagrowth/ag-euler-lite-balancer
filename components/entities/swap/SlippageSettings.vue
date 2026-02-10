@@ -82,7 +82,7 @@ watch(customInput, () => {
         Slippage settings
       </div>
       <div class="text-p3 text-euler-dark-700">
-        Set slippage for this transaction
+        Default slippage for swaps
       </div>
       <div class="flex flex-wrap gap-8 rounded-[32px] bg-euler-dark-600 p-6">
         <button

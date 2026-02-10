@@ -12,12 +12,10 @@ const { isConnected, address } = useWagmi()
 // Initialize price backend (configures endpoint when chainId changes)
 usePriceBackend()
 
-// Theme: Initialize from localStorage, default to 'light'
-const theme = useLocalStorage('theme', 'light')
+const { theme } = useTheme()
 
-// Sync theme with HTML attribute
 watch(theme, (newTheme) => {
-  if (process.client) {
+  if (import.meta.client) {
     document.documentElement.setAttribute('data-theme', newTheme)
   }
 }, { immediate: true })
@@ -134,9 +132,6 @@ onUnmounted(() => {
   </main>
   <UiModals />
   <UiToastContainer />
-  <ClientOnly>
-    <UiThemeSwitcher />
-  </ClientOnly>
   <Transition name="page">
     <TheMenu v-show="isMenuVisible" />
   </Transition>

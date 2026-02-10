@@ -54,8 +54,6 @@ const onDisconnectClick = () => {
         </NuxtLink>
       </div>
     </div>
-    <SlippageSettings />
-    <Permit2Settings />
     <UiButton
       variant="primary-stroke"
       size="xlarge"

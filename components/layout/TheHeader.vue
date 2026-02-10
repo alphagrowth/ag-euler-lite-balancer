@@ -3,7 +3,7 @@ import { onClickOutside } from '@vueuse/core'
 import { offset, useFloating } from '@floating-ui/vue'
 import { useAppKit } from '@reown/appkit/vue'
 import { useAccount } from '@wagmi/vue'
-import { WalletDisconnectModal, SelectChainModal } from '#components'
+import { WalletDisconnectModal, SelectChainModal, SettingsModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { links, socials } from '~/entities/custom'
 import { type MenuItem, menuItems } from '~/entities/menu'
@@ -38,6 +38,9 @@ const onWalletButtonClick = () => {
 }
 const onChainButtonClick = () => {
   modal.open(SelectChainModal)
+}
+const onSettingsClick = () => {
+  modal.open(SettingsModal)
 }
 const onLogoClick = () => {
   isSocialsTooltipVisible.value = !isSocialsTooltipVisible.value
@@ -167,6 +170,13 @@ onClickOutside(reference, () => {
         >
           {{ isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : 'Connect wallet' }}
         </UiButton>
+        <UiButton
+          variant="secondary"
+          size="medium"
+          icon="gear"
+          icon-only
+          @click="onSettingsClick"
+        />
       </div>
   </header>
 </template>
