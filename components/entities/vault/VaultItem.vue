@@ -4,7 +4,8 @@ import { getAddress } from 'viem'
 import { getVaultUtilization, type Vault } from '~/entities/vault'
 import { getUtilisationWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
-import { useEulerProductOfVault, isVaultFeatured } from '~/composables/useEulerLabels'
+import { useEulerProductOfVault, useEulerEntitiesOfVault, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
@@ -14,7 +15,20 @@ import { VaultSupplyApyModal } from '#components'
 const { isConnected } = useAccount();
 const { vault } = defineProps<{ vault: Vault }>();
 const product = useEulerProductOfVault(vault.address);
+const { enableEntityBranding } = useDeployConfig();
+const { isVaultGovernorVerified } = useVaults();
+const entities = useEulerEntitiesOfVault(vault);
 const isUnverified = computed(() => !vault.verified);
+const isGovernorVerified = computed(() => isVaultGovernorVerified(vault));
+const entityName = computed(() => {
+  if (vault.vaultCategory === 'escrow') return ''
+  if (!isGovernorVerified.value || entities.length === 0) return ''
+  return entities[0].name
+});
+const entityLogo = computed(() => {
+  if (!entityName.value || entities.length === 0) return ''
+  return getEulerLabelEntityLogo(entities[0].logo)
+});
 const displayName = computed(() => product.name || vault.name);
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
 const { withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy();
@@ -161,6 +175,18 @@ watchEffect(async () => {
     <div
       class="flex-1 flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-line-subtle"
     >
+      <div v-if="enableEntityBranding" class="flex-1">
+        <div class="text-content-tertiary text-p3 mb-4">Risk manager</div>
+        <div v-if="entityName" class="flex items-center gap-6">
+          <BaseAvatar
+            class="icon--20"
+            :label="entityName"
+            :src="entityLogo"
+          />
+          <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
+        </div>
+        <div v-else class="text-p2 text-content-primary">-</div>
+      </div>
       <div class="flex-1">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
           Total supply
@@ -208,6 +234,22 @@ watchEffect(async () => {
       </div>
     </div>
     <div class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
+      <div v-if="enableEntityBranding" class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-content-tertiary text-p3">Risk manager</div>
+        </div>
+        <div class="flex gap-8 justify-end items-center text-right flex-1">
+          <template v-if="entityName">
+            <BaseAvatar
+              class="icon--20"
+              :label="entityName"
+              :src="entityLogo"
+            />
+            <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
+          </template>
+          <div v-else class="text-p2 text-content-primary">-</div>
+        </div>
+      </div>
       <div class="flex w-full justify-between">
         <div class="flex-1">
           <div class="text-content-tertiary text-p3 flex items-center gap-4">

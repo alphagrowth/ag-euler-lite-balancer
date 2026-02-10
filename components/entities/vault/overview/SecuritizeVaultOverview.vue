@@ -157,7 +157,7 @@ const supplyCapPercentageDisplay = computed(() => {
           label="Market"
           :value="product.name"
         />
-        <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager(s)">
+        <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager">
           <div
             v-if="entities.length && isGovernorVerified"
             class="flex flex-col gap-16"

@@ -82,14 +82,15 @@ const assetOptions = computed(() => {
     )
 })
 
-const topOptions = computed(() => {
-  const sortedBySupply = [...borrowableVaults.value].sort((a: Vault, b: Vault) => {
+const topOptions = ref<{ label: string, value: string, icon: string }[]>([])
+watchEffect(() => {
+  const sorted = [...borrowableVaults.value].sort((a: Vault, b: Vault) => {
     const aValue = vaultUsdValues.value.get(a.address) ?? 0
     const bValue = vaultUsdValues.value.get(b.address) ?? 0
     return bValue - aValue
   })
 
-  return sortedBySupply
+  const newTop = sorted
     .slice(0, 3)
     .map(vault => ({
       label: vault.asset.symbol,
@@ -99,6 +100,12 @@ const topOptions = computed(() => {
     .reduce((prev, curr) =>
       prev.find(vault => vault.value === curr.value) ? prev : [...prev, curr], [] as { label: string, value: string, icon: string }[],
     )
+
+  const oldKeys = topOptions.value.map(o => o.value).join(',')
+  const newKeys = newTop.map(o => o.value).join(',')
+  if (oldKeys !== newKeys) {
+    topOptions.value = newTop
+  }
 })
 
 const filteredList = computed(() => {

@@ -78,7 +78,7 @@ const vaultGovernanceType = computed(() => {
         label="Market"
         :value="product.name"
       />
-      <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager(s)">
+      <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager">
         <div
           v-if="!isGovernorVerified"
           class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"

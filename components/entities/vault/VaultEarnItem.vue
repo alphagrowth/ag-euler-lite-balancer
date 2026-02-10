@@ -2,7 +2,8 @@
 import { useAccount } from '@wagmi/vue'
 import { type EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
-import { useEulerProductOfVault, isVaultFeatured } from '~/composables/useEulerLabels'
+import { useEulerProductOfVault, useEulerEntitiesOfEarnVault, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
@@ -12,6 +13,18 @@ import { VaultSupplyApyModal } from '#components'
 const { isConnected } = useAccount();
 const { vault } = defineProps<{ vault: EarnVault }>();
 const product = useEulerProductOfVault(vault.address);
+const { enableEntityBranding } = useDeployConfig();
+const { isEarnVaultOwnerVerified } = useVaults();
+const entities = useEulerEntitiesOfEarnVault(vault);
+const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault));
+const entityName = computed(() => {
+  if (!isOwnerVerified.value || entities.length === 0) return ''
+  return entities[0].name
+});
+const entityLogo = computed(() => {
+  if (!entityName.value || entities.length === 0) return ''
+  return getEulerLabelEntityLogo(entities[0].logo)
+});
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
 const { getIntrinsicApy } = useIntrinsicApy();
 const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy();
@@ -121,6 +134,18 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
       </div>
     </div>
     <div class="flex py-12 px-16 pb-12 mobile:border-b mobile:border-line-subtle mobile:pb-12">
+      <div v-if="enableEntityBranding" class="flex-1">
+        <div class="text-content-tertiary text-p3 mb-4">Capital allocator</div>
+        <div v-if="entityName" class="flex items-center gap-6">
+          <BaseAvatar
+            class="icon--20"
+            :label="entityName"
+            :src="entityLogo"
+          />
+          <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
+        </div>
+        <div v-else class="text-p2 text-content-primary">-</div>
+      </div>
       <div class="flex-1">
         <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
         <div class="text-p2 text-content-primary">
@@ -149,8 +174,24 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
         </template>
       </div>
     </div>
-    <div v-if="isConnected" class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
-      <div class="flex w-full justify-between">
+    <div v-if="enableEntityBranding || isConnected" class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
+      <div v-if="enableEntityBranding" class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-content-tertiary text-p3">Capital allocator</div>
+        </div>
+        <div class="flex gap-8 justify-end items-center text-right flex-1">
+          <template v-if="entityName">
+            <BaseAvatar
+              class="icon--20"
+              :label="entityName"
+              :src="entityLogo"
+            />
+            <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
+          </template>
+          <div v-else class="text-p2 text-content-primary">-</div>
+        </div>
+      </div>
+      <div v-if="isConnected" class="flex w-full justify-between">
         <div class="flex-1">
           <div class="text-content-tertiary text-p3">In wallet</div>
         </div>

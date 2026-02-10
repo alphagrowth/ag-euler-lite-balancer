@@ -1,16 +1,38 @@
 <script setup lang="ts">
 import { getAddress } from 'viem'
-import { type AnyBorrowVaultPair, getVaultUtilization } from '~/entities/vault'
+import { type AnyBorrowVaultPair, type Vault, getVaultUtilization } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
-import { useEulerProductOfVault, isVaultFeatured } from '~/composables/useEulerLabels'
+import { useEulerProductOfVault, isVaultFeatured, getEntitiesByVault } from '~/composables/useEulerLabels'
+import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal, VaultMaxRoeModal } from '#components'
 
 const { pair } = defineProps<{ pair: AnyBorrowVaultPair }>();
+const { enableEntityBranding } = useDeployConfig();
+
+const entityDisplay = computed(() => {
+  const borrowEntities = getEntitiesByVault(pair.borrow)
+  // Collateral may be SecuritizeVault but getEntitiesByVault only needs governorAdmin
+  const collateralEntities = 'governorAdmin' in pair.collateral
+    ? getEntitiesByVault(pair.collateral as Vault)
+    : []
+  // Deduplicate by name
+  const seen = new Set<string>()
+  const all = [...collateralEntities, ...borrowEntities].filter((e) => {
+    if (seen.has(e.name)) return false
+    seen.add(e.name)
+    return true
+  })
+  if (all.length === 0) return { names: '', logos: [] }
+  return {
+    names: all.map((e) => e.name).join(' / '),
+    logos: all.map((e) => getEulerLabelEntityLogo(e.logo)),
+  }
+});
 
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } =
   useIntrinsicApy();
@@ -143,12 +165,16 @@ const linkPath = computed(
 <template>
   <NuxtLink
     :to="isGeoBlocked ? undefined : linkPath"
-    class="grid grid-cols-5 gap-x-16 mobile:block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
-    :class="isGeoBlocked ? 'opacity-50 border-l-4 border-l-warning-500/50' : ''"
+    class="grid gap-x-16 mobile:block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
+    :class="[
+      enableEntityBranding ? '' : 'grid-cols-5',
+      isGeoBlocked ? 'opacity-50 border-l-4 border-l-warning-500/50' : '',
+    ]"
+    :style="enableEntityBranding ? { gridTemplateColumns: '1.5fr repeat(5, 1fr)' } : undefined"
   >
     <!-- Header: contents on desktop (children become grid items), flex on mobile -->
     <div class="contents mobile:!flex mobile:py-16 mobile:px-16 mobile:pb-12 mobile:border-b mobile:border-line-subtle">
-      <div class="col-span-3 flex pl-16 py-16 pb-12 mobile:!p-0 mobile:flex-1 mobile:min-w-0 mobile:items-center">
+      <div :class="enableEntityBranding ? 'col-span-4' : 'col-span-3'" class="flex pl-16 py-16 pb-12 mobile:!p-0 mobile:flex-1 mobile:min-w-0 mobile:items-center">
         <BaseAvatar
           :src="
             [pair.collateral, pair.borrow].map((v) =>
@@ -243,7 +269,19 @@ const linkPath = computed(
 
     <!-- Body stats: contents on desktop (children become grid items), flex on mobile -->
     <div class="contents mobile:!flex mobile:py-12 mobile:px-16 mobile:pb-12 mobile:justify-between mobile:border-b mobile:border-line-subtle">
-      <div class="pl-16 py-12 pb-12 mobile:!p-0">
+      <div v-if="enableEntityBranding" class="pl-16 py-12 pb-12 mobile:!hidden">
+        <div class="text-content-tertiary text-p3 mb-4">Risk manager</div>
+        <div v-if="entityDisplay.names" class="flex items-center gap-6">
+          <BaseAvatar
+            class="icon--20"
+            :label="entityDisplay.names"
+            :src="entityDisplay.logos"
+          />
+          <span class="text-p2 text-content-primary truncate">{{ entityDisplay.names }}</span>
+        </div>
+        <div v-else class="text-p2 text-content-primary">-</div>
+      </div>
+      <div class="py-12 pb-12 mobile:!p-0" :class="{ 'pl-16': !enableEntityBranding }">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
           Available liquidity
           <VaultWarningIcon :warning="borrowCapInfo" tooltip-placement="top-start" />
@@ -286,6 +324,22 @@ const linkPath = computed(
 
     <!-- Mobile expanded stats -->
     <div class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
+      <div v-if="enableEntityBranding" class="flex w-full justify-between">
+        <div class="flex-1">
+          <div class="text-content-tertiary text-p3">Risk manager</div>
+        </div>
+        <div class="flex gap-8 justify-end items-center text-right flex-1">
+          <template v-if="entityDisplay.names">
+            <BaseAvatar
+              class="icon--20"
+              :label="entityDisplay.names"
+              :src="entityDisplay.logos"
+            />
+            <span class="text-p2 text-content-primary truncate">{{ entityDisplay.names }}</span>
+          </template>
+          <div v-else class="text-p2 text-content-primary">-</div>
+        </div>
+      </div>
       <div class="flex w-full justify-between">
         <div class="flex-1">
           <div class="text-content-tertiary text-p3">Max LTV</div>
