@@ -10,18 +10,22 @@ import {
 import type { EarnVault, Vault } from '~/entities/vault'
 import type { OracleAdapterMeta } from '~/entities/oracle'
 let _labelsRepo = 'euler-xyz/euler-labels'
+let _labelsRepoBranch = 'master'
 let _oracleChecksRepo = 'euler-xyz/oracle-checks'
 let _isCustomLabelsRepo = false
+let _enableEarnPage = true
 
 const initRepos = () => {
-  const { labelsRepo, oracleChecksRepo, isCustomLabelsRepo } = useDeployConfig()
+  const { labelsRepo, labelsRepoBranch, oracleChecksRepo, isCustomLabelsRepo, enableEarnPage } = useDeployConfig()
   _labelsRepo = labelsRepo
+  _labelsRepoBranch = labelsRepoBranch
   _oracleChecksRepo = oracleChecksRepo
   _isCustomLabelsRepo = isCustomLabelsRepo.value
+  _enableEarnPage = enableEarnPage
 }
 
 const getLabelsUrl = (chainId: number, file: string) =>
-  `https://raw.githubusercontent.com/${_labelsRepo}/refs/heads/master/${chainId}/${file}`
+  `https://raw.githubusercontent.com/${_labelsRepo}/refs/heads/${_labelsRepoBranch}/${chainId}/${file}`
 
 const getOracleChecksUrl = (chainId: number, file: string) =>
   `https://raw.githubusercontent.com/${_oracleChecksRepo}/refs/heads/master/data/${chainId}/${file}`
@@ -199,19 +203,26 @@ export const useEulerLabels = () => {
       ])
 
       if (_isCustomLabelsRepo) {
-        const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
-        const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], featured?: boolean }>
-        earnVaults.value = earnEntries.map((entry) => {
-          if (typeof entry === 'string') return normalizeAddress(entry)
-          const addr = normalizeAddress(entry.address)
-          if (entry.block?.length) {
-            earnVaultBlocks[addr.toLowerCase()] = entry.block
+        try {
+          const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
+          const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], featured?: boolean }>
+          earnVaults.value = earnEntries.map((entry) => {
+            if (typeof entry === 'string') return normalizeAddress(entry)
+            const addr = normalizeAddress(entry.address)
+            if (entry.block?.length) {
+              earnVaultBlocks[addr.toLowerCase()] = entry.block
+            }
+            if (entry.featured) {
+              featuredEarnVaults.add(addr)
+            }
+            return addr
+          })
+        }
+        catch {
+          if (_enableEarnPage) {
+            console.warn(`[Labels] earn-vaults.json not found on ${_labelsRepo}@${_labelsRepoBranch}`)
           }
-          if (entry.featured) {
-            featuredEarnVaults.add(addr)
-          }
-          return addr
-        })
+        }
       }
 
       const normalizedProducts = normalizeProducts(productRes.data)
