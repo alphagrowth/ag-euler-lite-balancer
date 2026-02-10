@@ -77,9 +77,12 @@ components/
 composables/
 ├── useAddressScreen.ts            # Address screening (compliance)
 ├── useBrevis.ts                   # Brevis ZK proof integration
+├── useChainConfig.ts              # Dynamic chain derivation from RPC_URL_HTTP_* env vars
+├── useDeployConfig.ts             # Branding, social links, feature flags (from runtimeConfig)
+├── useEnvConfig.ts                # Runtime env config (API URLs, Pyth, Reown)
 ├── useEulerAccount.ts             # Euler account and portfolio positions
 ├── useEulerAddresses.ts           # Euler contract address resolution
-├── useEulerConfig.ts              # Configuration management
+├── useEulerConfig.ts              # Aggregated config for Euler services
 ├── useEulerLabels.ts              # Euler labels and metadata
 ├── useEulerOperations.ts          # Euler protocol operations (supply, borrow, etc.)
 ├── useEstimateFees.ts             # Transaction fee estimation
@@ -117,9 +120,8 @@ composables/
 entities/
 ├── account.ts               # Account-related data models
 ├── brevis.ts                # Brevis ZK proof types
-├── config.ts                # Configuration constants and addresses
 ├── constants.ts             # Shared constants
-├── custom.ts                # Custom entity definitions
+├── custom.ts                # Theme hue and intrinsic APY data sources
 ├── evc-error-signatures.ts  # EVC error signature decoding
 ├── euler/                   # Euler Finance specific entities
 │   ├── abis.ts              # Smart contract ABIs
@@ -203,9 +205,19 @@ plugins/
 
 ### Plugin Types
 
-- **Client-side**: Run only in the browser
-- **Server-side**: Run on the server (if SSR were enabled)
-- **Universal**: Run in both environments
+- **Client-side**: Run only in the browser (e.g., `theme.client.ts`)
+- **Universal**: Run in both environments (e.g., `00.wagmi.ts`)
+
+## Server Plugins
+
+```
+server/
+├── plugins/
+│   ├── app-config.ts        # Injects env config into HTML via window.__APP_CONFIG__
+│   └── chain-config.ts      # Injects chain config into HTML via window.__CHAIN_CONFIG__
+```
+
+These Nitro plugins run at server startup and inject configuration into the rendered HTML so the client can read it synchronously. This enables runtime-injected env vars (e.g., Doppler on Railway) without rebuilding.
 
 ## 📝 Types Directory
 

@@ -31,13 +31,17 @@ Available scripts (from `package.json`):
 
 ## Environment variables
 
-Declared and consumed via `nuxt.config.ts` runtimeConfig and `entities/config.ts`. Typical public values:
+Configuration is split into two mechanisms:
 
-- `NETWORK` – `testnet` or `mainnet`
-- `TGA_TOKEN`, `TGA_NAME` – analytics (optional)
-- Dev HTTPS: `HTTPS_KEY`, `HTTPS_CERT` (optional)
+1. **`useEnvConfig()`** (`composables/useEnvConfig.ts`) — API URLs, Pyth, Reown, wallet screening. Injected at runtime via `server/plugins/app-config.ts` into `window.__APP_CONFIG__`. Accepts both plain names (`EULER_API_URL`) and Doppler-prefixed names (`NUXT_PUBLIC_EULER_API_URL`).
 
-Other integration constants (Goldsky, TAC, Euler, Merkl, TON Center, etc.) are defined per-network in `entities/config.ts`.
+2. **Nuxt `runtimeConfig`** (`useDeployConfig()`) — branding, social links, feature flags. Set via `NUXT_PUBLIC_CONFIG_*` env vars.
+
+3. **Chain config** (`useChainConfig()`) — derived dynamically from `RPC_URL_HTTP_<chainId>` env vars at server startup, injected via `window.__CHAIN_CONFIG__`.
+
+See the [README](../README.md) for the full env var reference.
+
+Dev HTTPS: `HTTPS_KEY`, `HTTPS_CERT` (optional).
 
 ## Code layout (high level)
 
@@ -58,8 +62,8 @@ Other integration constants (Goldsky, TAC, Euler, Merkl, TON Center, etc.) are d
 ## Troubleshooting
 
 - If the app fails to start, ensure Node 18+ and reinstall deps.
-- If blockchain calls fail, verify `NETWORK` and endpoints in `entities/config.ts`.
-- For TON wallet issues, check `public/tonconnect-manifest.json` and `useTonConnect.ts`.
+- If blockchain calls fail, verify `RPC_URL_HTTP_<chainId>` env vars and check that matching `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>` is set.
+- If token logos don't load, verify `EULER_API_URL` (or `NUXT_PUBLIC_EULER_API_URL`) is set.
 
 ---
 

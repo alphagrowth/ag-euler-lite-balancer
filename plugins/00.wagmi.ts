@@ -5,9 +5,9 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { getNetworksByChainIds } from '~/entities/chainRegistry'
 
 export default defineNuxtPlugin((nuxtApp) => {
-  const appConfig = useAppConfig()
-  const projectId = appConfig.appKitProjectId
-  const appUrl = appConfig.appUrl
+  const envConfig = useEnvConfig()
+  const projectId = envConfig.appKitProjectId
+  const appUrl = envConfig.appUrl
   const normalizedAppUrl = appUrl ? appUrl.replace(/\/+$/, '') : ''
   const { enabledChainIds } = useChainConfig()
 
@@ -30,8 +30,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   ]
 
   const metadata = {
-    name: appConfig.appTitle,
-    description: appConfig.appDescription,
+    name: envConfig.appTitle,
+    description: envConfig.appDescription,
     url: normalizedAppUrl,
     icons: normalizedAppUrl ? [`${normalizedAppUrl}/manifest-img.png`] : [],
   }

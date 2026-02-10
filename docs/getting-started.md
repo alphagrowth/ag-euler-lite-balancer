@@ -12,7 +12,7 @@ Welcome to the Euler Lite project! This guide will help you get up and running w
 - **Borrowing**: Users can borrow assets using collateral
 - **Portfolio Management**: Track positions and performance
 - **Rewards**: Participate in Merkl reward programs
-- **Cross-chain**: Bridge between TON and EVM-compatible chains using TAC
+- **Multi-chain**: Connect to any EVM-compatible network
 
 ## 🏗️ Technology Stack
 
@@ -25,11 +25,9 @@ Welcome to the Euler Lite project! This guide will help you get up and running w
 
 ### Blockchain & DeFi
 
-- **TON Blockchain**: Native blockchain integration
-- **TAC (TON App Chain)**: EVM-compatible layer for cross-chain operations
 - **Euler Finance**: DeFi lending and borrowing protocol
-- **TonConnect**: TON wallet integration
-- **Ethers.js**: Ethereum/EVM interaction library
+- **Wagmi / Reown (AppKit)**: EVM wallet integration
+- **Viem**: Ethereum/EVM interaction library
 
 ### Development Tools
 
@@ -88,40 +86,46 @@ Welcome to the Euler Lite project! This guide will help you get up and running w
 - `npm run generate` - Generate static site
 - `npm run lint` - Run ESLint
 
-## 🌍 Environment Configuration
+## Environment Configuration
 
-The application supports multiple environments (testnet/mainnet) and requires several configuration variables:
+The application is configured entirely via environment variables. See the [README](../README.md) for the full reference.
 
-### Required Environment Variables
+### Key Variables
 
 ```bash
-# Network configuration
-NETWORK=testnet  # or mainnet
+# Reown (WalletConnect)
+APPKIT_PROJECT_ID=your-project-id
+NUXT_PUBLIC_APP_URL=https://your-domain.com
 
-# Analytics (optional)
-TGA_TOKEN=your_token
-TGA_NAME=your_name
+# API URLs
+EULER_API_URL=https://indexer.euler.finance
+SWAP_API_URL=https://swap.euler.finance
+PRICE_API_URL=https://indexer.euler.finance
+
+# Chain RPC endpoints (one per chain you want to enable)
+RPC_URL_HTTP_1=https://your-ethereum-rpc.com
+NUXT_PUBLIC_SUBGRAPH_URI_1=https://your-subgraph.com
 ```
 
-## 🔗 Key External Services
+## Key External Services
 
 ### Euler Finance
 
 - **Purpose**: DeFi lending and borrowing protocol
-- **Integration**: Smart contract interactions via EVM
+- **Integration**: Smart contract interactions via EVM (EVC, EVK)
 - **Data Source**: Vault information, interest rates, positions
 
-### TON Blockchain
+### Euler Indexer API
 
-- **Purpose**: Native blockchain for wallet connections
-- **Integration**: TonConnect SDK, TON address management
-- **Data Source**: Wallet balances, transaction history
+- **Purpose**: Token metadata, logos, and indexing
+- **Integration**: REST API (`EULER_API_URL`)
+- **Data Source**: Token data per chain including `logoURI`
 
-### TAC (TON App Chain)
+### Pyth Network
 
-- **Purpose**: EVM-compatible layer for cross-chain operations
-- **Integration**: TAC SDK for smart account management
-- **Data Source**: Cross-chain transactions, account states
+- **Purpose**: Pull-based oracle price feeds
+- **Integration**: Hermes API (`PYTH_HERMES_URL`)
+- **Data Source**: Real-time price updates for oracle feeds
 
 ### Merkl
 
@@ -139,15 +143,15 @@ TGA_NAME=your_name
 
 ### Blockchain Connection Issues
 
-- Verify environment variables are set correctly
-- Check network configuration (testnet vs mainnet)
+- Verify `RPC_URL_HTTP_<chainId>` env vars are set correctly
+- Ensure matching `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>` exists for each chain
 - Ensure RPC endpoints are accessible
 
 ### Wallet Connection Problems
 
-- Verify TonConnect manifest configuration
+- Verify `APPKIT_PROJECT_ID` is correct
+- Ensure `NUXT_PUBLIC_APP_URL` matches your domain
 - Check browser console for errors
-- Ensure Telegram Web App is properly configured
 
 ## 🤝 Getting Help
 

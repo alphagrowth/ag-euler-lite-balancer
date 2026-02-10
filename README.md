@@ -1,6 +1,6 @@
 # Euler Lite
 
-## 🎯 Overview
+## Overview
 
 Euler Lite provides all the core functionality of Euler Finance in a customizable package:
 
@@ -9,17 +9,14 @@ Euler Lite provides all the core functionality of Euler Finance in a customizabl
 - **Rewards**: Participate in Merkl/Brevis reward programs
 - **Multi-chain Support**: Connect to multiple EVM-compatible networks
 
-## 📋 Prerequisites
-
-Before you begin, ensure you have the following installed:
+## Prerequisites
 
 - **Node.js** 18+ (recommended: 20.12.2)
-- **npm** or **yarn** package manager
+- **npm** package manager
 - **Git**
 - A **Reown Project ID** (formerly WalletConnect) - get one at [reown.com](https://reown.com/)
-- Your domain URL where the app will be hosted
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone and Install
 
@@ -31,428 +28,263 @@ npm install
 
 ### 2. Environment Configuration
 
-Create a `.env` file in the root directory with the following variables:
+Copy `.env.example` to `.env` and fill in your values:
 
 ```bash
-# Network configuration (required)
-NETWORK=mainnet  # or testnet
-
-# Pyth Hermes URL (optional, defaults to https://hermes.pyth.network)
-PYTH_HERMES_URL=https://hermes.pyth.network
-
-# Reown (AppKit) configuration (required for wallet connect)
-APPKIT_PROJECT_ID=your-reown-project-id
-APP_URL=https://your-domain.com
-
-# HTTPS configuration for local development (optional)
-HTTPS_KEY=/path/to/key.pem
-HTTPS_CERT=/path/to/cert.pem
+cp .env.example .env
 ```
 
-**Note**: `NETWORK`, `APPKIT_PROJECT_ID`, and `APP_URL` are required. Other variables are optional and have sensible defaults.
+#### Required Variables
+
+| Variable | Description |
+|----------|-------------|
+| `APPKIT_PROJECT_ID` | Reown (WalletConnect) project ID |
+| `NUXT_PUBLIC_APP_URL` | Your app's public URL |
+| `RPC_URL_HTTP_<chainId>` | RPC endpoint per chain (e.g. `RPC_URL_HTTP_1` for Ethereum) |
+| `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>` | Subgraph URI per chain |
+
+#### API URLs
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EULER_API_URL` | — | Euler indexer API (token data, logos) |
+| `SWAP_API_URL` | — | Euler swap API |
+| `PRICE_API_URL` | — | Euler price API |
+| `PYTH_HERMES_URL` | `https://hermes.pyth.network` | Pyth oracle endpoint |
+
+> **Doppler compatibility:** If your secret manager injects `NUXT_PUBLIC_*` prefixed names (e.g. `NUXT_PUBLIC_EULER_API_URL`), the app accepts both forms automatically.
+
+#### Branding & Feature Flags
+
+These use Nuxt's `runtimeConfig` and are set via `NUXT_PUBLIC_CONFIG_*` env vars:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NUXT_PUBLIC_CONFIG_APP_TITLE` | `Euler Lite` | App title (SEO, meta tags) |
+| `NUXT_PUBLIC_CONFIG_APP_DESCRIPTION` | `Lightweight interface for Euler Finance.` | App description |
+| `NUXT_PUBLIC_CONFIG_LABELS_REPO` | `euler-xyz/euler-labels` | GitHub labels repo |
+| `NUXT_PUBLIC_CONFIG_DOCS_URL` | — | Documentation link |
+| `NUXT_PUBLIC_CONFIG_TOS_URL` | — | Terms of Service link |
+| `NUXT_PUBLIC_CONFIG_TOS_MD_URL` | — | TOS markdown URL (enables TOS signing when set) |
+| `NUXT_PUBLIC_CONFIG_X_URL` | — | X (Twitter) link |
+| `NUXT_PUBLIC_CONFIG_DISCORD_URL` | — | Discord link |
+| `NUXT_PUBLIC_CONFIG_TELEGRAM_URL` | — | Telegram link |
+| `NUXT_PUBLIC_CONFIG_GITHUB_URL` | — | GitHub link |
+| `NUXT_PUBLIC_CONFIG_ENABLE_EARN_PAGE` | `true` | Show Earn page |
+| `NUXT_PUBLIC_CONFIG_ENABLE_LEND_PAGE` | `true` | Show Lend page |
+| `NUXT_PUBLIC_CONFIG_ENABLE_ENTITY_BRANDING` | `true` | Show entity branding |
+| `NUXT_PUBLIC_CONFIG_ENABLE_VAULT_TYPE` | `true` | Show vault type labels |
+
+#### Chain Configuration
+
+Chains are configured dynamically at runtime. Each chain requires two env vars:
+
+```bash
+# Ethereum Mainnet
+RPC_URL_HTTP_1=https://your-rpc-endpoint.com
+NUXT_PUBLIC_SUBGRAPH_URI_1=https://api.goldsky.com/.../euler-simple-mainnet/latest/gn
+
+# Arbitrum
+RPC_URL_HTTP_42161=https://your-arbitrum-rpc.com
+NUXT_PUBLIC_SUBGRAPH_URI_42161=https://api.goldsky.com/.../euler-simple-arbitrum/latest/gn
+```
+
+The app scans for `RPC_URL_HTTP_<chainId>` env vars at server startup and automatically enables those chains. No code changes needed to add or remove chains.
 
 ### 3. Customize Your Instance
 
-The most important step is customizing your instance to match your brand and requirements.
+#### Theme (`entities/custom.ts`)
 
-#### 3.1. App Branding (`entities/custom.ts`)
-
-Open `entities/custom.ts` and configure the following:
-
-**Social Links** - Update with your social media profiles:
+The `themeHue` value (0-360) shifts the entire color palette:
 
 ```typescript
-export const socials = {
-  x: "https://x.com/yourhandle",
-  discord: "https://discord.com/invite/yourserver",
-  telegram: "https://t.me/yourchannel",
-  github: "https://github.com/yourorg",
-} as const;
+export const themeHue = 150 // Change to shift brand palette
 ```
 
-**Documentation & Legal Links** - Set your documentation and terms:
+#### Intrinsic APY Sources (`entities/custom.ts`)
 
-```typescript
-export const links = [
-  {
-    title: "Docs",
-    url: "https://your-docs-url.com",
-  },
-  {
-    title: "Terms of Use",
-    url: "https://your-terms-url.com",
-  },
-] as const;
-```
-
-**Theming System** - The app uses a comprehensive CSS variables-based theming system with light/dark mode support:
-
-The theme is defined in `assets/styles/variables.scss` with the following color categories:
-
-- **Primary colors** (`--primary-*`) - Navy blues for primary UI elements
-- **Accent colors** (`--accent-*`) - Gold/bronze for CTAs and highlights
-- **Neutral colors** (`--neutral-*`) - Warm grays for text and backgrounds
-- **Semantic colors** (`--success-*`, `--warning-*`, `--error-*`) - Status indicators
-
-**Customizing Colors**:
-
-Edit `assets/styles/variables.scss` to change the color palette:
-
-```scss
-:root {
-  // Primary - Navy (change these for your brand)
-  --primary-500: #1e3a5f;
-  --primary-600: #162d4d;
-  
-  // Accent - Gold/Bronze (for CTAs and highlights)
-  --accent-500: #c49b64;
-  --accent-600: #b08850;
-  
-  // ... other colors
-}
-```
-
-**Dark Mode**:
-
-Dark mode colors are defined in the `[data-theme="dark"]` block in `variables.scss`. The app includes a theme switcher (bottom-left corner) that toggles between light and dark modes, with the preference saved to localStorage.
-
-**Semantic Theme Classes**:
-
-The app uses semantic Tailwind classes that automatically adapt to the current theme:
-
-| Class | Light Mode | Dark Mode |
-|-------|------------|-----------|
-| `bg-surface` | White | Dark gray |
-| `bg-card` | White | Dark gray |
-| `text-content-primary` | Near black | Near white |
-| `text-content-secondary` | Medium gray | Light gray |
-| `border-line-default` | Light gray | Dark gray |
-
-**SEO Metadata** - Default page title and description for search/social previews:
-
-```typescript
-export const appTitle = "Your App Name";
-export const appDescription = "Short SEO description of your app.";
-```
-
-These values are used in `nuxt.config.ts` for the document title, meta description, and Open Graph/Twitter tags.
-
-**Onboarding Page** - Customize the onboarding screen that appears when users first visit your app:
-
-```typescript
-export const onboardingInfo = {
-  logoUrl: "/logo.png", // Path to your logo image (relative to public/)
-  title: "The Modular Credit Layer", // Main heading text
-  description: "Lend, borrow and build without limits.", // Subheading text
-};
-```
-
-**Configuration details**:
-
-- `logoUrl` - Path to your logo image file. Place the image in the `public/` directory and reference it with a path starting with `/` (e.g., `/logo.png` for `public/logo.png`)
-- `title` - The main heading displayed on the onboarding page
-- `description` - The descriptive text shown below the title
-
-The onboarding page is shown to users who haven't completed onboarding yet. Users can either connect their wallet or skip to continue without connecting.
-
-**Supported Networks** - Configure which blockchain networks your instance supports:
-
-```typescript
-export const availableNetworkIds = [
-  1, // Ethereum Mainnet
-  42161, // Arbitrum
-  8453, // Base
-  // Add or remove network IDs as needed
-] as const;
-```
-
-**Euler Labels Repository** - Set the GitHub repository for Euler labels:
-
-```typescript
-export const labelsRepo: string = "euler-xyz/euler-labels"; // or your fork
-```
-
-**EulerEarn Vaults Configuration** - Specify which EulerEarn vaults to display in your app:
-
-If you're using a custom labels repository (i.e., `labelsRepo` is not `"euler-xyz/euler-labels"`), you can curate which EulerEarn vaults are shown by creating chain-specific `earn-vaults.json` files in your labels repository.
-
-**How it works**:
-
-1. **Set your labels repository** in `entities/custom.ts` (if you haven't already):
-
-   ```typescript
-   export const labelsRepo: string = "your-username/your-labels-repo";
-   ```
-
-2. **Create chain-specific earn-vaults.json files** in your labels repository:
-
-   - File path: `{chainId}/earn-vaults.json`
-   - The file should be an array of vault addresses (strings)
-   - Each supported chain needs its own file
-
-3. **File structure example**:
-
-   ```
-   your-labels-repo/
-   ├── 1/                    # Ethereum Mainnet (chainId: 1)
-   │   └── earn-vaults.json
-   ├── 42161/                # Arbitrum (chainId: 42161)
-   │   └── earn-vaults.json
-   └── 8453/                 # Base (chainId: 8453)
-       └── earn-vaults.json
-   ```
-
-4. **earn-vaults.json format**:
-   The file must be a JSON array of vault addresses (checksummed or lowercase):
-
-   ```json
-   [
-     "0x1234567890123456789012345678901234567890",
-     "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-     "0xFEDCBA9876543210FEDCBA9876543210FEDCBA98"
-   ]
-   ```
-
-   **Example for Ethereum Mainnet** (`1/earn-vaults.json`):
-
-   ```json
-   [
-     "0x7e7a0e85cc0c4b9db7b7b1c5a12d5d8e1f3c4a5b",
-     "0x9f8c9e7d6b5a4c3b2a1f0e9d8c7b6a5f4e3d2c1",
-     "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
-   ]
-   ```
-
-**Important Notes**:
-
-- Only vault addresses listed in `earn-vaults.json` will be displayed in your app's EulerEarn section
-- If you're using the default `"euler-xyz/euler-labels"` repository, all verified EulerEarn vaults will be shown automatically
-- The app loads `earn-vaults.json` from: `https://raw.githubusercontent.com/{labelsRepo}/refs/heads/master/{chainId}/earn-vaults.json`
-- Each chain ID needs its own `earn-vaults.json` file in the corresponding directory
-- Addresses will be normalized (checksummed) automatically, so you can use either lowercase or checksummed addresses
-
-**Intrinsic APY** - Enable/disable DeFiLlama integration:
-
-```typescript
-export const enableIntrinsicApy = true; // Set to false to disable
-```
-
-**Intrinsic APY Sources (DefiLlama)** - Configure which tokens use DefiLlama base APY:
-
-Sources live in `entities/custom.ts`:
+Configure which tokens show DeFiLlama base APY:
 
 ```typescript
 export const intrinsicApySources = [
-  { symbol: "steth", project: "lido" },
-  { symbol: "wsteth", sourceSymbol: "steth", project: "lido" },
+  { symbol: 'steth', project: 'lido' },
+  { symbol: 'wsteth', sourceSymbol: 'steth', project: 'lido' },
   // Add your tokens here
-] as const;
+] as const
 ```
 
-**How to add a token**:
+- `symbol` — vault asset symbol (case-insensitive)
+- `project` — DefiLlama project slug (from https://yields.llama.fi/pools)
+- `sourceSymbol` — optional; use when the vault asset is wrapped but APY is tied to another symbol
 
-1. `symbol` - the vault asset symbol (case-insensitive) used in the UI.
-2. `project` - the DefiLlama project slug (from https://yields.llama.fi/pools).
-3. `sourceSymbol` - optional; use when the vault asset is a wrapped token but APY is tied to another symbol.
+#### Favicon
 
-
-#### 3.2. AppKit (Reown) Configuration
-
-**Environment Variables** - Set these in your `.env`:
-
-```bash
-APPKIT_PROJECT_ID=your-reown-project-id  # Get from https://reown.com/
-APP_URL=https://your-domain.com
-```
-
-**App Metadata** - Update the app name/description and icon path in `entities/custom.ts`:
-
-```typescript
-export const appKitMetadata = {
-  name: "Your App Name",
-  description: "Your app description",
-  iconPath: "/manifest-img.png",
-} as const;
-```
-
-The runtime AppKit metadata is assembled from `APP_URL` + `iconPath` in `plugins/00.wagmi.ts`.
-
-#### 3.3. App Title, Description and Favicon (`nuxt.config.ts`)
-
-Open `nuxt.config.ts` and update:
-
-**App Title & Description (SEO)** - Update `appTitle` and `appDescription` in `entities/custom.ts`.
-Nuxt uses those values for the document title and SEO meta tags.
-
-**Favicon** - Replace the favicon files in `public/favicons/`:
+Replace the favicon files in `public/favicons/`:
 
 - `favicon.ico`
 - `favicon.svg`
 
-The favicon paths are already configured in `nuxt.config.ts` to point to `/favicons/favicon.ico`.
+#### Token Icons
 
-**Theme Color** - Update the theme color meta tag:
+Token icons are loaded from the Euler Indexer API (`EULER_API_URL/v1/tokens`). Each token's `logoURI` field provides the icon URL.
 
-```typescript
-meta: [
-  // ...
-  {
-    name: "theme-color",
-    content: "#your-color", // Update to match your brand
-  },
-];
+To override an icon for a specific token, add a file to `assets/tokens/`:
+
+```
+assets/tokens/
+  eul.png       # overrides the EUL token icon
+  mytoken.png   # overrides MYTOKEN icon
 ```
 
-#### 3.4. Token Icons (Optional)
+The resolution order in `getAssetLogoUrl(address, symbol)`:
+1. Local override in `assets/tokens/<symbol>.png`
+2. `logoURI` from the indexer API
+3. Empty string (component shows initials fallback)
 
-The app uses a two-tier system for token icon resolution:
+#### EulerEarn Vaults
 
-**Primary Source**: Token icons are automatically loaded from the Euler Indexer API (`https://indexer.euler.finance/v1/tokens`). The indexer provides token metadata including `logoURI` for each token based on the current chain ID.
+If using a custom labels repository, create chain-specific `earn-vaults.json` files to curate which EulerEarn vaults appear:
 
-**Fallback**: If a token doesn't have a `logoURI` from the indexer, the app falls back to custom icons in `public/tokens/`.
-
-**How Token Icon Resolution Works**:
-
-The `getAssetLogoUrl(symbol)` function in `composables/useTokens.ts` uses the following logic:
-
-```typescript
-export const getAssetLogoUrl = (symbol: string) => {
-  return tokens[symbol]?.logoURI ?? `/tokens/${symbol}.png`;
-};
+```
+your-labels-repo/
+├── 1/earn-vaults.json          # Ethereum
+├── 42161/earn-vaults.json      # Arbitrum
+└── 8453/earn-vaults.json       # Base
 ```
 
-1. **First**: Checks if the token (loaded from the indexer API for the current chain) has a `logoURI` property
-2. **Fallback**: If no `logoURI` exists, looks for a file at `/tokens/${symbol}.png` in the `public` directory
+Each file is a JSON array of vault addresses:
 
-**Adding Custom Token Icons**:
+```json
+[
+  "0x1234567890123456789012345678901234567890",
+  "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+]
+```
 
-If you need to add custom token icons for tokens not provided by the Euler Indexer:
-
-1. **File Location**: Add token icon files to `public/tokens/`
-2. **File Naming**: Name files using the token's **symbol** in lowercase with `.png` extension
-   - Example: `eth.png`, `usdc.png`, `wbtc.png`
-3. **Not Chain-Specific**: Token icons are shared across all chains - the same `eth.png` file works for ETH on Ethereum Mainnet, Arbitrum, Base, etc.
-4. **How It Works**: The app matches tokens by their `symbol` property (which is consistent across chains for the same asset), not by chain ID
-
-**Example**:
-
-- If a token with symbol `"MYTOKEN"` doesn't have a `logoURI` from the indexer, create `public/tokens/mytoken.png`
-- This icon will be used whenever `getAssetLogoUrl("MYTOKEN")` is called, regardless of which chain the user is connected to
-
-**Note**: Token data (including symbol) is loaded per-chain from the Euler Indexer API when users switch networks. The `useTokens` composable watches for chain changes and reloads tokens accordingly. Custom icons in `public/tokens/` are only used when the indexer doesn't provide a `logoURI` for that token symbol.
+When using the default `euler-xyz/euler-labels` repository, all verified EulerEarn vaults are shown automatically.
 
 ### 4. Development
-
-Start the development server:
 
 ```bash
 npm run dev
 ```
 
-The app will be available at `http://localhost:3000` (or the next available port).
+The app will be available at `http://localhost:3000`.
+
+For HTTPS in local development, set `HTTPS_KEY` and `HTTPS_CERT` env vars pointing to your certificate files.
 
 ### 5. Build for Production
 
-Build the application:
-
 ```bash
 npm run build
+npm run preview   # preview locally
 ```
 
-Preview the production build locally:
+## Docker Deployment
+
+The project includes a Dockerfile that uses [Doppler](https://doppler.com) for runtime secret injection:
 
 ```bash
-npm run preview
-```
-
-## 🐳 Docker Deployment
-
-The project includes a Dockerfile for containerized deployment:
-
-```bash
-# Build the Docker image
 docker build --build-arg APP_PORT=3000 -t euler-lite .
 
-# Run the container
 docker run -p 3000:3000 \
-  -e NETWORK=mainnet \
-  -e PYTH_HERMES_URL=https://hermes.pyth.network \
+  -e DOPPLER_TOKEN=your-doppler-token \
+  -e DOPPLER_PROJECT=euler-lite \
+  -e DOPPLER_CONFIG=production \
   euler-lite
 ```
 
-## 📁 Project Structure
+Doppler injects all environment variables at runtime. The server plugins scan the injected env vars and pass config to the client via `window.__APP_CONFIG__` and `window.__CHAIN_CONFIG__`.
 
-Key directories and files:
+To run without Doppler, override the `CMD` and pass env vars directly:
 
-- `assets/styles/` - Global styles and theming
-  - `variables.scss` - **Theme colors and CSS variables (light/dark mode)**
-- `composables/` - Vue composables for app logic (vaults, tokens, operations, etc.)
-- `components/` - Vue components organized by feature
-- `entities/` - Type definitions and configuration
-  - `custom.ts` - **Your main customization file**
-- `pages/` - Nuxt pages/routes
-- `plugins/` - Nuxt plugins
-  - `00.wagmi.ts` - **Wagmi/Reown configuration**
-- `public/` - Static assets
-  - `favicons/` - **Favicon files**
-  - `tokens/` - **Token icon files**
-- `nuxt.config.ts` - **Nuxt configuration (SEO meta, favicon)**
-- `tailwind.config.js` - **Tailwind CSS configuration with semantic theme classes**
+```bash
+docker run -p 3000:3000 \
+  -e EULER_API_URL=https://indexer.euler.finance \
+  -e SWAP_API_URL=https://swap.euler.finance \
+  -e PRICE_API_URL=https://indexer.euler.finance \
+  -e APPKIT_PROJECT_ID=your-project-id \
+  -e RPC_URL_HTTP_1=https://your-rpc.com \
+  -e NUXT_PUBLIC_SUBGRAPH_URI_1=https://your-subgraph.com \
+  euler-lite node .output/server/index.mjs
+```
 
-## 🔧 Available Scripts
+## Project Structure
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build locally
-- `npm run generate` - Generate static site
-- `npm run postinstall` - Prepare Nuxt (runs automatically after install)
+```
+assets/
+  styles/variables.scss    # Theme colors and CSS variables
+  tokens/                  # Token icon overrides
+components/                # Vue components organized by feature
+composables/
+  useEnvConfig.ts          # Runtime env config (API URLs, Pyth, Reown)
+  useDeployConfig.ts       # Branding, social links, feature flags
+  useChainConfig.ts        # Dynamic chain derivation from env vars
+  useEulerConfig.ts        # Aggregated config for Euler services
+  useTokens.ts             # Token data fetching and icon resolution
+  useEulerOperations.ts    # Operation builders (deposit, borrow, etc.)
+entities/
+  custom.ts                # Theme hue and intrinsic APY sources
+  vault.ts                 # Vault types and fetching
+  account.ts               # Position types
+pages/                     # Nuxt pages/routes
+plugins/
+  00.wagmi.ts              # Wagmi/Reown wallet configuration
+public/
+  favicons/                # Favicon files
+server/
+  plugins/app-config.ts    # Injects env config into HTML
+  plugins/chain-config.ts  # Injects chain config into HTML
+```
 
-## ⚙️ Configuration Checklist
+## Available Scripts
 
-Before deploying, ensure you've completed:
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build locally |
+| `npm run generate` | Generate static site |
+| `npm run postinstall` | Prepare Nuxt (runs automatically) |
 
-- [ ] Created `.env` file with `NETWORK` variable
-- [ ] Updated social links in `entities/custom.ts`
-- [ ] Updated documentation and terms links in `entities/custom.ts`
-- [ ] Customized theme colors in `assets/styles/variables.scss`
-- [ ] Configured supported networks in `entities/custom.ts`
-- [ ] Updated Euler labels repository in `entities/custom.ts` (if using custom labels)
-- [ ] Set `APPKIT_PROJECT_ID` in `.env`
-- [ ] Set `APP_URL` in `.env`
-- [ ] Updated AppKit metadata (name, description, iconPath) in `entities/custom.ts`
-- [ ] Set SEO title/description in `entities/custom.ts`
-- [ ] Configured onboarding page (logo, title, description) in `entities/custom.ts`
+## Configuration Checklist
+
+Before deploying:
+
+- [ ] Copied `.env.example` to `.env` and filled in values
+- [ ] Set `APPKIT_PROJECT_ID` and `NUXT_PUBLIC_APP_URL`
+- [ ] Set `EULER_API_URL`, `SWAP_API_URL`, `PRICE_API_URL`
+- [ ] Added at least one `RPC_URL_HTTP_<chainId>` with matching `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>`
+- [ ] Configured branding via `NUXT_PUBLIC_CONFIG_*` env vars (title, description, social links)
+- [ ] Set `themeHue` in `entities/custom.ts`
 - [ ] Replaced favicon files in `public/favicons/`
-- [ ] Updated theme color meta tag in `nuxt.config.ts`
-- [ ] Added custom token icons to `public/tokens/` (if needed)
+- [ ] Added token icon overrides in `assets/tokens/` (if needed)
 
-## 🆘 Troubleshooting
+## Troubleshooting
+
+### Token logos not loading
+
+- Verify `EULER_API_URL` is set correctly. If using Doppler, ensure the env var name matches (`EULER_API_URL` or `NUXT_PUBLIC_EULER_API_URL`).
+- Check the browser console for failed `/v1/tokens` requests.
 
 ### Build Errors
 
 - Ensure Node.js version is 18+ (20.12.2 recommended)
-- Clear `node_modules` and reinstall: `rm -rf node_modules && npm install`
-- Check TypeScript compilation errors
+- Clear and reinstall: `rm -rf node_modules && npm install`
 
 ### Wallet Connection Issues
 
-- Verify Reown Project ID is correct
-- Ensure app URL matches your domain
+- Verify `APPKIT_PROJECT_ID` is correct (or `NUXT_PUBLIC_APP_KIT_PROJECT_ID` for Doppler)
+- Ensure `NUXT_PUBLIC_APP_URL` matches your domain
 - Check browser console for errors
-- Verify network IDs in `entities/custom.ts` match supported networks
 
-### Network Configuration
+### No Chains Available
 
-- Ensure `NETWORK` environment variable is set correctly
-- Verify network IDs in `availableNetworkIds` are valid
-- Check that network configurations match your deployment environment
+- Ensure at least one `RPC_URL_HTTP_<chainId>` env var is set
+- Each chain needs a matching `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>`
 
-## 📚 Additional Resources
+## Additional Resources
 
 - [Nuxt.js Documentation](https://nuxt.com/docs)
 - [Reown (WalletConnect) Documentation](https://docs.reown.com/)
 - [Euler Finance Documentation](https://docs.euler.finance/)
-
-## 🤝 Support
-
-For issues specific to Euler Lite, please refer to the main Euler protocol documentation or reach out to the Euler team.

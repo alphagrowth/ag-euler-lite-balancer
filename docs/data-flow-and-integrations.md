@@ -1,5 +1,7 @@
 # Data Flow & Integration
 
+> **Note:** This document was written for an earlier version of the codebase that used TON/TAC integration and a static `NETWORK` config variable. The app has since been refactored to use standard EVM wallets (Wagmi/Reown), dynamic chain configuration via `RPC_URL_HTTP_<chainId>` env vars, and runtime-injected config via `useEnvConfig()` and `useDeployConfig()`. Code examples below may reference removed APIs (`NETWORK`, `useTonConnect`, `TonCenter`, `TAC SDK`, `entities/config.ts`). See the [README](../README.md) and [Development Guide](./development-guide.md) for current configuration.
+
 This document provides an overview of how data flows through the Euler Lite system, including data sources, transformations, storage, and the complete data lifecycle from external services to user interface.
 
 ## Overview
