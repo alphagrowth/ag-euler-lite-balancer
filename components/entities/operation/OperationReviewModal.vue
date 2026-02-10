@@ -258,6 +258,24 @@ const displaySteps = computed((): DisplayStep[] => {
       // Expand batch into individual operations
       const batchItems = step.args?.[0] as EVCCall[] | undefined
       if (batchItems?.length) {
+        const shouldInjectPermit2 = step.label?.includes('Permit2') && !hasPermit2Approval.value
+        const hasTermsOfUse = shouldInjectPermit2
+          && batchItems.some(item => decodeBatchItemLabel(item.data) === 'Sign terms of use')
+
+        // Inject permit2 step first if no terms-of-use step precedes it
+        if (shouldInjectPermit2 && !hasTermsOfUse) {
+          index++
+          const permitAsset = type === 'borrow' && supplyingAssetForBorrow
+            ? supplyingAssetForBorrow
+            : asset
+          steps.push({
+            index,
+            label: 'Sign permit2 message',
+            isSeparateTx: false,
+            assetInfo: { symbol: permitAsset.symbol, address: permitAsset.address },
+          })
+        }
+
         for (const item of batchItems) {
           index++
           const label = decodeBatchItemLabel(item.data)
@@ -278,6 +296,20 @@ const displaySteps = computed((): DisplayStep[] => {
             toAssetInfo,
             iconOnly: label === 'Update price feeds',
           })
+
+          // Inject permit2 step right after "Sign terms of use"
+          if (hasTermsOfUse && label === 'Sign terms of use') {
+            index++
+            const permitAsset = type === 'borrow' && supplyingAssetForBorrow
+              ? supplyingAssetForBorrow
+              : asset
+            steps.push({
+              index,
+              label: 'Sign permit2 message',
+              isSeparateTx: false,
+              assetInfo: { symbol: permitAsset.symbol, address: permitAsset.address },
+            })
+          }
         }
       }
       else {
