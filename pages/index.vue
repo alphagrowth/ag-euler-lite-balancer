@@ -6,7 +6,7 @@ const defaultPageRoute = getDefaultPageRoute(enableEarnPage, enableLendPage)
 
 const route = useRoute()
 await navigateTo(
-  { path: `/${defaultPageRoute}`, query: route.query, hash: route.hash },
+  { name: defaultPageRoute, query: route.query, hash: route.hash },
   { replace: true },
 )
 </script>

@@ -28,7 +28,7 @@ export const useAddressScreen = () => {
         onClose: () => {
           modal.close()
           blockedAddress.value = null
-          router.push(`/${defaultPageRoute}`)
+          router.push({ name: defaultPageRoute })
         },
       },
     })

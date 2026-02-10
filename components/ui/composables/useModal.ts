@@ -35,7 +35,7 @@ export const useModal = () => {
       data,
     })
     popstateHandler = () => onClickBack(id)
-    window.history.pushState(id, component.name || 'Modal window')
+    window.history.pushState({ ...window.history.state, modalId: id }, component.name || 'Modal window')
     window.addEventListener('popstate', popstateHandler)
 
     if (!data.noLock) {
@@ -60,7 +60,7 @@ export const useModal = () => {
       list.splice(list.findIndex(item => item.id === id), 1)
     }
 
-    if (!isBack && window.history.state === id) {
+    if (!isBack && window.history.state?.modalId === id) {
       window.history.back()
     }
 

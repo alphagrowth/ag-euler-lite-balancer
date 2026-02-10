@@ -64,7 +64,7 @@ const scheduleVaultCheck = (vaultParam: string, path: string, expectedChainId: n
 
       info('This vault could not be found on this chain!')
       void navigateTo({
-        path: `/${getDefaultRoute()}`,
+        name: getDefaultRoute(),
         query: { ...route.query },
         hash: route.hash,
       }, { replace: true })
@@ -103,7 +103,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   catch {
     info('This vault could not be found on this chain!')
     return navigateTo({
-      path: `/${getDefaultRoute()}`,
+      name: getDefaultRoute(),
       query: { ...to.query },
       hash: to.hash,
     }, { replace: true })
@@ -124,7 +124,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       console.warn('[ensure-vault] failed to load vault')
       info('This vault could not be found on this chain!')
       return navigateTo({
-        path: `/${getDefaultRoute()}`,
+        name: getDefaultRoute(),
         query: { ...to.query },
         hash: to.hash,
       }, { replace: true })
