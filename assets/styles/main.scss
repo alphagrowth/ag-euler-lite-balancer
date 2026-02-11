@@ -29,3 +29,12 @@ body {
   width: 24px;
   height: 24px;
 }
+
+.auto-link a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+
+  &:hover {
+    opacity: 0.8;
+  }
+}

@@ -12,6 +12,11 @@ export type EulerLabelEntity = {
     github: string
   }
 }
+export type EulerLabelVaultOverride = {
+  description?: string
+  deprecationReason?: string
+}
+
 export type EulerLabelProduct = {
   name: string
   description: string
@@ -23,6 +28,7 @@ export type EulerLabelProduct = {
   isGovernanceLimited?: boolean
   block?: string[]
   featured?: boolean
+  vaultOverrides?: Record<string, EulerLabelVaultOverride>
 }
 export type EulerLabelPoint = {
   name: string
@@ -59,6 +65,7 @@ export const eulerLabelProductEmpty = {
   vaults: [],
   deprecatedVaults: [],
   deprecationReason: '',
+  vaultOverrides: {},
 } as EulerLabelProduct
 
 export const getEulerLabelEntityLogo = (fileName: string) => {

@@ -4,6 +4,7 @@ import { getAddress, type Address } from 'viem'
 import {
   type EulerLabelEntity,
   type EulerLabelProduct, eulerLabelProductEmpty,
+  type EulerLabelVaultOverride,
   type EulerLabelPoint,
   type EulerLabelPointReward,
 } from '~/entities/euler/labels'
@@ -55,6 +56,22 @@ const normalizeAddress = (address: string): Address => {
   }
 }
 
+const extractVaultOverrides = (raw: Record<string, unknown>): Record<string, EulerLabelVaultOverride> => {
+  const overrides: Record<string, EulerLabelVaultOverride> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (!key.startsWith('0x') || typeof value !== 'object' || value === null) continue
+    const entry = value as Record<string, unknown>
+    const override: EulerLabelVaultOverride = {}
+    if (typeof entry.description === 'string') override.description = entry.description
+    const reason = entry.deprecationReason ?? entry.deprecateReason
+    if (typeof reason === 'string') override.deprecationReason = reason
+    if (Object.keys(override).length > 0) {
+      overrides[normalizeAddress(key)] = override
+    }
+  }
+  return overrides
+}
+
 const normalizeProducts = (data: Record<string, EulerLabelProduct>): { products: Record<string, EulerLabelProduct>, vaultAddresses: string[] } => {
   const normalized: Record<string, EulerLabelProduct> = {}
   const allVaults = new Set<string>()
@@ -62,11 +79,13 @@ const normalizeProducts = (data: Record<string, EulerLabelProduct>): { products:
     const normalizedVaults = product.vaults.map(normalizeAddress)
     const normalizedDeprecated = (product.deprecatedVaults || []).map(normalizeAddress)
     const fallbackReason = (product as { deprecateReason?: string }).deprecateReason
+    const vaultOverrides = extractVaultOverrides(product as unknown as Record<string, unknown>)
     normalized[key] = {
       ...product,
       vaults: normalizedVaults,
       deprecatedVaults: normalizedDeprecated,
       deprecationReason: product.deprecationReason || fallbackReason,
+      vaultOverrides,
     }
     normalizedVaults.forEach(v => allVaults.add(v))
     normalizedDeprecated.forEach(v => allVaults.add(v))
@@ -326,8 +345,21 @@ export const getEntitiesByEarnVault = (earnVault: EarnVault) => {
   return arr
 }
 
+const applyVaultOverrides = (product: EulerLabelProduct, vaultAddress: string): EulerLabelProduct => {
+  const override = product.vaultOverrides?.[normalizeAddress(vaultAddress)]
+  if (!override) return product
+  return {
+    ...product,
+    ...(override.description !== undefined && { description: override.description }),
+    ...(override.deprecationReason !== undefined && { deprecationReason: override.deprecationReason }),
+  }
+}
+
 export const useEulerProductOfVault = (vaultAddress: string | Ref<string>) => {
-  return toReactive(computed(() => getProductByVault(unref(vaultAddress))))
+  return toReactive(computed(() => {
+    const addr = unref(vaultAddress)
+    return applyVaultOverrides(getProductByVault(addr), addr)
+  }))
 }
 
 export const useEulerEntitiesOfVault = (vault: Vault | Ref<Vault>) => {

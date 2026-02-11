@@ -1,7 +1,7 @@
 import { detectCountry } from '~/services/country'
 import { getProductByVault, getEarnVaultBlock } from '~/composables/useEulerLabels'
 
-const country = ref<string | null>('US')
+const country = ref<string | null>(null)
 
 export const useGeoBlock = () => {
   const loadCountry = async () => {

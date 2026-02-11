@@ -69,7 +69,7 @@ const vaultGovernanceType = computed(() => {
       >
         <div class="flex items-start gap-8">
           <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
-          <p class="text-p3 text-warning-500">{{ deprecationReason }}</p>
+          <p class="text-p3 text-warning-500 auto-link" v-html="autoLink(deprecationReason)" />
         </div>
       </div>
       <div
@@ -85,7 +85,7 @@ const vaultGovernanceType = computed(() => {
         v-if="product.description"
         class="w-full rounded-12 p-16 bg-surface-tertiary"
       >
-        <p class="text-p3 text-content-secondary">{{ product.description }}</p>
+        <p class="text-p3 text-content-secondary auto-link" v-html="autoLink(product.description)" />
       </div>
       <VaultOverviewLabelValue
         label="Price"
