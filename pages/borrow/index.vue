@@ -53,6 +53,13 @@ const selectedDebt = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Recommended')
 
+useUrlQuerySync([
+  { ref: sortBy, default: 'Recommended', queryKey: 'sort' },
+  { ref: selectedCollateral, default: [], queryKey: 'collateral' },
+  { ref: selectedDebt, default: [], queryKey: 'debt' },
+  { ref: selectedMarkets, default: [], queryKey: 'market' },
+])
+
 // Cache for USD values used in sorting (keyed by pair identifier: collateral+borrow address)
 const pairLiquidityUsd = ref<Map<string, number>>(new Map())
 const pairBorrowedUsd = ref<Map<string, number>>(new Map())

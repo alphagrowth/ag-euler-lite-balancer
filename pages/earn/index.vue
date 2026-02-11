@@ -15,10 +15,14 @@ const { isEarnUpdating: isLoading } = useVaults()
 const { getEarnVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
 const list = computed(() => getEarnVaults().filter(v => v.verified && !isVaultDeprecated(v.address)))
-const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
+
+useUrlQuerySync([
+  { ref: sortBy, default: 'Total Supply', queryKey: 'sort' },
+  { ref: selectedCollateral, default: [], queryKey: 'vault' },
+])
 
 // Cache for USD values used in sorting (keyed by vault address)
 const vaultTotalSupplyUsd = ref<Map<string, number>>(new Map())
@@ -127,16 +131,6 @@ const sortedList = computed(() => {
   }
 })
 
-const load = () => {
-  let collateral = route.query.collateral
-  if (!collateral) return
-  if (typeof collateral === 'string') {
-    collateral = [collateral]
-  }
-  selectedCollateral.value = collateral as string[]
-}
-
-load()
 </script>
 
 <template>

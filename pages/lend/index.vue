@@ -19,11 +19,16 @@ const list = computed(() => getVerifiedEvkVaults().filter(v => !isVaultDeprecate
 
 const isLoading = computed(() => isUpdating.value)
 const { products, entities } = useEulerLabels()
-const route = useRoute()
 
 const selectedCollateral = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
+
+useUrlQuerySync([
+  { ref: sortBy, default: 'Total Supply', queryKey: 'sort' },
+  { ref: selectedCollateral, default: [], queryKey: 'vault' },
+  { ref: selectedMarkets, default: [], queryKey: 'market' },
+])
 
 // Cache for USD values used in sorting (keyed by vault address)
 const vaultUsdValues = ref<Map<string, number>>(new Map())
@@ -143,16 +148,6 @@ const sortedList = computed(() => {
   }
 })
 
-const load = () => {
-  let collateral = route.query.collateral
-  if (!collateral) return
-  if (typeof collateral === 'string') {
-    collateral = [collateral]
-  }
-  selectedCollateral.value = collateral as string[]
-}
-
-load()
 </script>
 
 <template>
