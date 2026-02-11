@@ -26,7 +26,9 @@ export {
   getCollateralUsdValueOrZero,
   formatAssetValue,
 
-  // Liquidation helpers
+  // Price ratio helpers (conservative: collateral.bid / liability.ask)
+  conservativePriceRatio,
+  conservativePriceRatioNumber,
   calculateLiquidationRatio,
 } from './priceProvider'
 

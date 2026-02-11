@@ -8,7 +8,7 @@ import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, type VaultAsset, type Vault } from '~/entities/vault'
-import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice } from '~/services/pricing/priceProvider'
+import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { type AccountBorrowPosition, isPositionEligibleForLiquidation } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { SwapperMode } from '~/entities/swap'
@@ -408,12 +408,7 @@ const swapPriceRatio = computed(() => {
   }
   const collateralPrice = getAssetOraclePrice(swapCollateralVault.value)
   const borrowPrice = getAssetOraclePrice(borrowVault.value)
-  const ask = collateralPrice?.amountOutAsk || 0n
-  const bid = borrowPrice?.amountOutBid || 0n
-  if (!ask || !bid) {
-    return null
-  }
-  return nanoToValue(ask, 18) / nanoToValue(bid, 18)
+  return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
 
 const swapCollateralAmountAfter = computed(() => {

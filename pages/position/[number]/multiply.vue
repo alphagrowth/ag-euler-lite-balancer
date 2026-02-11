@@ -7,7 +7,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { type Vault, type VaultAsset } from '~/entities/vault'
-import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
+import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -411,12 +411,7 @@ const multiplyPriceRatio = computed(() => {
   // Use liability vault's (multiplyShortVault) view of collateral price (multiplyLongVault is the collateral)
   const collateralPrice = getCollateralOraclePrice(multiplyShortVault.value, multiplyLongVault.value)
   const borrowPrice = getAssetOraclePrice(multiplyShortVault.value)
-  const ask = collateralPrice?.amountOutAsk || 0n
-  const bid = borrowPrice?.amountOutBid || 0n
-  if (!ask || !bid) {
-    return null
-  }
-  return nanoToValue(ask, 18) / nanoToValue(bid, 18)
+  return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
 const multiplyCurrentLiquidationPrice = computed(() => {
   if (!position.value?.price) {

@@ -5,7 +5,7 @@ import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { type Vault, type VaultAsset } from '~/entities/vault'
-import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
+import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useSwapDebtOptions } from '~/composables/useSwapDebtOptions'
@@ -262,12 +262,7 @@ const priceRatio = computed(() => {
   }
   const collateralPrice = getCollateralOraclePrice(toVault.value, collateralVault.value)
   const borrowPrice = getAssetOraclePrice(toVault.value)
-  const ask = collateralPrice?.amountOutAsk || 0n
-  const bid = borrowPrice?.amountOutBid || 0n
-  if (!ask || !bid) {
-    return null
-  }
-  return nanoToValue(ask, 18) / nanoToValue(bid, 18)
+  return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
 
 const collateralAmount = computed(() => {

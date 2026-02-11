@@ -888,12 +888,14 @@ const updateBorrowPositions = async (isInitialLoading = true) => {
           ? FixedNumber.fromValue(0n, 2)
           : FixedNumber.fromValue(liquidationLTV, 2).div(healthFixed);
         const userLTV = userLTVFixed.value;
+        // Conservative price ratio: collateral.bid / liability.ask
+        // Matches EVK on-chain convention (LiquidityUtils.sol)
         const priceFixed = FixedNumber.fromValue(
-          collateral.liabilityPriceInfo.amountOutAsk || 0n,
+          collateral.liabilityPriceInfo.amountOutBid || 0n,
           18
         ).div(
           FixedNumber.fromValue(
-            borrow.liabilityPriceInfo.amountOutBid || 1n,
+            borrow.liabilityPriceInfo.amountOutAsk || 1n,
             18
           )
         );
@@ -2641,12 +2643,14 @@ const updateBorrowPositions = async (isInitialLoading = true) => {
           ? FixedNumber.fromValue(0n, 2)
           : FixedNumber.fromValue(liquidationLTV, 2).div(healthFixed);
         const userLTV = userLTVFixed.value;
+        // Conservative price ratio: collateral.bid / liability.ask
+        // Matches EVK on-chain convention (LiquidityUtils.sol)
         const priceFixed = FixedNumber.fromValue(
-          collateral.liabilityPriceInfo.amountOutAsk || 0n,
+          collateral.liabilityPriceInfo.amountOutBid || 0n,
           18
         ).div(
           FixedNumber.fromValue(
-            borrow.liabilityPriceInfo.amountOutBid || 1n,
+            borrow.liabilityPriceInfo.amountOutAsk || 1n,
             18
           )
         );

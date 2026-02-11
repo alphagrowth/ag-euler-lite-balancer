@@ -19,6 +19,7 @@ import {
   getAssetOraclePrice,
   getCollateralOraclePrice,
   getCollateralUsdValueOrZero,
+  conservativePriceRatio,
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
@@ -121,9 +122,7 @@ const priceFixed = computed(() => {
     ? getCollateralOraclePrice(borrowVault.value, collateralVault.value)
     : undefined
   const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
-  const ask = collateralPrice?.amountOutAsk || 0n
-  const bid = borrowPrice?.amountOutBid || 1n
-  return FixedPoint.fromValue(ask, 18).div(FixedPoint.fromValue(bid, 18))
+  return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
 })
 const liquidationPrice = computed(() => {
   // position.value?.price is already the liquidation price

@@ -43,11 +43,11 @@ const price = computed(() => {
   )
   const borrowPrice = getAssetOraclePrice(pair.borrow)
 
-  const ask = collateralPrice?.amountOutAsk || collateralPrice?.amountOutMid || 0n
-  const bid = borrowPrice?.amountOutBid || borrowPrice?.amountOutMid || 0n
+  const bid = collateralPrice?.amountOutBid || collateralPrice?.amountOutMid || 0n
+  const ask = borrowPrice?.amountOutAsk || borrowPrice?.amountOutMid || 0n
 
-  if (!ask || !bid || bid === 0n) return null
-  return Number(ask) / Number(bid)
+  if (!bid || !ask || ask === 0n) return null
+  return Number(bid) / Number(ask)
 })
 
 const onSupplyInfoIconClick = () => {

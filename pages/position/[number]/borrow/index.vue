@@ -7,7 +7,7 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, type Vault, type VaultAsset } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
-import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatio } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import type { AccountBorrowPosition } from '~/entities/account'
@@ -101,9 +101,7 @@ const priceFixed = computed(() => {
     ? getCollateralOraclePrice(borrowVault.value, collateralVault.value)
     : undefined
   const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
-  const ask = collateralPrice?.amountOutAsk || 0n
-  const bid = borrowPrice?.amountOutBid || 1n
-  return FixedPoint.fromValue(ask, 18).div(FixedPoint.fromValue(bid, 18))
+  return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
 })
 const collateralAmountFixed = computed(() => FixedPoint.fromValue(
   valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals),

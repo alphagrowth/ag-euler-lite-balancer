@@ -16,6 +16,7 @@ import {
   getAssetOraclePrice,
   getCollateralOraclePrice,
   getCollateralUsdPrice,
+  conservativePriceRatioNumber,
   getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -355,12 +356,7 @@ const priceRatio = computed(() => {
   }
   const collateralPrice = getCollateralOraclePrice(borrowVault.value, toVault.value)
   const borrowPrice = getAssetOraclePrice(borrowVault.value)
-  const ask = collateralPrice?.amountOutAsk || 0n
-  const bid = borrowPrice?.amountOutBid || 0n
-  if (!ask || !bid) {
-    return null
-  }
-  return nanoToValue(ask, 18) / nanoToValue(bid, 18)
+  return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
 const nextCollateralAmount = computed(() => {
   if (!quote.value || !toVault.value) {

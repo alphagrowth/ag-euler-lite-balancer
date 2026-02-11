@@ -555,6 +555,40 @@ export const formatAssetValue = async (
 // -------------------------------------------
 
 /**
+ * Conservative oracle price ratio: collateral.bid / liability.ask (18-decimal bigint).
+ *
+ * Matches EVK on-chain convention in LiquidityUtils.sol:
+ *   - Collateral valued at bid (lower — what you'd get selling)
+ *   - Liability valued at ask (higher — what you'd spend buying)
+ */
+export const conservativePriceRatio = (
+  collateralPrice: PriceResult | null | undefined,
+  liabilityPrice: PriceResult | null | undefined,
+): bigint => {
+  if (!collateralPrice || !liabilityPrice) return 0n
+  const ask = liabilityPrice.amountOutAsk
+  if (!ask || ask === 0n) return 0n
+  return (collateralPrice.amountOutBid * ONE_18) / ask
+}
+
+/**
+ * Conservative oracle price ratio as a number (float).
+ * Returns null if either price is missing or zero.
+ *
+ * @see conservativePriceRatio for the bigint version
+ */
+export const conservativePriceRatioNumber = (
+  collateralPrice: PriceResult | null | undefined,
+  liabilityPrice: PriceResult | null | undefined,
+): number | null => {
+  if (!collateralPrice || !liabilityPrice) return null
+  const bid = collateralPrice.amountOutBid
+  const ask = liabilityPrice.amountOutAsk
+  if (!bid || !ask) return null
+  return nanoToValue(bid, 18) / nanoToValue(ask, 18)
+}
+
+/**
  * Calculate liquidation price ratio in unit of account.
  * This is the ratio at which the collateral/liability price causes liquidation.
  *
@@ -568,7 +602,5 @@ export const calculateLiquidationRatio = (
   collateralOraclePrice: PriceResult | null | undefined,
   liabilityOraclePrice: PriceResult | null | undefined,
 ): bigint => {
-  if (!collateralOraclePrice || !liabilityOraclePrice) return 0n
-  if (liabilityOraclePrice.amountOutBid === 0n) return 0n
-  return (collateralOraclePrice.amountOutAsk * ONE_18) / liabilityOraclePrice.amountOutBid
+  return conservativePriceRatio(collateralOraclePrice, liabilityOraclePrice)
 }

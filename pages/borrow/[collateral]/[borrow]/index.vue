@@ -9,7 +9,7 @@ import { useToast } from '~/components/ui/composables/useToast'
 import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { collectPythFeedIds } from '~/entities/oracle'
-import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice } from '~/services/pricing/priceProvider'
+import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice, conservativePriceRatio, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
@@ -164,16 +164,11 @@ const collateralVault = computed(() => pair.value?.collateral)
 const multiplyLongVault = computed(() => collateralVault.value)
 const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
 const priceFixed = computed(() => {
-  // Use liability vault's view of collateral price
   const collateralPrice = borrowVault.value && collateralVault.value
     ? getCollateralOraclePrice(borrowVault.value, collateralVault.value)
     : undefined
   const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
-  if (!collateralPrice || !borrowPrice || borrowPrice.amountOutBid === 0n) {
-    return FixedPoint.fromValue(0n, 18)
-  }
-  return FixedPoint.fromValue(collateralPrice.amountOutAsk, 18)
-    .div(FixedPoint.fromValue(borrowPrice.amountOutBid, 18))
+  return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
 })
 
 // USD price per unit of collateral from liability vault's perspective (for AssetInput display)
@@ -511,7 +506,7 @@ const multiplyDebtAmountNano = computed(() => {
   if (!collateralPriceInfo || collateralPriceInfo.amountOutMid <= 0n) {
     return 0n
   }
-  if (!liabilityPrice || liabilityPrice.queryFailure || !liabilityPrice.amountOutBid || liabilityPrice.amountOutBid <= 0n || !liabilityPrice.amountIn || liabilityPrice.amountIn <= 0n) {
+  if (!liabilityPrice || liabilityPrice.queryFailure || !liabilityPrice.amountOutAsk || liabilityPrice.amountOutAsk <= 0n || !liabilityPrice.amountIn || liabilityPrice.amountIn <= 0n) {
     return 0n
   }
   const collateralOutBid = collateralPriceInfo.amountOutBid || collateralPriceInfo.amountOutMid
@@ -531,9 +526,9 @@ const multiplyDebtAmountNano = computed(() => {
     return 0n
   }
   const totalDebtValue = multipliedCollateral - suppliedCollateralValue
-  const liabilityOutBid = liabilityPrice.amountOutBid || liabilityPrice.amountOutMid
+  const liabilityOutAsk = liabilityPrice.amountOutAsk || liabilityPrice.amountOutMid
   const liabilityIn = liabilityPrice.amountIn
-  return (totalDebtValue * liabilityIn) / liabilityOutBid
+  return (totalDebtValue * liabilityIn) / liabilityOutAsk
 })
 const multiplyBorrowLtv = computed(() => {
   if (!multiplySupplyVault.value || !multiplyShortVault.value) {
@@ -740,12 +735,7 @@ const multiplyPriceRatio = computed(() => {
   // Use liability vault's (multiplyShortVault) view of collateral price
   const collateralPrice = getCollateralOraclePrice(multiplyShortVault.value, multiplyLongVault.value)
   const borrowPrice = getAssetOraclePrice(multiplyShortVault.value)
-  const ask = collateralPrice?.amountOutAsk || 0n
-  const bid = borrowPrice?.amountOutBid || 0n
-  if (!ask || !bid) {
-    return null
-  }
-  return nanoToValue(ask, 18) / nanoToValue(bid, 18)
+  return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
 const multiplyCurrentLiquidationPrice = computed(() => {
   if (isMultiplyQuoteLoading.value) {
