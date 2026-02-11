@@ -21,11 +21,13 @@ const entities = useEulerEntitiesOfEarnVault(vault);
 const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault));
 const entityName = computed(() => {
   if (!isOwnerVerified.value || entities.length === 0) return ''
-  return entities[0].name
+  if (entities.length === 1) return entities[0].name
+  if (entities.length === 2) return `${entities[0].name} & ${entities[1].name}`
+  return `${entities[0].name} & others`
 });
-const entityLogo = computed(() => {
-  if (!entityName.value || entities.length === 0) return ''
-  return getEulerLabelEntityLogo(entities[0].logo)
+const entityLogos = computed(() => {
+  if (!entityName.value || entities.length === 0) return []
+  return entities.map((e) => getEulerLabelEntityLogo(e.logo))
 });
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
 const { getIntrinsicApy } = useIntrinsicApy();
@@ -128,8 +130,9 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
           </div>
           <SvgIcon
             v-if="hasRewards"
-            class="!w-20 !h-20 text-accent-600 mr-4"
+            class="!w-20 !h-20 text-accent-600 mr-4 cursor-pointer"
             name="sparks"
+            @click="onSupplyInfoIconClick"
           />
           {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + totalRewardsAPY) }}%
         </div>
@@ -142,7 +145,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
           <BaseAvatar
             class="icon--20"
             :label="entityName"
-            :src="entityLogo"
+            :src="entityLogos"
           />
           <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
         </div>
@@ -186,7 +189,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
             <BaseAvatar
               class="icon--20"
               :label="entityName"
-              :src="entityLogo"
+              :src="entityLogos"
             />
             <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
           </template>

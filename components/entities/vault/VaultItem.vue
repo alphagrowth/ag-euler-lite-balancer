@@ -25,11 +25,13 @@ const isGovernorVerified = computed(() => isVaultGovernorVerified(vault));
 const entityName = computed(() => {
   if (vault.vaultCategory === 'escrow') return ''
   if (!isGovernorVerified.value || entities.length === 0) return ''
-  return entities[0].name
+  if (entities.length === 1) return entities[0].name
+  if (entities.length === 2) return `${entities[0].name} & ${entities[1].name}`
+  return `${entities[0].name} & others`
 });
-const entityLogo = computed(() => {
-  if (!entityName.value || entities.length === 0) return ''
-  return getEulerLabelEntityLogo(entities[0].logo)
+const entityLogos = computed(() => {
+  if (!entityName.value || entities.length === 0) return []
+  return entities.map((e) => getEulerLabelEntityLogo(e.logo))
 });
 const displayName = computed(() => product.name || vault.name);
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
@@ -166,8 +168,9 @@ watchEffect(async () => {
           <div class="text-p2 flex items-center text-accent-600 font-semibold">
             <SvgIcon
               v-if="hasRewards"
-              class="!w-20 !h-20 text-accent-500 mr-4"
+              class="!w-20 !h-20 text-accent-500 mr-4 cursor-pointer"
               name="sparks"
+              @click="onSupplyInfoIconClick"
             />
             {{ formatNumber(supplyApyWithRewards) }}%
           </div>
@@ -183,7 +186,7 @@ watchEffect(async () => {
           <BaseAvatar
             class="icon--20"
             :label="entityName"
-            :src="entityLogo"
+            :src="entityLogos"
           />
           <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
         </div>
@@ -245,7 +248,7 @@ watchEffect(async () => {
             <BaseAvatar
               class="icon--20"
               :label="entityName"
-              :src="entityLogo"
+              :src="entityLogos"
             />
             <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
           </template>

@@ -29,9 +29,14 @@ const entityDisplay = computed(() => {
     seen.add(e.name)
     return true
   })
-  if (all.length === 0) return { names: '', logos: [] }
+  if (all.length === 0) return { name: '', logos: [] }
+  const name = all.length === 1
+    ? all[0].name
+    : all.length === 2
+      ? `${all[0].name} & ${all[1].name}`
+      : `${all[0].name} & others`
   return {
-    names: all.map((e) => e.name).join(' / '),
+    name,
     logos: all.map((e) => getEulerLabelEntityLogo(e.logo)),
   }
 });
@@ -232,8 +237,9 @@ const linkPath = computed(
         <div class="text-p2 flex items-center text-accent-600 font-semibold">
           <SvgIcon
             v-if="hasRewards"
-            class="!w-20 !h-20 text-accent-500 mr-4"
+            class="!w-20 !h-20 text-accent-500 mr-4 cursor-pointer"
             name="sparks"
+            @click="onBorrowInfoIconClick"
           />
           {{ formatNumber(borrowApyWithRewards) }}%
         </div>
@@ -273,13 +279,13 @@ const linkPath = computed(
     <div class="contents mobile:!flex mobile:py-12 mobile:px-16 mobile:pb-12 mobile:justify-between mobile:border-b mobile:border-line-subtle">
       <div v-if="enableEntityBranding" class="pl-16 py-12 pb-12 mobile:!hidden">
         <div class="text-content-tertiary text-p3 mb-4">Risk manager</div>
-        <div v-if="entityDisplay.names" class="flex items-center gap-6">
+        <div v-if="entityDisplay.name" class="flex items-center gap-6">
           <BaseAvatar
             class="icon--20"
-            :label="entityDisplay.names"
+            :label="entityDisplay.name"
             :src="entityDisplay.logos"
           />
-          <span class="text-p2 text-content-primary truncate">{{ entityDisplay.names }}</span>
+          <span class="text-p2 text-content-primary truncate">{{ entityDisplay.name }}</span>
         </div>
         <div v-else class="text-p2 text-content-primary">-</div>
       </div>
@@ -331,13 +337,13 @@ const linkPath = computed(
           <div class="text-content-tertiary text-p3">Risk manager</div>
         </div>
         <div class="flex gap-8 justify-end items-center text-right flex-1">
-          <template v-if="entityDisplay.names">
+          <template v-if="entityDisplay.name">
             <BaseAvatar
               class="icon--20"
-              :label="entityDisplay.names"
+              :label="entityDisplay.name"
               :src="entityDisplay.logos"
             />
-            <span class="text-p2 text-content-primary truncate">{{ entityDisplay.names }}</span>
+            <span class="text-p2 text-content-primary truncate">{{ entityDisplay.name }}</span>
           </template>
           <div v-else class="text-p2 text-content-primary">-</div>
         </div>

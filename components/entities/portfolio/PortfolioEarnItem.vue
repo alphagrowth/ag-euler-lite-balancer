@@ -3,7 +3,7 @@ import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProv
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { AccountDepositPosition } from '~/entities/account'
 import type { EarnVault } from '~/entities/vault'
-import { VaultOverviewModal } from '#components'
+import { VaultOverviewModal, VaultSupplyApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { formatNumber, formatCompactUsdValue, compactNumber } from '~/utils/string-utils'
 import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
@@ -12,6 +12,7 @@ const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()
 
 const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy()
+const { getIntrinsicApy } = useIntrinsicApy()
 
 const vault = computed(() => position.vault as EarnVault)
 const rewardInfo = computed(() => getSupplyRewardInfo(vault.value.address))
@@ -60,6 +61,20 @@ watchEffect(() => {
   updateProjectedEarningsPerMonth()
 })
 
+const onSupplyInfoIconClick = (event: MouseEvent) => {
+  event.preventDefault()
+  event.stopPropagation()
+  const info = rewardInfo.value
+  modal.open(VaultSupplyApyModal, {
+    props: {
+      lendingAPY: nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
+      intrinsicAPY: getIntrinsicApy(vault.value.asset.symbol),
+      opportunityInfo: info.opportunity,
+      brevisInfo: info.campaign,
+    },
+  })
+}
+
 const onClick = () => {
   modal.open(VaultOverviewModal, {
     props: {
@@ -95,8 +110,13 @@ const onClick = () => {
           </div>
         </div>
         <div class="flex flex-col items-end">
-          <div class="text-content-tertiary text-p3 mb-4">
+          <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
             Supply APY
+            <SvgIcon
+              class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+              name="info-circle"
+              @click.stop="onSupplyInfoIconClick"
+            />
           </div>
           <div
             class="text-p2 flex text-accent-600"
@@ -104,7 +124,8 @@ const onClick = () => {
             <SvgIcon
               v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
               name="sparks"
-              class="!w-20 !h-20 text-accent-600 mr-4"
+              class="!w-20 !h-20 text-accent-600 mr-4 cursor-pointer"
+              @click.stop="onSupplyInfoIconClick"
             />
             {{ formatNumber(supplyApyWithRewards) }}%
           </div>
@@ -136,15 +157,10 @@ const onClick = () => {
           class="flex justify-between"
         >
           <div class="text-content-tertiary text-p3">
-            Projected Earnings per Month
+            Projected earnings per month
           </div>
           <div class="flex justify-between gap-8 text-right">
-            <div class="text-content-primary text-p3 flex items-center gap-4">
-              <SvgIcon
-                v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
-                name="sparks"
-                class="!w-18 !h-18 text-accent-600"
-              />
+            <div class="text-content-primary text-p3">
               ${{ projectedEarningsPerMonth }}
             </div>
           </div>

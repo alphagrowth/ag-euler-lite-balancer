@@ -21,7 +21,7 @@ const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate(
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { buildSupplyPlan, executeTxPlan } = useEulerOperations()
 const { getEarnVault, updateEarnVault } = useVaults()
-const { isConnected } = useAccount()
+const { isConnected, address } = useAccount()
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
@@ -218,6 +218,10 @@ watch(amount, async () => {
   }
   updateEstimates()
 })
+
+watch(address, () => {
+  fetchBalance()
+})
 </script>
 
 <template>
@@ -303,7 +307,7 @@ watch(amount, async () => {
         <div class="[&>*:not(:last-child)]:pb-16 [&>*:not(:last-child)]:mb-16 [&>*:not(:last-child)]:border-b [&>*:not(:last-child)]:border-white/10">
           <div>
             <p class="mb-8">
-              Projected Earnings per Month
+              Projected earnings per month
             </p>
 
             <p class="text-content-tertiary">

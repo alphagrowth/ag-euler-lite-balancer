@@ -25,7 +25,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl, nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { formatNumber, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
-import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal } from '#components'
+import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal, VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -37,7 +37,7 @@ const { error } = useToast()
 const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardInfo, getBorrowRewardInfo } = useRewardsApy()
 const { buildDisableCollateralPlan, executeTxPlan } = useEulerOperations()
 const {
   runSimulation: runDisableCollateralSimulation,
@@ -564,6 +564,34 @@ const load = async () => {
     console.warn(e)
   }
 }
+const onBorrowInfoIconClick = (event: MouseEvent) => {
+  event.preventDefault()
+  event.stopPropagation()
+  if (!borrowVault.value) return
+  const info = getBorrowRewardInfo(borrowVault.value.asset.address, borrowVault.value.address)
+  modal.open(VaultBorrowApyModal, {
+    props: {
+      borrowingAPY: baseBorrowAPY.value,
+      intrinsicAPY: intrinsicBorrowAPY.value,
+      opportunityInfo: info.opportunity,
+    },
+  })
+}
+
+const onSupplyInfoIconClick = (event: MouseEvent, vault: Vault | SecuritizeVault) => {
+  event.preventDefault()
+  event.stopPropagation()
+  const info = getSupplyRewardInfo(vault.address)
+  modal.open(VaultSupplyApyModal, {
+    props: {
+      lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
+      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      opportunityInfo: info.opportunity,
+      brevisInfo: info.campaign,
+    },
+  })
+}
+
 const openCollateralInfoModal = (vault: Vault | SecuritizeVault) => {
   const isSecuritize = 'type' in vault && vault.type === 'securitize'
   modal.open(VaultOverviewModal, {
@@ -723,10 +751,21 @@ watch(isConnected, () => {
               :assets="[position.borrow.asset]"
             />
             <div class="flex flex-col items-end">
-              <div class="text-content-tertiary text-p3 mb-4">
+              <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
                 Borrow APY
+                <SvgIcon
+                  class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+                  name="info-circle"
+                  @click.stop="onBorrowInfoIconClick"
+                />
               </div>
-              <div class="text-p2 text-accent-600 font-semibold">
+              <div class="text-p2 flex items-center text-accent-600 font-semibold">
+                <SvgIcon
+                  v-if="borrowRewardAPY"
+                  class="!w-20 !h-20 text-accent-500 mr-4 cursor-pointer"
+                  name="sparks"
+                  @click.stop="onBorrowInfoIconClick"
+                />
                 {{ formatNumber(borrowApyWithRewards) }}%
               </div>
             </div>
@@ -856,10 +895,21 @@ watch(isConnected, () => {
                 :assets="[collateral.vault.asset]"
               />
               <div class="flex flex-col items-end">
-                <div class="text-content-tertiary text-p3 mb-4">
+                <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
                   Supply APY
+                  <SvgIcon
+                    class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+                    name="info-circle"
+                    @click.stop="(e: MouseEvent) => onSupplyInfoIconClick(e, collateral.vault)"
+                  />
                 </div>
-                <div class="text-p2 text-accent-600 font-semibold">
+                <div class="text-p2 flex items-center text-accent-600 font-semibold">
+                  <SvgIcon
+                    v-if="collateral.supplyApyWithRewards > collateral.supplyApy"
+                    class="!w-20 !h-20 text-accent-500 mr-4 cursor-pointer"
+                    name="sparks"
+                    @click.stop="(e: MouseEvent) => onSupplyInfoIconClick(e, collateral.vault)"
+                  />
                   {{ formatNumber(collateral.supplyApyWithRewards) }}%
                 </div>
               </div>
