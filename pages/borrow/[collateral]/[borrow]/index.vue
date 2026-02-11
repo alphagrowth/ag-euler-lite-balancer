@@ -1501,6 +1501,7 @@ watch(pair, async (val) => {
 watch(address, () => {
   multiplySubAccount.value = null
   multiplySubAccountPromise = null
+  updateBalance()
 })
 watch([collateralAmount, borrowAmount], async () => {
   clearBorrowSimulationError()

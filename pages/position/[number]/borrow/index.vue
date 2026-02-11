@@ -23,7 +23,7 @@ const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate(
 const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const { buildBorrowPlan, executeTxPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
-const { isConnected } = useAccount()
+const { isConnected, address } = useAccount()
 const { isPositionsLoading, isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
 const positionIndex = route.params.number as string
 const { fetchSingleBalance } = useWallets()
@@ -316,6 +316,9 @@ watch(isPositionsLoaded, (val) => {
   }
 }, { immediate: true })
 watch(isConnected, () => {
+  updateBalance()
+})
+watch(address, () => {
   updateBalance()
 })
 watch([collateralAmount, borrowAmount], async () => {

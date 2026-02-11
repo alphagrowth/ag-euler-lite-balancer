@@ -27,7 +27,7 @@ const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate(
 const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { buildWithdrawPlan, buildRedeemPlan, executeTxPlan } = useEulerOperations()
 const { getVault } = useVaults()
-const { isConnected } = useAccount()
+const { isConnected, address } = useAccount()
 const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getSupplyRewardApy } = useRewardsApy()
@@ -247,6 +247,12 @@ const updateEstimates = useDebounceFn(async () => {
 load()
 
 watch(isConnected, async () => {
+  if (vault.value) {
+    await fetchShareBalance()
+    await updateBalance()
+  }
+})
+watch(address, async () => {
   if (vault.value) {
     await fetchShareBalance()
     await updateBalance()

@@ -370,6 +370,11 @@ watch(() => route.query.collateral, async () => {
   estimateUserLTV.value = position.value?.userLTV || 0n
   estimateHealth.value = position.value?.health || 0n
 })
+watch(address, async () => {
+  if (isPositionLoaded.value) {
+    await loadSelectedCollateral()
+  }
+})
 watch(amount, async () => {
   clearSimulationError()
   if (!collateralVault.value) {

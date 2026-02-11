@@ -32,7 +32,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { buildSupplyPlan, executeTxPlan } = useEulerOperations()
-const { isConnected } = useAccount()
+const { isConnected, address } = useAccount()
 const { fetchSingleBalance } = useWallets()
 const positionIndex = route.params.number as string
 const { isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
@@ -365,6 +365,9 @@ watch(() => route.query.collateral, async () => {
   estimateHealth.value = position.value?.health || 0n
 })
 watch(isConnected, () => {
+  updateBalance()
+})
+watch(address, () => {
   updateBalance()
 })
 watch(amount, async () => {

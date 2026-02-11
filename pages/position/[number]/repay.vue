@@ -1082,6 +1082,10 @@ watch(isPositionsLoaded, (val) => {
 watch(isConnected, () => {
   updateBalance()
 })
+watch(address, () => {
+  fetchWalletBalance()
+  updateBalance()
+})
 watch(amount, async () => {
   clearSimulationError()
   if (formTab.value !== 'wallet') {
