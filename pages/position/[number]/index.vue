@@ -821,6 +821,7 @@ watch(isConnected, () => {
             <VaultWarningBanner :warnings="positionWarnings" />
             <UiToast
               v-if="isEligibleForLiquidation"
+              class="my-12"
               title="Liquidation risk"
               description="This position is eligible for liquidation. Multiply and borrow are disabled."
               variant="error"
@@ -829,6 +830,7 @@ watch(isConnected, () => {
             />
             <UiToast
               v-if="isPositionGeoBlocked"
+              class="my-12"
               title="Region restricted"
               description="This vault is not available in your region. You can still repay debt."
               variant="warning"
@@ -836,7 +838,7 @@ watch(isConnected, () => {
               persistent
             />
             <div
-              class="flex justify-between gap-8"
+              class="flex justify-between gap-8 mt-4"
               @click.stop
             >
               <UiButton
@@ -977,6 +979,7 @@ watch(isConnected, () => {
               </div>
               <UiToast
                 v-if="!hasNoBorrow && isEligibleForLiquidation"
+                class="my-12"
                 title="Liquidation risk"
                 description="Withdraw is disabled while this position is eligible for liquidation."
                 variant="error"
@@ -985,7 +988,7 @@ watch(isConnected, () => {
               />
               <div
                 v-if="!hasNoBorrow"
-                class="flex gap-8"
+                class="flex gap-8 mt-4"
                 @click.stop
               >
                 <UiButton
