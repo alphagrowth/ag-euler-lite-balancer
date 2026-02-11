@@ -65,6 +65,7 @@ const extractVaultOverrides = (raw: Record<string, unknown>): Record<string, Eul
     if (typeof entry.description === 'string') override.description = entry.description
     const reason = entry.deprecationReason ?? entry.deprecateReason
     if (typeof reason === 'string') override.deprecationReason = reason
+    if (Array.isArray(entry.block)) override.block = entry.block.filter((v): v is string => typeof v === 'string')
     if (Object.keys(override).length > 0) {
       overrides[normalizeAddress(key)] = override
     }
@@ -299,6 +300,12 @@ export const getProductByVault = (vaultAddress: string) => {
     || product.deprecatedVaults?.includes(normalized),
   )
     || eulerLabelProductEmpty
+}
+
+export const getVaultBlock = (vaultAddress: string): string[] | undefined => {
+  const product = getProductByVault(vaultAddress)
+  const override = product.vaultOverrides?.[normalizeAddress(vaultAddress)]
+  return override?.block ?? product.block
 }
 
 export const getEarnVaultBlock = (vaultAddress: string): string[] | undefined => {
