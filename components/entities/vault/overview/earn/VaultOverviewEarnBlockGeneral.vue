@@ -45,6 +45,12 @@ const feeDisplay = computed(() => {
           <p class="text-p3 text-warning-500">{{ deprecationReason }}</p>
         </div>
       </div>
+      <div
+        v-if="product.description"
+        class="w-full rounded-12 p-16 bg-surface-tertiary"
+      >
+        <p class="text-p3 text-content-secondary">{{ product.description }}</p>
+      </div>
       <VaultOverviewLabelValue
         label="Price"
         :value="priceDisplay"
@@ -75,7 +81,7 @@ const feeDisplay = computed(() => {
           </div>
         </div>
         <div
-          v-else-if="!isOwnerVerified"
+          v-else
           class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"
         >
           <UiIcon
@@ -83,9 +89,6 @@ const feeDisplay = computed(() => {
             name="warning"
           />
           Unknown
-        </div>
-        <div v-else>
-          -
         </div>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue v-if="enableVaultTypeDisplay" label="Vault type">

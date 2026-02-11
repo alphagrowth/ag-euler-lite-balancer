@@ -70,6 +70,12 @@ const vaultGovernanceType = computed(() => {
           <p class="text-p3 text-warning-500">{{ deprecationReason }}</p>
         </div>
       </div>
+      <div
+        v-if="product.description"
+        class="w-full rounded-12 p-16 bg-surface-tertiary"
+      >
+        <p class="text-p3 text-content-secondary">{{ product.description }}</p>
+      </div>
       <VaultOverviewLabelValue
         label="Price"
         :value="priceDisplay"
