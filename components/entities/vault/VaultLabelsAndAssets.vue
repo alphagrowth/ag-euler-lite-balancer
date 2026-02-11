@@ -2,6 +2,7 @@
 import { getAddress } from 'viem'
 import type { EarnVault, SecuritizeVault, Vault, VaultAsset } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
@@ -33,6 +34,11 @@ const isPairVaultDeprecated = computed(() => {
   return pairProduct.deprecatedVaults?.includes(addr) ?? false
 })
 const isDeprecated = computed(() => isVaultDeprecated.value || isPairVaultDeprecated.value)
+const isRestricted = computed(() => {
+  const addresses = [vault.address]
+  if (pairVault) addresses.push(pairVault.address)
+  return isAnyVaultBlockedByCountry(...addresses)
+})
 
 const getVaultLabel = (v: Vault | EarnVault | SecuritizeVault) => {
   if ('vaultCategory' in v && v.vaultCategory === 'escrow') {
@@ -91,6 +97,14 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
         >
           <SvgIcon name="warning" class="!w-14 !h-14" />
           Deprecated
+        </span>
+        <span
+          v-if="isRestricted"
+          class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+          title="This vault is not available in your region"
+        >
+          <SvgIcon name="warning" class="!w-14 !h-14" />
+          Restricted
         </span>
       </div>
 

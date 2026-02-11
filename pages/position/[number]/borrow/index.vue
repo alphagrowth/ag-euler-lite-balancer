@@ -5,7 +5,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { type BorrowVaultPair, getNetAPY, type Vault } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY, type Vault, type VaultAsset } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -349,6 +349,14 @@ onUnmounted(() => {
     @submit.prevent="submit"
   >
     <template v-if="pair">
+      <VaultLabelsAndAssets
+        v-if="collateralVault && borrowVault"
+        :vault="collateralVault"
+        :pair-vault="borrowVault"
+        :assets="pairAssets as VaultAsset[]"
+        size="large"
+      />
+
       <AssetInput
         v-if="borrowVault"
         v-model="borrowAmount"

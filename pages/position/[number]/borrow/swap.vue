@@ -4,7 +4,7 @@ import { getAddress, formatUnits, isAddress, zeroAddress, type Address } from 'v
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault } from '~/entities/vault'
+import { type Vault, type VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
@@ -702,6 +702,11 @@ const send = async () => {
       @submit.prevent="submit"
     >
       <template v-if="fromVault && toVault">
+        <VaultLabelsAndAssets
+          :vault="fromVault"
+          :assets="[fromVault.asset] as VaultAsset[]"
+          size="large"
+        />
         <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
           <div class="flex flex-col gap-16 w-full">
             <AssetInput

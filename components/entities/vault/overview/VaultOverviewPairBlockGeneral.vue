@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { type AnyBorrowVaultPair } from '~/entities/vault'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isVaultDeprecated } from '~/composables/useEulerLabels'
 import { getCollateralOraclePrice, getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import { formatNumber, formatSignificant } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -20,6 +22,8 @@ const borrowCount = computed(() => {
 })
 
 const isBorrowable = computed(() => borrowCount.value > 0)
+const isRestricted = computed(() => isAnyVaultBlockedByCountry(pair.collateral.address, pair.borrow.address))
+const isDeprecated = computed(() => isVaultDeprecated(pair.collateral.address) || isVaultDeprecated(pair.borrow.address))
 
 const collateralRewardAPY = computed(() => getSupplyRewardApy(pair.collateral.address))
 const borrowRewardAPY = computed(() => getBorrowRewardApy(pair.borrow.asset.address, pair.borrow.address))
@@ -87,6 +91,24 @@ const onMaxRoeInfoIconClick = () => {
       Overview
     </p>
     <div class="flex flex-col items-start gap-24">
+      <div
+        v-if="isDeprecated"
+        class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
+      >
+        <div class="flex items-start gap-8">
+          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
+          <p class="text-p3 text-warning-500">One or more vaults in this pair have been deprecated.</p>
+        </div>
+      </div>
+      <div
+        v-if="isRestricted"
+        class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
+      >
+        <div class="flex items-start gap-8">
+          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
+          <p class="text-p3 text-warning-500">This vault is not available in your region.</p>
+        </div>
+      </div>
       <VaultOverviewLabelValue
         label="Price"
       >

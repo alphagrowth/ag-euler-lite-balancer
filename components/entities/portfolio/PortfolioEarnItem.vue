@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { getAssetLogoUrl } from '~/composables/useTokens'
+import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import type { AccountDepositPosition } from '~/entities/account'
 import type { EarnVault } from '~/entities/vault'
 import { VaultOverviewModal, VaultSupplyApyModal } from '#components'
@@ -18,6 +19,7 @@ const vault = computed(() => position.vault as EarnVault)
 const rewardInfo = computed(() => getSupplyRewardInfo(vault.value.address))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
+const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.value.address))
 const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
 const displayName = computed(() => product.name || vault.value.name)
 
@@ -99,11 +101,19 @@ const onClick = () => {
           :label="vault.asset.symbol"
         />
         <div class="flex-grow ml-12">
-          <div class="text-content-tertiary text-p3 mb-4">
+          <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
             <VaultDisplayName
               :name="displayName"
               :is-unverified="isUnverified"
             />
+            <span
+              v-if="isGeoBlocked"
+              class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+              title="This vault is not available in your region"
+            >
+              <SvgIcon name="warning" class="!w-14 !h-14" />
+              Restricted
+            </span>
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
@@ -170,7 +180,8 @@ const onClick = () => {
           @click.stop
         >
           <UiButton
-            :to="`/earn/${vault.address}/`"
+            :to="isGeoBlocked ? undefined : `/earn/${vault.address}/`"
+            :disabled="isGeoBlocked"
             rounded
           >
             Supply

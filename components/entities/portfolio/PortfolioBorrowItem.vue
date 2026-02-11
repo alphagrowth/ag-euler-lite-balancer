@@ -24,6 +24,7 @@ import {
 } from '~/services/pricing/priceProvider'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 
 const { position } = defineProps<{ position: AccountBorrowPosition }>()
 
@@ -63,6 +64,8 @@ const collateralSymbolLabel = computed(() => {
   return hasMultipleCollaterals.value ? `${symbol} & others` : symbol
 })
 const pairSymbols = computed(() => `${collateralSymbolLabel.value}/${position.borrow.asset.symbol}`)
+
+const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(position.collateral.address, position.borrow.address))
 
 const isAnyUnverified = computed(() => {
   const collateralUnverified = 'verified' in position.collateral && !position.collateral.verified
@@ -296,11 +299,19 @@ onMounted(() => {
             class="icon--40"
           />
           <div class="flex-grow min-w-0">
-            <div class="text-content-tertiary text-p3 mb-4">
+            <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
               <VaultDisplayName
                 :name="pairName"
                 :is-unverified="isAnyUnverified"
               />
+              <span
+                v-if="isGeoBlocked"
+                class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+                title="This vault is not available in your region"
+              >
+                <SvgIcon name="warning" class="!w-14 !h-14" />
+                Restricted
+              </span>
             </div>
             <div class="text-h5 text-content-primary truncate">
               {{ pairSymbols }}

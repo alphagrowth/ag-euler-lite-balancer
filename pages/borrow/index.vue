@@ -40,6 +40,7 @@ const { borrowList, isUpdating, isEscrowUpdating } = useVaults()
 const { chainId } = useEulerAddresses()
 
 const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value)
+const { enableEntityBranding } = useDeployConfig()
 const { products, entities } = useEulerLabels()
 
 const activeBorrowList = computed(() =>
@@ -52,13 +53,21 @@ const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Recommended')
+const sortDir = ref<'desc' | 'asc'>('desc')
 
 useUrlQuerySync([
   { ref: sortBy, default: 'Recommended', queryKey: 'sort' },
+  { ref: sortDir, default: 'desc', queryKey: 'dir' },
   { ref: selectedCollateral, default: [], queryKey: 'collateral' },
   { ref: selectedDebt, default: [], queryKey: 'debt' },
   { ref: selectedMarkets, default: [], queryKey: 'market' },
 ])
+
+watch(sortBy, (newSortBy) => {
+  if (newSortBy === 'Recommended') {
+    sortDir.value = 'desc'
+  }
+})
 
 // Cache for USD values used in sorting (keyed by pair identifier: collateral+borrow address)
 const pairLiquidityUsd = ref<Map<string, number>>(new Map())
@@ -160,6 +169,7 @@ const applyFeaturedPairSort = (sorted: AnyBorrowVaultPair[]): AnyBorrowVaultPair
 }
 
 const sortedBorrowList = computed(() => {
+  let sorted: AnyBorrowVaultPair[]
   switch (sortBy.value) {
     case 'Recommended': {
       const list = [...filteredBorrowList.value]
@@ -186,39 +196,47 @@ const sortedBorrowList = computed(() => {
         return b.compositeScore - a.compositeScore
       })
 
+      // Recommended sort ignores direction toggle
       return applyFeaturedPairSort(scored.map(s => s.pair))
     }
     case 'Liquidity':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+      sorted = applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         const aValue = pairLiquidityUsd.value.get(getPairKey(a)) ?? 0
         const bValue = pairLiquidityUsd.value.get(getPairKey(b)) ?? 0
         return bValue - aValue
       }))
+      break
     case 'Borrow APY':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+      sorted = applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return Number(a.borrow.interestRateInfo.borrowAPY) - Number(b.borrow.interestRateInfo.borrowAPY)
       }))
+      break
     case 'Utilization':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+      sorted = applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return getVaultUtilization(b.borrow) - getVaultUtilization(a.borrow)
       }))
+      break
     case 'Total Borrowed':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+      sorted = applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         const aValue = pairBorrowedUsd.value.get(getPairKey(a)) ?? 0
         const bValue = pairBorrowedUsd.value.get(getPairKey(b)) ?? 0
         return bValue - aValue
       }))
+      break
     case 'Max ROE':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+      sorted = applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return getSortMaxRoe(b as BorrowVaultPair) - getSortMaxRoe(a as BorrowVaultPair)
       }))
+      break
     case 'Net APY':
-      return applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
+      sorted = applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
         return getNetApy(b as BorrowVaultPair) - getNetApy(a as BorrowVaultPair)
       }))
+      break
     default:
-      return applyFeaturedPairSort([...filteredBorrowList.value])
+      sorted = applyFeaturedPairSort([...filteredBorrowList.value])
   }
+  return sortDir.value === 'asc' ? [...sorted].reverse() : sorted
 })
 </script>
 
@@ -237,12 +255,15 @@ const sortedBorrowList = computed(() => {
       <div class="flex justify-start items-center w-full gap-8 mobile:flex-wrap">
         <VaultSortButton
           v-model="sortBy"
+          v-model:dir="sortDir"
           class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
           :options="['Recommended', 'Liquidity', 'Total Borrowed', 'Utilization', 'Borrow APY', 'Net APY', 'Max ROE']"
+          :disable-dir="sortBy === 'Recommended'"
           placeholder="Sort By"
           title="Sorting type"
         />
         <UiSelect
+          v-if="enableEntityBranding"
           :key="`markets-${chainId}`"
           v-model="selectedMarkets"
           class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"

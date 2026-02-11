@@ -2,6 +2,7 @@ import { getRequestURL, setResponseHeader, sendNoContent } from 'h3'
 
 export default defineEventHandler((event) => {
   const country = event.node.req.headers['x-country-code']
+    || 'US'
   if (country) {
     setResponseHeader(event, 'x-country-code', country as string)
   }

@@ -5,7 +5,7 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { EarnVault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getEntitiesByEarnVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
 
 defineOptions({
   name: 'EarnPage',
@@ -16,12 +16,18 @@ const { getEarnVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
 const list = computed(() => getEarnVaults().filter(v => v.verified && !isVaultDeprecated(v.address)))
 
+const { enableEntityBranding } = useDeployConfig()
+
 const selectedCollateral = ref<string[]>([])
+const selectedCurators = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
+const sortDir = ref<'desc' | 'asc'>('desc')
 
 useUrlQuerySync([
   { ref: sortBy, default: 'Total Supply', queryKey: 'sort' },
+  { ref: sortDir, default: 'desc', queryKey: 'dir' },
   { ref: selectedCollateral, default: [], queryKey: 'vault' },
+  { ref: selectedCurators, default: [], queryKey: 'allocator' },
 ])
 
 // Cache for USD values used in sorting (keyed by vault address)
@@ -52,6 +58,7 @@ watchEffect(async () => {
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
     selectedCollateral.value = []
+    selectedCurators.value = []
   }
 })
 
@@ -65,6 +72,18 @@ const assetOptions = computed(() => {
     .reduce((prev, curr) =>
       prev.find(vault => vault.value === curr.value) ? prev : [...prev, curr], [] as { label: string, value: string, icon: string }[],
     )
+})
+
+const curatorOptions = computed(() => {
+  return list.value.reduce((result, vault) => {
+    const vaultEntities = getEntitiesByEarnVault(vault)
+    for (const entity of vaultEntities) {
+      if (!result.find(option => option.value === entity.name)) {
+        return [...result, { label: entity.name, value: entity.name, icon: entity.logo ? `/entities/${entity.logo}` : undefined }]
+      }
+    }
+    return result
+  }, [] as { label: string, value: string, icon?: string }[])
 })
 
 const topOptions = ref<{ label: string, value: string, icon: string }[]>([])
@@ -94,10 +113,9 @@ watchEffect(() => {
 })
 
 const filteredList = computed(() => {
-  if (!selectedCollateral.value.length) {
-    return list.value
-  }
-  return list.value.filter(vault => selectedCollateral.value.includes(vault.asset.address))
+  return list.value
+    .filter(vault => selectedCollateral.value.length ? selectedCollateral.value.includes(vault.asset.address) : true)
+    .filter(vault => selectedCurators.value.length ? getEntitiesByEarnVault(vault).some(e => selectedCurators.value.includes(e.name)) : true)
 })
 
 const applyFeaturedSort = <T extends { address: string }>(sorted: T[]): T[] => {
@@ -109,26 +127,31 @@ const applyFeaturedSort = <T extends { address: string }>(sorted: T[]): T[] => {
 }
 
 const sortedList = computed(() => {
+  let sorted: EarnVault[]
   switch (sortBy.value) {
     case 'Total Supply':
-      return applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+      sorted = applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
         const aValue = vaultTotalSupplyUsd.value.get(a.address) ?? 0
         const bValue = vaultTotalSupplyUsd.value.get(b.address) ?? 0
         return bValue - aValue
       }))
+      break
     case 'Supply APY':
-      return applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+      sorted = applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
         return Number(b.interestRateInfo.supplyAPY) - Number(a.interestRateInfo.supplyAPY)
       }))
+      break
     case 'Liquidity':
-      return applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
+      sorted = applyFeaturedSort([...filteredList.value].sort((a: EarnVault, b: EarnVault) => {
         const aValue = vaultLiquidityUsd.value.get(a.address) ?? 0
         const bValue = vaultLiquidityUsd.value.get(b.address) ?? 0
         return bValue - aValue
       }))
+      break
     default:
-      return applyFeaturedSort([...filteredList.value])
+      sorted = applyFeaturedSort([...filteredList.value])
   }
+  return sortDir.value === 'asc' ? [...sorted].reverse() : sorted
 })
 
 </script>
@@ -149,9 +172,20 @@ const sortedList = computed(() => {
       <div class="flex items-center overflow-auto [scrollbar-width:none] gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"
+          v-model:dir="sortDir"
           :options="['Total Supply', 'Liquidity', 'Supply APY']"
           placeholder="Sort By"
           title="Sorting type"
+        />
+        <UiSelect
+          v-if="enableEntityBranding"
+          :key="`curators-${chainId}`"
+          v-model="selectedCurators"
+          :options="curatorOptions"
+          placeholder="Capital allocator"
+          title="Capital allocator"
+          modal-input-placeholder="Search allocator"
+          icon="filter"
         />
         <UiSelect
           :key="`collateral-${chainId}`"

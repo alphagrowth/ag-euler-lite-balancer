@@ -111,8 +111,8 @@ watchEffect(async () => {
 <template>
   <NuxtLink
     class="block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
-    :class="isGeoBlocked ? 'opacity-50 border-l-4 border-l-warning-500/50' : ''"
-    :to="isGeoBlocked ? undefined : `/lend/${vault.address}`"
+    :class="isGeoBlocked ? 'opacity-50' : ''"
+    :to="`/lend/${vault.address}`"
   >
     <div class="flex pb-12 p-16 border-b border-line-subtle">
       <BaseAvatar

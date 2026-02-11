@@ -171,11 +171,11 @@ const linkPath = computed(
 
 <template>
   <NuxtLink
-    :to="isGeoBlocked ? undefined : linkPath"
+    :to="linkPath"
     class="grid gap-x-16 mobile:block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
     :class="[
       enableEntityBranding ? '' : 'grid-cols-5',
-      isGeoBlocked ? 'opacity-50 border-l-4 border-l-warning-500/50' : '',
+      isGeoBlocked ? 'opacity-50' : '',
     ]"
     :style="enableEntityBranding ? { gridTemplateColumns: '1.5fr repeat(5, 1fr)' } : undefined"
   >

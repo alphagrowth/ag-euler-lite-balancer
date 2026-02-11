@@ -3,6 +3,7 @@ import { type Vault } from '~/entities/vault'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { getAssetLogoUrl } from '~/composables/useTokens'
+import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { formatNumber, compactNumber, formatCompactUsdValue, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import type { AccountDepositPosition } from '~/entities/account'
@@ -35,6 +36,7 @@ const supplyApy = computed(() => {
 const supplyApyWithRewards = computed(() => supplyApy.value + getSupplyRewardApy(vault.value.address))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
+const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.value.address))
 const isEscrow = computed(() => 'vaultCategory' in vault.value && vault.value.vaultCategory === 'escrow')
 const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
 const displayName = computed(() => {
@@ -135,11 +137,19 @@ const onClick = () => {
           :label="vault.asset.symbol"
         />
         <div class="flex-grow ml-12">
-          <div class="text-content-tertiary text-p3 mb-4">
+          <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
             <VaultDisplayName
               :name="displayName"
               :is-unverified="isUnverified"
             />
+            <span
+              v-if="isGeoBlocked"
+              class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+              title="This vault is not available in your region"
+            >
+              <SvgIcon name="warning" class="!w-14 !h-14" />
+              Restricted
+            </span>
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
@@ -183,7 +193,8 @@ const onClick = () => {
           @click.stop
         >
           <UiButton
-            :to="`/lend/${vault.address}/`"
+            :to="isGeoBlocked ? undefined : `/lend/${vault.address}/`"
+            :disabled="isGeoBlocked"
             rounded
           >
             Supply
@@ -197,7 +208,8 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="{ path: `/lend/${vault.address}/swap`, query: { subAccount: position.subAccount } }"
+            :to="isGeoBlocked ? undefined : { path: `/lend/${vault.address}/swap`, query: { subAccount: position.subAccount } }"
+            :disabled="isGeoBlocked"
             rounded
           >
             Asset swap
@@ -227,6 +239,14 @@ const onClick = () => {
               :is-unverified="isUnverified"
             />
             <VaultWarningIcon :warning="utilisationWarning" tooltip-placement="top-start" />
+            <span
+              v-if="isGeoBlocked"
+              class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+              title="This vault is not available in your region"
+            >
+              <SvgIcon name="warning" class="!w-14 !h-14" />
+              Restricted
+            </span>
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
@@ -290,7 +310,8 @@ const onClick = () => {
           @click.stop
         >
           <UiButton
-            :to="`/lend/${vault.address}/`"
+            :to="isGeoBlocked ? undefined : `/lend/${vault.address}/`"
+            :disabled="isGeoBlocked"
             rounded
           >
             Supply
@@ -304,7 +325,8 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="{ path: `/lend/${vault.address}/swap`, query: { subAccount: position.subAccount } }"
+            :to="isGeoBlocked ? undefined : { path: `/lend/${vault.address}/swap`, query: { subAccount: position.subAccount } }"
+            :disabled="isGeoBlocked"
             rounded
           >
             Asset swap

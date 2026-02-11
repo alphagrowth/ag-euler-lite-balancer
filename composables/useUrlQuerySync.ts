@@ -53,6 +53,7 @@ export function useUrlQuerySync(params: UrlSyncParam[]): void {
   }
 
   const syncRefsToUrl = async () => {
+    if (isSyncing) return
     isSyncing = true
     try {
       await router.replace({ query: buildQuery() })
@@ -81,25 +82,37 @@ export function useUrlQuerySync(params: UrlSyncParam[]): void {
     () => {
       if (isSyncing) return
 
-      // Check if any managed param was dropped from the URL
-      const needsReapply = params.some((param) => {
+      // Cancel any pending debounced sync — the route just changed externally,
+      // so a stale debounced sync could overwrite non-managed params (e.g. network)
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+        debounceTimer = null
+      }
+
+      // Check if any managed param in the URL doesn't match its ref
+      const needsSync = params.some((param) => {
         const queryValue = route.query[param.queryKey]
         const refValue = param.ref.value
 
         if (Array.isArray(param.default)) {
           const refArr = refValue as string[]
-          if (refArr.length === 0) return false
           const queryArr = queryValue === undefined
             ? []
             : Array.isArray(queryValue) ? queryValue : [queryValue]
-          return JSON.stringify(refArr) !== JSON.stringify(queryArr)
+          return JSON.stringify(refArr) !== JSON.stringify(queryArr.filter((v): v is string => typeof v === 'string'))
         }
 
-        if (refValue === param.default) return false
-        return queryValue !== refValue
+        const queryStr = queryValue === undefined ? undefined : (typeof queryValue === 'string' ? queryValue : String(queryValue))
+        const isDefault = refValue === param.default
+        // Ref is at default and URL has no value → in sync
+        if (isDefault && queryStr === undefined) return false
+        // Ref is at default but URL has a value → stale URL param needs removal
+        if (isDefault && queryStr !== undefined) return true
+        // Ref is non-default → URL must match
+        return queryStr !== refValue
       })
 
-      if (needsReapply) {
+      if (needsSync) {
         nextTick(syncRefsToUrl)
       }
     },

@@ -20,12 +20,16 @@ const list = computed(() => getVerifiedEvkVaults().filter(v => !isVaultDeprecate
 const isLoading = computed(() => isUpdating.value)
 const { products, entities } = useEulerLabels()
 
+const { enableEntityBranding } = useDeployConfig()
+
 const selectedCollateral = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
+const sortDir = ref<'desc' | 'asc'>('desc')
 
 useUrlQuerySync([
   { ref: sortBy, default: 'Total Supply', queryKey: 'sort' },
+  { ref: sortDir, default: 'desc', queryKey: 'dir' },
   { ref: selectedCollateral, default: [], queryKey: 'vault' },
   { ref: selectedMarkets, default: [], queryKey: 'market' },
 ])
@@ -128,24 +132,29 @@ const applyFeaturedSort = <T extends { address: string }>(sorted: T[]): T[] => {
 }
 
 const sortedList = computed(() => {
+  let sorted: Vault[]
   switch (sortBy.value) {
     case 'Total Supply':
-      return applyFeaturedSort([...filteredList.value].sort((a: Vault, b: Vault) => {
+      sorted = applyFeaturedSort([...filteredList.value].sort((a: Vault, b: Vault) => {
         const aValue = vaultUsdValues.value.get(a.address) ?? 0
         const bValue = vaultUsdValues.value.get(b.address) ?? 0
         return bValue - aValue
       }))
+      break
     case 'Supply APY':
-      return applyFeaturedSort([...filteredList.value].sort((a: Vault, b: Vault) => {
+      sorted = applyFeaturedSort([...filteredList.value].sort((a: Vault, b: Vault) => {
         return Number(b.interestRateInfo.supplyAPY) - Number(a.interestRateInfo.supplyAPY)
       }))
+      break
     case 'Utilization':
-      return applyFeaturedSort([...filteredList.value].sort((a: Vault, b: Vault) => {
+      sorted = applyFeaturedSort([...filteredList.value].sort((a: Vault, b: Vault) => {
         return getVaultUtilization(b) - getVaultUtilization(a)
       }))
+      break
     default:
-      return applyFeaturedSort([...filteredList.value])
+      sorted = applyFeaturedSort([...filteredList.value])
   }
+  return sortDir.value === 'asc' ? [...sorted].reverse() : sorted
 })
 
 </script>
@@ -166,11 +175,13 @@ const sortedList = computed(() => {
       <div class="flex items-center overflow-auto [scrollbar-width:none] gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"
+          v-model:dir="sortDir"
           :options="['Total Supply', 'Utilization', 'Supply APY']"
           placeholder="Sort By"
           title="Sorting type"
         />
         <UiSelect
+          v-if="enableEntityBranding"
           :key="`markets-${chainId}`"
           v-model="selectedMarkets"
           :options="marketOptions"

@@ -518,6 +518,11 @@ const send = async () => {
       @submit.prevent="submit"
     >
       <template v-if="fromVault">
+        <VaultLabelsAndAssets
+          :vault="fromVault"
+          :assets="[fromVault.asset]"
+          size="large"
+        />
         <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
           <div class="flex flex-col gap-16 w-full">
             <AssetInput

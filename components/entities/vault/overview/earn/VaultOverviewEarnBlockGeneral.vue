@@ -4,6 +4,7 @@ import type { EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
+import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 const { vault } = defineProps<{ vault: EarnVault }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
 
@@ -17,6 +18,7 @@ const isDeprecated = computed(() => {
   return product.deprecatedVaults?.includes(vaultAddress.value) ?? false
 })
 const deprecationReason = computed(() => isDeprecated.value ? product.deprecationReason : '')
+const isRestricted = computed(() => isVaultBlockedByCountry(vault.address))
 
 const priceDisplay = ref('-')
 
@@ -43,6 +45,15 @@ const feeDisplay = computed(() => {
         <div class="flex items-start gap-8">
           <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
           <p class="text-p3 text-warning-500">{{ deprecationReason }}</p>
+        </div>
+      </div>
+      <div
+        v-if="isRestricted"
+        class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
+      >
+        <div class="flex items-start gap-8">
+          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
+          <p class="text-p3 text-warning-500">This vault is not available in your region.</p>
         </div>
       </div>
       <div

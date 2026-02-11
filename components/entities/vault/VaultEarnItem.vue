@@ -82,8 +82,8 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
 <template>
   <NuxtLink
     class="block no-underline bg-surface rounded-xl border border-line-subtle shadow-card transition-all duration-default ease-default hover:shadow-card-hover hover:border-line-emphasis"
-    :class="isGeoBlocked ? 'opacity-50 border-l-4 border-l-warning-500/50' : ''"
-    :to="isGeoBlocked ? undefined : `/earn/${vault.address}`"
+    :class="isGeoBlocked ? 'opacity-50' : ''"
+    :to="`/earn/${vault.address}`"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-line-default">
       <BaseAvatar
