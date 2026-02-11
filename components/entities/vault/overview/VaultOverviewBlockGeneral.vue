@@ -5,6 +5,7 @@ import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { autoLink } from '~/utils/autoLink'
 const { vault } = defineProps<{ vault: Vault }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
 

@@ -1,5 +1,6 @@
 import { detectCountry } from '~/services/country'
 import { getProductByVault, getEarnVaultBlock } from '~/composables/useEulerLabels'
+import { SANCTIONED_COUNTRIES, COUNTRY_GROUPS } from '~/entities/constants'
 
 const country = ref<string | null>(null)
 
@@ -15,22 +16,25 @@ export const useGeoBlock = () => {
   return { country, loadCountry }
 }
 
-const isCountryInList = (codes: string[]): boolean => {
+const isCountryInList = (codes: readonly string[]): boolean => {
   return codes.some(code => code.toUpperCase() === country.value!.toUpperCase())
+}
+
+const expandBlockList = (codes: readonly string[]): string[] => {
+  return codes.flatMap(code => COUNTRY_GROUPS[code] ?? [code])
 }
 
 export const isVaultBlockedByCountry = (vaultAddress: string): boolean => {
   if (!country.value) return false
 
+  // Sanctioned countries are always blocked
+  if (isCountryInList(SANCTIONED_COUNTRIES)) return true
+
   const product = getProductByVault(vaultAddress)
-  if (product.block?.length && isCountryInList(product.block)) {
-    return true
-  }
+  if (product.block?.length && isCountryInList(expandBlockList(product.block))) return true
 
   const earnBlock = getEarnVaultBlock(vaultAddress)
-  if (earnBlock?.length && isCountryInList(earnBlock)) {
-    return true
-  }
+  if (earnBlock?.length && isCountryInList(expandBlockList(earnBlock))) return true
 
   return false
 }
