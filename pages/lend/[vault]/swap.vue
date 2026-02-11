@@ -15,7 +15,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
-import { formatNumber } from '~/utils/string-utils'
+import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
@@ -624,10 +624,10 @@ const send = async () => {
             </div>
             <div class="flex justify-between items-start">
               <p class="text-content-tertiary shrink-0 mr-12">
-                Current price
+                Swap price
               </p>
               <p class="text-p2 text-right">
-                {{ currentPrice ? `${formatNumber(currentPrice.value)} ${currentPrice.symbol}` : '-' }}
+                {{ currentPrice ? `${formatSmartAmount(currentPrice.value)} ${currentPrice.symbol}` : '-' }}
               </p>
             </div>
             <div class="flex justify-between items-start">

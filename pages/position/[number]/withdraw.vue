@@ -24,7 +24,7 @@ import {
 import type { TxPlan } from '~/entities/txPlan'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { formatNumber } from '~/utils/string-utils'
+import { formatNumber, formatHealthScore } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
@@ -460,7 +460,7 @@ watch(amount, async () => {
         </div>
         <div class="flex justify-between items-center flex-wrap gap-8">
           <p class="text-content-tertiary">
-            Current price
+            Oracle price
           </p>
           <p class="text-p2 flex items-center gap-4">
             {{ nanoToValue(position.price, 18) > 0 ? `$${formatNumber(nanoToValue(position.price, 18))}` : '-' }}
@@ -482,21 +482,15 @@ watch(amount, async () => {
         </div>
         <div class="flex justify-between items-center flex-wrap gap-8">
           <p class="text-content-tertiary">
-            Your LTV (LLTV)
+            Liquidation LTV
           </p>
           <p
             v-if="position.userLTV !== estimateUserLTV"
             class="text-p2 text-content-tertiary"
           >
             {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-            <span class="text-p3">
-              ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
-            </span>
             → <span class="text-content-primary">
               {{ formatNumber(nanoToValue(estimateUserLTV, 18)) }}%
-              <span class="text-content-tertiary text-p3">
-                ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
-              </span>
             </span>
           </p>
           <p
@@ -504,27 +498,24 @@ watch(amount, async () => {
             class="text-p2 flex items-center gap-4"
           >
             {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-            <span class="text-content-tertiary text-p3">
-              ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
-            </span>
           </p>
         </div>
         <div class="flex justify-between items-center flex-wrap gap-8">
           <p class="text-content-tertiary">
-            Your health
+            Health score
           </p>
 
           <p
             v-if="position.health !== estimateHealth"
             class="text-p2 text-content-tertiary"
           >
-            {{ formatNumber(nanoToValue(position.health, 18)) }} → <span class="text-content-primary">{{ formatNumber(nanoToValue(estimateHealth, 18)) }}</span>
+            {{ formatHealthScore(nanoToValue(position.health, 18)) }} → <span class="text-content-primary">{{ formatHealthScore(nanoToValue(estimateHealth, 18)) }}</span>
           </p>
           <p
             v-else
             class="text-p2 text-content-primary"
           >
-            {{ formatNumber(nanoToValue(position.health, 18)) }}
+            {{ formatHealthScore(nanoToValue(position.health, 18)) }}
           </p>
         </div>
       </VaultFormInfoBlock>

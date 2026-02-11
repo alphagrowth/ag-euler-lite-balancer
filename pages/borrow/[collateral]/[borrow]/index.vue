@@ -65,6 +65,15 @@ type MultiplyPlanParams = {
   subAccount: string
 }
 
+const borrowPriceInvert = usePriceInvert(
+  () => collateralVault.value?.asset.symbol,
+  () => borrowVault.value?.asset.symbol,
+)
+const multiplyPriceInvert = usePriceInvert(
+  () => multiplyShortVault.value?.asset.symbol,
+  () => multiplyLongVault.value?.asset.symbol,
+)
+
 const collateralAddress = route.params.collateral as string
 const borrowAddress = route.params.borrow as string
 
@@ -1668,11 +1677,14 @@ watch(formTab, () => {
               </div>
               <div class="flex justify-between items-center">
                 <p class="text-content-tertiary">
-                  Current price
+                  Oracle price
                 </p>
-                <p class="text-p2">
-                  {{ !priceFixed.isZero() ? formatSmartAmount(priceFixed.toUnsafeFloat()) : '-' }}
-                  <span class="text-content-tertiary text-p3">{{ ' ' + collateralVault?.asset.symbol + '/' + borrowVault?.asset.symbol }}</span>
+                <p class="text-p2 inline-flex items-center">
+                  {{ !priceFixed.isZero() ? formatSmartAmount(borrowPriceInvert.invertValue(priceFixed.toUnsafeFloat())) : '-' }}
+                  <span class="text-content-tertiary text-p3 ml-4">{{ borrowPriceInvert.displaySymbol }}</span>
+                  <button v-if="!priceFixed.isZero()" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="borrowPriceInvert.toggle">
+                    <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+                  </button>
                 </p>
               </div>
               <div class="flex justify-between items-center">
@@ -1680,8 +1692,8 @@ watch(formTab, () => {
                   Liquidation price
                 </p>
                 <p class="text-p2">
-                  {{ liquidationPrice ? formatSmartAmount(liquidationPrice) : '-' }}
-                  <span class="text-content-tertiary text-p3">{{ ' ' + collateralVault?.asset.symbol + '/' + borrowVault?.asset.symbol }}</span>
+                  {{ borrowPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(borrowPriceInvert.invertValue(liquidationPrice)!) : '-' }}
+                  <span class="text-content-tertiary text-p3">{{ ' ' + borrowPriceInvert.displaySymbol }}</span>
                 </p>
               </div>
               <div class="flex justify-between items-center">
@@ -1803,10 +1815,14 @@ watch(formTab, () => {
                   </div>
                   <div class="flex justify-between items-start">
                     <p class="text-content-tertiary shrink-0 mr-12">
-                      Current price
+                      Swap price
                     </p>
-                    <p class="text-p2 text-right">
-                      {{ multiplyCurrentPrice ? `${formatSmartAmount(multiplyCurrentPrice.value)} ${multiplyCurrentPrice.symbol}` : '-' }}
+                    <p class="text-p2 text-right inline-flex items-center">
+                      {{ multiplyCurrentPrice ? formatSmartAmount(multiplyPriceInvert.invertValue(multiplyCurrentPrice.value)) : '-' }}
+                      <span v-if="multiplyCurrentPrice" class="text-content-tertiary text-p3 ml-4">{{ multiplyPriceInvert.displaySymbol }}</span>
+                      <button v-if="multiplyCurrentPrice" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="multiplyPriceInvert.toggle">
+                        <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+                      </button>
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
@@ -1815,13 +1831,13 @@ watch(formTab, () => {
                     </p>
                     <p class="text-p2">
                       <template v-if="multiplyNextLiquidationPrice !== null && multiplySwapReady">
-                        <span class="text-content-tertiary">{{ multiplyCurrentLiquidationPrice !== null ? formatSmartAmount(multiplyCurrentLiquidationPrice) : '-' }}</span>
-                        → <span class="text-content-primary">{{ formatSmartAmount(multiplyNextLiquidationPrice) }}</span>
+                        <span class="text-content-tertiary">{{ multiplyCurrentLiquidationPrice !== null ? formatSmartAmount(multiplyPriceInvert.invertValue(multiplyCurrentLiquidationPrice)) : '-' }}</span>
+                        → <span class="text-content-primary">{{ formatSmartAmount(multiplyPriceInvert.invertValue(multiplyNextLiquidationPrice)) }}</span>
                       </template>
                       <template v-else>
-                        {{ multiplyCurrentLiquidationPrice !== null ? formatSmartAmount(multiplyCurrentLiquidationPrice) : '-' }}
+                        {{ multiplyPriceInvert.invertValue(multiplyCurrentLiquidationPrice) != null ? formatSmartAmount(multiplyPriceInvert.invertValue(multiplyCurrentLiquidationPrice)!) : '-' }}
                       </template>
-                      <span class="text-content-tertiary text-p3">{{ ' ' + multiplyShortVault?.asset.symbol + '/' + multiplyLongVault?.asset.symbol }}</span>
+                      <span class="text-content-tertiary text-p3">{{ ' ' + multiplyPriceInvert.displaySymbol }}</span>
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
@@ -1829,12 +1845,17 @@ watch(formTab, () => {
                       Liquidation LTV
                     </p>
                     <p class="text-p2 text-right">
-                      <template v-if="multiplyNextLiquidationLtv !== null && multiplySwapReady">
-                        <span class="text-content-tertiary">{{ multiplyCurrentLiquidationLtv !== null ? `${formatNumber(multiplyCurrentLiquidationLtv)}%` : '-' }}</span>
-                        → <span class="text-content-primary">{{ formatNumber(multiplyNextLiquidationLtv) }}%</span>
+                      <template v-if="multiplyNextLtv !== null && multiplySwapReady">
+                        <span v-if="multiplyCurrentLtv !== null" class="text-content-tertiary">
+                          {{ formatNumber(multiplyCurrentLtv) }}%
+                          →
+                        </span>
+                        <span class="text-content-primary">
+                          {{ formatNumber(multiplyNextLtv) }}%
+                        </span>
                       </template>
                       <template v-else>
-                        {{ multiplyNextLiquidationLtv !== null ? `${formatNumber(multiplyNextLiquidationLtv)}%` : '-' }}
+                        -
                       </template>
                     </p>
                   </div>

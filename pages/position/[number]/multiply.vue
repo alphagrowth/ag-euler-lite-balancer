@@ -15,7 +15,7 @@ import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
-import { formatNumber, trimTrailingZeros } from '~/utils/string-utils'
+import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
@@ -53,6 +53,11 @@ type MultiplyPlanParams = {
   swapperMode: SwapperMode
   subAccount: string
 }
+
+const priceInvert = usePriceInvert(
+  () => multiplyShortVault.value?.asset.symbol,
+  () => multiplyLongVault.value?.asset.symbol,
+)
 
 const positionIndex = route.params.number as string
 const position: Ref<AccountBorrowPosition | null> = ref(null)
@@ -918,10 +923,14 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
           </div>
           <div class="flex justify-between items-start">
             <p class="text-content-tertiary shrink-0 mr-12">
-              Current price
+              Swap price
             </p>
-            <p class="text-p2 text-right">
-              {{ multiplyCurrentPrice ? `${formatNumber(multiplyCurrentPrice.value)} ${multiplyCurrentPrice.symbol}` : '-' }}
+            <p class="text-p2 text-right inline-flex items-center">
+              {{ multiplyCurrentPrice ? formatSmartAmount(priceInvert.invertValue(multiplyCurrentPrice.value)) : '-' }}
+              <span v-if="multiplyCurrentPrice" class="text-content-tertiary text-p3 ml-4">{{ priceInvert.displaySymbol }}</span>
+              <button v-if="multiplyCurrentPrice" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="priceInvert.toggle">
+                <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+              </button>
             </p>
           </div>
           <div class="flex justify-between items-center">
@@ -930,42 +939,32 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             </p>
             <p class="text-p2">
               <template v-if="multiplyCurrentLiquidationPrice !== null && multiplyNextLiquidationPrice !== null && multiplySwapReady">
-                <span class="text-content-tertiary">{{ formatNumber(multiplyCurrentLiquidationPrice, 4) }}</span>
-                → <span class="text-content-primary">{{ formatNumber(multiplyNextLiquidationPrice, 4) }}</span>
+                <span class="text-content-tertiary">{{ formatSmartAmount(priceInvert.invertValue(multiplyCurrentLiquidationPrice)) }}</span>
+                → <span class="text-content-primary">{{ formatSmartAmount(priceInvert.invertValue(multiplyNextLiquidationPrice)) }}</span>
               </template>
               <template v-else>
-                {{ multiplyCurrentLiquidationPrice !== null ? formatNumber(multiplyCurrentLiquidationPrice, 4) : '-' }}
+                {{ priceInvert.invertValue(multiplyCurrentLiquidationPrice) != null ? formatSmartAmount(priceInvert.invertValue(multiplyCurrentLiquidationPrice)!) : '-' }}
               </template>
-              <span class="text-content-tertiary text-p3">
-                {{ multiplyLongVault?.asset.symbol }}
-              </span>
+              <span class="text-content-tertiary text-p3">{{ ' ' + priceInvert.displaySymbol }}</span>
             </p>
           </div>
           <div class="flex justify-between items-center">
             <p class="text-content-tertiary">
-              Your LTV (LLTV)
+              Liquidation LTV
             </p>
             <p class="text-p2 text-right">
-              <template v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null && multiplyNextLtv !== null && multiplyNextLiquidationLtv !== null && multiplySwapReady">
-                <span class="text-content-tertiary">
+              <template v-if="multiplyNextLtv !== null && multiplySwapReady">
+                <span v-if="multiplyCurrentLtv !== null" class="text-content-tertiary">
                   {{ formatNumber(multiplyCurrentLtv) }}%
-                  <span class="text-content-tertiary text-p3">
-                    ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
-                  </span>
+                  →
                 </span>
-                → <span class="text-content-primary">
+                <span class="text-content-primary">
                   {{ formatNumber(multiplyNextLtv) }}%
-                  <span class="text-content-tertiary text-p3">
-                    ({{ formatNumber(multiplyNextLiquidationLtv) }}%)
-                  </span>
                 </span>
               </template>
               <template v-else>
-                <span v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null">
+                <span v-if="multiplyCurrentLtv !== null">
                   {{ formatNumber(multiplyCurrentLtv) }}%
-                  <span class="text-content-tertiary text-p3">
-                    ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
-                  </span>
                 </span>
                 <span v-else>-</span>
               </template>
@@ -973,15 +972,15 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
           </div>
           <div class="flex justify-between items-center">
             <p class="text-content-tertiary">
-              Your health
+              Health score
             </p>
             <p class="text-p2">
               <template v-if="multiplyCurrentHealth !== null && multiplyNextHealth !== null && multiplySwapReady">
-                <span class="text-content-tertiary">{{ formatNumber(multiplyCurrentHealth, 2) }}</span>
-                → <span class="text-content-primary">{{ formatNumber(multiplyNextHealth, 2) }}</span>
+                <span class="text-content-tertiary">{{ formatHealthScore(multiplyCurrentHealth) }}</span>
+                → <span class="text-content-primary">{{ formatHealthScore(multiplyNextHealth) }}</span>
               </template>
               <template v-else>
-                {{ multiplyCurrentHealth !== null ? formatNumber(multiplyCurrentHealth, 2) : '-' }}
+                {{ formatHealthScore(multiplyCurrentHealth) }}
               </template>
             </p>
           </div>

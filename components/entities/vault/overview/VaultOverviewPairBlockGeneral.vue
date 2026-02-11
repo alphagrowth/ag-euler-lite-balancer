@@ -47,6 +47,11 @@ const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.bo
 const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol))
 const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.symbol))
 
+const priceInvert = usePriceInvert(
+  () => pair.collateral.asset.symbol,
+  () => pair.borrow.asset.symbol,
+)
+
 const price = computed(() => {
   const collateralPrice = getCollateralOraclePrice(pair.borrow, pair.collateral)
   const borrowPrice = getAssetOraclePrice(pair.borrow)
@@ -113,9 +118,11 @@ const onMaxRoeInfoIconClick = () => {
         label="Price"
       >
         <template v-if="price !== null">
-          {{ formatSignificant(price, 4) }} <span class="text-content-tertiary">
-            {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
-          </span>
+          {{ formatSignificant(priceInvert.invertValue(price), 4) }}
+          <span class="text-content-tertiary">{{ priceInvert.displaySymbol }}</span>
+          <button type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="priceInvert.toggle">
+            <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+          </button>
         </template>
         <template v-else>
           <span class="flex items-center text-warning-500">

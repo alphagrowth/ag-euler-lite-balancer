@@ -125,6 +125,18 @@ export const formatSmartAmount = (value: string | number = 0, maxDecimals = 6): 
   return formatNumber(num, precision, 0)
 }
 
+/**
+ * Formats a health score value for display.
+ * - null/undefined → "-"
+ * - Infinity or extremely large (>1e15) → "∞"
+ * - Normal → formatted to 2 decimals
+ */
+export const formatHealthScore = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) return '-'
+  if (!Number.isFinite(value) || value > 1e15) return '∞'
+  return formatNumber(value, 2)
+}
+
 export const preciseNumber = (value: string | number, decimals = 36) => {
   return Intl.NumberFormat('en-US', { maximumFractionDigits: decimals, useGrouping: false }).format(Number(value))
 }

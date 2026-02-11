@@ -36,6 +36,11 @@ const maxRoe = computed(() =>
   getMaxRoe(maxMultiplier.value, supplyApyWithRewards.value, borrowApyWithRewards.value),
 )
 
+const priceInvert = usePriceInvert(
+  () => pair.collateral.asset.symbol,
+  () => pair.borrow.asset.symbol,
+)
+
 // Calculate price using collateral prices from borrow vault
 const price = computed(() => {
   const collateralPrice = pair.borrow.collateralPrices.find(
@@ -81,9 +86,11 @@ const onBorrowInfoIconClick = () => {
         label="Price"
       >
         <template v-if="price !== null">
-          {{ formatSignificant(price, 4) }} <span class="text-euler-dark-900">
-            {{ pair.collateral.asset.symbol }}/{{ pair.borrow.asset.symbol }}
-          </span>
+          {{ formatSignificant(priceInvert.invertValue(price), 4) }}
+          <span class="text-euler-dark-900">{{ priceInvert.displaySymbol }}</span>
+          <button type="button" class="ml-4 text-euler-dark-900 hover:text-white transition-colors inline-flex" @click.stop="priceInvert.toggle">
+            <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+          </button>
         </template>
         <template v-else>
           <span class="text-euler-dark-900">-</span>

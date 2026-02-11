@@ -12,7 +12,7 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
-import { formatNumber, trimTrailingZeros } from '~/utils/string-utils'
+import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
@@ -30,6 +30,11 @@ const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
+
+const priceInvert = usePriceInvert(
+  () => collateralVault.value?.asset.symbol,
+  () => borrowVault.value?.asset.symbol,
+)
 
 const ltv = ref(0)
 const borrowAmount = ref('')
@@ -414,13 +419,14 @@ onUnmounted(() => {
         </div>
         <div class="flex justify-between items-center">
           <p class="text-content-tertiary">
-            Current Price
+            Oracle price
           </p>
-          <p class="text-p2">
-            {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-            <span class="text-content-tertiary text-p3">
-              {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
-            </span>
+          <p class="text-p2 inline-flex items-center">
+            {{ !priceFixed.isZero() ? formatSmartAmount(priceInvert.invertValue(priceFixed.toUnsafeFloat())) : '-' }}
+            <span class="text-content-tertiary text-p3 ml-4">{{ priceInvert.displaySymbol }}</span>
+            <button v-if="!priceFixed.isZero()" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="priceInvert.toggle">
+              <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+            </button>
           </p>
         </div>
         <div class="flex justify-between items-center">
@@ -428,18 +434,16 @@ onUnmounted(() => {
             Liquidation price
           </p>
           <p class="text-p2">
-            {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-            <span class="text-content-tertiary text-p3">
-              {{ collateralVault?.asset.symbol }}
-            </span>
+            {{ priceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(priceInvert.invertValue(liquidationPrice)!) : '-' }}
+            <span class="text-content-tertiary text-p3">{{ ' ' + priceInvert.displaySymbol }}</span>
           </p>
         </div>
         <div class="flex justify-between items-center">
           <p class="text-content-tertiary">
-            Health
+            Health score
           </p>
           <p class="text-p2">
-            {{ health ? formatNumber(health, 2) : '-' }}
+            {{ formatHealthScore(health) }}
           </p>
         </div>
       </VaultFormInfoBlock>

@@ -17,7 +17,7 @@ import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { getQuoteAmount } from '~/utils/swapQuotes'
-import { formatNumber, trimTrailingZeros } from '~/utils/string-utils'
+import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
@@ -37,6 +37,15 @@ const walletBalance = ref(0n)
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { slippage } = useSlippage()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
+
+const walletPriceInvert = usePriceInvert(
+  () => collateralVault.value?.asset.symbol,
+  () => borrowVault.value?.asset.symbol,
+)
+const swapPriceInvert = usePriceInvert(
+  () => swapCollateralVault.value?.asset.symbol,
+  () => borrowVault.value?.asset.symbol,
+)
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -1229,13 +1238,16 @@ onUnmounted(() => {
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
             <p class="text-content-tertiary">
-              Current price
+              Oracle price
             </p>
             <p class="text-p2 flex items-center gap-4">
-              {{ nanoToValue(position.price, 18) > 0 ? `$${formatNumber(nanoToValue(position.price, 18))}` : '-' }}
+              {{ walletPriceInvert.invertValue(nanoToValue(position.price, 18)) ? formatSmartAmount(walletPriceInvert.invertValue(nanoToValue(position.price, 18))!) : '-' }}
               <span v-if="nanoToValue(position.price, 18) > 0" class="text-content-tertiary text-p3">
-                {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
+                {{ walletPriceInvert.displaySymbol }}
               </span>
+              <button v-if="nanoToValue(position.price, 18) > 0" type="button" class="text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="walletPriceInvert.toggle">
+                <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+              </button>
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
@@ -1243,29 +1255,23 @@ onUnmounted(() => {
               Liquidation price
             </p>
             <p class="text-p2 flex items-center gap-4">
-              {{ liquidationPrice ? `$${formatNumber(liquidationPrice)}` : '-' }}
-              <span v-if="liquidationPrice" class="text-content-tertiary text-p3">
-                {{ collateralVault.asset.symbol }}
+              {{ walletPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(walletPriceInvert.invertValue(liquidationPrice)!) : '-' }}
+              <span v-if="walletPriceInvert.invertValue(liquidationPrice) != null" class="text-content-tertiary text-p3">
+                {{ walletPriceInvert.displaySymbol }}
               </span>
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
             <p class="text-content-tertiary">
-              Your LTV (LLTV)
+              Liquidation LTV
             </p>
             <p
               v-if="position.userLTV !== estimateUserLTV"
               class="text-p2 text-content-tertiary"
             >
               {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-              <span class="text-p3">
-                ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
-              </span>
               → <span class="text-content-primary">
                 {{ formatNumber(nanoToValue(estimateUserLTV, 18)) }}%
-                <span class="text-content-tertiary text-p3">
-                  ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
-                </span>
               </span>
             </p>
             <p
@@ -1273,27 +1279,24 @@ onUnmounted(() => {
               class="text-p2 flex items-center gap-4"
             >
               {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-              <span class="text-content-tertiary text-p3">
-                ({{ formatNumber(nanoToValue(position.liquidationLTV, 2)) }}%)
-              </span>
             </p>
           </div>
           <div class="flex justify-between items-center flex-wrap gap-8">
             <p class="text-content-tertiary">
-              Your health
+              Health score
             </p>
 
             <p
               v-if="position.health !== estimateHealth"
               class="text-p2 text-content-tertiary"
             >
-              {{ formatNumber(nanoToValue(position.health, 18)) }} → <span class="text-content-primary">{{ formatNumber(nanoToValue(estimateHealth, 18)) }}</span>
+              {{ formatHealthScore(nanoToValue(position.health, 18)) }} → <span class="text-content-primary">{{ formatHealthScore(nanoToValue(estimateHealth, 18)) }}</span>
             </p>
             <p
               v-else
               class="text-p2 text-content-primary"
             >
-              {{ formatNumber(nanoToValue(position.health, 18)) }}
+              {{ formatHealthScore(nanoToValue(position.health, 18)) }}
             </p>
           </div>
         </VaultFormInfoBlock>
@@ -1388,10 +1391,14 @@ onUnmounted(() => {
           </div>
           <div class="flex justify-between items-start">
             <p class="text-content-tertiary shrink-0 mr-12">
-              Current price
+              Swap price
             </p>
-            <p class="text-p2 text-right">
-              {{ swapCurrentPrice ? `${formatNumber(swapCurrentPrice.value)} ${swapCurrentPrice.symbol}` : '-' }}
+            <p class="text-p2 text-right inline-flex items-center">
+              {{ swapCurrentPrice ? formatSmartAmount(swapPriceInvert.invertValue(swapCurrentPrice.value)) : '-' }}
+              <span v-if="swapCurrentPrice" class="text-content-tertiary text-p3 ml-4">{{ swapPriceInvert.displaySymbol }}</span>
+              <button v-if="swapCurrentPrice" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="swapPriceInvert.toggle">
+                <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+              </button>
             </p>
           </div>
           <div class="flex justify-between items-center">
@@ -1400,42 +1407,32 @@ onUnmounted(() => {
             </p>
             <p class="text-p2">
               <template v-if="swapCurrentLiquidationPrice !== null && swapNextLiquidationPrice !== null && swapQuote">
-                <span class="text-content-tertiary">{{ formatNumber(swapCurrentLiquidationPrice, 4) }}</span>
-                → <span class="text-content-primary">{{ formatNumber(swapNextLiquidationPrice, 4) }}</span>
+                <span class="text-content-tertiary">{{ formatSmartAmount(swapPriceInvert.invertValue(swapCurrentLiquidationPrice)) }}</span>
+                → <span class="text-content-primary">{{ formatSmartAmount(swapPriceInvert.invertValue(swapNextLiquidationPrice)) }}</span>
               </template>
               <template v-else>
-                {{ swapCurrentLiquidationPrice !== null ? `${formatNumber(swapCurrentLiquidationPrice, 4)} ` : '-' }}
+                {{ swapPriceInvert.invertValue(swapCurrentLiquidationPrice) != null ? formatSmartAmount(swapPriceInvert.invertValue(swapCurrentLiquidationPrice)!) : '-' }}
               </template>
-              <span class="text-content-tertiary text-p3">
-                {{ swapCollateralVault?.asset.symbol }}
-              </span>
+              <span class="text-content-tertiary text-p3">{{ ' ' + swapPriceInvert.displaySymbol }}</span>
             </p>
           </div>
           <div class="flex justify-between items-center">
             <p class="text-content-tertiary">
-              Your LTV (LLTV)
+              Liquidation LTV
             </p>
             <p class="text-p2 text-right">
-              <template v-if="swapCurrentLtv !== null && swapCurrentLiquidationLtv !== null && swapNextLtv !== null && swapNextLiquidationLtv !== null && swapQuote">
-                <span class="text-content-tertiary">
+              <template v-if="swapNextLtv !== null && swapQuote">
+                <span v-if="swapCurrentLtv !== null" class="text-content-tertiary">
                   {{ formatNumber(swapCurrentLtv) }}%
-                  <span class="text-content-tertiary text-p3">
-                    ({{ formatNumber(swapCurrentLiquidationLtv) }}%)
-                  </span>
+                  →
                 </span>
-                → <span class="text-content-primary">
+                <span class="text-content-primary">
                   {{ formatNumber(swapNextLtv) }}%
-                  <span class="text-content-tertiary text-p3">
-                    ({{ formatNumber(swapNextLiquidationLtv) }}%)
-                  </span>
                 </span>
               </template>
               <template v-else>
-                <span v-if="swapCurrentLtv !== null && swapCurrentLiquidationLtv !== null">
+                <span v-if="swapCurrentLtv !== null">
                   {{ formatNumber(swapCurrentLtv) }}%
-                  <span class="text-content-tertiary text-p3">
-                    ({{ formatNumber(swapCurrentLiquidationLtv) }}%)
-                  </span>
                 </span>
                 <span v-else>-</span>
               </template>
@@ -1443,15 +1440,15 @@ onUnmounted(() => {
           </div>
           <div class="flex justify-between items-center">
             <p class="text-content-tertiary">
-              Your health
+              Health score
             </p>
             <p class="text-p2">
               <template v-if="swapCurrentHealth !== null && swapNextHealth !== null && swapQuote">
-                <span class="text-content-tertiary">{{ formatNumber(swapCurrentHealth, 2) }}</span>
-                → <span class="text-content-primary">{{ formatNumber(swapNextHealth, 2) }}</span>
+                <span class="text-content-tertiary">{{ formatHealthScore(swapCurrentHealth) }}</span>
+                → <span class="text-content-primary">{{ formatHealthScore(swapNextHealth) }}</span>
               </template>
               <template v-else>
-                {{ swapCurrentHealth !== null ? formatNumber(swapCurrentHealth, 2) : '-' }}
+                {{ formatHealthScore(swapCurrentHealth) }}
               </template>
             </p>
           </div>

@@ -30,7 +30,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { formatNumber } from '~/utils/string-utils'
+import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
@@ -53,6 +53,15 @@ const { EVM_PROVIDER_URL } = useEulerConfig()
 const openSlippageSettings = () => {
   modal.open(SlippageSettingsModal)
 }
+
+const swapPriceInvert = usePriceInvert(
+  () => fromVault.value?.asset.symbol,
+  () => toVault.value?.asset.symbol,
+)
+const liqPriceInvert = usePriceInvert(
+  () => toVault.value?.asset.symbol,
+  () => borrowVault.value?.asset.symbol,
+)
 
 const positionIndex = route.params.number as string
 
@@ -875,10 +884,14 @@ const send = async () => {
             </div>
             <div class="flex justify-between items-start">
               <p class="text-content-tertiary shrink-0 mr-12">
-                Current price
+                Swap price
               </p>
-              <p class="text-p2 text-right">
-                {{ currentPrice ? `${formatNumber(currentPrice.value)} ${currentPrice.symbol}` : '-' }}
+              <p class="text-p2 text-right inline-flex items-center">
+                {{ currentPrice ? formatSmartAmount(swapPriceInvert.invertValue(currentPrice.value)) : '-' }}
+                <span v-if="currentPrice" class="text-content-tertiary text-p3 ml-4">{{ swapPriceInvert.displaySymbol }}</span>
+                <button v-if="currentPrice" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="swapPriceInvert.toggle">
+                  <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+                </button>
               </p>
             </div>
             <div class="flex justify-between items-center">
@@ -887,42 +900,37 @@ const send = async () => {
               </p>
               <p class="text-p2">
                 <template v-if="currentLiquidationPrice !== null && nextLiquidationPrice !== null && quote">
-                  <span class="text-content-tertiary">{{ formatNumber(currentLiquidationPrice, 4) }}</span>
-                  → <span class="text-content-primary">{{ formatNumber(nextLiquidationPrice, 4) }}</span>
+                  <span class="text-content-tertiary">{{ formatSmartAmount(liqPriceInvert.invertValue(currentLiquidationPrice)) }}</span>
+                  → <span class="text-content-primary">{{ formatSmartAmount(liqPriceInvert.invertValue(nextLiquidationPrice)) }}</span>
                 </template>
                 <template v-else>
-                  {{ currentLiquidationPrice !== null ? formatNumber(currentLiquidationPrice, 4) : '-' }}
+                  {{ liqPriceInvert.invertValue(currentLiquidationPrice) != null ? formatSmartAmount(liqPriceInvert.invertValue(currentLiquidationPrice)!) : '-' }}
                 </template>
-                <span class="text-content-tertiary text-p3">
-                  {{ fromVault?.asset.symbol }}
+                <span class="text-content-tertiary text-p3 inline-flex items-center">
+                  {{ ' ' + liqPriceInvert.displaySymbol }}
+                  <button type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="liqPriceInvert.toggle">
+                    <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+                  </button>
                 </span>
               </p>
             </div>
             <div class="flex justify-between items-center">
               <p class="text-content-tertiary">
-                Your LTV (LLTV)
+                Liquidation LTV
               </p>
               <p class="text-p2 text-right">
-                <template v-if="currentLtv !== null && currentLiquidationLtv !== null && nextLtv !== null && nextLiquidationLtv !== null && quote">
-                  <span class="text-content-tertiary">
+                <template v-if="nextLtv !== null && quote">
+                  <span v-if="currentLtv !== null" class="text-content-tertiary">
                     {{ formatNumber(currentLtv) }}%
-                    <span class="text-content-tertiary text-p3">
-                      ({{ formatNumber(currentLiquidationLtv) }}%)
-                    </span>
+                    →
                   </span>
-                  → <span class="text-content-primary">
+                  <span class="text-content-primary">
                     {{ formatNumber(nextLtv) }}%
-                    <span class="text-content-tertiary text-p3">
-                      ({{ formatNumber(nextLiquidationLtv) }}%)
-                    </span>
                   </span>
                 </template>
                 <template v-else>
-                  <span v-if="currentLtv !== null && currentLiquidationLtv !== null">
+                  <span v-if="currentLtv !== null">
                     {{ formatNumber(currentLtv) }}%
-                    <span class="text-content-tertiary text-p3">
-                      ({{ formatNumber(currentLiquidationLtv) }}%)
-                    </span>
                   </span>
                   <span v-else>-</span>
                 </template>
@@ -930,15 +938,15 @@ const send = async () => {
             </div>
             <div class="flex justify-between items-center">
               <p class="text-content-tertiary">
-                Your health
+                Health score
               </p>
               <p class="text-p2">
                 <template v-if="currentHealth !== null && nextHealth !== null && quote">
-                  <span class="text-content-tertiary">{{ formatNumber(currentHealth, 2) }}</span>
-                  → <span class="text-content-primary">{{ formatNumber(nextHealth, 2) }}</span>
+                  <span class="text-content-tertiary">{{ formatHealthScore(currentHealth) }}</span>
+                  → <span class="text-content-primary">{{ formatHealthScore(nextHealth) }}</span>
                 </template>
                 <template v-else>
-                  {{ currentHealth !== null ? formatNumber(currentHealth, 2) : '-' }}
+                  {{ formatHealthScore(currentHealth) }}
                 </template>
               </p>
             </div>

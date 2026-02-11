@@ -29,30 +29,26 @@ const isFocused = ref(false)
 
 const selectedIdx = ref(0)
 const friendlyBalance = computed(() => nanoToValue(props.balance ?? 0n, props.asset?.decimals || 18))
-const price = ref<number | null>(null)
+
+// Fetch USD unit price (re-runs when vault changes)
+const usdUnitPrice = ref<number | null>(null)
 
 watchEffect(async () => {
-  // Use priceOverride if provided (for securitize vaults etc.)
-  if (props.priceOverride !== undefined) {
-    price.value = props.priceOverride * (+model.value || 0)
-    return
-  }
-
   if (!props.vault) {
-    price.value = null
+    usdUnitPrice.value = null
     return
   }
-
-  // Get price info to check if price is actually available
   const priceInfo = await getAssetUsdPrice(props.vault, 'off-chain')
-  if (!priceInfo) {
-    price.value = null
-    return
-  }
+  usdUnitPrice.value = priceInfo ? nanoToValue(priceInfo.amountOutMid, 18) : null
+})
 
-  const tokenAmount = +model.value || 0
-  const usdPrice = nanoToValue(priceInfo.amountOutMid, 18)
-  price.value = tokenAmount * usdPrice
+// Display price (synchronous computed — tracks model.value reactively)
+const price = computed(() => {
+  if (props.priceOverride !== undefined) {
+    return props.priceOverride * (+model.value || 0)
+  }
+  if (usdUnitPrice.value === null) return null
+  return (+model.value || 0) * usdUnitPrice.value
 })
 
 const hasPrice = computed(() => price.value !== null)

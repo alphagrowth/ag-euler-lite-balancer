@@ -23,7 +23,7 @@ import {
 import { type AccountBorrowPosition, isPositionEligibleForLiquidation } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl, nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
-import { formatNumber, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
+import { formatNumber, formatHealthScore, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal, VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -702,7 +702,7 @@ watch(isConnected, () => {
           <div class="text-neutral-800 text-p3">
             <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
             <template v-else>
-              {{ formatNumber(nanoToValue(position.health, 18)) }}
+              {{ formatHealthScore(nanoToValue(position.health, 18)) }}
             </template>
           </div>
         </div>
@@ -719,7 +719,7 @@ watch(isConnected, () => {
         </div>
         <div class="flex justify-between gap-8 flex-wrap mb-12">
           <div class="text-neutral-500 text-p3">
-            Your LTV
+            Liquidation LTV
           </div>
           <div class="text-neutral-800 text-p3">
             <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
