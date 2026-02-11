@@ -1,5 +1,5 @@
 import { detectCountry } from '~/services/country'
-import { getVaultBlock, getEarnVaultBlock } from '~/composables/useEulerLabels'
+import { getVaultBlock, getEarnVaultBlock, isVaultDeprecated } from '~/composables/useEulerLabels'
 import { SANCTIONED_COUNTRIES, COUNTRY_GROUPS } from '~/entities/constants'
 
 const country = ref<string | null>(null)
@@ -41,4 +41,11 @@ export const isVaultBlockedByCountry = (vaultAddress: string): boolean => {
 
 export const isAnyVaultBlockedByCountry = (...addresses: string[]): boolean => {
   return addresses.some(addr => isVaultBlockedByCountry(addr))
+}
+
+export const getVaultTags = (vaultAddress: string): { tags: string[], disabled: boolean } => {
+  const tags: string[] = []
+  if (isVaultBlockedByCountry(vaultAddress)) tags.push('Restricted')
+  if (isVaultDeprecated(vaultAddress)) tags.push('Deprecated')
+  return { tags, disabled: tags.length > 0 }
 }

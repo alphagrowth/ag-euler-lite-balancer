@@ -411,6 +411,8 @@ export interface CollateralOption {
   symbol?: string
   assetAddress?: string
   vaultAddress?: string
+  disabled?: boolean
+  tags?: string[]
 }
 
 const resolveAssetPriceInfo = async (

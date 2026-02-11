@@ -4,6 +4,7 @@ import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
+import { getVaultTags } from '~/composables/useGeoBlock'
 
 export const useSwapDebtOptions = ({
   collateralVault,
@@ -55,6 +56,8 @@ export const useSwapDebtOptions = ({
       const baseApy = nanoToValue(vault.interestRateInfo.borrowAPY || 0n, 25)
       const apy = withIntrinsicBorrowApy(baseApy, vault.asset.symbol) - getBorrowRewardApy(vault.asset.address, vault.address)
 
+      const { tags, disabled } = getVaultTags(vault.address)
+
       return {
         type: 'vault',
         amount: 0,
@@ -64,6 +67,8 @@ export const useSwapDebtOptions = ({
         assetAddress: vault.asset.address,
         label: product.name || vault.name,
         vaultAddress: vault.address,
+        tags,
+        disabled,
       }
     }))
     borrowOptions.value = options

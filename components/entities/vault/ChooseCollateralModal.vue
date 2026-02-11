@@ -51,10 +51,13 @@ const handleClose = () => {
       <div
         v-for="{ option, idx } in filteredOptions"
         :key="`options-${idx}`"
-        class="flex items-center py-12 px-16 cursor-pointer rounded-16"
-        :class="[selectedIdx === idx ? 'bg-euler-dark-600' : '']"
+        class="flex items-center py-12 px-16 rounded-16"
+        :class="[
+          option.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+          selectedIdx === idx && !option.disabled ? 'bg-euler-dark-600' : '',
+        ]"
         @click="
-          selectedIdx = idx;onSave(idx)
+          if (!option.disabled) { selectedIdx = idx;onSave(idx) }
         "
       >
         <BaseAvatar
@@ -86,6 +89,14 @@ const handleClose = () => {
             >
               Escrowed collateral
             </div>
+            <span
+              v-for="tag in (option.tags || [])"
+              :key="tag"
+              class="ml-6 inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+            >
+              <SvgIcon name="warning" class="!w-14 !h-14" />
+              {{ tag }}
+            </span>
           </div>
         </div>
         <div class="text-right grow-1">

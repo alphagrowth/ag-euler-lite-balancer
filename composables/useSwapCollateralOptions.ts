@@ -4,6 +4,7 @@ import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
+import { getVaultTags } from '~/composables/useGeoBlock'
 
 export const useSwapCollateralOptions = ({
   currentVault,
@@ -75,6 +76,7 @@ export const useSwapCollateralOptions = ({
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
 
       const optionType = vault.vaultCategory === 'escrow' ? 'escrow' : 'vault'
+      const { tags, disabled } = getVaultTags(vault.address)
 
       return {
         type: optionType,
@@ -85,6 +87,8 @@ export const useSwapCollateralOptions = ({
         assetAddress: vault.asset.address,
         label: product.name || vault.name,
         vaultAddress: vault.address,
+        tags,
+        disabled,
       }
     }))
     collateralOptions.value = options

@@ -12,12 +12,12 @@ import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice, conservativePriceRatio, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isAnyVaultBlockedByCountry, getVaultTags } from '~/composables/useGeoBlock'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
-import { formatNumber, trimTrailingZeros } from '~/utils/string-utils'
+import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import type { TxPlan } from '~/entities/txPlan'
 
@@ -422,6 +422,9 @@ watchEffect(async () => {
 })
 
 const collateralOptions = computed(() => {
+  const vaultAddr = collateralVault.value?.address || ''
+  const { tags, disabled } = getVaultTags(vaultAddr)
+
   const options = [
     {
       type: 'wallet',
@@ -429,6 +432,8 @@ const collateralOptions = computed(() => {
       price: walletCollateralPriceUsd.value,
       apy: collateralSupplyApyWithRewards.value,
       assetAddress: collateralVault.value?.asset.address,
+      tags,
+      disabled,
     },
   ]
 
@@ -439,6 +444,8 @@ const collateralOptions = computed(() => {
       price: savingCollateralPriceUsd.value,
       apy: collateralSupplyApyWithRewards.value,
       assetAddress: collateralVault.value?.asset.address,
+      tags,
+      disabled,
     })
   }
   return options
@@ -600,27 +607,29 @@ const multiplySupplyValueUsd = ref<number | null>(null)
 const multiplyLongValueUsd = ref<number | null>(null)
 const multiplyBorrowValueUsd = ref<number | null>(null)
 
+// Separate watchEffects so each tracks its own reactive deps (async breaks tracking after first await)
 watchEffect(async () => {
   if (!multiplySupplyVault.value || !multiplySupplyAmountNano.value) {
     multiplySupplyValueUsd.value = null
+    return
   }
-  else {
-    multiplySupplyValueUsd.value = await getAssetUsdValueOrZero(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')
-  }
+  multiplySupplyValueUsd.value = await getAssetUsdValueOrZero(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')
+})
 
+watchEffect(async () => {
   if (!multiplyLongVault.value || !multiplySwapAmountOut.value) {
     multiplyLongValueUsd.value = null
+    return
   }
-  else {
-    multiplyLongValueUsd.value = await getAssetUsdValueOrZero(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
-  }
+  multiplyLongValueUsd.value = await getAssetUsdValueOrZero(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+})
 
+watchEffect(async () => {
   if (!multiplyShortVault.value || !multiplyDebtAmountNano.value) {
     multiplyBorrowValueUsd.value = null
+    return
   }
-  else {
-    multiplyBorrowValueUsd.value = await getAssetUsdValueOrZero(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')
-  }
+  multiplyBorrowValueUsd.value = await getAssetUsdValueOrZero(multiplyDebtAmountNano.value, multiplyShortVault.value, 'off-chain')
 })
 const multiplyTotalSupplyUsd = computed(() => {
   if (multiplySupplyValueUsd.value === null) {
@@ -702,7 +711,7 @@ const multiplyNextLtv = computed(() => {
   }
   return (multiplyBorrowValueUsd.value / multiplyTotalSupplyUsd.value) * 100
 })
-const multiplyCurrentLiquidationLtv = computed(() => multiplyLiquidationLtv.value)
+const multiplyCurrentLiquidationLtv = computed(() => null as number | null)
 const multiplyNextLiquidationLtv = computed(() => multiplyLiquidationLtv.value)
 const multiplyNextHealth = computed(() => {
   if (isMultiplyQuoteLoading.value) {
@@ -745,7 +754,7 @@ const multiplyCurrentLiquidationPrice = computed(() => {
     return null
   }
   if (!Number.isFinite(multiplyCurrentHealth.value)) {
-    return Number.POSITIVE_INFINITY
+    return null
   }
   if (multiplyCurrentHealth.value <= 0) {
     return null
@@ -791,8 +800,8 @@ const multiplySwapSummary = computed(() => {
   const amountIn = formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals))
   const amountOut = formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals))
   return {
-    from: `${formatNumber(amountIn)} ${multiplyShortVault.value.asset.symbol}`,
-    to: `${formatNumber(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
+    from: `${formatSmartAmount(amountIn)} ${multiplyShortVault.value.asset.symbol}`,
+    to: `${formatSmartAmount(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
   }
 })
 // Reactive multiply price impact
@@ -807,8 +816,13 @@ watchEffect(async () => {
     multiplyPriceImpact.value = null
     return
   }
-  const amountInUsd = await getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value, 'off-chain')
-  const amountOutUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+  // Capture all reactive deps synchronously before any await
+  const swapIn = multiplySwapAmountIn.value
+  const swapOut = multiplySwapAmountOut.value
+  const shortVault = multiplyShortVault.value
+  const longVault = multiplyLongVault.value
+  const amountInUsd = await getAssetUsdValue(swapIn, shortVault, 'off-chain')
+  const amountOutUsd = await getAssetUsdValue(swapOut, longVault, 'off-chain')
   if (!amountInUsd || !amountOutUsd) {
     multiplyPriceImpact.value = null
     return
@@ -1654,13 +1668,11 @@ watch(formTab, () => {
               </div>
               <div class="flex justify-between items-center">
                 <p class="text-content-tertiary">
-                  Current Price
+                  Current price
                 </p>
                 <p class="text-p2">
-                  {{ !priceFixed.isZero() ? formatNumber(priceFixed.toUnsafeFloat()) : '-' }}
-                  <span class="text-content-tertiary text-p3">
-                    {{ collateralVault?.asset.symbol }}/{{ borrowVault?.asset.symbol }}
-                  </span>
+                  {{ !priceFixed.isZero() ? formatSmartAmount(priceFixed.toUnsafeFloat()) : '-' }}
+                  <span class="text-content-tertiary text-p3">{{ ' ' + collateralVault?.asset.symbol + '/' + borrowVault?.asset.symbol }}</span>
                 </p>
               </div>
               <div class="flex justify-between items-center">
@@ -1668,18 +1680,16 @@ watch(formTab, () => {
                   Liquidation price
                 </p>
                 <p class="text-p2">
-                  {{ liquidationPrice ? formatNumber(liquidationPrice, 4) : '-' }}
-                  <span class="text-content-tertiary text-p3">
-                    {{ collateralVault?.asset.symbol }}
-                  </span>
+                  {{ liquidationPrice ? formatSmartAmount(liquidationPrice) : '-' }}
+                  <span class="text-content-tertiary text-p3">{{ ' ' + collateralVault?.asset.symbol + '/' + borrowVault?.asset.symbol }}</span>
                 </p>
               </div>
               <div class="flex justify-between items-center">
                 <p class="text-content-tertiary">
-                  Health
+                  Health score
                 </p>
                 <p class="text-p2">
-                  {{ health ? formatNumber(health, 2) : '-' }}
+                  {{ formatHealthScore(health) }}
                 </p>
               </div>
             </VaultFormInfoBlock>
@@ -1796,7 +1806,7 @@ watch(formTab, () => {
                       Current price
                     </p>
                     <p class="text-p2 text-right">
-                      {{ multiplyCurrentPrice ? `${formatNumber(multiplyCurrentPrice.value)} ${multiplyCurrentPrice.symbol}` : '-' }}
+                      {{ multiplyCurrentPrice ? `${formatSmartAmount(multiplyCurrentPrice.value)} ${multiplyCurrentPrice.symbol}` : '-' }}
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
@@ -1804,59 +1814,41 @@ watch(formTab, () => {
                       Liquidation price
                     </p>
                     <p class="text-p2">
-                      <template v-if="multiplyCurrentLiquidationPrice !== null && multiplyNextLiquidationPrice !== null && multiplySwapReady">
-                        <span class="text-content-tertiary">{{ formatNumber(multiplyCurrentLiquidationPrice, 4) }}</span>
-                        → <span class="text-content-primary">{{ formatNumber(multiplyNextLiquidationPrice, 4) }}</span>
+                      <template v-if="multiplyNextLiquidationPrice !== null && multiplySwapReady">
+                        <span class="text-content-tertiary">{{ multiplyCurrentLiquidationPrice !== null ? formatSmartAmount(multiplyCurrentLiquidationPrice) : '-' }}</span>
+                        → <span class="text-content-primary">{{ formatSmartAmount(multiplyNextLiquidationPrice) }}</span>
                       </template>
                       <template v-else>
-                        {{ multiplyCurrentLiquidationPrice !== null ? formatNumber(multiplyCurrentLiquidationPrice, 4) : '-' }}
+                        {{ multiplyCurrentLiquidationPrice !== null ? formatSmartAmount(multiplyCurrentLiquidationPrice) : '-' }}
                       </template>
-                      <span class="text-content-tertiary text-p3">
-                        {{ multiplyLongVault?.asset.symbol }}
-                      </span>
+                      <span class="text-content-tertiary text-p3">{{ ' ' + multiplyShortVault?.asset.symbol + '/' + multiplyLongVault?.asset.symbol }}</span>
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
                     <p class="text-content-tertiary">
-                      Your LTV (LLTV)
+                      Liquidation LTV
                     </p>
                     <p class="text-p2 text-right">
-                      <template v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null && multiplyNextLtv !== null && multiplyNextLiquidationLtv !== null && multiplySwapReady">
-                        <span class="text-content-tertiary">
-                          {{ formatNumber(multiplyCurrentLtv) }}%
-                          <span class="text-content-tertiary text-p3">
-                            ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
-                          </span>
-                        </span>
-                        → <span class="text-content-primary">
-                          {{ formatNumber(multiplyNextLtv) }}%
-                          <span class="text-content-tertiary text-p3">
-                            ({{ formatNumber(multiplyNextLiquidationLtv) }}%)
-                          </span>
-                        </span>
+                      <template v-if="multiplyNextLiquidationLtv !== null && multiplySwapReady">
+                        <span class="text-content-tertiary">{{ multiplyCurrentLiquidationLtv !== null ? `${formatNumber(multiplyCurrentLiquidationLtv)}%` : '-' }}</span>
+                        → <span class="text-content-primary">{{ formatNumber(multiplyNextLiquidationLtv) }}%</span>
                       </template>
                       <template v-else>
-                        <span v-if="multiplyCurrentLtv !== null && multiplyCurrentLiquidationLtv !== null">
-                          {{ formatNumber(multiplyCurrentLtv) }}%
-                          <span class="text-content-tertiary text-p3">
-                            ({{ formatNumber(multiplyCurrentLiquidationLtv) }}%)
-                          </span>
-                        </span>
-                        <span v-else>-</span>
+                        {{ multiplyNextLiquidationLtv !== null ? `${formatNumber(multiplyNextLiquidationLtv)}%` : '-' }}
                       </template>
                     </p>
                   </div>
                   <div class="flex justify-between items-center">
                     <p class="text-content-tertiary">
-                      Your health
+                      Health score
                     </p>
                     <p class="text-p2">
                       <template v-if="multiplyCurrentHealth !== null && multiplyNextHealth !== null && multiplySwapReady">
-                        <span class="text-content-tertiary">{{ formatNumber(multiplyCurrentHealth, 2) }}</span>
-                        → <span class="text-content-primary">{{ formatNumber(multiplyNextHealth, 2) }}</span>
+                        <span class="text-content-tertiary">{{ formatHealthScore(multiplyCurrentHealth) }}</span>
+                        → <span class="text-content-primary">{{ formatHealthScore(multiplyNextHealth) }}</span>
                       </template>
                       <template v-else>
-                        {{ multiplyCurrentHealth !== null ? formatNumber(multiplyCurrentHealth, 2) : '-' }}
+                        {{ formatHealthScore(multiplyCurrentHealth) }}
                       </template>
                     </p>
                   </div>

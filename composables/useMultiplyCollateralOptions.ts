@@ -4,6 +4,7 @@ import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
+import { getVaultTags } from '~/composables/useGeoBlock'
 
 type CollateralItem = {
   vault: Vault
@@ -64,6 +65,8 @@ export const useMultiplyCollateralOptions = ({
       const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
 
+      const { tags, disabled } = getVaultTags(vault.address)
+
       return {
         vault,
         option: {
@@ -75,6 +78,8 @@ export const useMultiplyCollateralOptions = ({
           assetAddress: vault.asset.address,
           label: product.name || vault.name,
           vaultAddress: vault.address,
+          tags,
+          disabled,
         },
       } as CollateralItem
     }))
@@ -104,6 +109,8 @@ export const useMultiplyCollateralOptions = ({
       const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
 
+      const { tags, disabled } = getVaultTags(vault.address)
+
       return {
         vault,
         option: {
@@ -115,6 +122,8 @@ export const useMultiplyCollateralOptions = ({
           assetAddress: vault.asset.address,
           label: product.name || vault.name,
           vaultAddress: vault.address,
+          tags,
+          disabled,
         },
       } as CollateralItem
     }))

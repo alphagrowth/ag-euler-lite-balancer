@@ -65,6 +65,13 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 - Read path (simulation) and write path (transactions)
 - Feed collection and batch building
 
+### 🌍 [Geo-Blocking](./geo-blocking.md)
+
+- Country detection and sanctioned country lists
+- Product-level and per-vault blocking overrides
+- Country group aliases (EU, EEA, EFTA)
+- UI enforcement across browse, detail, action, and modal pages
+
 ## 🎯 Project Overview
 
 **Euler Lite** is a lightweight multi-chain DeFi application that provides lending and borrowing services through the Euler Finance protocol. It supports multiple EVM chains and connects via standard EVM wallets. The application allows users to:
