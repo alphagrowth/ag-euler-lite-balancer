@@ -11,7 +11,7 @@ Certain jurisdictions are prohibited from interacting with specific vaults (or a
 3. Evaluates soft restriction rules that prevent users from acquiring more exposure to a restricted asset.
 4. Prevents blocked users from submitting transactions while still showing blocked vaults in the UI (dimmed, with a "Restricted" chip).
 
-Users with existing positions in newly-blocked vaults can still view and withdraw, but cannot open new positions or perform other operations.
+Users with existing lending deposits in newly-blocked vaults can still view and withdraw. For borrow positions where any vault (collateral or borrow) is blocked, only repay is possible — supply, withdraw, and all other operations are disabled.
 
 ## Blocked vs Restricted
 
@@ -19,22 +19,26 @@ The system distinguishes two levels of geographic restriction:
 
 ### Blocked (Hard Block)
 
-A vault that is **blocked** for the user's country prevents **all** operations except withdraw and repay. The UI shows opacity dimming and a "Restricted" chip on all browse pages. This is the existing behavior.
+A vault that is **blocked** for the user's country prevents **all** new operations. The UI shows opacity dimming and a "Restricted" chip on all browse pages.
+
+- **Lending deposits** (`/lend/[vault]`): withdraw is always allowed (no geo check on the withdraw page). Supply is blocked.
+- **Borrow positions** (`/position/[number]`): the geo check uses `isAnyVaultBlockedByCountry` across **all** vaults in the position (borrow + collaterals). If any vault is blocked, only **Repay** remains enabled — Supply, Withdraw, Multiply, Borrow, Collateral Swap, and Debt Swap are all disabled.
 
 ### Restricted (Soft Block)
 
 A vault that is **restricted** for the user's country prevents the user from **acquiring more exposure** to the asset through the app. Operations that use assets already in the user's wallet, or that reduce exposure, remain allowed.
 
-| Action | Blocked | Restricted |
-|--------|---------|------------|
-| Supply from wallet | NO | YES |
-| Earn deposit from wallet | NO | YES |
-| Withdraw | YES | YES |
-| Repay | YES | YES |
-| Borrow from this vault | NO | **NO** |
-| Multiply (as long or short) | NO | **NO** |
-| Swap collateral/debt TO this vault | NO | **NO** |
-| Swap collateral/debt FROM this vault | NO | YES |
+| Action | Blocked (lending deposit) | Blocked (borrow position) | Restricted |
+|--------|--------------------------|---------------------------|------------|
+| Supply from wallet | NO | NO | YES |
+| Earn deposit from wallet | NO | NO | YES |
+| Withdraw (lending deposit) | YES | — | YES |
+| Withdraw (position collateral) | — | NO | YES |
+| Repay | — | YES | YES |
+| Borrow from this vault | NO | NO | **NO** |
+| Multiply (as long or short) | NO | NO | **NO** |
+| Swap collateral/debt TO this vault | NO | NO | **NO** |
+| Swap collateral/debt FROM this vault | NO | NO | YES |
 
 When both collateral AND borrow vault in a pair are restricted, the pair is treated as **effectively blocked** — identical to a hard block in the UI. On the borrow browse page this means opacity dimming + "Restricted" chip. On the position overview, all buttons except Repay are disabled and the same "Region restricted" toast is shown as for hard-blocked positions.
 
