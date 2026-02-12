@@ -65,11 +65,13 @@ export const useSwapCollateralOptions = ({
   })
 
   const collateralOptions = ref<CollateralOption[]>([])
+  let optionsVersion = 0
 
   watchEffect(async () => {
     const vaults = collateralVaults.value
     void rewardsVersion.value
     void intrinsicVersion.value
+    const myVersion = ++optionsVersion
     const options = await Promise.all(vaults.map(async (vault) => {
       const balance = getBalance(vault.asset.address as Address)
       const amount = nanoToValue(balance, vault.asset.decimals)
@@ -93,6 +95,7 @@ export const useSwapCollateralOptions = ({
         disabled,
       }
     }))
+    if (myVersion !== optionsVersion) return
     collateralOptions.value = options
   })
 

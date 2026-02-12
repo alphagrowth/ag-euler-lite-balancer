@@ -123,7 +123,7 @@ load()
           <VaultLabelsAndAssets
             :vault="getExposureVaultByAddress(exposure.info.vault) as Vault"
             :assets="[{
-              address: exposure.info.vault,
+              address: exposure.info.asset,
               decimals: exposure.info.assetDecimals,
               name: exposure.info.assetName,
               symbol: exposure.info.assetSymbol,

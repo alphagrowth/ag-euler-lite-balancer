@@ -419,11 +419,13 @@ const multiplyPriceRatio = computed(() => {
   return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
 const multiplyCurrentLiquidationPrice = computed(() => {
-  if (!position.value?.price) {
+  if (!multiplyPriceRatio.value || !multiplyCurrentHealth.value) {
     return null
   }
-  const value = nanoToValue(position.value.price, 18)
-  return value > 0 ? value : null
+  if (multiplyCurrentHealth.value <= 0) {
+    return null
+  }
+  return multiplyPriceRatio.value / multiplyCurrentHealth.value
 })
 const multiplyNextLiquidationPrice = computed(() => {
   if (!multiplyPriceRatio.value || !multiplyNextHealth.value) {

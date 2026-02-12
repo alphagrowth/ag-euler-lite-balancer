@@ -46,11 +46,13 @@ export const useSwapDebtOptions = ({
   })
 
   const borrowOptions = ref<CollateralOption[]>([])
+  let optionsVersion = 0
 
   watchEffect(async () => {
     const vaults = borrowVaults.value
     void rewardsVersion.value
     void intrinsicVersion.value
+    const myVersion = ++optionsVersion
     const options = await Promise.all(vaults.map(async (vault) => {
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.borrowAPY || 0n, 25)
@@ -71,6 +73,7 @@ export const useSwapDebtOptions = ({
         disabled,
       }
     }))
+    if (myVersion !== optionsVersion) return
     borrowOptions.value = options
   })
 

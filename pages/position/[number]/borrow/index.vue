@@ -152,8 +152,7 @@ const load = async () => {
   }
   const collateralAddress = position.value.collateral.address
   const borrowAddress = position.value.borrow.address
-  collateralAmount.value = `${nanoToValue(position.value.supplied, position.value.collateral.decimals)}`
-  userLTV.value = Number(formatNumber(nanoToValue(position.value.userLTV, 18)))
+  userLTV.value = Number(formatNumber(nanoToValue(position.value.userLTV, 2)))
   ltv.value = userLTV.value
   try {
     pair.value = await getBorrowVaultPair(collateralAddress as string, borrowAddress as string) as BorrowVaultPair

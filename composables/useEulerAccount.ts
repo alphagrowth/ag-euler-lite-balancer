@@ -512,8 +512,8 @@ const updateBorrowPositions = async (
           : FixedPoint.fromValue(collateralValueLiquidation, 18).div(FixedPoint.fromValue(liabilityValueBorrowing, 18))
 
         const userLTVFixed = healthFixed.isZero()
-          ? FixedPoint.fromValue(0n, 2)
-          : FixedPoint.fromValue(liquidationLTV, 2).div(healthFixed)
+          ? FixedPoint.fromValue(0n, 18)
+          : FixedPoint.fromValue(liquidationLTV * (10n ** 16n), 18).div(healthFixed)
         const userLTV = userLTVFixed.value
 
         // Get collateral price in USD for liquidation price calculation
@@ -527,9 +527,7 @@ const updateBorrowPositions = async (
         const supplyLiquidationPriceRatio = collateralValueLiquidation === 0n
           ? FixedPoint.fromValue(0n, 18)
           : FixedPoint.fromValue(liabilityValueBorrowing, 18)
-              .sub(FixedPoint.fromValue(collateralValueLiquidation, 18))
               .div(FixedPoint.fromValue(collateralValueLiquidation, 18))
-              .add(FixedPoint.fromValue(1n, 0))
 
         // Use USD price for display (already converted from UoA)
         const currentCollateralPriceUsd = FixedPoint.fromValue(collateralPriceUsd.amountOutMid, 18)
