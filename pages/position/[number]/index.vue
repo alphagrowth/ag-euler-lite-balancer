@@ -24,7 +24,7 @@ import { type AccountBorrowPosition, isPositionEligibleForLiquidation } from '~/
 import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl, nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { formatNumber, formatHealthScore, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal, VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -95,6 +95,22 @@ const isPositionGeoBlocked = computed(() => {
     : [position.value.collateral.address]
   addresses.push(...collateralAddresses)
   return isAnyVaultBlockedByCountry(...addresses)
+})
+
+const isBorrowRestricted = computed(() =>
+  position.value ? isVaultRestrictedByCountry(position.value.borrow.address) : false)
+
+const isMultiplyRestricted = computed(() => {
+  if (!position.value) return false
+  return isVaultRestrictedByCountry(position.value.borrow.address)
+    || isVaultRestrictedByCountry(position.value.collateral.address)
+})
+
+// Both vaults restricted = pair effectively blocked (no borrow, no multiply, no useful swaps)
+const isPairFullyRestricted = computed(() => {
+  if (!position.value) return false
+  return isVaultRestrictedByCountry(position.value.borrow.address)
+    && isVaultRestrictedByCountry(position.value.collateral.address)
 })
 
 const supplyRewardAPY = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
@@ -829,10 +845,19 @@ watch(isConnected, () => {
               persistent
             />
             <UiToast
-              v-if="isPositionGeoBlocked"
+              v-if="isPositionGeoBlocked || isPairFullyRestricted"
               class="my-12"
               title="Region restricted"
-              description="This vault is not available in your region. You can still repay debt."
+              description="This pair is not available in your region. You can still repay existing debt."
+              variant="warning"
+              size="compact"
+              persistent
+            />
+            <UiToast
+              v-if="!isPositionGeoBlocked && !isPairFullyRestricted && (isBorrowRestricted || isMultiplyRestricted)"
+              class="my-12"
+              title="Asset restricted"
+              description="Some operations on this pair are restricted in your region. Supply, withdraw, and repay remain available."
               variant="warning"
               size="compact"
               persistent
@@ -845,8 +870,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary"
                 rounded
-                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure"
-                :to="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/multiply`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || isMultiplyRestricted || hasQueryFailure"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked || isMultiplyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/multiply`"
               >
                 Multiply
               </UiButton>
@@ -854,8 +879,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure"
-                :to="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow`"
+                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || isBorrowRestricted || hasQueryFailure"
+                :to="isEligibleForLiquidation || isPositionGeoBlocked || isBorrowRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow`"
               >
                 Borrow
               </UiButton>
@@ -871,8 +896,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :disabled="isPositionGeoBlocked || hasQueryFailure"
-                :to="isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow/swap`"
+                :disabled="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure"
+                :to="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow/swap`"
               >
                 Debt swap
               </UiButton>
@@ -995,8 +1020,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary"
                   rounded
-                  :disabled="isPositionGeoBlocked"
-                  :to="isPositionGeoBlocked ? undefined : `/position/${positionIndex}/supply?collateral=${collateral.vault.address}`"
+                  :disabled="isPositionGeoBlocked || isPairFullyRestricted"
+                  :to="isPositionGeoBlocked || isPairFullyRestricted ? undefined : `/position/${positionIndex}/supply?collateral=${collateral.vault.address}`"
                 >
                   Supply
                 </UiButton>
@@ -1004,8 +1029,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :disabled="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure"
-                  :to="isEligibleForLiquidation || isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
+                  :disabled="isEligibleForLiquidation || isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure"
+                  :to="isEligibleForLiquidation || isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/withdraw?collateral=${collateral.vault.address}`"
                 >
                   Withdraw
                 </UiButton>
@@ -1013,8 +1038,8 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary-stroke"
                   rounded
-                  :disabled="isPositionGeoBlocked || hasQueryFailure"
-                  :to="isPositionGeoBlocked || hasQueryFailure ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
+                  :disabled="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure"
+                  :to="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
                 >
                   Collateral swap
                 </UiButton>

@@ -4,14 +4,16 @@ import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getVaultTags } from '~/composables/useGeoBlock'
+import { getVaultTags, type VaultTagContext } from '~/composables/useGeoBlock'
 
 export const useSwapCollateralOptions = ({
   currentVault,
   liabilityVault,
+  tagContext = 'swap-target',
 }: {
   currentVault: Ref<Vault | undefined>
   liabilityVault?: Ref<Vault | undefined>
+  tagContext?: VaultTagContext
 }) => {
   const { borrowList } = useVaults()
   const { getVault: registryGetVault, getVerifiedEvkVaults, getEscrowVaults } = useVaultRegistry()
@@ -76,7 +78,7 @@ export const useSwapCollateralOptions = ({
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
 
       const optionType = vault.vaultCategory === 'escrow' ? 'escrow' : 'vault'
-      const { tags, disabled } = getVaultTags(vault.address)
+      const { tags, disabled } = getVaultTags(vault.address, tagContext)
 
       return {
         type: optionType,

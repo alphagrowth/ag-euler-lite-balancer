@@ -9,7 +9,7 @@ import type { AccountBorrowPosition } from '~/entities/account'
 import { type Vault, type VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
@@ -614,7 +614,7 @@ const onMultiplierInput = () => {
 }
 
 const submitMultiply = async () => {
-  if (isGeoBlocked.value) return
+  if (isGeoBlocked.value || isMultiplyRestricted.value) return
   await guardWithTerms(async () => {
     if (isSubmitting.value || !isConnected.value) {
       return
@@ -744,7 +744,13 @@ const isGeoBlocked = computed(() => {
   if (multiplyShortVault.value) addresses.push(multiplyShortVault.value.address)
   return isAnyVaultBlockedByCountry(...addresses)
 })
-const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplySubmitDisabled.value))
+const isMultiplyRestricted = computed(() => {
+  const long = multiplyLongVault.value
+  const short = multiplyShortVault.value
+  return (long && isVaultRestrictedByCountry(long.address))
+    || (short && isVaultRestrictedByCountry(short.address))
+})
+const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplyRestricted.value || isMultiplySubmitDisabled.value))
 
 const loadPosition = async () => {
   if (!isConnected.value) {
@@ -869,6 +875,13 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             v-if="isGeoBlocked"
             title="Region restricted"
             description="This operation is not available in your region. You can still repay existing debt."
+            variant="warning"
+            size="compact"
+          />
+          <UiToast
+            v-if="!isGeoBlocked && isMultiplyRestricted"
+            title="Asset restricted"
+            description="Multiply is not available for this pair in your region."
             variant="warning"
             size="compact"
           />

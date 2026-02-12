@@ -42,6 +42,7 @@ const entities: Record<string, EulerLabelEntity> = shallowReactive({})
 const points: Record<string, EulerLabelPointReward[]> = shallowReactive({})
 const earnVaults: Ref<string[]> = ref([]) // string of earn vault addresses
 const earnVaultBlocks: Record<string, string[]> = shallowReactive({}) // address (lowercase) -> blocked country codes
+const earnVaultRestrictions: Record<string, string[]> = shallowReactive({}) // address (lowercase) -> restricted country codes
 const featuredEarnVaults: Set<string> = shallowReactive(new Set())
 // Derived from products - all unique vault addresses across all products
 const verifiedVaultAddresses: Ref<string[]> = ref([])
@@ -66,6 +67,7 @@ const extractVaultOverrides = (raw: Record<string, unknown>): Record<string, Eul
     const reason = entry.deprecationReason ?? entry.deprecateReason
     if (typeof reason === 'string') override.deprecationReason = reason
     if (Array.isArray(entry.block)) override.block = entry.block.filter((v): v is string => typeof v === 'string')
+    if (Array.isArray(entry.restricted)) override.restricted = entry.restricted.filter((v): v is string => typeof v === 'string')
     if (Object.keys(override).length > 0) {
       overrides[normalizeAddress(key)] = override
     }
@@ -212,6 +214,7 @@ export const useEulerLabels = () => {
       Object.keys(points).forEach(key => delete points[key])
       Object.keys(oracleAdapters).forEach(key => delete oracleAdapters[key])
       Object.keys(earnVaultBlocks).forEach(key => delete earnVaultBlocks[key])
+      Object.keys(earnVaultRestrictions).forEach(key => delete earnVaultRestrictions[key])
       featuredEarnVaults.clear()
       earnVaults.value = []
       verifiedVaultAddresses.value = []
@@ -225,12 +228,15 @@ export const useEulerLabels = () => {
       if (_isCustomLabelsRepo) {
         try {
           const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
-          const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], featured?: boolean }>
+          const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], restricted?: string[], featured?: boolean }>
           earnVaults.value = earnEntries.map((entry) => {
             if (typeof entry === 'string') return normalizeAddress(entry)
             const addr = normalizeAddress(entry.address)
             if (entry.block?.length) {
               earnVaultBlocks[addr.toLowerCase()] = entry.block
+            }
+            if (entry.restricted?.length) {
+              earnVaultRestrictions[addr.toLowerCase()] = entry.restricted
             }
             if (entry.featured) {
               featuredEarnVaults.add(addr)
@@ -248,6 +254,7 @@ export const useEulerLabels = () => {
       const normalizedProducts = normalizeProducts(productRes.data)
       Object.assign(products, normalizedProducts.products)
       verifiedVaultAddresses.value = normalizedProducts.vaultAddresses
+
       Object.assign(entities, normalizeEntities(entitiesRes.data))
 
       const pointsData = pointsRes.data as EulerLabelPoint[]
@@ -311,6 +318,16 @@ export const getVaultBlock = (vaultAddress: string): string[] | undefined => {
 export const getEarnVaultBlock = (vaultAddress: string): string[] | undefined => {
   const normalized = normalizeAddress(vaultAddress).toLowerCase()
   return earnVaultBlocks[normalized]
+}
+
+export const getVaultRestricted = (vaultAddress: string): string[] | undefined => {
+  const product = getProductByVault(vaultAddress)
+  return product.vaultOverrides?.[normalizeAddress(vaultAddress)]?.restricted
+}
+
+export const getEarnVaultRestricted = (vaultAddress: string): string[] | undefined => {
+  const normalized = normalizeAddress(vaultAddress).toLowerCase()
+  return earnVaultRestrictions[normalized]
 }
 
 export const isVaultFeatured = (vaultAddress: string): boolean => {

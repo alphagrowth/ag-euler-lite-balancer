@@ -248,6 +248,7 @@ const normalizeAddress = (address?: string) => {
 const { collateralOptions: swapCollateralOptions, collateralVaults: swapCollateralVaults } = useSwapCollateralOptions({
   currentVault: computed(() => undefined),
   liabilityVault: computed(() => borrowVault.value as typeof borrowVault.value),
+  tagContext: 'supply-source',
 })
 
 const repayCollateralVaults = computed(() => {

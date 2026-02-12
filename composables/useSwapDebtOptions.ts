@@ -56,7 +56,7 @@ export const useSwapDebtOptions = ({
       const baseApy = nanoToValue(vault.interestRateInfo.borrowAPY || 0n, 25)
       const apy = withIntrinsicBorrowApy(baseApy, vault.asset.symbol) - getBorrowRewardApy(vault.asset.address, vault.address)
 
-      const { tags, disabled } = getVaultTags(vault.address)
+      const { tags, disabled } = getVaultTags(vault.address, 'swap-target')
 
       return {
         type: 'vault',

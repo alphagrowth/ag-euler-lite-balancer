@@ -30,6 +30,19 @@ const isFocused = ref(false)
 const selectedIdx = ref(0)
 const friendlyBalance = computed(() => nanoToValue(props.balance ?? 0n, props.asset?.decimals || 18))
 
+// Auto-advance past disabled options (blocked/restricted vaults)
+watch(() => props.collateralOptions, (options) => {
+  if (!options?.length) return
+  const current = options[selectedIdx.value]
+  if (current?.disabled) {
+    const firstEnabled = options.findIndex(o => !o.disabled)
+    if (firstEnabled >= 0) {
+      selectedIdx.value = firstEnabled
+      emits('change-collateral', firstEnabled)
+    }
+  }
+})
+
 // Fetch USD unit price (re-runs when vault changes)
 const usdUnitPrice = ref<number | null>(null)
 

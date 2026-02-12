@@ -9,7 +9,7 @@ import { type BorrowVaultPair, getNetAPY, type Vault, type VaultAsset } from '~/
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatio } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
@@ -90,7 +90,9 @@ const isGeoBlocked = computed(() => {
   if (pair.value?.collateral) addresses.push(pair.value.collateral.address)
   return isAnyVaultBlockedByCountry(...addresses)
 })
-const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
+const isBorrowRestricted = computed(() =>
+  pair.value?.borrow ? isVaultRestrictedByCountry(pair.value.borrow.address) : false)
+const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isBorrowRestricted.value || isSubmitDisabled.value))
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
 const borrowWarnings = computed(() => {
@@ -177,7 +179,7 @@ const updateBalance = async () => {
   isBalanceLoading.value = false
 }
 const submit = async () => {
-  if (isGeoBlocked.value) return
+  if (isGeoBlocked.value || isBorrowRestricted.value) return
   await guardWithTerms(async () => {
     if (!borrowVault.value || !collateralVault.value) {
       return
@@ -384,6 +386,13 @@ onUnmounted(() => {
         v-if="isGeoBlocked"
         title="Region restricted"
         description="This operation is not available in your region. You can still repay existing debt."
+        variant="warning"
+        size="compact"
+      />
+      <UiToast
+        v-if="!isGeoBlocked && isBorrowRestricted"
+        title="Asset restricted"
+        description="Borrowing this asset is not available in your region."
         variant="warning"
         size="compact"
       />

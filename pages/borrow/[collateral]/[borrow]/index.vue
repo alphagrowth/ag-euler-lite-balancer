@@ -12,7 +12,7 @@ import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice, conservativePriceRatio, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { isAnyVaultBlockedByCountry, getVaultTags } from '~/composables/useGeoBlock'
+import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry, getVaultTags } from '~/composables/useGeoBlock'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
@@ -166,8 +166,13 @@ const isMultiplySubmitDisabled = computed(() => {
   return false
 })
 const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(collateralAddress, borrowAddress))
-const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
-const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplySubmitDisabled.value))
+const isBorrowRestricted = computed(() => isVaultRestrictedByCountry(borrowAddress))
+const isMultiplyRestricted = computed(() =>
+  isVaultRestrictedByCountry(collateralAddress) || isVaultRestrictedByCountry(borrowAddress))
+const isPairFullyRestricted = computed(() =>
+  !isGeoBlocked.value && isVaultRestrictedByCountry(collateralAddress) && isVaultRestrictedByCountry(borrowAddress))
+const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isBorrowRestricted.value || isSubmitDisabled.value))
+const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplyRestricted.value || isMultiplySubmitDisabled.value))
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
 const multiplyLongVault = computed(() => collateralVault.value)
@@ -1049,7 +1054,7 @@ const onMultiplyCollateralChange = (selectedIndex: number) => {
   }
 }
 const submitMultiply = async () => {
-  if (isGeoBlocked.value) return
+  if (isGeoBlocked.value || isMultiplyRestricted.value) return
   await guardWithTerms(async () => {
     if (isMultiplySubmitting.value || !isConnected.value) {
       return
@@ -1185,7 +1190,7 @@ const sendMultiply = async () => {
   }
 }
 const submit = async () => {
-  if (isGeoBlocked.value) return
+  if (isGeoBlocked.value || isBorrowRestricted.value) return
   await guardWithTerms(async () => {
     // TODO: Validate
     if (!isConnected.value) {
@@ -1646,6 +1651,20 @@ watch(formTab, () => {
               size="compact"
             />
             <UiToast
+              v-if="isPairFullyRestricted"
+              title="Region restricted"
+              description="This pair is not available in your region."
+              variant="warning"
+              size="compact"
+            />
+            <UiToast
+              v-if="!isGeoBlocked && !isPairFullyRestricted && isBorrowRestricted"
+              title="Asset restricted"
+              description="Borrowing this asset is not available in your region."
+              variant="warning"
+              size="compact"
+            />
+            <UiToast
               v-show="errorText"
               title="Error"
               variant="error"
@@ -1765,6 +1784,20 @@ watch(formTab, () => {
                   v-if="isGeoBlocked"
                   title="Region restricted"
                   description="This operation is not available in your region. You can still repay existing debt."
+                  variant="warning"
+                  size="compact"
+                />
+                <UiToast
+                  v-if="isPairFullyRestricted"
+                  title="Region restricted"
+                  description="This pair is restricted in your region."
+                  variant="warning"
+                  size="compact"
+                />
+                <UiToast
+                  v-if="!isGeoBlocked && !isPairFullyRestricted && isMultiplyRestricted"
+                  title="Asset restricted"
+                  description="Multiply is not available for this pair in your region."
                   variant="warning"
                   size="compact"
                 />

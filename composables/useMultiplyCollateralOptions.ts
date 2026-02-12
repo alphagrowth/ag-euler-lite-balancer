@@ -65,7 +65,7 @@ export const useMultiplyCollateralOptions = ({
       const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
 
-      const { tags, disabled } = getVaultTags(vault.address)
+      const { tags, disabled } = getVaultTags(vault.address, 'supply-source')
 
       return {
         vault,
@@ -109,7 +109,7 @@ export const useMultiplyCollateralOptions = ({
       const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
 
-      const { tags, disabled } = getVaultTags(vault.address)
+      const { tags, disabled } = getVaultTags(vault.address, 'supply-source')
 
       return {
         vault,

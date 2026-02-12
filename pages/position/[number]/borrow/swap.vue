@@ -7,7 +7,7 @@ import type { AccountBorrowPosition } from '~/entities/account'
 import { type Vault, type VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isAnyVaultBlockedByCountry, getVaultTags } from '~/composables/useGeoBlock'
 import { useSwapDebtOptions } from '~/composables/useSwapDebtOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { SwapperMode } from '~/entities/swap'
@@ -169,6 +169,7 @@ const syncToVault = () => {
   const currentAddress = toVault.value ? normalizeAddress(toVault.value.address) : ''
   const nextVault = borrowVaults.value.find(vault => normalizeAddress(vault.address) === targetAddress)
     || borrowVaults.value.find(vault => normalizeAddress(vault.address) === currentAddress)
+    || borrowVaults.value.find(v => !getVaultTags(v.address, 'swap-target').disabled)
     || borrowVaults.value[0]
 
   if (!toVault.value || normalizeAddress(toVault.value.address) !== normalizeAddress(nextVault.address)) {

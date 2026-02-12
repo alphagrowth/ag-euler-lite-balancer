@@ -1,6 +1,6 @@
 # Geo-Blocking
 
-This document explains how Euler Lite restricts vault access based on the user's geographic location, covering country detection, blocking rules, per-vault overrides, and UI enforcement.
+This document explains how Euler Lite restricts vault access based on the user's geographic location, covering country detection, blocking rules, per-vault overrides, soft restrictions, and UI enforcement.
 
 ## Overview
 
@@ -8,9 +8,35 @@ Certain jurisdictions are prohibited from interacting with specific vaults (or a
 
 1. Detects the user's country from an HTTP response header.
 2. Evaluates blocking rules at three levels: global sanctions, product-level blocks, and per-vault overrides.
-3. Prevents blocked users from submitting transactions while still showing blocked vaults in the UI (dimmed, with a "Restricted" chip).
+3. Evaluates soft restriction rules that prevent users from acquiring more exposure to a restricted asset.
+4. Prevents blocked users from submitting transactions while still showing blocked vaults in the UI (dimmed, with a "Restricted" chip).
 
 Users with existing positions in newly-blocked vaults can still view and withdraw, but cannot open new positions or perform other operations.
+
+## Blocked vs Restricted
+
+The system distinguishes two levels of geographic restriction:
+
+### Blocked (Hard Block)
+
+A vault that is **blocked** for the user's country prevents **all** operations except withdraw and repay. The UI shows opacity dimming and a "Restricted" chip on all browse pages. This is the existing behavior.
+
+### Restricted (Soft Block)
+
+A vault that is **restricted** for the user's country prevents the user from **acquiring more exposure** to the asset through the app. Operations that use assets already in the user's wallet, or that reduce exposure, remain allowed.
+
+| Action | Blocked | Restricted |
+|--------|---------|------------|
+| Supply from wallet | NO | YES |
+| Earn deposit from wallet | NO | YES |
+| Withdraw | YES | YES |
+| Repay | YES | YES |
+| Borrow from this vault | NO | **NO** |
+| Multiply (as long or short) | NO | **NO** |
+| Swap collateral/debt TO this vault | NO | **NO** |
+| Swap collateral/debt FROM this vault | NO | YES |
+
+When both collateral AND borrow vault in a pair are restricted, the pair is treated as **effectively blocked** — identical to a hard block in the UI. On the borrow browse page this means opacity dimming + "Restricted" chip. On the position overview, all buttons except Repay are disabled and the same "Region restricted" toast is shown as for hard-blocked positions.
 
 ## Country Detection
 
@@ -88,11 +114,46 @@ Earn vaults have a separate blocking mechanism in `earn-vaults.json`. Entries ca
 
 These are stored in a dedicated `earnVaultBlocks` map (keyed by lowercase address) and checked by `getEarnVaultBlock(address)`.
 
+## Restriction Rules (Soft Block)
+
+**File**: `composables/useGeoBlock.ts`
+
+The function `isVaultRestrictedByCountry(vaultAddress)` checks for soft restrictions:
+
+### Per-Vault Override Restrictions
+
+A product can specify `restricted` in vault overrides (vault-level only, no product-level fallback):
+
+```json
+{
+  "name": "Example Product",
+  "vaults": ["0xAAA...", "0xBBB..."],
+  "vaultOverrides": {
+    "0xBBB...": {
+      "restricted": ["US", "EU"]
+    }
+  }
+}
+```
+
+### Earn Vault Restrictions
+
+Earn vault entries in `earn-vaults.json` can also have a `restricted` array:
+
+```json
+[
+  "0x1111...",
+  { "address": "0x2222...", "restricted": ["US"], "block": ["IR"] }
+]
+```
+
+A vault can have both `block` and `restricted`. The `block` check takes precedence — if a vault is blocked, the restricted check is not evaluated (blocked is stricter).
+
 ## Country Groups
 
 **File**: `entities/constants.ts`
 
-Block lists can reference group aliases instead of individual country codes. The `expandBlockList()` function in `useGeoBlock.ts` resolves these before matching:
+Block and restriction lists can reference group aliases instead of individual country codes. The `expandBlockList()` function in `useGeoBlock.ts` resolves these before matching:
 
 | Alias | Expansion | Count |
 |-------|-----------|-------|
@@ -106,40 +167,48 @@ Group aliases can be mixed with individual codes: `["EU", "CH", "US"]` blocks al
 
 ### `isVaultBlockedByCountry(address): boolean`
 
-The core check. Returns `true` if the vault is blocked for the detected country.
+The core hard-block check. Returns `true` if the vault is blocked for the detected country.
 
 ### `isAnyVaultBlockedByCountry(...addresses): boolean`
 
 Returns `true` if **any** of the provided vault addresses are blocked. Used on action pages that involve multiple vaults (e.g. a borrow position has both a collateral vault and a borrow vault).
 
-### `getVaultTags(address): { tags: string[], disabled: boolean }`
+### `isVaultRestrictedByCountry(address): boolean`
 
-Combines geo-blocking and deprecation status into a single result for UI consumption. Returns tags like `["Restricted"]`, `["Deprecated"]`, or `["Restricted", "Deprecated"]`. Sets `disabled: true` when any tag is present. Used in vault selection modals (`ChooseCollateralModal`) to show warning chips and prevent selection.
+The soft-restriction check. Returns `true` if the vault has a `restricted` entry matching the user's country. Only checks vault-level overrides and earn vault restrictions (no product-level fallback).
+
+### `isAnyVaultRestrictedByCountry(...addresses): boolean`
+
+Returns `true` if **any** of the provided vault addresses are restricted. Used for multi-vault restriction checks (e.g. multiply requires checking both long and short vaults).
+
+### `getVaultTags(address, context?): { tags: string[], disabled: boolean }`
+
+Combines geo-blocking, soft-restriction, and deprecation status into a single result for UI consumption. Returns tags like `["Restricted"]`, `["Deprecated"]`, or `["Restricted", "Deprecated"]`.
+
+The `context` parameter controls when the "Restricted" chip appears for soft-restricted vaults:
+
+| Context | When Used | Shows Restricted Chip? |
+|---------|-----------|----------------------|
+| `'browse'` (default) | Browse pages, general display | Only for hard-blocked vaults |
+| `'swap-target'` | Vault selection modals for swap/borrow TO targets | Yes (prevents acquiring exposure) |
+| `'supply-source'` | Vault selection modals for supply FROM sources, multiply collateral | No (user is spending, not acquiring) |
 
 ## UI Enforcement
 
-The geo-block status surfaces in four layers of the UI:
+The geo-block and restriction status surfaces in multiple layers of the UI:
 
 ### Browse Pages (`/lend`, `/earn`, `/borrow`)
 
-Vault cards (`VaultItem.vue`, `VaultEarnItem.vue`, `VaultBorrowItem.vue`) show a yellow "Restricted" chip and reduce the card opacity to 50%. The vault remains visible and clickable (the user can view details) but cannot perform operations from the detail page.
+**Lend/Earn tables**: No chip for soft-restricted vaults (supply/deposit from wallet is always allowed).
 
-```vue
-<span v-if="isGeoBlocked" class="... bg-warning-100 text-warning-500 text-p5">
-  <SvgIcon name="warning" />
-  Restricted
-</span>
-```
+**Borrow table** (`VaultBorrowItem.vue`):
+- If borrow vault is restricted: "Restricted" chip, no opacity dimming
+- If BOTH borrow and collateral vaults are restricted: "Restricted" chip + `opacity-50` (effectively blocked — no useful action possible)
+- If hard-blocked: "Restricted" chip + `opacity-50` (existing behavior)
 
 ### Vault Detail Pages (`/lend/[vault]`, `/earn/[vault]`)
 
-A warning toast is displayed at the top of the page:
-
-```
-"This operation is not available in your region. You can still withdraw existing deposits."
-```
-
-The submit/review button is disabled via `getSubmitDisabled()`.
+A warning toast is displayed at the top of the page when hard-blocked. No changes for soft-restricted (supply from wallet is always allowed).
 
 ### Selection Modals (`ChooseCollateralModal`)
 
@@ -148,26 +217,53 @@ When swapping collateral or debt, blocked/deprecated vaults appear in the select
 - Warning chips ("Restricted", "Deprecated") matching the browse page styling
 - Click handler disabled — the user cannot select them
 
-### Action Pages (Supply, Borrow, Withdraw, Repay, Multiply)
+For soft-restricted vaults, the behavior depends on the context:
+- **Swap TO** (`tagContext: 'swap-target'`): Shows "Restricted" chip, disabled (prevents acquiring more exposure)
+- **Supply FROM** (`tagContext: 'supply-source'`): No chip, enabled (user is spending, not acquiring)
+- **Repay via collateral swap**: Uses `supply-source` context — collateral options are always selectable
 
-Each action page computes an `isGeoBlocked` flag:
+**Default selection**: `AssetInput.vue` watches the collateral options list and auto-advances past disabled options. If the first option is blocked/restricted/deprecated, the first enabled option is selected instead. This prevents a disabled vault from being pre-selected when a modal opens or a page loads.
 
-```typescript
-// Single vault check
-const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
+The three swap pages (`/lend/[vault]/swap`, `/position/[number]/collateral/swap`, `/position/[number]/borrow/swap`) also skip disabled vaults in their `syncToVault` fallback logic, using `getVaultTags(address, 'swap-target')` to find the first enabled vault.
 
-// Multi-vault check (borrow page: collateral + borrow vaults)
-const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(collateralAddress, borrowAddress))
-```
+### Action Pages
 
-When blocked:
-- The review/submit button is disabled
-- The `submit()` function has an early return guard
-- A warning toast explains the restriction
+#### Borrow Page (`/borrow/[collateral]/[borrow]`)
+
+Separate restriction checks for borrow and multiply tabs:
+- `isBorrowRestricted`: borrow vault restricted → borrow tab disabled
+- `isMultiplyRestricted`: either vault restricted → multiply tab disabled
+- `isPairFullyRestricted`: both vaults restricted → "Region restricted" toast on both tabs (same as hard block)
+- Both have submit guards and warning toasts
+
+#### Position Borrow Page (`/position/[number]/borrow`)
+
+- `isBorrowRestricted`: borrow vault restricted → submit disabled with warning toast
+
+#### Position Multiply Page (`/position/[number]/multiply`)
+
+- `isMultiplyRestricted`: either long or short vault restricted → submit disabled with warning toast
+
+#### Position Overview (`/position/[number]`)
+
+Per-button restriction gating when **one** vault is restricted:
+- **Multiply** button: disabled if `isMultiplyRestricted` (either vault restricted)
+- **Borrow More** button: disabled if `isBorrowRestricted` (borrow vault restricted)
+- **Supply, Withdraw, Repay, Collateral Swap, Debt Swap**: NO changes (always allowed)
+- A softer "Asset restricted" warning toast appears
+
+When **both** vaults are restricted (`isPairFullyRestricted`), the pair is treated identically to a hard block:
+- **Repay**: only enabled button
+- **Multiply, Borrow, Supply, Withdraw, Collateral Swap, Debt Swap**: all disabled
+- Same "Region restricted" toast as hard-blocked positions
+
+#### Repay Page (`/position/[number]/repay`)
+
+Uses `useSwapCollateralOptions` with `tagContext: 'supply-source'` so collateral options in the swap-to-repay tab are never disabled by soft restrictions (reducing exposure is always allowed).
 
 ### Portfolio Pages
 
-Existing positions in blocked vaults show the "Restricted" chip (`PortfolioSavingItem`, `PortfolioEarnItem`, `PortfolioBorrowItem`) so the user understands why operations may be limited.
+Existing positions in blocked vaults show the "Restricted" chip. No chip for soft-restricted vaults (positions are already open).
 
 ## Data Flow
 
@@ -179,7 +275,9 @@ App Startup
   │
   └─ loadLabels() ──► euler-labels GitHub repo ─► products.json ─► product.block
                                                                     product.vaultOverrides[addr].block
+                                                                    product.vaultOverrides[addr].restricted
                                                  ► earn-vaults.json ─► earnVaultBlocks map
+                                                                       earnVaultRestrictions map
                                                    (5-min cache)
 
 Runtime Check: isVaultBlockedByCountry("0x1234...")
@@ -195,19 +293,33 @@ Runtime Check: isVaultBlockedByCountry("0x1234...")
   │     └─ expandBlockList(codes) → includes "DE"?  ─► yes → blocked
   │
   └─ 4. Not blocked → return false
+
+Runtime Check: isVaultRestrictedByCountry("0x1234...")
+  │
+  ├─ 1. getVaultRestricted("0x1234...")
+  │     └─ product.vaultOverrides["0x1234..."]?.restricted (no product fallback)
+  │     └─ expandBlockList(codes) → includes "DE"?  ─► yes → restricted
+  │
+  ├─ 2. getEarnVaultRestricted("0x1234...")
+  │     └─ earnVaultRestrictions[lowercase addr]
+  │     └─ expandBlockList(codes) → includes "DE"?  ─► yes → restricted
+  │
+  └─ 3. Not restricted → return false
 ```
 
 ## Configuration
 
-All blocking configuration lives outside the app codebase:
+All blocking and restriction configuration lives outside the app codebase:
 
 | What | Where | Effect |
 |------|-------|--------|
 | Global sanctions list | `entities/constants.ts` — `SANCTIONED_COUNTRIES` | Blocks all vaults for listed countries |
 | Country group definitions | `entities/constants.ts` — `COUNTRY_GROUPS` | Defines EU, EEA, EFTA aliases |
 | Product-level blocks | `euler-labels` repo — `products.json` `block` field | Blocks all vaults in a product |
-| Per-vault overrides | `euler-labels` repo — `products.json` `vaultOverrides[addr].block` | Overrides product block for one vault |
-| Earn vault blocks | `euler-labels` repo — `earn-vaults.json` `block` field | Blocks specific earn vaults |
+| Per-vault block overrides | `euler-labels` repo — `products.json` `vaultOverrides[addr].block` | Overrides product block for one vault |
+| Per-vault restrictions | `euler-labels` repo — `products.json` `vaultOverrides[addr].restricted` | Soft-restricts one vault (no product fallback) |
+| Earn vault blocks | `euler-labels` repo — `earn-vaults.json` `block` field | Hard-blocks specific earn vaults |
+| Earn vault restrictions | `euler-labels` repo — `earn-vaults.json` `restricted` field | Soft-restricts specific earn vaults |
 
 Changes to `products.json` or `earn-vaults.json` in the euler-labels repo take effect within 5 minutes (the label cache TTL) without any app deployment.
 
@@ -216,9 +328,13 @@ Changes to `products.json` or `earn-vaults.json` in the euler-labels repo take e
 | File | Role |
 |------|------|
 | `services/country.ts` | Country detection from `x-country-code` header |
-| `composables/useGeoBlock.ts` | Core blocking logic, `isVaultBlockedByCountry`, `getVaultTags` |
-| `composables/useEulerLabels.ts` | Label fetching, `getVaultBlock`, `getEarnVaultBlock` |
+| `composables/useGeoBlock.ts` | Core blocking logic, `isVaultBlockedByCountry`, `isVaultRestrictedByCountry`, `getVaultTags` |
+| `composables/useEulerLabels.ts` | Label fetching, `getVaultBlock`, `getEarnVaultBlock`, `getVaultRestricted`, `getEarnVaultRestricted` |
 | `entities/constants.ts` | `SANCTIONED_COUNTRIES`, `COUNTRY_GROUPS` (EU/EEA/EFTA) |
-| `entities/euler/labels.ts` | TypeScript types (`EulerLabelProduct`, `EulerLabelVaultOverride`) |
-| `components/entities/vault/VaultItem.vue` | Browse page "Restricted" chip |
+| `entities/euler/labels.ts` | TypeScript types (`EulerLabelProduct`, `EulerLabelVaultOverride` with `restricted`) |
+| `components/entities/vault/VaultItem.vue` | Browse page "Restricted" chip (hard-block only) |
+| `components/entities/vault/VaultBorrowItem.vue` | Borrow browse page "Restricted" chip (hard-block + soft-restricted) |
 | `components/entities/vault/ChooseCollateralModal.vue` | Selection modal disabled state and warning chips |
+| `composables/useSwapCollateralOptions.ts` | Collateral selection with `tagContext` parameter |
+| `composables/useSwapDebtOptions.ts` | Debt selection with `'swap-target'` context |
+| `composables/useMultiplyCollateralOptions.ts` | Multiply collateral selection with `'supply-source'` context |

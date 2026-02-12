@@ -6,7 +6,7 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { type Vault, type SecuritizeVault, isSecuritizeVault, fetchSecuritizeVault } from '~/entities/vault'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isVaultBlockedByCountry, getVaultTags } from '~/composables/useGeoBlock'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { SwapperMode } from '~/entities/swap'
@@ -131,6 +131,7 @@ const syncToVault = () => {
 
   const currentAddress = toVault.value ? normalizeAddress(toVault.value.address) : ''
   const nextVault = collateralVaults.value.find(vault => normalizeAddress(vault.address) === currentAddress)
+    || collateralVaults.value.find(v => !getVaultTags(v.address, 'swap-target').disabled)
     || collateralVaults.value[0]
 
   if (!toVault.value || normalizeAddress(toVault.value.address) !== normalizeAddress(nextVault.address)) {

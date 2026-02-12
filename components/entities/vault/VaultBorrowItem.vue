@@ -8,7 +8,7 @@ import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import { useEulerProductOfVault, isVaultFeatured, getEntitiesByVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal, VaultMaxRoeModal } from '#components'
@@ -67,6 +67,18 @@ const isAnyUnverified = computed(() => {
 });
 
 const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(pair.collateral.address, pair.borrow.address))
+
+const isGeoRestricted = computed(() => {
+  if (isGeoBlocked.value) return false
+  return isVaultRestrictedByCountry(pair.borrow.address)
+})
+
+const isPairEffectivelyBlocked = computed(() => {
+  if (isGeoBlocked.value) return false
+  return isVaultRestrictedByCountry(pair.borrow.address)
+    && isVaultRestrictedByCountry(pair.collateral.address)
+})
+
 const isFeatured = computed(() => isVaultFeatured(pair.collateral.address) || isVaultFeatured(pair.borrow.address))
 
 const isAnyDeprecated = computed(() => {
@@ -175,7 +187,7 @@ const linkPath = computed(
     class="grid gap-x-16 mobile:block no-underline text-content-primary bg-surface rounded-12 border border-line-default shadow-card hover:shadow-card-hover hover:border-line-emphasis transition-all"
     :class="[
       enableEntityBranding ? '' : 'grid-cols-5',
-      isGeoBlocked ? 'opacity-50' : '',
+      (isGeoBlocked || isPairEffectivelyBlocked) ? 'opacity-50' : '',
     ]"
     :style="enableEntityBranding ? { gridTemplateColumns: '1.5fr repeat(5, 1fr)' } : undefined"
   >
@@ -206,6 +218,14 @@ const linkPath = computed(
               v-if="isGeoBlocked"
               class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
               title="This vault is not available in your region"
+            >
+              <SvgIcon name="warning" class="!w-14 !h-14" />
+              Restricted
+            </span>
+            <span
+              v-if="isGeoRestricted"
+              class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+              title="Borrowing this asset is restricted in your region"
             >
               <SvgIcon name="warning" class="!w-14 !h-14" />
               Restricted
