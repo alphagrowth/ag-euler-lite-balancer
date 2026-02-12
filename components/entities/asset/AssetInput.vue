@@ -17,6 +17,7 @@ const props = defineProps<{
   balance?: bigint
   balanceLoading?: boolean
   collateralOptions?: CollateralOption[]
+  collateralModalTitle?: string
   readonly?: boolean
   priceOverride?: number // For vaults without standard price info (e.g., securitize)
 }>()
@@ -98,6 +99,7 @@ const openChooseCollateralModal = () => {
       symbol: props.asset.symbol,
       collateralOptions: props.collateralOptions,
       selected: selectedIdx.value,
+      title: props.collateralModalTitle,
       onSave: (selectedIndex: number) => {
         selectedIdx.value = selectedIndex
         emits('change-collateral', selectedIndex)

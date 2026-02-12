@@ -4,11 +4,12 @@ import type { CollateralOption } from '~/entities/vault'
 import { formatNumber } from '~/utils/string-utils'
 
 const emits = defineEmits(['close'])
-const { productName, symbol, collateralOptions, selected = 0, onSave } = defineProps<{
+const { productName, symbol, collateralOptions, selected = 0, title = 'Select collateral', onSave } = defineProps<{
   productName: string
   symbol: string
   collateralOptions: CollateralOption[]
   selected?: number
+  title?: string
   onSave: any
 }>()
 
@@ -35,7 +36,7 @@ const handleClose = () => {
 
 <template>
   <BaseModalWrapper
-    title="Select collateral"
+    :title="title"
     full
     @close="handleClose"
   >

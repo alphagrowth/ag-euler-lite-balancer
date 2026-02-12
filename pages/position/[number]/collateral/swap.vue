@@ -32,16 +32,20 @@ import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { isSameUnderlyingAsset, isSameVault as isSameVaultCheck } from '~/utils/vault-utils'
 
 const route = useRoute()
 const router = useRouter()
 const { isConnected, address } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
-const { buildSwapPlan, executeTxPlan } = useEulerOperations()
+const { buildSwapPlan, buildSameAssetSwapPlan, executeTxPlan } = useEulerOperations()
 const modal = useModal()
 const { error: showError } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-const reviewSwapLabel = getSubmitLabel(computed(() => selectedQuote.value ? 'Review Swap' : 'Select a Quote'))
+const reviewSwapLabel = getSubmitLabel(computed(() => {
+  if (isSameAsset.value) return 'Review Transfer'
+  return selectedQuote.value ? 'Review Swap' : 'Select a Quote'
+}))
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -199,9 +203,6 @@ const loadSelectedCollateral = async () => {
     }
   }
 
-  if (!fromAmount.value && selectedCollateral.value) {
-    fromAmount.value = formatSignificantFloor(nanoToValue(selectedCollateralAssets.value || 0n, selectedCollateral.value.decimals), 6)
-  }
 }
 
 const getTargetAddress = () => (typeof route.query.to === 'string' ? route.query.to : '')
@@ -240,7 +241,9 @@ watch([collateralVaults, fromVault, () => route.query.to], () => {
 const quote = computed(() => effectiveQuote.value || null)
 watch([quote, toVault], () => {
   if (!quote.value || !toVault.value) {
-    toAmount.value = ''
+    if (!isSameUnderlyingAsset(fromVault.value, toVault.value)) {
+      toAmount.value = ''
+    }
     return
   }
   const amountOut = getQuoteAmount(quote.value, 'amountOut')
@@ -318,6 +321,16 @@ watchEffect(async () => {
 })
 const nextSupplyValueUsd = ref<number | null>(null)
 watchEffect(async () => {
+  if (isSameAsset.value && toVault.value && fromAmount.value) {
+    try {
+      const amount = valueToNano(fromAmount.value, toVault.value.asset.decimals)
+      nextSupplyValueUsd.value = (await getAssetUsdValue(amount, toVault.value, 'off-chain')) ?? null
+    }
+    catch {
+      nextSupplyValueUsd.value = null
+    }
+    return
+  }
   if (!quote.value || !toVault.value) {
     nextSupplyValueUsd.value = null
     return
@@ -369,6 +382,14 @@ const priceRatio = computed(() => {
   return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
 const nextCollateralAmount = computed(() => {
+  if (isSameAsset.value && toVault.value && fromAmount.value) {
+    try {
+      return nanoToValue(valueToNano(fromAmount.value, toVault.value.asset.decimals), toVault.value.decimals)
+    }
+    catch {
+      return null
+    }
+  }
   if (!quote.value || !toVault.value) {
     return null
   }
@@ -426,12 +447,22 @@ const nextHealth = computed(() => {
   }
   return nextLiquidationLtv.value / nextLtv.value
 })
-const currentLiquidationPrice = computed(() => {
-  if (!position.value?.price) {
+const currentPriceRatio = computed(() => {
+  if (!fromVault.value || !borrowVault.value) {
     return null
   }
-  const value = nanoToValue(position.value.price, 18)
-  return value > 0 ? value : null
+  const collateralPrice = getCollateralOraclePrice(borrowVault.value, fromVault.value as Vault)
+  const borrowPrice = getAssetOraclePrice(borrowVault.value)
+  return conservativePriceRatioNumber(collateralPrice, borrowPrice)
+})
+const currentLiquidationPrice = computed(() => {
+  if (!currentPriceRatio.value || !currentHealth.value) {
+    return null
+  }
+  if (currentHealth.value <= 0) {
+    return null
+  }
+  return currentPriceRatio.value / currentHealth.value
 })
 const nextLiquidationPrice = computed(() => {
   if (!priceRatio.value || !nextHealth.value) {
@@ -465,7 +496,7 @@ const swapSummary = computed(() => {
   const amountIn = formatUnits(BigInt(quote.value.amountIn), Number(fromVault.value.asset.decimals))
   const amountOut = formatUnits(BigInt(quote.value.amountOut), Number(toVault.value.asset.decimals))
   return {
-    from: `${formatNumber(amountIn)} ${fromVault.value.asset.symbol}`,
+    from: `${formatSignificant(amountIn)} ${fromVault.value.asset.symbol}`,
     to: `${formatSignificant(amountOut)} ${toVault.value.asset.symbol}`,
   }
 })
@@ -551,11 +582,20 @@ const errorText = computed(() => {
   }
   return null
 })
-const isSameVault = computed(() => {
-  if (!fromVault.value || !toVault.value) {
+const isSameVault = computed(() => isSameVaultCheck(fromVault.value, toVault.value))
+const isSameAsset = computed(() => {
+  if (isSameVault.value) return false
+  return isSameUnderlyingAsset(fromVault.value, toVault.value)
+})
+const isMaxSwap = computed(() => {
+  if (!fromVault.value?.asset || !fromAmount.value) return false
+  try {
+    const amount = valueToNano(fromAmount.value, fromVault.value.asset.decimals)
+    return balance.value > 0n && amount >= balance.value
+  }
+  catch {
     return false
   }
-  return normalizeAddress(fromVault.value.address) === normalizeAddress(toVault.value.address)
 })
 const sameVaultError = computed(() => {
   return isSameVault.value ? 'Select a different vault' : null
@@ -563,7 +603,16 @@ const sameVaultError = computed(() => {
 
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  if (!fromVault.value?.asset || !toVault.value?.asset || !selectedQuote.value) {
+  if (!fromVault.value?.asset || !toVault.value?.asset) {
+    return true
+  }
+  if (isSameAsset.value) {
+    return isLoading.value
+      || !(+fromAmount.value)
+      || balance.value < valueToNano(fromAmount.value, fromVault.value.asset.decimals)
+      || isSameVault.value
+  }
+  if (!selectedQuote.value) {
     return true
   }
   const amountOut = getQuoteAmount(selectedQuote.value, 'amountOut')
@@ -588,6 +637,11 @@ const onFromInput = async () => {
   if (!fromVault.value || !toVault.value || !fromAmount.value || isSameVault.value) {
     toAmount.value = ''
     resetQuoteState()
+    return
+  }
+  if (isSameAsset.value) {
+    resetQuoteState()
+    toAmount.value = fromAmount.value
     return
   }
   toAmount.value = ''
@@ -654,6 +708,11 @@ watch(toVault, () => {
     resetQuoteState()
     return
   }
+  if (isSameAsset.value) {
+    resetQuoteState()
+    toAmount.value = fromAmount.value
+    return
+  }
   if (fromAmount.value) {
     onFromInput()
   }
@@ -680,28 +739,60 @@ const onToVaultChange = (selectedIndex: number) => {
   }
 }
 
+const buildPlan = async (): Promise<TxPlan> => {
+  if (!fromVault.value || !toVault.value || !position.value) {
+    throw new Error('Vaults or position not loaded')
+  }
+
+  if (isSameAsset.value) {
+    const amount = valueToNano(fromAmount.value, fromVault.value.asset.decimals)
+    return buildSameAssetSwapPlan({
+      fromVaultAddress: fromVault.value.address,
+      toVaultAddress: toVault.value.address,
+      amount,
+      isMax: isMaxSwap.value,
+      subAccount: position.value.subAccount,
+      enableCollateral: true,
+      disableCollateral: isMaxSwap.value,
+      liabilityVault: borrowVault.value?.address,
+      enabledCollaterals: position.value.collaterals,
+    })
+  }
+
+  if (!selectedQuote.value) {
+    throw new Error('No quote selected')
+  }
+  return buildSwapPlan({
+    quote: selectedQuote.value,
+    swapperMode: SwapperMode.EXACT_IN,
+    isRepay: false,
+    targetDebt: 0n,
+    currentDebt: 0n,
+    enableCollateral: true,
+    disableCollateral: isMaxSwap.value ? fromVault.value.address : undefined,
+    liabilityVault: borrowVault.value?.address,
+    enabledCollaterals: position.value.collaterals,
+  })
+}
+
 const submit = async () => {
   if (isGeoBlocked.value) return
   await guardWithTerms(async () => {
-    if (isSubmitting.value || !fromVault.value || !selectedQuote.value) {
+    if (isSubmitting.value || !fromVault.value) {
+      return
+    }
+    if (!isSameAsset.value && !selectedQuote.value) {
       return
     }
 
     try {
-      plan.value = await buildSwapPlan({
-        quote: selectedQuote.value,
-        swapperMode: SwapperMode.EXACT_IN,
-        isRepay: false,
-        targetDebt: 0n,
-        currentDebt: 0n,
-        enableCollateral: true,
-        liabilityVault: borrowVault.value?.address,
-        enabledCollaterals: position.value?.collaterals,
-      })
+      plan.value = await buildPlan()
     }
     catch (e) {
       console.warn('[OperationReviewModal] failed to build plan', e)
+      showError('Failed to build transaction')
       plan.value = null
+      return
     }
 
     if (plan.value) {
@@ -713,7 +804,7 @@ const submit = async () => {
 
     modal.open(OperationReviewModal, {
       props: {
-        type: 'swap',
+        type: isSameAsset.value ? 'transfer' : 'swap',
         asset: fromVault.value.asset,
         amount: fromAmount.value,
         swapToAsset: toVault.value?.asset,
@@ -730,22 +821,16 @@ const submit = async () => {
 }
 
 const send = async () => {
-  if (!fromVault.value || !selectedQuote.value) {
+  if (!fromVault.value) {
+    return
+  }
+  if (!isSameAsset.value && !selectedQuote.value) {
     return
   }
 
   isSubmitting.value = true
   try {
-    const txPlan = await buildSwapPlan({
-      quote: selectedQuote.value,
-      swapperMode: SwapperMode.EXACT_IN,
-      isRepay: false,
-      targetDebt: 0n,
-      currentDebt: 0n,
-      enableCollateral: true,
-      liabilityVault: borrowVault.value?.address,
-      enabledCollaterals: position.value?.collaterals,
-    })
+    const txPlan = await buildPlan()
     await executeTxPlan(txPlan)
     modal.close()
     setTimeout(() => {
@@ -791,6 +876,7 @@ const send = async () => {
             />
 
             <SwapRouteSelector
+              v-if="!isSameAsset"
               :items="swapRouteItems"
               :selected-provider="selectedProvider"
               :status-label="quotesStatusLabel"
@@ -866,7 +952,7 @@ const send = async () => {
           </div>
 
           <VaultFormInfoBlock
-            :loading="isQuoteLoading"
+            :loading="!isSameAsset && isQuoteLoading"
             class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px] shadow-card"
           >
             <div class="flex justify-between items-center">
@@ -874,7 +960,7 @@ const send = async () => {
                 ROE
               </p>
               <p class="text-p2">
-                <template v-if="roeBefore !== null && roeAfter !== null && quote">
+                <template v-if="roeBefore !== null && roeAfter !== null && (quote || isSameAsset)">
                   <span class="text-content-tertiary">{{ formatNumber(roeBefore) }}%</span>
                   → <span class="text-content-primary">{{ formatNumber(roeAfter) }}%</span>
                 </template>
@@ -883,24 +969,36 @@ const send = async () => {
                 </template>
               </p>
             </div>
+            <template v-if="!isSameAsset">
+              <div class="flex justify-between items-start">
+                <p class="text-content-tertiary shrink-0 mr-12">
+                  Swap price
+                </p>
+                <p class="text-p2 text-right inline-flex items-center">
+                  {{ currentPrice ? formatSmartAmount(swapPriceInvert.invertValue(currentPrice.value)) : '-' }}
+                  <span v-if="currentPrice" class="text-content-tertiary text-p3 ml-4">{{ swapPriceInvert.displaySymbol }}</span>
+                  <button v-if="currentPrice" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="swapPriceInvert.toggle">
+                    <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+                  </button>
+                </p>
+              </div>
+            </template>
+            <template v-else>
+              <div class="flex justify-between items-center">
+                <p class="text-content-tertiary">
+                  Transfer
+                </p>
+                <p class="text-p2">
+                  1:1 (same asset, no slippage)
+                </p>
+              </div>
+            </template>
             <div class="flex justify-between items-start">
               <p class="text-content-tertiary shrink-0 mr-12">
-                Swap price
-              </p>
-              <p class="text-p2 text-right inline-flex items-center">
-                {{ currentPrice ? formatSmartAmount(swapPriceInvert.invertValue(currentPrice.value)) : '-' }}
-                <span v-if="currentPrice" class="text-content-tertiary text-p3 ml-4">{{ swapPriceInvert.displaySymbol }}</span>
-                <button v-if="currentPrice" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="swapPriceInvert.toggle">
-                  <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
-                </button>
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
                 Liquidation price
               </p>
-              <p class="text-p2">
-                <template v-if="currentLiquidationPrice !== null && nextLiquidationPrice !== null && quote">
+              <p class="text-p2 text-right">
+                <template v-if="currentLiquidationPrice !== null && nextLiquidationPrice !== null && (quote || isSameAsset)">
                   <span class="text-content-tertiary">{{ formatSmartAmount(liqPriceInvert.invertValue(currentLiquidationPrice)) }}</span>
                   → <span class="text-content-primary">{{ formatSmartAmount(liqPriceInvert.invertValue(nextLiquidationPrice)) }}</span>
                 </template>
@@ -920,7 +1018,7 @@ const send = async () => {
                 Liquidation LTV
               </p>
               <p class="text-p2 text-right">
-                <template v-if="nextLtv !== null && quote">
+                <template v-if="nextLtv !== null && (quote || isSameAsset)">
                   <span v-if="currentLtv !== null" class="text-content-tertiary">
                     {{ formatNumber(currentLtv) }}%
                     →
@@ -942,7 +1040,7 @@ const send = async () => {
                 Health score
               </p>
               <p class="text-p2">
-                <template v-if="currentHealth !== null && nextHealth !== null && quote">
+                <template v-if="currentHealth !== null && nextHealth !== null && (quote || isSameAsset)">
                   <span class="text-content-tertiary">{{ formatHealthScore(currentHealth) }}</span>
                   → <span class="text-content-primary">{{ formatHealthScore(nextHealth) }}</span>
                 </template>
@@ -951,52 +1049,54 @@ const send = async () => {
                 </template>
               </p>
             </div>
-            <div class="flex justify-between items-start">
-              <p class="text-content-tertiary">
-                Swap
-              </p>
-              <p class="text-p2 text-right flex flex-col items-end">
-                <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
-                <span
-                  v-if="swapSummary"
-                  class="text-content-tertiary text-p3"
+            <template v-if="!isSameAsset">
+              <div class="flex justify-between items-start">
+                <p class="text-content-tertiary">
+                  Swap
+                </p>
+                <p class="text-p2 text-right flex flex-col items-end">
+                  <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
+                  <span
+                    v-if="swapSummary"
+                    class="text-content-tertiary text-p3"
+                  >
+                    {{ swapSummary.to }}
+                  </span>
+                </p>
+              </div>
+              <div class="flex justify-between items-center">
+                <p class="text-content-tertiary">
+                  Price impact
+                </p>
+                <p class="text-p2">
+                  {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
+                </p>
+              </div>
+              <div class="flex justify-between items-center">
+                <p class="text-content-tertiary">
+                  Slippage tolerance
+                </p>
+                <button
+                  type="button"
+                  class="flex items-center gap-6 text-p2"
+                  @click="openSlippageSettings"
                 >
-                  {{ swapSummary.to }}
-                </span>
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Price impact
-              </p>
-              <p class="text-p2">
-                {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Slippage tolerance
-              </p>
-              <button
-                type="button"
-                class="flex items-center gap-6 text-p2"
-                @click="openSlippageSettings"
-              >
-                <span>{{ formatNumber(slippage, 2, 0) }}%</span>
-                <SvgIcon
-                  name="edit"
-                  class="!w-16 !h-16 text-accent-600"
-                />
-              </button>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Routed via
-              </p>
-              <p class="text-p2 text-right">
-                {{ routedVia || '-' }}
-              </p>
-            </div>
+                  <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                  <SvgIcon
+                    name="edit"
+                    class="!w-16 !h-16 text-accent-600"
+                  />
+                </button>
+              </div>
+              <div class="flex justify-between items-center">
+                <p class="text-content-tertiary">
+                  Routed via
+                </p>
+                <p class="text-p2 text-right">
+                  {{ routedVia || '-' }}
+                </p>
+              </div>
+            </template>
           </VaultFormInfoBlock>
         </div>
       </template>
