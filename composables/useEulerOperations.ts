@@ -13,6 +13,7 @@ import { tosSignerReadAbi, tosSignerWriteAbi } from '~/abis/tos'
 import { vaultBorrowAbi, vaultConvertToAssetsAbi, vaultDepositAbi, vaultPreviewWithdrawAbi, vaultRedeemAbi, vaultRepayAbi, vaultRepayWithSharesAbi, vaultSkimAbi, vaultTransferFromMaxAbi, vaultWithdrawAbi } from '~/abis/vault'
 import { convertSaHooksToEVCCalls, type EVCCall } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
+import { buildCollateralCleanupCalls } from '~/utils/collateral-cleanup'
 import { erc20ABI, swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
 import type { Vault } from '~/entities/vault'
@@ -32,9 +33,9 @@ export const useEulerOperations = () => {
   const { writeContractAsync } = useWriteContract()
   const { signTypedDataAsync } = useSignTypedData()
   const config = useConfig()
-  const { eulerCoreAddresses, eulerPeripheryAddresses } = useEulerAddresses()
+  const { eulerCoreAddresses, eulerPeripheryAddresses, eulerLensAddresses } = useEulerAddresses()
   const { enableTosSignature: enableTermsOfUseSignature } = useDeployConfig()
-  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
+  const { EVM_PROVIDER_URL, PYTH_HERMES_URL, SUBGRAPH_URL } = useEulerConfig()
   const { get: registryGet } = useVaultRegistry()
   const { permit2Enabled } = usePermit2Preference()
 
@@ -1065,6 +1066,17 @@ export const useEulerOperations = () => {
       evcCalls.unshift(permitCall)
     }
 
+    const cleanupCalls = await buildCollateralCleanupCalls({
+      evcAddress,
+      accountLensAddress: eulerLensAddresses.value!.accountLens as Address,
+      subAccount: subAccountAddr as Address,
+      providerUrl: EVM_PROVIDER_URL,
+      subgraphUrl: SUBGRAPH_URL,
+    })
+    if (cleanupCalls.length) {
+      evcCalls.push(...cleanupCalls)
+    }
+
     const depositCall = {
       targetContract: vaultAddr,
       onBehalfOfAccount: userAddr,
@@ -1181,6 +1193,17 @@ export const useEulerOperations = () => {
         data: hooks.getDataForCall(vaultAddr, 'transfer', [subAccountAddr, amount]) as Hash,
       }
       evcCalls.push(transferCall)
+    }
+
+    const cleanupCalls = await buildCollateralCleanupCalls({
+      evcAddress,
+      accountLensAddress: eulerLensAddresses.value!.accountLens as Address,
+      subAccount: subAccountAddr as Address,
+      providerUrl: EVM_PROVIDER_URL,
+      subgraphUrl: SUBGRAPH_URL,
+    })
+    if (cleanupCalls.length) {
+      evcCalls.push(...cleanupCalls)
     }
 
     const enableControllerCall = {
@@ -1416,6 +1439,17 @@ export const useEulerOperations = () => {
         data: hooks.getDataForCall(supplyVaultAddr, 'deposit', [supplyAmount, subAccountAddr]) as Hash,
       }
       evcCalls.push(depositCall as EVCCall)
+    }
+
+    const cleanupCalls = await buildCollateralCleanupCalls({
+      evcAddress,
+      accountLensAddress: eulerLensAddresses.value!.accountLens as Address,
+      subAccount: subAccountAddr as Address,
+      providerUrl: EVM_PROVIDER_URL,
+      subgraphUrl: SUBGRAPH_URL,
+    })
+    if (cleanupCalls.length) {
+      evcCalls.push(...cleanupCalls)
     }
 
     const enableControllerCall = {

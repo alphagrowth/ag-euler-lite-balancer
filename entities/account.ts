@@ -1,8 +1,6 @@
-import { getAddress, pad, toHex, type Address } from 'viem'
-import { evcGetControllersAbi } from '~/abis/evc'
-import axios from 'axios'
+import { getAddress, pad, toHex } from 'viem'
 import type { EarnVault, SecuritizeVault, Vault } from '~/entities/vault'
-import { getPublicClient } from '~/utils/public-client'
+import { fetchAccountPositions } from '~/utils/subgraph'
 
 export interface AccountVaultLiquidity {
   queryFailure: boolean
@@ -68,32 +66,6 @@ export const isPositionEligibleForLiquidation = (position: AccountBorrowPosition
   return position.liabilityValueLiquidation > position.collateralValueLiquidation
 }
 
-const checkGetController = async (subAccount: string) => {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerCoreAddresses } = useEulerAddresses()
-
-  if (!eulerCoreAddresses.value?.evc) {
-    console.warn('[checkGetController] EVC address not available')
-    return true
-  }
-
-  const client = getPublicClient(EVM_PROVIDER_URL)
-
-  try {
-    const controllers = await client.readContract({
-      address: eulerCoreAddresses.value.evc as Address,
-      abi: evcGetControllersAbi,
-      functionName: 'getControllers',
-      args: [subAccount as Address],
-    })
-    return (controllers as Address[]).length === 0
-  }
-  catch (e) {
-    console.error('[checkGetController] Error:', e)
-    return true
-  }
-}
-
 /**
  * Derives the subaccount index by XORing the owner address with the subaccount address.
  * The subaccount address is created as: ownerAddress XOR index
@@ -107,32 +79,16 @@ export const getSubAccountIndex = (ownerAddress: string, subAccountAddress: stri
 
 export const getNewSubAccount = async (ownerAddress: string) => {
   const { SUBGRAPH_URL } = useEulerConfig()
-  const { eulerCoreAddresses, loadEulerConfig } = useEulerAddresses()
-
-  if (!eulerCoreAddresses.value) {
-    await loadEulerConfig()
-  }
 
   const address = getAddress(ownerAddress)
-  const { data } = await axios.post(SUBGRAPH_URL, {
-    query: `query AccountBorrows {
-      trackingActiveAccount(id: "${ownerAddress}") {
-        borrows
-      }
-    }`,
-    operationName: 'AccountBorrows',
-  })
-  const entries = data.data?.trackingActiveAccount?.borrows || []
-  const subAccounts = entries.map((e: string) => getAddress(e.substring(0, 42)))
+  const { borrows } = await fetchAccountPositions(SUBGRAPH_URL, ownerAddress)
+  const subAccounts = borrows.map(b => b.subAccount)
 
   for (let index = 1; index <= 256; index++) {
     const hex = BigInt(address) ^ BigInt(index)
     const subAccountAddress = getAddress(pad(toHex(hex, { size: 20 }), { size: 20 }))
 
-    const isNotInBorrows = !subAccounts.includes(subAccountAddress)
-    const hasNoController = await checkGetController(subAccountAddress)
-
-    if (isNotInBorrows && hasNoController) {
+    if (!subAccounts.includes(subAccountAddress)) {
       return subAccountAddress
     }
   }

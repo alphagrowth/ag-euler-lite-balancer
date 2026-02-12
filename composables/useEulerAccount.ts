@@ -1,7 +1,7 @@
 import { getAddress, type Address, type Abi } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
 import { getPublicClient } from '~/utils/public-client'
-import axios from 'axios'
+import { fetchAccountPositions, type SubgraphPositionEntry } from '~/utils/subgraph'
 import { ref, watch, watchEffect, computed, type Ref } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { useVaultRegistry } from './useVaultRegistry'
@@ -109,9 +109,6 @@ const normalizeAddress = (value?: string | null) => {
   }
 }
 
-// Helper to get address prefix for simple subgraph queries (first 19 bytes = 0x + 38 hex chars)
-const getAddressPrefix = (address: string) => address.toLowerCase().slice(0, 40)
-
 const toBigInt = (value: unknown) => {
   try {
     return BigInt(value as bigint)
@@ -153,29 +150,6 @@ const hasPythOracles = (vault: Vault | SecuritizeVault): boolean => {
   if ('type' in vault && vault.type === 'securitize') return false
   const feeds = collectPythFeedIds((vault as Vault).oracleDetailedInfo)
   return feeds.length > 0
-}
-
-/**
- * Fetch both borrow and deposit entries from the subgraph in a single query.
- */
-const fetchPositionEntries = async (
-  subgraphUrl: string,
-  address: string,
-): Promise<{ borrowEntries: string[]; depositEntries: string[] }> => {
-  const { data } = await axios.post(subgraphUrl, {
-    query: `query AccountPositions {
-      trackingActiveAccount(id: "${getAddressPrefix(address)}") {
-        borrows
-        deposits
-      }
-    }`,
-    operationName: 'AccountPositions',
-  })
-  const account = data.data.trackingActiveAccount
-  return {
-    borrowEntries: account?.borrows || [],
-    depositEntries: account?.deposits || [],
-  }
 }
 
 const totalSuppliedValue = ref(0)
@@ -304,7 +278,7 @@ const portfolioNetApy = ref(0)
 const updateBorrowPositions = async (
   eulerLensAddresses: EulerLensAddresses,
   address: string,
-  borrowEntries: string[],
+  borrowEntries: SubgraphPositionEntry[],
   isInitialLoading = false,
   options: { forceAllPositions?: boolean } = {},
 ) => {
@@ -339,9 +313,9 @@ const updateBorrowPositions = async (
   for (let i = 0; i < borrowEntries.length; i += batchSize) {
     const batch = borrowEntries
       .slice(i, i + batchSize)
-      .map(async (entry: string) => {
-        const vaultAddress = `0x${entry.substring(42)}`
-        const subAccount = entry.substring(0, 42)
+      .map(async (entry) => {
+        const vaultAddress = entry.vault
+        const subAccount = entry.subAccount
 
         // Pre-fetch borrow vault to check for Pyth oracles
         const borrowVault = await getOrFetch(vaultAddress) as Vault | undefined
@@ -581,7 +555,7 @@ const updateBorrowPositions = async (
 const updateSavingsPositions = async (
   eulerLensAddresses: EulerLensAddresses,
   address: string,
-  depositEntries: string[],
+  depositEntries: SubgraphPositionEntry[],
   isInitialLoading = false,
   options: { forceAllPositions?: boolean } = {},
 ) => {
@@ -617,9 +591,9 @@ const updateSavingsPositions = async (
   for (let i = 0; i < depositEntries.length; i += batchSize) {
     const batch = depositEntries
       .slice(i, i + batchSize)
-      .map(async (entry: string) => {
-        const vaultAddress = getAddress(`0x${entry.substring(42)}`)
-        const subAccount = getAddress(entry.substring(0, 42))
+      .map(async (entry) => {
+        const vaultAddress = entry.vault
+        const subAccount = entry.subAccount
 
         // Check if this deposit is being used as collateral
         const collateralKey = `${subAccount}:${vaultAddress}`
@@ -690,9 +664,9 @@ export const useEulerAccount = () => {
     const { SUBGRAPH_URL } = useEulerConfig()
 
     // Fetch both borrow and deposit entries in a single subgraph query
-    const { borrowEntries, depositEntries } = targetAddress
-      ? await fetchPositionEntries(SUBGRAPH_URL, targetAddress)
-      : { borrowEntries: [], depositEntries: [] }
+    const { borrows: borrowEntries, deposits: depositEntries } = targetAddress
+      ? await fetchAccountPositions(SUBGRAPH_URL, targetAddress)
+      : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
 
     // Borrow positions must be loaded first so deposits can filter against them
     await updateBorrowPositions(
@@ -829,9 +803,9 @@ export const useEulerAccount = () => {
     walletAddress: string,
   ) => {
     const { SUBGRAPH_URL } = useEulerConfig()
-    const { borrowEntries, depositEntries } = walletAddress
-      ? await fetchPositionEntries(SUBGRAPH_URL, walletAddress)
-      : { borrowEntries: [], depositEntries: [] }
+    const { borrows: borrowEntries, deposits: depositEntries } = walletAddress
+      ? await fetchAccountPositions(SUBGRAPH_URL, walletAddress)
+      : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
     await updateBorrowPositions(lensAddresses, walletAddress, borrowEntries)
     await updateSavingsPositions(lensAddresses, walletAddress, depositEntries)
   }
