@@ -105,6 +105,35 @@ export const vaultMaxWithdrawAbi = [
   },
 ] as const
 
+export const vaultSkimAbi = [
+  {
+    type: 'function',
+    name: 'skim',
+    inputs: [
+      { name: 'amount', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+] as const
+
+export const vaultRepayWithSharesAbi = [
+  {
+    type: 'function',
+    name: 'repayWithShares',
+    inputs: [
+      { name: 'amount', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+    ],
+    outputs: [
+      { name: 'shares', type: 'uint256' },
+      { name: 'debt', type: 'uint256' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+] as const
+
 export const vaultTransferFromMaxAbi = [
   {
     type: 'function',

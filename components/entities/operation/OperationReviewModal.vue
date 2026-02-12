@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { encodeFunctionData, getAddress, toFunctionSelector } from 'viem'
+import { encodeFunctionData, formatUnits, getAddress, toFunctionSelector } from 'viem'
 import type { Address, Hex } from 'viem'
 import type { Campaign } from '~/entities/brevis'
 import type { VaultAsset } from '~/entities/vault'
@@ -20,7 +20,10 @@ const SELECTOR_LABELS: Record<string, string> = {
   [toFunctionSelector('function enableCollateral(address,address)')]: 'Enable collateral',
   [toFunctionSelector('function disableController()')]: 'Disable controller',
   [toFunctionSelector('function disableCollateral(address,address)')]: 'Disable collateral',
-  [toFunctionSelector('function transferFromMax(address,address)')]: 'Transfer',
+  [toFunctionSelector('function transfer(address,uint256)')]: 'Transfer',
+  [toFunctionSelector('function transferFromMax(address,address)')]: 'Transfer to account',
+  [toFunctionSelector('function skim(uint256,address)')]: 'Deposit',
+  [toFunctionSelector('function repayWithShares(uint256,address)')]: 'Repay',
   [toFunctionSelector('function signTermsOfUse(string,bytes32)')]: 'Sign terms of use',
   [toFunctionSelector('function multicall(bytes[])')]: 'Swap',
   [toFunctionSelector('function verifyAmountMinAndSkim(address,address,uint256,uint256)')]: 'Verify min received',
@@ -43,7 +46,7 @@ interface REULUnlockInfo {
 }
 
 const { type, asset, assetIconUrl, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount } = defineProps<{
-  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral'
+  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'transfer' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral'
   asset: VaultAsset
   assetIconUrl?: string
   amount: number | string
@@ -201,6 +204,34 @@ const getVaultAssetInfo = (data: string, targetContract: string): StepAssetInfo 
   return undefined
 }
 
+const MAX_UINT256 = 2n ** 256n - 1n
+
+const decodeFirstUint256 = (data: string): bigint | undefined => {
+  // ABI layout: 4 bytes selector (8 hex chars) + 32 bytes first param (64 hex chars)
+  if (data.length < 74) return undefined
+  try {
+    return BigInt(`0x${data.slice(10, 74)}`)
+  }
+  catch {
+    return undefined
+  }
+}
+
+const resolveAmountFromCalldata = (data: string, targetContract: string): { decoded: boolean, amount?: string, isMax?: boolean } => {
+  const raw = decodeFirstUint256(data)
+  if (raw === undefined) return { decoded: false }
+  if (raw === MAX_UINT256) return { decoded: true, isMax: true }
+  if (raw === 0n) return { decoded: true }
+  try {
+    const vault = getVault(getAddress(targetContract))
+    if (vault?.asset?.decimals) {
+      return { decoded: true, amount: formatUnits(raw, Number(vault.asset.decimals)) }
+    }
+  }
+  catch { /* ignore */ }
+  return { decoded: false }
+}
+
 const getAssetInfoForStep = (label: string, data: string, targetContract: string, usedSupply: { value: boolean }, usedBorrow: { value: boolean }, usedSwapTo: { value: boolean }): StepAssetInfo | undefined => {
   if (label === 'Enable collateral' || label === 'Enable controller' || label === 'Disable collateral' || label === 'Disable controller') {
     return getVaultAssetInfo(data, targetContract)
@@ -212,11 +243,42 @@ const getAssetInfoForStep = (label: string, data: string, targetContract: string
       usedSupply.value = true
       return { symbol: supplyingAssetForBorrow.symbol, address: supplyingAssetForBorrow.address, amount: supplyingAmount }
     }
-    // Otherwise use the main asset
-    return { symbol: asset.symbol, address: asset.address, amount }
+    const resolved = resolveAmountFromCalldata(data, targetContract)
+    const displayAmount = resolved.isMax ? 'remaining' : (resolved.decoded ? resolved.amount : amount)
+    return { symbol: asset.symbol, address: asset.address, amount: displayAmount }
+  }
+
+  if (label === 'Deposit') {
+    if (swapToAsset && swapToAmount) {
+      return { symbol: swapToAsset.symbol, address: swapToAsset.address, amount: swapToAmount }
+    }
+    // skim always deposits whatever tokens are available — amount param is just a minimum check
+    try {
+      const targetVault = getVault(getAddress(targetContract))
+      if (targetVault?.asset) {
+        return { symbol: targetVault.asset.symbol, address: targetVault.asset.address, amount: 'remaining' }
+      }
+    }
+    catch { /* ignore */ }
+    return { symbol: asset.symbol, address: asset.address, amount: 'remaining' }
+  }
+
+  if (label === 'Transfer' || label === 'Transfer to account') {
+    const transferAmount = label === 'Transfer to account' ? 'remaining' : undefined
+    try {
+      const targetVault = getVault(getAddress(targetContract))
+      if (targetVault?.asset) return { symbol: targetVault.asset.symbol, address: targetVault.asset.address, amount: transferAmount }
+    }
+    catch { /* ignore */ }
+    return { symbol: asset.symbol, address: asset.address, amount: transferAmount }
   }
 
   if (label === 'Borrow' || label === 'Repay') {
+    const resolved = resolveAmountFromCalldata(data, targetContract)
+    if (resolved.decoded) {
+      const displayAmount = resolved.isMax ? 'max' : resolved.amount
+      return { symbol: asset.symbol, address: asset.address, amount: displayAmount }
+    }
     if (!usedBorrow.value) {
       usedBorrow.value = true
       return { symbol: asset.symbol, address: asset.address, amount }
@@ -290,9 +352,12 @@ const displaySteps = computed((): DisplayStep[] => {
           else if (label === 'Update price feeds' && stepAssetInfo && secondAsset && secondAsset.symbol !== asset.symbol) {
             toAssetInfo = { symbol: secondAsset.symbol, address: secondAsset.address }
           }
+          const displayLabel = label === 'Transfer to account' ? 'Transfer' : label
+          const batchLabelSuffix = label === 'Transfer to account' ? 'to savings' : undefined
           steps.push({
             index,
-            label,
+            label: displayLabel,
+            labelSuffix: batchLabelSuffix,
             isSeparateTx: false,
             assetInfo: stepAssetInfo,
             toAssetInfo,
@@ -399,6 +464,8 @@ const btnLabel = computed(() => {
       return 'Repay'
     case 'swap':
       return 'Swap'
+    case 'transfer':
+      return 'Transfer'
     case 'reul-unlock':
       return 'Unlock'
     case 'reward':
@@ -479,7 +546,8 @@ const feeDisplay = computed(() => {
                   v-if="!step.iconOnly"
                   class="text-p3"
                 >
-                  <template v-if="step.assetInfo.amount !== undefined">{{ formatNumber(step.assetInfo.amount, 8, 0) }}&nbsp;</template>{{ step.assetInfo.symbol }}
+                  <template v-if="step.assetInfo.amount === 'max' || step.assetInfo.amount === 'remaining'">{{ step.assetInfo.amount }}&nbsp;</template>
+                  <template v-else-if="step.assetInfo.amount !== undefined">{{ formatNumber(step.assetInfo.amount, 8, 0) }}&nbsp;</template>{{ step.assetInfo.symbol }}
                 </p>
               </template>
               <p
