@@ -20,7 +20,7 @@ import {
   getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isAnyVaultBlockedByCountry, getVaultTags } from '~/composables/useGeoBlock'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { SwapperMode } from '~/entities/swap'
@@ -200,7 +200,7 @@ const loadSelectedCollateral = async () => {
   }
 
   if (!fromAmount.value && selectedCollateral.value) {
-    fromAmount.value = formatSignificant(nanoToValue(selectedCollateralAssets.value || 0n, selectedCollateral.value.decimals), 6)
+    fromAmount.value = formatSignificantFloor(nanoToValue(selectedCollateralAssets.value || 0n, selectedCollateral.value.decimals), 6)
   }
 }
 
@@ -225,6 +225,7 @@ const syncToVault = () => {
   const currentAddress = toVault.value ? normalizeAddress(toVault.value.address) : ''
   const nextVault = collateralVaults.value.find(vault => normalizeAddress(vault.address) === targetAddress)
     || collateralVaults.value.find(vault => normalizeAddress(vault.address) === currentAddress)
+    || collateralVaults.value.find(v => !getVaultTags(v.address, 'swap-target').disabled)
     || collateralVaults.value[0]
 
   if (!toVault.value || normalizeAddress(toVault.value.address) !== normalizeAddress(nextVault.address)) {

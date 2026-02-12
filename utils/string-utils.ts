@@ -44,6 +44,22 @@ export const formatSignificant = (value: string | number = 0, maximumSignificant
   }).format(numericValue)
 }
 
+/**
+ * Like formatSignificant but truncates (floors) instead of rounding.
+ * Use when the formatted value must never exceed the original (e.g. balance inputs).
+ */
+export const formatSignificantFloor = (value: string | number = 0, maximumSignificantDigits = 2): string => {
+  const num = Number(value)
+  if (!Number.isFinite(num) || num === 0) return '0'
+  const abs = Math.abs(num)
+  const magnitude = Math.floor(Math.log10(abs))
+  const decimalPlaces = Math.max(0, maximumSignificantDigits - 1 - magnitude)
+  const factor = 10 ** decimalPlaces
+  const truncated = Math.floor(abs * factor) / factor
+  const result = num < 0 ? -truncated : truncated
+  return result.toFixed(decimalPlaces)
+}
+
 export const compactNumber = (value: string | number = 0, maximumFractionDigits = 2, minimumFractionDigits = 0) => {
   return Intl.NumberFormat('en-US', {
     notation: 'compact',
