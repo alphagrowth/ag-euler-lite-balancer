@@ -29,7 +29,7 @@ export type EulerLabelProduct = {
   deprecationReason?: string
   isGovernanceLimited?: boolean
   block?: string[]
-  featured?: boolean
+  featuredVaults?: string[]
   vaultOverrides?: Record<string, EulerLabelVaultOverride>
 }
 export type EulerLabelPoint = {

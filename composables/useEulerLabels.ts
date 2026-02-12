@@ -333,7 +333,7 @@ export const getEarnVaultRestricted = (vaultAddress: string): string[] | undefin
 export const isVaultFeatured = (vaultAddress: string): boolean => {
   const normalized = normalizeAddress(vaultAddress)
   const inFeaturedProduct = Object.values(products).some(product =>
-    (product.featured ?? false) && product.vaults.includes(normalized),
+    product.featuredVaults?.includes(normalized) ?? false,
   )
   if (inFeaturedProduct) return true
   return featuredEarnVaults.has(normalized)
