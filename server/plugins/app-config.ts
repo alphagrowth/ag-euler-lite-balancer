@@ -28,7 +28,6 @@ function readAppConfig() {
     pythHermesUrl: env('PYTH_HERMES_URL', 'NUXT_PUBLIC_PYTH_HERMES_URL'),
     appKitProjectId: env('APPKIT_PROJECT_ID', 'NUXT_PUBLIC_APP_KIT_PROJECT_ID'),
     appUrl: env('NUXT_PUBLIC_APP_URL'),
-    walletScreeningUri: env('WALLET_SCREENING_URI', 'NUXT_PUBLIC_WALLET_SCREENING_URI'),
     eulerApiUrl: env('EULER_API_URL', 'NUXT_PUBLIC_EULER_API_URL'),
     swapApiUrl: env('SWAP_API_URL', 'NUXT_PUBLIC_SWAP_API_URL'),
     priceApiUrl: env('PRICE_API_URL', 'NUXT_PUBLIC_PRICE_API_URL'),

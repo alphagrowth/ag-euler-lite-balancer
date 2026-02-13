@@ -118,7 +118,6 @@ export default defineNuxtConfig({
       appKitProjectId: '',
       appUrl: '',
       pythHermesUrl: '',
-      walletScreeningUri: '',
       eulerApiUrl: '',
       swapApiUrl: '',
       priceApiUrl: '',
