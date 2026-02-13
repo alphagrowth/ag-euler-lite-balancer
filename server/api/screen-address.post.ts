@@ -1,12 +1,47 @@
 import { createError, readBody } from 'h3'
 
 const SCREENING_TIMEOUT_MS = 5000
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 10
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+// Clean up stale entries every 2 minutes
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(key)
+  }
+}, 120_000)
+
+function getClientIp(event: any): string {
+  return (
+    event.node.req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+    || event.node.req.socket?.remoteAddress
+    || 'unknown'
+  )
+}
 
 function isValidAddress(value: unknown): value is string {
   return typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value)
 }
 
 export default defineEventHandler(async (event) => {
+  // Rate limit: 10 requests per minute per IP
+  const ip = getClientIp(event)
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+
+  if (entry && now < entry.resetAt) {
+    if (entry.count >= RATE_LIMIT_MAX) {
+      console.warn('[screen-address] Rate limited:', ip)
+      throw createError({ statusCode: 429, statusMessage: 'Too Many Requests' })
+    }
+    entry.count++
+  } else {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+  }
+
   const body = await readBody(event)
 
   if (!body || !isValidAddress(body.address)) {
