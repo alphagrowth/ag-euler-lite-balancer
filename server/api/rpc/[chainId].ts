@@ -31,7 +31,12 @@ interface JsonRpcRequest {
 }
 
 function validateRpcRequest(req: unknown): req is JsonRpcRequest {
-  return typeof req === 'object' && req !== null && 'method' in req
+  if (typeof req !== 'object' || req === null) return false
+  const r = req as Record<string, unknown>
+  if (r.jsonrpc !== '2.0') return false
+  if (!('id' in r) || (typeof r.id !== 'number' && typeof r.id !== 'string' && r.id !== null)) return false
+  if (!('method' in r)) return false
+  return true
 }
 
 function validateMethod(method: unknown): method is string {
