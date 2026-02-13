@@ -70,6 +70,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid calldata' })
   }
 
+  // 64 KB of hex chars = 32 KB of actual calldata, well above any normal transaction
+  if (data.length > 131072) {
+    throw createError({ statusCode: 400, statusMessage: 'Calldata too large' })
+  }
+
   if (value !== undefined && value !== '' && !isValidValue(value)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid value' })
   }
