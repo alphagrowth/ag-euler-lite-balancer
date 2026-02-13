@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
   const chainIdRaw = event.context.params?.chainId
   const chainId = Number(chainIdRaw)
 
-  if (!Number.isFinite(chainId)) {
+  if (!Number.isInteger(chainId) || chainId <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid chainId' })
   }
 
