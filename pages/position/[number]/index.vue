@@ -97,6 +97,13 @@ const isPositionGeoBlocked = computed(() => {
   return isAnyVaultBlockedByCountry(...addresses)
 })
 
+const isOverBorrowLTV = computed(() => {
+  if (!position.value || hasNoBorrow.value) return false
+  const userLtv = nanoToValue(position.value.userLTV, 18)
+  const borrowLtv = nanoToValue(position.value.borrowLTV, 2)
+  return borrowLtv > 0 && userLtv >= borrowLtv
+})
+
 const isBorrowRestricted = computed(() =>
   position.value ? isVaultRestrictedByCountry(position.value.borrow.address) : false)
 
@@ -845,6 +852,15 @@ watch(isConnected, () => {
               persistent
             />
             <UiToast
+              v-if="isOverBorrowLTV && !isEligibleForLiquidation"
+              class="my-12"
+              title="LTV limit reached"
+              description="Your current LTV exceeds the borrow limit. Repay debt or supply more collateral to borrow again."
+              variant="warning"
+              size="compact"
+              persistent
+            />
+            <UiToast
               v-if="isPositionGeoBlocked || isPairFullyRestricted"
               class="my-12"
               title="Region restricted"
@@ -870,8 +886,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary"
                 rounded
-                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || isMultiplyRestricted || hasQueryFailure"
-                :to="isEligibleForLiquidation || isPositionGeoBlocked || isMultiplyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/multiply`"
+                :disabled="isEligibleForLiquidation || isOverBorrowLTV || isPositionGeoBlocked || isMultiplyRestricted || hasQueryFailure"
+                :to="isEligibleForLiquidation || isOverBorrowLTV || isPositionGeoBlocked || isMultiplyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/multiply`"
               >
                 Multiply
               </UiButton>
@@ -879,8 +895,8 @@ watch(isConnected, () => {
                 size="medium"
                 variant="primary-stroke"
                 rounded
-                :disabled="isEligibleForLiquidation || isPositionGeoBlocked || isBorrowRestricted || hasQueryFailure"
-                :to="isEligibleForLiquidation || isPositionGeoBlocked || isBorrowRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow`"
+                :disabled="isEligibleForLiquidation || isOverBorrowLTV || isPositionGeoBlocked || isBorrowRestricted || hasQueryFailure"
+                :to="isEligibleForLiquidation || isOverBorrowLTV || isPositionGeoBlocked || isBorrowRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow`"
               >
                 Borrow
               </UiButton>

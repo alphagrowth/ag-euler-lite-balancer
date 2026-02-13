@@ -56,6 +56,7 @@ const collateralAmount = ref('')
 const debtAmount = ref('')
 const repaySwapDirection = ref(SwapperMode.EXACT_IN)
 const repayDebtPercent = ref(0)
+const walletRepayPercent = ref(0)
 const plan = ref<TxPlan | null>(null)
 const balance = ref(0n)
 const position: Ref<AccountBorrowPosition | undefined> = ref()
@@ -1105,7 +1106,7 @@ const updateEstimates = useDebounceFn(async () => {
     if (walletBalance.value < valueToNano(amount.value, borrowVault.value.decimals)) {
       throw new Error('Not enough balance')
     }
-    if (balanceFixed.value.lt(amountFixed.value)) {
+    if (borrowedFixed.value.lt(amountFixed.value)) {
       throw new Error('You repaying more than required')
     }
     const [supplyUsd, borrowUsd] = await Promise.all([
@@ -1159,10 +1160,46 @@ watch(address, () => {
   fetchWalletBalance()
   updateBalance()
 })
+const onWalletRepayPercentInput = () => {
+  clearSimulationError()
+  if (!borrowVault.value || !position.value) {
+    amount.value = ''
+    walletRepayPercent.value = 0
+    return
+  }
+  const currentDebt = position.value.borrowed || 0n
+  if (currentDebt <= 0n) {
+    amount.value = ''
+    return
+  }
+  const percent = Math.min(100, Math.max(0, walletRepayPercent.value || 0))
+  const amountNano = (currentDebt * BigInt(Math.round(percent * 100))) / 10_000n
+  amount.value = trimTrailingZeros(formatUnits(amountNano, Number(borrowVault.value.asset.decimals)))
+}
+
 watch(amount, async () => {
   clearSimulationError()
   if (formTab.value !== 'wallet') {
     return
+  }
+  // Sync wallet repay percent slider
+  if (position.value && borrowVault.value) {
+    const currentDebt = position.value.borrowed || 0n
+    if (currentDebt > 0n) {
+      let amountNano = 0n
+      try {
+        amountNano = valueToNano(amount.value || '0', borrowVault.value.asset.decimals)
+      }
+      catch {
+        amountNano = 0n
+      }
+      walletRepayPercent.value = amountNano > 0n
+        ? Math.min(100, Math.max(0, Math.round(Number(amountNano * 100n / currentDebt))))
+        : 0
+    }
+    else {
+      walletRepayPercent.value = 0
+    }
   }
   if (!collateralVault.value) {
     return
@@ -1180,6 +1217,10 @@ watch(formTab, () => {
     collateralAmount.value = ''
     debtAmount.value = ''
     repaySwapDirection.value = SwapperMode.EXACT_IN
+  }
+  else {
+    amount.value = ''
+    walletRepayPercent.value = 0
   }
 })
 
@@ -1239,13 +1280,11 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
-      <div class="flex justify-between">
-        <VaultLabelsAndAssets
-          :vault="position.borrow"
-          :assets="assets as VaultAsset[]"
-          size="large"
-        />
-      </div>
+      <VaultLabelsAndAssets
+        :vault="position.borrow"
+        :assets="assets as VaultAsset[]"
+        size="large"
+      />
 
       <UiTabs
         v-model="formTab"
@@ -1256,366 +1295,300 @@ onUnmounted(() => {
       />
 
       <template v-if="formTab === 'wallet'">
-        <AssetInput
-          v-if="position.borrow.asset"
-          v-model="amount"
-          label="Deposit amount"
-          :desc="name"
-          :asset="position.borrow.asset"
-          :vault="position.borrow"
-          :balance="balance"
-          maxable
-        />
+        <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
+          <div class="flex flex-col gap-16 w-full">
+            <AssetInput
+              v-if="position.borrow.asset"
+              v-model="amount"
+              label="Pay from wallet"
+              :desc="name"
+              :asset="position.borrow.asset"
+              :vault="position.borrow"
+              :balance="walletBalance"
+              maxable
+            />
 
-        <UiToast
-          v-show="estimatesError"
-          title="Error"
-          variant="error"
-          :description="estimatesError"
-          size="compact"
-        />
-        <UiToast
-          v-if="simulationError"
-          title="Error"
-          variant="error"
-          :description="simulationError"
-          size="compact"
-        />
+            <AssetInput
+              v-if="position.borrow.asset"
+              v-model="amount"
+              label="Debt to repay"
+              :asset="position.borrow.asset"
+              :vault="position.borrow"
+              :balance="position.borrowed"
+              maxable
+            />
 
-        <VaultFormInfoBlock
-          v-if="collateralVault && borrowVault"
-          :loading="isEstimatesLoading"
-          class="flex flex-col gap-16"
-        >
-          <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-content-tertiary">
-              Net APY
-            </p>
+            <UiRange
+              v-if="borrowVault"
+              v-model="walletRepayPercent"
+              label="Percent of debt to repay"
+              :min="0"
+              :max="100"
+              :step="1"
+              :number-filter="(n: number) => `${n}%`"
+              @update:model-value="onWalletRepayPercentInput"
+            />
 
-            <p
-              v-if="netAPY !== estimateNetAPY"
-              class="text-p2 text-content-tertiary"
-            >
-              {{ formatNumber(netAPY) }}% → <span class="text-content-primary">{{ formatNumber(estimateNetAPY) }}%</span>
-            </p>
-            <p
-              v-else
-              class="text-p2 text-content-primary"
-            >
-              {{ formatNumber(netAPY) }}%
-            </p>
+            <UiToast
+              v-show="estimatesError"
+              title="Error"
+              variant="error"
+              :description="estimatesError"
+              size="compact"
+            />
+            <UiToast
+              v-if="simulationError"
+              title="Error"
+              variant="error"
+              :description="simulationError"
+              size="compact"
+            />
           </div>
-          <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-content-tertiary">
-              Oracle price
-            </p>
-            <p class="text-p2 flex items-center gap-4">
-              {{ oraclePriceRatio != null ? formatSmartAmount(walletPriceInvert.invertValue(oraclePriceRatio)!) : '-' }}
-              <span v-if="oraclePriceRatio != null" class="text-content-tertiary text-p3">
-                {{ walletPriceInvert.displaySymbol }}
-              </span>
-              <button v-if="oraclePriceRatio != null" type="button" class="text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="walletPriceInvert.toggle">
-                <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
-              </button>
-            </p>
-          </div>
-          <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-content-tertiary">
-              Liquidation price
-            </p>
-            <p class="text-p2 flex items-center gap-4">
-              {{ walletPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(walletPriceInvert.invertValue(liquidationPrice)!) : '-' }}
-              <span v-if="walletPriceInvert.invertValue(liquidationPrice) != null" class="text-content-tertiary text-p3">
-                {{ walletPriceInvert.displaySymbol }}
-              </span>
-            </p>
-          </div>
-          <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-content-tertiary">
-              Liquidation LTV
-            </p>
-            <p
-              v-if="position.userLTV !== estimateUserLTV"
-              class="text-p2 text-content-tertiary"
-            >
-              {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-              → <span class="text-content-primary">
-                {{ formatNumber(nanoToValue(estimateUserLTV, 18)) }}%
-              </span>
-            </p>
-            <p
-              v-else
-              class="text-p2 flex items-center gap-4"
-            >
-              {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-            </p>
-          </div>
-          <div class="flex justify-between items-center flex-wrap gap-8">
-            <p class="text-content-tertiary">
-              Health score
-            </p>
 
-            <p
-              v-if="position.health !== estimateHealth"
-              class="text-p2 text-content-tertiary"
+          <VaultFormInfoBlock
+            v-if="collateralVault && borrowVault"
+            :loading="isEstimatesLoading"
+            variant="card"
+            class="w-full laptop:max-w-[360px]"
+          >
+            <SummaryRow label="Net APY">
+              <SummaryValue
+                :before="formatNumber(netAPY)"
+                :after="formatNumber(estimateNetAPY)"
+                suffix="%"
+              />
+            </SummaryRow>
+            <SummaryRow label="Oracle price">
+              <SummaryPriceValue
+                :value="oraclePriceRatio != null ? formatSmartAmount(walletPriceInvert.invertValue(oraclePriceRatio)!) : undefined"
+                :symbol="walletPriceInvert.displaySymbol"
+                invertible
+                @invert="walletPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liquidation price">
+              <SummaryPriceValue
+                :value="walletPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(walletPriceInvert.invertValue(liquidationPrice)!) : undefined"
+                :symbol="walletPriceInvert.displaySymbol"
+                invertible
+                @invert="walletPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="LTV">
+              <SummaryValue
+                :before="formatNumber(nanoToValue(position.userLTV, 18))"
+                :after="formatNumber(nanoToValue(estimateUserLTV, 18))"
+                suffix="%"
+              />
+            </SummaryRow>
+            <SummaryRow label="Health score">
+              <SummaryValue
+                :before="formatHealthScore(nanoToValue(position.health, 18))"
+                :after="formatHealthScore(nanoToValue(estimateHealth, 18))"
+              />
+            </SummaryRow>
+          </VaultFormInfoBlock>
+
+          <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
+            <VaultFormInfoButton
+              :pair="position"
+              :disabled="isLoading || isSubmitting"
             >
-              {{ formatHealthScore(nanoToValue(position.health, 18)) }} → <span class="text-content-primary">{{ formatHealthScore(nanoToValue(estimateHealth, 18)) }}</span>
-            </p>
-            <p
-              v-else
-              class="text-p2 text-content-primary"
+              Pair information
+            </VaultFormInfoButton>
+            <VaultFormSubmit
+              :disabled="reviewRepayDisabled"
+              :loading="isSubmitting"
             >
-              {{ formatHealthScore(nanoToValue(position.health, 18)) }}
-            </p>
+              {{ reviewRepayLabel }}
+            </VaultFormSubmit>
           </div>
-        </VaultFormInfoBlock>
+        </div>
       </template>
 
       <template v-else>
-        <UiToast
-          v-if="isEligibleForLiquidation"
-          title="Position in violation"
-          variant="warning"
-          description="This position is eligible for liquidation. Collateral swaps that don't fully clear the debt will fail. If repaying partially, consider repaying from your wallet instead."
-          size="compact"
-        />
+        <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
+          <div class="flex flex-col gap-16 w-full">
+            <UiToast
+              v-if="isEligibleForLiquidation"
+              title="Position in violation"
+              variant="warning"
+              description="This position is eligible for liquidation. Collateral swaps that don't fully clear the debt will fail. If repaying partially, consider repaying from your wallet instead."
+              size="compact"
+            />
 
-        <AssetInput
-          v-if="swapCollateralVault"
-          v-model="collateralAmount"
-          label="Collateral to swap"
-          :desc="swapCollateralProduct.name"
-          :asset="swapCollateralVault.asset"
-          :vault="swapCollateralVault"
-          :collateral-options="repayCollateralOptions"
-          :balance="swapCollateralBalance"
-          maxable
-          @input="onCollateralInput"
-          @change-collateral="onSwapCollateralChange"
-        />
-        <AssetInput
-          v-if="borrowVault"
-          v-model="debtAmount"
-          label="Debt to repay"
-          :desc="name"
-          :asset="borrowVault.asset"
-          :vault="borrowVault"
-          :balance="swapDebtBalance"
-          maxable
-          @input="onDebtInput"
-        />
-        <UiRange
-          v-if="borrowVault"
-          v-model="repayDebtPercent"
-          label="Percent of debt to repay"
-          :min="0"
-          :max="100"
-          :step="1"
-          :number-filter="(n: number) => `${n}%`"
-          @update:model-value="onRepayPercentInput"
-        />
+            <AssetInput
+              v-if="swapCollateralVault"
+              v-model="collateralAmount"
+              label="Collateral to swap"
+              :desc="swapCollateralProduct.name"
+              :asset="swapCollateralVault.asset"
+              :vault="swapCollateralVault"
+              :collateral-options="repayCollateralOptions"
+              :balance="swapCollateralBalance"
+              @input="onCollateralInput"
+              @change-collateral="onSwapCollateralChange"
+            />
+            <AssetInput
+              v-if="borrowVault"
+              v-model="debtAmount"
+              label="Debt to repay"
+              :desc="name"
+              :asset="borrowVault.asset"
+              :vault="borrowVault"
+              :balance="swapDebtBalance"
+              maxable
+              @input="onDebtInput"
+            />
+            <UiRange
+              v-if="borrowVault"
+              v-model="repayDebtPercent"
+              label="Percent of debt to repay"
+              :min="0"
+              :max="100"
+              :step="1"
+              :number-filter="(n: number) => `${n}%`"
+              @update:model-value="onRepayPercentInput"
+            />
 
-        <SwapRouteSelector
-          v-if="!swapIsSameAsset"
-          :items="swapRouteItems"
-          :selected-provider="swapSelectedProvider"
-          :status-label="swapQuotesStatusLabel"
-          :is-loading="swapIsQuoteLoading"
-          :empty-message="swapRouteEmptyMessage"
-          @select="selectSwapProvider"
-          @refresh="onRefreshSwapQuotes"
-        />
+            <SwapRouteSelector
+              v-if="!swapIsSameAsset"
+              :items="swapRouteItems"
+              :selected-provider="swapSelectedProvider"
+              :status-label="swapQuotesStatusLabel"
+              :is-loading="swapIsQuoteLoading"
+              :empty-message="swapRouteEmptyMessage"
+              @select="selectSwapProvider"
+              @refresh="onRefreshSwapQuotes"
+            />
 
-        <UiToast
-          v-if="swapQuoteError && !swapIsSameAsset"
-          title="Swap quote"
-          variant="warning"
-          :description="swapQuoteError"
-          size="compact"
-        />
-        <UiToast
-          v-if="simulationError"
-          title="Error"
-          variant="error"
-          :description="simulationError"
-          size="compact"
-        />
+            <UiToast
+              v-if="swapQuoteError && !swapIsSameAsset"
+              title="Swap quote"
+              variant="warning"
+              :description="swapQuoteError"
+              size="compact"
+            />
+            <UiToast
+              v-if="simulationError"
+              title="Error"
+              variant="error"
+              :description="simulationError"
+              size="compact"
+            />
+          </div>
 
-        <VaultFormInfoBlock
-          :loading="!swapIsSameAsset && swapIsQuoteLoading"
-          class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full shadow-card"
-        >
-          <div class="flex justify-between items-center">
-            <p class="text-content-tertiary">
-              ROE
-            </p>
-            <p class="text-p2">
-              <template v-if="swapRoeBefore !== null && swapRoeAfter !== null && (swapQuote || swapIsSameAsset)">
-                <span class="text-content-tertiary">{{ formatNumber(swapRoeBefore) }}%</span>
-                → <span class="text-content-primary">{{ formatNumber(swapRoeAfter) }}%</span>
-              </template>
-              <template v-else>
-                {{ swapRoeBefore !== null ? `${formatNumber(swapRoeBefore)}%` : '-' }}
-              </template>
-            </p>
-          </div>
-          <template v-if="!swapIsSameAsset">
-            <div class="flex justify-between items-start">
-              <p class="text-content-tertiary shrink-0 mr-12">
-                Swap price
-              </p>
-              <p class="text-p2 text-right inline-flex items-center">
-                {{ swapCurrentPrice ? formatSmartAmount(swapPriceInvert.invertValue(swapCurrentPrice.value)) : '-' }}
-                <span v-if="swapCurrentPrice" class="text-content-tertiary text-p3 ml-4">{{ swapPriceInvert.displaySymbol }}</span>
-                <button v-if="swapCurrentPrice" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="swapPriceInvert.toggle">
-                  <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
-                </button>
-              </p>
-            </div>
-          </template>
-          <template v-else>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Transfer
-              </p>
-              <p class="text-p2">
-                1:1 (same asset, no slippage)
-              </p>
-            </div>
-          </template>
-          <div class="flex justify-between items-center">
-            <p class="text-content-tertiary">
-              Liquidation price
-            </p>
-            <p class="text-p2">
-              <template v-if="swapCurrentLiquidationPrice !== null && swapNextLiquidationPrice !== null && (swapQuote || swapIsSameAsset)">
-                <span class="text-content-tertiary">{{ formatSmartAmount(swapPriceInvert.invertValue(swapCurrentLiquidationPrice)) }}</span>
-                → <span class="text-content-primary">{{ formatSmartAmount(swapPriceInvert.invertValue(swapNextLiquidationPrice)) }}</span>
-              </template>
-              <template v-else>
-                {{ swapPriceInvert.invertValue(swapCurrentLiquidationPrice) != null ? formatSmartAmount(swapPriceInvert.invertValue(swapCurrentLiquidationPrice)!) : '-' }}
-              </template>
-              <span class="text-content-tertiary text-p3">{{ ' ' + swapPriceInvert.displaySymbol }}</span>
-            </p>
-          </div>
-          <div class="flex justify-between items-center">
-            <p class="text-content-tertiary">
-              Liquidation LTV
-            </p>
-            <p class="text-p2 text-right">
-              <template v-if="swapNextLtv !== null && (swapQuote || swapIsSameAsset)">
-                <span v-if="swapCurrentLtv !== null" class="text-content-tertiary">
-                  {{ formatNumber(swapCurrentLtv) }}%
-                  →
-                </span>
-                <span class="text-content-primary">
-                  {{ formatNumber(swapNextLtv) }}%
-                </span>
-              </template>
-              <template v-else>
-                <span v-if="swapCurrentLtv !== null">
-                  {{ formatNumber(swapCurrentLtv) }}%
-                </span>
-                <span v-else>-</span>
-              </template>
-            </p>
-          </div>
-          <div class="flex justify-between items-center">
-            <p class="text-content-tertiary">
-              Health score
-            </p>
-            <p class="text-p2">
-              <template v-if="swapCurrentHealth !== null && swapNextHealth !== null && (swapQuote || swapIsSameAsset)">
-                <span class="text-content-tertiary">{{ formatHealthScore(swapCurrentHealth) }}</span>
-                → <span class="text-content-primary">{{ formatHealthScore(swapNextHealth) }}</span>
-              </template>
-              <template v-else>
-                {{ formatHealthScore(swapCurrentHealth) }}
-              </template>
-            </p>
-          </div>
-          <template v-if="!swapIsSameAsset">
-            <div class="flex justify-between items-start">
-              <p class="text-content-tertiary">
-                Swap
-              </p>
-              <p class="text-p2 text-right flex flex-col items-end">
-                <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
-                <span
-                  v-if="swapSummary"
-                  class="text-content-tertiary text-p3"
-                >
-                  {{ swapSummary.to }}
-                </span>
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Price impact
-              </p>
-              <p class="text-p2">
-                {{ swapPriceImpact !== null ? `${formatNumber(swapPriceImpact, 2, 2)}%` : '-' }}
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Leveraged price impact
-              </p>
-              <p class="text-p2">
-                {{ swapLeveragedPriceImpact !== null ? `${formatNumber(swapLeveragedPriceImpact, 2, 2)}%` : '-' }}
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Slippage tolerance
-              </p>
-              <button
-                type="button"
-                class="flex items-center gap-6 text-p2"
-                @click="openSlippageSettings"
-              >
-                <span>{{ formatNumber(slippage, 2, 0) }}%</span>
-                <SvgIcon
-                  name="edit"
-                  class="!w-16 !h-16 text-accent-600"
+          <VaultFormInfoBlock
+            :loading="!swapIsSameAsset && swapIsQuoteLoading"
+            variant="card"
+            class="w-full laptop:max-w-[360px]"
+          >
+            <SummaryRow label="ROE">
+              <SummaryValue
+                :before="swapRoeBefore !== null ? formatNumber(swapRoeBefore) : undefined"
+                :after="swapRoeAfter !== null && (swapQuote || swapIsSameAsset) ? formatNumber(swapRoeAfter) : undefined"
+                suffix="%"
+              />
+            </SummaryRow>
+            <template v-if="!swapIsSameAsset">
+              <SummaryRow label="Swap price" align-top>
+                <SummaryPriceValue
+                  :value="swapCurrentPrice ? formatSmartAmount(swapPriceInvert.invertValue(swapCurrentPrice.value)) : undefined"
+                  :symbol="swapPriceInvert.displaySymbol"
+                  invertible
+                  @invert="swapPriceInvert.toggle"
                 />
-              </button>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Routed via
-              </p>
-              <p class="text-p2 text-right">
-                {{ swapRoutedVia || '-' }}
-              </p>
-            </div>
-          </template>
-        </VaultFormInfoBlock>
-      </template>
-    </template>
+              </SummaryRow>
+            </template>
+            <template v-else>
+              <SummaryRow label="Transfer">
+                <p class="text-p2">
+                  1:1 (same asset, no slippage)
+                </p>
+              </SummaryRow>
+            </template>
+            <SummaryRow label="Liquidation price">
+              <SummaryPriceValue
+                :before="swapCurrentLiquidationPrice !== null ? formatSmartAmount(swapPriceInvert.invertValue(swapCurrentLiquidationPrice)) : undefined"
+                :after="swapNextLiquidationPrice !== null && (swapQuote || swapIsSameAsset) ? formatSmartAmount(swapPriceInvert.invertValue(swapNextLiquidationPrice)) : undefined"
+                :symbol="swapPriceInvert.displaySymbol"
+                invertible
+                @invert="swapPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="LTV">
+              <SummaryValue
+                :before="swapCurrentLtv !== null ? formatNumber(swapCurrentLtv) : undefined"
+                :after="swapNextLtv !== null && (swapQuote || swapIsSameAsset) ? formatNumber(swapNextLtv) : undefined"
+                suffix="%"
+              />
+            </SummaryRow>
+            <SummaryRow label="Health score">
+              <SummaryValue
+                :before="swapCurrentHealth !== null ? formatHealthScore(swapCurrentHealth) : undefined"
+                :after="swapNextHealth !== null && (swapQuote || swapIsSameAsset) ? formatHealthScore(swapNextHealth) : undefined"
+              />
+            </SummaryRow>
+            <template v-if="!swapIsSameAsset">
+              <SummaryRow label="Swap" align-top>
+                <p class="text-p2 text-right flex flex-col items-end">
+                  <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
+                  <span
+                    v-if="swapSummary"
+                    class="text-content-tertiary text-p3"
+                  >
+                    {{ swapSummary.to }}
+                  </span>
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Price impact">
+                <p class="text-p2">
+                  {{ swapPriceImpact !== null ? `${formatNumber(swapPriceImpact, 2, 2)}%` : '-' }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Leveraged price impact">
+                <p class="text-p2">
+                  {{ swapLeveragedPriceImpact !== null ? `${formatNumber(swapLeveragedPriceImpact, 2, 2)}%` : '-' }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Slippage tolerance">
+                <button
+                  type="button"
+                  class="flex items-center gap-6 text-p2"
+                  @click="openSlippageSettings"
+                >
+                  <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                  <SvgIcon
+                    name="edit"
+                    class="!w-16 !h-16 text-accent-600"
+                  />
+                </button>
+              </SummaryRow>
+              <SummaryRow label="Routed via">
+                <p class="text-p2 text-right">
+                  {{ swapRoutedVia || '-' }}
+                </p>
+              </SummaryRow>
+            </template>
+          </VaultFormInfoBlock>
 
-    <template #buttons>
-      <VaultFormInfoButton
-        :pair="position"
-        :disabled="isLoading || isSubmitting"
-      >
-        Pair information
-      </VaultFormInfoButton>
-      <VaultFormSubmit
-        v-if="formTab === 'wallet'"
-        :disabled="reviewRepayDisabled"
-        :loading="isSubmitting"
-      >
-        {{ reviewRepayLabel }}
-      </VaultFormSubmit>
-      <VaultFormSubmit
-        v-else
-        :disabled="reviewRepayDisabled"
-        :disabled-reason="swapDisabledReason"
-        :loading="isSubmitting"
-      >
-        {{ reviewRepayLabel }}
-      </VaultFormSubmit>
+          <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
+            <VaultFormInfoButton
+              :pair="position"
+              :disabled="isLoading || isSubmitting"
+            >
+              Pair information
+            </VaultFormInfoButton>
+            <VaultFormSubmit
+              :disabled="reviewRepayDisabled"
+              :disabled-reason="swapDisabledReason"
+              :loading="isSubmitting"
+            >
+              {{ reviewRepayLabel }}
+            </VaultFormSubmit>
+          </div>
+        </div>
+      </template>
     </template>
   </VaultForm>
 </template>

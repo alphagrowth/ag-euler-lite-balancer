@@ -1684,45 +1684,44 @@ watch(formTab, () => {
             <VaultFormInfoBlock
               v-if="pair"
               :loading="isEstimatesLoading"
-              class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 shadow-card"
+              variant="card"
             >
-              <div class="flex justify-between items-center">
-                <p class="text-content-tertiary">
-                  Net APY
-                </p>
-                <p class="text-p2">
-                  {{ netAPY ? `${formatNumber(netAPY)}%` : '-' }}
-                </p>
-              </div>
-              <div class="flex justify-between items-center">
-                <p class="text-content-tertiary">
-                  Oracle price
-                </p>
-                <p class="text-p2 inline-flex items-center">
-                  {{ !priceFixed.isZero() ? formatSmartAmount(borrowPriceInvert.invertValue(priceFixed.toUnsafeFloat())) : '-' }}
-                  <span class="text-content-tertiary text-p3 ml-4">{{ borrowPriceInvert.displaySymbol }}</span>
-                  <button v-if="!priceFixed.isZero()" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="borrowPriceInvert.toggle">
-                    <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
-                  </button>
-                </p>
-              </div>
-              <div class="flex justify-between items-center">
-                <p class="text-euler-dark-900">
-                  Liquidation price
-                </p>
-                <p class="text-p2">
-                  {{ borrowPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(borrowPriceInvert.invertValue(liquidationPrice)!) : '-' }}
-                  <span class="text-content-tertiary text-p3">{{ ' ' + borrowPriceInvert.displaySymbol }}</span>
-                </p>
-              </div>
-              <div class="flex justify-between items-center">
-                <p class="text-content-tertiary">
-                  Health score
-                </p>
-                <p class="text-p2">
-                  {{ formatHealthScore(health) }}
-                </p>
-              </div>
+              <SummaryRow label="Net APY">
+                <SummaryValue
+                  :after="netAPY ? formatNumber(netAPY) : undefined"
+                  suffix="%"
+                  estimate-only
+                />
+              </SummaryRow>
+              <SummaryRow label="Oracle price">
+                <SummaryPriceValue
+                  :value="!priceFixed.isZero() ? formatSmartAmount(borrowPriceInvert.invertValue(priceFixed.toUnsafeFloat())) : undefined"
+                  :symbol="borrowPriceInvert.displaySymbol"
+                  invertible
+                  @invert="borrowPriceInvert.toggle"
+                />
+              </SummaryRow>
+              <SummaryRow label="Liquidation price">
+                <SummaryPriceValue
+                  :value="borrowPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(borrowPriceInvert.invertValue(liquidationPrice)!) : undefined"
+                  :symbol="borrowPriceInvert.displaySymbol"
+                  invertible
+                  @invert="borrowPriceInvert.toggle"
+                />
+              </SummaryRow>
+              <SummaryRow label="LTV">
+                <SummaryValue
+                  :after="formatNumber(ltv)"
+                  suffix="%"
+                  estimate-only
+                />
+              </SummaryRow>
+              <SummaryRow label="Health score">
+                <SummaryValue
+                  :after="formatHealthScore(health)"
+                  estimate-only
+                />
+              </SummaryRow>
             </VaultFormInfoBlock>
           </template>
 
@@ -1830,86 +1829,46 @@ watch(formTab, () => {
               <div class="flex flex-col gap-16 w-full">
                 <VaultFormInfoBlock
                   :loading="isMultiplyQuoteLoading"
-                  class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full shadow-card"
+                  variant="card"
                 >
-                  <div class="flex justify-between items-center">
-                    <p class="text-content-tertiary">
-                      ROE
-                    </p>
-                    <p class="text-p2">
-                      <template v-if="multiplyRoeBefore !== null && multiplyRoeAfter !== null && multiplySwapReady">
-                        <span class="text-content-tertiary">{{ formatNumber(multiplyRoeBefore) }}%</span>
-                        → <span class="text-content-primary">{{ formatNumber(multiplyRoeAfter) }}%</span>
-                      </template>
-                      <template v-else>
-                        {{ multiplyRoeBefore !== null ? `${formatNumber(multiplyRoeBefore)}%` : '-' }}
-                      </template>
-                    </p>
-                  </div>
-                  <div class="flex justify-between items-start">
-                    <p class="text-content-tertiary shrink-0 mr-12">
-                      Swap price
-                    </p>
-                    <p class="text-p2 text-right inline-flex items-center">
-                      {{ multiplyCurrentPrice ? formatSmartAmount(multiplyPriceInvert.invertValue(multiplyCurrentPrice.value)) : '-' }}
-                      <span v-if="multiplyCurrentPrice" class="text-content-tertiary text-p3 ml-4">{{ multiplyPriceInvert.displaySymbol }}</span>
-                      <button v-if="multiplyCurrentPrice" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="multiplyPriceInvert.toggle">
-                        <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
-                      </button>
-                    </p>
-                  </div>
-                  <div class="flex justify-between items-center">
-                    <p class="text-content-tertiary">
-                      Liquidation price
-                    </p>
-                    <p class="text-p2">
-                      <template v-if="multiplyNextLiquidationPrice !== null && multiplySwapReady">
-                        <span class="text-content-tertiary">{{ multiplyCurrentLiquidationPrice !== null ? formatSmartAmount(multiplyPriceInvert.invertValue(multiplyCurrentLiquidationPrice)) : '-' }}</span>
-                        → <span class="text-content-primary">{{ formatSmartAmount(multiplyPriceInvert.invertValue(multiplyNextLiquidationPrice)) }}</span>
-                      </template>
-                      <template v-else>
-                        {{ multiplyPriceInvert.invertValue(multiplyCurrentLiquidationPrice) != null ? formatSmartAmount(multiplyPriceInvert.invertValue(multiplyCurrentLiquidationPrice)!) : '-' }}
-                      </template>
-                      <span class="text-content-tertiary text-p3">{{ ' ' + multiplyPriceInvert.displaySymbol }}</span>
-                    </p>
-                  </div>
-                  <div class="flex justify-between items-center">
-                    <p class="text-content-tertiary">
-                      Liquidation LTV
-                    </p>
-                    <p class="text-p2 text-right">
-                      <template v-if="multiplyNextLtv !== null && multiplySwapReady">
-                        <span v-if="multiplyCurrentLtv !== null" class="text-content-tertiary">
-                          {{ formatNumber(multiplyCurrentLtv) }}%
-                          →
-                        </span>
-                        <span class="text-content-primary">
-                          {{ formatNumber(multiplyNextLtv) }}%
-                        </span>
-                      </template>
-                      <template v-else>
-                        -
-                      </template>
-                    </p>
-                  </div>
-                  <div class="flex justify-between items-center">
-                    <p class="text-content-tertiary">
-                      Health score
-                    </p>
-                    <p class="text-p2">
-                      <template v-if="multiplyCurrentHealth !== null && multiplyNextHealth !== null && multiplySwapReady">
-                        <span class="text-content-tertiary">{{ formatHealthScore(multiplyCurrentHealth) }}</span>
-                        → <span class="text-content-primary">{{ formatHealthScore(multiplyNextHealth) }}</span>
-                      </template>
-                      <template v-else>
-                        {{ formatHealthScore(multiplyCurrentHealth) }}
-                      </template>
-                    </p>
-                  </div>
-                  <div class="flex justify-between items-start">
-                    <p class="text-content-tertiary">
-                      Swap
-                    </p>
+                  <SummaryRow label="ROE">
+                    <SummaryValue
+                      :after="multiplyRoeAfter !== null && multiplySwapReady ? formatNumber(multiplyRoeAfter) : (multiplyRoeBefore !== null ? formatNumber(multiplyRoeBefore) : undefined)"
+                      suffix="%"
+                      estimate-only
+                    />
+                  </SummaryRow>
+                  <SummaryRow label="Swap price" align-top>
+                    <SummaryPriceValue
+                      :value="multiplyCurrentPrice ? formatSmartAmount(multiplyPriceInvert.invertValue(multiplyCurrentPrice.value)) : undefined"
+                      :symbol="multiplyPriceInvert.displaySymbol"
+                      invertible
+                      @invert="multiplyPriceInvert.toggle"
+                    />
+                  </SummaryRow>
+                  <SummaryRow label="Liquidation price">
+                    <SummaryPriceValue
+                      :value="multiplyNextLiquidationPrice !== null && multiplySwapReady ? formatSmartAmount(multiplyPriceInvert.invertValue(multiplyNextLiquidationPrice)) : (multiplyPriceInvert.invertValue(multiplyCurrentLiquidationPrice) != null ? formatSmartAmount(multiplyPriceInvert.invertValue(multiplyCurrentLiquidationPrice)!) : undefined)"
+                      :symbol="multiplyPriceInvert.displaySymbol"
+                      estimate-only
+                      invertible
+                      @invert="multiplyPriceInvert.toggle"
+                    />
+                  </SummaryRow>
+                  <SummaryRow label="LTV">
+                    <SummaryValue
+                      :after="multiplyNextLtv !== null && multiplySwapReady ? formatNumber(multiplyNextLtv) : undefined"
+                      suffix="%"
+                      estimate-only
+                    />
+                  </SummaryRow>
+                  <SummaryRow label="Health score">
+                    <SummaryValue
+                      :after="multiplyNextHealth !== null && multiplySwapReady ? formatHealthScore(multiplyNextHealth) : undefined"
+                      estimate-only
+                    />
+                  </SummaryRow>
+                  <SummaryRow label="Swap" align-top>
                     <p class="text-p2 text-right flex flex-col items-end">
                       <span>{{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}</span>
                       <span
@@ -1919,19 +1878,13 @@ watch(formTab, () => {
                         {{ multiplySwapSummary.to }}
                       </span>
                     </p>
-                  </div>
-                  <div class="flex justify-between items-center">
-                    <p class="text-content-tertiary">
-                      Price impact
-                    </p>
+                  </SummaryRow>
+                  <SummaryRow label="Price impact">
                     <p class="text-p2">
                       {{ multiplyPriceImpact !== null ? `${formatNumber(multiplyPriceImpact, 2, 2)}%` : '-' }}
                     </p>
-                  </div>
-                  <div class="flex justify-between items-center">
-                    <p class="text-content-tertiary">
-                      Slippage tolerance
-                    </p>
+                  </SummaryRow>
+                  <SummaryRow label="Slippage tolerance">
                     <button
                       type="button"
                       class="flex items-center gap-6 text-p2"
@@ -1943,15 +1896,12 @@ watch(formTab, () => {
                         class="!w-16 !h-16 text-accent-600"
                       />
                     </button>
-                  </div>
-                  <div class="flex justify-between items-center">
-                    <p class="text-content-tertiary">
-                      Routed via
-                    </p>
+                  </SummaryRow>
+                  <SummaryRow label="Routed via">
                     <p class="text-p2 text-right">
                       {{ multiplyRoutedVia || '-' }}
                     </p>
-                  </div>
+                  </SummaryRow>
                 </VaultFormInfoBlock>
               </div>
             </div>

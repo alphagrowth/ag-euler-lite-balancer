@@ -846,42 +846,30 @@ const send = async () => {
 
           <VaultFormInfoBlock
             :loading="!isSameAsset && isQuoteLoading"
-            class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px] shadow-card"
+            variant="card"
+            class="w-full laptop:max-w-[360px]"
           >
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                ROE
-              </p>
-              <p class="text-p2">
-                <template v-if="roeBefore !== null && roeAfter !== null && quote">
-                  <span class="text-content-tertiary">{{ formatNumber(roeBefore) }}%</span>
-                  → <span class="text-content-primary">{{ formatNumber(roeAfter) }}%</span>
-                </template>
-                <template v-else>
-                  {{ roeBefore !== null ? `${formatNumber(roeBefore)}%` : '-' }}
-                </template>
-              </p>
-            </div>
-            <div v-if="!isSameAsset" class="flex justify-between items-start">
-              <p class="text-content-tertiary shrink-0 mr-12">
-                Swap price
-              </p>
-              <p class="text-p2 text-right inline-flex items-center">
-                {{ currentPrice ? formatSmartAmount(swapPriceInvert.invertValue(currentPrice.value)) : '-' }}
-                <span v-if="currentPrice" class="text-content-tertiary text-p3 ml-4">{{ swapPriceInvert.displaySymbol }}</span>
-                <button v-if="currentPrice" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="swapPriceInvert.toggle">
-                  <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
-                </button>
-              </p>
-            </div>
-            <div class="flex justify-between items-start">
-              <p class="text-content-tertiary shrink-0 mr-12">
-                Liquidation price
-              </p>
+            <SummaryRow label="ROE">
+              <SummaryValue
+                :before="roeBefore !== null ? formatNumber(roeBefore) : undefined"
+                :after="roeAfter !== null && quote ? formatNumber(roeAfter) : undefined"
+                suffix="%"
+              />
+            </SummaryRow>
+            <SummaryRow v-if="!isSameAsset" label="Swap price" align-top>
+              <SummaryPriceValue
+                :value="currentPrice ? formatSmartAmount(swapPriceInvert.invertValue(currentPrice.value)) : undefined"
+                :symbol="swapPriceInvert.displaySymbol"
+                invertible
+                @invert="swapPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liquidation price" align-top>
+              <!-- Borrow swap changes the borrow vault, so before/after symbols may differ -->
               <p class="text-p2 text-right inline-flex items-center flex-wrap justify-end gap-x-4">
                 <template v-if="currentLiquidationPrice !== null && nextLiquidationPrice !== null && quote">
                   <span class="text-content-tertiary">{{ formatSmartAmount(liqPriceInvert.invertValue(currentLiquidationPrice)) }}<span class="text-p3 ml-2">{{ currentLiqDisplaySymbol }}</span></span>
-                  → <span class="text-content-primary">{{ formatSmartAmount(liqPriceInvert.invertValue(nextLiquidationPrice)) }}<span class="text-content-tertiary text-p3 ml-2">{{ liqPriceInvert.displaySymbol }}</span></span>
+                  &rarr; <span class="text-content-primary">{{ formatSmartAmount(liqPriceInvert.invertValue(nextLiquidationPrice)) }}<span class="text-content-tertiary text-p3 ml-2">{{ liqPriceInvert.displaySymbol }}</span></span>
                 </template>
                 <template v-else>
                   {{ liqPriceInvert.invertValue(currentLiquidationPrice) != null ? formatSmartAmount(liqPriceInvert.invertValue(currentLiquidationPrice)!) : '-' }}
@@ -891,48 +879,22 @@ const send = async () => {
                   <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
                 </button>
               </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Liquidation LTV
-              </p>
-              <p class="text-p2 text-right">
-                <template v-if="nextLtv !== null && quote">
-                  <span v-if="currentLtv !== null" class="text-content-tertiary">
-                    {{ formatNumber(currentLtv) }}%
-                    →
-                  </span>
-                  <span class="text-content-primary">
-                    {{ formatNumber(nextLtv) }}%
-                  </span>
-                </template>
-                <template v-else>
-                  <span v-if="currentLtv !== null">
-                    {{ formatNumber(currentLtv) }}%
-                  </span>
-                  <span v-else>-</span>
-                </template>
-              </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                Health score
-              </p>
-              <p class="text-p2">
-                <template v-if="currentHealth !== null && nextHealth !== null && quote">
-                  <span class="text-content-tertiary">{{ formatHealthScore(currentHealth) }}</span>
-                  → <span class="text-content-primary">{{ formatHealthScore(nextHealth) }}</span>
-                </template>
-                <template v-else>
-                  {{ formatHealthScore(currentHealth) }}
-                </template>
-              </p>
-            </div>
+            </SummaryRow>
+            <SummaryRow label="LTV">
+              <SummaryValue
+                :before="currentLtv !== null ? formatNumber(currentLtv) : undefined"
+                :after="nextLtv !== null && quote ? formatNumber(nextLtv) : undefined"
+                suffix="%"
+              />
+            </SummaryRow>
+            <SummaryRow label="Health score">
+              <SummaryValue
+                :before="currentHealth !== null ? formatHealthScore(currentHealth) : undefined"
+                :after="nextHealth !== null && quote ? formatHealthScore(nextHealth) : undefined"
+              />
+            </SummaryRow>
             <template v-if="!isSameAsset">
-              <div class="flex justify-between items-start">
-                <p class="text-content-tertiary">
-                  Swap
-                </p>
+              <SummaryRow label="Swap" align-top>
                 <p class="text-p2 text-right flex flex-col items-end">
                   <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
                   <span
@@ -942,19 +904,13 @@ const send = async () => {
                     {{ swapSummary.to }}
                   </span>
                 </p>
-              </div>
-              <div class="flex justify-between items-center">
-                <p class="text-content-tertiary">
-                  Price impact
-                </p>
+              </SummaryRow>
+              <SummaryRow label="Price impact">
                 <p class="text-p2">
                   {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
                 </p>
-              </div>
-              <div class="flex justify-between items-center">
-                <p class="text-content-tertiary">
-                  Slippage tolerance
-                </p>
+              </SummaryRow>
+              <SummaryRow label="Slippage tolerance">
                 <button
                   type="button"
                   class="flex items-center gap-6 text-p2"
@@ -966,15 +922,12 @@ const send = async () => {
                     class="!w-16 !h-16 text-accent-600"
                   />
                 </button>
-              </div>
-              <div class="flex justify-between items-center">
-                <p class="text-content-tertiary">
-                  Routed via
-                </p>
+              </SummaryRow>
+              <SummaryRow label="Routed via">
                 <p class="text-p2 text-right">
                   {{ routedVia || '-' }}
                 </p>
-              </div>
+              </SummaryRow>
             </template>
           </VaultFormInfoBlock>
         </div>

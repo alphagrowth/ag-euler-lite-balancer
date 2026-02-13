@@ -304,41 +304,22 @@ watch(address, () => {
         v-if="vault && asset"
         :loading="isEstimatesLoading"
       >
-        <div class="[&>*:not(:last-child)]:pb-16 [&>*:not(:last-child)]:mb-16 [&>*:not(:last-child)]:border-b [&>*:not(:last-child)]:border-white/10">
-          <div>
-            <p class="mb-8">
-              Projected earnings per month
-            </p>
+        <SummaryRow label="Projected earnings per month" align-top>
+          <p class="text-content-tertiary">
+            <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
+              asset.symbol
+            }}
+            ≈ ${{ compactNumber(monthlyEarningsUsd) }}
+          </p>
+        </SummaryRow>
 
-            <p class="text-content-tertiary">
-              <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
-                asset.symbol
-              }}
-              ≈ ${{ compactNumber(monthlyEarningsUsd) }}
-            </p>
-          </div>
-
-          <div>
-            <p class="mb-8">
-              Supply APY
-            </p>
-
-            <p
-              v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay"
-              class="text-p2 text-content-tertiary"
-            >
-              {{ supplyAPYDisplay }}% <template v-if="supplyAPYDisplay !== estimateSupplyAPYDisplay">
-                → <span class="text-content-primary">{{ estimateSupplyAPYDisplay }}%</span>
-              </template>
-            </p>
-            <p
-              v-else
-              class="text-p2 text-content-primary"
-            >
-              {{ supplyAPYDisplay }}%
-            </p>
-          </div>
-        </div>
+        <SummaryRow label="Supply APY">
+          <SummaryValue
+            :after="estimateSupplyAPYDisplay"
+            suffix="%"
+            estimate-only
+          />
+        </SummaryRow>
       </VaultFormInfoBlock>
 
       <template #buttons>

@@ -44,6 +44,11 @@ const { isReady: isVaultsReady } = useVaults()
 const { getOrFetch } = useVaultRegistry()
 const { EVM_PROVIDER_URL } = useEulerConfig()
 
+const priceInvert = usePriceInvert(
+  () => collateralVault.value?.asset.symbol,
+  () => borrowVault.value?.asset.symbol,
+)
+
 const positionIndex = route.params.number as string
 
 const isLoading = ref(false)
@@ -393,145 +398,106 @@ watch(amount, async () => {
     @submit.prevent="submit"
   >
     <template v-if="collateralVault && asset">
-      <div class="flex justify-between">
-        <VaultLabelsAndAssets
-          :vault="collateralVault"
-          :assets="[asset]"
-          size="large"
-        />
-      </div>
-
-      <AssetInput
-        v-if="position && asset"
-        v-model="amount"
-        label="Withdraw amount"
-        :asset="asset"
-        :vault="(collateralVault as Vault)"
-        :balance="collateralAssets"
-        maxable
-      />
-
-      <UiToast
-        v-if="isGeoBlocked"
-        title="Region restricted"
-        description="This operation is not available in your region. You can still repay existing debt."
-        variant="warning"
-        size="compact"
-      />
-      <UiToast
-        v-show="estimatesError"
-        title="Error"
-        variant="error"
-        :description="estimatesError"
-        size="compact"
-      />
-      <UiToast
-        v-if="simulationError"
-        title="Error"
-        variant="error"
-        :description="simulationError"
-        size="compact"
-      />
-
-      <VaultWarningBanner :warnings="withdrawWarnings" />
-
-      <VaultFormInfoBlock
-        v-if="position && borrowVault"
-        :loading="isEstimatesLoading"
-        class="flex flex-col gap-16"
-      >
-        <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-content-tertiary">
-            Net APY
-          </p>
-
-          <p
-            v-if="netAPY !== estimateNetAPY"
-            class="text-p2 text-content-tertiary"
-          >
-            {{ formatNumber(netAPY) }}% → <span class="text-content-primary">{{ formatNumber(estimateNetAPY) }}%</span>
-          </p>
-          <p
-            v-else
-            class="text-p2 text-content-primary"
-          >
-            {{ formatNumber(netAPY) }}%
-          </p>
-        </div>
-        <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-content-tertiary">
-            Oracle price
-          </p>
-          <p class="text-p2 flex items-center gap-4">
-            {{ nanoToValue(position.price, 18) > 0 ? `$${formatNumber(nanoToValue(position.price, 18))}` : '-' }}
-            <span v-if="nanoToValue(position.price, 18) > 0" class="text-content-tertiary text-p3">
-              {{ collateralVault.asset.symbol }}/{{ borrowVault.asset.symbol }}
-            </span>
-          </p>
-        </div>
-        <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-content-tertiary">
-            Liquidation price
-          </p>
-          <p class="text-p2 flex items-center gap-4">
-            {{ liquidationPrice ? `$${formatNumber(liquidationPrice)}` : '-' }}
-            <span v-if="liquidationPrice" class="text-content-tertiary text-p3">
-              {{ collateralVault.asset.symbol }}
-            </span>
-          </p>
-        </div>
-        <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-content-tertiary">
-            Liquidation LTV
-          </p>
-          <p
-            v-if="position.userLTV !== estimateUserLTV"
-            class="text-p2 text-content-tertiary"
-          >
-            {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-            → <span class="text-content-primary">
-              {{ formatNumber(nanoToValue(estimateUserLTV, 18)) }}%
-            </span>
-          </p>
-          <p
-            v-else
-            class="text-p2 flex items-center gap-4"
-          >
-            {{ formatNumber(nanoToValue(position.userLTV, 18)) }}%
-          </p>
-        </div>
-        <div class="flex justify-between items-center flex-wrap gap-8">
-          <p class="text-content-tertiary">
-            Health score
-          </p>
-
-          <p
-            v-if="position.health !== estimateHealth"
-            class="text-p2 text-content-tertiary"
-          >
-            {{ formatHealthScore(nanoToValue(position.health, 18)) }} → <span class="text-content-primary">{{ formatHealthScore(nanoToValue(estimateHealth, 18)) }}</span>
-          </p>
-          <p
-            v-else
-            class="text-p2 text-content-primary"
-          >
-            {{ formatHealthScore(nanoToValue(position.health, 18)) }}
-          </p>
-        </div>
-      </VaultFormInfoBlock>
-    </template>
-
-    <template #buttons>
-      <VaultFormInfoButton
-        :disabled="isLoading || isSubmitting"
+      <VaultLabelsAndAssets
         :vault="collateralVault"
+        :assets="[asset]"
+        size="large"
       />
-      <VaultFormSubmit
-        :disabled="reviewWithdrawDisabled"
-        :loading="isSubmitting"
-      >
-        {{ reviewWithdrawLabel }}
-      </VaultFormSubmit>
+
+      <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
+        <div class="flex flex-col gap-16 w-full">
+          <AssetInput
+            v-if="position && asset"
+            v-model="amount"
+            label="Withdraw amount"
+            :asset="asset"
+            :vault="(collateralVault as Vault)"
+            :balance="collateralAssets"
+            maxable
+          />
+
+          <UiToast
+            v-if="isGeoBlocked"
+            title="Region restricted"
+            description="This operation is not available in your region. You can still repay existing debt."
+            variant="warning"
+            size="compact"
+          />
+          <UiToast
+            v-show="estimatesError"
+            title="Error"
+            variant="error"
+            :description="estimatesError"
+            size="compact"
+          />
+          <UiToast
+            v-if="simulationError"
+            title="Error"
+            variant="error"
+            :description="simulationError"
+            size="compact"
+          />
+
+          <VaultWarningBanner :warnings="withdrawWarnings" />
+        </div>
+
+        <VaultFormInfoBlock
+          v-if="position && borrowVault"
+          :loading="isEstimatesLoading"
+          variant="card"
+          class="w-full laptop:max-w-[360px]"
+        >
+          <SummaryRow label="Net APY">
+            <SummaryValue
+              :before="formatNumber(netAPY)"
+              :after="formatNumber(estimateNetAPY)"
+              suffix="%"
+            />
+          </SummaryRow>
+          <SummaryRow label="Oracle price">
+            <SummaryPriceValue
+              :value="!priceFixed.isZero() ? formatSmartAmount(priceInvert.invertValue(priceFixed.toUnsafeFloat())) : undefined"
+              :symbol="priceInvert.displaySymbol"
+              invertible
+              @invert="priceInvert.toggle"
+            />
+          </SummaryRow>
+          <SummaryRow label="Liquidation price">
+            <SummaryPriceValue
+              :value="liquidationPrice != null ? formatSmartAmount(priceInvert.invertValue(liquidationPrice)!) : undefined"
+              :symbol="priceInvert.displaySymbol"
+              invertible
+              @invert="priceInvert.toggle"
+            />
+          </SummaryRow>
+          <SummaryRow label="LTV">
+            <SummaryValue
+              :before="formatNumber(nanoToValue(position.userLTV, 18))"
+              :after="formatNumber(nanoToValue(estimateUserLTV, 18))"
+              suffix="%"
+            />
+          </SummaryRow>
+          <SummaryRow label="Health score">
+            <SummaryValue
+              :before="formatHealthScore(nanoToValue(position.health, 18))"
+              :after="formatHealthScore(nanoToValue(estimateHealth, 18))"
+            />
+          </SummaryRow>
+        </VaultFormInfoBlock>
+
+        <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
+          <VaultFormInfoButton
+            :disabled="isLoading || isSubmitting"
+            :vault="collateralVault"
+          />
+          <VaultFormSubmit
+            :disabled="reviewWithdrawDisabled"
+            :loading="isSubmitting"
+          >
+            {{ reviewWithdrawLabel }}
+          </VaultFormSubmit>
+        </div>
+      </div>
     </template>
   </VaultForm>
 </template>

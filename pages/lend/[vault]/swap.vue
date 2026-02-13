@@ -654,37 +654,26 @@ const send = async () => {
 
           <VaultFormInfoBlock
             :loading="!isSameAsset && isQuoteLoading"
-            class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 w-full laptop:max-w-[360px] shadow-card"
+            variant="card"
+            class="w-full laptop:max-w-[360px]"
           >
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                {{ fromVault.asset.symbol || 'Token1' }} supply APY
-              </p>
+            <SummaryRow :label="`${fromVault.asset.symbol || 'Token1'} supply APY`">
               <p class="text-p2">
                 {{ fromSupplyApy !== null ? `${formatNumber(fromSupplyApy)}%` : '-' }}
               </p>
-            </div>
-            <div class="flex justify-between items-center">
-              <p class="text-content-tertiary">
-                {{ toVault?.asset?.symbol || 'Token2' }} supply APY
-              </p>
+            </SummaryRow>
+            <SummaryRow :label="`${toVault?.asset?.symbol || 'Token2'} supply APY`">
               <p class="text-p2">
                 {{ toSupplyApy !== null ? `${formatNumber(toSupplyApy)}%` : '-' }}
               </p>
-            </div>
+            </SummaryRow>
             <template v-if="!isSameAsset">
-              <div class="flex justify-between items-start">
-                <p class="text-content-tertiary shrink-0 mr-12">
-                  Swap price
-                </p>
+              <SummaryRow label="Swap price" align-top>
                 <p class="text-p2 text-right">
                   {{ currentPrice ? `${formatSmartAmount(currentPrice.value)} ${currentPrice.symbol}` : '-' }}
                 </p>
-              </div>
-              <div class="flex justify-between items-start">
-                <p class="text-content-tertiary">
-                  Swap
-                </p>
+              </SummaryRow>
+              <SummaryRow label="Swap" align-top>
                 <p class="text-p2 text-right flex flex-col items-end">
                   <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
                   <span
@@ -694,19 +683,13 @@ const send = async () => {
                     {{ swapSummary.to }}
                   </span>
                 </p>
-              </div>
-              <div class="flex justify-between items-center">
-                <p class="text-content-tertiary">
-                  Price impact
-                </p>
+              </SummaryRow>
+              <SummaryRow label="Price impact">
                 <p class="text-p2">
                   {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
                 </p>
-              </div>
-              <div class="flex justify-between items-center">
-                <p class="text-content-tertiary">
-                  Slippage tolerance
-                </p>
+              </SummaryRow>
+              <SummaryRow label="Slippage tolerance">
                 <button
                   type="button"
                   class="flex items-center gap-6 text-p2"
@@ -718,27 +701,18 @@ const send = async () => {
                     class="!w-16 !h-16 text-accent-600"
                   />
                 </button>
-              </div>
-              <div class="flex justify-between items-center">
-                <p class="text-content-tertiary">
-                  Routed via
-                </p>
+              </SummaryRow>
+              <SummaryRow label="Routed via">
                 <p class="text-p2 text-right">
                   {{ routedVia || '-' }}
                 </p>
-              </div>
+              </SummaryRow>
             </template>
-            <div
-              v-else
-              class="flex justify-between items-center"
-            >
-              <p class="text-content-tertiary">
-                Transfer
-              </p>
+            <SummaryRow v-else label="Transfer">
               <p class="text-p2">
                 1:1 (same asset, no slippage)
               </p>
-            </div>
+            </SummaryRow>
           </VaultFormInfoBlock>
 
           <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">

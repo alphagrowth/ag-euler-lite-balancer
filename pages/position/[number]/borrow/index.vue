@@ -51,6 +51,10 @@ const netAPY = ref()
 const liquidationPrice = ref()
 const position: Ref<AccountBorrowPosition | undefined> = ref()
 const userLTV = ref(0)
+const currentNetAPY = ref<number>()
+const currentHealth = ref<number>()
+const currentLiquidationPrice = ref<number>()
+const currentUserLTV = ref(0)
 
 const errorText = computed(() => {
   if (isBalanceLoading.value) {
@@ -152,12 +156,37 @@ const load = async () => {
   }
   const collateralAddress = position.value.collateral.address
   const borrowAddress = position.value.borrow.address
-  userLTV.value = Number(formatNumber(nanoToValue(position.value.userLTV, 2)))
+  userLTV.value = Number(formatNumber(nanoToValue(position.value.userLTV, 18)))
+  currentUserLTV.value = userLTV.value
   ltv.value = userLTV.value
   try {
     pair.value = await getBorrowVaultPair(collateralAddress as string, borrowAddress as string) as BorrowVaultPair
+    // Set collateral amount from existing position supply so LTV slider and borrow input work
+    const suppliedFixed = FixedPoint.fromValue(
+      position.value!.supplied,
+      Number(collateralVault.value!.asset.decimals),
+    )
+    collateralAmount.value = trimTrailingZeros(suppliedFixed.toString())
     // Fetch fresh underlying asset balance for this specific vault
     await updateBalance()
+    // Compute current position values for before→after display
+    const currentLtvFloat = nanoToValue(position.value!.userLTV, 18)
+    currentHealth.value = currentLtvFloat <= 0
+      ? Infinity
+      : (Number(pair.value?.liquidationLTV || 0n) / 100) / currentLtvFloat
+    currentLiquidationPrice.value = currentHealth.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / currentHealth.value
+    const [collUsd, borUsd] = await Promise.all([
+      getAssetUsdValueOrZero(position.value!.supplied || 0, collateralVault.value!, 'off-chain'),
+      getAssetUsdValueOrZero(position.value!.borrowed || 0, borrowVault.value!, 'off-chain'),
+    ])
+    currentNetAPY.value = getNetAPY(
+      collUsd,
+      collateralSupplyApy.value,
+      borUsd,
+      borrowApy.value,
+      collateralSupplyRewardApy.value || null,
+      borrowRewardApy.value || null,
+    )
   }
   catch (e) {
     showError('Unable to load Vault')
@@ -361,109 +390,114 @@ onUnmounted(() => {
         size="large"
       />
 
-      <AssetInput
-        v-if="borrowVault"
-        v-model="borrowAmount"
-        :desc="borrowProduct.name"
-        :label="`Borrow ${borrowVault.asset.symbol}`"
-        :asset="borrowVault.asset"
-        :vault="borrowVault"
-        @input="onBorrowInput"
-      />
+      <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
+        <div class="flex flex-col gap-16 w-full">
+          <AssetInput
+            v-if="borrowVault"
+            v-model="borrowAmount"
+            :desc="borrowProduct.name"
+            :label="`Borrow ${borrowVault.asset.symbol}`"
+            :asset="borrowVault.asset"
+            :vault="borrowVault"
+            @input="onBorrowInput"
+          />
 
-      <UiRange
-        v-model="ltv"
-        label="LTV"
-        :step="0.1"
-        :max="Number(pair.borrowLTV / 100n)"
-        :min="userLTV"
-        :number-filter="(n: number) => `${formatNumber(n, 2, 0)}%`"
-        @update:model-value="onLtvInput"
-      />
+          <UiRange
+            v-model="ltv"
+            label="LTV"
+            :step="0.1"
+            :max="Number(pair.borrowLTV / 100n)"
+            :min="userLTV"
+            :number-filter="(n: number) => `${formatNumber(n, 2, 0)}%`"
+            @update:model-value="onLtvInput"
+          />
 
-      <UiToast
-        v-if="isGeoBlocked"
-        title="Region restricted"
-        description="This operation is not available in your region. You can still repay existing debt."
-        variant="warning"
-        size="compact"
-      />
-      <UiToast
-        v-if="!isGeoBlocked && isBorrowRestricted"
-        title="Asset restricted"
-        description="Borrowing this asset is not available in your region."
-        variant="warning"
-        size="compact"
-      />
-      <UiToast
-        v-show="errorText"
-        title="Error"
-        variant="error"
-        :description="errorText || ''"
-        size="compact"
-      />
-      <UiToast
-        v-if="simulationError"
-        title="Error"
-        variant="error"
-        :description="simulationError"
-        size="compact"
-      />
+          <UiToast
+            v-if="isGeoBlocked"
+            title="Region restricted"
+            description="This operation is not available in your region. You can still repay existing debt."
+            variant="warning"
+            size="compact"
+          />
+          <UiToast
+            v-if="!isGeoBlocked && isBorrowRestricted"
+            title="Asset restricted"
+            description="Borrowing this asset is not available in your region."
+            variant="warning"
+            size="compact"
+          />
+          <UiToast
+            v-show="errorText"
+            title="Error"
+            variant="error"
+            :description="errorText || ''"
+            size="compact"
+          />
+          <UiToast
+            v-if="simulationError"
+            title="Error"
+            variant="error"
+            :description="simulationError"
+            size="compact"
+          />
 
-      <VaultWarningBanner :warnings="borrowWarnings" />
-
-      <VaultFormInfoBlock
-        v-if="pair"
-        :loading="isEstimatesLoading"
-        class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-16 shadow-card"
-      >
-        <div class="flex justify-between items-center">
-          <p class="text-content-tertiary">
-            Net APY
-          </p>
-          <p class="text-p2">
-            {{ netAPY ? `${formatNumber(netAPY)}%` : '-' }}
-          </p>
+          <VaultWarningBanner :warnings="borrowWarnings" />
         </div>
-        <div class="flex justify-between items-center">
-          <p class="text-content-tertiary">
-            Oracle price
-          </p>
-          <p class="text-p2 inline-flex items-center">
-            {{ !priceFixed.isZero() ? formatSmartAmount(priceInvert.invertValue(priceFixed.toUnsafeFloat())) : '-' }}
-            <span class="text-content-tertiary text-p3 ml-4">{{ priceInvert.displaySymbol }}</span>
-            <button v-if="!priceFixed.isZero()" type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="priceInvert.toggle">
-              <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
-            </button>
-          </p>
-        </div>
-        <div class="flex justify-between items-center">
-          <p class="text-content-tertiary">
-            Liquidation price
-          </p>
-          <p class="text-p2">
-            {{ priceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(priceInvert.invertValue(liquidationPrice)!) : '-' }}
-            <span class="text-content-tertiary text-p3">{{ ' ' + priceInvert.displaySymbol }}</span>
-          </p>
-        </div>
-        <div class="flex justify-between items-center">
-          <p class="text-content-tertiary">
-            Health score
-          </p>
-          <p class="text-p2">
-            {{ formatHealthScore(health) }}
-          </p>
-        </div>
-      </VaultFormInfoBlock>
-    </template>
 
-    <template #buttons>
-      <VaultFormSubmit
-        :disabled="reviewBorrowDisabled"
-        :loading="isSubmitting"
-      >
-        {{ reviewBorrowLabel }}
-      </VaultFormSubmit>
+        <VaultFormInfoBlock
+          v-if="pair"
+          :loading="isEstimatesLoading"
+          variant="card"
+          class="w-full laptop:max-w-[360px]"
+        >
+          <SummaryRow label="Net APY">
+            <SummaryValue
+              :before="currentNetAPY != null ? formatNumber(currentNetAPY) : undefined"
+              :after="netAPY != null ? formatNumber(netAPY) : undefined"
+              suffix="%"
+            />
+          </SummaryRow>
+          <SummaryRow label="Oracle price">
+            <SummaryPriceValue
+              :value="!priceFixed.isZero() ? formatSmartAmount(priceInvert.invertValue(priceFixed.toUnsafeFloat())) : undefined"
+              :symbol="priceInvert.displaySymbol"
+              invertible
+              @invert="priceInvert.toggle"
+            />
+          </SummaryRow>
+          <SummaryRow label="Liquidation price">
+            <SummaryPriceValue
+              :before="priceInvert.invertValue(currentLiquidationPrice) != null ? formatSmartAmount(priceInvert.invertValue(currentLiquidationPrice)!) : undefined"
+              :after="priceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(priceInvert.invertValue(liquidationPrice)!) : undefined"
+              :symbol="priceInvert.displaySymbol"
+              invertible
+              @invert="priceInvert.toggle"
+            />
+          </SummaryRow>
+          <SummaryRow label="LTV">
+            <SummaryValue
+              :before="formatNumber(currentUserLTV)"
+              :after="formatNumber(ltv)"
+              suffix="%"
+            />
+          </SummaryRow>
+          <SummaryRow label="Health score">
+            <SummaryValue
+              :before="currentHealth != null ? formatHealthScore(currentHealth) : undefined"
+              :after="formatHealthScore(health)"
+            />
+          </SummaryRow>
+        </VaultFormInfoBlock>
+
+        <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
+          <VaultFormSubmit
+            :disabled="reviewBorrowDisabled"
+            :loading="isSubmitting"
+          >
+            {{ reviewBorrowLabel }}
+          </VaultFormSubmit>
+        </div>
+      </div>
     </template>
   </VaultForm>
 </template>
