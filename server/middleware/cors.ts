@@ -31,9 +31,12 @@ function parseAllowedOrigins(): Set<string> {
 const allowedOrigins = parseAllowedOrigins()
 
 export default defineEventHandler((event) => {
-  const country = event.node.req.headers['x-country-code']
+  const rawCountry = event.node.req.headers['x-country-code']
+  const country = (typeof rawCountry === 'string' && /^[A-Z]{2}$/.test(rawCountry))
+    ? rawCountry
+    : undefined
   if (country) {
-    setResponseHeader(event, 'x-country-code', country as string)
+    setResponseHeader(event, 'x-country-code', country)
   }
 
   const url = getRequestURL(event)
