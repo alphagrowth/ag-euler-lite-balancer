@@ -79,8 +79,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid value' })
   }
 
+  const MAX_STATE_OVERRIDES = 50
   const validatedOverrides = Array.isArray(stateOverrides)
-    ? stateOverrides.filter(isValidStateOverride)
+    ? stateOverrides.slice(0, MAX_STATE_OVERRIDES).filter(isValidStateOverride)
     : []
 
   const baseUrl = `https://api.tenderly.co/api/v1/account/${config.accountSlug}/project/${config.projectSlug}`
@@ -113,8 +114,7 @@ export default defineEventHandler(async (event) => {
     })
 
     if (!simulateResponse.ok) {
-      const text = await simulateResponse.text().catch(() => '')
-      console.error(`[tenderly/simulate] upstream error ${simulateResponse.status}:`, text.slice(0, 500))
+      console.error(`[tenderly/simulate] upstream error: ${simulateResponse.status}`)
       throw createError({
         statusCode: 502,
         statusMessage: 'Simulation request failed',
