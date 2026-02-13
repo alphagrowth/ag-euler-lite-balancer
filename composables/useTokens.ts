@@ -4,6 +4,7 @@ import type {
   TokenData,
 } from '~/entities/token'
 import { useEulerConfig } from '~/composables/useEulerConfig'
+import { safeAssign } from '~/utils/safe-assign'
 
 const isLoading = ref(false)
 const tokensByAddress: Record<string, TokenData> = shallowReactive({})
@@ -26,7 +27,7 @@ export const useTokens = () => {
 
       const tokensArr = res.data as TokenData[]
 
-      Object.assign(tokensByAddress, Object.fromEntries(tokensArr.map(token => [token.address.toLowerCase(), token])))
+      safeAssign(tokensByAddress, Object.fromEntries(tokensArr.map(token => [token.address.toLowerCase(), token])))
     }
     catch (e) {
       console.warn(e)

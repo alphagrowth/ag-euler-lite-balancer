@@ -10,6 +10,7 @@ import {
 } from '~/entities/euler/labels'
 import type { EarnVault, Vault } from '~/entities/vault'
 import type { OracleAdapterMeta } from '~/entities/oracle'
+import { safeAssign } from '~/utils/safe-assign'
 let _labelsRepo = 'euler-xyz/euler-labels'
 let _labelsRepoBranch = 'master'
 let _oracleChecksRepo = 'euler-xyz/oracle-checks'
@@ -165,7 +166,7 @@ const loadOracleAdapter = async (chainId: number, oracleAddress: string): Promis
     const url = getOracleChecksUrl(chainId, `adapters/${checksummed}.json`)
     const res = await axios.get(url)
     const meta = normalizeOracleAdapters([res.data])
-    Object.assign(oracleAdapters, meta)
+    safeAssign(oracleAdapters, meta as Record<string, unknown>)
     return oracleAdapters[key]
   }
   catch {
@@ -252,10 +253,10 @@ export const useEulerLabels = () => {
       }
 
       const normalizedProducts = normalizeProducts(productRes.data)
-      Object.assign(products, normalizedProducts.products)
+      safeAssign(products, normalizedProducts.products as Record<string, unknown>)
       verifiedVaultAddresses.value = normalizedProducts.vaultAddresses
 
-      Object.assign(entities, normalizeEntities(entitiesRes.data))
+      safeAssign(entities, normalizeEntities(entitiesRes.data) as Record<string, unknown>)
 
       const pointsData = pointsRes.data as EulerLabelPoint[]
       pointsData.forEach((point) => {
