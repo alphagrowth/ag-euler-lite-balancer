@@ -24,12 +24,12 @@ export default defineEventHandler((event) => {
 
   const contentLength = event.node.req.headers['content-length']
   if (!contentLength) {
-    return
+    throw createError({ statusCode: 411, statusMessage: 'Length Required' })
   }
 
   const length = parseInt(contentLength, 10)
-  if (Number.isNaN(length)) {
-    return
+  if (!Number.isInteger(length) || length <= 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid Content-Length' })
   }
 
   const limit = getLimit(url.pathname)
