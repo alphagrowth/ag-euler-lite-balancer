@@ -42,11 +42,14 @@ export default defineEventHandler((event) => {
     return
   }
 
+  // Always set Vary: Origin so CDNs/proxies don't serve a cached
+  // response (including preflights) for one origin to another.
+  setResponseHeader(event, 'Vary', 'Origin')
+
   const origin = event.node.req.headers.origin
 
   if (origin && allowedOrigins.has(origin)) {
     setResponseHeader(event, 'Access-Control-Allow-Origin', origin)
-    setResponseHeader(event, 'Vary', 'Origin')
   } else if (origin && process.env.NODE_ENV === 'production') {
     if (allowedOrigins.size > 0) {
       console.warn('[cors] Rejected origin not in allow list:', origin)
