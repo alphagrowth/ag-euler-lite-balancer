@@ -129,11 +129,13 @@ export const useIntrinsicApy = () => {
   }
 
   const withIntrinsicSupplyApy = (baseApy: number, symbol?: string) => {
-    return baseApy + getIntrinsicApy(symbol)
+    const intrinsic = getIntrinsicApy(symbol)
+    return baseApy + (1 + baseApy / 100) * intrinsic
   }
 
   const withIntrinsicBorrowApy = (baseApy: number, symbol?: string) => {
-    return baseApy + getIntrinsicApy(symbol)
+    const intrinsic = getIntrinsicApy(symbol)
+    return baseApy + (1 + baseApy / 100) * intrinsic
   }
 
   watch(preferredChain, () => {
