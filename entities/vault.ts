@@ -1069,6 +1069,9 @@ export const fetchVaults = async function* (
 
     // Fetch all batches in this round in parallel
     const roundResults = await Promise.all(roundBatches.map(batch => fetchBatch(batch)))
+
+    if (chainId.value !== startChainId) return
+
     let validVaults = roundResults.flat()
 
     // Re-fetch Pyth-powered vaults with simulation to get fresh prices
@@ -1096,6 +1099,8 @@ export const fetchVaults = async function* (
           }),
         )
 
+        if (chainId.value !== startChainId) return
+
         // Replace original vaults with refreshed versions
         const refreshedMap = new Map(refreshedVaults.map(v => [v.address, v]))
         validVaults = validVaults.map(v => refreshedMap.get(v.address) || v)
@@ -1114,6 +1119,8 @@ export const fetchVaults = async function* (
           return { ...vault, assetPriceInfo, unitOfAccountPriceInfo }
         }),
       )
+
+      if (chainId.value !== startChainId) return
     }
 
     const isFinished = (round + 1) * parallelBatches * batchSize >= verifiedVaults.length
@@ -1265,6 +1272,8 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
     Promise.all(allVaultDataPromises),
   ])
 
+  if (chainId.value !== startChainId) return
+
   // Calculate APY for all vaults (using cached block data)
   const vaultsWithAPY = await Promise.all(
     allVaultData
@@ -1285,6 +1294,8 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
         } as EarnVault
       }),
   )
+
+  if (chainId.value !== startChainId) return
 
   yield {
     vaults: vaultsWithAPY,

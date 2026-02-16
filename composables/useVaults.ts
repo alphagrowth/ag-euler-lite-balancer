@@ -29,6 +29,11 @@ const isEscrowLoading = ref(false)
 const isEscrowUpdating = ref(false)
 const isEscrowLoadedOnce = ref(false)
 
+// Generation counter to invalidate stale in-flight operations after chain switch.
+// Incremented in resetVaultsState(); any async operation capturing an older generation
+// must stop registering vaults.
+const loadGeneration = ref(0)
+
 // Borrow pairs computed from registry (EVK + Escrow + Securitize collaterals)
 const borrowList = computed((): AnyBorrowVaultPair[] => {
   const { getVerifiedEvkVaults, getVault: registryGetVault } = useVaultRegistry()
@@ -60,6 +65,7 @@ const borrowList = computed((): AnyBorrowVaultPair[] => {
 const resetVaultsState = () => {
   const { clear } = useVaultRegistry()
 
+  loadGeneration.value++
   isReady.value = false
   isLoading.value = true
   isEarnLoading.value = true
@@ -68,14 +74,17 @@ const resetVaultsState = () => {
   clear()
 }
 
-const updateVaults = async (vaultAddresses?: string[]) => {
+const updateVaults = async (vaultAddresses?: string[], generation?: number) => {
   const { set: registrySet } = useVaultRegistry()
+  const gen = generation ?? loadGeneration.value
 
   try {
     isUpdating.value = true
     isLoading.value = true
 
     for await (const result of fetchVaults(vaultAddresses)) {
+      if (loadGeneration.value !== gen) return
+
       result.vaults.forEach((vault) => {
         registrySet(vault.address, vault, 'evk')
       })
@@ -88,17 +97,22 @@ const updateVaults = async (vaultAddresses?: string[]) => {
     }
   }
   finally {
-    isUpdating.value = false
+    if (loadGeneration.value === gen) {
+      isUpdating.value = false
+    }
   }
 }
-const updateEarnVaults = async () => {
+const updateEarnVaults = async (generation?: number) => {
   const { set: registrySet } = useVaultRegistry()
+  const gen = generation ?? loadGeneration.value
 
   try {
     isEarnUpdating.value = true
     isEarnLoading.value = true
 
     for await (const result of fetchEarnVaults()) {
+      if (loadGeneration.value !== gen) return
+
       result.vaults.forEach((vault) => {
         registrySet(vault.address, vault, 'earn')
       })
@@ -111,8 +125,9 @@ const updateEarnVaults = async () => {
     }
   }
   catch (e) {
-    // On error, set updating to false here since loadVaults won't complete
-    isEarnUpdating.value = false
+    if (loadGeneration.value === gen) {
+      isEarnUpdating.value = false
+    }
     throw e
   }
   // Note: isEarnUpdating is set to false in loadVaults() after all vaults are loaded
@@ -151,16 +166,18 @@ const extractNeededEscrowAddresses = (): string[] => {
  * Fetch vault info only for the specified escrow addresses.
  * Used for lazy loading - only fetch info for escrow vaults actually used as collateral.
  */
-const fetchNeededEscrowVaults = async (addresses: string[]): Promise<void> => {
+const fetchNeededEscrowVaults = async (addresses: string[], generation: number): Promise<void> => {
   const { set: registrySet } = useVaultRegistry()
 
-  if (!addresses.length) {
+  if (!addresses.length || loadGeneration.value !== generation) {
     return
   }
 
   const results = await Promise.allSettled(
     addresses.map(addr => fetchEscrowVault(addr)),
   )
+
+  if (loadGeneration.value !== generation) return
 
   results.forEach((result) => {
     if (result.status === 'fulfilled') {
@@ -172,10 +189,10 @@ const fetchNeededEscrowVaults = async (addresses: string[]): Promise<void> => {
   })
 }
 
-const updateSecuritizeVaults = async (securitizeAddresses: string[]) => {
+const updateSecuritizeVaults = async (securitizeAddresses: string[], generation: number) => {
   const { set: registrySet } = useVaultRegistry()
 
-  if (!securitizeAddresses.length) {
+  if (!securitizeAddresses.length || loadGeneration.value !== generation) {
     return
   }
 
@@ -183,6 +200,8 @@ const updateSecuritizeVaults = async (securitizeAddresses: string[]) => {
   const results = await Promise.allSettled(
     securitizeAddresses.map(addr => fetchSecuritizeVault(addr)),
   )
+
+  if (loadGeneration.value !== generation) return
 
   results.forEach((result) => {
     if (result.status === 'fulfilled') {
@@ -195,15 +214,19 @@ const loadVaults = async () => {
   const { chainId, eulerPeripheryAddresses } = useEulerAddresses()
   const { verifiedVaultAddresses } = useEulerLabels()
   const { setEscrowAddresses } = useVaultRegistry()
+
+  resetVaultsState()
+  const generation = loadGeneration.value
   const startChainId = chainId.value
 
   try {
-    resetVaultsState()
     isEscrowUpdating.value = true
     isEscrowLoading.value = true
 
     // Phase 1: Fetch vault factories (escrow addresses fetched in Phase 2)
     const factories = await fetchVaultFactories(verifiedVaultAddresses.value)
+
+    if (loadGeneration.value !== generation) return
 
     // Separate EVK vaults from Securitize vaults based on factory
     const evkAddresses: string[] = []
@@ -235,26 +258,32 @@ const loadVaults = async () => {
 
     await Promise.all([
       (async () => {
-        await updateEarnVaults()
+        await updateEarnVaults(generation)
         earnResolve()
       })(),
       (async () => {
-        await updateVaults(evkAddresses)
+        await updateVaults(evkAddresses, generation)
         evkResolve()
       })(),
-      updateSecuritizeVaults(securitizeAddresses),
+      updateSecuritizeVaults(securitizeAddresses, generation),
       // Escrow addresses - fetch in parallel, populate set when ready
       (async () => {
         const addrs = await fetchEscrowAddresses()
+        if (loadGeneration.value !== generation) {
+          escrowAddrsResolve([]) // Unblock downstream even if stale
+          return
+        }
         setEscrowAddresses(addrs)
         escrowAddrsResolve(addrs)
       })(),
       // Escrow vault info - waits for EVK, Earn, AND escrow addresses
       Promise.all([evkLoaded, earnLoaded, escrowAddrsLoaded]).then(async () => {
         const neededEscrowAddresses = extractNeededEscrowAddresses()
-        await fetchNeededEscrowVaults(neededEscrowAddresses)
+        await fetchNeededEscrowVaults(neededEscrowAddresses, generation)
       }),
     ])
+
+    if (loadGeneration.value !== generation) return
 
     // Set loading flags AFTER all needed escrow vaults are loaded
     isEarnUpdating.value = false
@@ -263,7 +292,7 @@ const loadVaults = async () => {
     isEscrowLoadedOnce.value = true
   }
   finally {
-    if (chainId.value === startChainId) {
+    if (loadGeneration.value === generation && chainId.value === startChainId) {
       isReady.value = true
       loadedChainId.value = startChainId
     }
