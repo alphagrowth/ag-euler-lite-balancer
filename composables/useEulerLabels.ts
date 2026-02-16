@@ -166,7 +166,7 @@ const loadOracleAdapter = async (chainId: number, oracleAddress: string): Promis
     const url = getOracleChecksUrl(chainId, `adapters/${checksummed}.json`)
     const res = await axios.get(url)
     const meta = normalizeOracleAdapters([res.data])
-    safeAssign(oracleAdapters, meta as Record<string, unknown>)
+    safeAssign(oracleAdapters, meta)
     return oracleAdapters[key]
   }
   catch {
@@ -253,10 +253,10 @@ export const useEulerLabels = () => {
       }
 
       const normalizedProducts = normalizeProducts(productRes.data)
-      safeAssign(products, normalizedProducts.products as Record<string, unknown>)
+      safeAssign(products, normalizedProducts.products)
       verifiedVaultAddresses.value = normalizedProducts.vaultAddresses
 
-      safeAssign(entities, normalizeEntities(entitiesRes.data) as Record<string, unknown>)
+      safeAssign(entities, normalizeEntities(entitiesRes.data))
 
       const pointsData = pointsRes.data as EulerLabelPoint[]
       pointsData.forEach((point) => {

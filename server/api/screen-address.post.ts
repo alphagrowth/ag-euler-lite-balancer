@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3'
 import { createError, readBody } from 'h3'
 
 const SCREENING_TIMEOUT_MS = 5000
@@ -6,15 +7,19 @@ const RATE_LIMIT_MAX = 10
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 
-// Clean up stale entries every 2 minutes
-setInterval(() => {
+// Clean up stale entries every 2 minutes.
+// .unref() lets the process exit naturally without waiting for this timer.
+const cleanup = setInterval(() => {
   const now = Date.now()
   for (const [key, entry] of rateLimitMap) {
     if (now > entry.resetAt) rateLimitMap.delete(key)
   }
 }, 120_000)
+cleanup.unref()
 
-function getClientIp(event: any): string {
+// NOTE: In-memory rate limiting is per-process. If Nitro runs multiple
+// workers the effective limit is multiplied by the worker count.
+function getClientIp(event: H3Event): string {
   return (
     event.node.req.headers['x-forwarded-for']?.split(',')[0]?.trim()
     || event.node.req.socket?.remoteAddress
@@ -37,7 +42,7 @@ export default defineEventHandler(async (event) => {
       console.warn('[screen-address] Rate limited:', ip)
       throw createError({ statusCode: 429, statusMessage: 'Too Many Requests' })
     }
-    entry.count++
+    rateLimitMap.set(ip, { count: entry.count + 1, resetAt: entry.resetAt })
   } else {
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
   }
@@ -51,11 +56,9 @@ export default defineEventHandler(async (event) => {
   const address = body.address
   const vpnIsUsed = String(body.vpnIsUsed ?? false)
 
-  // Prefer server-only name; fall back to legacy public name during migration
-  const screeningUri = process.env.WALLET_SCREENING_URI || process.env.NUXT_PUBLIC_WALLET_SCREENING_URI
+  const screeningUri = process.env.WALLET_SCREENING_URI
 
   if (!screeningUri) {
-    // If not configured, allow all (same behavior as current client-side)
     return { addressIsSuspicious: false }
   }
 
