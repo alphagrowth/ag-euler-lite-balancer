@@ -8,6 +8,7 @@ import type { Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, getEntitiesByVault, isVaultFeatured } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
+import { useVaultSearch } from '~/composables/useVaultSearch'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 defineOptions({
@@ -28,6 +29,15 @@ const { getBalance } = useWallets()
 
 const { enableEntityBranding } = useDeployConfig()
 
+const { searchQuery, matchesSearch, clearSearch } = useVaultSearch<Vault>(vault => [
+  vault.asset.symbol,
+  vault.asset.name,
+  vault.name,
+  getProductByVault(vault.address).name,
+  getProductByVault(vault.address).description,
+  ...getEntitiesByVault(vault).map(e => e.name),
+])
+
 const selectedCollateral = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
 const selectedRiskManagers = ref<string[]>([])
@@ -35,6 +45,7 @@ const sortBy = ref<string>('Total Supply')
 const sortDir = ref<'desc' | 'asc'>('desc')
 
 useUrlQuerySync([
+  { ref: searchQuery, default: '', queryKey: 'search' },
   { ref: sortBy, default: 'Total Supply', queryKey: 'sort' },
   { ref: sortDir, default: 'desc', queryKey: 'dir' },
   { ref: selectedCollateral, default: [], queryKey: 'vault' },
@@ -80,6 +91,7 @@ const {
 
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
+    clearSearch()
     selectedCollateral.value = []
     selectedMarkets.value = []
     selectedRiskManagers.value = []
@@ -179,6 +191,7 @@ const riskManagerOptions = computed(() => {
 
 const filteredList = computed(() => {
   return borrowableVaults.value
+    .filter(matchesSearch)
     .filter(vault => selectedCollateral.value.length ? selectedCollateral.value.includes(vault.asset.address) : true)
     .filter(vault => selectedMarkets.value.length ? selectedMarkets.value.includes(getProductByVault(vault.address).name) : true)
     .filter(vault => selectedRiskManagers.value.length
@@ -235,6 +248,15 @@ const sortedList = computed(() => {
       <h3 class="text-h3 mb-16 pl-16 text-content-primary">
         Discover vaults
       </h3>
+
+      <div class="px-16 mb-8">
+        <UiInput
+          v-model="searchQuery"
+          placeholder="Search by asset, market, curator..."
+          icon="search"
+          clearable
+        />
+      </div>
 
       <div class="flex items-center flex-wrap gap-8 px-16">
         <VaultSortButton

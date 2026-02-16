@@ -7,6 +7,7 @@ import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, getEntitiesByVault, isVaultFeatured } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
+import { useVaultSearch } from '~/composables/useVaultSearch'
 import { formatNumber } from '~/utils/string-utils'
 
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -47,6 +48,18 @@ const { entities } = useEulerLabels()
 
 const activeBorrowList = computed(() => borrowList.value)
 
+const { searchQuery, matchesSearch, clearSearch } = useVaultSearch<AnyBorrowVaultPair>(pair => [
+  pair.collateral.asset.symbol,
+  pair.collateral.asset.name,
+  pair.collateral.name,
+  pair.borrow.asset.symbol,
+  pair.borrow.asset.name,
+  pair.borrow.name,
+  getProductByVault(pair.collateral.address).name,
+  getProductByVault(pair.collateral.address).description,
+  ...getEntitiesByVault(pair.borrow).map(e => e.name),
+])
+
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
@@ -55,6 +68,7 @@ const sortBy = ref<string>('Recommended')
 const sortDir = ref<'desc' | 'asc'>('desc')
 
 useUrlQuerySync([
+  { ref: searchQuery, default: '', queryKey: 'search' },
   { ref: sortBy, default: 'Recommended', queryKey: 'sort' },
   { ref: sortDir, default: 'desc', queryKey: 'dir' },
   { ref: selectedCollateral, default: [], queryKey: 'collateral' },
@@ -157,6 +171,7 @@ const {
 
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
+    clearSearch()
     selectedCollateral.value = []
     selectedDebt.value = []
     selectedMarkets.value = []
@@ -225,6 +240,7 @@ const riskManagerOptions = computed(() => {
 
 const filteredBorrowList = computed(() => {
   return activeBorrowList.value
+    .filter(matchesSearch)
     .filter(pair =>
       selectedCollateral.value.length || selectedDebt.value.length
         ? ((!selectedCollateral.value.length || selectedCollateral.value.includes(pair.collateral.asset.address))
@@ -333,6 +349,14 @@ const sortedBorrowList = computed(() => {
       <h3 class="text-h3 mb-16 text-neutral-900">
         Discover vaults
       </h3>
+      <div class="mb-8">
+        <UiInput
+          v-model="searchQuery"
+          placeholder="Search by asset, market, curator..."
+          icon="search"
+          clearable
+        />
+      </div>
       <div class="flex justify-start items-center w-full gap-8 flex-wrap">
         <VaultSortButton
           v-model="sortBy"

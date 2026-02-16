@@ -13,6 +13,7 @@ const props = withDefaults(
     name?: string
     id?: string
     icon?: string
+    clearable?: boolean
   }>(),
   {
     type: 'text',
@@ -22,6 +23,8 @@ const props = withDefaults(
 
 const inputRef = ref()
 const uniqueId = computed(() => props.id || props.name || `input-${Math.random().toString(36).substr(2, 9)}`)
+
+const showClear = computed(() => props.clearable && !!model.value)
 
 const classes = computed(() => {
   return {
@@ -55,8 +58,18 @@ const classes = computed(() => {
       :placeholder="placeholder"
       :aria-invalid="error"
       :aria-disabled="disabled"
-      :class="['ui-input__field', icon && 'icon']"
+      :class="['ui-input__field', icon && 'icon', showClear && 'has-clear']"
     >
+    <div
+      v-if="showClear"
+      class="ui-input__clear"
+      @click="model = ''"
+    >
+      <SvgIcon
+        name="close"
+        class="ui-input__clear-icon"
+      />
+    </div>
   </div>
 </template>
 
@@ -144,6 +157,29 @@ const classes = computed(() => {
     width: 20px;
     height: 20px;
     color: var(--ui-input-placeholder-color);
+  }
+
+  &__clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    cursor: pointer;
+  }
+
+  &__clear-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--ui-input-placeholder-color);
+    transition: color var(--trs-fast);
+
+    &:hover {
+      color: var(--ui-input-color);
+    }
+  }
+
+  &__field.has-clear {
+    padding-right: 0;
   }
 }
 </style>

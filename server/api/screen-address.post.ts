@@ -20,8 +20,10 @@ cleanup.unref()
 // NOTE: In-memory rate limiting is per-process. If Nitro runs multiple
 // workers the effective limit is multiplied by the worker count.
 function getClientIp(event: H3Event): string {
+  const forwarded = event.node.req.headers['x-forwarded-for']
+  const forwardedStr = Array.isArray(forwarded) ? forwarded[0] : forwarded
   return (
-    event.node.req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+    forwardedStr?.split(',')[0]?.trim()
     || event.node.req.socket?.remoteAddress
     || 'unknown'
   )

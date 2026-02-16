@@ -5,8 +5,9 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { EarnVault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getEntitiesByEarnVault, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getProductByVault, getEntitiesByEarnVault, isVaultFeatured } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
+import { useVaultSearch } from '~/composables/useVaultSearch'
 
 defineOptions({
   name: 'EarnPage',
@@ -21,12 +22,22 @@ const list = computed(() => getEarnVaults().filter(v => v.verified))
 
 const { enableEntityBranding } = useDeployConfig()
 
+const { searchQuery, matchesSearch, clearSearch } = useVaultSearch<EarnVault>(vault => [
+  vault.asset.symbol,
+  vault.asset.name,
+  vault.name,
+  getProductByVault(vault.address).name,
+  getProductByVault(vault.address).description,
+  ...getEntitiesByEarnVault(vault).map(e => e.name),
+])
+
 const selectedCollateral = ref<string[]>([])
 const selectedCurators = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
 const sortDir = ref<'desc' | 'asc'>('desc')
 
 useUrlQuerySync([
+  { ref: searchQuery, default: '', queryKey: 'search' },
   { ref: sortBy, default: 'Total Supply', queryKey: 'sort' },
   { ref: sortDir, default: 'desc', queryKey: 'dir' },
   { ref: selectedCollateral, default: [], queryKey: 'vault' },
@@ -86,6 +97,7 @@ const {
 
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
+    clearSearch()
     selectedCollateral.value = []
     selectedCurators.value = []
     clearCustomFilters()
@@ -118,6 +130,7 @@ const curatorOptions = computed(() => {
 
 const filteredList = computed(() => {
   return list.value
+    .filter(matchesSearch)
     .filter(vault => selectedCollateral.value.length ? selectedCollateral.value.includes(vault.asset.address) : true)
     .filter(vault => selectedCurators.value.length ? getEntitiesByEarnVault(vault).some(e => selectedCurators.value.includes(e.name)) : true)
     .filter(matchesCustomFilters)
@@ -174,6 +187,14 @@ const sortedList = computed(() => {
       <h3 class="text-h3 mb-16 pl-16 text-neutral-900">
         Discover vaults
       </h3>
+      <div class="px-16 mb-8">
+        <UiInput
+          v-model="searchQuery"
+          placeholder="Search by asset, market, curator..."
+          icon="search"
+          clearable
+        />
+      </div>
       <div class="flex items-center flex-wrap gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"

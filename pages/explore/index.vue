@@ -4,6 +4,7 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
+import { useVaultSearch } from '~/composables/useVaultSearch'
 import type { MarketGroup } from '~/entities/lend-discovery'
 import type { Vault } from '~/entities/vault'
 import type { AnyVault } from '~/composables/useVaultRegistry'
@@ -18,6 +19,22 @@ const { chainId } = useEulerAddresses()
 const { entities } = useEulerLabels()
 const { enableEntityBranding } = useDeployConfig()
 
+const { searchQuery, matchesSearch, clearSearch } = useVaultSearch<MarketGroup>(group => [
+  group.name,
+  group.curator?.name,
+  ...group.metrics.assetSymbols,
+  ...group.vaults.flatMap((vault) => {
+    const addr = isVaultType(vault) ? vault.address : ''
+    if (!addr) return []
+    const product = getProductByVault(addr)
+    return [
+      product.name,
+      product.description,
+      ...getEntitiesByVault(vault as Vault).map(e => e.name),
+    ]
+  }),
+])
+
 const selectedMarkets = ref<string[]>([])
 const selectedAssets = ref<string[]>([])
 const selectedRiskManagers = ref<string[]>([])
@@ -25,6 +42,7 @@ const sortBy = ref<string>('Recommended')
 const sortDir = ref<'desc' | 'asc'>('desc')
 
 useUrlQuerySync([
+  { ref: searchQuery, default: '', queryKey: 'search' },
   { ref: sortBy, default: 'Recommended', queryKey: 'sort' },
   { ref: sortDir, default: 'desc', queryKey: 'dir' },
   { ref: selectedMarkets, default: [], queryKey: 'market' },
@@ -58,6 +76,7 @@ watch(sortBy, (newSortBy) => {
 
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
+    clearSearch()
     selectedMarkets.value = []
     selectedAssets.value = []
     selectedRiskManagers.value = []
@@ -173,6 +192,7 @@ const matchesRiskManagerFilter = (group: MarketGroup): boolean => {
 const filteredMarkets = computed(() => {
   return marketGroups.value
     .filter(g => g.source === 'product')
+    .filter(matchesSearch)
     .filter(matchesMarketFilter)
     .filter(matchesAssetFilter)
     .filter(matchesRiskManagerFilter)
@@ -258,6 +278,14 @@ const isLoading = computed(() =>
       <h3 class="text-h3 mb-16 pl-16 text-content-primary">
         Discover markets
       </h3>
+      <div class="px-16 mb-8">
+        <UiInput
+          v-model="searchQuery"
+          placeholder="Search by asset, market, curator..."
+          icon="search"
+          clearable
+        />
+      </div>
       <div class="flex items-center flex-wrap gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"
