@@ -12,7 +12,8 @@ defineOptions({
   name: 'ExplorePage',
 })
 
-const { marketGroups } = useMarketGroups()
+const { marketGroups, isResolvingTVL } = useMarketGroups()
+const { isUpdating, isEarnUpdating, isEscrowUpdating } = useVaults()
 const { chainId } = useEulerAddresses()
 const { products, entities } = useEulerLabels()
 const { enableEntityBranding } = useDeployConfig()
@@ -227,7 +228,10 @@ const sortedMarkets = computed(() => {
   return sortDir.value === 'asc' ? [...sorted].reverse() : sorted
 })
 
-const isLoading = computed(() => marketGroups.value.length === 0)
+const isLoading = computed(() =>
+  isUpdating.value || isEarnUpdating.value || isEscrowUpdating.value
+  || isResolvingTVL.value || marketGroups.value.length === 0,
+)
 </script>
 
 <template>

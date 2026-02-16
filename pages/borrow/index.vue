@@ -40,7 +40,8 @@ defineOptions({
 const { borrowList, isUpdating, isEscrowUpdating } = useVaults()
 const { chainId } = useEulerAddresses()
 
-const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value)
+const isPricesReady = ref(false)
+const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value || !isPricesReady.value)
 const { enableEntityBranding } = useDeployConfig()
 const { products, entities } = useEulerLabels()
 
@@ -82,23 +83,31 @@ const getPairKey = (pair: AnyBorrowVaultPair) => `${pair.collateral.address}-${p
 // Fetch USD values for all borrow pairs
 watchEffect(async () => {
   const pairs = borrowList.value
-  if (!pairs.length) return
+  if (!pairs.length) {
+    isPricesReady.value = true
+    return
+  }
 
-  const liquidityValues = new Map<string, number>()
-  const borrowedValues = new Map<string, number>()
-  await Promise.all(
-    pairs.map(async (pair) => {
-      const key = getPairKey(pair)
-      const [liquidity, borrowed] = await Promise.all([
-        getAssetUsdValueOrZero(pair.borrow.supply >= pair.borrow.borrow ? pair.borrow.supply - pair.borrow.borrow : 0n, pair.borrow, 'off-chain'),
-        getAssetUsdValueOrZero(pair.borrow.borrow, pair.borrow, 'off-chain'),
-      ])
-      liquidityValues.set(key, liquidity)
-      borrowedValues.set(key, borrowed)
-    }),
-  )
-  pairLiquidityUsd.value = liquidityValues
-  pairBorrowedUsd.value = borrowedValues
+  try {
+    const liquidityValues = new Map<string, number>()
+    const borrowedValues = new Map<string, number>()
+    await Promise.all(
+      pairs.map(async (pair) => {
+        const key = getPairKey(pair)
+        const [liquidity, borrowed] = await Promise.all([
+          getAssetUsdValueOrZero(pair.borrow.supply >= pair.borrow.borrow ? pair.borrow.supply - pair.borrow.borrow : 0n, pair.borrow, 'off-chain'),
+          getAssetUsdValueOrZero(pair.borrow.borrow, pair.borrow, 'off-chain'),
+        ])
+        liquidityValues.set(key, liquidity)
+        borrowedValues.set(key, borrowed)
+      }),
+    )
+    pairLiquidityUsd.value = liquidityValues
+    pairBorrowedUsd.value = borrowedValues
+  }
+  finally {
+    isPricesReady.value = true
+  }
 })
 
 const getPairBorrowApy = (pair: AnyBorrowVaultPair): number => {

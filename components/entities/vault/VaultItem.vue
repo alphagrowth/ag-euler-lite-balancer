@@ -83,24 +83,25 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
   });
 };
 
-const totalSupplyPrice = ref('-')
-const liquidityPrice = ref('-')
-const walletBalancePrice = ref('-')
-
-watchEffect(async () => {
-  const price = await formatAssetValue(vault.totalAssets, vault, 'off-chain')
-  totalSupplyPrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+const prices = ref<{ totalSupply: string, liquidity: string, walletBalance: string }>({
+  totalSupply: '-',
+  liquidity: '-',
+  walletBalance: '-',
 })
 
 watchEffect(async () => {
   const liquidity = vault.supply >= vault.borrow ? vault.supply - vault.borrow : 0n
-  const price = await formatAssetValue(liquidity, vault, 'off-chain')
-  liquidityPrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
-})
-
-watchEffect(async () => {
-  const price = await formatAssetValue(balance.value, vault, 'off-chain')
-  walletBalancePrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
+  const walletBal = balance.value
+  const [supplyResult, liquidityResult, walletResult] = await Promise.all([
+    formatAssetValue(vault.totalAssets, vault, 'off-chain'),
+    formatAssetValue(liquidity, vault, 'off-chain'),
+    formatAssetValue(walletBal, vault, 'off-chain'),
+  ])
+  prices.value = {
+    totalSupply: supplyResult.hasPrice ? formatCompactUsdValue(supplyResult.usdValue) : supplyResult.display,
+    liquidity: liquidityResult.hasPrice ? formatCompactUsdValue(liquidityResult.usdValue) : liquidityResult.display,
+    walletBalance: walletResult.hasPrice ? formatCompactUsdValue(walletResult.usdValue) : walletResult.display,
+  }
 })
 
 </script>
@@ -195,7 +196,7 @@ watchEffect(async () => {
           <VaultWarningIcon :warning="supplyCapWarning" tooltip-placement="top-start" />
         </div>
         <div class="text-p2 text-content-primary">
-          {{ totalSupplyPrice }}
+          {{ prices.totalSupply }}
         </div>
       </div>
       <div class="flex-1 flex flex-col items-center mobile:items-end">
@@ -203,7 +204,7 @@ watchEffect(async () => {
           Available liquidity
         </div>
         <div class="text-p2 text-content-primary">
-          {{ liquidityPrice }}
+          {{ prices.liquidity }}
         </div>
       </div>
       <div
@@ -230,7 +231,7 @@ watchEffect(async () => {
           style="min-width: 70px; height: 20px"
         >
           <div class="text-p2 text-content-primary whitespace-nowrap">
-            {{ walletBalancePrice }}
+            {{ prices.walletBalance }}
           </div>
         </BaseLoadableContent>
       </div>
@@ -276,7 +277,7 @@ watchEffect(async () => {
             style="min-width: 70px; height: 20px"
           >
             <div class="text-p2 text-content-primary whitespace-nowrap">
-              {{ walletBalancePrice }}
+              {{ prices.walletBalance }}
             </div>
           </BaseLoadableContent>
         </div>

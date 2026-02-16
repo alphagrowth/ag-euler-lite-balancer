@@ -19,7 +19,8 @@ const { getVerifiedEvkVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
 const list = computed(() => getVerifiedEvkVaults().filter(v => !isVaultDeprecated(v.address)))
 
-const isLoading = computed(() => isUpdating.value)
+const isPricesReady = ref(false)
+const isLoading = computed(() => isUpdating.value || !isPricesReady.value)
 const { products, entities } = useEulerLabels()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const { getSupplyRewardApy, version: rewardsVersion } = useRewardsApy()
@@ -98,30 +99,38 @@ const borrowableVaults = computed(() => {
 watchEffect(async () => {
   const _rv = rewardsVersion.value
   const vaults = borrowableVaults.value
-  if (!vaults.length) return
+  if (!vaults.length) {
+    isPricesReady.value = true
+    return
+  }
 
-  const supplyValues = new Map<string, number>()
-  const liquidityValues = new Map<string, number>()
-  const walletValues = new Map<string, number>()
+  try {
+    const supplyValues = new Map<string, number>()
+    const liquidityValues = new Map<string, number>()
+    const walletValues = new Map<string, number>()
 
-  await Promise.all(
-    vaults.map(async (vault) => {
-      const walletBalance = getBalance(vault.asset.address as `0x${string}`)
-      const liquidity = vault.supply >= vault.borrow ? vault.supply - vault.borrow : 0n
-      const [totalSupply, liquidityUsd, wallet] = await Promise.all([
-        getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain'),
-        getAssetUsdValueOrZero(liquidity, vault, 'off-chain'),
-        walletBalance > 0n ? getAssetUsdValueOrZero(walletBalance, vault, 'off-chain') : Promise.resolve(0),
-      ])
-      supplyValues.set(vault.address, totalSupply)
-      liquidityValues.set(vault.address, liquidityUsd)
-      walletValues.set(vault.address, wallet)
-    }),
-  )
+    await Promise.all(
+      vaults.map(async (vault) => {
+        const walletBalance = getBalance(vault.asset.address as `0x${string}`)
+        const liquidity = vault.supply >= vault.borrow ? vault.supply - vault.borrow : 0n
+        const [totalSupply, liquidityUsd, wallet] = await Promise.all([
+          getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain'),
+          getAssetUsdValueOrZero(liquidity, vault, 'off-chain'),
+          walletBalance > 0n ? getAssetUsdValueOrZero(walletBalance, vault, 'off-chain') : Promise.resolve(0),
+        ])
+        supplyValues.set(vault.address, totalSupply)
+        liquidityValues.set(vault.address, liquidityUsd)
+        walletValues.set(vault.address, wallet)
+      }),
+    )
 
-  vaultUsdValues.value = supplyValues
-  vaultLiquidityUsd.value = liquidityValues
-  vaultWalletUsd.value = walletValues
+    vaultUsdValues.value = supplyValues
+    vaultLiquidityUsd.value = liquidityValues
+    vaultWalletUsd.value = walletValues
+  }
+  finally {
+    isPricesReady.value = true
+  }
 })
 
 const marketOptions = computed(() => {

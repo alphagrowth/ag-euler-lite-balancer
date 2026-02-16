@@ -13,7 +13,7 @@ defineProps<{ items: AnyBorrowVaultPair[] }>()
       :key="`${pair.collateral.address}-${pair.borrow.address}`"
       :pair="pair"
       class="animate-fade-in-up"
-      :style="{ animationDelay: `${Math.min(index * 0.05, 0.4)}s` }"
+      :style="{ animationDelay: `${Math.min(index * 0.03, 0.2)}s` }"
     />
   </div>
 </template>

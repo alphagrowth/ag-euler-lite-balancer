@@ -12,7 +12,9 @@ defineOptions({
   name: 'EarnPage',
 })
 
-const { isEarnUpdating: isLoading } = useVaults()
+const { isEarnUpdating } = useVaults()
+const isPricesReady = ref(false)
+const isLoading = computed(() => isEarnUpdating.value || !isPricesReady.value)
 const { getEarnVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
 const list = computed(() => getEarnVaults().filter(v => v.verified && !isVaultDeprecated(v.address)))
@@ -38,22 +40,30 @@ const vaultLiquidityUsd = ref<Map<string, number>>(new Map())
 // Fetch USD values for all earn vaults
 watchEffect(async () => {
   const vaults = list.value
-  if (!vaults.length) return
+  if (!vaults.length) {
+    isPricesReady.value = true
+    return
+  }
 
-  const totalSupplyValues = new Map<string, number>()
-  const liquidityValues = new Map<string, number>()
-  await Promise.all(
-    vaults.map(async (vault) => {
-      const [totalSupply, liquidity] = await Promise.all([
-        getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain'),
-        getAssetUsdValueOrZero(vault.availableAssets, vault, 'off-chain'),
-      ])
-      totalSupplyValues.set(vault.address, totalSupply)
-      liquidityValues.set(vault.address, liquidity)
-    }),
-  )
-  vaultTotalSupplyUsd.value = totalSupplyValues
-  vaultLiquidityUsd.value = liquidityValues
+  try {
+    const totalSupplyValues = new Map<string, number>()
+    const liquidityValues = new Map<string, number>()
+    await Promise.all(
+      vaults.map(async (vault) => {
+        const [totalSupply, liquidity] = await Promise.all([
+          getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain'),
+          getAssetUsdValueOrZero(vault.availableAssets, vault, 'off-chain'),
+        ])
+        totalSupplyValues.set(vault.address, totalSupply)
+        liquidityValues.set(vault.address, liquidity)
+      }),
+    )
+    vaultTotalSupplyUsd.value = totalSupplyValues
+    vaultLiquidityUsd.value = liquidityValues
+  }
+  finally {
+    isPricesReady.value = true
+  }
 })
 
 const {

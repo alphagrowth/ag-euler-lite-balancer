@@ -1015,11 +1015,13 @@ onMounted(() => {
           <div
             v-if="matrix"
             class="border-t border-line-subtle"
+            @click="selectedGraphNode?.marketId === market.id && (selectedGraphNode = null)"
           >
             <!-- Product description -->
             <div
               v-if="getProductDescription(market)"
               class="mx-16 mt-16 px-16 py-14 rounded-12 bg-surface-secondary border border-line-subtle"
+              @click.stop
             >
               <p class="text-p2 text-content-secondary leading-relaxed">
                 {{ getProductDescription(market) }}
@@ -1027,7 +1029,7 @@ onMounted(() => {
             </div>
 
             <!-- Controls: view toggle + metric dropdown (matrix only) -->
-            <div class="px-16 pt-12 pb-8 flex flex-wrap items-center gap-8">
+            <div class="px-16 pt-12 pb-8 flex flex-wrap items-center gap-8" @click.stop>
               <!-- Graph / Matrix toggle -->
               <div class="flex rounded-[100px] border border-line-default overflow-hidden">
                 <button
@@ -1095,7 +1097,6 @@ onMounted(() => {
                       :style="{ width: `${Math.min(enlarged.viewWidth * 1.5, 900)}px` }"
                       :viewBox="`0 0 ${enlarged.viewWidth} ${enlarged.viewHeight}`"
                       xmlns="http://www.w3.org/2000/svg"
-                      @click.self="selectedGraphNode = null"
                     >
                       <!-- Edges -->
                       <template
@@ -1333,6 +1334,7 @@ onMounted(() => {
             <div
               v-if="hasSelection(market)"
               class="border-t border-line-subtle px-16 py-12"
+              @click.stop
             >
               <div
                 class="rounded-12 border border-accent-500/20 bg-accent-500/[0.04] p-12"
@@ -1395,6 +1397,14 @@ onMounted(() => {
                   </template>
                   <template v-for="pair in getGraphBorrowPairs(market)" :key="`graph-borrow-${pair.collateral.address}-${pair.borrow.address}`">
                     <VaultBorrowItem :pair="pair" />
+                  </template>
+
+                  <!-- Collateral-only vault: no borrow pairs where this vault is the liability -->
+                  <template v-if="getGraphSelectedVault(market) && !getGraphBorrowPairs(market).length">
+                    <div class="flex items-center gap-8 px-12 py-10 rounded-8 bg-surface-secondary text-content-tertiary text-p3">
+                      <SvgIcon name="info-circle" class="!w-16 !h-16 shrink-0" />
+                      <span>This vault is used as collateral only and does not support borrowing.</span>
+                    </div>
                   </template>
                 </div>
               </template>

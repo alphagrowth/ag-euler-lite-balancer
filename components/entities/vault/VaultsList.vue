@@ -14,7 +14,7 @@ defineProps<{ items: Vault[], type: 'lend' | 'borrow' }>()
       :vault="vault"
       :type="type"
       class="animate-fade-in-up"
-      :style="{ animationDelay: `${Math.min(index * 0.05, 0.4)}s` }"
+      :style="{ animationDelay: `${Math.min(index * 0.03, 0.2)}s` }"
     />
   </div>
 </template>

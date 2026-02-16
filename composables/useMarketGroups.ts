@@ -351,7 +351,7 @@ export const useMarketGroups = () => {
   watch(
     marketGroupsSync,
     async (groups: MarketGroup[]) => {
-      marketGroups.value = groups
+      if (groups.length === 0) return
 
       isResolvingTVL.value = true
       try {
@@ -360,6 +360,10 @@ export const useMarketGroups = () => {
       }
       catch (e) {
         console.warn('[useMarketGroups] TVL resolution failed:', e)
+        // On failure, show structural data without TVL as fallback
+        if (marketGroups.value.length === 0) {
+          marketGroups.value = groups
+        }
       }
       finally {
         isResolvingTVL.value = false
