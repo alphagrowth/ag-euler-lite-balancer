@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type AnyBorrowVaultPair } from '~/entities/vault'
+import { type AnyBorrowVaultPair, getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { isVaultDeprecated } from '~/composables/useEulerLabels'
 import { getCollateralOraclePrice, getAssetOraclePrice } from '~/services/pricing/priceProvider'
@@ -11,6 +11,23 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { VaultNetApyPairModal, VaultMaxRoeModal } from '#components'
 
 const { pair } = defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition }>()
+
+const hasRampConfig = computed(() => 'initialLiquidationLTV' in pair)
+const currentLiquidationLTV = computed(() =>
+  hasRampConfig.value ? getCurrentLiquidationLTV(pair as AnyBorrowVaultPair) : pair.liquidationLTV,
+)
+const isRamping = computed(() =>
+  hasRampConfig.value && isLiquidationLTVRamping(pair as AnyBorrowVaultPair),
+)
+
+const formatTimeRemaining = (seconds: bigint): string => {
+  const days = Number(seconds) / 86400
+  if (days >= 1) return `${Math.ceil(days)} day${Math.ceil(days) > 1 ? 's' : ''}`
+  const hours = Number(seconds) / 3600
+  if (hours >= 1) return `${Math.ceil(hours)} hour${Math.ceil(hours) > 1 ? 's' : ''}`
+  const minutes = Number(seconds) / 60
+  return `${Math.ceil(minutes)} minute${Math.ceil(minutes) > 1 ? 's' : ''}`
+}
 
 const modal = useModal()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
@@ -186,8 +203,24 @@ const onMaxRoeInfoIconClick = () => {
       />
       <VaultOverviewLabelValue
         label="Liquidation LTV"
-        :value="`${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%`"
-      />
+      >
+        <div class="flex items-center gap-4">
+          <SvgIcon
+            v-if="isRamping"
+            name="arrow-top-right"
+            class="!w-14 !h-14 text-warning-500 shrink-0 rotate-180"
+            title="Liquidation LTV ramping down"
+          />
+          <span>{{ `${formatNumber(nanoToValue(currentLiquidationLTV, 2), 2)}%` }}</span>
+          <span v-if="isRamping" @click.stop.prevent>
+            <UiFootnote
+              title="LTV Ramping"
+              :text="`The Liquidation LTV for this pair is being reduced. Target: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair as AnyBorrowVaultPair))}.`"
+              class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
+            />
+          </span>
+        </div>
+      </VaultOverviewLabelValue>
     </div>
   </div>
 </template>
