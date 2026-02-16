@@ -1,5 +1,5 @@
 import { createError, getRequestURL } from 'h3'
-import { SANCTIONED_COUNTRIES } from '~/entities/constants'
+import { SANCTIONED_COUNTRIES } from '~/entities/country-constants'
 
 export default defineEventHandler((event) => {
   // Only gate API routes
