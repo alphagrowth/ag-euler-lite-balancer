@@ -6,6 +6,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { EarnVault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getEntitiesByEarnVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { useCustomFilters } from '~/composables/useCustomFilters'
 
 defineOptions({
   name: 'EarnPage',
@@ -55,10 +56,29 @@ watchEffect(async () => {
   vaultLiquidityUsd.value = liquidityValues
 })
 
+const {
+  customFilters,
+  removeCustomFilter,
+  clearCustomFilters,
+  openCustomFilterModal,
+  matchesCustomFilters,
+} = useCustomFilters<EarnVault>(
+  [
+    { key: 'totalSupply', label: 'Total supply', shortLabel: 'Total supply', unit: 'usd' },
+    { key: 'liquidity', label: 'Available liquidity', shortLabel: 'Avail. liquidity', unit: 'usd' },
+  ],
+  (vault, metric) => {
+    if (metric === 'totalSupply') return vaultTotalSupplyUsd.value.get(vault.address) ?? 0
+    if (metric === 'liquidity') return vaultLiquidityUsd.value.get(vault.address) ?? 0
+    return 0
+  },
+)
+
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
     selectedCollateral.value = []
     selectedCurators.value = []
+    clearCustomFilters()
   }
 })
 
@@ -86,36 +106,11 @@ const curatorOptions = computed(() => {
   }, [] as { label: string, value: string, icon?: string }[])
 })
 
-const topOptions = ref<{ label: string, value: string, icon: string }[]>([])
-watchEffect(() => {
-  const sorted = [...list.value].sort((a: EarnVault, b: EarnVault) => {
-    const aValue = vaultTotalSupplyUsd.value.get(a.address) ?? 0
-    const bValue = vaultTotalSupplyUsd.value.get(b.address) ?? 0
-    return bValue - aValue
-  })
-
-  const newTop = sorted
-    .slice(0, 3)
-    .map(vault => ({
-      label: vault.asset.symbol,
-      value: vault.asset.address,
-      icon: getAssetLogoUrl(vault.asset.address, vault.asset.symbol),
-    }))
-    .reduce((prev, curr) =>
-      prev.find(vault => vault.value === curr.value) ? prev : [...prev, curr], [] as { label: string, value: string, icon: string }[],
-    )
-
-  const oldKeys = topOptions.value.map(o => o.value).join(',')
-  const newKeys = newTop.map(o => o.value).join(',')
-  if (oldKeys !== newKeys) {
-    topOptions.value = newTop
-  }
-})
-
 const filteredList = computed(() => {
   return list.value
     .filter(vault => selectedCollateral.value.length ? selectedCollateral.value.includes(vault.asset.address) : true)
     .filter(vault => selectedCurators.value.length ? getEntitiesByEarnVault(vault).some(e => selectedCurators.value.includes(e.name)) : true)
+    .filter(matchesCustomFilters)
 })
 
 const applyFeaturedSort = <T extends { address: string }>(sorted: T[]): T[] => {
@@ -169,12 +164,11 @@ const sortedList = computed(() => {
       <h3 class="text-h3 mb-16 pl-16 text-neutral-900">
         Discover vaults
       </h3>
-      <div class="flex items-center overflow-auto [scrollbar-width:none] gap-8 px-16">
+      <div class="flex items-center flex-wrap gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"
           v-model:dir="sortDir"
           :options="['Total Supply', 'Liquidity', 'Supply APY']"
-          placeholder="Sort By"
           title="Sorting type"
         />
         <UiSelect
@@ -185,17 +179,21 @@ const sortedList = computed(() => {
           placeholder="Capital allocator"
           title="Capital allocator"
           modal-input-placeholder="Search allocator"
-          icon="filter"
+          icon="search-user"
         />
         <UiSelect
           :key="`collateral-${chainId}`"
           v-model="selectedCollateral"
           :options="assetOptions"
-          placeholder="Choose asset"
-          title="Choose asset"
+          placeholder="Asset"
+          title="Asset"
           modal-input-placeholder="Search asset"
-          icon="filter"
-          :chip-options="topOptions"
+          icon="wallet"
+        />
+        <UiCustomFilterChips
+          :filters="customFilters"
+          @remove="removeCustomFilter"
+          @add="openCustomFilterModal"
         />
       </div>
     </div>

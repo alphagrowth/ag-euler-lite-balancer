@@ -5,7 +5,8 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getProductByVault, getEntitiesByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { useCustomFilters } from '~/composables/useCustomFilters'
 import { formatNumber } from '~/utils/string-utils'
 
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -17,7 +18,7 @@ const getNetApy = (pair: BorrowVaultPair) => {
   const supplyApy = withIntrinsicSupplyApy(baseSupplyApy, pair.collateral.asset.symbol)
   const borrowApy = withIntrinsicBorrowApy(baseBorrowApy, pair.borrow.asset.symbol)
   const supplyRewards = getSupplyRewardApy(pair.collateral.address)
-  const borrowRewards = getBorrowRewardApy(pair.borrow.asset.address, pair.borrow.address)
+  const borrowRewards = getBorrowRewardApy(pair.borrow.address, pair.collateral.address)
   return (supplyApy + supplyRewards) - (borrowApy - borrowRewards)
 }
 
@@ -52,6 +53,7 @@ const activeBorrowList = computed(() =>
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
+const selectedRiskManagers = ref<string[]>([])
 const sortBy = ref<string>('Recommended')
 const sortDir = ref<'desc' | 'asc'>('desc')
 
@@ -61,6 +63,7 @@ useUrlQuerySync([
   { ref: selectedCollateral, default: [], queryKey: 'collateral' },
   { ref: selectedDebt, default: [], queryKey: 'debt' },
   { ref: selectedMarkets, default: [], queryKey: 'market' },
+  { ref: selectedRiskManagers, default: [], queryKey: 'riskManager' },
 ])
 
 watch(sortBy, (newSortBy) => {
@@ -87,7 +90,7 @@ watchEffect(async () => {
     pairs.map(async (pair) => {
       const key = getPairKey(pair)
       const [liquidity, borrowed] = await Promise.all([
-        getAssetUsdValueOrZero(pair.borrow.supply - pair.borrow.borrow, pair.borrow, 'off-chain'),
+        getAssetUsdValueOrZero(pair.borrow.supply >= pair.borrow.borrow ? pair.borrow.supply - pair.borrow.borrow : 0n, pair.borrow, 'off-chain'),
         getAssetUsdValueOrZero(pair.borrow.borrow, pair.borrow, 'off-chain'),
       ])
       liquidityValues.set(key, liquidity)
@@ -98,11 +101,62 @@ watchEffect(async () => {
   pairBorrowedUsd.value = borrowedValues
 })
 
+const getPairBorrowApy = (pair: AnyBorrowVaultPair): number => {
+  const baseBorrowApy = nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25)
+  const borrowApy = withIntrinsicBorrowApy(baseBorrowApy, pair.borrow.asset.symbol)
+  const borrowRewards = getBorrowRewardApy(pair.borrow.address, pair.collateral.address)
+  return borrowApy - borrowRewards
+}
+
+const getPairMaxLtv = (pair: AnyBorrowVaultPair): number => {
+  return nanoToValue(pair.borrowLTV, 2)
+}
+
+const getPairMaxMultiplier = (pair: AnyBorrowVaultPair): number => {
+  const borrowLTV = getPairMaxLtv(pair)
+  return Math.max(1, Math.floor(100 / (100 - borrowLTV) * 100) / 100)
+}
+
+const {
+  customFilters,
+  removeCustomFilter,
+  clearCustomFilters,
+  openCustomFilterModal,
+  matchesCustomFilters,
+} = useCustomFilters<AnyBorrowVaultPair>(
+  [
+    { key: 'liquidity', label: 'Available liquidity', shortLabel: 'Avail. liquidity', unit: 'usd' },
+    { key: 'totalBorrowed', label: 'Total borrowed', shortLabel: 'Total borrowed', unit: 'usd' },
+    { key: 'borrowApy', label: 'Borrow APY', shortLabel: 'Borrow APY', unit: 'percent' },
+    { key: 'netApy', label: 'Net APY', shortLabel: 'Net APY', unit: 'percent' },
+    { key: 'maxRoe', label: 'Max ROE', shortLabel: 'Max ROE', unit: 'percent' },
+    { key: 'utilization', label: 'Utilization', shortLabel: 'Utilization', unit: 'percent' },
+    { key: 'maxLtv', label: 'Max LTV', shortLabel: 'Max LTV', unit: 'percent' },
+    { key: 'maxMultiplier', label: 'Max Multiplier', shortLabel: 'Max Multiplier', unit: 'multiplier' },
+  ],
+  (pair, metric) => {
+    const key = getPairKey(pair)
+    switch (metric) {
+      case 'liquidity': return pairLiquidityUsd.value.get(key) ?? 0
+      case 'totalBorrowed': return pairBorrowedUsd.value.get(key) ?? 0
+      case 'borrowApy': return getPairBorrowApy(pair)
+      case 'netApy': return 'borrowLTV' in pair ? getNetApy(pair as BorrowVaultPair) : 0
+      case 'maxRoe': return 'borrowLTV' in pair ? getSortMaxRoe(pair as BorrowVaultPair) : 0
+      case 'utilization': return getVaultUtilization(pair.borrow)
+      case 'maxLtv': return getPairMaxLtv(pair)
+      case 'maxMultiplier': return getPairMaxMultiplier(pair)
+      default: return 0
+    }
+  },
+)
+
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
     selectedCollateral.value = []
     selectedDebt.value = []
     selectedMarkets.value = []
+    selectedRiskManagers.value = []
+    clearCustomFilters()
   }
 })
 
@@ -146,6 +200,24 @@ const marketOptions = computed(() => {
   }, [] as { label: string, value: string, icon?: string }[])
 })
 
+const riskManagerOptions = computed(() => {
+  const seen = new Set<string>()
+  const result: { label: string, value: string, icon?: string }[] = []
+  for (const pair of activeBorrowList.value) {
+    for (const entity of getEntitiesByVault(pair.borrow)) {
+      if (!seen.has(entity.name)) {
+        seen.add(entity.name)
+        result.push({
+          label: entity.name,
+          value: entity.name,
+          icon: entity.logo ? `/entities/${entity.logo}` : undefined,
+        })
+      }
+    }
+  }
+  return result
+})
+
 const filteredBorrowList = computed(() => {
   return activeBorrowList.value
     .filter(pair =>
@@ -155,6 +227,10 @@ const filteredBorrowList = computed(() => {
         : true,
     )
     .filter(pair => selectedMarkets.value.length ? selectedMarkets.value.includes(getProductByVault(pair.collateral.address).name) : true)
+    .filter(pair => selectedRiskManagers.value.length
+      ? getEntitiesByVault(pair.borrow).some(e => selectedRiskManagers.value.includes(e.name))
+      : true)
+    .filter(matchesCustomFilters)
 })
 
 const isPairFeatured = (pair: AnyBorrowVaultPair) =>
@@ -252,15 +328,25 @@ const sortedBorrowList = computed(() => {
       <h3 class="text-h3 mb-16 text-neutral-900">
         Discover vaults
       </h3>
-      <div class="flex justify-start items-center w-full gap-8 mobile:flex-wrap">
+      <div class="flex justify-start items-center w-full gap-8 flex-wrap">
         <VaultSortButton
           v-model="sortBy"
           v-model:dir="sortDir"
           class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
           :options="['Recommended', 'Liquidity', 'Total Borrowed', 'Utilization', 'Borrow APY', 'Net APY', 'Max ROE']"
           :disable-dir="sortBy === 'Recommended'"
-          placeholder="Sort By"
           title="Sorting type"
+        />
+        <UiSelect
+          v-if="enableEntityBranding"
+          :key="`risk-managers-${chainId}`"
+          v-model="selectedRiskManagers"
+          class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
+          :options="riskManagerOptions"
+          placeholder="Risk manager"
+          title="Risk manager"
+          modal-input-placeholder="Search risk manager"
+          icon="shield"
         />
         <UiSelect
           v-if="enableEntityBranding"
@@ -268,30 +354,38 @@ const sortedBorrowList = computed(() => {
           v-model="selectedMarkets"
           class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
           :options="marketOptions"
-          placeholder="Choose market"
-          title="Choose market"
+          placeholder="Market"
+          title="Market"
           modal-input-placeholder="Search market"
-          icon="filter"
+          icon="bank"
         />
         <UiSelect
           :key="`collateral-${chainId}`"
           v-model="selectedCollateral"
-          class="flex-1 min-w-0 mobile:basis-[calc(50%-4px)]"
+          class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
           :options="collateralAssetOptions"
           placeholder="Collateral asset"
           title="Collateral asset"
           modal-input-placeholder="Search asset"
+          icon="wallet"
           show-selected-options
         />
         <UiSelect
           :key="`debt-${chainId}`"
           v-model="selectedDebt"
-          class="flex-1 min-w-0 mobile:basis-[calc(50%-4px)]"
+          class="shrink-0 mobile:flex-1 mobile:basis-[calc(50%-4px)]"
           :options="debtAssetOptions"
           placeholder="Debt asset"
           title="Debt asset"
           modal-input-placeholder="Search asset"
+          icon="wallet"
           show-selected-options
+        />
+        <UiCustomFilterChips
+          :filters="customFilters"
+          chip-class="shrink-0"
+          @remove="removeCustomFilter"
+          @add="openCustomFilterModal"
         />
       </div>
     </div>

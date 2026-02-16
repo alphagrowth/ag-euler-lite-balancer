@@ -6,7 +6,9 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getProductByVault, getEntitiesByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { useCustomFilters } from '~/composables/useCustomFilters'
+import { nanoToValue } from '~/utils/crypto-utils'
 
 defineOptions({
   name: 'LendPage',
@@ -19,11 +21,15 @@ const list = computed(() => getVerifiedEvkVaults().filter(v => !isVaultDeprecate
 
 const isLoading = computed(() => isUpdating.value)
 const { products, entities } = useEulerLabels()
+const { withIntrinsicSupplyApy } = useIntrinsicApy()
+const { getSupplyRewardApy, version: rewardsVersion } = useRewardsApy()
+const { getBalance } = useWallets()
 
 const { enableEntityBranding } = useDeployConfig()
 
 const selectedCollateral = ref<string[]>([])
 const selectedMarkets = ref<string[]>([])
+const selectedRiskManagers = ref<string[]>([])
 const sortBy = ref<string>('Total Supply')
 const sortDir = ref<'desc' | 'asc'>('desc')
 
@@ -32,15 +38,51 @@ useUrlQuerySync([
   { ref: sortDir, default: 'desc', queryKey: 'dir' },
   { ref: selectedCollateral, default: [], queryKey: 'vault' },
   { ref: selectedMarkets, default: [], queryKey: 'market' },
+  { ref: selectedRiskManagers, default: [], queryKey: 'riskManager' },
 ])
 
-// Cache for USD values used in sorting (keyed by vault address)
+// Cache for USD values used in sorting and filtering (keyed by vault address)
 const vaultUsdValues = ref<Map<string, number>>(new Map())
+const vaultLiquidityUsd = ref<Map<string, number>>(new Map())
+const vaultWalletUsd = ref<Map<string, number>>(new Map())
+
+const getVaultSupplyApy = (vault: Vault): number => {
+  const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY, 25)
+  return withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
+}
+
+const {
+  customFilters,
+  removeCustomFilter,
+  clearCustomFilters,
+  openCustomFilterModal,
+  matchesCustomFilters,
+} = useCustomFilters<Vault>(
+  [
+    { key: 'totalSupply', label: 'Total supply', shortLabel: 'Total supply', unit: 'usd' },
+    { key: 'liquidity', label: 'Available liquidity', shortLabel: 'Avail. liquidity', unit: 'usd' },
+    { key: 'inWallet', label: 'In wallet', shortLabel: 'In wallet', unit: 'usd' },
+    { key: 'supplyApy', label: 'Supply APY', shortLabel: 'Supply APY', unit: 'percent' },
+    { key: 'utilization', label: 'Utilization', shortLabel: 'Utilization', unit: 'percent' },
+  ],
+  (vault, metric) => {
+    switch (metric) {
+      case 'totalSupply': return vaultUsdValues.value.get(vault.address) ?? 0
+      case 'liquidity': return vaultLiquidityUsd.value.get(vault.address) ?? 0
+      case 'inWallet': return vaultWalletUsd.value.get(vault.address) ?? 0
+      case 'supplyApy': return getVaultSupplyApy(vault)
+      case 'utilization': return getVaultUtilization(vault)
+      default: return 0
+    }
+  },
+)
 
 watch(chainId, (newChainId, oldChainId) => {
   if (oldChainId !== undefined && newChainId !== oldChainId) {
     selectedCollateral.value = []
     selectedMarkets.value = []
+    selectedRiskManagers.value = []
+    clearCustomFilters()
   }
 })
 
@@ -51,18 +93,35 @@ const borrowableVaults = computed(() => {
 })
 
 // Fetch USD values for all borrowable vaults
+// Reading rewardsVersion.value establishes a reactive dependency so this
+// re-runs when reward data loads asynchronously (fixes custom filter staleness).
 watchEffect(async () => {
+  const _rv = rewardsVersion.value
   const vaults = borrowableVaults.value
   if (!vaults.length) return
 
-  const newValues = new Map<string, number>()
+  const supplyValues = new Map<string, number>()
+  const liquidityValues = new Map<string, number>()
+  const walletValues = new Map<string, number>()
+
   await Promise.all(
     vaults.map(async (vault) => {
-      const usdValue = await getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain')
-      newValues.set(vault.address, usdValue)
+      const walletBalance = getBalance(vault.asset.address as `0x${string}`)
+      const liquidity = vault.supply >= vault.borrow ? vault.supply - vault.borrow : 0n
+      const [totalSupply, liquidityUsd, wallet] = await Promise.all([
+        getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain'),
+        getAssetUsdValueOrZero(liquidity, vault, 'off-chain'),
+        walletBalance > 0n ? getAssetUsdValueOrZero(walletBalance, vault, 'off-chain') : Promise.resolve(0),
+      ])
+      supplyValues.set(vault.address, totalSupply)
+      liquidityValues.set(vault.address, liquidityUsd)
+      walletValues.set(vault.address, wallet)
     }),
   )
-  vaultUsdValues.value = newValues
+
+  vaultUsdValues.value = supplyValues
+  vaultLiquidityUsd.value = liquidityValues
+  vaultWalletUsd.value = walletValues
 })
 
 const marketOptions = computed(() => {
@@ -91,36 +150,32 @@ const assetOptions = computed(() => {
     )
 })
 
-const topOptions = ref<{ label: string, value: string, icon: string }[]>([])
-watchEffect(() => {
-  const sorted = [...borrowableVaults.value].sort((a: Vault, b: Vault) => {
-    const aValue = vaultUsdValues.value.get(a.address) ?? 0
-    const bValue = vaultUsdValues.value.get(b.address) ?? 0
-    return bValue - aValue
-  })
-
-  const newTop = sorted
-    .slice(0, 3)
-    .map(vault => ({
-      label: vault.asset.symbol,
-      value: vault.asset.address,
-      icon: getAssetLogoUrl(vault.asset.address, vault.asset.symbol),
-    }))
-    .reduce((prev, curr) =>
-      prev.find(vault => vault.value === curr.value) ? prev : [...prev, curr], [] as { label: string, value: string, icon: string }[],
-    )
-
-  const oldKeys = topOptions.value.map(o => o.value).join(',')
-  const newKeys = newTop.map(o => o.value).join(',')
-  if (oldKeys !== newKeys) {
-    topOptions.value = newTop
+const riskManagerOptions = computed(() => {
+  const seen = new Set<string>()
+  const result: { label: string, value: string, icon?: string }[] = []
+  for (const vault of borrowableVaults.value) {
+    for (const entity of getEntitiesByVault(vault)) {
+      if (!seen.has(entity.name)) {
+        seen.add(entity.name)
+        result.push({
+          label: entity.name,
+          value: entity.name,
+          icon: entity.logo ? `/entities/${entity.logo}` : undefined,
+        })
+      }
+    }
   }
+  return result
 })
 
 const filteredList = computed(() => {
   return borrowableVaults.value
     .filter(vault => selectedCollateral.value.length ? selectedCollateral.value.includes(vault.asset.address) : true)
     .filter(vault => selectedMarkets.value.length ? selectedMarkets.value.includes(getProductByVault(vault.address).name) : true)
+    .filter(vault => selectedRiskManagers.value.length
+      ? getEntitiesByVault(vault).some(e => selectedRiskManagers.value.includes(e.name))
+      : true)
+    .filter(matchesCustomFilters)
 })
 
 const applyFeaturedSort = <T extends { address: string }>(sorted: T[]): T[] => {
@@ -156,7 +211,6 @@ const sortedList = computed(() => {
   }
   return sortDir.value === 'asc' ? [...sorted].reverse() : sorted
 })
-
 </script>
 
 <template>
@@ -172,33 +226,47 @@ const sortedList = computed(() => {
       <h3 class="text-h3 mb-16 pl-16 text-content-primary">
         Discover vaults
       </h3>
-      <div class="flex items-center overflow-auto [scrollbar-width:none] gap-8 px-16">
+
+      <div class="flex items-center flex-wrap gap-8 px-16">
         <VaultSortButton
           v-model="sortBy"
           v-model:dir="sortDir"
           :options="['Total Supply', 'Utilization', 'Supply APY']"
-          placeholder="Sort By"
           title="Sorting type"
+        />
+        <UiSelect
+          v-if="enableEntityBranding"
+          :key="`risk-managers-${chainId}`"
+          v-model="selectedRiskManagers"
+          :options="riskManagerOptions"
+          placeholder="Risk manager"
+          title="Risk manager"
+          modal-input-placeholder="Search risk manager"
+          icon="shield"
         />
         <UiSelect
           v-if="enableEntityBranding"
           :key="`markets-${chainId}`"
           v-model="selectedMarkets"
           :options="marketOptions"
-          placeholder="Choose market"
-          title="Choose market"
+          placeholder="Market"
+          title="Market"
           modal-input-placeholder="Search market"
-          icon="filter"
+          icon="bank"
         />
         <UiSelect
           :key="`collateral-${chainId}`"
           v-model="selectedCollateral"
           :options="assetOptions"
-          placeholder="Choose asset"
-          title="Choose asset"
+          placeholder="Asset"
+          title="Asset"
           modal-input-placeholder="Search asset"
-          icon="filter"
-          :chip-options="topOptions"
+          icon="wallet"
+        />
+        <UiCustomFilterChips
+          :filters="customFilters"
+          @remove="removeCustomFilter"
+          @add="openCustomFilterModal"
         />
       </div>
     </div>
@@ -219,10 +287,7 @@ const sortedList = computed(() => {
         v-else
         class="flex flex-col flex-1 gap-3 items-center justify-center text-content-tertiary"
       >
-        <UiIcon
-          name="search"
-          class="!w-24 !h-24"
-        />
+        <UiIcon name="search" class="!w-24 !h-24" />
         <div class="text-center max-w-[180px]">
           No markets were found by these filters
         </div>
