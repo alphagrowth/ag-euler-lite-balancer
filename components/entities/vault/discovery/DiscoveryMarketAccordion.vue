@@ -1347,7 +1347,7 @@ onMounted(() => {
                     <template v-for="vault in [getMatrixHeaderVault(market)]" :key="'header-lend-' + market.id">
                       <template v-if="vault">
                         <h4 class="text-p3 font-medium text-content-secondary">Lend</h4>
-                        <VaultItem :vault="vault" />
+                        <VaultItem :vault="vault" :market-label="market.name" />
                       </template>
                     </template>
 
@@ -1366,7 +1366,7 @@ onMounted(() => {
                     <template v-for="lendVault in [getSelectedLendVault(market)]" :key="'lend-' + market.id">
                       <template v-if="lendVault">
                         <h4 class="text-p3 font-medium text-content-secondary">Lend</h4>
-                        <VaultItem :vault="lendVault" />
+                        <VaultItem :vault="lendVault" :market-label="market.name" />
                       </template>
                     </template>
 
@@ -1387,7 +1387,7 @@ onMounted(() => {
                   <template v-for="vault in [getGraphSelectedVault(market)]" :key="'graph-lend-' + market.id">
                     <template v-if="vault">
                       <h4 class="text-p3 font-medium text-content-secondary">Lend</h4>
-                      <VaultItem :vault="vault" />
+                      <VaultItem :vault="vault" :market-label="market.name" />
                     </template>
                   </template>
 

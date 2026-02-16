@@ -123,19 +123,10 @@ onUnmounted(() => {
     >
       <div class="w-full max-w-container mx-16 mobile:px-16 mobile:mx-0">
         <NuxtLayout>
-          <Suspense>
-            <template #default>
           <NuxtPage
             :transition="{ name: 'page', mode: 'out-in' }"
             :keepalive="{ include: ['ExplorePage', 'EarnPage', 'LendPage', 'BorrowPage', 'PortfolioPage'] }"
-              />
-            </template>
-            <template #fallback>
-              <div class="flex items-center justify-center min-h-[400px]">
-                <UiLoader class="icon--48" />
-              </div>
-            </template>
-          </Suspense>
+          />
         </NuxtLayout>
       </div>
     </section>
