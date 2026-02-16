@@ -223,8 +223,10 @@ watch(address, () => {
 
 <template>
   <div class="flex gap-32">
-    <VaultForm
-      title="Open earn position"
+    <div class="flex flex-col gap-16 w-full">
+      <BaseBackButton class="laptop:!hidden" />
+      <VaultForm
+        title="Open earn position"
       class="w-full"
       @submit.prevent="submit"
     >
@@ -334,6 +336,7 @@ watch(address, () => {
         </VaultFormSubmit>
       </template>
     </VaultForm>
+    </div>
     <div class="w-full mobile:hidden">
       <VaultOverviewEarn
         v-if="vault"

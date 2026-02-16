@@ -82,7 +82,7 @@ onClickOutside(reference, () => {
         src="/logo.png"
         alt="Euler"
       >
-      <div class="flex flex-col items-start mr-4">
+      <div class="flex flex-col items-start mr-4 mobile:hidden">
         <span class="text-[14px] font-semibold text-content-primary leading-tight">{{ appTitle }}</span>
         <span class="text-[10px] text-content-tertiary leading-tight">Powered by Euler</span>
       </div>
@@ -163,7 +163,7 @@ onClickOutside(reference, () => {
     </div>
 
     <!-- Right: Wallet -->
-    <div class="flex flex-nowrap flex-shrink-0 gap-8">
+    <div class="flex flex-nowrap gap-8 min-w-0">
         <UiButton
           class="py-6 px-12"
           icon="arrow-down"
@@ -175,6 +175,7 @@ onClickOutside(reference, () => {
           <BaseAvatar :src="`/chains/${chainId}.webp`" :label="String(chainId)" />
         </UiButton>
         <UiButton
+          class="min-w-0 [&>span]:truncate"
           :icon="isConnected ? 'arrow-down' : 'plus'"
           :variant="isConnected ? 'secondary' : 'primary'"
           size="medium"
@@ -184,6 +185,7 @@ onClickOutside(reference, () => {
           {{ isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : 'Connect wallet' }}
         </UiButton>
         <UiButton
+          class="flex-shrink-0"
           variant="secondary"
           size="medium"
           icon="gear"
