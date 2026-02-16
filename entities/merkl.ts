@@ -116,7 +116,12 @@ export interface Opportunity {
       status: string
       error: string
     }
-    createdAt: '2025-07-16T16:37:16.897Z'
+    params?: {
+      evkAddress?: string
+      targetToken?: string
+      collateralAddress?: string
+    }
+    createdAt: string
   }[]
 }
 

@@ -4,6 +4,7 @@ import axios from 'axios'
 
 import { brevisClaimABI } from '~/abis/brevis'
 import type { Campaign, CampaignsRequest, MerkleProofRequest, RewardInfo } from '~/entities/brevis'
+import type { RewardCampaign } from '~/entities/reward-campaign'
 import type { TxPlan } from '~/entities/txPlan'
 import { CampaignAction } from '~/entities/brevis'
 
@@ -52,8 +53,7 @@ const normalizeCampaign = (raw: Record<string, unknown>): Campaign => {
 const address = ref('')
 
 const isLoaded = ref(false)
-const lendCampaigns: Ref<Campaign[]> = ref([])
-const borrowCampaigns: Ref<Campaign[]> = ref([])
+const brevisCampaigns: Ref<Map<string, RewardCampaign[]>> = ref(new Map())
 const userRewards: Ref<Campaign[]> = ref([])
 const isCampaignsLoading = ref(true)
 const isRewardsLoading = ref(true)
@@ -66,12 +66,8 @@ const cacheState = {
   rewards: { timestamp: 0, address: '' },
 }
 
-const getCampaignOfLendVault = (vaultAddress: string) => {
-  return lendCampaigns.value.find(campaign => campaign.vault_address.toLowerCase() === vaultAddress.toLowerCase())
-}
-
-const getCampaignOfBorrowVault = (vaultAddress: string) => {
-  return borrowCampaigns.value.find(campaign => campaign.vault_address.toLowerCase() === vaultAddress.toLowerCase())
+const getBrevisCampaignsForVault = (vaultAddress: string): RewardCampaign[] => {
+  return brevisCampaigns.value.get(vaultAddress.toLowerCase()) || []
 }
 
 export const useBrevis = () => {
@@ -99,7 +95,7 @@ export const useBrevis = () => {
     try {
       const now = Date.now()
       if (!forceRefresh
-        && lendCampaigns.value.length + borrowCampaigns.value.length > 0
+        && brevisCampaigns.value.size > 0
         && (now - cacheState.campaigns.timestamp) < BREVIS_CACHE_TTL_MS) {
         return
       }
@@ -122,21 +118,29 @@ export const useBrevis = () => {
       }
 
       const campaigns: Campaign[] = (res.data.campaigns || []).map(normalizeCampaign)
-
-      const lends: Campaign[] = []
-      const borrows: Campaign[] = []
+      const campaignMap = new Map<string, RewardCampaign[]>()
 
       for (const campaign of campaigns) {
-        if (campaign.action === CampaignAction.LEND) {
-          lends.push(campaign)
+        const vaultKey = campaign.vault_address.toLowerCase()
+        const rewardCampaign: RewardCampaign = {
+          vault: vaultKey,
+          // TODO: Add 'euler_borrow_collateral' support if Brevis adds collateral-specific campaigns
+          type: campaign.action === CampaignAction.LEND ? 'euler_lend' : 'euler_borrow',
+          apr: campaign.reward_info.apr * 100,
+          provider: 'brevis',
+          endTimestamp: campaign.end_time,
+          rewardToken: {
+            symbol: campaign.reward_info.token_symbol,
+            icon: '',
+          },
         }
-        else if (campaign.action === CampaignAction.BORROW) {
-          borrows.push(campaign)
-        }
+
+        const existing = campaignMap.get(vaultKey)
+        if (existing) existing.push(rewardCampaign)
+        else campaignMap.set(vaultKey, [rewardCampaign])
       }
 
-      lendCampaigns.value = lends
-      borrowCampaigns.value = borrows
+      brevisCampaigns.value = campaignMap
       cacheState.campaigns.timestamp = Date.now()
     }
     catch (e) {
@@ -310,8 +314,7 @@ export const useBrevis = () => {
   }, { immediate: true })
 
   return {
-    lendCampaigns,
-    borrowCampaigns,
+    brevisCampaigns,
     userRewards,
     isCampaignsLoading,
     isRewardsLoading,
@@ -319,7 +322,6 @@ export const useBrevis = () => {
     loadRewards,
     claimReward,
     buildClaimRewardPlan,
-    getCampaignOfLendVault,
-    getCampaignOfBorrowVault,
+    getBrevisCampaignsForVault,
   }
 }

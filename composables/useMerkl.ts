@@ -4,6 +4,8 @@ import axios from 'axios'
 
 import { merklDistributorABI } from '~/abis/merkl'
 import type { Opportunity, Reward, RewardsResponseItem, RewardToken } from '~/entities/merkl'
+import type { RewardCampaign } from '~/entities/reward-campaign'
+import { mapMerklSubType } from '~/entities/reward-campaign'
 import type { TxPlan } from '~/entities/txPlan'
 
 const {
@@ -20,8 +22,7 @@ const endpoints = {
 const address = ref('')
 
 const isLoaded = ref(false)
-const lendOpportunities: Ref<Opportunity[]> = ref([])
-const borrowOpportunities: Ref<Opportunity[]> = ref([])
+const merklCampaigns: Ref<Map<string, RewardCampaign[]>> = ref(new Map())
 const rewards: Ref<Reward[]> = ref([])
 const rewardTokens: Ref<RewardToken[]> = ref([])
 const isTokensLoading = ref(true)
@@ -65,12 +66,71 @@ const loadTokens = async (chainId: number, isInitialLoading = true, forceRefresh
   }
 }
 
+const processOpportunitiesToCampaigns = (
+  opportunities: Opportunity[],
+  opType: 'EULER' | 'ERC20LOGPROCESSOR',
+): Map<string, RewardCampaign[]> => {
+  const campaignMap = new Map<string, RewardCampaign[]>()
+  const now = Math.floor(Date.now() / 1000)
+
+  for (const opportunity of opportunities) {
+    if (opportunity.status !== 'LIVE') continue
+    if (!opportunity.campaigns?.length) continue
+    if (!opportunity.aprRecord?.breakdowns) continue
+
+    // Build APR map from aprRecord breakdowns (keyed by campaign ID)
+    // This is the actual computed APR, not the stale campaign.apr field
+    const aprs = new Map<string, number>()
+    for (const breakdown of opportunity.aprRecord.breakdowns) {
+      aprs.set(breakdown.identifier, breakdown.value)
+    }
+
+    for (const campaign of opportunity.campaigns) {
+      if (campaign.subType === null || campaign.subType === undefined) continue
+
+      const campaignType = mapMerklSubType(campaign.subType)
+      if (!campaignType) continue
+
+      if (!campaign.rewardToken || !campaign.params?.targetToken) continue
+
+      const apr = aprs.get(campaign.campaignId) || 0
+
+      // Skip active campaigns with no APR
+      if (campaign.endTimestamp > now && !apr) continue
+
+      const vaultAddress = opType === 'ERC20LOGPROCESSOR'
+        ? (campaign.params.targetToken).toLowerCase()
+        : (campaign.params.evkAddress || campaign.params.targetToken).toLowerCase()
+
+      const collateral = campaignType === 'euler_borrow_collateral'
+        ? campaign.params.collateralAddress?.toLowerCase()
+        : undefined
+
+      const rewardCampaign: RewardCampaign = {
+        vault: vaultAddress,
+        collateral,
+        type: campaignType,
+        apr,
+        provider: 'merkl',
+        endTimestamp: campaign.endTimestamp,
+        rewardToken: { symbol: campaign.rewardToken.symbol, icon: campaign.rewardToken.icon },
+      }
+
+      const existing = campaignMap.get(vaultAddress)
+      if (existing) existing.push(rewardCampaign)
+      else campaignMap.set(vaultAddress, [rewardCampaign])
+    }
+  }
+
+  return campaignMap
+}
+
 const loadOpportunities = async (chainId: number, isInitialLoading = true, forceRefresh = false) => {
   const now = Date.now()
   // Skip if cached and not expired
   if (!forceRefresh
     && cacheState.opportunities.chainId === chainId
-    && (lendOpportunities.value.length > 0 || borrowOpportunities.value.length > 0)
+    && merklCampaigns.value.size > 0
     && (now - cacheState.opportunities.timestamp) < MERKL_CACHE_TTL_MS) {
     return
   }
@@ -82,48 +142,36 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
 
     // Fetch from both endpoints: EULER type for standard vaults and ERC20LOGPROCESSOR for Earn vaults
     const urls = [
-      `${MERKL_API_BASE_URL}/opportunities/?chainId=${chainId}&type=EULER&campaigns=true`,
-      `${MERKL_API_BASE_URL}/opportunities/?chainId=${chainId}&mainProtocolId=euler&campaigns=true&type=ERC20LOGPROCESSOR`,
+      { url: `${MERKL_API_BASE_URL}/opportunities/?chainId=${chainId}&type=EULER&campaigns=true`, type: 'EULER' as const },
+      { url: `${MERKL_API_BASE_URL}/opportunities/?chainId=${chainId}&mainProtocolId=euler&campaigns=true&type=ERC20LOGPROCESSOR`, type: 'ERC20LOGPROCESSOR' as const },
     ]
 
     const results = await Promise.all(
-      urls.map(async (url) => {
+      urls.map(async ({ url, type }) => {
         try {
           const res = await axios.get(url)
-          return Array.isArray(res.data) ? res.data : []
+          const data: Opportunity[] = Array.isArray(res.data) ? res.data : []
+          return { data, type }
         }
         catch (error) {
           console.warn('Error fetching opportunities from', url, error)
-          return []
+          return { data: [] as Opportunity[], type }
         }
       }),
     )
 
-    const allOpportunities: Opportunity[] = results.flatMap(result => result ?? [])
+    const merged = new Map<string, RewardCampaign[]>()
 
-    if (allOpportunities.length > 0) {
-      const lends = []
-      const borrows = []
-
-      for (let i = 0; i < allOpportunities.length; i++) {
-        if (allOpportunities[i].status === 'LIVE') {
-          switch (allOpportunities[i].action) {
-            case 'BORROW':
-              borrows.push(allOpportunities[i])
-              break
-            case 'LEND':
-              lends.push(allOpportunities[i])
-              break
-            default:
-              break
-          }
-        }
+    for (const { data, type } of results) {
+      const partial = processOpportunitiesToCampaigns(data, type)
+      for (const [vault, campaigns] of partial) {
+        const existing = merged.get(vault)
+        if (existing) existing.push(...campaigns)
+        else merged.set(vault, [...campaigns])
       }
-
-      lendOpportunities.value = lends
-      borrowOpportunities.value = borrows
     }
 
+    merklCampaigns.value = merged
     cacheState.opportunities = { chainId, timestamp: Date.now() }
   }
   catch (e) {
@@ -133,6 +181,7 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
     isOpportunitiesLoading.value = false
   }
 }
+
 const loadRewards = async (chainId: number, isInitialLoading = true, forceRefresh = false) => {
   if (!address.value) {
     rewards.value = []
@@ -176,12 +225,8 @@ const loadRewards = async (chainId: number, isInitialLoading = true, forceRefres
   }
 }
 
-const getOpportunityOfLendVault = (vaultAddress: string) => {
-  return lendOpportunities.value.find(opportunity => opportunity.identifier === vaultAddress)
-}
-
-const getOpportunityOfBorrowVault = (assetAddress: string) => {
-  return borrowOpportunities.value.find(opportunity => !!(opportunity.tokens.find(tokenInfo => tokenInfo.address === assetAddress)))
+const getMerklCampaignsForVault = (vaultAddress: string): RewardCampaign[] => {
+  return merklCampaigns.value.get(vaultAddress.toLowerCase()) || []
 }
 
 export const useMerkl = () => {
@@ -290,8 +335,7 @@ export const useMerkl = () => {
   }, { immediate: true })
 
   return {
-    lendOpportunities,
-    borrowOpportunities,
+    merklCampaigns,
     rewards,
     rewardTokens,
     isTokensLoading,
@@ -302,7 +346,6 @@ export const useMerkl = () => {
     loadOpportunities,
     loadTokens,
     loadRewards,
-    getOpportunityOfLendVault,
-    getOpportunityOfBorrowVault,
+    getMerklCampaignsForVault,
   }
 }
