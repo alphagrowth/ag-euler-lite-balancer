@@ -5,7 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, getEntitiesByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getProductByVault, getEntitiesByVault, isVaultFeatured } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { formatNumber } from '~/utils/string-utils'
 
@@ -43,13 +43,9 @@ const { chainId } = useEulerAddresses()
 const isPricesReady = ref(false)
 const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value || !isPricesReady.value)
 const { enableEntityBranding } = useDeployConfig()
-const { products, entities } = useEulerLabels()
+const { entities } = useEulerLabels()
 
-const activeBorrowList = computed(() =>
-  borrowList.value.filter(pair =>
-    !isVaultDeprecated(pair.borrow.address) && !isVaultDeprecated(pair.collateral.address),
-  ),
-)
+const activeBorrowList = computed(() => borrowList.value)
 
 const selectedCollateral = ref<string[]>([])
 const selectedDebt = ref<string[]>([])
@@ -197,11 +193,11 @@ const debtAssetOptions = computed(() => {
 
 const marketOptions = computed(() => {
   return activeBorrowList.value.reduce((result, pair) => {
-    const market = Object.values(products).find(product => product.vaults.includes(pair.collateral.address))
+    const market = getProductByVault(pair.collateral.address)
     const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
     const entityObj = entityName ? entities[entityName] : null
 
-    if (market && !result.find(option => option.label === market.name)) {
+    if (market.name && !result.find(option => option.label === market.name)) {
       return [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj?.logo}` : undefined }]
     }
 

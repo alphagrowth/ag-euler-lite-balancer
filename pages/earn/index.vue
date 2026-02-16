@@ -5,7 +5,7 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { EarnVault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getEntitiesByEarnVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getEntitiesByEarnVault, isVaultFeatured } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 
 defineOptions({
@@ -17,7 +17,7 @@ const isPricesReady = ref(false)
 const isLoading = computed(() => isEarnUpdating.value || !isPricesReady.value)
 const { getEarnVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
-const list = computed(() => getEarnVaults().filter(v => v.verified && !isVaultDeprecated(v.address)))
+const list = computed(() => getEarnVaults().filter(v => v.verified))
 
 const { enableEntityBranding } = useDeployConfig()
 

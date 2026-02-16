@@ -64,7 +64,8 @@ const buildProductGroups = (
 
   for (const [productKey, product] of Object.entries(products)) {
     const memberVaults: AnyVault[] = []
-    for (const vaultAddr of product.vaults) {
+    const allProductAddresses = [...product.vaults, ...(product.deprecatedVaults || [])]
+    for (const vaultAddr of allProductAddresses) {
       const vault = vaultMap.get(vaultAddr.toLowerCase())
       if (vault) {
         memberVaults.push(vault)

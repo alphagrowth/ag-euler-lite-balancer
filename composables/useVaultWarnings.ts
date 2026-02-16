@@ -70,12 +70,14 @@ const bigintPercentage = (numerator: bigint, denominator: bigint): number => {
 }
 
 export const getSupplyCapPercentage = (vault: Vault): number => {
-  if (vault.supplyCap >= maxUint256 || vault.supplyCap === 0n) return 0
+  if (vault.supplyCap >= maxUint256) return 0
+  if (vault.supplyCap === 0n) return vault.supply > 0n ? 100 : 0
   return bigintPercentage(vault.supply, vault.supplyCap)
 }
 
 export const getBorrowCapPercentage = (vault: Vault): number => {
-  if (vault.borrowCap >= maxUint256 || vault.borrowCap === 0n) return 0
+  if (vault.borrowCap >= maxUint256) return 0
+  if (vault.borrowCap === 0n) return vault.borrow > 0n ? 100 : 0
   return bigintPercentage(vault.borrow, vault.borrowCap)
 }
 

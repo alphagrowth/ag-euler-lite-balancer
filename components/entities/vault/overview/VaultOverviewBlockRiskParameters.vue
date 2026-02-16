@@ -32,6 +32,10 @@ watchEffect(async () => {
     supplyCapDisplay.value = '∞'
     return
   }
+  if (vault.supplyCap === 0n) {
+    supplyCapDisplay.value = '$0'
+    return
+  }
   const price = await formatAssetValue(vault.supplyCap, vault, 'off-chain')
   supplyCapDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
@@ -39,6 +43,10 @@ watchEffect(async () => {
 watchEffect(async () => {
   if (vault.borrowCap >= maxUint256) {
     borrowCapDisplay.value = '∞'
+    return
+  }
+  if (vault.borrowCap === 0n) {
+    borrowCapDisplay.value = '$0'
     return
   }
   const price = await formatAssetValue(vault.borrowCap, vault, 'off-chain')

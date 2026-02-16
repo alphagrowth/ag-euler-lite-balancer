@@ -6,7 +6,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, getEntitiesByVault, isVaultDeprecated, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getProductByVault, getEntitiesByVault, isVaultFeatured } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { nanoToValue } from '~/utils/crypto-utils'
 
@@ -17,11 +17,11 @@ defineOptions({
 const { borrowList, isUpdating } = useVaults()
 const { getVerifiedEvkVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
-const list = computed(() => getVerifiedEvkVaults().filter(v => !isVaultDeprecated(v.address)))
+const list = computed(() => getVerifiedEvkVaults())
 
 const isPricesReady = ref(false)
 const isLoading = computed(() => isUpdating.value || !isPricesReady.value)
-const { products, entities } = useEulerLabels()
+const { entities } = useEulerLabels()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const { getSupplyRewardApy, version: rewardsVersion } = useRewardsApy()
 const { getBalance } = useWallets()
@@ -135,11 +135,11 @@ watchEffect(async () => {
 
 const marketOptions = computed(() => {
   return borrowableVaults.value.reduce((result, vault) => {
-    const market = Object.values(products).find(product => product.vaults.includes(vault.address))
+    const market = getProductByVault(vault.address)
     const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
     const entityObj = entityName ? entities[entityName] : null
 
-    if (market && !result.find(option => option.label === market.name)) {
+    if (market.name && !result.find(option => option.label === market.name)) {
       return [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj?.logo}` : undefined }]
     }
 

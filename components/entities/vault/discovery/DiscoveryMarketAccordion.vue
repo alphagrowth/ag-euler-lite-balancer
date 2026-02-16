@@ -221,8 +221,12 @@ const getMiniDiagram = (market: MarketGroup): MiniDiagramData => {
     }
   }
 
-  const empty: MiniDiagramData = { nodes: [], edges: [], pairCount: 0, assetCount: 0, viewWidth: 0 }
-  if (connectedAddresses.size === 0) return empty
+  if (connectedAddresses.size === 0) {
+    // No active borrow relationships — still count assets from the vaults
+    const assetSymbols = new Set<string>()
+    for (const v of market.vaults) assetSymbols.add(getVaultAssetSymbol(v))
+    return { nodes: [], edges: [], pairCount: 0, assetCount: assetSymbols.size, viewWidth: 0 }
+  }
 
   const connectedVaults = [...connectedAddresses]
   const count = connectedVaults.length
@@ -1011,6 +1015,28 @@ onMounted(() => {
 
       <!-- Expanded Content -->
       <template v-if="isExpanded(market.id)">
+        <!-- Fallback for markets with no active collateral relationships (e.g. fully deprecated) -->
+        <template v-if="!matrixMap.get(market.id)">
+          <div class="border-t border-line-subtle p-16 flex flex-col gap-12">
+            <div
+              v-if="getProductDescription(market)"
+              class="px-16 py-14 rounded-12 bg-surface-secondary border border-line-subtle"
+            >
+              <p class="text-p2 text-content-secondary leading-relaxed">
+                {{ getProductDescription(market) }}
+              </p>
+            </div>
+            <div class="flex flex-col gap-8">
+              <h4 class="text-p3 font-medium text-content-secondary">Vaults</h4>
+              <VaultItem
+                v-for="vault in market.vaults.filter(isVaultType)"
+                :key="getVaultAddress(vault)"
+                :vault="vault"
+                :market-label="market.name"
+              />
+            </div>
+          </div>
+        </template>
         <template v-for="matrix in [matrixMap.get(market.id)]" :key="'matrix-' + market.id">
           <div
             v-if="matrix"

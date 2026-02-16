@@ -15,7 +15,7 @@ defineOptions({
 const { marketGroups, isResolvingTVL } = useMarketGroups()
 const { isUpdating, isEarnUpdating, isEscrowUpdating } = useVaults()
 const { chainId } = useEulerAddresses()
-const { products, entities } = useEulerLabels()
+const { entities } = useEulerLabels()
 const { enableEntityBranding } = useDeployConfig()
 
 const selectedMarkets = ref<string[]>([])
@@ -94,11 +94,11 @@ const marketOptions = computed(() => {
     for (const vault of group.vaults) {
       const addr = getVaultAddress(vault)
       if (!addr) continue
-      const market = Object.values(products).find(product => product.vaults.includes(addr))
+      const market = getProductByVault(addr)
       const entityName = Array.isArray(market?.entity) ? market?.entity[0] : market?.entity
       const entityObj = entityName ? entities[entityName] : null
 
-      if (market && !result.find(option => option.label === market.name)) {
+      if (market.name && !result.find(option => option.label === market.name)) {
         result = [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj?.logo}` : undefined }]
       }
     }
