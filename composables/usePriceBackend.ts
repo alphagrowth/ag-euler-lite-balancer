@@ -1,4 +1,4 @@
-import { configureBackend } from '~/services/pricing'
+import { configureBackend, clearBackendCache } from '~/services/pricing'
 import type { BackendConfig } from '~/services/pricing'
 
 /**
@@ -22,8 +22,12 @@ export const usePriceBackend = () => {
 
   const backendUrl = (config as { PRICE_API_URL?: string }).PRICE_API_URL || ''
 
-  // Configure the backend client when URL or chainId changes
-  watchEffect(() => {
+  // Initial configuration
+  configureBackend(backendUrl || undefined, chainId.value)
+
+  // On chain switch: clear stale cache first, then reconfigure with new chainId
+  watch(chainId, () => {
+    clearBackendCache()
     configureBackend(backendUrl || undefined, chainId.value)
   })
 

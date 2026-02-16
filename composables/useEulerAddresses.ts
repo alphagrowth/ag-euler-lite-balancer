@@ -101,6 +101,7 @@ export const useEulerAddresses = () => {
       console.warn(`[useEulerAddresses] chainId ${_chainId} is not allowed`)
       return
     }
+    if (chainId.value === _chainId) return
     chainId.value = _chainId
   }
 

@@ -78,6 +78,26 @@ export const clearStaleBackendCache = () => {
   }
 }
 
+/**
+ * Clear all cached prices and cancel pending batch requests.
+ * Call on chain switch to prevent stale cross-chain data.
+ */
+export const clearBackendCache = () => {
+  priceCache.clear()
+
+  // Cancel pending batch: resolve all with undefined so callers get no data
+  // rather than stale cross-chain prices
+  if (batchTimeout) {
+    clearTimeout(batchTimeout)
+    batchTimeout = null
+  }
+  const pending = pendingRequests
+  pendingRequests = []
+  for (const req of pending) {
+    req.resolve(undefined)
+  }
+}
+
 // -------------------------------------------
 // Request Batching
 // -------------------------------------------

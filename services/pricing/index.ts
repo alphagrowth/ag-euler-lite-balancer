@@ -37,6 +37,7 @@ export {
   configureBackend,
   isBackendConfigured,
   clearStaleBackendCache,
+  clearBackendCache,
   fetchBackendPrice,
   fetchBackendPrices,
   backendPriceToBigInt,

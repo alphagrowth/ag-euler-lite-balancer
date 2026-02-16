@@ -97,6 +97,10 @@ const isPositionsLoaded = ref(false)
 const isDepositsLoading = ref(true)
 const isDepositsLoaded = ref(false)
 const isShowAllPositions = ref(false)
+
+// Generation counter to invalidate stale in-flight position fetches after chain switch.
+// Incremented on chain change; async operations capturing an older generation discard results.
+const positionGeneration = ref(0)
 const normalizeAddress = (value?: string | null) => {
   if (!value) {
     return ''
@@ -282,6 +286,8 @@ const updateBorrowPositions = async (
   isInitialLoading = false,
   options: { forceAllPositions?: boolean } = {},
 ) => {
+  const gen = positionGeneration.value
+
   if (isInitialLoading) {
     isPositionsLoaded.value = false
     isPositionsLoading.value = true
@@ -311,6 +317,8 @@ const updateBorrowPositions = async (
   const batchSize = 5
 
   for (let i = 0; i < borrowEntries.length; i += batchSize) {
+    if (positionGeneration.value !== gen) return
+
     const batch = borrowEntries
       .slice(i, i + batchSize)
       .map(async (entry) => {
@@ -531,6 +539,9 @@ const updateBorrowPositions = async (
     const validResults = batchResults.filter(o => !!o) as AccountBorrowPosition[]
     borrows = [...borrows, ...validResults]
   }
+  // Discard results if chain switched during fetch
+  if (positionGeneration.value !== gen) return
+
   const collateralPositions: AccountBorrowPosition[] = []
   const shouldUpdate = options.forceAllPositions !== undefined
     ? true
@@ -558,7 +569,10 @@ const updateSavingsPositions = async (
   depositEntries: SubgraphPositionEntry[],
   isInitialLoading = false,
   options: { forceAllPositions?: boolean } = {},
+  generation?: number,
 ) => {
+  const gen = generation ?? positionGeneration.value
+
   if (isInitialLoading) {
     isDepositsLoaded.value = false
     isDepositsLoading.value = true
@@ -589,6 +603,8 @@ const updateSavingsPositions = async (
   // Process entries in batches of 5
   const batchSize = 5
   for (let i = 0; i < depositEntries.length; i += batchSize) {
+    if (positionGeneration.value !== gen) return
+
     const batch = depositEntries
       .slice(i, i + batchSize)
       .map(async (entry) => {
@@ -639,6 +655,9 @@ const updateSavingsPositions = async (
     deposits = [...deposits, ...results]
   }
 
+  // Discard results if chain switched during fetch
+  if (positionGeneration.value !== gen) return
+
   const shouldUpdate = options.forceAllPositions !== undefined
     ? true
     : isShowAllPositions.value === isAllPositionsAtStart
@@ -659,6 +678,7 @@ export const useEulerAccount = () => {
   const isDebugPortfolio = computed(() => Boolean(normalizedDebugAddress.value))
 
   const updatePositions = async () => {
+    const gen = positionGeneration.value
     const targetAddress = portfolioAddress.value
     const shouldShowAll = isShowAllPositions.value || isDebugPortfolio.value
     const { SUBGRAPH_URL } = useEulerConfig()
@@ -667,6 +687,9 @@ export const useEulerAccount = () => {
     const { borrows: borrowEntries, deposits: depositEntries } = targetAddress
       ? await fetchAccountPositions(SUBGRAPH_URL, targetAddress)
       : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
+
+    // Discard if chain switched during subgraph fetch
+    if (positionGeneration.value !== gen) return
 
     // Borrow positions must be loaded first so deposits can filter against them
     await updateBorrowPositions(
@@ -682,6 +705,7 @@ export const useEulerAccount = () => {
       depositEntries,
       false,
       { forceAllPositions: shouldShowAll },
+      gen,
     )
   }
 
@@ -760,8 +784,9 @@ export const useEulerAccount = () => {
     }
   })
 
-  // Clear stale positions immediately on chain change
+  // Clear stale positions and invalidate in-flight fetches on chain change
   watch(chainId, () => {
+    positionGeneration.value++
     borrowPositions.value = []
     depositPositions.value = []
     collateralUsageSet.value = new Set()
@@ -802,12 +827,16 @@ export const useEulerAccount = () => {
     lensAddresses: EulerLensAddresses,
     walletAddress: string,
   ) => {
+    const gen = positionGeneration.value
     const { SUBGRAPH_URL } = useEulerConfig()
     const { borrows: borrowEntries, deposits: depositEntries } = walletAddress
       ? await fetchAccountPositions(SUBGRAPH_URL, walletAddress)
       : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
+
+    if (positionGeneration.value !== gen) return
+
     await updateBorrowPositions(lensAddresses, walletAddress, borrowEntries)
-    await updateSavingsPositions(lensAddresses, walletAddress, depositEntries)
+    await updateSavingsPositions(lensAddresses, walletAddress, depositEntries, false, {}, gen)
   }
 
   return {

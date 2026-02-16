@@ -243,7 +243,16 @@ export const useWagmi = () => {
 
     const parsed = parseChainId(network)
     routeNetworkId.value = parsed && allowedChainIds.value.includes(parsed) ? parsed : null
-    await changeChain(routeNetworkId.value || allowedChainIds.value[0])
+    const targetChainId = routeNetworkId.value || allowedChainIds.value[0]
+
+    // Skip if the route update targets the chain we're already on
+    // (caused by app-initiated route syncs that fire after changeChain completes)
+    if (targetChainId === currentChainId.value) {
+      isInitialRouteSync = false
+      return
+    }
+
+    await changeChain(targetChainId)
     isInitialRouteSync = false
   }, { immediate: true })
 
@@ -262,6 +271,13 @@ export const useWagmi = () => {
 
     if (!allowedChainIds.value.includes(val.id)) {
       console.warn(`[useWagmi] chainId ${val.id} is not allowed`)
+      return
+    }
+
+    // Skip stale wallet events that report the chain we're already on.
+    // The wallet fires chainChanged events asynchronously after switchChain resolves,
+    // often including intermediate/duplicate events that would bounce chainId back.
+    if (val.id === currentChainId.value) {
       return
     }
 
