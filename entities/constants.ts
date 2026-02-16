@@ -132,13 +132,12 @@ export const BREVIS_MERKLE_PROOF_URL = 'https://incentra-prd.brevis.network/v1/g
 // Commented-out entries can be enabled when needed
 export const SANCTIONED_COUNTRIES: readonly string[] = [
   'AF', // Afghanistan
-  // 'BY', // Belarus
+  'BY', // Belarus
   'CF', // Central African Republic
   'CU', // Cuba
   'KP', // North Korea
   'CD', // DR Congo
   'ET', // Ethiopia
-  // 'HK', // Hong Kong
   'IR', // Iran
   'IQ', // Iraq
   'LB', // Lebanon

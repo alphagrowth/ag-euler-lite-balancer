@@ -10,7 +10,6 @@ import { getDefaultPageRoute } from '~/entities/menu'
 let lastScreenedAddress: string | null = null
 
 export const useAddressScreen = () => {
-  const { walletScreeningUri } = useEnvConfig()
   const modal = useModal()
   const { disconnect } = useDisconnect()
   const router = useRouter()
@@ -35,7 +34,7 @@ export const useAddressScreen = () => {
   }
 
   const screenConnectedAddress = async (address: string): Promise<boolean> => {
-    if (!walletScreeningUri || !address) {
+    if (!address) {
       return false
     }
 
@@ -46,7 +45,7 @@ export const useAddressScreen = () => {
     isScreening.value = true
     try {
       const vpnIsUsed = await detectVpn()
-      const isRestricted = await screenAddress(walletScreeningUri, address, vpnIsUsed)
+      const isRestricted = await screenAddress(address, vpnIsUsed)
 
       lastScreenedAddress = address.toLowerCase()
 
