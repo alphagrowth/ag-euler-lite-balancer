@@ -30,6 +30,9 @@ interface JsonRpcRequest {
   id?: unknown
 }
 
+// Validates a JSON-RPC 2.0 request object. Requires `id` to be present,
+// which means JSON-RPC 2.0 *notifications* (requests without `id`) are
+// intentionally rejected — the proxy only handles request/response patterns.
 function validateRpcRequest(req: unknown): req is JsonRpcRequest {
   if (typeof req !== 'object' || req === null) return false
   const r = req as Record<string, unknown>

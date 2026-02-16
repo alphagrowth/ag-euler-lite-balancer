@@ -6,11 +6,11 @@ const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
  */
 export function safeAssign<T extends Record<string, unknown>>(
   target: T,
-  source: Record<string, unknown>,
+  source: Partial<T> | Record<string, unknown>,
 ): T {
   for (const key of Object.keys(source)) {
     if (!DANGEROUS_KEYS.has(key)) {
-      (target as any)[key] = source[key]
+      (target as any)[key] = (source as any)[key]
     }
   }
   return target

@@ -36,5 +36,10 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Doppler injects all secrets at runtime via DOPPLER_TOKEN, DOPPLER_PROJECT, DOPPLER_CONFIG env vars.
 # server/plugins/chain-config.ts scans env vars and injects chain config via render:html hook.
+#
+# ENTRYPOINT [] overrides distroless default (/nodejs/bin/node) so Doppler
+# can be the primary process. Doppler must be a statically linked binary
+# since distroless has no shell or dynamic linker beyond what Node needs.
+# Verify with: docker run --rm <image> ./doppler --version
 ENTRYPOINT []
 CMD ["./doppler", "run", "--", "/nodejs/bin/node", ".output/server/index.mjs"]

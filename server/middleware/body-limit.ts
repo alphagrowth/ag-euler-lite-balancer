@@ -28,7 +28,7 @@ export default defineEventHandler((event) => {
   }
 
   const length = parseInt(contentLength, 10)
-  if (!Number.isInteger(length) || length <= 0) {
+  if (!Number.isInteger(length) || length < 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid Content-Length' })
   }
 

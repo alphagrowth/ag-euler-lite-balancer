@@ -1,17 +1,10 @@
 import { createError, getRequestURL } from 'h3'
-import { SANCTIONED_COUNTRIES } from '~/server/utils/sanctioned-countries'
-
-const isDevelopment = process.env.NODE_ENV === 'development'
+import { SANCTIONED_COUNTRIES } from '~/entities/constants'
 
 export default defineEventHandler((event) => {
   // Only gate API routes
   const url = getRequestURL(event)
   if (!url.pathname.startsWith('/api/')) {
-    return
-  }
-
-  // In development there are no Cloudflare headers -- skip all checks
-  if (isDevelopment) {
     return
   }
 
@@ -37,7 +30,7 @@ export default defineEventHandler((event) => {
   }
 
   // Block sanctioned countries
-  if (SANCTIONED_COUNTRIES.has(country)) {
+  if (SANCTIONED_COUNTRIES.includes(country)) {
     console.warn('[geo-gate] Blocked sanctioned country', {
       country,
       path: url.pathname,
