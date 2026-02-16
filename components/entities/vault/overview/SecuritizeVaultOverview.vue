@@ -2,7 +2,7 @@
 import { getAddress, maxUint256, type Address } from 'viem'
 import { getPublicClient } from '~/utils/public-client'
 import type { SecuritizeVault, Vault, VaultCollateralLTV } from '~/entities/vault'
-import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
+import { useEulerEntitiesOfVault, getProductKeyByVault } from '~/composables/useEulerLabels'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
@@ -28,6 +28,7 @@ const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault as unknown as Vault))
+const marketProductKey = computed(() => getProductKeyByVault(vault.address))
 
 const isDeprecated = computed(() => {
   return product.deprecatedVaults?.includes(vaultAddress.value) ?? false
@@ -186,10 +187,16 @@ const supplyCapPercentageDisplay = computed(() => {
           label="Price"
           :value="priceDisplay"
         />
-        <VaultOverviewLabelValue
-          label="Market"
-          :value="product.name"
-        />
+        <VaultOverviewLabelValue label="Market">
+          <NuxtLink
+            v-if="marketProductKey"
+            :to="{ name: 'explore-market', params: { market: marketProductKey } }"
+            class="text-p2 text-content-primary hover:text-accent-600 underline transition-colors"
+          >
+            {{ product.name }}
+          </NuxtLink>
+          <template v-else>{{ product.name || '-' }}</template>
+        </VaultOverviewLabelValue>
         <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager">
           <div
             v-if="entities.length && isGovernorVerified"

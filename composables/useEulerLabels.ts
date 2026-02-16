@@ -310,6 +310,15 @@ export const getProductByVault = (vaultAddress: string) => {
     || eulerLabelProductEmpty
 }
 
+export const getProductKeyByVault = (vaultAddress: string): string | undefined => {
+  const normalized = normalizeAddress(vaultAddress)
+  return Object.keys(products).find((key) => {
+    const product = products[key]
+    return product.vaults.includes(normalized)
+      || product.deprecatedVaults?.includes(normalized)
+  })
+}
+
 export const getVaultBlock = (vaultAddress: string): string[] | undefined => {
   const product = getProductByVault(vaultAddress)
   const override = product.vaultOverrides?.[normalizeAddress(vaultAddress)]

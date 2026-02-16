@@ -2,7 +2,7 @@
 import { getAddress, zeroAddress } from 'viem'
 import { type Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
-import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useEulerEntitiesOfVault, useEulerProductOfVault, getProductKeyByVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { autoLink } from '~/utils/autoLink'
@@ -14,6 +14,7 @@ const { borrowList, isVaultGovernorVerified } = useVaults()
 const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfVault(vault)
+const marketProductKey = computed(() => getProductKeyByVault(vault.address))
 
 const isDeprecated = computed(() => {
   return product.deprecatedVaults?.includes(vaultAddress.value) ?? false
@@ -92,10 +93,16 @@ const vaultGovernanceType = computed(() => {
         label="Price"
         :value="priceDisplay"
       />
-      <VaultOverviewLabelValue
-        label="Market"
-        :value="product.name"
-      />
+      <VaultOverviewLabelValue label="Market">
+        <NuxtLink
+          v-if="marketProductKey"
+          :to="{ name: 'explore-market', params: { market: marketProductKey } }"
+          class="text-p2 text-content-primary hover:text-accent-600 underline transition-colors"
+        >
+          {{ product.name }}
+        </NuxtLink>
+        <template v-else>{{ product.name || '-' }}</template>
+      </VaultOverviewLabelValue>
       <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager">
         <div
           v-if="!isGovernorVerified"

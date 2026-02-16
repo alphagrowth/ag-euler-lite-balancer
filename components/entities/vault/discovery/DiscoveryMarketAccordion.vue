@@ -14,6 +14,7 @@ import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const props = defineProps<{
   markets: MarketGroup[]
+  initialExpanded?: string[]
 }>()
 
 const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
@@ -81,7 +82,7 @@ const getVaultAssetAddress = (vault: AnyVault): string => {
 
 // -- Accordion expand state --
 
-const expandedMarkets = ref<Set<string>>(new Set())
+const expandedMarkets = ref<Set<string>>(new Set(props.initialExpanded ?? []))
 
 const toggleExpand = (marketId: string) => {
   const next = new Set(expandedMarkets.value)
@@ -952,6 +953,13 @@ onMounted(() => {
   onUnmounted(() => {
     window.removeEventListener('click', onClick)
   })
+
+  // Load USD values for initially expanded markets
+  for (const market of props.markets) {
+    if (expandedMarkets.value.has(market.id)) {
+      loadVaultUsdValues(market)
+    }
+  }
 })
 </script>
 
