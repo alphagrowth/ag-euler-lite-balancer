@@ -6,7 +6,7 @@ import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getVaultUtilization 
 import type { VaultCollateralLTV } from '~/entities/vault'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import { getEulerLabelEntityLogo, type EulerLabelEntity } from '~/entities/euler/labels'
-import { getEntitiesByVault } from '~/composables/useEulerLabels'
+import { getEntitiesByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { formatCompactUsdValue, formatNumber } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -19,6 +19,12 @@ const props = defineProps<{
 const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
 const { getBorrowRewardApy, getSupplyRewardApy, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
 const { products } = useEulerLabels()
+
+const getDeprecatedVaultCount = (market: MarketGroup): number =>
+  market.vaults.filter(v => {
+    const addr = getVaultAddress(v)
+    return addr ? isVaultDeprecated(addr) : false
+  }).length
 
 const getProductDescription = (market: MarketGroup): string => {
   if (market.source !== 'product') return ''
@@ -206,18 +212,23 @@ const getMiniDiagram = (market: MarketGroup): MiniDiagramData => {
   }
 
   const directedEdges = new Set<string>()
+  const displayEdges = new Set<string>()
   const connectedAddresses = new Set<string>()
 
   for (const vault of market.vaults) {
     if (!isVaultType(vault)) continue
     for (const ltv of vault.collateralLTVs) {
-      if (ltv.borrowLTV <= 0n) continue
       const colAddr = ltv.collateral.toLowerCase()
       if (!vaultByAddr.has(colAddr)) continue
       const liabAddr = vault.address.toLowerCase()
-      directedEdges.add(`${colAddr}:${liabAddr}`)
-      connectedAddresses.add(colAddr)
-      connectedAddresses.add(liabAddr)
+      if (ltv.borrowLTV > 0n) {
+        directedEdges.add(`${colAddr}:${liabAddr}`)
+      }
+      if (getCurrentLiquidationLTV(ltv) > 0n) {
+        displayEdges.add(`${colAddr}:${liabAddr}`)
+        connectedAddresses.add(colAddr)
+        connectedAddresses.add(liabAddr)
+      }
     }
   }
 
@@ -251,7 +262,7 @@ const getMiniDiagram = (market: MarketGroup): MiniDiagramData => {
   const seenPairs = new Set<string>()
   const edges: MiniEdge[] = []
 
-  for (const key of directedEdges) {
+  for (const key of displayEdges) {
     const [fromAddr, toAddr] = key.split(':')
     const pairKey = [fromAddr, toAddr].sort().join(':')
     if (seenPairs.has(pairKey)) continue
@@ -261,12 +272,52 @@ const getMiniDiagram = (market: MarketGroup): MiniDiagramData => {
     const toNode = nodeMap.get(toAddr)
     if (!fromNode || !toNode) continue
 
-    const reverseExists = directedEdges.has(`${toAddr}:${fromAddr}`)
+    const reverseExists = displayEdges.has(`${toAddr}:${fromAddr}`)
     edges.push({ from: fromNode, to: toNode, mutual: reverseExists })
   }
 
   const viewWidth = (cx + rx + 8)
   return { nodes, edges, pairCount: directedEdges.size, assetCount: assetSymbols.size, viewWidth }
+}
+
+// -- Best Net APY per market (for collapsed card) --
+
+interface BestNetApyResult {
+  value: number
+  hasRewards: boolean
+  pair: string
+}
+
+const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
+  const borrowable = getBorrowableVaults(market)
+  let best = -Infinity
+  let bestHasRewards = false
+  let bestPair = ''
+
+  for (const liability of borrowable) {
+    const borrowBase = nanoToValue(liability.interestRateInfo.borrowAPY, 25)
+    const borrowApy = withIntrinsicBorrowApy(borrowBase, liability.asset.symbol)
+
+    for (const ltv of liability.collateralLTVs) {
+      if (ltv.borrowLTV === 0n) continue
+      const collateral = findVault(market, ltv.collateral)
+      if (!collateral) continue
+
+      const supplyBase = nanoToValue(collateral.interestRateInfo.supplyAPY, 25)
+      const supplyApy = withIntrinsicSupplyApy(supplyBase, collateral.asset.symbol)
+      const supplyRewards = getSupplyRewardApy(collateral.address)
+      const borrowRewards = getBorrowRewardApy(liability.address, collateral.address)
+
+      const netApy = (supplyApy + supplyRewards) - (borrowApy - borrowRewards)
+      if (netApy > best) {
+        best = netApy
+        bestHasRewards = supplyRewards > 0 || borrowRewards > 0
+        bestPair = `${collateral.asset.symbol}/${liability.asset.symbol}`
+      }
+    }
+  }
+
+  return { value: Number.isFinite(best) && best > -Infinity ? best : 0, hasRewards: bestHasRewards, pair: bestPair }
 }
 
 // -- Metric selector (pair-level metrics, for matrix view) --
@@ -648,6 +699,23 @@ const isGraphEdgeHighlighted = (marketId: string, fromAddr: string, toAddr: stri
   return fromAddr === selectedGraphNode.value.address || toAddr === selectedGraphNode.value.address
 }
 
+// -- Node status helpers (for graph indicators) --
+
+const isNodeDeprecated = (address: string): boolean =>
+  isVaultDeprecated(address)
+
+const isNodeRampingDown = (market: MarketGroup, address: string): boolean => {
+  const normalized = address.toLowerCase()
+  // Check if any liability vault references this address as collateral with ramping LTV
+  for (const v of market.vaults) {
+    if (!isVaultType(v)) continue
+    for (const ltv of v.collateralLTVs) {
+      if (ltv.collateral.toLowerCase() === normalized && isLiquidationLTVRamping(ltv)) return true
+    }
+  }
+  return false
+}
+
 // -- Enlarged diagram computation (for inline graph view) --
 
 const estimateLabelWidth = (symbol: string): number => symbol.length * 7
@@ -927,17 +995,29 @@ onMounted(() => {
             <div class="text-h5 text-content-primary">
               {{ market.name }}
             </div>
+            <div
+              v-if="getProductDescription(market)"
+              class="text-p3 text-content-tertiary mt-4 line-clamp-1"
+            >
+              {{ getProductDescription(market) }}
+            </div>
             </div>
           </template>
           <template v-for="diagram in [getMiniDiagram(market)]" :key="'counts-' + market.id">
             <div class="flex flex-col items-end shrink-0 ml-12 text-content-tertiary text-p3">
               <span>{{ diagram.assetCount }} assets</span>
               <span class="text-content-muted">{{ diagram.pairCount }} pairs</span>
+              <span
+                v-if="getDeprecatedVaultCount(market) > 0"
+                class="text-warning-500 text-p5 mt-4"
+              >
+                {{ getDeprecatedVaultCount(market) }} deprecated
+              </span>
             </div>
           </template>
         </div>
 
-        <div class="flex pt-12 items-center gap-32 mobile:flex-wrap mobile:gap-y-12">
+        <div class="flex pt-12 items-center mobile:flex-wrap mobile:gap-y-12">
           <div class="flex-1 flex justify-between gap-12 mobile:flex-wrap mobile:gap-y-12">
             <div>
               <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
@@ -957,6 +1037,20 @@ onMounted(() => {
                 {{ formatCompactUsdValue(market.metrics.totalAvailableLiquidity) }}
               </div>
             </div>
+            <template v-for="bestNet in [getBestNetApy(market)]" :key="'net-apy-' + market.id">
+              <div v-if="bestNet.value !== 0">
+                <div class="text-content-tertiary text-p3 mb-4">Best net APY</div>
+                <div class="text-p2 text-content-primary flex items-center gap-4">
+                  <SvgIcon
+                    v-if="bestNet.hasRewards"
+                    name="sparks"
+                    class="!w-12 !h-12 text-accent-500 shrink-0"
+                  />
+                  {{ formatNumber(bestNet.value, 2, 2) }}%
+                  <span v-if="bestNet.pair" class="text-p4 text-content-muted">{{ bestNet.pair }}</span>
+                </div>
+              </div>
+            </template>
           </div>
 
           <!-- Mini topology graph (non-clickable preview) -->
@@ -1018,14 +1112,6 @@ onMounted(() => {
         <!-- Fallback for markets with no active collateral relationships (e.g. fully deprecated) -->
         <template v-if="!matrixMap.get(market.id)">
           <div class="border-t border-line-subtle p-16 flex flex-col gap-12">
-            <div
-              v-if="getProductDescription(market)"
-              class="px-16 py-14 rounded-12 bg-surface-secondary border border-line-subtle"
-            >
-              <p class="text-p2 text-content-secondary leading-relaxed">
-                {{ getProductDescription(market) }}
-              </p>
-            </div>
             <div class="flex flex-col gap-8">
               <h4 class="text-p3 font-medium text-content-secondary">Vaults</h4>
               <VaultItem
@@ -1043,17 +1129,6 @@ onMounted(() => {
             class="border-t border-line-subtle"
             @click="selectedGraphNode?.marketId === market.id && (selectedGraphNode = null)"
           >
-            <!-- Product description -->
-            <div
-              v-if="getProductDescription(market)"
-              class="mx-16 mt-16 px-16 py-14 rounded-12 bg-surface-secondary border border-line-subtle"
-              @click.stop
-            >
-              <p class="text-p2 text-content-secondary leading-relaxed">
-                {{ getProductDescription(market) }}
-              </p>
-            </div>
-
             <!-- Controls: view toggle + metric dropdown (matrix only) -->
             <div class="px-16 pt-12 pb-8 flex flex-wrap items-center gap-8" @click.stop>
               <!-- Graph / Matrix toggle -->
@@ -1207,6 +1282,40 @@ onMounted(() => {
                           :href="getAssetLogoUrl(node.assetAddress, node.assetSymbol)"
                           :clip-path="`url(#graph-clip-${market.id}-${node.address})`"
                         />
+                        <!-- Deprecated badge -->
+                        <g v-if="isNodeDeprecated(node.address)">
+                          <circle
+                            :cx="node.x + 9"
+                            :cy="node.y - 9"
+                            r="6"
+                            style="fill: var(--warning-500)"
+                          />
+                          <text
+                            :x="node.x + 9"
+                            :y="node.y - 5.5"
+                            text-anchor="middle"
+                            fill="white"
+                            font-size="9"
+                            font-weight="700"
+                          >!</text>
+                        </g>
+                        <!-- Ramping down badge -->
+                        <g v-else-if="isNodeRampingDown(market, node.address)">
+                          <circle
+                            :cx="node.x + 9"
+                            :cy="node.y - 9"
+                            r="6"
+                            style="fill: var(--warning-500)"
+                          />
+                          <path
+                            :d="`M${node.x + 11} ${node.y - 11} l-3 3 m3 0 l-3 0 l0 -3`"
+                            fill="none"
+                            stroke="white"
+                            stroke-width="1.2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </g>
                         <!-- Asset label -->
                         <text
                           :x="getLabelPosition(node, enlarged.cx, enlarged.cy).x"

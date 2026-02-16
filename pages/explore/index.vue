@@ -2,7 +2,7 @@
 import { useMarketGroups } from '~/composables/useMarketGroups'
 import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getProductByVault, getEntitiesByVault, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import type { MarketGroup } from '~/entities/lend-discovery'
 import type { Vault } from '~/entities/vault'
@@ -197,10 +197,21 @@ const sortedMarkets = computed(() => {
       const maxPairCount = Math.max(...list.map(g => g.metrics.borrowableVaultCount), 1)
       const logMax = Math.log(maxPairCount + 1)
 
+      const deprecatedRatio = (group: MarketGroup): number => {
+        const total = group.vaults.length
+        if (total === 0) return 0
+        const deprecated = group.vaults.filter(v => {
+          const addr = getVaultAddress(v)
+          return addr ? isVaultDeprecated(addr) : false
+        }).length
+        return deprecated / total
+      }
+
       const scored = list.map((group) => {
         const normalizedTVL = maxTVL === 0 ? 0 : group.metrics.totalTVL / maxTVL
         const simplicity = logMax > 0 ? 1 - Math.log(group.metrics.borrowableVaultCount || 1) / logMax : 1
-        const compositeScore = normalizedTVL * (1 + simplicity * 0.15)
+        const healthFactor = 1 - deprecatedRatio(group)
+        const compositeScore = normalizedTVL * (1 + simplicity * 0.15) * healthFactor
         return { group, compositeScore }
       })
 
