@@ -25,6 +25,12 @@ function parseAllowedOrigins(): Set<string> {
     origins.add(appUrl)
   }
 
+  // Railway preview deployments: auto-allow the deployment's own domain
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim()
+  if (railwayDomain) {
+    origins.add(`https://${railwayDomain}`)
+  }
+
   return origins
 }
 
