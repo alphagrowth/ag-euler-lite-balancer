@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
-import type { Opportunity } from '~/entities/merkl'
 import { formatNumber } from '~/utils/string-utils'
+import type { RewardCampaign } from '~/entities/reward-campaign'
 
 const emits = defineEmits(['close'])
-const { borrowingAPY, intrinsicAPY, opportunityInfo } = defineProps<{
+const { borrowingAPY, intrinsicAPY, campaigns } = defineProps<{
   borrowingAPY: number
   intrinsicAPY?: number
-  opportunityInfo?: Opportunity
+  campaigns?: RewardCampaign[]
 }>()
 
 const rewardsTotalAPY = computed(() => {
-  const merklAPY = opportunityInfo ? opportunityInfo.apr : 0
-  return merklAPY > 0 ? merklAPY : null
+  if (!campaigns || campaigns.length === 0) return null
+  const total = campaigns.reduce((sum, c) => sum + c.apr, 0)
+  return total > 0 ? total : null
 })
 
 const intrinsicApyValue = computed(() => intrinsicAPY ?? 0)
@@ -20,18 +21,18 @@ const hasIntrinsicApy = computed(() => intrinsicApyValue.value > 0)
 const totalBorrowApy = computed(() => borrowingAPY + intrinsicApyValue.value - (rewardsTotalAPY.value || 0))
 
 const rewardsInfo = computed(() => {
-  const rewards = opportunityInfo?.campaigns
-    .map((campaign) => {
-      return {
-        id: campaign.id,
-        apr: campaign.apr,
-        endDate: DateTime.fromSeconds(campaign.endTimestamp),
-        rewardToken: campaign.rewardToken,
-      }
-    })
-    .filter(campaign => campaign.endDate > DateTime.now()) || []
-
-  return rewards.sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
+  if (!campaigns) return []
+  return campaigns
+    .filter(c => c.endTimestamp > Math.floor(Date.now() / 1000))
+    .map(c => ({
+      id: `${c.vault}-${c.provider}-${c.type}-${c.endTimestamp}`,
+      apr: c.apr,
+      endDate: DateTime.fromSeconds(c.endTimestamp),
+      rewardToken: c.rewardToken || { symbol: 'Unknown', icon: '' },
+      source: c.provider,
+      isCollateralSpecific: c.type === 'euler_borrow_collateral',
+    }))
+    .sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
 })
 
 const handleClose = () => {
@@ -114,7 +115,7 @@ const handleClose = () => {
             {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
           </p>
           <p class="ml-4 text-euler-dark-900">
-            (ends {{ reward.endDate.toFormat('MMMM dd, yyyy') }})
+            ({{ reward.source === 'brevis' ? 'Brevis, ' : '' }}{{ reward.isCollateralSpecific ? 'collateral bonus, ' : '' }}ends {{ reward.endDate.toFormat('MMMM dd, yyyy') }})
           </p>
         </div>
         <div class="text-p2">

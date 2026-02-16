@@ -36,15 +36,14 @@ const entityLogos = computed(() => {
 const displayName = computed(() => product.name || vault.name);
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
 const { withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy();
-const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy();
+const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy();
 const modal = useModal();
 
 const balance = computed(() =>
   getBalance(vault.asset.address as `0x${string}`),
 );
 const totalRewardsAPY = computed(() => getSupplyRewardApy(vault.address));
-const rewardInfo = computed(() => getSupplyRewardInfo(vault.address));
-const hasRewards = computed(() => rewardInfo.value.opportunity || rewardInfo.value.campaign);
+const hasRewards = computed(() => hasSupplyRewards(vault.address));
 const lendingAPY = computed(() =>
   nanoToValue(vault.interestRateInfo.supplyAPY, 25),
 );
@@ -75,13 +74,11 @@ const deprecationReason = computed(() =>
 const onSupplyInfoIconClick = (event: MouseEvent) => {
   event.preventDefault();
   event.stopPropagation();
-  const info = rewardInfo.value
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: lendingAPY.value,
       intrinsicAPY: intrinsicAPY.value,
-      opportunityInfo: info.opportunity,
-      brevisInfo: info.campaign,
+      campaigns: getSupplyRewardCampaigns(vault.address),
     },
   });
 };
@@ -96,7 +93,7 @@ watchEffect(async () => {
 })
 
 watchEffect(async () => {
-  const liquidity = vault.supply - vault.borrow
+  const liquidity = vault.supply >= vault.borrow ? vault.supply - vault.borrow : 0n
   const price = await formatAssetValue(liquidity, vault, 'off-chain')
   liquidityPrice.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
@@ -180,7 +177,7 @@ watchEffect(async () => {
     <div
       class="flex-1 flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-line-subtle"
     >
-      <div v-if="enableEntityBranding" class="flex-1">
+      <div v-if="enableEntityBranding" class="flex-1 mr-16">
         <div class="text-content-tertiary text-p3 mb-4">Risk manager</div>
         <div v-if="entityName" class="flex items-center gap-6">
           <BaseAvatar

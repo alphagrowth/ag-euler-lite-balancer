@@ -69,7 +69,7 @@ const collateralVault = computed(() => selectedCollateral.value || position.valu
 const borrowVault = computed(() => position.value?.borrow)
 const collateralAssets = computed(() => selectedCollateralAssets.value)
 const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
-const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.asset.address || '', borrowVault.value?.address || ''))
+const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
 const collateralSupplyApy = computed(() => {
   if (!collateralVault.value) return 0
   return withIntrinsicSupplyApy(

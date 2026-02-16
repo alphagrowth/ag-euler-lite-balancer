@@ -12,11 +12,11 @@ import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()
 
-const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy()
+const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
 const { getIntrinsicApy } = useIntrinsicApy()
 
 const vault = computed(() => position.vault as EarnVault)
-const rewardInfo = computed(() => getSupplyRewardInfo(vault.value.address))
+const rewardsExist = computed(() => hasSupplyRewards(vault.value.address))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.value.address))
@@ -66,13 +66,11 @@ watchEffect(() => {
 const onSupplyInfoIconClick = (event: MouseEvent) => {
   event.preventDefault()
   event.stopPropagation()
-  const info = rewardInfo.value
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
       intrinsicAPY: getIntrinsicApy(vault.value.asset.symbol),
-      opportunityInfo: info.opportunity,
-      brevisInfo: info.campaign,
+      campaigns: getSupplyRewardCampaigns(vault.value.address),
     },
   })
 }
@@ -132,7 +130,7 @@ const onClick = () => {
             class="text-p2 flex text-accent-600"
           >
             <SvgIcon
-              v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
+              v-if="rewardsExist"
               name="sparks"
               class="!w-20 !h-20 text-accent-600 mr-4 cursor-pointer"
               @click.stop="onSupplyInfoIconClick"

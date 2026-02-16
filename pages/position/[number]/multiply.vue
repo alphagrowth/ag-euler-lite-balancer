@@ -167,7 +167,7 @@ const multiplyBorrowApy = computed(() => {
     return null
   }
   const base = nanoToValue(multiplyShortVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - getBorrowRewardApy(multiplyShortVault.value.asset.address, multiplyShortVault.value.address)
+  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - getBorrowRewardApy(multiplyShortVault.value.address, multiplySupplyVault.value?.address)
 })
 
 const multiplyDebtAmountNano = computed(() => {

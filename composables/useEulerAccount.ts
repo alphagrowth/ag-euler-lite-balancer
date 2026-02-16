@@ -730,7 +730,7 @@ export const useEulerAccount = () => {
       )
 
       const supplyRewardAPY = getSupplyRewardApy(position.collateral.address)
-      const borrowRewardAPY = getBorrowRewardApy(position.borrow.asset.address, position.borrow.address)
+      const borrowRewardAPY = getBorrowRewardApy(position.borrow.address, position.collateral.address)
 
       const netYield
         = supplyUSD * (supplyApy + supplyRewardAPY)

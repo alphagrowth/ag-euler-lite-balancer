@@ -11,10 +11,10 @@ const { pair } = defineProps<{ pair: SecuritizeBorrowVaultPair }>()
 
 const modal = useModal()
 const { withIntrinsicBorrowApy, getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardInfo, getBorrowRewardInfo } = useRewardsApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
 
 // Borrow APY (from EVK borrow vault)
-const totalBorrowRewardsAPY = computed(() => getBorrowRewardApy(pair.borrow.asset.address, pair.borrow.address))
+const totalBorrowRewardsAPY = computed(() => getBorrowRewardApy(pair.borrow.address, pair.collateral.address))
 
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
@@ -23,13 +23,13 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
 
 const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25))
 const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.symbol))
-const borrowRewardInfo = computed(() => getBorrowRewardInfo(pair.borrow.asset.address, pair.borrow.address))
+const borrowRewardInfo = computed(() => getBorrowRewardCampaigns(pair.borrow.address, pair.collateral.address))
 
 // Supply APY (for securitize collateral - intrinsic + rewards only, no interest rate)
 const collateralRewardAPY = computed(() => getSupplyRewardApy(pair.collateral.address))
 const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol))
 const supplyApyWithRewards = computed(() => intrinsicSupplyApy.value + collateralRewardAPY.value)
-const supplyRewardInfo = computed(() => getSupplyRewardInfo(pair.collateral.address))
+const supplyRewardInfo = computed(() => getSupplyRewardCampaigns(pair.collateral.address))
 
 const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV))
 const maxRoe = computed(() =>
@@ -60,7 +60,7 @@ const onSupplyInfoIconClick = () => {
     props: {
       lendingAPY: 0, // Securitize vaults don't have interest rates
       intrinsicAPY: intrinsicSupplyApy.value,
-      opportunityInfo: supplyRewardInfo.value.opportunity,
+      campaigns: supplyRewardInfo.value,
     },
   })
 }
@@ -70,7 +70,7 @@ const onBorrowInfoIconClick = () => {
     props: {
       borrowingAPY: baseBorrowApy.value,
       intrinsicAPY: intrinsicBorrowApy.value,
-      opportunityInfo: borrowRewardInfo.value.opportunity,
+      campaigns: borrowRewardInfo.value,
     },
   })
 }
@@ -96,9 +96,7 @@ const onBorrowInfoIconClick = () => {
           <span class="text-euler-dark-900">-</span>
         </template>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue
-        :value="`${formatNumber(supplyApyWithRewards)}%`"
-      >
+      <VaultOverviewLabelValue>
         <template #label>
           <span class="flex items-center gap-4">
             Supply APY
@@ -109,10 +107,17 @@ const onBorrowInfoIconClick = () => {
             />
           </span>
         </template>
+        <span class="flex items-center gap-4">
+          <SvgIcon
+            v-if="hasSupplyRewards(pair.collateral.address)"
+            class="!w-20 !h-20 text-accent-500 cursor-pointer"
+            name="sparks"
+            @click="onSupplyInfoIconClick"
+          />
+          {{ formatNumber(supplyApyWithRewards) }}%
+        </span>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue
-        :value="`${formatNumber(borrowApyWithRewards)}%`"
-      >
+      <VaultOverviewLabelValue>
         <template #label>
           <span class="flex items-center gap-4">
             Borrow APY
@@ -123,6 +128,15 @@ const onBorrowInfoIconClick = () => {
             />
           </span>
         </template>
+        <span class="flex items-center gap-4">
+          <SvgIcon
+            v-if="hasBorrowRewards(pair.borrow.address, pair.collateral.address)"
+            class="!w-20 !h-20 text-accent-500 cursor-pointer"
+            name="sparks"
+            @click="onBorrowInfoIconClick"
+          />
+          {{ formatNumber(borrowApyWithRewards) }}%
+        </span>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         label="Max ROE"

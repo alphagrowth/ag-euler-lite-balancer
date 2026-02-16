@@ -43,7 +43,7 @@ const entityDisplay = computed(() => {
 
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } =
   useIntrinsicApy();
-const { getBorrowRewardApy, getBorrowRewardInfo } = useRewardsApy();
+const { getBorrowRewardApy, getSupplyRewardApy, hasSupplyRewards, hasBorrowRewards, getBorrowRewardCampaigns } = useRewardsApy();
 const modal = useModal();
 
 const collateralProduct = useEulerProductOfVault(
@@ -101,13 +101,15 @@ const pairName = computed(() => {
   }
   return `${collateralName}/${borrowName}`;
 });
-const totalRewardsAPY = computed(() =>
-  getBorrowRewardApy(pair.borrow.asset.address, pair.borrow.address),
+const borrowRewardsAPY = computed(() =>
+  getBorrowRewardApy(pair.borrow.address, pair.collateral.address),
 );
-const rewardInfo = computed(() =>
-  getBorrowRewardInfo(pair.borrow.asset.address, pair.borrow.address),
+const supplyRewardsAPY = computed(() =>
+  getSupplyRewardApy(pair.collateral.address),
 );
-const hasRewards = computed(() => rewardInfo.value.opportunity || rewardInfo.value.campaign);
+const hasRewards = computed(() =>
+  hasSupplyRewards(pair.collateral.address) || hasBorrowRewards(pair.borrow.address, pair.collateral.address),
+);
 const supplyApy = computed(() => {
   const interestRateInfo =
     "interestRateInfo" in pair.collateral
@@ -125,10 +127,10 @@ const borrowApy = computed(() =>
   ),
 );
 const supplyApyWithRewards = computed(
-  () => supplyApy.value + totalRewardsAPY.value,
+  () => supplyApy.value + supplyRewardsAPY.value,
 );
 const borrowApyWithRewards = computed(
-  () => borrowApy.value - totalRewardsAPY.value,
+  () => borrowApy.value - borrowRewardsAPY.value,
 );
 const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV));
 const netApy = computed(
@@ -157,7 +159,7 @@ const onBorrowInfoIconClick = (event: MouseEvent) => {
     props: {
       borrowingAPY: nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
       intrinsicAPY: getIntrinsicApy(pair.borrow.asset.symbol),
-      opportunityInfo: rewardInfo.value.opportunity,
+      campaigns: getBorrowRewardCampaigns(pair.borrow.address, pair.collateral.address),
     },
   });
 };

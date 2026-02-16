@@ -133,7 +133,7 @@ const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.a
 const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
 
 const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
-const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.asset.address || '', borrowVault.value?.address || ''))
+const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
   collateralVault.value?.asset.symbol,

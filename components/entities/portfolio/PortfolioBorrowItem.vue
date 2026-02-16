@@ -88,7 +88,7 @@ const pairName = computed(() => {
   return `${collateralLabel.value} / ${borrowLabel.value}`
 })
 const supplyRewardAPY = computed(() => getSupplyRewardApy(collateralVault.value.address || ''))
-const borrowRewardAPY = computed(() => getBorrowRewardApy(borrowVault.value.asset.address || '', borrowVault.value.address || ''))
+const borrowRewardAPY = computed(() => getBorrowRewardApy(borrowVault.value.address || '', collateralVault.value.address || ''))
 const collateralSupplyApy = computed(() => {
   return withIntrinsicSupplyApy(
     nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),

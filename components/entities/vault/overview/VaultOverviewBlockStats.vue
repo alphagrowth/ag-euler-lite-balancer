@@ -11,29 +11,28 @@ const { vault } = defineProps<{ vault: Vault }>()
 
 const modal = useModal()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardInfo, getBorrowRewardInfo } = useRewardsApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
 const isBorrowable = computed(() => vault.collateralLTVs.some(ltv => ltv.borrowLTV > 0n))
 
 const supplyApyWithRewards = computed(() => withIntrinsicSupplyApy(
   nanoToValue(vault.interestRateInfo.supplyAPY, 25),
   vault.asset.symbol,
 ) + getSupplyRewardApy(vault.address))
+// Vault overview shows generic borrow rewards (no specific collateral context available here)
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(vault.interestRateInfo.borrowAPY, 25),
   vault.asset.symbol,
-) - getBorrowRewardApy(vault.asset.address, vault.address))
+) - getBorrowRewardApy(vault.address))
 
-const supplyRewardInfo = computed(() => getSupplyRewardInfo(vault.address))
-const borrowRewardInfo = computed(() => getBorrowRewardInfo(vault.asset.address, vault.address))
+const supplyRewardInfo = computed(() => getSupplyRewardCampaigns(vault.address))
+const borrowRewardInfo = computed(() => getBorrowRewardCampaigns(vault.address))
 
 const onSupplyInfoIconClick = () => {
-  const info = supplyRewardInfo.value
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
       intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
-      opportunityInfo: info.opportunity,
-      brevisInfo: info.campaign,
+      campaigns: supplyRewardInfo.value,
     },
   })
 }
@@ -43,7 +42,7 @@ const onBorrowInfoIconClick = () => {
     props: {
       borrowingAPY: nanoToValue(vault.interestRateInfo.borrowAPY, 25),
       intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
-      opportunityInfo: borrowRewardInfo.value.opportunity,
+      campaigns: borrowRewardInfo.value,
     },
   })
 }
@@ -66,7 +65,8 @@ watchEffect(async () => {
 })
 
 watchEffect(async () => {
-  const price = await formatAssetValue(vault.supply - vault.borrow, vault, 'off-chain')
+  const liquidity = vault.supply >= vault.borrow ? vault.supply - vault.borrow : 0n
+  const price = await formatAssetValue(liquidity, vault, 'off-chain')
   availableLiquidityDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 </script>
@@ -96,7 +96,6 @@ watchEffect(async () => {
       />
       <VaultOverviewLabelValue
         orientation="horizontal"
-        :value="`${formatNumber(supplyApyWithRewards)}%`"
       >
         <template #label>
           <span class="flex items-center gap-4">
@@ -108,11 +107,19 @@ watchEffect(async () => {
             />
           </span>
         </template>
+        <span class="flex items-center gap-4">
+          <SvgIcon
+            v-if="hasSupplyRewards(vault.address)"
+            class="!w-20 !h-20 text-accent-500 cursor-pointer"
+            name="sparks"
+            @click="onSupplyInfoIconClick"
+          />
+          {{ formatNumber(supplyApyWithRewards) }}%
+        </span>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="isBorrowable"
         orientation="horizontal"
-        :value="`${formatNumber(borrowApyWithRewards)}%`"
       >
         <template #label>
           <span class="flex items-center gap-4">
@@ -124,6 +131,15 @@ watchEffect(async () => {
             />
           </span>
         </template>
+        <span class="flex items-center gap-4">
+          <SvgIcon
+            v-if="hasBorrowRewards(vault.address)"
+            class="!w-20 !h-20 text-accent-500 cursor-pointer"
+            name="sparks"
+            @click="onBorrowInfoIconClick"
+          />
+          {{ formatNumber(borrowApyWithRewards) }}%
+        </span>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="isBorrowable"

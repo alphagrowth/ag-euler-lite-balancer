@@ -14,7 +14,7 @@ const { pair } = defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition 
 
 const modal = useModal()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
+const { getSupplyRewardApy, getBorrowRewardApy, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
 const { borrowList } = useVaults()
 
 const borrowCount = computed(() => {
@@ -26,7 +26,7 @@ const isRestricted = computed(() => isAnyVaultBlockedByCountry(pair.collateral.a
 const isDeprecated = computed(() => isVaultDeprecated(pair.collateral.address) || isVaultDeprecated(pair.borrow.address))
 
 const collateralRewardAPY = computed(() => getSupplyRewardApy(pair.collateral.address))
-const borrowRewardAPY = computed(() => getBorrowRewardApy(pair.borrow.asset.address, pair.borrow.address))
+const borrowRewardAPY = computed(() => getBorrowRewardApy(pair.borrow.address, pair.collateral.address))
 const supplyApyWithRewards = computed(() => withIntrinsicSupplyApy(
   nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25),
   pair.collateral.asset.symbol,
@@ -131,9 +131,7 @@ const onMaxRoeInfoIconClick = () => {
           </span>
         </template>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue
-        :value="`${formatNumber(netApy)}%`"
-      >
+      <VaultOverviewLabelValue>
         <template #label>
           <span class="flex items-center gap-4">
             Net APY
@@ -144,10 +142,18 @@ const onMaxRoeInfoIconClick = () => {
             />
           </span>
         </template>
+        <span class="flex items-center gap-4">
+          <SvgIcon
+            v-if="hasSupplyRewards(pair.collateral.address) || hasBorrowRewards(pair.borrow.address, pair.collateral.address)"
+            class="!w-20 !h-20 text-accent-500 cursor-pointer"
+            name="sparks"
+            @click="onNetApyInfoIconClick"
+          />
+          {{ formatNumber(netApy) }}%
+        </span>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="isBorrowable"
-        :value="`${formatNumber(maxRoe)}%`"
       >
         <template #label>
           <span class="flex items-center gap-4">
@@ -159,6 +165,15 @@ const onMaxRoeInfoIconClick = () => {
             />
           </span>
         </template>
+        <span class="flex items-center gap-4">
+          <SvgIcon
+            v-if="hasSupplyRewards(pair.collateral.address) || hasBorrowRewards(pair.borrow.address, pair.collateral.address)"
+            class="!w-20 !h-20 text-accent-500 cursor-pointer"
+            name="sparks"
+            @click="onMaxRoeInfoIconClick"
+          />
+          {{ formatNumber(maxRoe) }}%
+        </span>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="isBorrowable"

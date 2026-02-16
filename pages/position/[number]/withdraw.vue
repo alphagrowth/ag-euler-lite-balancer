@@ -74,7 +74,7 @@ const withdrawWarnings = computed(() => {
 })
 const asset = computed(() => collateralVault.value?.asset)
 const collateralAssets = computed(() => selectedCollateralAssets.value)
-const rewardApyForBorrow = computed(() => getBorrowRewardApy(borrowVault.value?.asset.address || '', borrowVault.value?.address || ''))
+const rewardApyForBorrow = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
 const rewardApyForCollateral = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
 const collateralSupplyApy = computed(() => {
   if (!collateralVault.value) return 0

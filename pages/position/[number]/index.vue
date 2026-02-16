@@ -37,7 +37,7 @@ const { error } = useToast()
 const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardInfo, getBorrowRewardInfo } = useRewardsApy()
+const { getSupplyRewardApy, getBorrowRewardApy, hasSupplyRewards, hasBorrowRewards, getSupplyRewardCampaigns, getBorrowRewardCampaigns } = useRewardsApy()
 const { buildDisableCollateralPlan, executeTxPlan } = useEulerOperations()
 const {
   runSimulation: runDisableCollateralSimulation,
@@ -121,7 +121,7 @@ const isPairFullyRestricted = computed(() => {
 })
 
 const supplyRewardAPY = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
-const borrowRewardAPY = computed(() => getBorrowRewardApy(borrowVault.value?.asset.address || '', borrowVault.value?.address || ''))
+const borrowRewardAPY = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
 const baseSupplyAPY = computed(() => {
   return nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25)
 })
@@ -591,12 +591,11 @@ const onBorrowInfoIconClick = (event: MouseEvent) => {
   event.preventDefault()
   event.stopPropagation()
   if (!borrowVault.value) return
-  const info = getBorrowRewardInfo(borrowVault.value.asset.address, borrowVault.value.address)
   modal.open(VaultBorrowApyModal, {
     props: {
       borrowingAPY: baseBorrowAPY.value,
       intrinsicAPY: intrinsicBorrowAPY.value,
-      opportunityInfo: info.opportunity,
+      campaigns: getBorrowRewardCampaigns(borrowVault.value.address, collateralVault.value?.address),
     },
   })
 }
@@ -604,13 +603,11 @@ const onBorrowInfoIconClick = (event: MouseEvent) => {
 const onSupplyInfoIconClick = (event: MouseEvent, vault: Vault | SecuritizeVault) => {
   event.preventDefault()
   event.stopPropagation()
-  const info = getSupplyRewardInfo(vault.address)
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
       intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
-      opportunityInfo: info.opportunity,
-      brevisInfo: info.campaign,
+      campaigns: getSupplyRewardCampaigns(vault.address),
     },
   })
 }
@@ -784,7 +781,7 @@ watch(isConnected, () => {
               </div>
               <div class="text-p2 flex items-center text-accent-600 font-semibold">
                 <SvgIcon
-                  v-if="borrowRewardAPY"
+                  v-if="hasBorrowRewards(borrowVault?.address || '', collateralVault?.address || '')"
                   class="!w-20 !h-20 text-accent-500 mr-4 cursor-pointer"
                   name="sparks"
                   @click.stop="onBorrowInfoIconClick"
@@ -948,7 +945,7 @@ watch(isConnected, () => {
                 </div>
                 <div class="text-p2 flex items-center text-accent-600 font-semibold">
                   <SvgIcon
-                    v-if="collateral.supplyApyWithRewards > collateral.supplyApy"
+                    v-if="hasSupplyRewards(collateral.vault.address)"
                     class="!w-20 !h-20 text-accent-500 mr-4 cursor-pointer"
                     name="sparks"
                     @click.stop="(e: MouseEvent) => onSupplyInfoIconClick(e, collateral.vault)"

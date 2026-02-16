@@ -11,6 +11,8 @@ import { getExplorerLink } from '~/utils/block-explorer'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { formatNumber, compactNumber, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultSupplyApyModal } from '#components'
 
 const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolean }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
@@ -20,7 +22,8 @@ const { chainId } = useEulerAddresses()
 const { borrowList, isVaultGovernorVerified } = useVaults()
 const { getEvkVaults } = useVaultRegistry()
 const { getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy } = useRewardsApy()
+const modal = useModal()
+const { getSupplyRewardApy, getSupplyRewardCampaigns, hasSupplyRewards } = useRewardsApy()
 const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
@@ -68,6 +71,16 @@ const collateralCount = computed(() => borrowMarkets.value.length)
 const rewardSupplyAPY = computed(() => getSupplyRewardApy(vault.address))
 const intrinsicApy = computed(() => getIntrinsicApy(vault.asset.symbol))
 const supplyApyWithRewards = computed(() => intrinsicApy.value + rewardSupplyAPY.value)
+
+const onSupplyInfoIconClick = () => {
+  modal.open(VaultSupplyApyModal, {
+    props: {
+      lendingAPY: 0, // Securitize vaults don't have interest rates
+      intrinsicAPY: intrinsicApy.value,
+      campaigns: getSupplyRewardCampaigns(vault.address),
+    },
+  })
+}
 
 // Risk parameters - fetch share token exchange rate (ERC4626 standard)
 const shareTokenExchangeRate: Ref<bigint | undefined> = ref()
@@ -255,10 +268,21 @@ const supplyCapPercentageDisplay = computed(() => {
           orientation="horizontal"
         />
         <VaultOverviewLabelValue
-          label="Supply APY"
-          :value="`${formatNumber(supplyApyWithRewards)}%`"
           orientation="horizontal"
-        />
+        >
+          <template #label>
+            Supply APY
+          </template>
+          <span class="flex items-center gap-4">
+            <SvgIcon
+              v-if="hasSupplyRewards(vault.address)"
+              class="!w-20 !h-20 text-accent-500 cursor-pointer"
+              name="sparks"
+              @click="onSupplyInfoIconClick"
+            />
+            {{ formatNumber(supplyApyWithRewards) }}%
+          </span>
+        </VaultOverviewLabelValue>
       </div>
     </div>
 

@@ -56,7 +56,7 @@ export const useSwapDebtOptions = ({
     const options = await Promise.all(vaults.map(async (vault) => {
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.borrowAPY || 0n, 25)
-      const apy = withIntrinsicBorrowApy(baseApy, vault.asset.symbol) - getBorrowRewardApy(vault.asset.address, vault.address)
+      const apy = withIntrinsicBorrowApy(baseApy, vault.asset.symbol) - getBorrowRewardApy(vault.address, collateralVault?.value?.address)
 
       const { tags, disabled } = getVaultTags(vault.address, 'swap-target')
 

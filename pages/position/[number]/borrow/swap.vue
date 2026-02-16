@@ -211,14 +211,14 @@ const fromBorrowApy = computed(() => {
     return null
   }
   const base = nanoToValue(fromVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, fromVault.value.asset.symbol) - getBorrowRewardApy(fromVault.value.asset.address, fromVault.value.address)
+  return withIntrinsicBorrowApy(base, fromVault.value.asset.symbol) - getBorrowRewardApy(fromVault.value.address, collateralVault.value?.address)
 })
 const toBorrowApy = computed(() => {
   if (!toVault.value) {
     return null
   }
   const base = nanoToValue(toVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, toVault.value.asset.symbol) - getBorrowRewardApy(toVault.value.asset.address, toVault.value.address)
+  return withIntrinsicBorrowApy(base, toVault.value.asset.symbol) - getBorrowRewardApy(toVault.value.address, collateralVault.value?.address)
 })
 
 const supplyValueUsd = ref<number | null>(null)

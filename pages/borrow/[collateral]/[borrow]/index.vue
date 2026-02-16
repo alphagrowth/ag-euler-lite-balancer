@@ -338,7 +338,7 @@ const multiplyLongProduct = useEulerProductOfVault(computed(() => multiplyLongVa
 const multiplyShortProduct = useEulerProductOfVault(computed(() => multiplyShortVault.value?.address || ''))
 
 const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(pair.value?.collateral.address || ''))
-const borrowRewardApy = computed(() => getBorrowRewardApy(pair.value?.borrow.asset.address || '', pair.value?.borrow.address || ''))
+const borrowRewardApy = computed(() => getBorrowRewardApy(pair.value?.borrow.address || '', pair.value?.collateral.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
   collateralVault.value?.asset.symbol,
@@ -388,7 +388,7 @@ const multiplyBorrowApy = computed(() => {
     return null
   }
   const base = nanoToValue(multiplyShortVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - getBorrowRewardApy(multiplyShortVault.value.asset.address, multiplyShortVault.value.address)
+  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - getBorrowRewardApy(multiplyShortVault.value.address, multiplySupplyVault.value?.address)
 })
 
 const normalizeAddress = (address?: string) => {

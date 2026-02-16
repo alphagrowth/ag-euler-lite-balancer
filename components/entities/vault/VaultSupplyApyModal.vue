@@ -1,21 +1,19 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
 import { formatNumber } from '~/utils/string-utils'
-import type { Opportunity } from '~/entities/merkl'
-import type { Campaign } from '~/entities/brevis'
+import type { RewardCampaign } from '~/entities/reward-campaign'
 
 const emits = defineEmits(['close'])
-const { lendingAPY, intrinsicAPY, opportunityInfo, brevisInfo } = defineProps<{
+const { lendingAPY, intrinsicAPY, campaigns } = defineProps<{
   lendingAPY: number
   intrinsicAPY?: number
-  opportunityInfo?: Opportunity
-  brevisInfo?: Campaign
+  campaigns?: RewardCampaign[]
 }>()
 
 const rewardsTotalAPY = computed(() => {
-  const merklAPY = opportunityInfo ? opportunityInfo.apr : 0
-  const brevisAPY = brevisInfo ? brevisInfo.reward_info.apr * 100 : 0
-  return merklAPY + brevisAPY > 0 ? merklAPY + brevisAPY : null
+  if (!campaigns || campaigns.length === 0) return null
+  const total = campaigns.reduce((sum, c) => sum + c.apr, 0)
+  return total > 0 ? total : null
 })
 
 const intrinsicApyValue = computed(() => intrinsicAPY ?? 0)
@@ -23,32 +21,17 @@ const hasIntrinsicApy = computed(() => intrinsicApyValue.value > 0)
 const totalSupplyApy = computed(() => lendingAPY + intrinsicApyValue.value + (rewardsTotalAPY.value || 0))
 
 const rewardsInfo = computed(() => {
-  const rewards: Array<{ id: string; apr: number; endDate: DateTime; rewardToken: { symbol: string; icon: string }; source: string }> = opportunityInfo?.campaigns
-    .map((campaign) => {
-      return {
-        id: campaign.id,
-        apr: campaign.apr,
-        endDate: DateTime.fromSeconds(campaign.endTimestamp),
-        rewardToken: { symbol: campaign.rewardToken.symbol, icon: campaign.rewardToken.icon },
-        source: 'merkl' as const,
-      }
-    })
-    .filter(campaign => campaign.endDate > DateTime.now()) || []
-
-  if (brevisInfo) {
-    rewards.push({
-      id: brevisInfo.campaign_id,
-      apr: brevisInfo.reward_info.apr * 100,
-      endDate: DateTime.fromSeconds(brevisInfo.end_time),
-      rewardToken: {
-        symbol: brevisInfo.reward_info.token_symbol,
-        icon: '',
-      },
-      source: 'brevis',
-    })
-  }
-
-  return rewards.sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
+  if (!campaigns) return []
+  return campaigns
+    .filter(c => c.endTimestamp > Math.floor(Date.now() / 1000))
+    .map(c => ({
+      id: `${c.vault}-${c.provider}-${c.endTimestamp}`,
+      apr: c.apr,
+      endDate: DateTime.fromSeconds(c.endTimestamp),
+      rewardToken: c.rewardToken || { symbol: 'Unknown', icon: '' },
+      source: c.provider,
+    }))
+    .sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
 })
 
 const handleClose = () => {

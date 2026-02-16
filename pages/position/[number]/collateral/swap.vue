@@ -289,7 +289,7 @@ const borrowApy = computed(() => {
     return null
   }
   const base = nanoToValue(borrowVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, borrowVault.value.asset.symbol) - getBorrowRewardApy(borrowVault.value.asset.address, borrowVault.value.address)
+  return withIntrinsicBorrowApy(base, borrowVault.value.asset.symbol) - getBorrowRewardApy(borrowVault.value.address, fromVault.value?.address)
 })
 
 // Get collateral USD value using liability vault's price perspective

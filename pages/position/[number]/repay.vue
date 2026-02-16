@@ -120,7 +120,7 @@ const reviewRepayDisabled = getSubmitDisabled(computed(() => {
   return formTab.value === 'wallet' ? isSubmitDisabled.value : isSwapSubmitDisabled.value
 }))
 const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
-const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.asset.address || '', borrowVault.value?.address || ''))
+const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
   collateralVault.value?.asset.symbol,
@@ -331,7 +331,7 @@ const swapBorrowApy = computed(() => {
     return null
   }
   const base = nanoToValue(borrowVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, borrowVault.value.asset.symbol) - getBorrowRewardApy(borrowVault.value.asset.address || '', borrowVault.value.address)
+  return withIntrinsicBorrowApy(base, borrowVault.value.asset.symbol) - getBorrowRewardApy(borrowVault.value.address, collateralVault.value?.address)
 })
 
 const swapCollateralSpent = computed(() => {

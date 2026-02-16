@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
 import { formatNumber } from '~/utils/string-utils'
-import type { Opportunity } from '~/entities/merkl'
+import type { RewardCampaign } from '~/entities/reward-campaign'
 
 const emits = defineEmits(['close'])
 const {
@@ -14,8 +14,8 @@ const {
   supplyRewardAPY,
   borrowRewardAPY,
   netAPY,
-  supplyOpportunityInfo,
-  borrowOpportunityInfo,
+  supplyCampaigns,
+  borrowCampaigns,
 } = defineProps<{
   supplyUSD: number
   borrowUSD: number
@@ -26,8 +26,8 @@ const {
   supplyRewardAPY?: number | null
   borrowRewardAPY?: number | null
   netAPY: number
-  supplyOpportunityInfo?: Opportunity
-  borrowOpportunityInfo?: Opportunity
+  supplyCampaigns?: RewardCampaign[]
+  borrowCampaigns?: RewardCampaign[]
 }>()
 
 const intrinsicApyValue = computed(() => {
@@ -61,31 +61,38 @@ const rewardsInfo = computed(() => {
     id: string
     apr: number
     endDate: DateTime
-    rewardToken: { symbol: string, icon?: string }
+    rewardToken: { symbol: string; icon?: string }
+    source: string
+    side: string
   }> = []
+  const now = Math.floor(Date.now() / 1000)
 
-  if (supplyOpportunityInfo?.campaigns) {
-    const supplyRewards = supplyOpportunityInfo.campaigns
-      .map(campaign => ({
-        id: `supply-${campaign.id}`,
-        apr: campaign.apr,
-        endDate: DateTime.fromSeconds(campaign.endTimestamp),
-        rewardToken: campaign.rewardToken,
-      }))
-      .filter(campaign => campaign.endDate > DateTime.now())
-    rewards.push(...supplyRewards)
+  if (supplyCampaigns) {
+    for (const c of supplyCampaigns) {
+      if (c.endTimestamp <= now) continue
+      rewards.push({
+        id: `supply-${c.vault}-${c.provider}-${c.endTimestamp}`,
+        apr: c.apr,
+        endDate: DateTime.fromSeconds(c.endTimestamp),
+        rewardToken: c.rewardToken || { symbol: 'Unknown', icon: '' },
+        source: c.provider,
+        side: 'supply',
+      })
+    }
   }
 
-  if (borrowOpportunityInfo?.campaigns) {
-    const borrowRewards = borrowOpportunityInfo.campaigns
-      .map(campaign => ({
-        id: `borrow-${campaign.id}`,
-        apr: campaign.apr,
-        endDate: DateTime.fromSeconds(campaign.endTimestamp),
-        rewardToken: campaign.rewardToken,
-      }))
-      .filter(campaign => campaign.endDate > DateTime.now())
-    rewards.push(...borrowRewards)
+  if (borrowCampaigns) {
+    for (const c of borrowCampaigns) {
+      if (c.endTimestamp <= now) continue
+      rewards.push({
+        id: `borrow-${c.vault}-${c.provider}-${c.type}-${c.collateral || ''}-${c.endTimestamp}`,
+        apr: c.apr,
+        endDate: DateTime.fromSeconds(c.endTimestamp),
+        rewardToken: c.rewardToken || { symbol: 'Unknown', icon: '' },
+        source: c.provider,
+        side: 'borrow',
+      })
+    }
   }
 
   return rewards.sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
@@ -167,7 +174,7 @@ const handleClose = () => {
             {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
           </p>
           <p class="ml-4 text-euler-dark-900">
-            (ends {{ reward.endDate.toFormat('MMMM dd, yyyy') }})
+            ({{ reward.source === 'brevis' ? 'Brevis, ' : '' }}ends {{ reward.endDate.toFormat('MMMM dd, yyyy') }})
           </p>
         </div>
         <div class="text-p2">

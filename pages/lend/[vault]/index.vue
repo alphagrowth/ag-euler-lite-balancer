@@ -67,7 +67,7 @@ const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimula
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy()
+const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
 
 // State
 const isLoading = ref(false)
@@ -224,8 +224,7 @@ const isSubmitDisabled = computed(() => {
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
 const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
 const totalRewardsAPY = computed(() => getSupplyRewardApy(vaultAddress))
-const rewardInfo = computed(() => getSupplyRewardInfo(vaultAddress))
-const hasRewards = computed(() => rewardInfo.value.opportunity || rewardInfo.value.campaign)
+const hasRewards = computed(() => hasSupplyRewards(vaultAddress))
 const intrinsicApy = computed(() => getIntrinsicApy(asset.value?.symbol))
 
 const baseSupplyApy = computed(() => {
@@ -400,13 +399,11 @@ const updateEstimates = useDebounceFn(async () => {
 }, 500)
 
 const onSupplyInfoIconClick = () => {
-  const info = rewardInfo.value
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: baseSupplyApy.value,
       intrinsicAPY: intrinsicApy.value,
-      opportunityInfo: info.opportunity,
-      brevisInfo: info.campaign,
+      campaigns: getSupplyRewardCampaigns(vaultAddress),
     },
   })
 }
@@ -479,8 +476,9 @@ watch(address, () => {
               />
               <SvgIcon
                 v-if="hasRewards"
-                class="!w-24 !h-24 text-accent-600"
+                class="!w-24 !h-24 text-accent-600 cursor-pointer"
                 name="sparks"
+                @click="onSupplyInfoIconClick"
               />
               <span>
                 {{ supplyAPYDisplay }}%

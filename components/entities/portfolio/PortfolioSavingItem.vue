@@ -14,7 +14,7 @@ const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()
 
 const { withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getSupplyRewardInfo } = useRewardsApy()
+const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
 
 const vault = computed(() => position.vault)
 const utilisationWarning = computed(() => {
@@ -26,7 +26,7 @@ const utilisationWarning = computed(() => {
 const isSecuritize = computed(() => 'type' in vault.value && vault.value.type === 'securitize')
 const regularVault = computed(() => isSecuritize.value ? null : vault.value as Vault)
 
-const rewardInfo = computed(() => getSupplyRewardInfo(vault.value.address))
+const rewardsExist = computed(() => hasSupplyRewards(vault.value.address))
 const supplyApy = computed(() => {
   return withIntrinsicSupplyApy(
     nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
@@ -102,13 +102,11 @@ const assetAmount = computed(() => {
 const onSupplyInfoIconClick = (event: MouseEvent) => {
   event.preventDefault()
   event.stopPropagation()
-  const info = rewardInfo.value
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
       intrinsicAPY: getIntrinsicApy(vault.value.asset.symbol),
-      opportunityInfo: info.opportunity,
-      brevisInfo: info.campaign,
+      campaigns: getSupplyRewardCampaigns(vault.value.address),
     },
   })
 }
@@ -166,7 +164,7 @@ const onClick = () => {
           </div>
           <div class="text-p2 flex text-accent-600">
             <SvgIcon
-              v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
+              v-if="rewardsExist"
               name="sparks"
               class="!w-20 !h-20 text-accent-600 mr-4 cursor-pointer"
               @click.stop="onSupplyInfoIconClick"
@@ -263,7 +261,7 @@ const onClick = () => {
           </div>
           <div class="text-p2 flex text-accent-600">
             <SvgIcon
-              v-if="rewardInfo.opportunity?.apr || rewardInfo.campaign"
+              v-if="rewardsExist"
               name="sparks"
               class="!w-20 !h-20 text-accent-600 mr-4 cursor-pointer"
               @click.stop="onSupplyInfoIconClick"

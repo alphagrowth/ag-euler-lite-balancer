@@ -3,11 +3,15 @@ import { type EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultSupplyApyModal } from '#components'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
 
+const modal = useModal()
 const { getVault } = useVaults()
-const { getSupplyRewardApy } = useRewardsApy()
+const { getIntrinsicApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getSupplyRewardCampaigns, hasSupplyRewards } = useRewardsApy()
 
 const availableLiquidityOfStrategies = ref(0n)
 
@@ -36,6 +40,16 @@ const load = async () => {
 }
 
 load()
+
+const onSupplyInfoIconClick = () => {
+  modal.open(VaultSupplyApyModal, {
+    props: {
+      lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
+      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      campaigns: getSupplyRewardCampaigns(vault.address),
+    },
+  })
+}
 </script>
 
 <template>
@@ -55,10 +69,21 @@ load()
         orientation="horizontal"
       />
       <VaultOverviewLabelValue
-        label="Supply APY"
-        :value="`${formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + rewardSupplyAPY)}%`"
         orientation="horizontal"
-      />
+      >
+        <template #label>
+          Supply APY
+        </template>
+        <span class="flex items-center gap-4">
+          <SvgIcon
+            v-if="hasSupplyRewards(vault.address)"
+            class="!w-20 !h-20 text-accent-500 cursor-pointer"
+            name="sparks"
+            @click="onSupplyInfoIconClick"
+          />
+          {{ formatNumber(nanoToValue(vault.interestRateInfo.supplyAPY, 25) + rewardSupplyAPY) }}%
+        </span>
+      </VaultOverviewLabelValue>
     </div>
   </div>
 </template>
