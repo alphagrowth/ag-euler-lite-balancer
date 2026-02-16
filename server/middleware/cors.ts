@@ -1,11 +1,15 @@
 import { createError, getRequestURL, setResponseHeader, sendNoContent } from 'h3'
 
 function parseAllowedOrigins(): Set<string> {
+  // CORS_ALLOWED_ORIGINS is the dedicated CORS var (comma-separated).
+  // Falls back to NUXT_PUBLIC_APP_URL (single origin used by Reown/AppKit).
+  const corsOrigins = process.env.CORS_ALLOWED_ORIGINS?.trim()
   const appUrl = process.env.NUXT_PUBLIC_APP_URL?.trim()
   const isDevelopment = process.env.NODE_ENV === 'development'
 
+  const origins = new Set<string>()
+
   if (isDevelopment) {
-    const origins = new Set<string>()
     const ports = [3000, 3001, 3002, 3003]
     for (const port of ports) {
       origins.add(`http://localhost:${port}`)
@@ -13,24 +17,24 @@ function parseAllowedOrigins(): Set<string> {
       origins.add(`http://127.0.0.1:${port}`)
       origins.add(`https://127.0.0.1:${port}`)
     }
-    if (appUrl && appUrl !== '*') {
-      appUrl.split(',').forEach((url) => origins.add(url.trim()))
-    }
-    return origins
   }
 
-  if (!appUrl || appUrl === '*') {
-    throw new Error('NUXT_PUBLIC_APP_URL must be set in production (comma-separated list of allowed origins)')
+  if (corsOrigins) {
+    corsOrigins.split(',').forEach((url) => origins.add(url.trim()))
+  } else if (appUrl && appUrl !== '*') {
+    origins.add(appUrl)
   }
 
-  const origins = new Set<string>()
-  appUrl.split(',').forEach((url) => origins.add(url.trim()))
   return origins
 }
 
-const allowedOrigins = parseAllowedOrigins()
+let allowedOrigins: Set<string> | null = null
 
 export default defineEventHandler((event) => {
+  if (!allowedOrigins) {
+    allowedOrigins = parseAllowedOrigins()
+  }
+
   const rawCountry = event.node.req.headers['x-country-code']
   const country = (typeof rawCountry === 'string' && /^[A-Z]{2}$/.test(rawCountry))
     ? rawCountry
