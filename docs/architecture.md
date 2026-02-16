@@ -207,7 +207,7 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 
 ### Responsive Design Principles
 
-1. **Mobile-First**: Design starts with mobile and scales up (necessity for TMA)
+1. **Mobile-First**: Design starts with mobile and scales up
 2. **Touch-Friendly**: Optimized for touch interactions
 3. **Performance**: Optimized for mobile network conditions
 
