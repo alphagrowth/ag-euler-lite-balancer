@@ -31,15 +31,17 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 
 ### 🔌 [Data Flow and Integrations](./data-flow-and-integrations.md)
 
-- External integrations
-- Internal data management
-- Data transformation flows
+- Unified rewards system (Merkl + Brevis)
+- Intrinsic APY (DeFi Llama yield data)
+- Chain switching and stale data prevention
+- Euler Finance protocol integration
 
 ### 💰 [Pricing System](./pricing-system.md)
 
 - 3-layer pricing architecture (oracle → USD → values)
 - On-chain vs off-chain price sources
 - Pyth oracle simulation for price reads
+- Intrinsic APY for yield-bearing assets
 
 ### 📊 [Portfolio Logic](./portfolio-logic.md)
 
@@ -78,23 +80,22 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 
 - **Lend Assets**: Deposit crypto assets to earn yield
 - **Borrow Assets**: Use collateral to borrow other assets
+- **Explore Markets**: Discover and compare markets grouped by curator/product
 - **Manage Portfolio**: Track positions, rewards, and performance
-- **Access Rewards**: Participate in Merkl reward programs
+- **Access Rewards**: Participate in Merkl and Brevis reward programs
 
 ## 🏛️ Key Technologies
 
 - **Frontend**: Nuxt.js 3, Vue 3, TypeScript
 - **Blockchain**: Multiple EVM chains
 - **DeFi Protocol**: Euler Finance
-- **Wallet Integration**: TonConnect
+- **Wallet Integration**: Wagmi / Reown (EVM wallets)
 - **Styling**: SCSS with custom design system
 - **State Management**: Vue Composition API with composables
 
 ## 🔗 Quick Links
 
 - [Euler Finance Documentation](https://docs.euler.finance/)
-- [TON Blockchain Documentation](https://docs.ton.org/)
-- [TAC Documentation](https://docs.tac.build/)
 - [Merkl Documentation](https://docs.merkl.xyz/)
 
 ## 📞 Support

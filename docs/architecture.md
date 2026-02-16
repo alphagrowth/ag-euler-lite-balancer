@@ -106,19 +106,20 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    TON Blockchain                               │
+│                    Wagmi / Reown                                │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ TonConnect  │ │ TON Client  │ │ TON Address │                │
+│  │ useWagmi    │ │ Reown       │ │ Wallet      │                │
+│  │             │ │ AppKit      │ │ Connect     │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 ├─────────────────────────────────────────────────────────────────┤
-│                    TAC (TON App Chain)                          │
+│                    EVM (Viem + Multicall)                       │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ TAC SDK     │ │ Smart Acct  │ │ Cross-Chain │                │
+│  │ EVC Batch   │ │ Pyth Oracle │ │ Simulation  │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 ├─────────────────────────────────────────────────────────────────┤
 │                    Euler Finance                                │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Vault Lens  │ │ Account     │ │ Interest    │                |
+│  │ Vault Lens  │ │ Account     │ │ Interest    │                │
 │  │             │ │ Lens        │ │ Rate Model  │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 └─────────────────────────────────────────────────────────────────┘
@@ -171,19 +172,59 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 ├─────────────────────────────────────────────────────────────────┤
 │                    Integration Layer                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Euler API   │ │ TON API     │ │ Merkl API   │                │
+│  │ Euler API   │ │ Wagmi/Viem  │ │ Rewards API │                │
 │  │ Client      │ │ Client      │ │ Client      │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 ├─────────────────────────────────────────────────────────────────┤
 │                    External Services                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Euler       │ │ TON         │ │ Merkl       │                │
-│  │ Finance     │ │ Blockchain  │ │ Rewards     │                │
+│  │ Euler       │ │ EVM RPC     │ │ Merkl /     │                │
+│  │ Finance     │ │ (multi-     │ │ Brevis      │                │
+│  │             │ │  chain)     │ │ Rewards     │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## 🔍 Explore Page & Market Discovery
+
+The Explore page (`pages/explore/index.vue`) provides a market discovery interface that groups vaults into logical markets.
+
+### Market Grouping Algorithm
+
+The `useMarketGroups` composable (`composables/useMarketGroups.ts`) implements a hybrid grouping algorithm:
+
+1. **Product-label groups** — Vaults are first assigned to groups using `products` metadata from euler-labels. Each product defines a curator entity, name, and list of vault addresses.
+2. **Collateral graph augmentation** — For each group, external collateral vaults (referenced by member vaults but not in the group) are resolved and attached.
+3. **Orphan clustering** — Vaults not assigned to any product are clustered using a BFS connected-component algorithm over their collateral relationships. This produces "Ungrouped" markets.
+4. **Async TVL resolution** — Group metrics (TVL, available liquidity, borrowed) are resolved asynchronously using USD pricing.
+
+### Key Types
+
+- `MarketGroup` — Core group with vaults, external collateral, metrics, and curator info
+- `MarketGroupMetrics` — TVL, best APYs, utilization, vault counts, asset symbols
+- `CuratorGroup` — Groups `MarketGroup`s by curator entity for aggregated views
+
+### Custom Filters
+
+The listing pages (Lend, Borrow, Earn, Explore) support user-defined metric filters via the `useCustomFilters` composable:
+
+- `UiCustomFilterModal` — Modal for creating filters with metric, operator (gt/lt), and value
+- `UiCustomFilterChips` — Displays active filters as removable chips
+- Filters are applied client-side using `matchesCustomFilters(item)`
+
 ## 🚀 Performance Architecture
+
+### Page Keepalive Strategy
+
+The app uses Vue's `<KeepAlive>` to preserve component state across navigation for listing pages:
+
+```vue
+<NuxtPage
+  :keepalive="{ include: ['ExplorePage', 'EarnPage', 'LendPage', 'BorrowPage', 'PortfolioPage'] }"
+/>
+```
+
+This prevents re-fetching and re-rendering when users navigate between listing pages and detail views (e.g., clicking a vault then pressing back). Suspense was removed from `app.vue` to avoid conflicts with keepalive cache invalidation.
 
 ### Optimization Strategies
 
@@ -192,6 +233,7 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 3. **Caching**: Smart caching of blockchain data and API responses
 4. **Batch Operations**: Batch API calls to reduce network overhead
 5. **Debouncing**: User input debouncing to prevent excessive API calls
+6. **Keepalive**: Listing pages cached in memory to avoid redundant data loads
 
 ## 🔒 Security Architecture
 

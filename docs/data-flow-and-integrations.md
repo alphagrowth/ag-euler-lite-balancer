@@ -1,6 +1,6 @@
 # Data Flow & Integration
 
-> **Note:** This document was written for an earlier version of the codebase that used TON/TAC integration and a static `NETWORK` config variable. The app has since been refactored to use standard EVM wallets (Wagmi/Reown), dynamic chain configuration via `RPC_URL_HTTP_<chainId>` env vars, and runtime-injected config via `useEnvConfig()` and `useDeployConfig()`. Code examples below may reference removed APIs (`NETWORK`, `useTonConnect`, `TonCenter`, `TAC SDK`, `entities/config.ts`). See the [README](../README.md) and [Development Guide](./development-guide.md) for current configuration.
+> **Note:** This document was originally written for a TON/TAC version of the codebase. The app has since been refactored to use standard EVM wallets (Wagmi/Reown) and direct EVM RPC calls. Legacy TON/TAC code examples in the "Operations" section below are preserved for reference but no longer reflect the current codebase. See the [Development Guide](./development-guide.md) for current configuration.
 
 This document provides an overview of how data flows through the Euler Lite system, including data sources, transformations, storage, and the complete data lifecycle from external services to user interface.
 
@@ -14,38 +14,40 @@ The Euler Lite application integrates with multiple external systems to provide 
 ├─────────────────────────────────────────────────────────────────┤
 │                    Integration Layer                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ TAC SDK     │ │ TonConnect  │ │ Euler       │                │
-│  │             │ │ TON Center  │ │ Finance     │                │
+│  │ Wagmi/Viem  │ │ Euler       │ │ Rewards     │                │
+│  │ (EVM RPC)   │ │ Finance     │ │ (Merkl +    │                │
+│  │             │ │             │ │  Brevis)    │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 ├─────────────────────────────────────────────────────────────────┤
 │                    External Services                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ TON         │ │ TAC         │ │ Euler       │                │
-│  │ Blockchain  │ │ Network     │ │ Protocol    │                │
+│  │ EVM RPC     │ │ Euler       │ │ Goldsky     │                │
+│  │ (multi-     │ │ Protocol    │ │ Subgraph    │                │
+│  │  chain)     │ │             │ │             │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
-│  ┌─────────────┐ ┌─────────────┐                                │
-│  │ Merkl       │ │ Goldsky     │                                │
-│  │ Rewards     │ │ Subgraph    │                                │
-│  └─────────────┘ └─────────────┘                                │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
+│  │ Merkl API   │ │ Brevis API  │ │ DeFi Llama  │                │
+│  │ (rewards)   │ │ (ZK proofs) │ │ (yields)    │                │
+│  └─────────────┘ └─────────────┘ └─────────────┘                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-And it has such a data flow:
+### Data Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    External Data Sources                        │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Euler       │ │ TON         │ │ Merkl       │                │
-│  │ Finance     │ │ Blockchain  │ │ Rewards     │                │
+│  │ Euler       │ │ EVM RPC     │ │ Rewards     │                │
+│  │ Finance     │ │ (Wagmi)     │ │ APIs        │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 │           │               │               │                     │
 │           ▼               ▼               ▼                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                    Data Integration Layer                       │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ TAC SDK     │ │ TonConnect  │ │ API Clients │                │
-│  │ Integration │ │ Integration │ │             │                │
+│  │ Vault Lens  │ │ EVC Batch   │ │ Merkl/Brevis│                │
+│  │ Multicall   │ │ Simulation  │ │ Clients     │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 │           │               │               │                     │
 │           ▼               ▼               ▼                     │
@@ -67,65 +69,14 @@ And it has such a data flow:
 
 ### Table of Contents
 
-- [TON Blockchain](#ton-blockchain)
 - [Euler Finance](#euler-finance)
-- [TAC Network](#tac-network)
-- [Merkl Rewards](#merkl-rewards)
+- [Rewards System](#rewards-system)
+- [Intrinsic APY](#intrinsic-apy)
 - [Goldsky Subgraph](#goldsky-subgraph)
+- [Chain Switching](#chain-switching)
+- [Legacy Operations (TON/TAC)](#legacy-operations-tontac)
 
-# Data flows
-
-### TON Blockchain
-
-#### Operations:
-
-- [Wallet connect/disconnect](#wallet-connectdisconnect)
-- [Balances fetching](#balances-fetching)
-- [User TON address management](#user-ton-address-management)
-
-#### Data flow:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    TON Blockchain                               │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ TON         │ │ TON         │ │ TON         │                │
-│  │ Network     │ │ Connect     │ │ Center      │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
-├─────────────────────────────────────────────────────────────────┤
-│              TonConnect/TON Center Integration                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Wallet      │ │ Connection  │ │ Address     │                │
-│  │ Detection   │ │ Management  │ │ Management  │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
-├─────────────────────────────────────────────────────────────────┤
-│                    Application Composables                      │
-│  ┌─────────────┐ ┌───────────────┐ ┌───────────────────┐        │
-│  │ useWallets  │ │ useTonConnect │ │  useEulerAccount  │        │
-│  │             │ │               │ │ (smartacc predict)│        │
-│  └─────────────┘ └───────────────┘ └───────────────────┘        │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
-├─────────────────────────────────────────────────────────────────┤
-│                    State Management                             │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Wallet      │ │ Account     │ │ Euler       │                │
-│  │ State       │ │ Balances    │ │ Smartacc    │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
-├─────────────────────────────────────────────────────────────────┤
-│                    UI Components                                │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Wallet      │ │ Portfolio   │ │ Balances    │                │
-│  │ Connect     │ │ Display     │ │ Display     │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-└─────────────────────────────────────────────────────────────────┘
-```
+# Data Flows
 
 ### Euler Finance
 
@@ -184,116 +135,125 @@ And it has such a data flow:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### TAC Network
+### Rewards System
 
 - [Back to the top](#table-of-contents)
 
-#### Operations:
+The rewards system was unified in a refactor that introduced the `RewardCampaign` type, consolidating data from multiple reward providers into a single interface.
 
-- [SDK initialization](#sdk-initialization)
-- [Cross-chain transaction data and sending](#cross-chain-transaction-data-and-sending)
-- [TVM to EVM, EVM to TVM addresses mapping](#tvm-to-evm-evm-to-tvm-addresses-mapping)
-- [Jetton addresses fetching](#jetton-addresses-fetching)
-
-#### Data flow:
+#### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    TAC Network                                  │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Smart       │ │ Cross-chain │ │ Jetton      │                │
-│  │ Accounts    │ │ Bridge      │ │ Registry    │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
+│                    Reward Providers                             │
+│  ┌─────────────┐ ┌─────────────┐                                │
+│  │ Merkl API   │ │ Brevis API  │                                │
+│  └─────────────┘ └─────────────┘                                │
+│           │               │                                     │
+│           ▼               ▼                                     │
 ├─────────────────────────────────────────────────────────────────┤
-│              TAC SDK Integration                                │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Account     │ │ Transaction │ │ Address     │                │
-│  │ Management  │ │ Operations  │ │ Mapping     │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
+│              Provider Composables                               │
+│  ┌─────────────┐ ┌─────────────┐                                │
+│  │ useMerkl    │ │ useBrevis   │                                │
+│  │ (campaigns, │ │ (campaigns, │                                │
+│  │  claiming,  │ │  ZK proofs) │                                │
+│  │  REUL locks)│ │             │                                │
+│  └─────────────┘ └─────────────┘                                │
+│           │               │                                     │
+│           ▼               ▼                                     │
 ├─────────────────────────────────────────────────────────────────┤
-│                    Application Composables                      │
-│  ┌─────────────┐ ┌───────────────┐ ┌───────────────────┐        │
-│  │ useTacSdk   │ │ useEulerOps   │ │useOperationTracker│        │
-│  │             │ │               │ │                   │        │
-│  └─────────────┘ └───────────────┘ └───────────────────┘        │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
-├─────────────────────────────────────────────────────────────────┤
-│                    State Management                             │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Smart       │ │ Operations  │ │ Transaction │                │
-│  │ Account     │ │ State       │ │ Tracking    │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
+│              Unified Reward Layer                               │
+│  ┌─────────────────────────────────────────────────┐            │
+│  │ useRewardsApy                                   │            │
+│  │ - Aggregates campaigns from all providers       │            │
+│  │ - getSupplyRewardApy(vault) → number            │            │
+│  │ - getBorrowRewardApy(vault, collateral?) → num  │            │
+│  │ - Reactive version counter for cache busting    │            │
+│  └─────────────────────────────────────────────────┘            │
+│                         │                                       │
+│                         ▼                                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                    UI Components                                │
-│  ┌─────────────┐ ┌─────────────┐                                │
-│  │ Operation   │ │ Transaction │                                │
-│  │ Forms       │ │ Tracker     │                                │
-│  └─────────────┘ └─────────────┘                                │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
+│  │ VaultItem   │ │ APY Modals  │ │ Portfolio   │                │
+│  │ (reward     │ │ (breakdown) │ │ Rewards     │                │
+│  │  badges)    │ │             │ │ Page        │                │
+│  └─────────────┘ └─────────────┘ └─────────────┘                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Merkl Rewards
+#### RewardCampaign Type
+
+All reward data is normalized into the `RewardCampaign` interface (`entities/reward-campaign.ts`):
+
+```typescript
+interface RewardCampaign {
+  vault: string                     // Vault address
+  collateral?: string               // For borrow-collateral campaigns
+  type: RewardCampaignType          // 'euler_lend' | 'euler_borrow' | 'euler_borrow_collateral'
+  apr: number                       // Annual percentage rate
+  provider: 'merkl' | 'brevis'     // Which provider sourced this campaign
+  endTimestamp: number              // Campaign expiry
+  rewardToken?: { symbol: string; icon: string }
+}
+```
+
+#### Provider Details
+
+- **useMerkl** — Fetches campaigns from the Merkl API, maps `subType` indices (0 = lend, 1 = borrow, 2 = borrow-collateral) to `RewardCampaignType`. Also handles user reward balances, claiming, and REUL lock management.
+- **useBrevis** — Fetches ZK-proof reward campaigns from the Brevis backend, normalizes them to `RewardCampaign`.
+
+#### Consuming Rewards in UI
+
+```typescript
+const { getSupplyRewardApy, getBorrowRewardApy, hasSupplyRewards } = useRewardsApy()
+
+// Get total supply reward APY across all providers for a vault
+const rewardApy = getSupplyRewardApy(vault.address)
+
+// Get borrow reward APY (optionally filtered by collateral)
+const borrowReward = getBorrowRewardApy(borrowVault.address, collateral.address)
+```
+
+### Intrinsic APY
 
 - [Back to the top](#table-of-contents)
 
-#### Operations:
+The `useIntrinsicApy` composable (`composables/useIntrinsicApy.ts`) provides yield-bearing asset APY data from DeFi Llama, enabling display of the underlying yield for assets like stETH or sDAI.
 
-- [Merkl Initialization](#merkl-initialization)
-- [Reward opportunities and campaigns](#reward-opportunities-and-campaigns)
-- [User reward balances](#user-reward-balances)
-- [Reward claiming](#reward-claiming)
-- [REUL lock mechanisms and unlock schedules, unlocking](#reul-lock-mechanisms-and-unlock-schedules-unlocking)
+#### How It Works
 
-#### Data flow:
+1. Fetches all yield pools from the DeFi Llama yields API
+2. Matches pools against configured `intrinsicApySources` (defined in `entities/custom.ts`) by symbol and project
+3. Picks the best pool for the current chain (by TVL)
+4. Applies a compounding formula when adding intrinsic APY to vault APY:
+   ```
+   effectiveAPY = baseAPY + (1 + baseAPY / 100) * intrinsicAPY
+   ```
 
+#### Key API
+
+```typescript
+const { getIntrinsicApy, withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
+
+// Raw intrinsic APY for an asset symbol
+const stethApy = getIntrinsicApy('stETH')  // e.g. 3.2 (percent)
+
+// Combined APY with compounding
+const effectiveSupply = withIntrinsicSupplyApy(vaultSupplyApy, 'stETH')
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Merkl Rewards Endpoints                      │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Reward      │ │ User        │ │ REUL        │                │
-│  │ Campaigns   │ │ Rewards     │ │ Locks       │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
-├─────────────────────────────────────────────────────────────────┤
-│              Merkl API Integration                              │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Campaign    │ │ Rewards     │ │ Unlock      │                │
-│  │ Fetching    │ │ Fetching    │ │ Schedule    │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
-├─────────────────────────────────────────────────────────────────┤
-│                    Application Composables                      │
-│  ┌─────────────┐                                                │
-│  │ useMerkl    │                                                │
-│  │             │                                                │
-│  └─────────────┘                                                │
-│           │                                                     │
-│           ▼                                                     │
-├─────────────────────────────────────────────────────────────────┤
-│                    State Management                             │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Rewards     │ │ User        │ │ Unlock      │                │
-│  │ State       │ │ Rewards     │ │ State       │                │
-│  └─────────────┘ └─────────────┘ └─────────────┘                │
-│           │               │               │                     │
-│           ▼               ▼               ▼                     │
-├─────────────────────────────────────────────────────────────────┤
-│                    UI Components                                │
-│  ┌─────────────┐ ┌─────────────┐                                │
-│  │ Portfolio   │ │ Portfoli    │                                │
-│  │ Rewards     │ │ Unlock      │                                │
-│  └─────────────┘ └─────────────┘                                │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+### Chain Switching
+
+- [Back to the top](#table-of-contents)
+
+When the user switches chains, `useVaults` resets all vault state and prevents stale data from the previous chain from being displayed:
+
+1. `chainId` watcher in `app.vue` calls `resetVaultsState()` and `resetBalances()`
+2. Labels are reloaded first, then `loadVaults()` runs
+3. Before setting vault data, `useVaults` checks that `chainId` hasn't changed since the fetch began — if it has, the stale result is discarded
+
+> **Note:** The Merkl rewards section below is from the original codebase. The current app uses a unified rewards system — see [Rewards System](#rewards-system) above.
 
 ### Goldsky Subgraph
 
@@ -347,9 +307,11 @@ And it has such a data flow:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-# Operations
+# Legacy Operations (TON/TAC)
 
-## TON Blockchain
+> **Warning:** The operations below reference the removed TON/TAC integration. They are preserved for historical reference only. The current app uses Wagmi/Reown for wallet connection and direct EVM calls via `useEulerOperations`. See [Transaction Building](./transaction-building.md) for the current architecture.
+
+## TON Blockchain (removed)
 
 ### Wallet connect/disconnect
 

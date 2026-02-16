@@ -59,9 +59,22 @@ The styling system follows a modular approach:
 ```
 components/
 ├── base/                                            # Base/primitive components
-├── entities/                                        #
+├── entities/                                        # Domain-specific components
+│   ├── portfolio/                                   # Portfolio display items
+│   └── vault/                                       # Vault-related components
+│       ├── discovery/                               # Explore page components
+│       │   └── DiscoveryMarketAccordion.vue         # Market group accordion for explore
+│       ├── form/                                    # Form and summary components
+│       │   ├── SummaryPriceValue.vue                # Price + USD value summary row
+│       │   ├── SummaryRow.vue                       # Generic label + value row
+│       │   ├── SummaryValue.vue                     # Formatted value display
+│       │   └── VaultFormInfoBlock.vue               # Info block wrapper
+│       └── overview/                                # Vault detail overview components
 ├── layout/                                          # Layout and navigation components
 └── ui/                                              # UI kit
+    ├── modals/
+    │   └── UiCustomFilterModal.vue                  # Custom metric filter creation modal
+    └── UiCustomFilterChips.vue                      # Active filter chips display
 ```
 
 ### Component Organization Principles
@@ -76,8 +89,9 @@ components/
 ```
 composables/
 ├── useAddressScreen.ts            # Address screening (compliance)
-├── useBrevis.ts                   # Brevis ZK proof integration
+├── useBrevis.ts                   # Brevis ZK proof rewards integration
 ├── useChainConfig.ts              # Dynamic chain derivation from RPC_URL_HTTP_* env vars
+├── useCustomFilters.ts            # Generic custom metric filter system (gt/lt)
 ├── useDeployConfig.ts             # Branding, social links, feature flags (from runtimeConfig)
 ├── useEnvConfig.ts                # Runtime env config (API URLs, Pyth, Reown)
 ├── useEulerAccount.ts             # Euler account and portfolio positions
@@ -86,11 +100,13 @@ composables/
 ├── useEulerLabels.ts              # Euler labels and metadata
 ├── useEulerOperations.ts          # Euler protocol operations (supply, borrow, etc.)
 ├── useEstimateFees.ts             # Transaction fee estimation
-├── useIntrinsicApy.ts             # Intrinsic APY calculations
-├── useMerkl.ts                    # Merkl rewards system
+├── useIntrinsicApy.ts             # Intrinsic APY (DeFi Llama yield data, compounding formula)
+├── useMarketGroups.ts             # Market grouping algorithm for explore page
+├── useMerkl.ts                    # Merkl rewards campaign fetching
 ├── useMultiplyCollateralOptions.ts # Multiply collateral selection
 ├── usePriceBackend.ts             # Backend price service client
 ├── useREULLocks.ts                # REUL token lock management
+├── useRewardsApy.ts               # Unified reward APY aggregation (Merkl + Brevis)
 ├── useSlippage.ts                 # Swap slippage settings
 ├── useSwapApi.ts                  # Swap API integration
 ├── useSwapCollateralOptions.ts    # Swap collateral selection
@@ -124,6 +140,8 @@ entities/
 ├── custom.ts                # Theme hue and intrinsic APY data sources
 ├── evc-error-signatures.ts  # EVC error signature decoding
 ├── euler/                   # Euler Finance specific entities
+├── lend-discovery.ts        # Market group and curator group types (explore page)
+├── reward-campaign.ts       # Unified RewardCampaign type (Merkl + Brevis)
 │   ├── abis.ts              # Smart contract ABIs
 │   └── labels.ts            # Euler labels and metadata types
 ├── menu.ts                  # Navigation menu configuration
@@ -142,8 +160,8 @@ entities/
 ### Entity Organization
 
 - **Core Entities**: Fundamental data models used throughout the application
-- **Protocol Entities**: Specific to blockchain protocols (Euler, TON)
-- **Integration Entities**: Models for external service integrations
+- **Protocol Entities**: Specific to blockchain protocols (Euler, EVM)
+- **Integration Entities**: Models for external service integrations (rewards, oracles)
 
 ## 📄 Pages Directory
 
@@ -158,6 +176,8 @@ pages/
 │   └── [vault]/             # Dynamic route for earn vault
 │       ├── index.vue        # Earn vault overview
 │       └── withdraw.vue     # Earn withdrawal
+├── explore/                 # Market discovery
+│   └── index.vue            # Explore page (grouped market view)
 ├── index.vue                # Landing page (lend)
 ├── lend/                    # Lend functionality
 │   └── [vault]/             # Dynamic route for specific vault

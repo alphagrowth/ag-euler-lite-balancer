@@ -520,12 +520,24 @@ const usesUtilsLensPricing = (vault): boolean => {
 7. **Empty vault handling** - ERC-4626 empty vaults (totalAssets=0, totalShares=0) use 1:1 share-to-asset ratio per standard
 8. **Zero is valid** - A price of 0n is valid (very small value due to precision), only `undefined`/`null` or `queryFailure` indicate missing prices
 
+## Intrinsic APY
+
+The `useIntrinsicApy` composable adds yield-bearing asset APY (e.g., stETH staking yield, sDAI DSR) on top of vault supply/borrow APY. This is separate from the oracle-based pricing system but affects displayed APY values.
+
+- **Data source**: DeFi Llama yields API (`/pools`)
+- **Configuration**: Asset-to-project mappings in `entities/custom.ts` (`intrinsicApySources`)
+- **Compounding formula**: `effectiveAPY = baseAPY + (1 + baseAPY / 100) * intrinsicAPY`
+- **Chain awareness**: Picks the best pool matching the current chain by TVL
+
+See [Data Flow & Integration — Intrinsic APY](./data-flow-and-integrations.md#intrinsic-apy) for more details.
+
 ## Files
 
 - `services/pricing/priceProvider.ts` - Core pricing functions (Layers 1-3)
 - `entities/vault.ts` - Vault fetching with Pyth simulation support
 - `entities/oracle.ts` - Oracle decoding and Pyth feed collection (EulerRouter, CrossAdapter, PythOracle)
 - `composables/useEulerAccount.ts` - Portfolio/account loading with Pyth simulation for borrow positions
+- `composables/useIntrinsicApy.ts` - Intrinsic APY from DeFi Llama (yield-bearing assets)
 - `pages/borrow/[collateral]/[borrow]/index.vue` - Borrow page Pyth refresh logic
 - `pages/lend/[vault]/index.vue` - Lend page Pyth refresh logic
 - `utils/pyth.ts` - Pyth-specific utilities (Hermes API, batch building, `executeLensWithPythSimulation()`)
