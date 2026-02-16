@@ -15,8 +15,9 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { VaultSupplyApyModal } from '#components'
 
 const { isConnected } = useAccount();
-const { vault, marketLabel } = defineProps<{ vault: Vault, marketLabel?: string }>();
-const product = useEulerProductOfVault(vault.address);
+const { vault } = defineProps<{ vault: Vault }>();
+const vaultAddress = computed(() => vault.address);
+const product = useEulerProductOfVault(vaultAddress);
 const { enableEntityBranding } = useDeployConfig();
 const { isVaultGovernorVerified } = useVaults();
 const entities = useEulerEntitiesOfVault(vault);
@@ -32,7 +33,11 @@ const entityLogos = computed(() => {
   if (!entityName.value || entities.length === 0) return []
   return entities.map((e) => getEulerLabelEntityLogo(e.logo))
 });
-const displayName = computed(() => marketLabel || product.name || vault.name);
+const isEscrow = computed(() => vault.vaultCategory === 'escrow');
+const displayName = computed(() => {
+  if (isEscrow.value) return 'Escrowed collateral'
+  return product.name || vault.name
+});
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
 const { withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy();
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy();

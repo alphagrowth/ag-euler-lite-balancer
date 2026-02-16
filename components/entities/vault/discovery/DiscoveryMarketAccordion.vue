@@ -1126,7 +1126,6 @@ onMounted(() => {
                 v-for="vault in market.vaults.filter(isVaultType)"
                 :key="getVaultAddress(vault)"
                 :vault="vault"
-                :market-label="market.name"
               />
             </div>
           </div>
@@ -1487,10 +1486,10 @@ onMounted(() => {
                 <!-- Header selection: lend card + multiple borrow pairs -->
                 <template v-if="selectedMatrixHeader?.marketId === market.id">
                   <div class="flex flex-col gap-12">
-                    <template v-for="vault in [getMatrixHeaderVault(market)]" :key="'header-lend-' + market.id">
+                    <template v-for="vault in [getMatrixHeaderVault(market)]" :key="'header-lend-' + vault?.address">
                       <template v-if="vault">
                         <h4 class="text-p3 font-medium text-content-secondary">Lend</h4>
-                        <VaultItem :vault="vault" :market-label="market.name" />
+                        <VaultItem :vault="vault" />
                       </template>
                     </template>
 
@@ -1506,10 +1505,10 @@ onMounted(() => {
                 <!-- Cell selection: single lend + single borrow card -->
                 <template v-else>
                   <div class="flex flex-col gap-12">
-                    <template v-for="lendVault in [getSelectedLendVault(market)]" :key="'lend-' + market.id">
+                    <template v-for="lendVault in [getSelectedLendVault(market)]" :key="'lend-' + lendVault?.address">
                       <template v-if="lendVault">
                         <h4 class="text-p3 font-medium text-content-secondary">Lend</h4>
-                        <VaultItem :vault="lendVault" :market-label="market.name" />
+                        <VaultItem :vault="lendVault" />
                       </template>
                     </template>
 
@@ -1527,10 +1526,10 @@ onMounted(() => {
               <template v-else>
                 <div class="flex flex-col gap-12">
                   <!-- Lend card for selected node -->
-                  <template v-for="vault in [getGraphSelectedVault(market)]" :key="'graph-lend-' + market.id">
+                  <template v-for="vault in [getGraphSelectedVault(market)]" :key="'graph-lend-' + vault?.address">
                     <template v-if="vault">
                       <h4 class="text-p3 font-medium text-content-secondary">Lend</h4>
-                      <VaultItem :vault="vault" :market-label="market.name" />
+                      <VaultItem :vault="vault" />
                     </template>
                   </template>
 
