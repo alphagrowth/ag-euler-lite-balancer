@@ -2528,6 +2528,395 @@ export const useEulerOperations = () => {
     }
   }
 
+  /**
+   * Repay debt using savings from a different sub-account (same underlying asset, partial).
+   * Withdraws from the savings vault on savingsSubAccount, skims into borrow vault on borrowSubAccount,
+   * then burns shares to repay debt.
+   */
+  const buildSavingsRepayPlan = async ({
+    savingsVaultAddress,
+    borrowVaultAddress,
+    amount,
+    savingsSubAccount,
+    borrowSubAccount,
+    enabledCollaterals,
+  }: {
+    savingsVaultAddress: string
+    borrowVaultAddress: string
+    amount: bigint
+    savingsSubAccount: string
+    borrowSubAccount: string
+    enabledCollaterals?: string[]
+  }): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const savingsVaultAddr = savingsVaultAddress as Address
+    const borrowVaultAddr = borrowVaultAddress as Address
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const savingsSubAccountAddr = savingsSubAccount as Address
+    const borrowSubAccountAddr = borrowSubAccount as Address
+
+    const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
+
+    const hooks = new SaHooksBuilder()
+    hooks.addContractInterface(savingsVaultAddr, vaultWithdrawAbi)
+    hooks.addContractInterface(borrowVaultAddr, [...vaultSkimAbi, ...vaultRepayWithSharesAbi])
+    if (!hasSigned && enableTermsOfUseSignature) {
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
+    }
+
+    const evcCalls: EVCCall[] = []
+
+    // Pyth updates for borrow sub-account health check
+    const effectiveCollaterals = resolveEffectiveCollaterals(enabledCollaterals)
+    const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(borrowVaultAddress, effectiveCollaterals, userAddr)
+    if (pythCalls.length) {
+      evcCalls.push(...pythCalls as EVCCall[])
+    }
+
+    // TOS signing
+    if (!hasSigned && enableTermsOfUseSignature) {
+      evcCalls.push({
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
+      })
+    }
+
+    // 1. Withdraw from savings vault, send underlying to borrow vault
+    evcCalls.push({
+      targetContract: savingsVaultAddr,
+      onBehalfOfAccount: savingsSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(savingsVaultAddr, 'withdraw', [amount, borrowVaultAddr, savingsSubAccountAddr]) as Hash,
+    })
+
+    // 2. Skim on borrow vault (converts tokens to shares for borrowSubAccount)
+    evcCalls.push({
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: borrowSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'skim', [amount, borrowSubAccountAddr]) as Hash,
+    })
+
+    // 3. Burn shares to repay debt
+    evcCalls.push({
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: borrowSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'repayWithShares', [amount, borrowSubAccountAddr]) as Hash,
+    })
+
+    const totalValue = sumCallValues(evcCalls)
+
+    return {
+      kind: 'savings-repay',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Repay with savings via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls as never],
+          value: totalValue,
+        },
+      ],
+    }
+  }
+
+  /**
+   * Full repay using savings from a different sub-account (same underlying asset).
+   * Withdraws from savings, repays all debt, disables controller + collateral,
+   * returns excess to savings vault, and transfers all positions back to main account.
+   */
+  const buildSavingsFullRepayPlan = async ({
+    savingsVaultAddress,
+    borrowVaultAddress,
+    amount,
+    savingsSubAccount,
+    borrowSubAccount,
+    enabledCollaterals,
+  }: {
+    savingsVaultAddress: string
+    borrowVaultAddress: string
+    amount: bigint
+    savingsSubAccount: string
+    borrowSubAccount: string
+    enabledCollaterals?: string[]
+  }): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const savingsVaultAddr = savingsVaultAddress as Address
+    const borrowVaultAddr = borrowVaultAddress as Address
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const savingsSubAccountAddr = savingsSubAccount as Address
+    const borrowSubAccountAddr = borrowSubAccount as Address
+
+    const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
+
+    // Pre-flight: read pre-existing deposit in borrow vault
+    let preExistingBorrowDeposit = 0n
+    try {
+      const balanceOfResult = await rpcProvider.readContract({
+        address: borrowVaultAddr,
+        abi: erc20BalanceOfAbi,
+        functionName: 'balanceOf',
+        args: [borrowSubAccountAddr],
+      }) as bigint
+      if (balanceOfResult > 0n) {
+        const assetsResult = await rpcProvider.readContract({
+          address: borrowVaultAddr,
+          abi: vaultConvertToAssetsAbi,
+          functionName: 'convertToAssets',
+          args: [balanceOfResult],
+        }) as bigint
+        preExistingBorrowDeposit = assetsResult
+      }
+    }
+    catch (err) {
+      console.warn('[buildSavingsFullRepayPlan] failed to read pre-existing deposit', err)
+    }
+
+    const hooks = new SaHooksBuilder()
+    hooks.addContractInterface(savingsVaultAddr, [...vaultWithdrawAbi, ...vaultSkimAbi, ...vaultTransferFromMaxAbi])
+    hooks.addContractInterface(borrowVaultAddr, [...vaultSkimAbi, ...vaultRepayWithSharesAbi, ...evcDisableControllerAbi, ...vaultRedeemAbi])
+    hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
+    if (!hasSigned && enableTermsOfUseSignature) {
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
+    }
+
+    // Register collateral vault ABIs for transferFromMax
+    const collateralAddresses = enabledCollaterals || []
+    for (const collateralAddr of collateralAddresses) {
+      hooks.addContractInterface(collateralAddr as Address, vaultTransferFromMaxAbi)
+    }
+
+    const evcCalls: EVCCall[] = []
+
+    // No Pyth updates needed — batch ends with disableController (no health check)
+
+    // TOS signing
+    if (!hasSigned && enableTermsOfUseSignature) {
+      evcCalls.push({
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
+      })
+    }
+
+    // 1. Withdraw from savings vault (slightly more than debt for interest)
+    const adjustedAmount = adjustForInterest(amount)
+    evcCalls.push({
+      targetContract: savingsVaultAddr,
+      onBehalfOfAccount: savingsSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(savingsVaultAddr, 'withdraw', [adjustedAmount, borrowVaultAddr, savingsSubAccountAddr]) as Hash,
+    })
+
+    // 2. Skim on borrow vault (convert tokens to shares)
+    evcCalls.push({
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: borrowSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'skim', [adjustedAmount, borrowSubAccountAddr]) as Hash,
+    })
+
+    // 3. Repay ALL debt with shares
+    evcCalls.push({
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: borrowSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'repayWithShares', [maxUint256, borrowSubAccountAddr]) as Hash,
+    })
+
+    // 4. Disable controller (no more debt)
+    evcCalls.push({
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: borrowSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'disableController', []) as Hash,
+    })
+
+    // 5. Disable collateral (safe after disableController — no health check)
+    for (const collateralAddr of collateralAddresses) {
+      evcCalls.push({
+        targetContract: evcAddress,
+        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+        value: 0n,
+        data: hooks.getDataForCall(evcAddress, 'disableCollateral', [borrowSubAccountAddr, collateralAddr as Address]) as Hash,
+      })
+    }
+
+    // 6. Redeem ALL remaining shares from borrow vault, send tokens to savings vault
+    evcCalls.push({
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: borrowSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'redeem', [maxUint256, savingsVaultAddr, borrowSubAccountAddr]) as Hash,
+    })
+
+    // 7. Skim on savings vault (re-deposit returned tokens)
+    evcCalls.push({
+      targetContract: savingsVaultAddr,
+      onBehalfOfAccount: savingsSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(savingsVaultAddr, 'skim', [preExistingBorrowDeposit, savingsSubAccountAddr]) as Hash,
+    })
+
+    // 8. Transfer collateral shares from borrow sub-account to main account
+    const isMainAccount = borrowSubAccountAddr.toLowerCase() === userAddr.toLowerCase()
+    if (!isMainAccount) {
+      for (const collateralAddr of collateralAddresses) {
+        evcCalls.push({
+          targetContract: collateralAddr as Address,
+          onBehalfOfAccount: borrowSubAccountAddr,
+          value: 0n,
+          data: hooks.getDataForCall(collateralAddr as Address, 'transferFromMax', [borrowSubAccountAddr, userAddr]) as Hash,
+        })
+      }
+    }
+
+    // 9. Transfer remaining savings shares to main account
+    const isSavingsMainAccount = savingsSubAccountAddr.toLowerCase() === userAddr.toLowerCase()
+    if (!isSavingsMainAccount) {
+      evcCalls.push({
+        targetContract: savingsVaultAddr,
+        onBehalfOfAccount: savingsSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(savingsVaultAddr, 'transferFromMax', [savingsSubAccountAddr, userAddr]) as Hash,
+      })
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
+    return {
+      kind: 'savings-full-repay',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Full repay with savings via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls as never],
+          value: totalValue,
+        },
+      ],
+    }
+  }
+
+  /**
+   * Full repay using a cross-asset swap from savings.
+   * Builds the swap EVC calls (which handle withdraw from savingsSubAccount via quote.accountIn),
+   * then appends position cleanup: disableController, disableCollateral, transferFromMax for each collateral.
+   */
+  const buildSwapSavingsFullRepayPlan = async ({
+    quote,
+    swapperMode = SwapperMode.EXACT_IN,
+    targetDebt = 0n,
+    currentDebt = 0n,
+    liabilityVault,
+    enabledCollaterals,
+  }: {
+    quote: SwapApiQuote
+    swapperMode?: SwapperMode
+    targetDebt?: bigint
+    currentDebt?: bigint
+    liabilityVault?: string
+    enabledCollaterals?: string[]
+  }): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const borrowSubAccountAddr = quote.accountOut as Address
+
+    // Build the swap calls (withdraw from savings sub-account, swap, verify debt reduction)
+    const { evcCalls, totalValue: swapValue } = await buildSwapEvcCalls({
+      quote,
+      swapperMode,
+      isRepay: true,
+      targetDebt,
+      currentDebt,
+      liabilityVault,
+      enabledCollaterals,
+    })
+
+    // Append position cleanup calls
+    const hooks = new SaHooksBuilder()
+    const borrowVaultAddr = quote.receiver as Address
+    hooks.addContractInterface(borrowVaultAddr, evcDisableControllerAbi)
+    hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
+
+    const collateralAddresses = enabledCollaterals || []
+    for (const collateralAddr of collateralAddresses) {
+      hooks.addContractInterface(collateralAddr as Address, vaultTransferFromMaxAbi)
+    }
+
+    // Disable controller (debt is fully repaid)
+    evcCalls.push({
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: borrowSubAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'disableController', []) as Hash,
+    })
+
+    // Disable collateral
+    for (const collateralAddr of collateralAddresses) {
+      evcCalls.push({
+        targetContract: evcAddress,
+        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+        value: 0n,
+        data: hooks.getDataForCall(evcAddress, 'disableCollateral', [borrowSubAccountAddr, collateralAddr as Address]) as Hash,
+      })
+    }
+
+    // Transfer collateral shares to main account
+    const isMainAccount = borrowSubAccountAddr.toLowerCase() === userAddr.toLowerCase()
+    if (!isMainAccount) {
+      for (const collateralAddr of collateralAddresses) {
+        evcCalls.push({
+          targetContract: collateralAddr as Address,
+          onBehalfOfAccount: borrowSubAccountAddr,
+          value: 0n,
+          data: hooks.getDataForCall(collateralAddr as Address, 'transferFromMax', [borrowSubAccountAddr, userAddr]) as Hash,
+        })
+      }
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
+    return {
+      kind: 'swap-savings-full-repay',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Full repay with savings swap via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls as never],
+          value: totalValue,
+        },
+      ],
+    }
+  }
+
   return {
     executeTxPlan,
     simulateTxPlan,
@@ -2546,5 +2935,8 @@ export const useEulerOperations = () => {
     buildSameAssetFullRepayPlan,
     buildSameAssetDebtSwapPlan,
     buildDisableCollateralPlan,
+    buildSavingsRepayPlan,
+    buildSavingsFullRepayPlan,
+    buildSwapSavingsFullRepayPlan,
   }
 }
