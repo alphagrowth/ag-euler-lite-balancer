@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import type { AccountDepositPosition } from '~/entities/account'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 
 const { isConnected } = useAccount()
 const { depositPositions, isDepositsLoaded } = useEulerAccount()
@@ -8,6 +10,29 @@ const { isEarnVault } = useVaultRegistry()
 
 const earnItems = computed(() => depositPositions.value.filter(p => isEarnVault(p.vault.address)))
 const lendItems = computed(() => depositPositions.value.filter(p => !isEarnVault(p.vault.address)))
+
+const sortByUsdValue = async (positions: AccountDepositPosition[]): Promise<AccountDepositPosition[]> => {
+  if (positions.length <= 1) return positions
+  const withValues = await Promise.all(
+    positions.map(async (p) => ({
+      position: p,
+      usdValue: await getAssetUsdValueOrZero(p.assets, p.vault, 'off-chain'),
+    })),
+  )
+  return withValues
+    .sort((a, b) => b.usdValue - a.usdValue)
+    .map(item => item.position)
+}
+
+const sortedEarnItems = ref<AccountDepositPosition[]>([])
+const sortedLendItems = ref<AccountDepositPosition[]>([])
+
+watchEffect(async () => {
+  sortedEarnItems.value = await sortByUsdValue(earnItems.value)
+})
+watchEffect(async () => {
+  sortedLendItems.value = await sortByUsdValue(lendItems.value)
+})
 </script>
 
 <template>
@@ -48,7 +73,7 @@ const lendItems = computed(() => depositPositions.value.filter(p => !isEarnVault
         class="flex-1"
       >
         <PortfolioList
-          :items="earnItems"
+          :items="sortedEarnItems"
           type="earn"
         />
         <div
@@ -96,7 +121,7 @@ const lendItems = computed(() => depositPositions.value.filter(p => !isEarnVault
         class="flex-1"
       >
         <PortfolioList
-          :items="lendItems"
+          :items="sortedLendItems"
           type="lend"
         />
       </div>

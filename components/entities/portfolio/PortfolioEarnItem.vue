@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
-import type { AccountDepositPosition } from '~/entities/account'
+import { type AccountDepositPosition, getSubAccountIndex } from '~/entities/account'
 import type { EarnVault } from '~/entities/vault'
 import { VaultOverviewModal, VaultSupplyApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -11,6 +12,14 @@ import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 
 const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()
+
+const { address } = useAccount()
+const { portfolioAddress } = useEulerAccount()
+const ownerAddress = computed(() => portfolioAddress.value || address.value || '')
+const subAccountIndex = computed(() => {
+  if (!ownerAddress.value || !position.subAccount) return 0
+  return getSubAccountIndex(ownerAddress.value, position.subAccount)
+})
 
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
 const { getIntrinsicApy } = useIntrinsicApy()
@@ -186,7 +195,7 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="{ path: `/earn/${vault.address}/withdraw`, query: { subAccount: position.subAccount } }"
+            :to="`/earn/${vault.address}/${subAccountIndex}/withdraw`"
             rounded
           >
             Withdraw

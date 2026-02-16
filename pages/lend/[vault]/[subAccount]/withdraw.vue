@@ -13,6 +13,7 @@ import {
   type SecuritizeVault,
   type VaultAsset,
 } from '~/entities/vault'
+import { getSubAccountAddress } from '~/entities/account'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
@@ -33,7 +34,11 @@ const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimula
 const { getSupplyRewardApy } = useRewardsApy()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const vaultAddress = route.params.vault as string
-const subAccount = route.query.subAccount as string | undefined
+const subAccountIndex = Number(route.params.subAccount)
+const subAccount = computed(() => {
+  if (!address.value || isNaN(subAccountIndex)) return undefined
+  return getSubAccountAddress(address.value, subAccountIndex)
+})
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -129,7 +134,7 @@ const fetchShareBalance = async () => {
     sharesBalance.value = 0n
     return
   }
-  sharesBalance.value = await fetchVaultShareBalance(vault.value.address, subAccount)
+  sharesBalance.value = await fetchVaultShareBalance(vault.value.address, subAccount.value)
 }
 const updateBalance = async () => {
   if (!isConnected.value || sharesBalance.value === 0n) {
@@ -155,8 +160,8 @@ const submit = async () => {
 
     try {
       plan.value = isMax
-        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount)
-        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount)
+        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
+        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
     }
     catch (e) {
       console.warn('[OperationReviewModal] failed to build plan', e)
@@ -195,8 +200,8 @@ const send = async () => {
 
     const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
     const txPlan = isMax
-      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount)
-      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount)
+      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
+      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
     await executeTxPlan(txPlan)
 
     modal.close()

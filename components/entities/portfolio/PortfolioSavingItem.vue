@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAccount } from '@wagmi/vue'
 import { type Vault } from '~/entities/vault'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
@@ -6,12 +7,20 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { formatNumber, compactNumber, formatCompactUsdValue, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
-import type { AccountDepositPosition } from '~/entities/account'
+import { type AccountDepositPosition, getSubAccountIndex } from '~/entities/account'
 import { VaultOverviewModal, VaultSupplyApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
 const { position } = defineProps<{ position: AccountDepositPosition }>()
 const modal = useModal()
+
+const { address } = useAccount()
+const { portfolioAddress } = useEulerAccount()
+const ownerAddress = computed(() => portfolioAddress.value || address.value || '')
+const subAccountIndex = computed(() => {
+  if (!ownerAddress.value || !position.subAccount) return 0
+  return getSubAccountIndex(ownerAddress.value, position.subAccount)
+})
 
 const { withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
@@ -199,14 +208,14 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="{ path: `/lend/${vault.address}/withdraw`, query: { subAccount: position.subAccount } }"
+            :to="`/lend/${vault.address}/${subAccountIndex}/withdraw`"
             rounded
           >
             Withdraw
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="isGeoBlocked ? undefined : { path: `/lend/${vault.address}/swap`, query: { subAccount: position.subAccount } }"
+            :to="isGeoBlocked ? undefined : `/lend/${vault.address}/${subAccountIndex}/swap`"
             :disabled="isGeoBlocked"
             rounded
           >
@@ -316,14 +325,14 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="{ path: `/lend/${vault.address}/withdraw`, query: { subAccount: position.subAccount } }"
+            :to="`/lend/${vault.address}/${subAccountIndex}/withdraw`"
             rounded
           >
             Withdraw
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="isGeoBlocked ? undefined : { path: `/lend/${vault.address}/swap`, query: { subAccount: position.subAccount } }"
+            :to="isGeoBlocked ? undefined : `/lend/${vault.address}/${subAccountIndex}/swap`"
             :disabled="isGeoBlocked"
             rounded
           >

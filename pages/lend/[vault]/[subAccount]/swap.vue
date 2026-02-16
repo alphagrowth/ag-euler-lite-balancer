@@ -4,6 +4,7 @@ import { getAddress, formatUnits, isAddress, zeroAddress, type Address } from 'v
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { type Vault, type SecuritizeVault, isSecuritizeVault, fetchSecuritizeVault } from '~/entities/vault'
+import { getSubAccountAddress } from '~/entities/account'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isVaultBlockedByCountry, getVaultTags } from '~/composables/useGeoBlock'
@@ -38,6 +39,12 @@ const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimula
 const openSlippageSettings = () => {
   modal.open(SlippageSettingsModal)
 }
+
+const subAccountIndex = Number(route.params.subAccount)
+const subAccount = computed(() => {
+  if (!address.value || isNaN(subAccountIndex)) return undefined
+  return getSubAccountAddress(address.value, subAccountIndex)
+})
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -74,6 +81,18 @@ const { collateralOptions, collateralVaults } = useSwapCollateralOptions({ curre
 const getVaultAddress = () => route.params.vault as string
 const getTargetAddress = () => (typeof route.query.to === 'string' ? route.query.to : '')
 
+const normalizeAddress = (addr?: string) => {
+  if (!addr) {
+    return ''
+  }
+  try {
+    return getAddress(addr)
+  }
+  catch {
+    return ''
+  }
+}
+
 const loadVaults = async () => {
   isLoading.value = true
   try {
@@ -109,18 +128,6 @@ await loadVaults()
 watch([() => route.params.vault, () => route.query.to], () => {
   loadVaults()
 })
-
-const normalizeAddress = (address?: string) => {
-  if (!address) {
-    return ''
-  }
-  try {
-    return getAddress(address)
-  }
-  catch {
-    return ''
-  }
-}
 
 const syncToVault = () => {
   if (!fromVault.value) {
@@ -186,7 +193,10 @@ const savingPosition = computed(() => {
   if (!currentAddress) {
     return null
   }
-  return depositPositions.value.find(position => normalizeAddress(position.vault.address) === currentAddress) || null
+  return depositPositions.value.find(position =>
+    normalizeAddress(position.vault.address) === currentAddress
+    && (!subAccount.value || normalizeAddress(position.subAccount) === normalizeAddress(subAccount.value)),
+  ) || null
 })
 
 const balance = computed(() => {

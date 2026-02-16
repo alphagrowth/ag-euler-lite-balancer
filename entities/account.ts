@@ -77,6 +77,15 @@ export const getSubAccountIndex = (ownerAddress: string, subAccountAddress: stri
   return Number(owner ^ subAccount)
 }
 
+/**
+ * Derives the full sub-account address from owner address and sub-account index.
+ * Reverse of getSubAccountIndex: address = ownerAddress XOR index
+ */
+export const getSubAccountAddress = (ownerAddress: string, index: number): string => {
+  const owner = BigInt(getAddress(ownerAddress))
+  return getAddress(pad(toHex(owner ^ BigInt(index), { size: 20 }), { size: 20 }))
+}
+
 export const getNewSubAccount = async (ownerAddress: string) => {
   const { SUBGRAPH_URL } = useEulerConfig()
 
