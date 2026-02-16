@@ -15,8 +15,8 @@ export const useAddressScreen = () => {
   const { disconnect } = useDisconnect()
   const router = useRouter()
 
-  const { enableEarnPage, enableLendPage } = useDeployConfig()
-  const defaultPageRoute = getDefaultPageRoute(enableEarnPage, enableLendPage)
+  const { enableEarnPage, enableLendPage, enableExplorePage } = useDeployConfig()
+  const defaultPageRoute = getDefaultPageRoute(enableEarnPage, enableLendPage, enableExplorePage)
   const blockedAddress = ref<string | null>(null)
   const isScreening = ref(false)
 

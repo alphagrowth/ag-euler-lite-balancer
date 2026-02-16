@@ -6,8 +6,8 @@ import { getDefaultPageRoute } from '~/entities/menu'
 const { isConnected } = useAccount()
 
 const { open } = useAppKit()
-const { appTitle, appDescription, enableEarnPage, enableLendPage } = useDeployConfig()
-const defaultPageRoute = getDefaultPageRoute(enableEarnPage, enableLendPage)
+const { appTitle, appDescription, enableEarnPage, enableLendPage, enableExplorePage } = useDeployConfig()
+const defaultPageRoute = getDefaultPageRoute(enableEarnPage, enableLendPage, enableExplorePage)
 
 const isOnboardingCompleted = useLocalStorage('is-onboarding-completed', false)
 

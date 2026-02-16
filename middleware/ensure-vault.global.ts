@@ -16,8 +16,8 @@ const parseChainId = (value: unknown): number | null => {
 }
 
 const getDefaultRoute = () => {
-  const { enableEarnPage, enableLendPage } = useDeployConfig()
-  return getDefaultPageRoute(enableEarnPage, enableLendPage)
+  const { enableEarnPage, enableLendPage, enableExplorePage } = useDeployConfig()
+  return getDefaultPageRoute(enableEarnPage, enableLendPage, enableExplorePage)
 }
 
 const scheduleVaultCheck = (vaultParam: string, path: string, expectedChainId: number | null) => {

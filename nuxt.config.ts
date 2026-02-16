@@ -113,6 +113,7 @@ export default defineNuxtConfig({
       configEnableVaultType: '',
       configEnableEarnPage: '',
       configEnableLendPage: '',
+      configEnableExplorePage: '',
       // Env config fallbacks (Doppler: NUXT_PUBLIC_*)
       // Prefer window.__APP_CONFIG__ at runtime; these are build-time fallbacks.
       appKitProjectId: '',

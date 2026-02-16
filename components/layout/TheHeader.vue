@@ -15,8 +15,8 @@ const { address, isConnected } = useAccount()
 const { chainId } = useEulerAddresses()
 const modal = useModal()
 const route = useRoute()
-const { docsUrl, tosUrl, xUrl, discordUrl, telegramUrl, githubUrl, appTitle, enableEarnPage, enableLendPage } = useDeployConfig()
-const menuItems = getMenuItems(enableEarnPage, enableLendPage)
+const { docsUrl, tosUrl, xUrl, discordUrl, telegramUrl, githubUrl, appTitle, enableEarnPage, enableLendPage, enableExplorePage } = useDeployConfig()
+const menuItems = getMenuItems(enableEarnPage, enableLendPage, enableExplorePage)
 
 const links = computed(() => [
   docsUrl ? { title: 'Docs', url: docsUrl } : null,

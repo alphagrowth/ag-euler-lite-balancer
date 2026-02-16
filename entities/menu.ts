@@ -19,6 +19,12 @@ const allMenuItems: MenuItem[] = [
     activeIcon: 'earn-filled',
   },
   {
+    name: 'explore',
+    label: 'Explore',
+    icon: 'nodes',
+    activeIcon: 'nodes',
+  },
+  {
     name: 'lend',
     label: 'Lend',
     icon: 'lend-outline',
@@ -32,18 +38,19 @@ const allMenuItems: MenuItem[] = [
   },
 ]
 
-export const getMenuItems = (enableEarnPage: boolean, enableLendPage: boolean) => {
+export const getMenuItems = (enableEarnPage: boolean, enableLendPage: boolean, enableExplorePage: boolean) => {
   return allMenuItems.filter((item) => {
-    if (item.name === 'earn' && !enableEarnPage) return false
+    if (item.name === 'explore' && !enableExplorePage) return false
     if (item.name === 'lend' && !enableLendPage) return false
+    if (item.name === 'earn' && !enableEarnPage) return false
     return true
   })
 }
 
-const preferredDefaultOrder = ['lend', 'earn', 'borrow', 'portfolio'] as const
+const preferredDefaultOrder = ['explore', 'lend', 'earn', 'borrow', 'portfolio'] as const
 
-export const getDefaultPageRoute = (enableEarnPage: boolean, enableLendPage: boolean) => {
-  const items = getMenuItems(enableEarnPage, enableLendPage)
+export const getDefaultPageRoute = (enableEarnPage: boolean, enableLendPage: boolean, enableExplorePage: boolean) => {
+  const items = getMenuItems(enableEarnPage, enableLendPage, enableExplorePage)
   return preferredDefaultOrder.find(name =>
     items.some(item => item.name === name),
   ) ?? 'portfolio'

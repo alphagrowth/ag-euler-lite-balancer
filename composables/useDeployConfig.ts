@@ -37,6 +37,7 @@ export const useDeployConfig = () => {
     enableVaultType: isEnabled(rc.configEnableVaultType),
     enableEarnPage: isEnabled(rc.configEnableEarnPage),
     enableLendPage: isEnabled(rc.configEnableLendPage),
+    enableExplorePage: isEnabled(rc.configEnableExplorePage),
 
     // Chains (derived from env vars at runtime via useChainConfig)
     ...useChainConfig(),
