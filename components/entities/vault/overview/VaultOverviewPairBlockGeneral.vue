@@ -194,7 +194,7 @@ const onMaxRoeInfoIconClick = () => {
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="isBorrowable"
-        label="Max Multiplier"
+        label="Max multiplier"
         :value="`${formatNumber(maxMultiplier, 2, 2)}x`"
       />
       <VaultOverviewLabelValue

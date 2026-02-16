@@ -24,7 +24,7 @@ import {
 import type { TxPlan } from '~/entities/txPlan'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { formatNumber, formatHealthScore } from '~/utils/string-utils'
+import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()

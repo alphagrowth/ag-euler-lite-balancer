@@ -327,7 +327,7 @@ const linkPath = computed(
         </div>
       </div>
       <div class="py-12 pb-12 text-center mobile:!hidden">
-        <div class="text-content-tertiary text-p3 mb-4">Max Multiplier</div>
+        <div class="text-content-tertiary text-p3 mb-4">Max multiplier</div>
         <div class="text-p2 text-content-primary">
           {{ formatNumber(maxMultiplier, 2, 2) }}x
         </div>
@@ -392,7 +392,7 @@ const linkPath = computed(
       </div>
       <div class="flex w-full justify-between">
         <div class="flex-1">
-          <div class="text-content-tertiary text-p3">Max Multiplier</div>
+          <div class="text-content-tertiary text-p3">Max multiplier</div>
         </div>
         <div class="flex gap-8 justify-end items-center text-right flex-1">
           <div class="text-p2 text-content-primary">

@@ -44,7 +44,7 @@ const handleClose = () => {
         <div class="flex justify-between items-center mb-16">
           <div>
             <p class="mb-4">
-              Max Multiplier
+              Max multiplier
             </p>
             <p class="text-euler-dark-900">
               Max multiplier at full LTV

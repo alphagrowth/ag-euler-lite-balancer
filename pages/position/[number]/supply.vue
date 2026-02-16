@@ -22,7 +22,7 @@ import {
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { formatNumber, formatHealthScore } from '~/utils/string-utils'
+import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()

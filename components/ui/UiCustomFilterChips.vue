@@ -2,7 +2,7 @@
 import type { CustomFilter } from '~/composables/useCustomFilters'
 
 defineProps<{
-  filters: CustomFilter[]
+  filters: readonly CustomFilter[]
   chipClass?: string
 }>()
 

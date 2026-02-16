@@ -155,7 +155,7 @@ const onBorrowInfoIconClick = () => {
         :value="`${formatNumber(maxRoe, 2, 2)}%`"
       />
       <VaultOverviewLabelValue
-        label="Max Multiplier"
+        label="Max multiplier"
         :value="`${formatNumber(maxMultiplier, 2, 2)}x`"
       />
       <VaultOverviewLabelValue

@@ -137,7 +137,7 @@ const {
     { key: 'maxRoe', label: 'Max ROE', shortLabel: 'Max ROE', unit: 'percent' },
     { key: 'utilization', label: 'Utilization', shortLabel: 'Utilization', unit: 'percent' },
     { key: 'maxLtv', label: 'Max LTV', shortLabel: 'Max LTV', unit: 'percent' },
-    { key: 'maxMultiplier', label: 'Max Multiplier', shortLabel: 'Max Multiplier', unit: 'multiplier' },
+    { key: 'maxMultiplier', label: 'Max multiplier', shortLabel: 'Max multiplier', unit: 'multiplier' },
   ],
   (pair, metric) => {
     const key = getPairKey(pair)
