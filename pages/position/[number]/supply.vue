@@ -51,6 +51,7 @@ const priceInvert = usePriceInvert(
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
 const plan = ref<TxPlan | null>(null)
@@ -234,49 +235,55 @@ const updateBalance = async () => {
   balance.value = await fetchSingleBalance(collateralVault.value.asset.address)
 }
 const submit = async () => {
-  if (isGeoBlocked.value) return
-  await guardWithTerms(async () => {
-    if (!collateralVault.value?.asset.address) {
-      return
-    }
-
-    try {
-      plan.value = await buildSupplyPlan(
-        collateralVault.value.address,
-        collateralVault.value.asset.address,
-        valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
-        position.value?.subAccount,
-        { includePermit2Call: false },
-      )
-    }
-    catch (e) {
-      console.warn('[OperationReviewModal] failed to build plan', e)
-      plan.value = null
-    }
-
-    if (plan.value) {
-      const ok = await runSimulation(plan.value)
-      if (!ok) {
+  if (isPreparing.value || isGeoBlocked.value) return
+  isPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      if (!collateralVault.value?.asset.address) {
         return
       }
-    }
 
-    modal.open(OperationReviewModal, {
-      props: {
-        type: 'supply',
-        asset: asset.value,
-        amount: amount.value,
-        plan: plan.value || undefined,
-        subAccount: position.value?.subAccount,
-        hasBorrows: (position.value?.borrowed || 0n) > 0n,
-        onConfirm: () => {
-          setTimeout(() => {
-            send()
-          }, 400)
+      try {
+        plan.value = await buildSupplyPlan(
+          collateralVault.value.address,
+          collateralVault.value.asset.address,
+          valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
+          position.value?.subAccount,
+          { includePermit2Call: false },
+        )
+      }
+      catch (e) {
+        console.warn('[OperationReviewModal] failed to build plan', e)
+        plan.value = null
+      }
+
+      if (plan.value) {
+        const ok = await runSimulation(plan.value)
+        if (!ok) {
+          return
+        }
+      }
+
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'supply',
+          asset: asset.value,
+          amount: amount.value,
+          plan: plan.value || undefined,
+          subAccount: position.value?.subAccount,
+          hasBorrows: (position.value?.borrowed || 0n) > 0n,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
+          },
         },
-      },
+      })
     })
-  })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 const send = async () => {
   try {
@@ -498,7 +505,7 @@ onUnmounted(() => {
           />
           <VaultFormSubmit
             :disabled="reviewSupplyDisabled"
-            :loading="isSubmitting"
+            :loading="isSubmitting || isPreparing"
           >
             {{ reviewSupplyLabel }}
           </VaultFormSubmit>

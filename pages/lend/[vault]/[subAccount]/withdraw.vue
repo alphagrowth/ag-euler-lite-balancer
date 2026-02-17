@@ -42,6 +42,7 @@ const subAccount = computed(() => {
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
 const plan = ref<TxPlan | null>(null)
@@ -151,44 +152,51 @@ const updateBalance = async () => {
   delta.value = assetsBalance.value
 }
 const submit = async () => {
-  await guardWithTerms(async () => {
-    if (!asset.value?.address) {
-      return
-    }
-
-    const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
-
-    try {
-      plan.value = isMax
-        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
-        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
-    }
-    catch (e) {
-      console.warn('[OperationReviewModal] failed to build plan', e)
-      plan.value = null
-    }
-
-    if (plan.value) {
-      const ok = await runSimulation(plan.value)
-      if (!ok) {
+  if (isPreparing.value) return
+  isPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      if (!asset.value?.address) {
         return
       }
-    }
 
-    modal.open(OperationReviewModal, {
-      props: {
-        type: 'withdraw',
-        asset: asset.value,
-        amount: amount.value,
-        plan: plan.value || undefined,
-        onConfirm: () => {
-          setTimeout(() => {
-            send()
-          }, 400)
+      const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+
+      try {
+        plan.value = isMax
+          ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
+          : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
+      }
+      catch (e) {
+        console.warn('[OperationReviewModal] failed to build plan', e)
+        plan.value = null
+      }
+
+      if (plan.value) {
+        const ok = await runSimulation(plan.value)
+        if (!ok) {
+          return
+        }
+      }
+
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'withdraw',
+          asset: asset.value,
+          amount: amount.value,
+          plan: plan.value || undefined,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
+          },
         },
-      },
+      })
     })
-  })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 const send = async () => {
   try {
@@ -353,7 +361,7 @@ watch(amount, async () => {
 
         <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
           <VaultFormSubmit
-            :loading="isSubmitting"
+            :loading="isSubmitting || isPreparing"
             :disabled="reviewWithdrawDisabled"
           >
             {{ reviewWithdrawLabel }}

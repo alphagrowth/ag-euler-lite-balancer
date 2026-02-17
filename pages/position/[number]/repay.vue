@@ -25,10 +25,10 @@ const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
-const { buildRepayPlan, buildFullRepayPlan, buildSwapPlan, buildSameAssetRepayPlan, buildSameAssetFullRepayPlan, buildSavingsRepayPlan, buildSavingsFullRepayPlan, buildSwapSavingsFullRepayPlan, executeTxPlan } = useEulerOperations()
+const { buildRepayPlan, buildFullRepayPlan, buildSwapPlan, buildSameAssetRepayPlan, buildSameAssetFullRepayPlan, buildSwapCollateralFullRepayPlan, buildSavingsRepayPlan, buildSavingsFullRepayPlan, buildSwapSavingsFullRepayPlan, executeTxPlan } = useEulerOperations()
 const { isConnected, address } = useAccount()
 const positionIndex = route.params.number as string
-const { isPositionsLoading, isPositionsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, isDepositsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
@@ -50,6 +50,7 @@ const swapPriceInvert = usePriceInvert(
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
 const formTab = ref<'wallet' | 'collateral' | 'savings'>('wallet')
@@ -447,6 +448,7 @@ const load = async () => {
   }
   isLoading.value = true
   await until(isPositionsLoaded).toBe(true)
+  await until(isDepositsLoaded).toBe(true)
 
   try {
     position.value = getPositionBySubAccountIndex(+positionIndex)
@@ -1304,8 +1306,19 @@ const requestSavingsQuote = useDebounceFn(async () => {
 watch([savingsEffectiveQuote, savingsSwapDirection], () => {
   if (!savingsEffectiveQuote.value || !savingsVault.value || !borrowVault.value) return
   if (savingsSwapDirection.value === SwapperMode.EXACT_IN) {
+    const amountOut = BigInt(savingsEffectiveQuote.value.amountOut || 0)
+    const currentDebt = position.value?.borrowed || 0n
+    // If savings more than covers the debt, switch to TARGET_DEBT 100% to limit
+    // the savings amount to just what's needed for the full debt
+    if (amountOut >= currentDebt && currentDebt > 0n) {
+      savingsSwapDirection.value = SwapperMode.TARGET_DEBT
+      savingsDebtPercent.value = 100
+      savingsDebtAmount.value = trimTrailingZeros(formatUnits(currentDebt, Number(borrowVault.value.asset.decimals)))
+      requestSavingsQuote()
+      return
+    }
     savingsDebtAmount.value = formatSignificant(formatUnits(
-      BigInt(savingsEffectiveQuote.value.amountOut || 0),
+      amountOut,
       Number(borrowVault.value.asset.decimals),
     ))
   }
@@ -1421,37 +1434,51 @@ const buildSavingsRepay = async (): Promise<TxPlan> => {
 }
 
 const submitSavings = async () => {
-  if (isSubmitting.value || !position.value || !borrowVault.value || !savingsVault.value) return
+  if (isPreparing.value || isSubmitting.value || !position.value || !borrowVault.value || !savingsVault.value) return
   if (!savingsIsSameAsset.value && !savingsSelectedQuote.value) return
 
+  isPreparing.value = true
   try {
-    plan.value = await buildSavingsRepay()
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build savings plan', e)
-    plan.value = null
-  }
+    try {
+      plan.value = await buildSavingsRepay()
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build savings plan', e)
+      plan.value = null
+    }
 
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) return
-  }
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) return
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'repay',
-      asset: savingsVault.value.asset,
-      amount: savingsAmount.value,
-      plan: plan.value || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          sendSavings()
-        }, 400)
+    // Build known transfer amounts for the review modal (collateral is untouched during savings repay)
+    const transferAmounts: Record<string, string> = {}
+    if (collateralVault.value && position.value?.supplied) {
+      const addr = collateralVault.value.address.toLowerCase()
+      transferAmounts[addr] = nanoToValue(position.value.supplied, collateralVault.value.decimals).toString()
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'repay',
+        asset: savingsVault.value.asset,
+        amount: savingsAmount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        transferAmounts,
+        onConfirm: () => {
+          setTimeout(() => {
+            sendSavings()
+          }, 400)
+        },
       },
-    },
-  })
+    })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 
 const sendSavings = async () => {
@@ -1491,58 +1518,64 @@ const updateBalance = async () => {
     .value
 }
 const submit = async () => {
-  if (!position.value || !borrowVault.value || !collateralVault.value) {
+  if (isPreparing.value || !position.value || !borrowVault.value || !collateralVault.value) {
     return
   }
 
-  const amountNano = valueToNano(amount.value || '0', borrowVault.value.asset.decimals)
-  const shouldFullRepay = balance.value <= amountNano
-
+  isPreparing.value = true
   try {
-    plan.value = shouldFullRepay
-      ? await buildFullRepayPlan(
-        borrowVault.value.address,
-        borrowVault.value.asset.address,
-        amountNano,
-        position.value.subAccount,
-        position.value.collaterals ?? [collateralVault.value.address],
-        { includePermit2Call: false },
-      )
-      : await buildRepayPlan(
-        borrowVault.value.address,
-        borrowVault.value.asset.address,
-        amountNano,
-        position.value.subAccount,
-        { includePermit2Call: false },
-      )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
+    const amountNano = valueToNano(amount.value || '0', borrowVault.value.asset.decimals)
+    const shouldFullRepay = balance.value <= amountNano
 
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
-      return
+    try {
+      plan.value = shouldFullRepay
+        ? await buildFullRepayPlan(
+          borrowVault.value.address,
+          borrowVault.value.asset.address,
+          amountNano,
+          position.value.subAccount,
+          position.value.collaterals ?? [collateralVault.value.address],
+          { includePermit2Call: false },
+        )
+        : await buildRepayPlan(
+          borrowVault.value.address,
+          borrowVault.value.asset.address,
+          amountNano,
+          position.value.subAccount,
+          { includePermit2Call: false },
+        )
     }
-  }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'repay',
-      asset: position.value!.borrow.asset,
-      amount: amount.value,
-      plan: plan.value || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          send()
-        }, 400)
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'repay',
+        asset: position.value!.borrow.asset,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
+        },
       },
-    },
-  })
+    })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 
 const onSubmitForm = async () => {
@@ -1601,6 +1634,18 @@ const buildSwapRepayPlan = async (): Promise<TxPlan> => {
     targetDebt = debtAmountNano >= currentDebt ? 0n : currentDebt - debtAmountNano
   }
 
+  const isFullRepay = targetDebt === 0n && swapMode === SwapperMode.TARGET_DEBT
+  if (isFullRepay) {
+    return buildSwapCollateralFullRepayPlan({
+      quote: swapSelectedQuote.value,
+      swapperMode: swapMode,
+      targetDebt,
+      currentDebt,
+      liabilityVault: borrowVault.value.address,
+      enabledCollaterals: position.value.collaterals,
+    })
+  }
+
   return buildSwapPlan({
     quote: swapSelectedQuote.value,
     swapperMode: swapMode,
@@ -1613,43 +1658,49 @@ const buildSwapRepayPlan = async (): Promise<TxPlan> => {
 }
 
 const submitSwap = async () => {
-  if (isSubmitting.value || !position.value || !borrowVault.value || !swapCollateralVault.value) {
+  if (isPreparing.value || isSubmitting.value || !position.value || !borrowVault.value || !swapCollateralVault.value) {
     return
   }
   if (!swapIsSameAsset.value && !swapSelectedQuote.value) {
     return
   }
 
+  isPreparing.value = true
   try {
-    plan.value = await buildSwapRepayPlan()
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-    plan.value = null
-  }
-
-  if (plan.value) {
-    const ok = await runSimulation(plan.value)
-    if (!ok) {
-      return
+    try {
+      plan.value = await buildSwapRepayPlan()
     }
-  }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'repay',
-      asset: swapCollateralVault.value.asset,
-      amount: collateralAmount.value,
-      plan: plan.value || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          sendSwap()
-        }, 400)
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'repay',
+        asset: swapCollateralVault.value.asset,
+        amount: collateralAmount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            sendSwap()
+          }, 400)
+        },
       },
-    },
-  })
+    })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 
 const sendSwap = async () => {
@@ -2035,7 +2086,7 @@ onUnmounted(() => {
             </VaultFormInfoButton>
             <VaultFormSubmit
               :disabled="reviewRepayDisabled"
-              :loading="isSubmitting"
+              :loading="isSubmitting || isPreparing"
             >
               {{ reviewRepayLabel }}
             </VaultFormSubmit>
@@ -2219,7 +2270,7 @@ onUnmounted(() => {
             <VaultFormSubmit
               :disabled="reviewRepayDisabled"
               :disabled-reason="swapDisabledReason"
-              :loading="isSubmitting"
+              :loading="isSubmitting || isPreparing"
             >
               {{ reviewRepayLabel }}
             </VaultFormSubmit>
@@ -2239,6 +2290,7 @@ onUnmounted(() => {
               :vault="savingsVault"
               :collateral-options="savingsOptions"
               :balance="savingsBalance"
+              maxable
               @input="onSavingsAmountInput"
               @change-collateral="onSavingsVaultChange"
             />
@@ -2373,7 +2425,7 @@ onUnmounted(() => {
             </VaultFormInfoButton>
             <VaultFormSubmit
               :disabled="reviewRepayDisabled"
-              :loading="isSubmitting"
+              :loading="isSubmitting || isPreparing"
             >
               {{ reviewRepayLabel }}
             </VaultFormSubmit>

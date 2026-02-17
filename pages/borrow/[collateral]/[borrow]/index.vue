@@ -84,7 +84,9 @@ const balance = ref(0n)
 const savingBalance = ref(0n)
 const savingAssets = ref(0n)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const isMultiplySubmitting = ref(false)
+const isMultiplyPreparing = ref(false)
 const isEstimatesLoading = ref(false)
 const plan = ref<TxPlan | null>(null)
 const multiplyPlan = ref<TxPlan | null>(null)
@@ -1054,11 +1056,13 @@ const onMultiplyCollateralChange = (selectedIndex: number) => {
   }
 }
 const submitMultiply = async () => {
-  if (isGeoBlocked.value || isMultiplyRestricted.value) return
-  await guardWithTerms(async () => {
-    if (isMultiplySubmitting.value || !isConnected.value) {
-      return
-    }
+  if (isMultiplyPreparing.value || isGeoBlocked.value || isMultiplyRestricted.value) return
+  isMultiplyPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      if (isMultiplySubmitting.value || !isConnected.value) {
+        return
+      }
     if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
       return
     }
@@ -1160,7 +1164,11 @@ const submitMultiply = async () => {
         },
       },
     })
-  })
+    })
+  }
+  finally {
+    isMultiplyPreparing.value = false
+  }
 }
 const sendMultiply = async () => {
   if (!multiplyPlanParams.value) {
@@ -1190,17 +1198,19 @@ const sendMultiply = async () => {
   }
 }
 const submit = async () => {
-  if (isGeoBlocked.value || isBorrowRestricted.value) return
-  await guardWithTerms(async () => {
-    // TODO: Validate
-    if (!isConnected.value) {
-      isSubmitting.value = false
-      return
-    }
+  if (isPreparing.value || isGeoBlocked.value || isBorrowRestricted.value) return
+  isPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      // TODO: Validate
+      if (!isConnected.value) {
+        isSubmitting.value = false
+        return
+      }
 
-    if (!borrowVault.value || !collateralVault.value) {
-      return
-    }
+      if (!borrowVault.value || !collateralVault.value) {
+        return
+      }
 
     const collateralAmountNano = valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals)
     const borrowAmountNano = valueToNano(borrowAmount.value || '0', borrowVault.value?.decimals)
@@ -1263,7 +1273,11 @@ const submit = async () => {
         },
       },
     })
-  })
+    })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 const send = async () => {
   try {
@@ -1917,14 +1931,14 @@ watch(formTab, () => {
           <VaultFormSubmit
             v-if="formTab === 'borrow'"
             :disabled="reviewBorrowDisabled"
-            :loading="isSubmitting"
+            :loading="isSubmitting || isPreparing"
           >
             {{ reviewBorrowLabel }}
           </VaultFormSubmit>
           <VaultFormSubmit
             v-else-if="formTab === 'multiply'"
             :disabled="reviewMultiplyDisabled"
-            :loading="isMultiplySubmitting"
+            :loading="isMultiplySubmitting || isMultiplyPreparing"
           >
             {{ reviewMultiplyLabel }}
           </VaultFormSubmit>

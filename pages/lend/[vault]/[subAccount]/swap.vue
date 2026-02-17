@@ -48,6 +48,7 @@ const subAccount = computed(() => {
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const plan = ref<TxPlan | null>(null)
 const fromAmount = ref('')
 const toAmount = ref('')
@@ -496,48 +497,54 @@ const buildPlan = async (): Promise<TxPlan> => {
 }
 
 const submit = async () => {
-  if (isGeoBlocked.value) return
-  await guardWithTerms(async () => {
-    if (isSubmitting.value || !fromVault.value) {
-      return
-    }
-    if (!isSameAsset.value && !selectedQuote.value) {
-      return
-    }
-
-    try {
-      plan.value = await buildPlan()
-    }
-    catch (e) {
-      console.warn('[OperationReviewModal] failed to build plan', e)
-      showError('Failed to build transaction')
-      plan.value = null
-      return
-    }
-
-    if (plan.value) {
-      const ok = await runSimulation(plan.value)
-      if (!ok) {
+  if (isPreparing.value || isGeoBlocked.value) return
+  isPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      if (isSubmitting.value || !fromVault.value) {
         return
       }
-    }
+      if (!isSameAsset.value && !selectedQuote.value) {
+        return
+      }
 
-    modal.open(OperationReviewModal, {
-      props: {
-        type: isSameAsset.value ? 'transfer' : 'swap',
-        asset: fromVault.value.asset,
-        amount: fromAmount.value,
-        swapToAsset: toVault.value?.asset,
-        swapToAmount: toAmount.value,
-        plan: plan.value || undefined,
-        onConfirm: () => {
-          setTimeout(() => {
-            send()
-          }, 400)
+      try {
+        plan.value = await buildPlan()
+      }
+      catch (e) {
+        console.warn('[OperationReviewModal] failed to build plan', e)
+        showError('Failed to build transaction')
+        plan.value = null
+        return
+      }
+
+      if (plan.value) {
+        const ok = await runSimulation(plan.value)
+        if (!ok) {
+          return
+        }
+      }
+
+      modal.open(OperationReviewModal, {
+        props: {
+          type: isSameAsset.value ? 'transfer' : 'swap',
+          asset: fromVault.value.asset,
+          amount: fromAmount.value,
+          swapToAsset: toVault.value?.asset,
+          swapToAmount: toAmount.value,
+          plan: plan.value || undefined,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
+          },
         },
-      },
+      })
     })
-  })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 
 const send = async () => {
@@ -728,7 +735,7 @@ const send = async () => {
           <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
             <VaultFormSubmit
               :disabled="reviewSwapDisabled"
-              :loading="isSubmitting"
+              :loading="isSubmitting || isPreparing"
             >
               {{ reviewSwapLabel }}
             </VaultFormSubmit>

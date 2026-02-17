@@ -57,6 +57,7 @@ const positionIndex = route.params.number as string
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const plan = ref<TxPlan | null>(null)
 const fromAmount = ref('')
 const toAmount = ref('')
@@ -674,41 +675,47 @@ const buildDebtSwapPlan = async (): Promise<TxPlan | null> => {
 }
 
 const submit = async () => {
-  if (isGeoBlocked.value) return
-  await guardWithTerms(async () => {
-    if (isSubmitting.value || !fromVault.value || !toVault.value) return
+  if (isPreparing.value || isGeoBlocked.value) return
+  isPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      if (isSubmitting.value || !fromVault.value || !toVault.value) return
 
-    try {
-      plan.value = await buildDebtSwapPlan()
-    }
-    catch (e) {
-      showError('Failed to build transaction')
-      plan.value = null
-      return
-    }
+      try {
+        plan.value = await buildDebtSwapPlan()
+      }
+      catch (e) {
+        showError('Failed to build transaction')
+        plan.value = null
+        return
+      }
 
-    if (plan.value) {
-      const ok = await runSimulation(plan.value)
-      if (!ok) return
-    }
+      if (plan.value) {
+        const ok = await runSimulation(plan.value)
+        if (!ok) return
+      }
 
-    modal.open(OperationReviewModal, {
-      props: {
-        type: 'swap',
-        asset: fromVault.value.asset,
-        amount: fromAmount.value,
-        // Same-asset: omit swapToAsset/swapToAmount so skim steps show "remaining" instead of amounts
-        swapToAsset: isSameAsset.value ? undefined : toVault.value?.asset,
-        swapToAmount: isSameAsset.value ? undefined : toAmount.value,
-        plan: plan.value || undefined,
-        onConfirm: () => {
-          setTimeout(() => {
-            send()
-          }, 400)
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'swap',
+          asset: fromVault.value.asset,
+          amount: fromAmount.value,
+          // Same-asset: omit swapToAsset/swapToAmount so skim steps show "remaining" instead of amounts
+          swapToAsset: isSameAsset.value ? undefined : toVault.value?.asset,
+          swapToAmount: isSameAsset.value ? undefined : toAmount.value,
+          plan: plan.value || undefined,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
+          },
         },
-      },
+      })
     })
-  })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 
 const send = async () => {
@@ -837,7 +844,7 @@ const send = async () => {
             <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
               <VaultFormSubmit
                 :disabled="reviewSwapDisabled"
-                :loading="isSubmitting"
+                :loading="isSubmitting || isPreparing"
               >
                 {{ reviewSwapLabel }}
               </VaultFormSubmit>

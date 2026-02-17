@@ -19,6 +19,7 @@ const { runSimulation, simulationError } = useTxPlanSimulation()
 const { item } = defineProps<{ item: REULLock }>()
 
 const isUnlocking = ref(false)
+const isPreparing = ref(false)
 const plan = ref<TxPlan | null>(null)
 
 const reulToken = computed(() => {
@@ -79,6 +80,8 @@ const unlock = async () => {
 }
 
 const onUnlockClick = async () => {
+  if (isPreparing.value) return
+  isPreparing.value = true
   try {
     await ensureWalletOnSiteChain()
 
@@ -126,6 +129,9 @@ const onUnlockClick = async () => {
   catch (e) {
     console.warn(e)
   }
+  finally {
+    isPreparing.value = false
+  }
 }
 </script>
 
@@ -170,7 +176,7 @@ const onUnlockClick = async () => {
       <UiButton
         variant="primary-stroke"
         rounded
-        :loading="isUnlocking"
+        :loading="isUnlocking || isPreparing"
         @click="onUnlockClick"
       >
         Unlock

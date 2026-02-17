@@ -19,6 +19,7 @@ const { runSimulation, simulationError } = useTxPlanSimulation()
 
 const vault = ref(campaign.vault_address ? await getVault(campaign.vault_address) : undefined)
 const isClaiming = ref(false)
+const isPreparing = ref(false)
 const plan = ref<TxPlan | null>(null)
 const rewardAmount = computed(() => Number.parseFloat(campaign.reward_info.reward_amt))
 const rewardUsdValue = computed(() => rewardAmount.value * Number.parseFloat(campaign.reward_info.reward_usd_price))
@@ -56,6 +57,8 @@ const claim = async () => {
 }
 
 const onClaimClick = async () => {
+  if (isPreparing.value) return
+  isPreparing.value = true
   try {
     await ensureWalletOnSiteChain()
 
@@ -96,6 +99,9 @@ const onClaimClick = async () => {
   catch (e) {
     console.warn(e)
   }
+  finally {
+    isPreparing.value = false
+  }
 }
 </script>
 
@@ -134,7 +140,7 @@ const onClaimClick = async () => {
       </div>
       <UiButton
         rounded
-        :loading="isClaiming"
+        :loading="isClaiming || isPreparing"
         @click="onClaimClick"
       >
         Claim

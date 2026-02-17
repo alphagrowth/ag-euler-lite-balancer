@@ -64,6 +64,7 @@ const position: Ref<AccountBorrowPosition | null> = ref(null)
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const plan = ref<TxPlan | null>(null)
 const planParams = ref<MultiplyPlanParams | null>(null)
 
@@ -616,11 +617,13 @@ const onMultiplierInput = () => {
 }
 
 const submitMultiply = async () => {
-  if (isGeoBlocked.value || isMultiplyRestricted.value) return
-  await guardWithTerms(async () => {
-    if (isSubmitting.value || !isConnected.value) {
-      return
-    }
+  if (isPreparing.value || isGeoBlocked.value || isMultiplyRestricted.value) return
+  isPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      if (isSubmitting.value || !isConnected.value) {
+        return
+      }
     if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
       return
     }
@@ -692,7 +695,11 @@ const submitMultiply = async () => {
         },
       },
     })
-  })
+    })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 
 const sendMultiply = async () => {
@@ -912,7 +919,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
 
           <VaultFormSubmit
             :disabled="reviewMultiplyDisabled"
-            :loading="isSubmitting"
+            :loading="isSubmitting || isPreparing"
           >
             {{ reviewMultiplyLabel }}
           </VaultFormSubmit>

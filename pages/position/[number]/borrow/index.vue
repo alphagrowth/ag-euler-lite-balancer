@@ -42,6 +42,7 @@ const collateralAmount = ref('')
 const balance = ref(0n)
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const isBalanceLoading = ref(false)
 const isEstimatesLoading = ref(false)
 const plan = ref<TxPlan | null>(null)
@@ -207,51 +208,57 @@ const updateBalance = async () => {
   isBalanceLoading.value = false
 }
 const submit = async () => {
-  if (isGeoBlocked.value || isBorrowRestricted.value) return
-  await guardWithTerms(async () => {
-    if (!borrowVault.value || !collateralVault.value) {
-      return
-    }
-
-    try {
-      plan.value = await buildBorrowPlan(
-        collateralVault.value.address,
-        collateralVault.value.asset.address,
-        0n,
-        borrowVault.value.address,
-        valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
-        position.value?.subAccount,
-        { includePermit2Call: false, enabledCollaterals: position.value?.collaterals },
-      )
-    }
-    catch (e) {
-      console.warn('[OperationReviewModal] failed to build plan', e)
-      plan.value = null
-    }
-
-    if (plan.value) {
-      const ok = await runSimulation(plan.value)
-      if (!ok) {
+  if (isPreparing.value || isGeoBlocked.value || isBorrowRestricted.value) return
+  isPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      if (!borrowVault.value || !collateralVault.value) {
         return
       }
-    }
 
-    modal.open(OperationReviewModal, {
-      props: {
-        type: 'borrow',
-        asset: borrowVault.value?.asset,
-        amount: borrowAmount.value,
-        plan: plan.value || undefined,
-        subAccount: position.value?.subAccount,
-        hasBorrows: (position.value?.borrowed || 0n) > 0n,
-        onConfirm: () => {
-          setTimeout(() => {
-            send()
-          }, 400)
+      try {
+        plan.value = await buildBorrowPlan(
+          collateralVault.value.address,
+          collateralVault.value.asset.address,
+          0n,
+          borrowVault.value.address,
+          valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
+          position.value?.subAccount,
+          { includePermit2Call: false, enabledCollaterals: position.value?.collaterals },
+        )
+      }
+      catch (e) {
+        console.warn('[OperationReviewModal] failed to build plan', e)
+        plan.value = null
+      }
+
+      if (plan.value) {
+        const ok = await runSimulation(plan.value)
+        if (!ok) {
+          return
+        }
+      }
+
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'borrow',
+          asset: borrowVault.value?.asset,
+          amount: borrowAmount.value,
+          plan: plan.value || undefined,
+          subAccount: position.value?.subAccount,
+          hasBorrows: (position.value?.borrowed || 0n) > 0n,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
+          },
         },
-      },
+      })
     })
-  })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 const send = async () => {
   try {
@@ -492,7 +499,7 @@ onUnmounted(() => {
         <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
           <VaultFormSubmit
             :disabled="reviewBorrowDisabled"
-            :loading="isSubmitting"
+            :loading="isSubmitting || isPreparing"
           >
             {{ reviewBorrowLabel }}
           </VaultFormSubmit>
