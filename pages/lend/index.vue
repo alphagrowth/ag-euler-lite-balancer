@@ -6,7 +6,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, getEntitiesByVault, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useVaultSearch } from '~/composables/useVaultSearch'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -208,6 +208,14 @@ const applyFeaturedSort = <T extends { address: string }>(sorted: T[]): T[] => {
   })
 }
 
+const applyDeprecatedSort = <T extends { address: string }>(sorted: T[]): T[] => {
+  return [...sorted].sort((a, b) => {
+    const ad = isVaultDeprecated(a.address) ? 1 : 0
+    const bd = isVaultDeprecated(b.address) ? 1 : 0
+    return ad - bd
+  })
+}
+
 const sortedList = computed(() => {
   let sorted: Vault[]
   switch (sortBy.value) {
@@ -231,7 +239,8 @@ const sortedList = computed(() => {
     default:
       sorted = applyFeaturedSort([...filteredList.value])
   }
-  return sortDir.value === 'asc' ? [...sorted].reverse() : sorted
+  const directed = sortDir.value === 'asc' ? [...sorted].reverse() : sorted
+  return applyDeprecatedSort(directed)
 })
 </script>
 

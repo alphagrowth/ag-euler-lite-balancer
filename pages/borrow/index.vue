@@ -5,7 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, getEntitiesByVault, isVaultFeatured } from '~/composables/useEulerLabels'
+import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useVaultSearch } from '~/composables/useVaultSearch'
 import { formatNumber } from '~/utils/string-utils'
@@ -265,6 +265,14 @@ const applyFeaturedPairSort = (sorted: AnyBorrowVaultPair[]): AnyBorrowVaultPair
   })
 }
 
+const applyDeprecatedPairSort = (sorted: AnyBorrowVaultPair[]): AnyBorrowVaultPair[] => {
+  return [...sorted].sort((a, b) => {
+    const ad = (isVaultDeprecated(a.borrow.address) || isVaultDeprecated(a.collateral.address)) ? 1 : 0
+    const bd = (isVaultDeprecated(b.borrow.address) || isVaultDeprecated(b.collateral.address)) ? 1 : 0
+    return ad - bd
+  })
+}
+
 const sortedBorrowList = computed(() => {
   let sorted: AnyBorrowVaultPair[]
   switch (sortBy.value) {
@@ -294,7 +302,7 @@ const sortedBorrowList = computed(() => {
       })
 
       // Recommended sort ignores direction toggle
-      return applyFeaturedPairSort(scored.map(s => s.pair))
+      return applyDeprecatedPairSort(applyFeaturedPairSort(scored.map(s => s.pair)))
     }
     case 'Liquidity':
       sorted = applyFeaturedPairSort([...filteredBorrowList.value].sort((a: AnyBorrowVaultPair, b: AnyBorrowVaultPair) => {
@@ -333,7 +341,8 @@ const sortedBorrowList = computed(() => {
     default:
       sorted = applyFeaturedPairSort([...filteredBorrowList.value])
   }
-  return sortDir.value === 'asc' ? [...sorted].reverse() : sorted
+  const directed = sortDir.value === 'asc' ? [...sorted].reverse() : sorted
+  return applyDeprecatedPairSort(directed)
 })
 </script>
 

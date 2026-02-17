@@ -211,6 +211,21 @@ const applyFeaturedSort = (sorted: MarketGroup[]): MarketGroup[] => {
   })
 }
 
+const isGroupDeprecated = (group: MarketGroup): boolean => {
+  return group.vaults.length > 0 && group.vaults.every((v) => {
+    const addr = getVaultAddress(v)
+    return addr ? isVaultDeprecated(addr) : false
+  })
+}
+
+const applyDeprecatedGroupSort = (sorted: MarketGroup[]): MarketGroup[] => {
+  return [...sorted].sort((a, b) => {
+    const ad = isGroupDeprecated(a) ? 1 : 0
+    const bd = isGroupDeprecated(b) ? 1 : 0
+    return ad - bd
+  })
+}
+
 const sortedMarkets = computed(() => {
   let sorted: MarketGroup[]
   switch (sortBy.value) {
@@ -240,7 +255,7 @@ const sortedMarkets = computed(() => {
       })
 
       scored.sort((a, b) => b.compositeScore - a.compositeScore)
-      return applyFeaturedSort(scored.map(s => s.group))
+      return applyDeprecatedGroupSort(applyFeaturedSort(scored.map(s => s.group)))
     }
     case 'Best Net APY':
       sorted = applyFeaturedSort([...filteredMarkets.value].sort((a, b) =>
@@ -265,7 +280,8 @@ const sortedMarkets = computed(() => {
     default:
       sorted = applyFeaturedSort([...filteredMarkets.value])
   }
-  return sortDir.value === 'asc' ? [...sorted].reverse() : sorted
+  const directed = sortDir.value === 'asc' ? [...sorted].reverse() : sorted
+  return applyDeprecatedGroupSort(directed)
 })
 
 const isLoading = computed(() =>
