@@ -204,21 +204,21 @@ const collateralSupplyApy = computed(() => {
     return null
   }
   const base = nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, collateralVault.value.asset.symbol) + getSupplyRewardApy(collateralVault.value.address)
+  return withIntrinsicSupplyApy(base, collateralVault.value.asset.address) + getSupplyRewardApy(collateralVault.value.address)
 })
 const fromBorrowApy = computed(() => {
   if (!fromVault.value) {
     return null
   }
   const base = nanoToValue(fromVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, fromVault.value.asset.symbol) - getBorrowRewardApy(fromVault.value.address, collateralVault.value?.address)
+  return withIntrinsicBorrowApy(base, fromVault.value.asset.address) - getBorrowRewardApy(fromVault.value.address, collateralVault.value?.address)
 })
 const toBorrowApy = computed(() => {
   if (!toVault.value) {
     return null
   }
   const base = nanoToValue(toVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, toVault.value.asset.symbol) - getBorrowRewardApy(toVault.value.address, collateralVault.value?.address)
+  return withIntrinsicBorrowApy(base, toVault.value.asset.address) - getBorrowRewardApy(toVault.value.address, collateralVault.value?.address)
 })
 
 const supplyValueUsd = ref<number | null>(null)

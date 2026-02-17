@@ -297,7 +297,7 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
 
   for (const liability of borrowable) {
     const borrowBase = nanoToValue(liability.interestRateInfo.borrowAPY, 25)
-    const borrowApy = withIntrinsicBorrowApy(borrowBase, liability.asset.symbol)
+    const borrowApy = withIntrinsicBorrowApy(borrowBase, liability.asset.address)
 
     for (const ltv of liability.collateralLTVs) {
       if (ltv.borrowLTV === 0n) continue
@@ -305,7 +305,7 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
       if (!collateral) continue
 
       const supplyBase = nanoToValue(collateral.interestRateInfo.supplyAPY, 25)
-      const supplyApy = withIntrinsicSupplyApy(supplyBase, collateral.asset.symbol)
+      const supplyApy = withIntrinsicSupplyApy(supplyBase, collateral.asset.address)
       const supplyRewards = getSupplyRewardApy(collateral.address)
       const borrowRewards = getBorrowRewardApy(liability.address, collateral.address)
 
@@ -534,7 +534,7 @@ const computeEnhancedApys = (cell: MatrixCell, collateralAddr: string, liability
   let supplyRewards = 0
   if (collateral) {
     const base = nanoToValue(collateral.interestRateInfo.supplyAPY, 25)
-    supplyApy = withIntrinsicSupplyApy(base, collateral.asset.symbol)
+    supplyApy = withIntrinsicSupplyApy(base, collateral.asset.address)
     supplyRewards = getSupplyRewardApy(collateral.address)
   }
 
@@ -543,7 +543,7 @@ const computeEnhancedApys = (cell: MatrixCell, collateralAddr: string, liability
   let borrowRewards = 0
   if (liability) {
     const base = nanoToValue(liability.interestRateInfo.borrowAPY, 25)
-    borrowApy = withIntrinsicBorrowApy(base, liability.asset.symbol)
+    borrowApy = withIntrinsicBorrowApy(base, liability.asset.address)
     borrowRewards = getBorrowRewardApy(liability.address, collateral?.address)
     utilization = getVaultUtilization(liability)
   }

@@ -77,7 +77,7 @@ export const useSwapCollateralOptions = ({
       const amount = nanoToValue(balance, vault.asset.decimals)
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
-      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
+      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.address) + getSupplyRewardApy(vault.address)
 
       const optionType = vault.vaultCategory === 'escrow' ? 'escrow' : 'vault'
       const { tags, disabled } = getVaultTags(vault.address, tagContext)

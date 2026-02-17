@@ -22,7 +22,7 @@ const formatTimeRemaining = (seconds: bigint): string => {
 }
 
 const modal = useModal()
-const { withIntrinsicBorrowApy, getIntrinsicApy } = useIntrinsicApy()
+const { withIntrinsicBorrowApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
 
 // Borrow APY (from EVK borrow vault)
@@ -30,16 +30,16 @@ const totalBorrowRewardsAPY = computed(() => getBorrowRewardApy(pair.borrow.addr
 
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
-  pair.borrow.asset.symbol,
+  pair.borrow.asset.address,
 ) - totalBorrowRewardsAPY.value)
 
 const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25))
-const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.symbol))
+const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.address))
 const borrowRewardInfo = computed(() => getBorrowRewardCampaigns(pair.borrow.address, pair.collateral.address))
 
 // Supply APY (for securitize collateral - intrinsic + rewards only, no interest rate)
 const collateralRewardAPY = computed(() => getSupplyRewardApy(pair.collateral.address))
-const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol))
+const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.address))
 const supplyApyWithRewards = computed(() => intrinsicSupplyApy.value + collateralRewardAPY.value)
 const supplyRewardInfo = computed(() => getSupplyRewardCampaigns(pair.collateral.address))
 
@@ -72,6 +72,7 @@ const onSupplyInfoIconClick = () => {
     props: {
       lendingAPY: 0, // Securitize vaults don't have interest rates
       intrinsicAPY: intrinsicSupplyApy.value,
+      intrinsicApyInfo: getIntrinsicApyInfo(pair.collateral.asset.address),
       campaigns: supplyRewardInfo.value,
     },
   })
@@ -82,6 +83,7 @@ const onBorrowInfoIconClick = () => {
     props: {
       borrowingAPY: baseBorrowApy.value,
       intrinsicAPY: intrinsicBorrowApy.value,
+      intrinsicApyInfo: getIntrinsicApyInfo(pair.borrow.asset.address),
       campaigns: borrowRewardInfo.value,
     },
   })

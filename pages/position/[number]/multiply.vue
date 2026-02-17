@@ -153,21 +153,21 @@ const multiplySupplyApy = computed(() => {
     return null
   }
   const base = nanoToValue(multiplySupplyVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, multiplySupplyVault.value.asset.symbol) + getSupplyRewardApy(multiplySupplyVault.value.address)
+  return withIntrinsicSupplyApy(base, multiplySupplyVault.value.asset.address) + getSupplyRewardApy(multiplySupplyVault.value.address)
 })
 const multiplyLongApy = computed(() => {
   if (!multiplyLongVault.value) {
     return null
   }
   const base = nanoToValue(multiplyLongVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, multiplyLongVault.value.asset.symbol) + getSupplyRewardApy(multiplyLongVault.value.address)
+  return withIntrinsicSupplyApy(base, multiplyLongVault.value.asset.address) + getSupplyRewardApy(multiplyLongVault.value.address)
 })
 const multiplyBorrowApy = computed(() => {
   if (!multiplyShortVault.value) {
     return null
   }
   const base = nanoToValue(multiplyShortVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.symbol) - getBorrowRewardApy(multiplyShortVault.value.address, multiplySupplyVault.value?.address)
+  return withIntrinsicBorrowApy(base, multiplyShortVault.value.asset.address) - getBorrowRewardApy(multiplyShortVault.value.address, multiplySupplyVault.value?.address)
 })
 
 const multiplyDebtAmountNano = computed(() => {

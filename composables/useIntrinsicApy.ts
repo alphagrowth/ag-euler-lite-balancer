@@ -1,168 +1,115 @@
-import axios from 'axios'
-import { getDefiLlamaChainName } from '~/entities/chainRegistry'
 import { intrinsicApySources } from '~/entities/custom'
+import type { IntrinsicApyInfo, IntrinsicApyProvider, IntrinsicApyResult } from '~/entities/intrinsic-apy'
+import { EMPTY_INTRINSIC_APY } from '~/entities/intrinsic-apy'
+import { createDefiLlamaProvider } from '~/services/intrinsicApy/defillamaProvider'
+import { createPendleProvider } from '~/services/intrinsicApy/pendleProvider'
 
-type DefiLlamaPool = {
-  symbol?: string
-  project?: string
-  chain?: string
-  apyBase?: number | null
-  tvlUsd?: number | null
-}
+const CACHE_TTL_MS = 5 * 60 * 1000
 
-type IntrinsicApySource = {
-  symbol: string
-  sourceSymbol?: string
-  project: string
-}
-
-const intrinsicApyBySymbol: Ref<Record<string, number>> = ref({})
-const intrinsicApyPools: Ref<DefiLlamaPool[]> = ref([])
+const intrinsicApyByAddress: Ref<Record<string, IntrinsicApyInfo>> = ref({})
+const lastFetchedAt: Ref<number> = ref(0)
+const lastFetchedChainId: Ref<number> = ref(0)
 const isLoading = ref(false)
-const isLoaded = ref(false)
 const _versionCounter = ref(0)
 
 const normalize = (value?: string) => value?.toLowerCase() || ''
 
-const resolvePreferredChain = (chainId?: number, chainName?: string) => {
-  if (chainId !== undefined) {
-    const mapped = getDefiLlamaChainName(chainId)
-    if (mapped) return mapped
+const providers: IntrinsicApyProvider[] = [
+  createDefiLlamaProvider(intrinsicApySources),
+  createPendleProvider(intrinsicApySources),
+]
+
+const mergeResults = (allResults: IntrinsicApyResult[]): Record<string, IntrinsicApyInfo> => {
+  const byAddress: Record<string, IntrinsicApyInfo> = {}
+  for (const result of allResults) {
+    byAddress[result.address] = result.info
   }
-
-  return chainName
-}
-
-const pickBestPool = (pools: DefiLlamaPool[], preferredChain?: string) => {
-  const sorted = [...pools].sort((a, b) => (b.tvlUsd || 0) - (a.tvlUsd || 0))
-  if (!sorted.length) return undefined
-  if (!preferredChain) return sorted[0]
-
-  const preferredChainName = normalize(preferredChain)
-  if (!preferredChainName) return undefined
-
-  const preferredPools = sorted.filter(pool => normalize(pool.chain) === preferredChainName)
-  return preferredPools[0]
-}
-
-const resolveIntrinsicApy = (pools: DefiLlamaPool[], source: IntrinsicApySource, preferredChain?: string) => {
-  const sourceSymbol = normalize(source.sourceSymbol || source.symbol)
-  const project = normalize(source.project)
-  const matches = pools.filter(pool =>
-    normalize(pool.symbol) === sourceSymbol
-    && normalize(pool.project) === project
-    && pool.apyBase !== null
-    && pool.apyBase !== undefined,
-  )
-
-  const best = pickBestPool(matches, preferredChain)
-  return best?.apyBase ? Number(best.apyBase) : 0
-}
-
-const buildIntrinsicApyMap = (
-  pools: DefiLlamaPool[],
-  sources: readonly IntrinsicApySource[],
-  preferredChain?: string,
-) => {
-  const entries = sources.map((source) => {
-    return [normalize(source.symbol), resolveIntrinsicApy(pools, source, preferredChain)] as const
-  })
-
-  return Object.fromEntries(entries)
+  return byAddress
 }
 
 export const useIntrinsicApy = () => {
-  const { chainId, getCurrentChainConfig } = useEulerAddresses()
-  const preferredChain = computed(() => resolvePreferredChain(chainId.value, getCurrentChainConfig.value?.name))
-  const { DEFILLAMA_YIELDS_URL } = useEulerConfig()
+  const { chainId } = useEulerAddresses()
   const { settings } = useUserSettings()
 
   const enableIntrinsicApy = computed(() => settings.value.enableIntrinsicApy)
-
-  const updateIntrinsicApy = () => {
-    if (!enableIntrinsicApy.value) return
-    if (!intrinsicApyPools.value.length) return
-    intrinsicApyBySymbol.value = buildIntrinsicApyMap(
-      intrinsicApyPools.value,
-      intrinsicApySources,
-      preferredChain.value,
-    )
-  }
+  const isStale = () => Date.now() - lastFetchedAt.value > CACHE_TTL_MS
+  const isChainChanged = () => lastFetchedChainId.value !== chainId.value
 
   const loadIntrinsicApy = async () => {
-    if (isLoading.value || isLoaded.value) return
+    if (isLoading.value) return
     if (!enableIntrinsicApy.value) {
-      intrinsicApyPools.value = []
-      intrinsicApyBySymbol.value = {}
-      isLoaded.value = true
+      intrinsicApyByAddress.value = {}
       return
     }
+    if (!isStale() && !isChainChanged()) return
 
     try {
       isLoading.value = true
 
-      const res = await axios.get(DEFILLAMA_YIELDS_URL)
-      const pools = (res.data?.data || []) as DefiLlamaPool[]
-
-      intrinsicApyPools.value = pools
-      intrinsicApyBySymbol.value = buildIntrinsicApyMap(
-        pools,
-        intrinsicApySources,
-        preferredChain.value,
+      const settled = await Promise.allSettled(
+        providers.map(p => p.fetch(chainId.value)),
       )
-      isLoaded.value = true
+
+      const allResults: IntrinsicApyResult[] = []
+      for (const result of settled) {
+        if (result.status === 'fulfilled') {
+          allResults.push(...result.value)
+        }
+      }
+
+      intrinsicApyByAddress.value = mergeResults(allResults)
+      lastFetchedAt.value = Date.now()
+      lastFetchedChainId.value = chainId.value
     }
     catch (err) {
       console.warn('[useIntrinsicApy] failed to load intrinsic APY', err)
-      intrinsicApyPools.value = []
-      intrinsicApyBySymbol.value = {}
-      isLoaded.value = false
+      intrinsicApyByAddress.value = {}
     }
     finally {
       isLoading.value = false
     }
   }
 
-  const getIntrinsicApy = (symbol?: string) => {
-    if (!enableIntrinsicApy.value || !symbol) return 0
-    return intrinsicApyBySymbol.value[normalize(symbol)] || 0
+  const lookupInfo = (address?: string): IntrinsicApyInfo => {
+    if (!enableIntrinsicApy.value) return EMPTY_INTRINSIC_APY
+    if (!address) return EMPTY_INTRINSIC_APY
+    return intrinsicApyByAddress.value[normalize(address)] ?? EMPTY_INTRINSIC_APY
   }
 
-  const withIntrinsicSupplyApy = (baseApy: number, symbol?: string) => {
-    const intrinsic = getIntrinsicApy(symbol)
+  const getIntrinsicApy = (address?: string) =>
+    lookupInfo(address).apy
+
+  const getIntrinsicApyInfo = (address?: string) =>
+    lookupInfo(address)
+
+  const withIntrinsicSupplyApy = (baseApy: number, address?: string) => {
+    const intrinsic = getIntrinsicApy(address)
     return baseApy + (1 + baseApy / 100) * intrinsic
   }
 
-  const withIntrinsicBorrowApy = (baseApy: number, symbol?: string) => {
-    const intrinsic = getIntrinsicApy(symbol)
+  const withIntrinsicBorrowApy = (baseApy: number, address?: string) => {
+    const intrinsic = getIntrinsicApy(address)
     return baseApy + (1 + baseApy / 100) * intrinsic
   }
 
-  watch(preferredChain, () => {
-    if (!enableIntrinsicApy.value) return
-    if (!isLoaded.value) return
-    updateIntrinsicApy()
+  watch(chainId, () => {
+    intrinsicApyByAddress.value = {}
+    lastFetchedAt.value = 0
+    loadIntrinsicApy()
   })
 
   watch(enableIntrinsicApy, (enabled) => {
     if (enabled) {
-      if (intrinsicApyPools.value.length) {
-        updateIntrinsicApy()
-      }
-      else {
-        isLoaded.value = false
-        loadIntrinsicApy()
-      }
+      lastFetchedAt.value = 0
+      loadIntrinsicApy()
     }
     else {
-      intrinsicApyBySymbol.value = {}
+      intrinsicApyByAddress.value = {}
     }
   })
 
-  // Reactive version counter — bumps when intrinsic APY data or settings change.
-  // Consumers should read `version.value` in the sync phase of watchEffect(async).
   const version = computed(() => _versionCounter.value)
-  watch(intrinsicApyBySymbol, () => {
+  watch(intrinsicApyByAddress, () => {
     _versionCounter.value++
   })
 
@@ -171,12 +118,13 @@ export const useIntrinsicApy = () => {
   })
 
   return {
-    intrinsicApyBySymbol,
+    intrinsicApyByAddress,
     version,
     isLoading: computed(() => isLoading.value),
-    isLoaded: computed(() => isLoaded.value),
+    isLoaded: computed(() => lastFetchedAt.value > 0),
     loadIntrinsicApy,
     getIntrinsicApy,
+    getIntrinsicApyInfo,
     withIntrinsicSupplyApy,
     withIntrinsicBorrowApy,
   }

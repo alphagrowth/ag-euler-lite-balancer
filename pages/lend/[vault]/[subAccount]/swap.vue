@@ -208,14 +208,14 @@ const fromSupplyApy = computed(() => {
     return null
   }
   const base = nanoToValue(fromVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, fromVault.value.asset.symbol) + getSupplyRewardApy(fromVault.value.address)
+  return withIntrinsicSupplyApy(base, fromVault.value.asset.address) + getSupplyRewardApy(fromVault.value.address)
 })
 const toSupplyApy = computed(() => {
   if (!toVault.value) {
     return null
   }
   const base = nanoToValue(toVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, toVault.value.asset.symbol) + getSupplyRewardApy(toVault.value.address)
+  return withIntrinsicSupplyApy(base, toVault.value.asset.address) + getSupplyRewardApy(toVault.value.address)
 })
 
 const currentPrice = computed(() => {

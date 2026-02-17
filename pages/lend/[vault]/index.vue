@@ -66,7 +66,7 @@ const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
-const { getIntrinsicApy } = useIntrinsicApy()
+const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
 
 // State
@@ -225,7 +225,7 @@ const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
 const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
 const totalRewardsAPY = computed(() => getSupplyRewardApy(vaultAddress))
 const hasRewards = computed(() => hasSupplyRewards(vaultAddress))
-const intrinsicApy = computed(() => getIntrinsicApy(asset.value?.symbol))
+const intrinsicApy = computed(() => getIntrinsicApy(asset.value?.address))
 
 const baseSupplyApy = computed(() => {
   if (!features.value.hasInterestRate) return 0
@@ -403,6 +403,7 @@ const onSupplyInfoIconClick = () => {
     props: {
       lendingAPY: baseSupplyApy.value,
       intrinsicAPY: intrinsicApy.value,
+      intrinsicApyInfo: getIntrinsicApyInfo(asset.value?.address),
       campaigns: getSupplyRewardCampaigns(vaultAddress),
     },
   })

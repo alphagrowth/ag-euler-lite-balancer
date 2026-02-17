@@ -123,11 +123,11 @@ const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVa
 const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
-  collateralVault.value?.asset.symbol,
+  collateralVault.value?.asset.address,
 ))
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
-  borrowVault.value?.asset.symbol,
+  borrowVault.value?.asset.address,
 ))
 // Pre-computed net APY (async)
 const netAPY = ref(0)
@@ -324,14 +324,14 @@ const swapCollateralSupplyApy = computed(() => {
     return null
   }
   const base = nanoToValue(swapCollateralVault.value.interestRateInfo.supplyAPY || 0n, 25)
-  return withIntrinsicSupplyApy(base, swapCollateralVault.value.asset.symbol) + getSupplyRewardApy(swapCollateralVault.value.address)
+  return withIntrinsicSupplyApy(base, swapCollateralVault.value.asset.address) + getSupplyRewardApy(swapCollateralVault.value.address)
 })
 const swapBorrowApy = computed(() => {
   if (!borrowVault.value) {
     return null
   }
   const base = nanoToValue(borrowVault.value.interestRateInfo.borrowAPY || 0n, 25)
-  return withIntrinsicBorrowApy(base, borrowVault.value.asset.symbol) - getBorrowRewardApy(borrowVault.value.address, collateralVault.value?.address)
+  return withIntrinsicBorrowApy(base, borrowVault.value.asset.address) - getBorrowRewardApy(borrowVault.value.address, collateralVault.value?.address)
 })
 
 const swapCollateralSpent = computed(() => {

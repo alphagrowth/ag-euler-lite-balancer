@@ -10,7 +10,7 @@ const { vault } = defineProps<{ vault: EarnVault }>()
 
 const modal = useModal()
 const { getVault } = useVaults()
-const { getIntrinsicApy } = useIntrinsicApy()
+const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, getSupplyRewardCampaigns, hasSupplyRewards } = useRewardsApy()
 
 const availableLiquidityOfStrategies = ref(0n)
@@ -45,7 +45,8 @@ const onSupplyInfoIconClick = () => {
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
-      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      intrinsicAPY: getIntrinsicApy(vault.asset.address),
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
       campaigns: getSupplyRewardCampaigns(vault.address),
     },
   })

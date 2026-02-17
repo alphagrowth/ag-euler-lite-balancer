@@ -746,11 +746,11 @@ export const useEulerAccount = () => {
 
       const supplyApy = withIntrinsicSupplyApy(
         nanoToValue(position.collateral.interestRateInfo?.supplyAPY || 0n, 25),
-        position.collateral.asset.symbol,
+        position.collateral.asset.address,
       )
       const borrowApy = withIntrinsicBorrowApy(
         nanoToValue(position.borrow.interestRateInfo.borrowAPY, 25),
-        position.borrow.asset.symbol,
+        position.borrow.asset.address,
       )
 
       const supplyRewardAPY = getSupplyRewardApy(position.collateral.address)

@@ -22,7 +22,7 @@ const subAccountIndex = computed(() => {
   return getSubAccountIndex(ownerAddress.value, position.subAccount)
 })
 
-const { withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
+const { withIntrinsicSupplyApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
 
 const vault = computed(() => position.vault)
@@ -39,7 +39,7 @@ const rewardsExist = computed(() => hasSupplyRewards(vault.value.address))
 const supplyApy = computed(() => {
   return withIntrinsicSupplyApy(
     nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
-    vault.value.asset.symbol,
+    vault.value.asset.address,
   )
 })
 const supplyApyWithRewards = computed(() => supplyApy.value + getSupplyRewardApy(vault.value.address))
@@ -114,7 +114,8 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.value.interestRateInfo.supplyAPY, 25),
-      intrinsicAPY: getIntrinsicApy(vault.value.asset.symbol),
+      intrinsicAPY: getIntrinsicApy(vault.value.asset.address),
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.value.asset.address),
       campaigns: getSupplyRewardCampaigns(vault.value.address),
     },
   })

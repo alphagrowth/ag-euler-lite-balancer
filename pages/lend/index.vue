@@ -60,7 +60,7 @@ const vaultWalletUsd = ref<Map<string, number>>(new Map())
 
 const getVaultSupplyApy = (vault: Vault): number => {
   const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY, 25)
-  return withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
+  return withIntrinsicSupplyApy(baseApy, vault.asset.address) + getSupplyRewardApy(vault.address)
 }
 
 const {

@@ -39,7 +39,7 @@ const displayName = computed(() => {
   return product.name || vault.name
 });
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
-const { withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy();
+const { withIntrinsicSupplyApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy();
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy();
 const modal = useModal();
 
@@ -51,9 +51,9 @@ const hasRewards = computed(() => hasSupplyRewards(vault.address));
 const lendingAPY = computed(() =>
   nanoToValue(vault.interestRateInfo.supplyAPY, 25),
 );
-const intrinsicAPY = computed(() => getIntrinsicApy(vault.asset.symbol));
+const intrinsicAPY = computed(() => getIntrinsicApy(vault.asset.address));
 const supplyApy = computed(() =>
-  withIntrinsicSupplyApy(lendingAPY.value, vault.asset.symbol),
+  withIntrinsicSupplyApy(lendingAPY.value, vault.asset.address),
 );
 const supplyApyWithRewards = computed(
   () => supplyApy.value + totalRewardsAPY.value,
@@ -82,6 +82,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
     props: {
       lendingAPY: lendingAPY.value,
       intrinsicAPY: intrinsicAPY.value,
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
       campaigns: getSupplyRewardCampaigns(vault.address),
     },
   });

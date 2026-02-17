@@ -16,8 +16,8 @@ const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const getNetApy = (pair: BorrowVaultPair) => {
   const baseSupplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
   const baseBorrowApy = nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25)
-  const supplyApy = withIntrinsicSupplyApy(baseSupplyApy, pair.collateral.asset.symbol)
-  const borrowApy = withIntrinsicBorrowApy(baseBorrowApy, pair.borrow.asset.symbol)
+  const supplyApy = withIntrinsicSupplyApy(baseSupplyApy, pair.collateral.asset.address)
+  const borrowApy = withIntrinsicBorrowApy(baseBorrowApy, pair.borrow.asset.address)
   const supplyRewards = getSupplyRewardApy(pair.collateral.address)
   const borrowRewards = getBorrowRewardApy(pair.borrow.address, pair.collateral.address)
   return (supplyApy + supplyRewards) - (borrowApy - borrowRewards)
@@ -27,7 +27,7 @@ const getSortMaxRoe = (pair: BorrowVaultPair) => {
   const borrowLTV = nanoToValue(pair.borrowLTV, 2)
   const maxMultiplier = Math.max(1, Math.floor(100 / (100 - borrowLTV) * 100) / 100)
   const baseSupplyApy = nanoToValue(pair.collateral.interestRateInfo?.supplyAPY || 0n, 25)
-  const supplyApy = withIntrinsicSupplyApy(baseSupplyApy, pair.collateral.asset.symbol)
+  const supplyApy = withIntrinsicSupplyApy(baseSupplyApy, pair.collateral.asset.address)
   const supplyRewards = getSupplyRewardApy(pair.collateral.address)
   const supplyApyWithRewards = supplyApy + supplyRewards
   const netApy = getNetApy(pair)
@@ -122,7 +122,7 @@ watchEffect(async () => {
 
 const getPairBorrowApy = (pair: AnyBorrowVaultPair): number => {
   const baseBorrowApy = nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25)
-  const borrowApy = withIntrinsicBorrowApy(baseBorrowApy, pair.borrow.asset.symbol)
+  const borrowApy = withIntrinsicBorrowApy(baseBorrowApy, pair.borrow.asset.address)
   const borrowRewards = getBorrowRewardApy(pair.borrow.address, pair.collateral.address)
   return borrowApy - borrowRewards
 }

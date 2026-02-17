@@ -46,11 +46,11 @@ const collateralRewardAPY = computed(() => getSupplyRewardApy(pair.collateral.ad
 const borrowRewardAPY = computed(() => getBorrowRewardApy(pair.borrow.address, pair.collateral.address))
 const supplyApyWithRewards = computed(() => withIntrinsicSupplyApy(
   nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25),
-  pair.collateral.asset.symbol,
+  pair.collateral.asset.address,
 ) + collateralRewardAPY.value)
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
-  pair.borrow.asset.symbol,
+  pair.borrow.asset.address,
 ) - borrowRewardAPY.value)
 
 const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV))
@@ -61,8 +61,8 @@ const maxRoe = computed(() =>
 
 const baseSupplyApy = computed(() => nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25))
 const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25))
-const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.symbol))
-const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.symbol))
+const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.address))
+const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.address))
 
 const priceInvert = usePriceInvert(
   () => pair.collateral.asset.symbol,

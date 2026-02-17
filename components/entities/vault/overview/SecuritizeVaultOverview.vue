@@ -21,7 +21,7 @@ const { EVM_PROVIDER_URL } = useEulerConfig()
 const { chainId } = useEulerAddresses()
 const { borrowList, isVaultGovernorVerified } = useVaults()
 const { getEvkVaults } = useVaultRegistry()
-const { getIntrinsicApy } = useIntrinsicApy()
+const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const modal = useModal()
 const { getSupplyRewardApy, getSupplyRewardCampaigns, hasSupplyRewards } = useRewardsApy()
 const vaultAddress = computed(() => getAddress(vault.address))
@@ -70,7 +70,7 @@ const collateralCount = computed(() => borrowMarkets.value.length)
 
 // Supply APY calculation (intrinsic + rewards, no base interest for securitize vaults)
 const rewardSupplyAPY = computed(() => getSupplyRewardApy(vault.address))
-const intrinsicApy = computed(() => getIntrinsicApy(vault.asset.symbol))
+const intrinsicApy = computed(() => getIntrinsicApy(vault.asset.address))
 const supplyApyWithRewards = computed(() => intrinsicApy.value + rewardSupplyAPY.value)
 
 const onSupplyInfoIconClick = () => {
@@ -78,6 +78,7 @@ const onSupplyInfoIconClick = () => {
     props: {
       lendingAPY: 0, // Securitize vaults don't have interest rates
       intrinsicAPY: intrinsicApy.value,
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
       campaigns: getSupplyRewardCampaigns(vault.address),
     },
   })

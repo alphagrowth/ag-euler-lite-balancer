@@ -2,11 +2,13 @@
 import { DateTime } from 'luxon'
 import { formatNumber } from '~/utils/string-utils'
 import type { RewardCampaign } from '~/entities/reward-campaign'
+import type { IntrinsicApyInfo } from '~/entities/intrinsic-apy'
 
 const emits = defineEmits(['close'])
-const { borrowingAPY, intrinsicAPY, campaigns } = defineProps<{
+const { borrowingAPY, intrinsicAPY, intrinsicApyInfo, campaigns } = defineProps<{
   borrowingAPY: number
   intrinsicAPY?: number
+  intrinsicApyInfo?: IntrinsicApyInfo
   campaigns?: RewardCampaign[]
 }>()
 
@@ -64,17 +66,26 @@ const handleClose = () => {
         </div>
         <div
           v-if="hasIntrinsicApy"
-          class="flex justify-between items-center mt-16"
+          class="flex justify-between items-start gap-24 mt-16"
         >
           <div>
             <p class="mb-4">
-              Intrinsic APY
+              Intrinsic APY{{ intrinsicApyInfo?.provider ? ` (${intrinsicApyInfo.provider})` : '' }}
             </p>
             <p class="text-euler-dark-900">
               Yield intrinsic to the borrowed asset, such as staking yield, which reduces effective borrowing cost
             </p>
+            <a
+              v-if="intrinsicApyInfo?.source"
+              :href="intrinsicApyInfo.source"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-sm text-euler-dark-900 underline mt-4 inline-block"
+            >
+              Source
+            </a>
           </div>
-          <div class="text-h5">
+          <div class="text-h5 shrink-0">
             {{ formatNumber(intrinsicApyValue) }}%
           </div>
         </div>

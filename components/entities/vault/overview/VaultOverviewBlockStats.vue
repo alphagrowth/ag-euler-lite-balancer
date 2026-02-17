@@ -10,18 +10,18 @@ import { VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
 const { vault } = defineProps<{ vault: Vault }>()
 
 const modal = useModal()
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
 const isBorrowable = computed(() => vault.collateralLTVs.some(ltv => ltv.borrowLTV > 0n))
 
 const supplyApyWithRewards = computed(() => withIntrinsicSupplyApy(
   nanoToValue(vault.interestRateInfo.supplyAPY, 25),
-  vault.asset.symbol,
+  vault.asset.address,
 ) + getSupplyRewardApy(vault.address))
 // Vault overview shows generic borrow rewards (no specific collateral context available here)
 const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   nanoToValue(vault.interestRateInfo.borrowAPY, 25),
-  vault.asset.symbol,
+  vault.asset.address,
 ) - getBorrowRewardApy(vault.address))
 
 const supplyRewardInfo = computed(() => getSupplyRewardCampaigns(vault.address))
@@ -31,7 +31,8 @@ const onSupplyInfoIconClick = () => {
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
-      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      intrinsicAPY: getIntrinsicApy(vault.asset.address),
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
       campaigns: supplyRewardInfo.value,
     },
   })
@@ -41,7 +42,8 @@ const onBorrowInfoIconClick = () => {
   modal.open(VaultBorrowApyModal, {
     props: {
       borrowingAPY: nanoToValue(vault.interestRateInfo.borrowAPY, 25),
-      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      intrinsicAPY: getIntrinsicApy(vault.asset.address),
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
       campaigns: borrowRewardInfo.value,
     },
   })

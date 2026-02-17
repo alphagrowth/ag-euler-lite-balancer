@@ -74,12 +74,12 @@ const collateralSupplyApy = computed(() => {
   if (!collateralVault.value) return 0
   return withIntrinsicSupplyApy(
     nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
-    collateralVault.value?.asset.symbol,
+    collateralVault.value?.asset.address,
   )
 })
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
-  borrowVault.value?.asset.symbol,
+  borrowVault.value?.asset.address,
 ))
 // Get collateral USD value using liability vault's price perspective (async)
 const getCollateralValueUsdLocal = async (amount: bigint) => {

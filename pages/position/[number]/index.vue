@@ -36,7 +36,7 @@ const modal = useModal()
 const { error } = useToast()
 const { isConnected } = useAccount()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, getBorrowRewardApy, hasSupplyRewards, hasBorrowRewards, getSupplyRewardCampaigns, getBorrowRewardCampaigns } = useRewardsApy()
 const { buildDisableCollateralPlan, executeTxPlan } = useEulerOperations()
 const {
@@ -126,15 +126,15 @@ const baseSupplyAPY = computed(() => {
   return nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25)
 })
 const baseBorrowAPY = computed(() => nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25))
-const intrinsicSupplyAPY = computed(() => getIntrinsicApy(collateralVault.value?.asset.symbol))
-const intrinsicBorrowAPY = computed(() => getIntrinsicApy(borrowVault.value?.asset.symbol))
+const intrinsicSupplyAPY = computed(() => getIntrinsicApy(collateralVault.value?.asset.address))
+const intrinsicBorrowAPY = computed(() => getIntrinsicApy(borrowVault.value?.asset.address))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   baseSupplyAPY.value,
-  collateralVault.value?.asset.symbol,
+  collateralVault.value?.asset.address,
 ))
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   baseBorrowAPY.value,
-  borrowVault.value?.asset.symbol,
+  borrowVault.value?.asset.address,
 ))
 const borrowApyWithRewards = computed(() => borrowApy.value - borrowRewardAPY.value)
 
@@ -184,7 +184,7 @@ watchEffect(async () => {
       const rewardApy = getSupplyRewardApy(item.vault.address || '')
       const supplyApy = withIntrinsicSupplyApy(
         nanoToValue(item.vault.interestRateInfo.supplyAPY || 0n, 25),
-        item.vault.asset.symbol,
+        item.vault.asset.address,
       )
 
       // Collateral price ALWAYS comes from liability vault's oracle, converted to USD
@@ -595,6 +595,7 @@ const onBorrowInfoIconClick = (event: MouseEvent) => {
     props: {
       borrowingAPY: baseBorrowAPY.value,
       intrinsicAPY: intrinsicBorrowAPY.value,
+      intrinsicApyInfo: getIntrinsicApyInfo(borrowVault.value.asset.address),
       campaigns: getBorrowRewardCampaigns(borrowVault.value.address, collateralVault.value?.address),
     },
   })
@@ -606,7 +607,8 @@ const onSupplyInfoIconClick = (event: MouseEvent, vault: Vault | SecuritizeVault
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
-      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      intrinsicAPY: getIntrinsicApy(vault.asset.address),
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
       campaigns: getSupplyRewardCampaigns(vault.address),
     },
   })

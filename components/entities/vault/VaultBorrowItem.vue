@@ -41,7 +41,7 @@ const entityDisplay = computed(() => {
   }
 });
 
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } =
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy, getIntrinsicApyInfo } =
   useIntrinsicApy();
 const { getBorrowRewardApy, getSupplyRewardApy, hasSupplyRewards, hasBorrowRewards, getBorrowRewardCampaigns } = useRewardsApy();
 const modal = useModal();
@@ -118,12 +118,12 @@ const supplyApy = computed(() => {
   const baseApy = interestRateInfo
     ? nanoToValue(interestRateInfo.supplyAPY, 25)
     : 0;
-  return withIntrinsicSupplyApy(baseApy, pair.collateral.asset.symbol);
+  return withIntrinsicSupplyApy(baseApy, pair.collateral.asset.address);
 });
 const borrowApy = computed(() =>
   withIntrinsicBorrowApy(
     nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
-    pair.borrow.asset.symbol,
+    pair.borrow.asset.address,
   ),
 );
 const supplyApyWithRewards = computed(
@@ -158,7 +158,8 @@ const onBorrowInfoIconClick = (event: MouseEvent) => {
   modal.open(VaultBorrowApyModal, {
     props: {
       borrowingAPY: nanoToValue(pair.borrow.interestRateInfo.borrowAPY, 25),
-      intrinsicAPY: getIntrinsicApy(pair.borrow.asset.symbol),
+      intrinsicAPY: getIntrinsicApy(pair.borrow.asset.address),
+      intrinsicApyInfo: getIntrinsicApyInfo(pair.borrow.asset.address),
       campaigns: getBorrowRewardCampaigns(pair.borrow.address, pair.collateral.address),
     },
   });

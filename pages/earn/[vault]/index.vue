@@ -26,7 +26,7 @@ const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
 const { name } = useEulerProductOfVault(vaultAddress)
-const { getIntrinsicApy } = useIntrinsicApy()
+const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
 
 const isLoading = ref(false)
@@ -88,7 +88,7 @@ const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
 const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
 const totalRewardsAPY = computed(() => getSupplyRewardApy(vaultAddress))
 const hasRewards = computed(() => hasSupplyRewards(vaultAddress))
-const intrinsicApy = computed(() => getIntrinsicApy(vault.value?.asset.symbol))
+const intrinsicApy = computed(() => getIntrinsicApy(vault.value?.asset.address))
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
   return formatNumber(nanoToValue(vault.value!.interestRateInfo.supplyAPY, 25) + totalRewardsAPY.value)
@@ -188,6 +188,7 @@ const onSupplyInfoIconClick = () => {
     props: {
       lendingAPY: nanoToValue(vault.value!.interestRateInfo.supplyAPY, 25),
       intrinsicAPY: intrinsicApy.value,
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.value?.asset.address),
       campaigns: getSupplyRewardCampaigns(vaultAddress),
     },
   })

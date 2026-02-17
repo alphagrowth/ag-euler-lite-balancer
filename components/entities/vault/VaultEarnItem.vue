@@ -30,7 +30,7 @@ const entityLogos = computed(() => {
   return entities.map((e) => getEulerLabelEntityLogo(e.logo))
 });
 const { getBalance, isLoading: isBalancesLoading } = useWallets();
-const { getIntrinsicApy } = useIntrinsicApy();
+const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy();
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy();
 const modal = useModal();
 
@@ -70,7 +70,8 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
   modal.open(VaultSupplyApyModal, {
     props: {
       lendingAPY: nanoToValue(vault.interestRateInfo.supplyAPY, 25),
-      intrinsicAPY: getIntrinsicApy(vault.asset.symbol),
+      intrinsicAPY: getIntrinsicApy(vault.asset.address),
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
       campaigns: getSupplyRewardCampaigns(vault.address),
     },
   })

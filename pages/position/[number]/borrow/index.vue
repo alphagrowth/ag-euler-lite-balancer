@@ -136,11 +136,11 @@ const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVa
 const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25),
-  collateralVault.value?.asset.symbol,
+  collateralVault.value?.asset.address,
 ))
 const borrowApy = computed(() => withIntrinsicBorrowApy(
   nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
-  borrowVault.value?.asset.symbol,
+  borrowVault.value?.asset.address,
 ))
 
 const load = async () => {
