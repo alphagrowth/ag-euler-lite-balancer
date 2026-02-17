@@ -332,14 +332,14 @@ interface DotMetricOption {
 }
 
 const DOT_METRIC_OPTIONS: DotMetricOption[] = [
-  { id: 'bltv', label: 'Borrow LTV', higherIsBetter: false },
-  { id: 'lltv', label: 'Liquidation LTV', higherIsBetter: false },
-  { id: 'multiplier', label: 'Multiplier', higherIsBetter: false },
   { id: 'net-apy', label: 'Net APY', higherIsBetter: true },
   { id: 'roe', label: 'Max ROE', higherIsBetter: true },
+  { id: 'multiplier', label: 'Multiplier', higherIsBetter: false },
+  { id: 'bltv', label: 'Borrow LTV', higherIsBetter: false },
+  { id: 'lltv', label: 'Liquidation LTV', higherIsBetter: false },
 ]
 
-const dotMetric = ref<DotMetric>('bltv')
+const dotMetric = ref<DotMetric>('net-apy')
 const metricDropdownOpen = ref(false)
 
 const formatMetricValue = (value: number, metric: DotMetric): string => {

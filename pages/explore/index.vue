@@ -4,6 +4,7 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/composables/useEulerLabels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
+import { useBestNetAPY } from '~/composables/useBestNetAPY'
 import { useVaultSearch } from '~/composables/useVaultSearch'
 import type { MarketGroup } from '~/entities/lend-discovery'
 import type { Vault } from '~/entities/vault'
@@ -14,6 +15,7 @@ defineOptions({
 })
 
 const { marketGroups, isResolvingTVL } = useMarketGroups()
+const { getBestNetAPY } = useBestNetAPY(marketGroups)
 const { isUpdating, isEarnUpdating, isEscrowUpdating } = useVaults()
 const { chainId } = useEulerAddresses()
 const { entities } = useEulerLabels()
@@ -58,11 +60,13 @@ const {
   matchesCustomFilters,
 } = useCustomFilters<MarketGroup>(
   [
+    { key: 'bestNetAPY', label: 'Best net APY', shortLabel: 'Best net APY', unit: 'percent' },
     { key: 'totalTVL', label: 'Total supply', shortLabel: 'Total supply', unit: 'usd' },
     { key: 'totalBorrowed', label: 'Total borrowed', shortLabel: 'Total borrowed', unit: 'usd' },
     { key: 'totalAvailableLiquidity', label: 'Available liquidity', shortLabel: 'Avail. liquidity', unit: 'usd' },
   ],
   (group, metric) => {
+    if (metric === 'bestNetAPY') return getBestNetAPY(group.id)
     const val = group.metrics[metric as keyof typeof group.metrics]
     return typeof val === 'number' ? val : 0
   },
@@ -238,6 +242,11 @@ const sortedMarkets = computed(() => {
       scored.sort((a, b) => b.compositeScore - a.compositeScore)
       return applyFeaturedSort(scored.map(s => s.group))
     }
+    case 'Best Net APY':
+      sorted = applyFeaturedSort([...filteredMarkets.value].sort((a, b) =>
+        getBestNetAPY(b.id) - getBestNetAPY(a.id),
+      ))
+      break
     case 'Total Supply':
       sorted = applyFeaturedSort([...filteredMarkets.value].sort((a, b) =>
         b.metrics.totalTVL - a.metrics.totalTVL,
@@ -290,7 +299,7 @@ const isLoading = computed(() =>
         <VaultSortButton
           v-model="sortBy"
           v-model:dir="sortDir"
-          :options="['Recommended', 'Total Supply', 'Total Borrowed', 'Available Liquidity']"
+          :options="['Recommended', 'Best Net APY', 'Total Supply', 'Total Borrowed', 'Available Liquidity']"
           :disable-dir="sortBy === 'Recommended'"
           title="Sorting type"
         />
