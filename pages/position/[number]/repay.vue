@@ -259,6 +259,19 @@ const savingsNextHealth = computed(() => {
   return savingsCurrentLiquidationLtv.value / savingsNextLtv.value
 })
 
+const savingsCurrentLiquidationPrice = computed(() => {
+  if (!oraclePriceRatio.value || !savingsCurrentHealth.value) return null
+  if (savingsCurrentHealth.value <= 0) return null
+  return oraclePriceRatio.value / savingsCurrentHealth.value
+})
+const savingsNextLiquidationPrice = computed(() => {
+  if (!oraclePriceRatio.value || !savingsNextHealth.value) return null
+  if (savingsNextHealth.value <= 0) return null
+  return oraclePriceRatio.value / savingsNextHealth.value
+})
+
+const savingsLeveragedPriceImpact = computed(() => savingsPriceImpact.value)
+
 const savingsSwapCurrentPrice = computed(() => {
   if (!savingsQuote.value || !savingsVault.value || !borrowVault.value) return null
   const amountOut = Number(formatUnits(BigInt(savingsQuote.value.amountOut), Number(borrowVault.value.asset.decimals)))
@@ -735,6 +748,25 @@ const swapRoeBefore = computed(() => {
 })
 const swapRoeAfter = computed(() => {
   return calculateRoe(swapNextCollateralValueUsd.value, swapNextBorrowValueUsd.value, swapCollateralSupplyApy.value, swapBorrowApy.value)
+})
+
+// Savings repay ROE — uses position's collateral (unchanged) and borrow values
+let savingsCollateralUsdVersion = 0
+const savingsCollateralUsd = ref<number | null>(null)
+watchEffect(async () => {
+  if (!collateralVault.value || !position.value) {
+    savingsCollateralUsd.value = null
+    return
+  }
+  const version = ++savingsCollateralUsdVersion
+  const result = (await getAssetUsdValue(position.value.supplied || 0n, collateralVault.value, 'off-chain')) ?? null
+  if (version === savingsCollateralUsdVersion) savingsCollateralUsd.value = result
+})
+const savingsRoeBefore = computed(() => {
+  return calculateRoe(savingsCollateralUsd.value, savingsBorrowValueUsd.value, collateralSupplyApy.value, borrowApy.value)
+})
+const savingsRoeAfter = computed(() => {
+  return calculateRoe(savingsCollateralUsd.value, savingsNextBorrowValueUsd.value, collateralSupplyApy.value, borrowApy.value)
 })
 
 const swapPriceRatio = computed(() => {
@@ -2385,6 +2417,13 @@ onUnmounted(() => {
             variant="card"
             class="w-full laptop:max-w-[360px]"
           >
+            <SummaryRow label="ROE">
+              <SummaryValue
+                :before="savingsRoeBefore !== null ? formatNumber(savingsRoeBefore) : undefined"
+                :after="savingsRoeAfter !== null && (savingsQuote || savingsIsSameAsset) ? formatNumber(savingsRoeAfter) : undefined"
+                suffix="%"
+              />
+            </SummaryRow>
             <template v-if="!savingsIsSameAsset">
               <SummaryRow label="Swap price" align-top>
                 <SummaryPriceValue
@@ -2402,6 +2441,15 @@ onUnmounted(() => {
                 </p>
               </SummaryRow>
             </template>
+            <SummaryRow label="Liquidation price">
+              <SummaryPriceValue
+                :before="savingsCurrentLiquidationPrice !== null ? formatSmartAmount(walletPriceInvert.invertValue(savingsCurrentLiquidationPrice)) : undefined"
+                :after="savingsNextLiquidationPrice !== null && (savingsQuote || savingsIsSameAsset) ? formatSmartAmount(walletPriceInvert.invertValue(savingsNextLiquidationPrice)) : undefined"
+                :symbol="walletPriceInvert.displaySymbol"
+                invertible
+                @invert="walletPriceInvert.toggle"
+              />
+            </SummaryRow>
             <SummaryRow label="LTV">
               <SummaryValue
                 :before="savingsCurrentLtv !== null ? formatNumber(savingsCurrentLtv) : undefined"
@@ -2430,6 +2478,11 @@ onUnmounted(() => {
               <SummaryRow label="Price impact">
                 <p class="text-p2">
                   {{ savingsPriceImpact !== null ? `${formatNumber(savingsPriceImpact, 2, 2)}%` : '-' }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Leveraged price impact">
+                <p class="text-p2">
+                  {{ savingsLeveragedPriceImpact !== null ? `${formatNumber(savingsLeveragedPriceImpact, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Slippage tolerance">
