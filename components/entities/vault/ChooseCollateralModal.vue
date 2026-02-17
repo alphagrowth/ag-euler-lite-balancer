@@ -57,12 +57,12 @@ const handleClose = () => {
     @close="handleClose"
   >
     <div class="px-16 pb-12">
-      <input
+      <UiInput
         v-model="searchQuery"
-        type="text"
         placeholder="Search by name or symbol"
-        class="w-full px-12 py-10 rounded-12 border border-line-default bg-surface text-p2 text-content-primary placeholder:text-content-muted outline-none focus:border-accent-500 transition-colors"
-      >
+        icon="search"
+        clearable
+      />
     </div>
     <div class="flex-1 overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <div
