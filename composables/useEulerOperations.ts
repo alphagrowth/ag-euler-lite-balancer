@@ -2589,16 +2589,6 @@ export const useEulerOperations = () => {
 
     const evcCalls: EVCCall[] = []
 
-    console.log('[buildSavingsRepayPlan]', {
-      savingsVaultAddr,
-      borrowVaultAddr,
-      sameVault,
-      amount: amount.toString(),
-      savingsSubAccountAddr,
-      borrowSubAccountAddr,
-      userAddr,
-    })
-
     // TOS signing
     if (!hasSigned && enableTermsOfUseSignature) {
       evcCalls.push({
@@ -2645,13 +2635,6 @@ export const useEulerOperations = () => {
     }
 
     const totalValue = sumCallValues(evcCalls)
-
-    console.log('[buildSavingsRepayPlan] evcCalls', evcCalls.map((c, i) => ({
-      i,
-      target: c.targetContract,
-      onBehalf: c.onBehalfOfAccount,
-      data: c.data.slice(0, 10),
-    })))
 
     return {
       kind: 'savings-repay',
