@@ -67,7 +67,7 @@ const liqPriceInvert = usePriceInvert(
   () => borrowVault.value?.asset.symbol,
 )
 
-const positionIndex = route.params.number as string
+const positionIndex = usePositionIndex()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)

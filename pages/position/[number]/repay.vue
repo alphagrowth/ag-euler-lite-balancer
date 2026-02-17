@@ -25,9 +25,9 @@ const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
-const { buildRepayPlan, buildFullRepayPlan, buildSwapPlan, buildSameAssetRepayPlan, buildSameAssetFullRepayPlan, buildSwapCollateralFullRepayPlan, buildSavingsRepayPlan, buildSavingsFullRepayPlan, buildSwapSavingsFullRepayPlan, executeTxPlan } = useEulerOperations()
+const { buildRepayPlan, buildFullRepayPlan, buildSwapPlan, buildSameAssetRepayPlan, buildSameAssetFullRepayPlan, buildSwapFullRepayPlan, buildSavingsRepayPlan, buildSavingsFullRepayPlan, executeTxPlan } = useEulerOperations()
 const { isConnected, address } = useAccount()
-const positionIndex = route.params.number as string
+const positionIndex = usePositionIndex()
 const { isPositionsLoading, isPositionsLoaded, isDepositsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -185,6 +185,11 @@ const savingsDebtRepaid = computed(() => {
   }
 })
 
+// Version counters to prevent stale async writes in watchEffect
+let savingsValueUsdVersion = 0
+let savingsBorrowValueUsdVersion = 0
+let savingsNextBorrowValueUsdVersion = 0
+
 // Savings summary computeds (async values)
 const savingsValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -192,7 +197,9 @@ watchEffect(async () => {
     savingsValueUsd.value = null
     return
   }
-  savingsValueUsd.value = (await getAssetUsdValue(savingsAssets.value, savingsVault.value, 'off-chain')) ?? null
+  const version = ++savingsValueUsdVersion
+  const result = (await getAssetUsdValue(savingsAssets.value, savingsVault.value, 'off-chain')) ?? null
+  if (version === savingsValueUsdVersion) savingsValueUsd.value = result
 })
 
 const savingsBorrowValueUsd = ref<number | null>(null)
@@ -201,7 +208,9 @@ watchEffect(async () => {
     savingsBorrowValueUsd.value = null
     return
   }
-  savingsBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
+  const version = ++savingsBorrowValueUsdVersion
+  const result = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
+  if (version === savingsBorrowValueUsdVersion) savingsBorrowValueUsd.value = result
 })
 
 const savingsNextBorrowValueUsd = ref<number | null>(null)
@@ -210,8 +219,10 @@ watchEffect(async () => {
     savingsNextBorrowValueUsd.value = null
     return
   }
+  const version = ++savingsNextBorrowValueUsdVersion
   const nextBorrow = position.value.borrowed - savingsDebtRepaid.value
-  savingsNextBorrowValueUsd.value = (await getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value, 'off-chain')) ?? null
+  const result = (await getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value, 'off-chain')) ?? null
+  if (version === savingsNextBorrowValueUsdVersion) savingsNextBorrowValueUsd.value = result
 })
 
 const savingsCurrentHealth = computed(() => {
@@ -267,16 +278,19 @@ const savingsSwapSummary = computed(() => {
     to: `${formatSignificant(amountOut)} ${borrowVault.value.asset.symbol}`,
   }
 })
+let savingsPriceImpactVersion = 0
 const savingsPriceImpact = ref<number | null>(null)
 watchEffect(async () => {
   if (!savingsQuote.value || !savingsVault.value || !borrowVault.value) {
     savingsPriceImpact.value = null
     return
   }
+  const version = ++savingsPriceImpactVersion
   const [amountInUsd, amountOutUsd] = await Promise.all([
     getAssetUsdValue(BigInt(savingsQuote.value.amountIn), savingsVault.value, 'off-chain'),
     getAssetUsdValue(BigInt(savingsQuote.value.amountOut), borrowVault.value, 'off-chain'),
   ])
+  if (version !== savingsPriceImpactVersion) return
   if (!amountInUsd || !amountOutUsd) {
     savingsPriceImpact.value = null
     return
@@ -321,6 +335,7 @@ const isSavingsSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   if (!savingsVault.value || !borrowVault.value) return true
   if (!savingsDebtAmount.value && !savingsAmount.value) return true
+  if (savingsSpent.value !== null && savingsSpent.value > savingsBalance.value) return true
   if (savingsIsSameAsset.value) return false
   if (savingsQuoteError.value) return true
   if (!savingsSelectedQuote.value) return true
@@ -380,6 +395,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   borrowVault.value?.asset.address,
 ))
 // Pre-computed net APY (async)
+let netAPYVersion = 0
 const netAPY = ref(0)
 
 watchEffect(async () => {
@@ -388,10 +404,12 @@ watchEffect(async () => {
     return
   }
 
+  const version = ++netAPYVersion
   const [supplyUsd, borrowUsd] = await Promise.all([
     getAssetUsdValueOrZero(position.value.supplied || 0n, collateralVault.value, 'off-chain'),
     getAssetUsdValueOrZero(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
   ])
+  if (version !== netAPYVersion) return
 
   netAPY.value = getNetAPY(
     supplyUsd,
@@ -635,6 +653,7 @@ const swapDebtRepaid = computed(() => {
   }
 })
 // Pre-computed swap collateral USD value (async)
+let swapCollateralValueUsdVersion = 0
 const swapCollateralValueUsd = ref<number | null>(null)
 
 watchEffect(async () => {
@@ -642,10 +661,13 @@ watchEffect(async () => {
     swapCollateralValueUsd.value = null
     return
   }
-  swapCollateralValueUsd.value = (await getAssetUsdValue(swapCollateralAssets.value, swapCollateralVault.value, 'off-chain')) ?? null
+  const version = ++swapCollateralValueUsdVersion
+  const result = (await getAssetUsdValue(swapCollateralAssets.value, swapCollateralVault.value, 'off-chain')) ?? null
+  if (version === swapCollateralValueUsdVersion) swapCollateralValueUsd.value = result
 })
 
 // Pre-computed swap borrow USD value (async)
+let swapBorrowValueUsdVersion = 0
 const swapBorrowValueUsd = ref<number | null>(null)
 
 watchEffect(async () => {
@@ -653,10 +675,13 @@ watchEffect(async () => {
     swapBorrowValueUsd.value = null
     return
   }
-  swapBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
+  const version = ++swapBorrowValueUsdVersion
+  const result = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
+  if (version === swapBorrowValueUsdVersion) swapBorrowValueUsd.value = result
 })
 
 // Pre-computed swap next collateral USD value (async)
+let swapNextCollateralValueUsdVersion = 0
 const swapNextCollateralValueUsd = ref<number | null>(null)
 
 watchEffect(async () => {
@@ -664,11 +689,14 @@ watchEffect(async () => {
     swapNextCollateralValueUsd.value = null
     return
   }
+  const version = ++swapNextCollateralValueUsdVersion
   const nextAssets = swapCollateralAssets.value - swapCollateralSpent.value
-  swapNextCollateralValueUsd.value = (await getAssetUsdValue(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value, 'off-chain')) ?? null
+  const result = (await getAssetUsdValue(nextAssets > 0n ? nextAssets : 0n, swapCollateralVault.value, 'off-chain')) ?? null
+  if (version === swapNextCollateralValueUsdVersion) swapNextCollateralValueUsd.value = result
 })
 
 // Pre-computed swap next borrow USD value (async)
+let swapNextBorrowValueUsdVersion = 0
 const swapNextBorrowValueUsd = ref<number | null>(null)
 
 watchEffect(async () => {
@@ -676,8 +704,10 @@ watchEffect(async () => {
     swapNextBorrowValueUsd.value = null
     return
   }
+  const version = ++swapNextBorrowValueUsdVersion
   const nextBorrow = position.value.borrowed - swapDebtRepaid.value
-  swapNextBorrowValueUsd.value = (await getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value, 'off-chain')) ?? null
+  const result = (await getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value, 'off-chain')) ?? null
+  if (version === swapNextBorrowValueUsdVersion) swapNextBorrowValueUsd.value = result
 })
 
 const calculateRoe = (
@@ -834,6 +864,7 @@ const swapSummary = computed(() => {
   }
 })
 // Pre-computed swap price impact (async)
+let swapPriceImpactVersion = 0
 const swapPriceImpact = ref<number | null>(null)
 
 watchEffect(async () => {
@@ -841,10 +872,12 @@ watchEffect(async () => {
     swapPriceImpact.value = null
     return
   }
+  const version = ++swapPriceImpactVersion
   const [amountInUsd, amountOutUsd] = await Promise.all([
     getAssetUsdValue(BigInt(swapQuote.value.amountIn), swapCollateralVault.value, 'off-chain'),
     getAssetUsdValue(BigInt(swapQuote.value.amountOut), borrowVault.value, 'off-chain'),
   ])
+  if (version !== swapPriceImpactVersion) return
   if (!amountInUsd || !amountOutUsd) {
     swapPriceImpact.value = null
     return
@@ -1412,13 +1445,14 @@ const buildSavingsRepay = async (): Promise<TxPlan> => {
   // Check if this is a full repay via swap
   const isFullRepay = targetDebt === 0n && swapMode === SwapperMode.TARGET_DEBT
   if (isFullRepay) {
-    return buildSwapSavingsFullRepayPlan({
+    return buildSwapFullRepayPlan({
       quote: savingsSelectedQuote.value,
       swapperMode: swapMode,
       targetDebt,
       currentDebt,
       liabilityVault: borrowVault.value.address,
       enabledCollaterals: position.value.collaterals,
+      source: 'savings',
     })
   }
 
@@ -1520,7 +1554,7 @@ const updateBalance = async () => {
     .value
 }
 const submit = async () => {
-  if (isPreparing.value || !position.value || !borrowVault.value || !collateralVault.value) {
+  if (isPreparing.value || isSubmitting.value || !position.value || !borrowVault.value || !collateralVault.value) {
     return
   }
 
@@ -1638,13 +1672,14 @@ const buildSwapRepayPlan = async (): Promise<TxPlan> => {
 
   const isFullRepay = targetDebt === 0n && swapMode === SwapperMode.TARGET_DEBT
   if (isFullRepay) {
-    return buildSwapCollateralFullRepayPlan({
+    return buildSwapFullRepayPlan({
       quote: swapSelectedQuote.value,
       swapperMode: swapMode,
       targetDebt,
       currentDebt,
       liabilityVault: borrowVault.value.address,
       enabledCollaterals: position.value.collaterals,
+      source: 'collateral',
     })
   }
 

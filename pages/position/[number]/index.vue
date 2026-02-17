@@ -45,7 +45,7 @@ const {
   clearSimulationError: clearDisableCollateralSimulationError,
 } = useTxPlanSimulation()
 
-const positionIndex = route.params.number as string
+const positionIndex = usePositionIndex()
 
 type PositionCollateral = {
   vault: Vault | SecuritizeVault

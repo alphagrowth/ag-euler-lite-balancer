@@ -59,7 +59,7 @@ const priceInvert = usePriceInvert(
   () => multiplyLongVault.value?.asset.symbol,
 )
 
-const positionIndex = route.params.number as string
+const positionIndex = usePositionIndex()
 const position: Ref<AccountBorrowPosition | null> = ref(null)
 
 const isLoading = ref(false)

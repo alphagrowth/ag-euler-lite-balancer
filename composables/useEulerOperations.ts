@@ -2853,17 +2853,21 @@ export const useEulerOperations = () => {
   }
 
   /**
-   * Full repay using a cross-asset swap from savings.
-   * Builds the swap EVC calls (which handle withdraw from savingsSubAccount via quote.accountIn),
-   * then appends position cleanup: disableController, disableCollateral, transferFromMax for each collateral.
+   * Full repay using a cross-asset swap (from collateral or savings).
+   * Builds the swap EVC calls, then appends position cleanup:
+   * disableController, disableCollateral, transferFromMax for each collateral.
+   *
+   * For collateral swaps, the sub-account is quote.accountIn (source of collateral).
+   * For savings swaps, the sub-account is quote.accountOut (borrow sub-account).
    */
-  const buildSwapCollateralFullRepayPlan = async ({
+  const buildSwapFullRepayPlan = async ({
     quote,
     swapperMode = SwapperMode.EXACT_IN,
     targetDebt = 0n,
     currentDebt = 0n,
     liabilityVault,
     enabledCollaterals,
+    source,
   }: {
     quote: SwapApiQuote
     swapperMode?: SwapperMode
@@ -2871,6 +2875,7 @@ export const useEulerOperations = () => {
     currentDebt?: bigint
     liabilityVault?: string
     enabledCollaterals?: string[]
+    source: 'collateral' | 'savings'
   }): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -2878,9 +2883,9 @@ export const useEulerOperations = () => {
 
     const userAddr = address.value as Address
     const evcAddress = eulerCoreAddresses.value.evc as Address
-    const subAccountAddr = quote.accountIn as Address
+    const subAccountAddr = (source === 'collateral' ? quote.accountIn : quote.accountOut) as Address
 
-    const { evcCalls, totalValue: swapValue } = await buildSwapEvcCalls({
+    const { evcCalls } = await buildSwapEvcCalls({
       quote,
       swapperMode,
       isRepay: true,
@@ -2934,106 +2939,16 @@ export const useEulerOperations = () => {
 
     const totalValue = sumCallValues(evcCalls)
 
+    const label = source === 'collateral'
+      ? 'Full repay with collateral swap via EVC'
+      : 'Full repay with savings swap via EVC'
+
     return {
-      kind: 'swap-collateral-full-repay',
+      kind: `swap-${source}-full-repay`,
       steps: [
         {
           type: 'evc-batch',
-          label: 'Full repay with collateral swap via EVC',
-          to: evcAddress,
-          abi: EVC_ABI,
-          functionName: 'batch',
-          args: [evcCalls as never],
-          value: totalValue,
-        },
-      ],
-    }
-  }
-
-  const buildSwapSavingsFullRepayPlan = async ({
-    quote,
-    swapperMode = SwapperMode.EXACT_IN,
-    targetDebt = 0n,
-    currentDebt = 0n,
-    liabilityVault,
-    enabledCollaterals,
-  }: {
-    quote: SwapApiQuote
-    swapperMode?: SwapperMode
-    targetDebt?: bigint
-    currentDebt?: bigint
-    liabilityVault?: string
-    enabledCollaterals?: string[]
-  }): Promise<TxPlan> => {
-    if (!address.value || !eulerCoreAddresses.value) {
-      throw new Error('Wallet not connected or addresses not available')
-    }
-
-    const userAddr = address.value as Address
-    const evcAddress = eulerCoreAddresses.value.evc as Address
-    const borrowSubAccountAddr = quote.accountOut as Address
-
-    // Build the swap calls (withdraw from savings sub-account, swap, verify debt reduction)
-    const { evcCalls, totalValue: swapValue } = await buildSwapEvcCalls({
-      quote,
-      swapperMode,
-      isRepay: true,
-      targetDebt,
-      currentDebt,
-      liabilityVault,
-      enabledCollaterals,
-    })
-
-    // Append position cleanup calls
-    const hooks = new SaHooksBuilder()
-    const borrowVaultAddr = quote.receiver as Address
-    hooks.addContractInterface(borrowVaultAddr, evcDisableControllerAbi)
-    hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
-
-    const collateralAddresses = enabledCollaterals || []
-    for (const collateralAddr of collateralAddresses) {
-      hooks.addContractInterface(collateralAddr as Address, vaultTransferFromMaxAbi)
-    }
-
-    // Disable controller (debt is fully repaid)
-    evcCalls.push({
-      targetContract: borrowVaultAddr,
-      onBehalfOfAccount: borrowSubAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'disableController', []) as Hash,
-    })
-
-    // Disable collateral
-    for (const collateralAddr of collateralAddresses) {
-      evcCalls.push({
-        targetContract: evcAddress,
-        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
-        value: 0n,
-        data: hooks.getDataForCall(evcAddress, 'disableCollateral', [borrowSubAccountAddr, collateralAddr as Address]) as Hash,
-      })
-    }
-
-    // Transfer collateral shares to main account
-    const isMainAccount = borrowSubAccountAddr.toLowerCase() === userAddr.toLowerCase()
-    if (!isMainAccount) {
-      for (const collateralAddr of collateralAddresses) {
-        evcCalls.push({
-          targetContract: collateralAddr as Address,
-          onBehalfOfAccount: borrowSubAccountAddr,
-          value: 0n,
-          data: hooks.getDataForCall(collateralAddr as Address, 'transferFromMax', [borrowSubAccountAddr, userAddr]) as Hash,
-        })
-      }
-    }
-
-    const totalValue = sumCallValues(evcCalls)
-
-    return {
-      kind: 'swap-savings-full-repay',
-      steps: [
-        {
-          type: 'evc-batch',
-          label: 'Full repay with savings swap via EVC',
+          label,
           to: evcAddress,
           abi: EVC_ABI,
           functionName: 'batch',
@@ -3062,9 +2977,8 @@ export const useEulerOperations = () => {
     buildSameAssetFullRepayPlan,
     buildSameAssetDebtSwapPlan,
     buildDisableCollateralPlan,
-    buildSwapCollateralFullRepayPlan,
+    buildSwapFullRepayPlan,
     buildSavingsRepayPlan,
     buildSavingsFullRepayPlan,
-    buildSwapSavingsFullRepayPlan,
   }
 }

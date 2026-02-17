@@ -53,7 +53,7 @@ const currentLiqDisplaySymbol = computed(() => {
   return liqPriceInvert.isInverted ? `${b}/${a}` : `${a}/${b}`
 })
 
-const positionIndex = route.params.number as string
+const positionIndex = usePositionIndex()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -667,6 +667,7 @@ const buildDebtSwapPlan = async (): Promise<TxPlan | null> => {
     quote: selectedQuote.value,
     swapperMode: SwapperMode.TARGET_DEBT,
     isRepay: true,
+    isDebtSwap: true,
     targetDebt: 0n,
     currentDebt: currentDebt.value,
     liabilityVault: fromVault.value?.address,
