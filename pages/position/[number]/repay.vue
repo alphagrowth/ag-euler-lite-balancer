@@ -1464,6 +1464,8 @@ const submitSavings = async () => {
         type: 'repay',
         asset: savingsVault.value.asset,
         amount: savingsAmount.value,
+        swapToAsset: !savingsIsSameAsset.value ? borrowVault.value.asset : undefined,
+        swapToAmount: !savingsIsSameAsset.value ? savingsDebtAmount.value : undefined,
         plan: plan.value || undefined,
         subAccount: position.value?.subAccount,
         hasBorrows: (position.value?.borrowed || 0n) > 0n,

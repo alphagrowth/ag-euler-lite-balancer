@@ -9,22 +9,20 @@ import { nanoToValue } from '~/utils/crypto-utils'
 
 /**
  * Provides eligible savings positions that can be used to repay debt.
- * Filters out securitize vaults (restricted withdrawals) and exposes each
- * savings position as a selectable option with vault, sub-account, and balance.
+ * Only includes standard EVK vaults — Earn vaults have an incompatible ABI
+ * and Securitize vaults have restricted withdrawals.
  */
 export const useRepaySavingsOptions = () => {
   const { depositPositions } = useEulerAccount()
-  const { isSecuritizeVault } = useVaultRegistry()
+  const { isEvkVault } = useVaultRegistry()
   const { withIntrinsicSupplyApy, version: intrinsicVersion } = useIntrinsicApy()
   const { getSupplyRewardApy, version: rewardsVersion } = useRewardsApy()
 
   const savingsPositions = computed(() => {
     return depositPositions.value.filter((position) => {
-      // Exclude securitize vaults — can't withdraw freely
-      if (isSecuritizeVault(position.vault.address)) {
+      if (!isEvkVault(position.vault.address)) {
         return false
       }
-      // Must have a positive balance
       if (position.assets <= 0n) {
         return false
       }

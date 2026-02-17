@@ -551,11 +551,13 @@ const updateBorrowPositions = async (
     borrowPositions.value = allPositions
 
     // Build set of (subAccount, collateralVault) pairs used as collateral
+    // Must include ALL enabled collateral vaults, not just the primary one
     const usageSet = new Set<string>()
     for (const pos of allPositions) {
       const subAccount = getAddress(pos.subAccount)
-      const collateralAddress = getAddress(pos.collateral.address)
-      usageSet.add(`${subAccount}:${collateralAddress}`)
+      for (const addr of pos.collaterals ?? [pos.collateral.address]) {
+        usageSet.add(`${subAccount}:${getAddress(addr)}`)
+      }
     }
     collateralUsageSet.value = usageSet
 

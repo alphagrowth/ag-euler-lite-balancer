@@ -18,6 +18,7 @@ export const useTxPlanSimulation = () => {
       return true
     }
     catch (e) {
+      console.log('[runSimulation] raw error', e)
       simulationError.value = getTxErrorMessage(e)
       return false
     }

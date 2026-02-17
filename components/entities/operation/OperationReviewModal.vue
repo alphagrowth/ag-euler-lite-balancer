@@ -45,7 +45,7 @@ interface REULUnlockInfo {
   daysUntilMaturity: number
 }
 
-const { type, asset, assetIconUrl, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount } = defineProps<{
+const { type, asset, assetIconUrl, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount, transferAmounts } = defineProps<{
   type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'transfer' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral'
   asset: VaultAsset
   assetIconUrl?: string
@@ -61,6 +61,8 @@ const { type, asset, assetIconUrl, campaignInfo, reulUnlockInfo, amount, onConfi
   onConfirm: () => void
   subAccount?: string
   hasBorrows?: boolean
+  /** Known amounts for transferFromMax steps, keyed by vault address (lowercase) */
+  transferAmounts?: Record<string, string>
 }>()
 
 const { chain, address: walletAddress, chainId: currentChainId } = useWagmi()
@@ -232,7 +234,7 @@ const resolveAmountFromCalldata = (data: string, targetContract: string): { deco
   return { decoded: false }
 }
 
-const getAssetInfoForStep = (label: string, data: string, targetContract: string, usedSupply: { value: boolean }, usedBorrow: { value: boolean }, usedSwapTo: { value: boolean }): StepAssetInfo | undefined => {
+const getAssetInfoForStep = (label: string, data: string, targetContract: string, usedSupply: { value: boolean }, usedBorrow: { value: boolean }, usedSwapTo: { value: boolean }, lastWithdrawAmount: { value: string | undefined }): StepAssetInfo | undefined => {
   if (label === 'Enable collateral' || label === 'Enable controller' || label === 'Disable collateral' || label === 'Disable controller') {
     return getVaultAssetInfo(data, targetContract)
   }
@@ -245,6 +247,9 @@ const getAssetInfoForStep = (label: string, data: string, targetContract: string
     }
     const resolved = resolveAmountFromCalldata(data, targetContract)
     const displayAmount = resolved.isMax ? 'remaining' : (resolved.decoded ? resolved.amount : amount)
+    if (label === 'Withdraw' && resolved.decoded && resolved.amount) {
+      lastWithdrawAmount.value = resolved.amount
+    }
     return { symbol: asset.symbol, address: asset.address, amount: displayAmount }
   }
 
@@ -252,11 +257,15 @@ const getAssetInfoForStep = (label: string, data: string, targetContract: string
     if (swapToAsset && swapToAmount) {
       return { symbol: swapToAsset.symbol, address: swapToAsset.address, amount: swapToAmount }
     }
-    // skim always deposits whatever tokens are available — amount param is just a minimum check
+    // skim: decode the amount from calldata when available, fall back to "remaining"
     try {
       const targetVault = getVault(getAddress(targetContract))
       if (targetVault?.asset) {
-        return { symbol: targetVault.asset.symbol, address: targetVault.asset.address, amount: 'remaining' }
+        const resolved = resolveAmountFromCalldata(data, targetContract)
+        const displayAmount = resolved.decoded && !resolved.isMax && resolved.amount
+          ? resolved.amount
+          : 'remaining'
+        return { symbol: targetVault.asset.symbol, address: targetVault.asset.address, amount: displayAmount }
       }
     }
     catch { /* ignore */ }
@@ -264,7 +273,10 @@ const getAssetInfoForStep = (label: string, data: string, targetContract: string
   }
 
   if (label === 'Transfer' || label === 'Transfer to account') {
-    const transferAmount = label === 'Transfer to account' ? 'remaining' : undefined
+    const knownAmount = label === 'Transfer to account' && transferAmounts
+      ? transferAmounts[targetContract.toLowerCase()]
+      : undefined
+    const transferAmount = knownAmount || (label === 'Transfer to account' ? 'remaining' : undefined)
     try {
       const targetVault = getVault(getAddress(targetContract))
       if (targetVault?.asset) return { symbol: targetVault.asset.symbol, address: targetVault.asset.address, amount: transferAmount }
@@ -286,7 +298,8 @@ const getAssetInfoForStep = (label: string, data: string, targetContract: string
   }
 
   if (label === 'Swap') {
-    return { symbol: asset.symbol, address: asset.address, amount }
+    // Use the precise amount from the preceding withdraw step if available
+    return { symbol: asset.symbol, address: asset.address, amount: lastWithdrawAmount.value || amount }
   }
 
   if (label === 'Verify min received') {
@@ -298,6 +311,25 @@ const getAssetInfoForStep = (label: string, data: string, targetContract: string
   }
 
   if (label === 'Verify max debt') {
+    // verifyDebtMax(address vault, address account, uint256 maxDebt, uint256 currentDebt)
+    // Decode the vault (param 0) and maxDebt (param 2) directly from calldata
+    if (data.length >= 202) {
+      try {
+        const debtVaultAddr = getAddress(`0x${data.slice(34, 74)}`)
+        const debtVault = getVault(debtVaultAddr)
+        if (debtVault?.asset) {
+          const maxDebt = BigInt(`0x${data.slice(138, 202)}`)
+          const debtAmount = maxDebt === MAX_UINT256
+            ? 'max'
+            : formatUnits(maxDebt, Number(debtVault.asset.decimals))
+          return { symbol: debtVault.asset.symbol, address: debtVault.asset.address, amount: debtAmount }
+        }
+      }
+      catch { /* fall through */ }
+    }
+    if (swapToAsset && swapToAmount) {
+      return { symbol: swapToAsset.symbol, address: swapToAsset.address, amount: swapToAmount }
+    }
     return { symbol: asset.symbol, address: asset.address, amount }
   }
 
@@ -316,6 +348,7 @@ const displaySteps = computed((): DisplayStep[] => {
   const usedSupply = { value: false }
   const usedBorrow = { value: false }
   const usedSwapTo = { value: false }
+  const lastWithdrawAmount: { value: string | undefined } = { value: undefined }
 
   for (const step of plan.steps) {
     if (step.type === 'evc-batch') {
@@ -343,7 +376,7 @@ const displaySteps = computed((): DisplayStep[] => {
         for (const item of batchItems) {
           index++
           const label = decodeBatchItemLabel(item.data)
-          const stepAssetInfo = getAssetInfoForStep(label, item.data, item.targetContract, usedSupply, usedBorrow, usedSwapTo)
+          const stepAssetInfo = getAssetInfoForStep(label, item.data, item.targetContract, usedSupply, usedBorrow, usedSwapTo, lastWithdrawAmount)
           const secondAsset = supplyingAssetForBorrow || swapToAsset
           let toAssetInfo: StepAssetInfo | undefined
           if (label === 'Swap' && swapToAsset && swapToAmount) {

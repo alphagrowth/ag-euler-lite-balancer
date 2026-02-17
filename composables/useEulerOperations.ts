@@ -467,6 +467,7 @@ export const useEulerOperations = () => {
     disableCollateral,
     liabilityVault,
     enabledCollaterals,
+    isDebtSwap = false,
   }: {
     quote: SwapApiQuote
     swapperMode: SwapperMode
@@ -477,6 +478,9 @@ export const useEulerOperations = () => {
     disableCollateral?: string
     liabilityVault?: string
     enabledCollaterals?: string[]
+    /** When true, uses borrow (not withdraw) on the input vault, enables a controller
+     *  on accountOut, and disables the old controller after the swap. */
+    isDebtSwap?: boolean
   }) => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -500,7 +504,9 @@ export const useEulerOperations = () => {
       throw new Error('Swap amount is zero')
     }
 
-    const isDebtSwap = isRepay && quote.accountIn.toLowerCase() !== quote.accountOut.toLowerCase()
+    // isDebtSwap controls whether the input side uses borrow (true) or withdraw (false).
+    // Callers must explicitly opt in — different accountIn/accountOut doesn't imply debt swap
+    // (e.g. savings repay withdraws from a different sub-account, not a borrow).
     const verifierData = buildSwapVerifierData({
       quote,
       swapperMode,
@@ -1830,6 +1836,7 @@ export const useEulerOperations = () => {
     disableCollateral,
     liabilityVault,
     enabledCollaterals,
+    isDebtSwap = false,
   }: {
     quote: SwapApiQuote
     swapperMode?: SwapperMode
@@ -1840,6 +1847,7 @@ export const useEulerOperations = () => {
     disableCollateral?: string
     liabilityVault?: string
     enabledCollaterals?: string[]
+    isDebtSwap?: boolean
   }): Promise<TxPlan> => {
     const { evcCalls, evcAddress, totalValue } = await buildSwapEvcCalls({
       quote,
@@ -1851,6 +1859,7 @@ export const useEulerOperations = () => {
       disableCollateral,
       liabilityVault,
       enabledCollaterals,
+      isDebtSwap,
     })
 
     return {
@@ -2095,12 +2104,14 @@ export const useEulerOperations = () => {
       data: hooks.getDataForCall(borrowVaultAddr, 'skim', [amount, subAccountAddr]) as Hash,
     })
 
-    // Burn shares to repay debt
+    // Burn shares to repay debt — use amount - 1n to avoid share rounding mismatch:
+    // skim credits toSharesDown(amount) shares, but repayWithShares burns toSharesUp(amount),
+    // which can be 1 share more. Reducing by 1 wei keeps it within the skimmed balance.
     evcCalls.push({
       targetContract: borrowVaultAddr,
       onBehalfOfAccount: subAccountAddr,
       value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'repayWithShares', [amount, subAccountAddr]) as Hash,
+      data: hooks.getDataForCall(borrowVaultAddr, 'repayWithShares', [amount > 0n ? amount - 1n : 0n, subAccountAddr]) as Hash,
     })
 
     const totalValue = sumCallValues(evcCalls)
@@ -2561,17 +2572,32 @@ export const useEulerOperations = () => {
     const hasSigned = await hasSignature(userAddr)
     const tosData = await getTosData()
 
+    const sameVault = savingsVaultAddr.toLowerCase() === borrowVaultAddr.toLowerCase()
+
     const hooks = new SaHooksBuilder()
-    hooks.addContractInterface(savingsVaultAddr, vaultWithdrawAbi)
-    hooks.addContractInterface(borrowVaultAddr, [...vaultSkimAbi, ...vaultRepayWithSharesAbi])
+    if (sameVault) {
+      // Same vault: repayWithShares directly burns savings shares to repay borrow debt
+      hooks.addContractInterface(savingsVaultAddr, vaultRepayWithSharesAbi)
+    }
+    else {
+      hooks.addContractInterface(savingsVaultAddr, vaultWithdrawAbi)
+      hooks.addContractInterface(borrowVaultAddr, [...vaultSkimAbi, ...vaultRepayWithSharesAbi])
+    }
     if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
 
     const evcCalls: EVCCall[] = []
 
-    // No Pyth updates needed — savings sub-account has no borrows (no health check on withdraw),
-    // and skim + repayWithShares on borrow sub-account only reduce debt (no health-worsening operation).
+    console.log('[buildSavingsRepayPlan]', {
+      savingsVaultAddr,
+      borrowVaultAddr,
+      sameVault,
+      amount: amount.toString(),
+      savingsSubAccountAddr,
+      borrowSubAccountAddr,
+      userAddr,
+    })
 
     // TOS signing
     if (!hasSigned && enableTermsOfUseSignature) {
@@ -2583,31 +2609,49 @@ export const useEulerOperations = () => {
       })
     }
 
-    // 1. Withdraw from savings vault, send underlying to borrow vault
-    evcCalls.push({
-      targetContract: savingsVaultAddr,
-      onBehalfOfAccount: savingsSubAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(savingsVaultAddr, 'withdraw', [amount, borrowVaultAddr, savingsSubAccountAddr]) as Hash,
-    })
-
-    // 2. Skim on borrow vault (converts tokens to shares for borrowSubAccount)
-    evcCalls.push({
-      targetContract: borrowVaultAddr,
-      onBehalfOfAccount: borrowSubAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'skim', [amount, borrowSubAccountAddr]) as Hash,
-    })
-
-    // 3. Burn shares to repay debt
-    evcCalls.push({
-      targetContract: borrowVaultAddr,
-      onBehalfOfAccount: borrowSubAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'repayWithShares', [amount, borrowSubAccountAddr]) as Hash,
-    })
+    if (sameVault) {
+      // Same vault: burn shares from savings sub-account, repay debt on borrow sub-account.
+      // No withdraw/skim needed — avoids vault cash liquidity requirements.
+      evcCalls.push({
+        targetContract: savingsVaultAddr,
+        onBehalfOfAccount: savingsSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(savingsVaultAddr, 'repayWithShares', [amount, borrowSubAccountAddr]) as Hash,
+      })
+    }
+    else {
+      // Different vaults: withdraw underlying → skim → repayWithShares
+      // repayWithShares uses amount - 1n to avoid share rounding mismatch:
+      // skim credits toSharesDown(amount) shares, but repayWithShares burns toSharesUp(amount),
+      // which can be 1 share more. Reducing by 1 wei keeps it within the skimmed balance.
+      evcCalls.push({
+        targetContract: savingsVaultAddr,
+        onBehalfOfAccount: savingsSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(savingsVaultAddr, 'withdraw', [amount, borrowVaultAddr, savingsSubAccountAddr]) as Hash,
+      })
+      evcCalls.push({
+        targetContract: borrowVaultAddr,
+        onBehalfOfAccount: borrowSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(borrowVaultAddr, 'skim', [amount, borrowSubAccountAddr]) as Hash,
+      })
+      evcCalls.push({
+        targetContract: borrowVaultAddr,
+        onBehalfOfAccount: borrowSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(borrowVaultAddr, 'repayWithShares', [amount > 0n ? amount - 1n : 0n, borrowSubAccountAddr]) as Hash,
+      })
+    }
 
     const totalValue = sumCallValues(evcCalls)
+
+    console.log('[buildSavingsRepayPlan] evcCalls', evcCalls.map((c, i) => ({
+      i,
+      target: c.targetContract,
+      onBehalf: c.onBehalfOfAccount,
+      data: c.data.slice(0, 10),
+    })))
 
     return {
       kind: 'savings-repay',
@@ -2683,16 +2727,23 @@ export const useEulerOperations = () => {
       console.warn('[buildSavingsFullRepayPlan] failed to read pre-existing deposit', err)
     }
 
+    const sameVault = savingsVaultAddr.toLowerCase() === borrowVaultAddr.toLowerCase()
+    const collateralAddresses = enabledCollaterals || []
+
     const hooks = new SaHooksBuilder()
-    hooks.addContractInterface(savingsVaultAddr, [...vaultWithdrawAbi, ...vaultSkimAbi, ...vaultTransferFromMaxAbi])
-    hooks.addContractInterface(borrowVaultAddr, [...vaultSkimAbi, ...vaultRepayWithSharesAbi, ...evcDisableControllerAbi, ...vaultRedeemAbi])
+    if (sameVault) {
+      hooks.addContractInterface(savingsVaultAddr, [
+        ...vaultRepayWithSharesAbi, ...evcDisableControllerAbi, ...vaultTransferFromMaxAbi,
+      ])
+    }
+    else {
+      hooks.addContractInterface(savingsVaultAddr, [...vaultWithdrawAbi, ...vaultSkimAbi, ...vaultTransferFromMaxAbi])
+      hooks.addContractInterface(borrowVaultAddr, [...vaultSkimAbi, ...vaultRepayWithSharesAbi, ...evcDisableControllerAbi, ...vaultRedeemAbi])
+    }
     hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
     if (!hasSigned && enableTermsOfUseSignature) {
       hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
     }
-
-    // Register collateral vault ABIs for transferFromMax
-    const collateralAddresses = enabledCollaterals || []
     for (const collateralAddr of collateralAddresses) {
       hooks.addContractInterface(collateralAddr as Address, vaultTransferFromMaxAbi)
     }
@@ -2711,40 +2762,62 @@ export const useEulerOperations = () => {
       })
     }
 
-    // 1. Withdraw from savings vault (slightly more than debt for interest)
-    const adjustedAmount = adjustForInterest(amount)
-    evcCalls.push({
-      targetContract: savingsVaultAddr,
-      onBehalfOfAccount: savingsSubAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(savingsVaultAddr, 'withdraw', [adjustedAmount, borrowVaultAddr, savingsSubAccountAddr]) as Hash,
-    })
+    if (sameVault) {
+      // Same vault: burn shares from savings sub-account to repay all debt on borrow sub-account.
+      // No withdraw/skim/redeem needed — avoids vault cash liquidity requirements.
+      evcCalls.push({
+        targetContract: savingsVaultAddr,
+        onBehalfOfAccount: savingsSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(savingsVaultAddr, 'repayWithShares', [maxUint256, borrowSubAccountAddr]) as Hash,
+      })
+    }
+    else {
+      // Different vaults: withdraw → skim → repayWithShares → redeem excess → skim back
+      const adjustedAmount = adjustForInterest(amount)
+      evcCalls.push({
+        targetContract: savingsVaultAddr,
+        onBehalfOfAccount: savingsSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(savingsVaultAddr, 'withdraw', [adjustedAmount, borrowVaultAddr, savingsSubAccountAddr]) as Hash,
+      })
+      evcCalls.push({
+        targetContract: borrowVaultAddr,
+        onBehalfOfAccount: borrowSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(borrowVaultAddr, 'skim', [adjustedAmount, borrowSubAccountAddr]) as Hash,
+      })
+      evcCalls.push({
+        targetContract: borrowVaultAddr,
+        onBehalfOfAccount: borrowSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(borrowVaultAddr, 'repayWithShares', [maxUint256, borrowSubAccountAddr]) as Hash,
+      })
+      // Redeem excess shares from borrow vault, return tokens to savings vault
+      evcCalls.push({
+        targetContract: borrowVaultAddr,
+        onBehalfOfAccount: borrowSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(borrowVaultAddr, 'redeem', [maxUint256, savingsVaultAddr, borrowSubAccountAddr]) as Hash,
+      })
+      // Re-deposit returned tokens into savings vault
+      evcCalls.push({
+        targetContract: savingsVaultAddr,
+        onBehalfOfAccount: savingsSubAccountAddr,
+        value: 0n,
+        data: hooks.getDataForCall(savingsVaultAddr, 'skim', [preExistingBorrowDeposit, savingsSubAccountAddr]) as Hash,
+      })
+    }
 
-    // 2. Skim on borrow vault (convert tokens to shares)
+    // Disable controller (no more debt)
     evcCalls.push({
-      targetContract: borrowVaultAddr,
+      targetContract: sameVault ? savingsVaultAddr : borrowVaultAddr,
       onBehalfOfAccount: borrowSubAccountAddr,
       value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'skim', [adjustedAmount, borrowSubAccountAddr]) as Hash,
+      data: hooks.getDataForCall(sameVault ? savingsVaultAddr : borrowVaultAddr, 'disableController', []) as Hash,
     })
 
-    // 3. Repay ALL debt with shares
-    evcCalls.push({
-      targetContract: borrowVaultAddr,
-      onBehalfOfAccount: borrowSubAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'repayWithShares', [maxUint256, borrowSubAccountAddr]) as Hash,
-    })
-
-    // 4. Disable controller (no more debt)
-    evcCalls.push({
-      targetContract: borrowVaultAddr,
-      onBehalfOfAccount: borrowSubAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'disableController', []) as Hash,
-    })
-
-    // 5. Disable collateral (safe after disableController — no health check)
+    // Disable collateral (safe after disableController — no health check)
     for (const collateralAddr of collateralAddresses) {
       evcCalls.push({
         targetContract: evcAddress,
@@ -2754,23 +2827,7 @@ export const useEulerOperations = () => {
       })
     }
 
-    // 6. Redeem ALL remaining shares from borrow vault, send tokens to savings vault
-    evcCalls.push({
-      targetContract: borrowVaultAddr,
-      onBehalfOfAccount: borrowSubAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(borrowVaultAddr, 'redeem', [maxUint256, savingsVaultAddr, borrowSubAccountAddr]) as Hash,
-    })
-
-    // 7. Skim on savings vault (re-deposit returned tokens)
-    evcCalls.push({
-      targetContract: savingsVaultAddr,
-      onBehalfOfAccount: savingsSubAccountAddr,
-      value: 0n,
-      data: hooks.getDataForCall(savingsVaultAddr, 'skim', [preExistingBorrowDeposit, savingsSubAccountAddr]) as Hash,
-    })
-
-    // 8. Transfer collateral shares from borrow sub-account to main account
+    // Transfer collateral shares from borrow sub-account to main account
     const isMainAccount = borrowSubAccountAddr.toLowerCase() === userAddr.toLowerCase()
     if (!isMainAccount) {
       for (const collateralAddr of collateralAddresses) {
@@ -2783,7 +2840,7 @@ export const useEulerOperations = () => {
       }
     }
 
-    // 9. Transfer remaining savings shares to main account
+    // Transfer remaining savings shares to main account
     const isSavingsMainAccount = savingsSubAccountAddr.toLowerCase() === userAddr.toLowerCase()
     if (!isSavingsMainAccount) {
       evcCalls.push({
@@ -2817,6 +2874,99 @@ export const useEulerOperations = () => {
    * Builds the swap EVC calls (which handle withdraw from savingsSubAccount via quote.accountIn),
    * then appends position cleanup: disableController, disableCollateral, transferFromMax for each collateral.
    */
+  const buildSwapCollateralFullRepayPlan = async ({
+    quote,
+    swapperMode = SwapperMode.EXACT_IN,
+    targetDebt = 0n,
+    currentDebt = 0n,
+    liabilityVault,
+    enabledCollaterals,
+  }: {
+    quote: SwapApiQuote
+    swapperMode?: SwapperMode
+    targetDebt?: bigint
+    currentDebt?: bigint
+    liabilityVault?: string
+    enabledCollaterals?: string[]
+  }): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const subAccountAddr = quote.accountIn as Address
+
+    const { evcCalls, totalValue: swapValue } = await buildSwapEvcCalls({
+      quote,
+      swapperMode,
+      isRepay: true,
+      targetDebt,
+      currentDebt,
+      liabilityVault,
+      enabledCollaterals,
+    })
+
+    // Append position cleanup calls
+    const hooks = new SaHooksBuilder()
+    const borrowVaultAddr = quote.receiver as Address
+    hooks.addContractInterface(borrowVaultAddr, evcDisableControllerAbi)
+    hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
+
+    const collateralAddresses = enabledCollaterals || []
+    for (const collateralAddr of collateralAddresses) {
+      hooks.addContractInterface(collateralAddr as Address, vaultTransferFromMaxAbi)
+    }
+
+    // Disable controller (debt is fully repaid)
+    evcCalls.push({
+      targetContract: borrowVaultAddr,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddr, 'disableController', []) as Hash,
+    })
+
+    // Disable collateral
+    for (const collateralAddr of collateralAddresses) {
+      evcCalls.push({
+        targetContract: evcAddress,
+        onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+        value: 0n,
+        data: hooks.getDataForCall(evcAddress, 'disableCollateral', [subAccountAddr, collateralAddr as Address]) as Hash,
+      })
+    }
+
+    // Transfer collateral shares to main account
+    const isMainAccount = subAccountAddr.toLowerCase() === userAddr.toLowerCase()
+    if (!isMainAccount) {
+      for (const collateralAddr of collateralAddresses) {
+        evcCalls.push({
+          targetContract: collateralAddr as Address,
+          onBehalfOfAccount: subAccountAddr,
+          value: 0n,
+          data: hooks.getDataForCall(collateralAddr as Address, 'transferFromMax', [subAccountAddr, userAddr]) as Hash,
+        })
+      }
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
+    return {
+      kind: 'swap-collateral-full-repay',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Full repay with collateral swap via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls as never],
+          value: totalValue,
+        },
+      ],
+    }
+  }
+
   const buildSwapSavingsFullRepayPlan = async ({
     quote,
     swapperMode = SwapperMode.EXACT_IN,
@@ -2929,6 +3079,7 @@ export const useEulerOperations = () => {
     buildSameAssetFullRepayPlan,
     buildSameAssetDebtSwapPlan,
     buildDisableCollateralPlan,
+    buildSwapCollateralFullRepayPlan,
     buildSavingsRepayPlan,
     buildSavingsFullRepayPlan,
     buildSwapSavingsFullRepayPlan,
