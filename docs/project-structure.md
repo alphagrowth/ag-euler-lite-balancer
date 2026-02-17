@@ -100,7 +100,7 @@ composables/
 ├── useEulerLabels.ts              # Euler labels and metadata
 ├── useEulerOperations.ts          # Euler protocol operations (supply, borrow, etc.)
 ├── useEstimateFees.ts             # Transaction fee estimation
-├── useIntrinsicApy.ts             # Intrinsic APY (DeFi Llama yield data, compounding formula)
+├── useIntrinsicApy.ts             # Intrinsic APY (multi-provider: DefiLlama + Pendle, address-based lookup)
 ├── useMarketGroups.ts             # Market grouping algorithm for explore page
 ├── useMerkl.ts                    # Merkl rewards campaign fetching
 ├── useMultiplyCollateralOptions.ts # Multiply collateral selection
@@ -137,7 +137,8 @@ entities/
 ├── account.ts               # Account-related data models
 ├── brevis.ts                # Brevis ZK proof types
 ├── constants.ts             # Shared constants
-├── custom.ts                # Theme hue and intrinsic APY data sources
+├── custom.ts                # Theme hue and intrinsic APY source config (DefiLlama pools + Pendle PTs)
+├── intrinsic-apy.ts         # Intrinsic APY types (IntrinsicApyInfo, IntrinsicApyProvider)
 ├── evc-error-signatures.ts  # EVC error signature decoding
 ├── euler/                   # Euler Finance specific entities
 ├── lend-discovery.ts        # Market group and curator group types (explore page)
@@ -271,6 +272,9 @@ utils/
 
 ```
 services/
+├── intrinsicApy/
+│   ├── defillamaProvider.ts # DefiLlama intrinsic APY provider (poolId matching, 30d avg)
+│   └── pendleProvider.ts    # Pendle PT implied yield provider (per-market API, maturity detection)
 ├── pricing/
 │   ├── index.ts             # Pricing module exports
 │   ├── backendClient.ts     # Backend price API client (batching, caching)

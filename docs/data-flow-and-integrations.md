@@ -219,29 +219,30 @@ const borrowReward = getBorrowRewardApy(borrowVault.address, collateral.address)
 
 - [Back to the top](#table-of-contents)
 
-The `useIntrinsicApy` composable (`composables/useIntrinsicApy.ts`) provides yield-bearing asset APY data from DeFi Llama, enabling display of the underlying yield for assets like stETH or sDAI.
+The `useIntrinsicApy` composable (`composables/useIntrinsicApy.ts`) adds yield intrinsic to the underlying asset (e.g., stETH staking yield, sDAI DSR, Pendle PT implied yield) on top of vault lending/borrowing APY.
 
-#### How It Works
+The system uses a **provider abstraction** with two implementations:
+- **DefiLlama** — bulk pool fetch, poolId-based matching, 30-day average APY
+- **Pendle** — per-market API fetch for PT implied yield, with maturity detection
 
-1. Fetches all yield pools from the DeFi Llama yields API
-2. Matches pools against configured `intrinsicApySources` (defined in `entities/custom.ts`) by symbol and project
-3. Picks the best pool for the current chain (by TVL)
-4. Applies a compounding formula when adding intrinsic APY to vault APY:
-   ```
-   effectiveAPY = baseAPY + (1 + baseAPY / 100) * intrinsicAPY
-   ```
+All lookups are by **token address** (not symbol). Results are cached for 5 minutes with automatic chain-switch invalidation. APY modals show provider name and source link for transparency.
 
 #### Key API
 
 ```typescript
-const { getIntrinsicApy, withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
+const { getIntrinsicApy, getIntrinsicApyInfo, withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
 
-// Raw intrinsic APY for an asset symbol
-const stethApy = getIntrinsicApy('stETH')  // e.g. 3.2 (percent)
+// Raw intrinsic APY by token address
+const apy = getIntrinsicApy(vault.asset.address)  // e.g. 3.2 (percent)
+
+// Full info with provider name and source URL (for modals)
+const info = getIntrinsicApyInfo(vault.asset.address)
 
 // Combined APY with compounding
-const effectiveSupply = withIntrinsicSupplyApy(vaultSupplyApy, 'stETH')
+const effectiveSupply = withIntrinsicSupplyApy(lendingApy, vault.asset.address)
 ```
+
+See [Intrinsic APY](./intrinsic-apy.md) for the full architecture, provider details, and how to add new sources.
 
 ### Chain Switching
 

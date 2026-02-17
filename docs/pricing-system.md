@@ -522,14 +522,15 @@ const usesUtilsLensPricing = (vault): boolean => {
 
 ## Intrinsic APY
 
-The `useIntrinsicApy` composable adds yield-bearing asset APY (e.g., stETH staking yield, sDAI DSR) on top of vault supply/borrow APY. This is separate from the oracle-based pricing system but affects displayed APY values.
+The `useIntrinsicApy` composable adds yield intrinsic to the underlying asset (e.g., stETH staking yield, sDAI DSR, Pendle PT implied yield) on top of vault supply/borrow APY. This is separate from the oracle-based pricing system but affects displayed APY values.
 
-- **Data source**: DeFi Llama yields API (`/pools`)
-- **Configuration**: Asset-to-project mappings in `entities/custom.ts` (`intrinsicApySources`)
+- **Data sources**: DefiLlama yields API (LSTs, yield-bearing stablecoins) and Pendle V2 API (PT implied yield)
+- **Configuration**: Token-to-provider mappings in `entities/custom.ts` (`intrinsicApySources`)
+- **Lookup**: By token address (not symbol)
+- **Caching**: 5-minute TTL with chain-switch invalidation
 - **Compounding formula**: `effectiveAPY = baseAPY + (1 + baseAPY / 100) * intrinsicAPY`
-- **Chain awareness**: Picks the best pool matching the current chain by TVL
 
-See [Data Flow & Integration — Intrinsic APY](./data-flow-and-integrations.md#intrinsic-apy) for more details.
+See [Intrinsic APY](./intrinsic-apy.md) for the full architecture and provider details.
 
 ## Files
 
@@ -537,7 +538,9 @@ See [Data Flow & Integration — Intrinsic APY](./data-flow-and-integrations.md#
 - `entities/vault.ts` - Vault fetching with Pyth simulation support
 - `entities/oracle.ts` - Oracle decoding and Pyth feed collection (EulerRouter, CrossAdapter, PythOracle)
 - `composables/useEulerAccount.ts` - Portfolio/account loading with Pyth simulation for borrow positions
-- `composables/useIntrinsicApy.ts` - Intrinsic APY from DeFi Llama (yield-bearing assets)
+- `composables/useIntrinsicApy.ts` - Intrinsic APY orchestrator (multi-provider, address-based lookup)
+- `services/intrinsicApy/defillamaProvider.ts` - DefiLlama intrinsic APY provider
+- `services/intrinsicApy/pendleProvider.ts` - Pendle PT implied yield provider
 - `pages/borrow/[collateral]/[borrow]/index.vue` - Borrow page Pyth refresh logic
 - `pages/lend/[vault]/index.vue` - Lend page Pyth refresh logic
 - `utils/pyth.ts` - Pyth-specific utilities (Hermes API, batch building, `executeLensWithPythSimulation()`)

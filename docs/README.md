@@ -32,7 +32,7 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 ### 🔌 [Data Flow and Integrations](./data-flow-and-integrations.md)
 
 - Unified rewards system (Merkl + Brevis)
-- Intrinsic APY (DeFi Llama yield data)
+- Intrinsic APY (multi-provider yield data)
 - Chain switching and stale data prevention
 - Euler Finance protocol integration
 
@@ -41,7 +41,7 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 - 3-layer pricing architecture (oracle → USD → values)
 - On-chain vs off-chain price sources
 - Pyth oracle simulation for price reads
-- Intrinsic APY for yield-bearing assets
+- Intrinsic APY for yield-bearing assets (DefiLlama + Pendle)
 
 ### 📊 [Portfolio Logic](./portfolio-logic.md)
 
@@ -66,6 +66,13 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 - Pull-based oracle model overview
 - Read path (simulation) and write path (transactions)
 - Feed collection and batch building
+
+### 📈 [Intrinsic APY](./intrinsic-apy.md)
+
+- Multi-provider architecture (DefiLlama + Pendle)
+- Address-based lookup with TTL caching
+- Source attribution in APY modals
+- Adding new providers and tokens
 
 ### 🌍 [Geo-Blocking](./geo-blocking.md)
 
