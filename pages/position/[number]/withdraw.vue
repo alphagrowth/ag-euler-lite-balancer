@@ -53,6 +53,7 @@ const positionIndex = route.params.number as string
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
 const plan = ref<TxPlan | null>(null)
@@ -236,48 +237,54 @@ const load = async () => {
   }
 }
 const submit = async () => {
-  if (isGeoBlocked.value) return
-  await guardWithTerms(async () => {
-    if (!asset.value?.address || !collateralVault.value?.address) {
-      return
-    }
-
-    try {
-      plan.value = await buildWithdrawPlan(
-        collateralVault.value.address,
-        valueToNano(amount.value || '0', asset.value.decimals),
-        position.value?.subAccount,
-        { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address, enabledCollaterals: position.value?.collaterals },
-      )
-    }
-    catch (e) {
-      console.warn('[OperationReviewModal] failed to build plan', e)
-      plan.value = null
-    }
-
-    if (plan.value) {
-      const ok = await runSimulation(plan.value)
-      if (!ok) {
+  if (isPreparing.value || isGeoBlocked.value) return
+  isPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      if (!asset.value?.address || !collateralVault.value?.address) {
         return
       }
-    }
 
-    modal.open(OperationReviewModal, {
-      props: {
-        type: 'withdraw',
-        asset: asset.value,
-        amount: amount.value,
-        plan: plan.value || undefined,
-        subAccount: position.value?.subAccount,
-        hasBorrows: (position.value?.borrowed || 0n) > 0n,
-        onConfirm: () => {
-          setTimeout(() => {
-            send()
-          }, 400)
+      try {
+        plan.value = await buildWithdrawPlan(
+          collateralVault.value.address,
+          valueToNano(amount.value || '0', asset.value.decimals),
+          position.value?.subAccount,
+          { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address, enabledCollaterals: position.value?.collaterals },
+        )
+      }
+      catch (e) {
+        console.warn('[OperationReviewModal] failed to build plan', e)
+        plan.value = null
+      }
+
+      if (plan.value) {
+        const ok = await runSimulation(plan.value)
+        if (!ok) {
+          return
+        }
+      }
+
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'withdraw',
+          asset: asset.value,
+          amount: amount.value,
+          plan: plan.value || undefined,
+          subAccount: position.value?.subAccount,
+          hasBorrows: (position.value?.borrowed || 0n) > 0n,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
+          },
         },
-      },
+      })
     })
-  })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 const send = async () => {
   try {
@@ -492,7 +499,7 @@ watch(amount, async () => {
           />
           <VaultFormSubmit
             :disabled="reviewWithdrawDisabled"
-            :loading="isSubmitting"
+            :loading="isSubmitting || isPreparing"
           >
             {{ reviewWithdrawLabel }}
           </VaultFormSubmit>

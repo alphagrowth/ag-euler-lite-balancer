@@ -72,6 +72,7 @@ const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRe
 // State
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const isEstimatesLoading = ref(false)
 const amount = ref('')
 const plan = ref<TxPlan | null>(null)
@@ -294,47 +295,53 @@ const load = async () => {
 }
 
 const submit = async () => {
-  if (isGeoBlocked.value) return
-  await guardWithTerms(async () => {
-    if (!asset.value?.address) {
-      return
-    }
-
-    try {
-      plan.value = await buildSupplyPlan(
-        vaultAddress,
-        asset.value.address,
-        valueToNano(amount.value || '0', asset.value.decimals),
-        undefined,
-        { includePermit2Call: false },
-      )
-    }
-    catch (e) {
-      console.warn('[OperationReviewModal] failed to build plan', e)
-      plan.value = null
-    }
-
-    if (plan.value) {
-      const ok = await runSimulation(plan.value)
-      if (!ok) {
+  if (isPreparing.value || isGeoBlocked.value) return
+  isPreparing.value = true
+  try {
+    await guardWithTerms(async () => {
+      if (!asset.value?.address) {
         return
       }
-    }
 
-    modal.open(OperationReviewModal, {
-      props: {
-        type: 'supply',
-        asset: asset.value,
-        amount: amount.value,
-        plan: plan.value || undefined,
-        onConfirm: () => {
-          setTimeout(() => {
-            send()
-          }, 400)
+      try {
+        plan.value = await buildSupplyPlan(
+          vaultAddress,
+          asset.value.address,
+          valueToNano(amount.value || '0', asset.value.decimals),
+          undefined,
+          { includePermit2Call: false },
+        )
+      }
+      catch (e) {
+        console.warn('[OperationReviewModal] failed to build plan', e)
+        plan.value = null
+      }
+
+      if (plan.value) {
+        const ok = await runSimulation(plan.value)
+        if (!ok) {
+          return
+        }
+      }
+
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'supply',
+          asset: asset.value,
+          amount: amount.value,
+          plan: plan.value || undefined,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
+          },
         },
-      },
+      })
     })
-  })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 
 const send = async () => {
@@ -556,7 +563,7 @@ watch(address, () => {
           />
           <VaultFormSubmit
             :disabled="reviewSupplyDisabled"
-            :loading="isSubmitting"
+            :loading="isSubmitting || isPreparing"
           >
             {{ reviewSupplyLabel }}
           </VaultFormSubmit>

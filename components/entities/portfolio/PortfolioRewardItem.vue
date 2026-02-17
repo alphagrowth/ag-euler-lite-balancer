@@ -18,6 +18,7 @@ const { chainId: walletChainId, switchChain } = useWagmi()
 const { runSimulation, simulationError } = useTxPlanSimulation()
 
 const isClaiming = ref(false)
+const isPreparing = ref(false)
 const plan = ref<TxPlan | null>(null)
 
 const amount = computed(() => nanoToValue(reward.amount, reward.token.decimals))
@@ -64,6 +65,8 @@ const claim = async () => {
 }
 
 const onClaimClick = async () => {
+  if (isPreparing.value) return
+  isPreparing.value = true
   try {
     await ensureWalletOnSiteChain()
 
@@ -99,6 +102,9 @@ const onClaimClick = async () => {
   }
   catch (e) {
     console.warn(e)
+  }
+  finally {
+    isPreparing.value = false
   }
 }
 </script>
@@ -136,7 +142,7 @@ const onClaimClick = async () => {
       </div>
       <UiButton
         rounded
-        :loading="isClaiming"
+        :loading="isClaiming || isPreparing"
         @click="onClaimClick"
       >
         Claim

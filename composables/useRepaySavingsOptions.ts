@@ -1,0 +1,82 @@
+import { getAddress, type Address } from 'viem'
+import { getProductByVault } from '~/composables/useEulerLabels'
+import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import type { AccountDepositPosition } from '~/entities/account'
+import type { CollateralOption, Vault } from '~/entities/vault'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
+import { nanoToValue } from '~/utils/crypto-utils'
+
+/**
+ * Provides eligible savings positions that can be used to repay debt.
+ * Only includes standard EVK vaults — Earn vaults have an incompatible ABI
+ * and Securitize vaults have restricted withdrawals.
+ */
+export const useRepaySavingsOptions = () => {
+  const { depositPositions } = useEulerAccount()
+  const { isEvkVault } = useVaultRegistry()
+  const { withIntrinsicSupplyApy, version: intrinsicVersion } = useIntrinsicApy()
+  const { getSupplyRewardApy, version: rewardsVersion } = useRewardsApy()
+
+  const savingsPositions = computed(() => {
+    return depositPositions.value.filter((position) => {
+      if (!isEvkVault(position.vault.address)) {
+        return false
+      }
+      if (position.assets <= 0n) {
+        return false
+      }
+      return true
+    })
+  })
+
+  const savingsVaults = computed(() => {
+    return savingsPositions.value.map(position => position.vault as Vault)
+  })
+
+  const savingsOptions = ref<CollateralOption[]>([])
+  let optionsVersion = 0
+
+  watchEffect(async () => {
+    const positions = savingsPositions.value
+    void rewardsVersion.value
+    void intrinsicVersion.value
+    const myVersion = ++optionsVersion
+
+    const options = await Promise.all(positions.map(async (position) => {
+      const vault = position.vault
+      const amount = nanoToValue(position.assets, vault.asset.decimals)
+      const product = getProductByVault(vault.address)
+      const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
+      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.symbol) + getSupplyRewardApy(vault.address)
+
+      return {
+        type: 'vault' as const,
+        amount,
+        price: await getAssetUsdValueOrZero(amount, vault, 'off-chain'),
+        apy,
+        symbol: vault.asset.symbol,
+        assetAddress: vault.asset.address,
+        label: product.name || vault.name,
+        vaultAddress: vault.address,
+      }
+    }))
+
+    if (myVersion !== optionsVersion) return
+    savingsOptions.value = options
+  })
+
+  const getSavingsPosition = (vaultAddress: string): AccountDepositPosition | undefined => {
+    const normalized = getAddress(vaultAddress)
+    return savingsPositions.value.find(
+      position => getAddress(position.vault.address) === normalized,
+    )
+  }
+
+  return {
+    savingsPositions,
+    savingsVaults,
+    savingsOptions,
+    getSavingsPosition,
+  }
+}

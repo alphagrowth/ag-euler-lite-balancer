@@ -54,6 +54,7 @@ type PositionCollateral = {
 
 const position: Ref<AccountBorrowPosition | undefined> = ref()
 const isSubmitting = ref(false)
+const isPreparing = ref(false)
 const collateralItems = ref<PositionCollateral[]>([])
 const isCollateralsLoading = ref(false)
 const disableCollateralErrorVault = ref<string | null>(null)
@@ -495,44 +496,51 @@ const loadCollaterals = async () => {
 }
 
 const disableCollateral = async (vault: Vault) => {
-  clearDisableCollateralSimulationError()
-  disableCollateralErrorVault.value = null
-  let plan: TxPlan | null = null
+  if (isPreparing.value) return
+  isPreparing.value = true
   try {
-    plan = await buildDisableCollateralPlan(
-      position.value!.subAccount,
-      vault.address,
-      position.value!.borrow.address,
-      position.value!.collaterals,
-    )
-  }
-  catch (e) {
-    console.warn('[OperationReviewModal] failed to build plan', e)
-  }
-
-  if (plan) {
-    const ok = await runDisableCollateralSimulation(plan)
-    if (!ok) {
-      disableCollateralErrorVault.value = getAddress(vault.address)
-      return
+    clearDisableCollateralSimulationError()
+    disableCollateralErrorVault.value = null
+    let plan: TxPlan | null = null
+    try {
+      plan = await buildDisableCollateralPlan(
+        position.value!.subAccount,
+        vault.address,
+        position.value!.borrow.address,
+        position.value!.collaterals,
+      )
     }
-  }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+    }
 
-  modal.open(OperationReviewModal, {
-    props: {
-      type: 'disableCollateral',
-      asset: position.value!.borrow.asset,
-      amount: '0',
-      plan: plan || undefined,
-      subAccount: position.value?.subAccount,
-      hasBorrows: (position.value?.borrowed || 0n) > 0n,
-      onConfirm: () => {
-        setTimeout(() => {
-          send(vault.address)
-        }, 400)
+    if (plan) {
+      const ok = await runDisableCollateralSimulation(plan)
+      if (!ok) {
+        disableCollateralErrorVault.value = getAddress(vault.address)
+        return
+      }
+    }
+
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'disableCollateral',
+        asset: position.value!.borrow.asset,
+        amount: '0',
+        plan: plan || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            send(vault.address)
+          }, 400)
+        },
       },
-    },
-  })
+    })
+  }
+  finally {
+    isPreparing.value = false
+  }
 }
 const send = async (collateralAddress: string) => {
   try {
@@ -1067,7 +1075,7 @@ watch(isConnected, () => {
                   size="medium"
                   variant="primary"
                   rounded
-                  :loading="isSubmitting"
+                  :loading="isSubmitting || isPreparing"
                   @click="disableCollateral(collateral.vault as Vault)"
                 >
                   Disable collateral
