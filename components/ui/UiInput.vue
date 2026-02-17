@@ -14,6 +14,7 @@ const props = withDefaults(
     id?: string
     icon?: string
     clearable?: boolean
+    compact?: boolean
   }>(),
   {
     type: 'text',
@@ -31,6 +32,7 @@ const classes = computed(() => {
     'is-disabled': props.disabled,
     'is-error': props.error,
     'is-full-width': props.fullWidth,
+    'is-compact': props.compact,
   }
 })
 </script>
@@ -143,6 +145,28 @@ const classes = computed(() => {
       border-color: var(--ui-input-disabled-border-color);
       color: var(--ui-input-disabled-color);
       cursor: not-allowed;
+    }
+  }
+
+  &.is-compact {
+    border-radius: 100px;
+    box-shadow: none;
+    border-color: var(--border-subtle);
+
+    #{$block}__field {
+      min-height: 36px;
+      padding: 8px 14px;
+      font-size: 14px;
+      line-height: 18px;
+    }
+
+    #{$block}__icon-wrap {
+      width: 38px;
+    }
+
+    #{$block}__icon {
+      width: 16px;
+      height: 16px;
     }
   }
 

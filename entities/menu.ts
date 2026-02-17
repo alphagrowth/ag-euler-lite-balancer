@@ -13,16 +13,16 @@ const allMenuItems: MenuItem[] = [
     activeIcon: 'portfolio-filled',
   },
   {
-    name: 'earn',
-    label: 'Earn',
-    icon: 'earn-outline',
-    activeIcon: 'earn-filled',
-  },
-  {
     name: 'explore',
     label: 'Explore',
     icon: 'nodes',
     activeIcon: 'nodes',
+  },
+  {
+    name: 'earn',
+    label: 'Earn',
+    icon: 'earn-outline',
+    activeIcon: 'earn-filled',
   },
   {
     name: 'lend',
@@ -47,7 +47,7 @@ export const getMenuItems = (enableEarnPage: boolean, enableLendPage: boolean, e
   })
 }
 
-const preferredDefaultOrder = ['explore', 'lend', 'earn', 'borrow', 'portfolio'] as const
+const preferredDefaultOrder = ['explore', 'earn', 'lend', 'borrow', 'portfolio'] as const
 
 export const getDefaultPageRoute = (enableEarnPage: boolean, enableLendPage: boolean, enableExplorePage: boolean) => {
   const items = getMenuItems(enableEarnPage, enableLendPage, enableExplorePage)
