@@ -15,7 +15,9 @@ A transaction plan describes a complete operation as an ordered list of steps:
 ```typescript
 interface TxPlan {
   kind: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'full-repay'
-      | 'disable-collateral' | 'reward' | 'brevis-reward' | 'reul-unlock' | string
+      | 'savings-repay' | 'savings-full-repay' | 'swap-collateral-full-repay'
+      | 'swap-savings-full-repay' | 'disable-collateral' | 'reward'
+      | 'brevis-reward' | 'reul-unlock' | string
   steps: TxStep[]
 }
 ```
@@ -250,6 +252,72 @@ EVC batch calls:
 
 Quote parameters: `vaultIn` = source vault, `receiver` = destination vault, `accountIn` = `accountOut` = main account, `isRepay` = false.
 
+### SavingsRepay
+
+Repays a portion of borrow debt using assets from a savings (deposit) position on a different sub-account. Supports two paths depending on whether the savings vault and borrow vault share the same underlying asset.
+
+**Page**: `pages/position/[number]/repay.vue` (savings tab)
+
+**Steps**: `evc-batch(withdraw + skim + repayWithShares)` or `evc-batch(repayWithShares)` (same vault)
+
+EVC batch calls (different underlying assets):
+1. *(Optional)* Terms of Use signing
+2. `savingsVault.withdraw(amount, borrowVaultAddress, savingsSubAccount)` — withdraw to borrow vault
+3. `borrowVault.skim(amount, borrowSubAccount)` — credit skimmed tokens as shares
+4. `borrowVault.repayWithShares(amount - 1, borrowSubAccount)` — burn shares to repay debt (1 wei less to handle rounding)
+
+EVC batch calls (same underlying asset):
+1. *(Optional)* Terms of Use signing
+2. `savingsVault.repayWithShares(amount, borrowSubAccount)` — directly burns savings shares to repay borrow debt on the other sub-account (avoids vault cash liquidity requirements)
+
+**No Pyth updates**: Savings deposits should not have an active borrow, so no health check is triggered on the savings sub-account.
+
+### SavingsFullRepay
+
+Fully repays all borrow debt from savings shares, unwinds the borrow position, and returns excess assets to the savings vault. Handles both same-vault and cross-vault paths.
+
+**Page**: `pages/position/[number]/repay.vue` (savings tab, full repay)
+
+**Steps**: `evc-batch(withdraw + skim + repayWithShares(max) + redeem(max) + skim-back + disableController + [disableCollateral + transferFromMax] per collateral + transferFromMax savings)`
+
+EVC batch calls (different underlying assets):
+1. *(Optional)* Terms of Use signing
+2. `savingsVault.withdraw(adjustedAmount, borrowVaultAddress, savingsSubAccount)` — withdraw with 0.01% interest padding
+3. `borrowVault.skim(adjustedAmount, borrowSubAccount)` — credit as shares
+4. `borrowVault.repayWithShares(maxUint256, borrowSubAccount)` — repay all debt
+5. `borrowVault.redeem(maxUint256, savingsVaultAddress, borrowSubAccount)` — return excess to savings vault
+6. `savingsVault.skim(preExistingBorrowDeposit, savingsSubAccount)` — re-deposit returned tokens
+7. `borrowVault.disableController()` — remove controller
+8. For **each** collateral: `evc.disableCollateral()` + `collateralVault.transferFromMax()` — unwind collateral
+9. `savingsVault.transferFromMax(savingsSubAccount, user)` — return remaining savings shares to main account
+
+EVC batch calls (same underlying asset):
+1. *(Optional)* Terms of Use signing
+2. `savingsVault.repayWithShares(maxUint256, borrowSubAccount)` — burn shares to repay all debt
+3–9. Same cleanup sequence as above
+
+**No Pyth updates**: Batch ends with `disableController`, so no health check runs.
+
+### SwapFullRepay
+
+Fully repays all borrow debt using a cross-asset swap (from collateral or savings), then unwinds the entire borrow position. This is a unified builder (`buildSwapFullRepayPlan`) that accepts a `source: 'collateral' | 'savings'` parameter to determine which end of the swap is the sub-account for position cleanup.
+
+**Page**: `pages/position/[number]/repay.vue` (collateral or savings tab, cross-asset full repay)
+
+**Steps**: `evc-batch(swap calls + disableController + [disableCollateral + transferFromMax] per collateral)`
+
+EVC batch calls:
+1. Swap EVC calls from `buildSwapEvcCalls()` (withdraw/borrow → swapper multicall → swap verifier)
+2. `borrowVault.disableController()` — remove controller
+3. For **each** collateral: `evc.disableCollateral(subAccount, collateral)` — remove collateral
+4. For **each** collateral (if sub-account ≠ main account): `collateral.transferFromMax(subAccount, user)` — return shares
+
+The `source` parameter controls the sub-account address used for cleanup:
+- `'collateral'`: uses `quote.accountIn` (the collateral sub-account)
+- `'savings'`: uses `quote.accountOut` (the borrow sub-account)
+
+**No Pyth updates**: Batch ends with `disableController`, so no health check runs.
+
 ### DisableCollateral
 
 Removes a collateral vault from a borrow position by transferring all shares back to the main account and disabling it on the EVC.
@@ -329,6 +397,8 @@ The `preparePythUpdates()` function:
 
 Operations that include Pyth updates: **borrow**, **borrowBySaving**, **withdraw** (with sub-account), **disableCollateral**, **collateralSwap**, **debtSwap**, **assetSwap**, **multiply**.
 
+**Not included**: Supply, repay, savingsRepay, savingsFullRepay, and swapFullRepay don't need Pyth updates — supply/repay don't trigger health checks, and the full-repay variants end with `disableController` which bypasses the health check.
+
 For operations with a borrow position, only the borrow vault address is passed (e.g. `preparePythUpdates([borrowVaultAddr])`). For **withdraw** and **disableCollateral**, the `borrowVaultAddress` parameter is passed from the call site. Swap operations also accept a `liabilityVault` parameter; when not provided, they default to updating feeds for `[vaultIn, receiver]`.
 
 See [Pyth Oracle Handling](./pyth-oracle-handling.md) for the full Pyth architecture.
@@ -338,6 +408,7 @@ See [Pyth Oracle Handling](./pyth-oracle-handling.md) for the full Pyth architec
 | File | Purpose |
 |------|---------|
 | `composables/useEulerOperations.ts` | All operation builders and execution logic |
+| `composables/useRepaySavingsOptions.ts` | Savings position selection for repay-from-savings flow |
 | `entities/txPlan.ts` | `TxPlan` and `TxStep` type definitions |
 | `entities/saHooksSDK.ts` | `SaHooksBuilder` for constructing hook sequences |
 | `utils/evc-converter.ts` | `convertSaHooksToEVCCalls()` and `EVCCall` type |

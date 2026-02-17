@@ -104,8 +104,10 @@ composables/
 ├── useMarketGroups.ts             # Market grouping algorithm for explore page
 ├── useMerkl.ts                    # Merkl rewards campaign fetching
 ├── useMultiplyCollateralOptions.ts # Multiply collateral selection
+├── usePositionIndex.ts            # Sub-account index validation from URL params (0–255)
 ├── usePriceBackend.ts             # Backend price service client
 ├── useREULLocks.ts                # REUL token lock management
+├── useRepaySavingsOptions.ts      # Savings position selection for repay-from-savings
 ├── useRewardsApy.ts               # Unified reward APY aggregation (Merkl + Brevis)
 ├── useSlippage.ts                 # Swap slippage settings
 ├── useSwapApi.ts                  # Swap API integration

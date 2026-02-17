@@ -174,7 +174,7 @@ await writeContractAsync({
 | **Swap** (collateral/debt) | Source + target vaults |
 | **Multiply** | Collateral + borrow + swap target vaults |
 
-**Not included**: Supply and repay operations don't need Pyth updates because they don't trigger health checks that read oracle prices.
+**Not included**: Supply, repay, savings repay, savings full repay, and swap full repay operations don't need Pyth updates — supply/repay don't trigger health checks, and full-repay variants end with `disableController` which bypasses the health check.
 
 ## Batch Building Utilities
 
