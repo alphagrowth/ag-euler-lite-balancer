@@ -1380,7 +1380,6 @@ const buildSavingsRepay = async (): Promise<TxPlan> => {
       amount: debtNano,
       savingsSubAccount: savingsPos.subAccount,
       borrowSubAccount: position.value.subAccount,
-      enabledCollaterals: position.value.collaterals,
     })
   }
 

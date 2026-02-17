@@ -2539,14 +2539,12 @@ export const useEulerOperations = () => {
     amount,
     savingsSubAccount,
     borrowSubAccount,
-    enabledCollaterals,
   }: {
     savingsVaultAddress: string
     borrowVaultAddress: string
     amount: bigint
     savingsSubAccount: string
     borrowSubAccount: string
-    enabledCollaterals?: string[]
   }): Promise<TxPlan> => {
     if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -2572,12 +2570,8 @@ export const useEulerOperations = () => {
 
     const evcCalls: EVCCall[] = []
 
-    // Pyth updates for borrow sub-account health check
-    const effectiveCollaterals = resolveEffectiveCollaterals(enabledCollaterals)
-    const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(borrowVaultAddress, effectiveCollaterals, userAddr)
-    if (pythCalls.length) {
-      evcCalls.push(...pythCalls as EVCCall[])
-    }
+    // No Pyth updates needed — savings sub-account has no borrows (no health check on withdraw),
+    // and skim + repayWithShares on borrow sub-account only reduce debt (no health-worsening operation).
 
     // TOS signing
     if (!hasSigned && enableTermsOfUseSignature) {
