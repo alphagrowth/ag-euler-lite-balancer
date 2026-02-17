@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getAssetLogoUrl } from '~/composables/useTokens'
+import { getProductByVault } from '~/composables/useEulerLabels'
 import type { CollateralOption } from '~/entities/vault'
 import { formatNumber } from '~/utils/string-utils'
 
@@ -13,10 +14,25 @@ const { productName, symbol, collateralOptions, selected = 0, title = 'Select co
   onSave: any
 }>()
 
+const { isEscrowVault } = useVaultRegistry()
+
 const searchQuery = ref('')
 const selectedIdx = ref(selected)
-const getOptionLabel = (option: CollateralOption) => option.label || productName
+const getOptionLabel = (option: CollateralOption) => {
+  if (option.vaultAddress && isEscrowVault(option.vaultAddress)) return 'Escrowed collateral'
+  if (option.label) return option.label
+  if (option.vaultAddress) {
+    const product = getProductByVault(option.vaultAddress)
+    if (product?.name) return product.name
+  }
+  return productName
+}
 const getOptionSymbol = (option: CollateralOption) => option.symbol || symbol
+const getOptionType = (option: CollateralOption) => {
+  if (option.type === 'escrow') return 'escrow'
+  if (option.vaultAddress && isEscrowVault(option.vaultAddress)) return 'escrow'
+  return option.type
+}
 
 const filteredOptions = computed(() => {
   if (!searchQuery.value) return collateralOptions.map((option, idx) => ({ option, idx }))
@@ -73,22 +89,16 @@ const handleClose = () => {
           <div class="text-h5 flex items-center">
             {{ getOptionSymbol(option) }}
             <div
-              v-if="option.type === 'wallet'"
+              v-if="getOptionType(option) === 'wallet'"
               class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[#A1F4E01A] text-aquamarine-600"
             >
               Wallet
             </div>
             <div
-              v-else-if="option.type === 'saving'"
+              v-else-if="getOptionType(option) === 'saving'"
               class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[#CBC0951A] text-yellow-600"
             >
               Savings
-            </div>
-            <div
-              v-else-if="option.type === 'escrow'"
-              class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[var(--c-aquamarine-opaque-200)] text-aquamarine-600"
-            >
-              Escrowed collateral
             </div>
             <span
               v-for="tag in (option.tags || [])"
