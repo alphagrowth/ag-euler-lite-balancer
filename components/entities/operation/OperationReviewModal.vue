@@ -27,8 +27,10 @@ const SELECTOR_LABELS: Record<string, string> = {
   [toFunctionSelector('function signTermsOfUse(string,bytes32)')]: 'Sign terms of use',
   [toFunctionSelector('function multicall(bytes[])')]: 'Swap',
   [toFunctionSelector('function verifyAmountMinAndSkim(address,address,uint256,uint256)')]: 'Verify min received',
+  [toFunctionSelector('function verifyAmountMinAndTransfer(address,address,uint256,uint256)')]: 'Verify min received',
   [toFunctionSelector('function verifyDebtMax(address,address,uint256,uint256)')]: 'Verify max debt',
   [toFunctionSelector('function updatePriceFeeds(bytes[])')]: 'Update price feeds',
+  [toFunctionSelector('function transferFromSender(address,uint256,address)')]: 'Transfer from wallet',
 }
 
 const decodeBatchItemLabel = (data: string): string => {
@@ -46,7 +48,7 @@ interface REULUnlockInfo {
 }
 
 const { type, asset, assetIconUrl, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount, transferAmounts } = defineProps<{
-  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'transfer' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral'
+  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'transfer' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral' | 'swap-supply' | 'swap-withdraw' | 'swap-borrow'
   asset: VaultAsset
   assetIconUrl?: string
   amount: number | string
@@ -121,7 +123,7 @@ const handleTenderlySimulate = async () => {
     }
   }
   catch {
-    // Error is already captured in tenderlyError ref by the composable
+    // Error is captured in tenderlyError ref by the composable
   }
 }
 
@@ -286,14 +288,18 @@ const getAssetInfoForStep = (label: string, data: string, targetContract: string
   }
 
   if (label === 'Borrow' || label === 'Repay') {
+    // Resolve the asset from the target vault (borrow vault) so swap-borrow
+    // shows the correct borrow asset instead of the swap input token.
+    const vaultAsset = getVaultAssetInfo(data, targetContract)
+    const borrowAsset = vaultAsset || { symbol: asset.symbol, address: asset.address }
     const resolved = resolveAmountFromCalldata(data, targetContract)
     if (resolved.decoded) {
       const displayAmount = resolved.isMax ? 'max' : resolved.amount
-      return { symbol: asset.symbol, address: asset.address, amount: displayAmount }
+      return { ...borrowAsset, amount: displayAmount }
     }
     if (!usedBorrow.value) {
       usedBorrow.value = true
-      return { symbol: asset.symbol, address: asset.address, amount }
+      return { ...borrowAsset, amount }
     }
   }
 
@@ -303,9 +309,17 @@ const getAssetInfoForStep = (label: string, data: string, targetContract: string
   }
 
   if (label === 'Verify min received') {
-    if (swapToAsset && swapToAmount && !usedSwapTo.value) {
-      usedSwapTo.value = true
-      return { symbol: swapToAsset.symbol, address: swapToAsset.address, amount: swapToAmount }
+    // Decode amountMin (3rd param) from verifyAmountMinAndSkim/verifyAmountMinAndTransfer calldata
+    // Layout: selector(4) + vault/token(32) + receiver(32) + amountMin(32) + deadline(32)
+    if (swapToAsset && data.length >= 202) {
+      try {
+        // 0x (2) + selector (8) + param1 (64) + param2 (64) = 138, then 64 chars for amountMin
+        const amountMinRaw = BigInt(`0x${data.slice(138, 202)}`)
+        const decoded = formatUnits(amountMinRaw, Number(swapToAsset.decimals))
+        usedSwapTo.value = true
+        return { symbol: swapToAsset.symbol, address: swapToAsset.address, amount: decoded }
+      }
+      catch { /* fall through */ }
     }
     return { symbol: asset.symbol, address: asset.address, amount }
   }
@@ -330,6 +344,10 @@ const getAssetInfoForStep = (label: string, data: string, targetContract: string
     if (swapToAsset && swapToAmount) {
       return { symbol: swapToAsset.symbol, address: swapToAsset.address, amount: swapToAmount }
     }
+    return { symbol: asset.symbol, address: asset.address, amount }
+  }
+
+  if (label === 'Transfer from wallet') {
     return { symbol: asset.symbol, address: asset.address, amount }
   }
 
@@ -488,10 +506,13 @@ const copyCalldata = () => {
 const btnLabel = computed(() => {
   switch (type) {
     case 'supply':
+    case 'swap-supply':
       return 'Supply'
     case 'withdraw':
+    case 'swap-withdraw':
       return 'Withdraw'
     case 'borrow':
+    case 'swap-borrow':
       return 'Borrow'
     case 'repay':
       return 'Repay'

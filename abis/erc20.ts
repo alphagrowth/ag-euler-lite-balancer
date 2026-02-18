@@ -53,3 +53,13 @@ export const erc20DecimalsAbi = [
     stateMutability: 'view',
   },
 ] as const
+
+export const erc20NameAbi = [
+  {
+    type: 'function',
+    name: 'name',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+  },
+] as const

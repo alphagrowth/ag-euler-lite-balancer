@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, formatUnits, type Address } from 'viem'
+import { getAddress, formatUnits, zeroAddress, type Address } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerModal } from '#components'
+import { OperationReviewModal, SlippageSettingsModal, VaultUnverifiedDisclaimerModal, SwapTokenSelector } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import { type AnyBorrowVaultPair, type BorrowVaultPair, getNetAPY, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, convertAssetsToShares, isSecuritizeBorrowPair } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, getCollateralShareOraclePrice, getCollateralUsdPrice, conservativePriceRatio, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
+import { fetchBackendPrice } from '~/services/pricing/backendClient'
 import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry, getVaultTags } from '~/composables/useGeoBlock'
@@ -28,7 +30,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
-const { buildBorrowPlan, buildBorrowBySavingPlan, buildMultiplyPlan, executeTxPlan } = useEulerOperations()
+const { buildBorrowPlan, buildBorrowBySavingPlan, buildMultiplyPlan, buildSwapAndBorrowPlan, executeTxPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
 const { refreshAllPositions, depositPositions } = useEulerAccount()
@@ -92,6 +94,36 @@ const plan = ref<TxPlan | null>(null)
 const multiplyPlan = ref<TxPlan | null>(null)
 const multiplyPlanParams = ref<MultiplyPlanParams | null>(null)
 
+// Swap & borrow state
+const { enableSwapDeposit } = useDeployConfig()
+const borrowSelectedAsset = ref<VaultAsset | undefined>()
+const borrowSelectedAssetBalance = ref(0n)
+const borrowSwapAssetUsdPrice = ref<number | undefined>()
+const borrowNeedsSwap = computed(() => {
+  if (!borrowSelectedAsset.value || !collateralVault.value) return false
+  try {
+    return getAddress(borrowSelectedAsset.value.address) !== getAddress(collateralVault.value.asset.address)
+  }
+  catch {
+    return false
+  }
+})
+const { slippage: borrowSwapSlippage } = useSlippage()
+const {
+  sortedQuoteCards: borrowSwapQuoteCards,
+  selectedProvider: borrowSwapSelectedProvider,
+  selectedQuote: borrowSwapSelectedQuote,
+  effectiveQuote: borrowSwapEffectiveQuote,
+  providersCount: borrowSwapProvidersCount,
+  isLoading: isBorrowSwapQuoteLoading,
+  quoteError: borrowSwapQuoteError,
+  statusLabel: borrowSwapQuotesStatusLabel,
+  getQuoteDiffPct: getBorrowSwapQuoteDiffPct,
+  reset: resetBorrowSwapQuoteState,
+  requestQuotes: requestBorrowSwapQuotes,
+  selectProvider: selectBorrowSwapQuote,
+} = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
+
 // Load vault pair (handles regular, escrow, and securitize collateral)
 const initialPair = await getBorrowVaultPair(collateralAddress, borrowAddress)
 const pair: Ref<AnyBorrowVaultPair | undefined> = ref(initialPair)
@@ -127,25 +159,38 @@ const {
   selectProvider: selectMultiplyQuote,
 } = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
 const { slippage: multiplySlippage } = useSlippage()
-const multiplySubAccount = ref<string | null>(null)
-const isMultiplySubAccountLoading = ref(false)
-let multiplySubAccountPromise: Promise<string> | null = null
+const pendingSubAccount = ref<string | null>(null)
+const isPendingSubAccountLoading = ref(false)
+let pendingSubAccountPromise: Promise<string> | null = null
 
+const borrowActiveBalance = computed(() => {
+  if (borrowNeedsSwap.value) return borrowSelectedAssetBalance.value
+  return computedBalance.value
+})
+const borrowActiveAssetDecimals = computed(() => {
+  if (borrowNeedsSwap.value && borrowSelectedAsset.value) return borrowSelectedAsset.value.decimals
+  return collateralVault.value?.asset?.decimals
+})
 const errorText = computed(() => {
-  if (computedBalance.value < valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)) {
+  if (borrowActiveBalance.value < valueToNano(collateralAmount.value, borrowActiveAssetDecimals.value)) {
     return 'Not enough balance'
   }
   else if ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals)) {
     return 'Not enough liquidity in the vault'
   }
+  if (borrowNeedsSwap.value && !borrowSwapEffectiveQuote.value && !isBorrowSwapQuoteLoading.value && +collateralAmount.value > 0) {
+    return 'No swap quote available'
+  }
   return null
 })
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  return computedBalance.value < valueToNano(collateralAmount.value, collateralVault.value?.asset?.decimals)
-    || !(+collateralAmount.value)
-    || ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals))
-    || !valueToNano(borrowAmount.value, borrowVault.value?.decimals)
+  if (borrowActiveBalance.value < valueToNano(collateralAmount.value, borrowActiveAssetDecimals.value)) return true
+  if (!(+collateralAmount.value)) return true
+  if ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals)) return true
+  if (!valueToNano(borrowAmount.value, borrowVault.value?.decimals)) return true
+  if (borrowNeedsSwap.value && !borrowSwapEffectiveQuote.value && !isBorrowSwapQuoteLoading.value) return true
+  return false
 })
 const isMultiplySubmitDisabled = computed(() => {
   if (!isConnected.value) return false
@@ -158,7 +203,7 @@ const isMultiplySubmitDisabled = computed(() => {
   if (multiplyErrorText.value) {
     return true
   }
-  if (isMultiplySubAccountLoading.value) {
+  if (isPendingSubAccountLoading.value) {
     return true
   }
   const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
@@ -169,11 +214,12 @@ const isMultiplySubmitDisabled = computed(() => {
 })
 const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(collateralAddress, borrowAddress))
 const isBorrowRestricted = computed(() => isVaultRestrictedByCountry(borrowAddress))
+const isBorrowSwapRestricted = computed(() => borrowNeedsSwap.value && isVaultRestrictedByCountry(collateralAddress))
 const isMultiplyRestricted = computed(() =>
   isVaultRestrictedByCountry(collateralAddress) || isVaultRestrictedByCountry(borrowAddress))
 const isPairFullyRestricted = computed(() =>
   !isGeoBlocked.value && isVaultRestrictedByCountry(collateralAddress) && isVaultRestrictedByCountry(borrowAddress))
-const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isBorrowRestricted.value || isSubmitDisabled.value))
+const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isBorrowRestricted.value || isBorrowSwapRestricted.value || isSubmitDisabled.value))
 const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplyRestricted.value || isMultiplySubmitDisabled.value))
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
@@ -466,26 +512,26 @@ const collateralOptions = computed(() => {
   }
   return options
 })
-const resolveMultiplySubAccount = async () => {
-  if (multiplySubAccount.value) {
-    return multiplySubAccount.value
+const resolvePendingSubAccount = async (): Promise<string> => {
+  if (pendingSubAccount.value) {
+    return pendingSubAccount.value
   }
   if (!address.value) {
     throw new Error('Wallet not connected')
   }
-  if (!multiplySubAccountPromise) {
-    isMultiplySubAccountLoading.value = true
-    multiplySubAccountPromise = getNewSubAccount(address.value)
+  if (!pendingSubAccountPromise) {
+    isPendingSubAccountLoading.value = true
+    pendingSubAccountPromise = getNewSubAccount(address.value)
       .then((subAccount) => {
-        multiplySubAccount.value = subAccount
+        pendingSubAccount.value = subAccount
         return subAccount
       })
       .finally(() => {
-        isMultiplySubAccountLoading.value = false
-        multiplySubAccountPromise = null
+        isPendingSubAccountLoading.value = false
+        pendingSubAccountPromise = null
       })
   }
-  return multiplySubAccountPromise
+  return pendingSubAccountPromise
 }
 const computedBalance = computed(() => {
   if (isSavingCollateral.value) return savingAssets.value || 0n
@@ -905,7 +951,113 @@ const updateBalance = async () => {
   else {
     multiplyAssetBalance.value = 0n
   }
+
+  // Fetch swap source asset balance
+  if (borrowSelectedAsset.value?.address) {
+    borrowSelectedAssetBalance.value = await fetchSingleBalance(borrowSelectedAsset.value.address)
+  }
+  else {
+    borrowSelectedAssetBalance.value = 0n
+  }
 }
+
+// Swap & borrow quote helpers
+const borrowSwapEstimatedCollateral = computed(() => {
+  if (!borrowSwapEffectiveQuote.value || !collateralVault.value) return ''
+  const amountOut = BigInt(borrowSwapEffectiveQuote.value.amountOut || 0)
+  if (amountOut <= 0n) return ''
+  return formatUnits(amountOut, Number(collateralVault.value.asset.decimals))
+})
+
+const borrowSwapRouteItems = computed(() => {
+  if (!collateralVault.value) return []
+  const bestProvider = borrowSwapQuoteCards.value[0]?.provider
+  return borrowSwapQuoteCards.value.map((card) => {
+    const amountOut = getQuoteAmount(card.quote, 'amountOut')
+    const amountFormatted = formatSmartAmount(
+      formatUnits(amountOut, Number(collateralVault.value!.asset.decimals)),
+    )
+    const diffPct = getBorrowSwapQuoteDiffPct(card.quote)
+    const badge = card.provider === bestProvider
+      ? { label: 'Best', tone: 'best' as const }
+      : diffPct !== null
+        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
+        : undefined
+    return {
+      provider: card.provider,
+      amount: amountFormatted,
+      symbol: collateralVault.value!.asset.symbol,
+      routeLabel: card.quote.route?.length
+        ? `via ${card.quote.route.map(r => r.providerName).join(', ')}`
+        : '-',
+      badge,
+    }
+  })
+})
+
+const requestBorrowSwapQuote = useDebounceFn(async () => {
+  borrowSwapQuoteError.value = null
+
+  if (!borrowSelectedAsset.value || !collateralVault.value || !borrowNeedsSwap.value || !collateralAmount.value) {
+    resetBorrowSwapQuoteState()
+    return
+  }
+
+  const inputAmountNano = valueToNano(collateralAmount.value || '0', borrowSelectedAsset.value.decimals)
+  if (inputAmountNano <= 0n) {
+    resetBorrowSwapQuoteState()
+    return
+  }
+
+  const userAddr = (address.value || zeroAddress) as Address
+  const subAccountAddr = address.value
+    ? (await resolvePendingSubAccount()) as Address
+    : userAddr
+  await requestBorrowSwapQuotes({
+    tokenIn: borrowSelectedAsset.value.address as Address,
+    tokenOut: collateralVault.value.asset.address as Address,
+    accountIn: zeroAddress as Address,
+    accountOut: subAccountAddr,
+    amount: inputAmountNano,
+    vaultIn: zeroAddress as Address,
+    receiver: collateralVault.value.address as Address,
+    unusedInputReceiver: userAddr,
+    slippage: borrowSwapSlippage.value,
+    swapperMode: SwapperMode.EXACT_IN,
+    isRepay: false,
+    targetDebt: 0n,
+    currentDebt: 0n,
+  }, {
+    logContext: {
+      tokenIn: borrowSelectedAsset.value.address,
+      tokenOut: collateralVault.value.asset.address,
+      amount: collateralAmount.value,
+      slippage: borrowSwapSlippage.value,
+    },
+  })
+}, 500)
+
+const onSelectBorrowSwapAsset = (newAsset: VaultAsset) => {
+  borrowSelectedAsset.value = newAsset
+  collateralAmount.value = ''
+  clearBorrowSimulationError()
+  resetBorrowSwapQuoteState()
+}
+
+const openBorrowSwapTokenSelector = () => {
+  modal.open(SwapTokenSelector, {
+    props: {
+      currentAssetAddress: borrowSelectedAsset.value?.address || collateralVault.value?.asset.address,
+      onSelect: onSelectBorrowSwapAsset,
+    },
+  })
+}
+
+const onRefreshBorrowSwapQuotes = () => {
+  resetBorrowSwapQuoteState()
+  requestBorrowSwapQuote()
+}
+
 const setMultiplyAmounts = (longAmount?: bigint | null, shortAmount?: bigint | null) => {
   if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value || !multiplyInputAmount.value) {
     multiplyLongAmount.value = ''
@@ -979,7 +1131,7 @@ const requestMultiplyQuote = useDebounceFn(async () => {
 
   let account: Address
   try {
-    account = (await resolveMultiplySubAccount()) as Address
+    account = (await resolvePendingSubAccount()) as Address
   }
   catch {
     resetMultiplyQuoteState()
@@ -1104,7 +1256,7 @@ const submitMultiply = async () => {
 
     let subAccount: string
     try {
-      subAccount = await resolveMultiplySubAccount()
+      subAccount = await resolvePendingSubAccount()
     }
     catch (e) {
       console.warn('[Multiply] failed to resolve subaccount', e)
@@ -1197,12 +1349,29 @@ const sendMultiply = async () => {
     isMultiplySubmitting.value = false
   }
 }
+const buildSwapBorrowPlanFromQuote = async (quote: SwapApiQuote, options: { includePermit2Call?: boolean } = {}): Promise<TxPlan> => {
+  if (!borrowSelectedAsset.value || !collateralVault.value || !borrowVault.value) {
+    throw new Error('Missing vault or asset data')
+  }
+  const borrowAmountNano = valueToNano(borrowAmount.value || '0', borrowVault.value.decimals)
+  const subAccount = await resolvePendingSubAccount()
+  return buildSwapAndBorrowPlan({
+    inputTokenAddress: borrowSelectedAsset.value.address as Address,
+    inputAmount: valueToNano(collateralAmount.value || '0', borrowSelectedAsset.value.decimals),
+    collateralVaultAddress: collateralVault.value.address as Address,
+    borrowVaultAddress: borrowVault.value.address as Address,
+    borrowAmount: borrowAmountNano,
+    swapQuote: quote,
+    subAccount,
+    includePermit2Call: options.includePermit2Call,
+  })
+}
+
 const submit = async () => {
-  if (isPreparing.value || isGeoBlocked.value || isBorrowRestricted.value) return
+  if (isPreparing.value || isGeoBlocked.value || isBorrowRestricted.value || isBorrowSwapRestricted.value) return
   isPreparing.value = true
   try {
     await guardWithTerms(async () => {
-      // TODO: Validate
       if (!isConnected.value) {
         isSubmitting.value = false
         return
@@ -1212,6 +1381,43 @@ const submit = async () => {
         return
       }
 
+    // Swap & borrow path
+    if (borrowNeedsSwap.value && borrowSwapEffectiveQuote.value) {
+      try {
+        plan.value = await buildSwapBorrowPlanFromQuote(borrowSwapEffectiveQuote.value, { includePermit2Call: false })
+      }
+      catch (e) {
+        console.warn('[OperationReviewModal] failed to build swap-borrow plan', e)
+        plan.value = null
+      }
+
+      if (plan.value) {
+        const ok = await runBorrowSimulation(plan.value)
+        if (!ok) {
+          return
+        }
+      }
+
+      const reviewAsset = borrowSelectedAsset.value || collateralVault.value.asset
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'swap-borrow' as const,
+          asset: reviewAsset,
+          amount: collateralAmount.value,
+          plan: plan.value || undefined,
+          swapToAsset: collateralVault.value.asset,
+          swapToAmount: borrowSwapEstimatedCollateral.value,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
+          },
+        },
+      })
+      return
+    }
+
+    // Standard borrow path
     const collateralAmountNano = valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals)
     const borrowAmountNano = valueToNano(borrowAmount.value || '0', borrowVault.value?.decimals)
     let collateralAmountForPlan = collateralAmountNano
@@ -1285,35 +1491,50 @@ const send = async () => {
     if (!collateralVault.value || !borrowVault.value) {
       return
     }
-    let collateralAmountForPlan = collateralAmountFixed.value.toFormat({ decimals: Number(collateralVault.value.decimals) }).value
-    if (isSavingCollateral.value) {
-      if (savingCollateral.value?.assets === collateralAmountForPlan) {
-        collateralAmountForPlan = savingBalance.value
+
+    let txPlan: TxPlan
+
+    // Swap & borrow path
+    if (borrowNeedsSwap.value) {
+      const quote = borrowSwapSelectedQuote.value || borrowSwapEffectiveQuote.value
+      if (!quote) {
+        error('No swap quote available')
+        return
       }
-      else {
-        collateralAmountForPlan = await convertAssetsToShares(collateralVault.value.address, collateralAmountForPlan)
-      }
+      txPlan = await buildSwapBorrowPlanFromQuote(quote)
     }
-    const borrowAmountNano = borrowAmountFixed.value.toFormat({ decimals: Number(borrowVault.value.decimals) }).value
-    const txPlan = isSavingCollateral.value
-      ? await buildBorrowBySavingPlan(
-        collateralVault.value.address,
-        collateralAmountForPlan,
-        borrowVault.value.address,
-        borrowAmountNano,
-        undefined,
-        undefined,
-        savingCollateral.value?.subAccount,
-      )
-      : await buildBorrowPlan(
-        collateralVault.value.address,
-        collateralVault.value.asset.address,
-        collateralAmountForPlan,
-        borrowVault.value.address,
-        borrowAmountNano,
-        undefined,
-        { includePermit2Call: true },
-      )
+    else {
+      // Standard borrow path
+      let collateralAmountForPlan = collateralAmountFixed.value.toFormat({ decimals: Number(collateralVault.value.decimals) }).value
+      if (isSavingCollateral.value) {
+        if (savingCollateral.value?.assets === collateralAmountForPlan) {
+          collateralAmountForPlan = savingBalance.value
+        }
+        else {
+          collateralAmountForPlan = await convertAssetsToShares(collateralVault.value.address, collateralAmountForPlan)
+        }
+      }
+      const borrowAmountNano = borrowAmountFixed.value.toFormat({ decimals: Number(borrowVault.value.decimals) }).value
+      txPlan = isSavingCollateral.value
+        ? await buildBorrowBySavingPlan(
+          collateralVault.value.address,
+          collateralAmountForPlan,
+          borrowVault.value.address,
+          borrowAmountNano,
+          undefined,
+          undefined,
+          savingCollateral.value?.subAccount,
+        )
+        : await buildBorrowPlan(
+          collateralVault.value.address,
+          collateralVault.value.asset.address,
+          collateralAmountForPlan,
+          borrowVault.value.address,
+          borrowAmountNano,
+          undefined,
+          { includePermit2Call: true },
+        )
+    }
     await executeTxPlan(txPlan)
 
     modal.close()
@@ -1531,8 +1752,8 @@ watch(pair, async (val) => {
   await updateBalance()
 }, { immediate: true })
 watch(address, () => {
-  multiplySubAccount.value = null
-  multiplySubAccountPromise = null
+  pendingSubAccount.value = null
+  pendingSubAccountPromise = null
   updateBalance()
 })
 watch([collateralAmount, borrowAmount], async () => {
@@ -1595,6 +1816,46 @@ watch(formTab, () => {
   clearBorrowSimulationError()
   clearMultiplySimulationError()
 })
+
+// Swap & borrow watchers
+watch(borrowSelectedAsset, async () => {
+  if (borrowSelectedAsset.value?.address && isConnected.value) {
+    borrowSelectedAssetBalance.value = await fetchSingleBalance(borrowSelectedAsset.value.address)
+  }
+  else {
+    borrowSelectedAssetBalance.value = 0n
+  }
+  if (borrowNeedsSwap.value && collateralAmount.value) {
+    resetBorrowSwapQuoteState()
+    requestBorrowSwapQuote()
+  }
+  if (borrowSelectedAsset.value?.address && borrowNeedsSwap.value) {
+    const priceData = await fetchBackendPrice(borrowSelectedAsset.value.address as Address)
+    borrowSwapAssetUsdPrice.value = priceData?.price
+  }
+  else {
+    borrowSwapAssetUsdPrice.value = undefined
+  }
+})
+
+watch(collateralAmount, () => {
+  if (borrowNeedsSwap.value) {
+    resetBorrowSwapQuoteState()
+    requestBorrowSwapQuote()
+  }
+})
+
+watch(borrowSwapSlippage, () => {
+  if (borrowNeedsSwap.value && collateralAmount.value) {
+    clearBorrowSimulationError()
+    resetBorrowSwapQuoteState()
+    requestBorrowSwapQuote()
+  }
+})
+
+watch(borrowSwapSelectedQuote, () => {
+  clearBorrowSimulationError()
+})
 </script>
 
 <template>
@@ -1629,14 +1890,80 @@ watch(formTab, () => {
               v-model="collateralAmount"
               :desc="collateralProduct.name"
               :label="`Supply ${collateralVault.asset.symbol}`"
-              :asset="collateralVault.asset"
-              :price-override="collateralUnitPrice"
-              :balance="computedBalance"
-              :collateral-options="collateralOptions as CollateralOption[]"
+              :asset="borrowNeedsSwap && borrowSelectedAsset ? borrowSelectedAsset : collateralVault.asset"
+              :price-override="borrowNeedsSwap ? borrowSwapAssetUsdPrice : collateralUnitPrice"
+              :balance="borrowActiveBalance"
+              :collateral-options="borrowNeedsSwap ? undefined : (collateralOptions as CollateralOption[])"
               maxable
               @input="onCollateralInput"
               @change-collateral="onChangeCollateral"
             />
+
+            <!-- Pay with token selector -->
+            <div v-if="enableSwapDeposit && collateralVault" class="flex items-center gap-8">
+              <span class="text-p3 text-content-tertiary">Pay with</span>
+              <button
+                type="button"
+                class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
+                @click="openBorrowSwapTokenSelector"
+              >
+                <BaseAvatar
+                  :src="getAssetLogoUrl(borrowSelectedAsset?.address || collateralVault.asset.address, borrowSelectedAsset?.symbol || collateralVault.asset.symbol)"
+                  :label="borrowSelectedAsset?.symbol || collateralVault.asset.symbol"
+                  class="icon--20"
+                />
+                {{ borrowSelectedAsset?.symbol || collateralVault.asset.symbol }}
+                <SvgIcon
+                  class="text-euler-dark-800 !w-16 !h-16"
+                  name="arrow-down"
+                />
+              </button>
+            </div>
+
+            <!-- Swap info for borrow -->
+            <template v-if="borrowNeedsSwap && collateralVault">
+              <SwapRouteSelector
+                :items="borrowSwapRouteItems"
+                :selected-provider="borrowSwapSelectedProvider"
+                :status-label="borrowSwapQuotesStatusLabel"
+                :is-loading="isBorrowSwapQuoteLoading"
+                empty-message="Enter amount to fetch quotes"
+                @select="selectBorrowSwapQuote"
+                @refresh="onRefreshBorrowSwapQuotes"
+              />
+
+              <VaultFormInfoBlock
+                v-if="borrowSwapEstimatedCollateral"
+                :loading="isBorrowSwapQuoteLoading"
+              >
+                <SummaryRow label="Estimated collateral" align-top>
+                  <p class="text-p2">
+                    ~{{ formatSmartAmount(borrowSwapEstimatedCollateral) }} {{ collateralVault.asset.symbol }}
+                  </p>
+                </SummaryRow>
+                <SummaryRow label="Slippage tolerance">
+                  <button
+                    type="button"
+                    class="flex items-center gap-6 text-p2"
+                    @click="openSlippageSettings"
+                  >
+                    <span>{{ formatNumber(borrowSwapSlippage, 2, 0) }}%</span>
+                    <SvgIcon
+                      name="edit"
+                      class="!w-16 !h-16 text-accent-600"
+                    />
+                  </button>
+                </SummaryRow>
+              </VaultFormInfoBlock>
+
+              <UiToast
+                v-if="borrowSwapQuoteError"
+                title="Swap quote"
+                variant="warning"
+                :description="borrowSwapQuoteError"
+                size="compact"
+              />
+            </template>
 
             <UiRange
               v-model="ltv"
@@ -1675,6 +2002,13 @@ watch(formTab, () => {
               v-if="!isGeoBlocked && !isPairFullyRestricted && isBorrowRestricted"
               title="Asset restricted"
               description="Borrowing this asset is not available in your region."
+              variant="warning"
+              size="compact"
+            />
+            <UiToast
+              v-if="!isGeoBlocked && !isPairFullyRestricted && !isBorrowRestricted && isBorrowSwapRestricted"
+              title="Swap restricted"
+              description="Swapping into this collateral vault is not available in your region. You can provide the vault's underlying asset directly."
               variant="warning"
               size="compact"
             />

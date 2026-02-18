@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
+import { getAddress, formatUnits, type Address, zeroAddress } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal } from '#components'
+import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import {
   convertSharesToAssets,
   isSecuritizeVault,
@@ -17,6 +19,9 @@ import { getSubAccountAddress } from '~/entities/account'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
+import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
+import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import { getQuoteAmount } from '~/utils/swapQuotes'
 import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
@@ -26,8 +31,8 @@ const modal = useModal()
 const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
-const { buildWithdrawPlan, buildRedeemPlan, executeTxPlan } = useEulerOperations()
-const { getVault } = useVaults()
+const { buildWithdrawPlan, buildRedeemPlan, buildWithdrawAndSwapPlan, buildRedeemAndSwapPlan, executeTxPlan } = useEulerOperations()
+const { getVault, getSecuritizeVault, getEscrowVault } = useVaults()
 const { isConnected, address } = useAccount()
 const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -62,6 +67,33 @@ const delta = ref(0n)
 const estimateSupplyAPY = ref(0n)
 const estimatesError = ref('')
 
+// Withdraw & swap state
+const { enableSwapDeposit } = useDeployConfig()
+const selectedOutputAsset = ref<VaultAsset | undefined>()
+const needsSwap = computed(() => {
+  if (!selectedOutputAsset.value || !asset.value) return false
+  try {
+    return getAddress(selectedOutputAsset.value.address) !== getAddress(asset.value.address)
+  }
+  catch {
+    return false
+  }
+})
+const { slippage: swapSlippage } = useSlippage()
+const {
+  sortedQuoteCards: swapQuoteCardsSorted,
+  selectedProvider: swapSelectedProvider,
+  selectedQuote: swapSelectedQuote,
+  effectiveQuote: swapEffectiveQuote,
+  isLoading: isSwapQuoteLoading,
+  quoteError: swapQuoteError,
+  statusLabel: swapQuotesStatusLabel,
+  getQuoteDiffPct: getSwapQuoteDiffPct,
+  reset: resetSwapQuoteState,
+  requestQuotes: requestSwapQuotes,
+  selectProvider: selectSwapQuote,
+} = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
+
 const rewardApy = computed(() => getSupplyRewardApy(vault.value?.address || ''))
 const amountFixed = computed(() => {
   return FixedPoint.fromValue(
@@ -71,10 +103,11 @@ const amountFixed = computed(() => {
 })
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  return assetsBalance.value < amountFixed.value.value
-    || isLoading.value
-    || amountFixed.value.isZero() || amountFixed.value.isNegative()
-    || !!(estimatesError.value)
+  if (assetsBalance.value < amountFixed.value.value) return true
+  if (isLoading.value || amountFixed.value.isZero() || amountFixed.value.isNegative()) return true
+  if (estimatesError.value) return true
+  if (needsSwap.value && !swapEffectiveQuote.value && !isSwapQuoteLoading.value) return true
+  return false
 })
 const reviewWithdrawDisabled = getSubmitDisabled(isSubmitDisabled)
 const supplyAPYDisplay = computed(() => {
@@ -101,6 +134,107 @@ watchEffect(async () => {
   assetsBalanceUsd.value = await getAssetUsdValueOrZero(assetsBalance.value, vault.value as Vault, 'off-chain')
   deltaUsd.value = await getAssetUsdValueOrZero(delta.value, vault.value as Vault, 'off-chain')
 })
+
+// Swap quote helpers
+const swapEstimatedOutput = computed(() => {
+  if (!swapEffectiveQuote.value || !selectedOutputAsset.value) return ''
+  const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
+  if (amountOut <= 0n) return ''
+  return formatUnits(amountOut, Number(selectedOutputAsset.value.decimals))
+})
+
+const swapRouteItems = computed(() => {
+  if (!selectedOutputAsset.value) return []
+  const bestProvider = swapQuoteCardsSorted.value[0]?.provider
+  return swapQuoteCardsSorted.value.map((card) => {
+    const amountOut = getQuoteAmount(card.quote, 'amountOut')
+    const amountFormatted = formatSmartAmount(
+      formatUnits(amountOut, Number(selectedOutputAsset.value!.decimals)),
+    )
+    const diffPct = getSwapQuoteDiffPct(card.quote)
+    const badge = card.provider === bestProvider
+      ? { label: 'Best', tone: 'best' as const }
+      : diffPct !== null
+        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
+        : undefined
+    return {
+      provider: card.provider,
+      amount: amountFormatted,
+      symbol: selectedOutputAsset.value!.symbol,
+      routeLabel: card.quote.route?.length
+        ? `via ${card.quote.route.map(r => r.providerName).join(', ')}`
+        : '-',
+      badge,
+    }
+  })
+})
+
+const requestSwapQuote = useDebounceFn(async () => {
+  swapQuoteError.value = null
+
+  if (!selectedOutputAsset.value || !asset.value || !needsSwap.value || !amount.value) {
+    resetSwapQuoteState()
+    return
+  }
+
+  const withdrawAmountNano = valueToNano(amount.value || '0', asset.value.decimals)
+  if (withdrawAmountNano <= 0n) {
+    resetSwapQuoteState()
+    return
+  }
+
+  const userAddr = (address.value || zeroAddress) as Address
+  const subAccountAddr = subAccount.value
+    ? (subAccount.value as Address)
+    : userAddr
+  await requestSwapQuotes({
+    tokenIn: asset.value.address as Address,
+    tokenOut: selectedOutputAsset.value.address as Address,
+    accountIn: subAccountAddr,
+    accountOut: zeroAddress as Address,
+    amount: withdrawAmountNano,
+    vaultIn: vaultAddress as Address,
+    receiver: userAddr,
+    transferOutputToReceiver: true,
+    slippage: swapSlippage.value,
+    swapperMode: SwapperMode.EXACT_IN,
+    isRepay: false,
+    targetDebt: 0n,
+    currentDebt: 0n,
+  }, {
+    logContext: {
+      tokenIn: asset.value.address,
+      tokenOut: selectedOutputAsset.value.address,
+      amount: amount.value,
+      slippage: swapSlippage.value,
+    },
+  })
+}, 500)
+
+const onSelectOutputAsset = (newAsset: VaultAsset) => {
+  selectedOutputAsset.value = newAsset
+  amount.value = ''
+  clearSimulationError()
+  resetSwapQuoteState()
+}
+
+const openSwapTokenSelector = () => {
+  modal.open(SwapTokenSelector, {
+    props: {
+      currentAssetAddress: selectedOutputAsset.value?.address || asset.value?.address,
+      onSelect: onSelectOutputAsset,
+    },
+  })
+}
+
+const openSlippageSettings = () => {
+  modal.open(SlippageSettingsModal)
+}
+
+const onRefreshSwapQuotes = () => {
+  resetSwapQuoteState()
+  requestSwapQuote()
+}
 
 const load = async () => {
   isLoading.value = true
@@ -163,12 +297,32 @@ const submit = async () => {
       const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
 
       try {
-        plan.value = isMax
-          ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
-          : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
+        if (needsSwap.value && swapEffectiveQuote.value) {
+          if (isMax) {
+            plan.value = await buildRedeemAndSwapPlan({
+              vaultAddress: vaultAddress as Address,
+              sharesAmount: sharesBalance.value,
+              quote: swapEffectiveQuote.value,
+              subAccount: subAccount.value,
+            })
+          }
+          else {
+            plan.value = await buildWithdrawAndSwapPlan({
+              vaultAddress: vaultAddress as Address,
+              assetsAmount: amountFixed.value.value,
+              quote: swapEffectiveQuote.value,
+              subAccount: subAccount.value,
+            })
+          }
+        }
+        else {
+          plan.value = isMax
+            ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
+            : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
+        }
       }
       catch (e) {
-        console.warn('[OperationReviewModal] failed to build plan', e)
+        console.warn('[lend/withdraw] failed to build plan', e)
         plan.value = null
       }
 
@@ -179,12 +333,15 @@ const submit = async () => {
         }
       }
 
+      const reviewType = needsSwap.value ? 'swap-withdraw' as const : 'withdraw' as const
       modal.open(OperationReviewModal, {
         props: {
-          type: 'withdraw',
+          type: reviewType,
           asset: asset.value,
           amount: amount.value,
           plan: plan.value || undefined,
+          swapToAsset: needsSwap.value ? selectedOutputAsset.value : undefined,
+          swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
           onConfirm: () => {
             setTimeout(() => {
               send()
@@ -202,14 +359,36 @@ const send = async () => {
   try {
     isSubmitting.value = true
     if (!asset.value?.address) {
-      console.error('No asset address')
       return
     }
 
     const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
-    const txPlan = isMax
-      ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
-      : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
+    let txPlan: TxPlan
+
+    if (needsSwap.value && (swapSelectedQuote.value || swapEffectiveQuote.value)) {
+      const quote = swapSelectedQuote.value || swapEffectiveQuote.value!
+      if (isMax) {
+        txPlan = await buildRedeemAndSwapPlan({
+          vaultAddress: vaultAddress as Address,
+          sharesAmount: sharesBalance.value,
+          quote,
+          subAccount: subAccount.value,
+        })
+      }
+      else {
+        txPlan = await buildWithdrawAndSwapPlan({
+          vaultAddress: vaultAddress as Address,
+          assetsAmount: amountFixed.value.value,
+          quote,
+          subAccount: subAccount.value,
+        })
+      }
+    }
+    else {
+      txPlan = isMax
+        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
+        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
+    }
     await executeTxPlan(txPlan)
 
     modal.close()
@@ -219,7 +398,7 @@ const send = async () => {
   }
   catch (e) {
     error('Transaction failed')
-    console.error('Transaction error:', e)
+    console.warn(e)
   }
   finally {
     isSubmitting.value = false
@@ -280,6 +459,32 @@ watch(amount, async () => {
     isEstimatesLoading.value = true
   }
   updateEstimates()
+  if (needsSwap.value) {
+    resetSwapQuoteState()
+    requestSwapQuote()
+  }
+})
+
+// Fetch swap quotes when output asset changes
+watch(selectedOutputAsset, () => {
+  clearSimulationError()
+  resetSwapQuoteState()
+  if (needsSwap.value && amount.value) {
+    requestSwapQuote()
+  }
+})
+
+// Re-request quote when slippage changes
+watch(swapSlippage, () => {
+  if (needsSwap.value && amount.value) {
+    clearSimulationError()
+    resetSwapQuoteState()
+    requestSwapQuote()
+  }
+})
+
+watch(swapSelectedQuote, () => {
+  clearSimulationError()
 })
 </script>
 
@@ -308,6 +513,72 @@ watch(amount, async () => {
             :balance="assetsBalance"
             maxable
           />
+
+          <!-- Receive as token selector -->
+          <div v-if="enableSwapDeposit" class="flex items-center gap-8">
+            <span class="text-p3 text-content-tertiary">Receive as</span>
+            <button
+              type="button"
+              class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
+              @click="openSwapTokenSelector"
+            >
+              <BaseAvatar
+                :src="getAssetLogoUrl(selectedOutputAsset?.address || asset.address, selectedOutputAsset?.symbol || asset.symbol)"
+                :label="selectedOutputAsset?.symbol || asset.symbol"
+                class="icon--20"
+              />
+              {{ selectedOutputAsset?.symbol || asset.symbol }}
+              <SvgIcon
+                class="text-euler-dark-800 !w-16 !h-16"
+                name="arrow-down"
+              />
+            </button>
+          </div>
+
+          <!-- Swap info block -->
+          <template v-if="needsSwap && selectedOutputAsset">
+            <SwapRouteSelector
+              :items="swapRouteItems"
+              :selected-provider="swapSelectedProvider"
+              :status-label="swapQuotesStatusLabel"
+              :is-loading="isSwapQuoteLoading"
+              empty-message="Enter amount to fetch quotes"
+              @select="selectSwapQuote"
+              @refresh="onRefreshSwapQuotes"
+            />
+
+            <VaultFormInfoBlock
+              v-if="swapEstimatedOutput"
+              :loading="isSwapQuoteLoading"
+            >
+              <SummaryRow label="Estimated output" align-top>
+                <p class="text-p2">
+                  ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ selectedOutputAsset.symbol }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Slippage tolerance">
+                <button
+                  type="button"
+                  class="flex items-center gap-6 text-p2"
+                  @click="openSlippageSettings"
+                >
+                  <span>{{ formatNumber(swapSlippage, 2, 0) }}%</span>
+                  <SvgIcon
+                    name="edit"
+                    class="!w-16 !h-16 text-accent-600"
+                  />
+                </button>
+              </SummaryRow>
+            </VaultFormInfoBlock>
+
+            <UiToast
+              v-if="swapQuoteError"
+              title="Swap quote"
+              variant="warning"
+              :description="swapQuoteError"
+              size="compact"
+            />
+          </template>
 
           <UiToast
             v-show="estimatesError"

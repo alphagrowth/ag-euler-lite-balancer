@@ -25,6 +25,8 @@ export interface SwapApiRequestInput {
   currentDebt?: bigint
   deadline?: number
   dustAccount?: Address
+  unusedInputReceiver?: Address
+  transferOutputToReceiver?: boolean
   routingOverride?: RoutingConfig
   provider?: string
 }
@@ -52,6 +54,8 @@ const buildRequestParams = (
     swapperMode: params.swapperMode ?? SwapperMode.EXACT_IN,
     isRepay: String(params.isRepay ?? false),
     dustAccount: params.dustAccount || origin,
+    unusedInputReceiver: params.unusedInputReceiver,
+    transferOutputToReceiver: params.transferOutputToReceiver != null ? String(params.transferOutputToReceiver) : undefined,
     routingOverride: params.routingOverride ? JSON.stringify(params.routingOverride) : undefined,
     provider: params.provider,
   }

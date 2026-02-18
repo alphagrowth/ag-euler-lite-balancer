@@ -96,32 +96,34 @@ export default defineEventHandler(async (event) => {
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS)
 
   try {
+    const requestBody = {
+      from,
+      to,
+      input: data,
+      value: value || '0',
+      network_id: String(chainId),
+      save: true,
+      save_if_fails: true,
+      simulation_type: 'full',
+      state_objects: stateObjects,
+    }
+
     const simulateResponse = await fetch(`${baseUrl}/simulate`, {
       method: 'POST',
       headers,
       signal: controller.signal,
-      body: JSON.stringify({
-        from,
-        to,
-        input: data,
-        value: value || '0',
-        network_id: String(chainId),
-        save: true,
-        save_if_fails: true,
-        simulation_type: 'full',
-        state_objects: stateObjects,
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!simulateResponse.ok) {
-      console.error(`[tenderly/simulate] upstream error: ${simulateResponse.status}`)
+      await simulateResponse.text().catch(() => {})
       throw createError({
         statusCode: 502,
         statusMessage: 'Simulation request failed',
       })
     }
 
-    const simulateData = await simulateResponse.json() as { simulation?: { id?: string } }
+    const simulateData = await simulateResponse.json() as { simulation?: { id?: string; status?: boolean } }
     const simulationId = simulateData?.simulation?.id
 
     if (!simulationId) {
@@ -135,7 +137,6 @@ export default defineEventHandler(async (event) => {
     })
 
     if (!shareResponse.ok) {
-      console.error(`[tenderly/simulate] share failed: ${shareResponse.status}`)
       return { url: `https://tdly.co/shared/simulation/${simulationId}` }
     }
 

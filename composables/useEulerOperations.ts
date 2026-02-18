@@ -3,7 +3,7 @@ import { readContract, simulateContract } from '@wagmi/vue/actions'
 import type { Address, Hash, Hex, Abi, StateOverride } from 'viem'
 import { encodeFunctionData, encodePacked, getAddress, hexToBigInt, keccak256, maxUint256, toHex, zeroAddress } from 'viem'
 import { getPublicClient } from '~/utils/public-client'
-import { ALLOWANCE_SLOT_CANDIDATES, PERMIT2_SIG_WINDOW } from '~/entities/constants'
+import { ALLOWANCE_MAX_SEQUENTIAL_SLOT, ALLOWANCE_EXTRA_SLOT_CANDIDATES, PERMIT2_SIG_WINDOW } from '~/entities/constants'
 import { getTosData } from '~/composables/useTosData'
 // enableTermsOfUseSignature is read from useDeployConfig() inside useEulerOperations()
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
@@ -14,7 +14,7 @@ import { vaultBorrowAbi, vaultConvertToAssetsAbi, vaultDepositAbi, vaultPreviewW
 import { convertSaHooksToEVCCalls, type EVCCall } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
 import { buildCollateralCleanupCalls } from '~/utils/collateral-cleanup'
-import { erc20ABI, swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
+import { erc20ABI, swapperAbi, swapVerifierAbi, transferFromSenderAbi } from '~/entities/euler/abis'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
 import type { Vault } from '~/entities/vault'
 import { buildPythUpdateCalls, buildPythUpdateCallsFromFeeds, collectPythFeedsForHealthCheck, sumCallValues } from '~/utils/pyth'
@@ -89,10 +89,11 @@ export const useEulerOperations = () => {
     const tokenKey = normalizeAddress(token)
     const cached = allowanceSlotIndexCache.get(tokenKey)
     if (cached !== undefined) {
+      console.info('[resolveAllowanceSlotIndex] cache hit', { token: tokenKey, slotIndex: cached.toString() })
       return cached
     }
 
-    for (const slotIndex of ALLOWANCE_SLOT_CANDIDATES) {
+    const trySlot = async (slotIndex: bigint): Promise<boolean> => {
       const slot = computeErc20AllowanceSlot(owner, spender, slotIndex)
       try {
         const value = await readContract(config, {
@@ -108,14 +109,25 @@ export const useEulerOperations = () => {
           ],
         })
         if (value === maxUint256) {
+          console.info('[resolveAllowanceSlotIndex] found slot', { token: tokenKey, slotIndex: slotIndex.toString(), slot })
           allowanceSlotIndexCache.set(tokenKey, slotIndex)
-          return slotIndex
+          return true
         }
       }
       catch {
-        continue
+        // slot candidate didn't match
       }
+      return false
     }
+
+    for (let i = 0; i <= ALLOWANCE_MAX_SEQUENTIAL_SLOT; i++) {
+      if (await trySlot(BigInt(i))) return BigInt(i)
+    }
+    for (const slotIndex of ALLOWANCE_EXTRA_SLOT_CANDIDATES) {
+      if (await trySlot(slotIndex)) return slotIndex
+    }
+
+    console.warn('[resolveAllowanceSlotIndex] no slot found for token', { token: tokenKey, owner, spender })
     return undefined
   }
   const buildErc20AllowanceOverrides = async (
@@ -168,14 +180,29 @@ export const useEulerOperations = () => {
     }
     return overrides
   }
+  // Selector for SwapVerifier.transferFromSender(address token, uint256 amount, address receiver)
+  const TRANSFER_FROM_SENDER_SELECTOR = '0xbe6f2b2f'
+
+  const extractTokenFromTransferFromSender = (data: string): Address | undefined => {
+    if (!data.startsWith(TRANSFER_FROM_SENDER_SELECTOR) || data.length < 74) {
+      return undefined
+    }
+    try {
+      return getAddress(`0x${data.slice(34, 74)}`) as Address
+    }
+    catch {
+      return undefined
+    }
+  }
+
   const buildSimulationStateOverride = async (plan: TxPlan, owner: Address): Promise<StateOverride> => {
     const approvalPairs: { token: Address; spender: Address }[] = []
     const approvalSeen = new Set<string>()
-    let usesPermit2 = false
+    const permit2TokenAddresses: Address[] = []
 
     for (const step of plan.steps) {
-      if (step.type === 'permit2-approve' || (step.label && step.label.includes('Permit2'))) {
-        usesPermit2 = true
+      if (step.type === 'permit2-approve') {
+        permit2TokenAddresses.push(step.to)
       }
       if (step.type !== 'approve' && step.type !== 'permit2-approve') {
         continue
@@ -192,39 +219,61 @@ export const useEulerOperations = () => {
       }
     }
 
+    // Always build Permit2 overrides — they're harmless when Permit2 isn't used
+    // and essential when Permit2 IS used (even without a separate permit2-approve step,
+    // e.g. when the user already approved the token for Permit2 in a previous tx).
     const permit2Pairs = new Map<string, { address: Address; pairs: { token: Address; spender: Address }[] }>()
-    if (usesPermit2) {
+    const permit2Address = resolvePermit2Address()
+    if (permit2Address) {
+      // Collect tokens from permit2-approve steps AND from transferFromSender calldata in the batch
+      const knownTokens = new Set<string>(permit2TokenAddresses.map(normalizeAddress))
       for (const step of plan.steps) {
-        if (step.type !== 'evc-batch') {
-          continue
-        }
+        if (step.type !== 'evc-batch') continue
         const calls = step.args?.[0] as EVCCall[] | undefined
-        if (!Array.isArray(calls)) {
-          continue
+        if (!Array.isArray(calls)) continue
+        for (const call of calls) {
+          const token = extractTokenFromTransferFromSender(call?.data)
+          if (token) {
+            knownTokens.add(normalizeAddress(token))
+          }
         }
+      }
+      const tokenAddresses = [...knownTokens].map(t => getAddress(t) as Address)
+
+      for (const step of plan.steps) {
+        if (step.type !== 'evc-batch') continue
+        const calls = step.args?.[0] as EVCCall[] | undefined
+        if (!Array.isArray(calls)) continue
+
         for (const call of calls) {
           const target = call?.targetContract
-          if (!target) {
-            continue
-          }
+          if (!target) continue
+
+          const permit2Key = normalizeAddress(permit2Address)
+          const entry = permit2Pairs.get(permit2Key) || { address: permit2Address, pairs: [] }
+
           // Check all vault types via registry
           const vaultEntry = registryGet(normalizeAddress(target))
           const vault = vaultEntry?.vault
           const vaultAddress = vault?.address
           const assetAddress = vault?.asset?.address
-          if (!assetAddress || !vaultAddress) {
-            continue
+          if (assetAddress && vaultAddress) {
+            const pairKey = `${normalizeAddress(assetAddress as Address)}:${normalizeAddress(vaultAddress as Address)}`
+            if (!entry.pairs.some(pair => `${normalizeAddress(pair.token)}:${normalizeAddress(pair.spender)}` === pairKey)) {
+              entry.pairs.push({ token: assetAddress as Address, spender: vaultAddress as Address })
+            }
           }
-          const permit2Address = resolvePermit2Address()
-          if (!permit2Address) {
-            continue
+          else if (tokenAddresses.length > 0) {
+            // Non-vault target (e.g. swapVerifier, swapper) — add permit2 overrides
+            // for all known tokens so simulation works regardless of approval state
+            for (const token of tokenAddresses) {
+              const pairKey = `${normalizeAddress(token)}:${normalizeAddress(target)}`
+              if (!entry.pairs.some(pair => `${normalizeAddress(pair.token)}:${normalizeAddress(pair.spender)}` === pairKey)) {
+                entry.pairs.push({ token, spender: target })
+              }
+            }
           }
-          const permit2Key = normalizeAddress(permit2Address)
-          const pairKey = `${normalizeAddress(assetAddress as Address)}:${normalizeAddress(vaultAddress as Address)}`
-          const entry = permit2Pairs.get(permit2Key) || { address: permit2Address, pairs: [] }
-          if (!entry.pairs.some(pair => `${normalizeAddress(pair.token)}:${normalizeAddress(pair.spender)}` === pairKey)) {
-            entry.pairs.push({ token: assetAddress as Address, spender: vaultAddress as Address })
-          }
+          // else: no vault match, no tokens — skip
           permit2Pairs.set(permit2Key, entry)
         }
       }
@@ -232,6 +281,7 @@ export const useEulerOperations = () => {
 
     const erc20Overrides = await buildErc20AllowanceOverrides(approvalPairs, owner)
     const permit2Overrides = buildPermit2Overrides(permit2Pairs, owner)
+
     return [...permit2Overrides, ...erc20Overrides]
   }
 
@@ -680,6 +730,7 @@ export const useEulerOperations = () => {
     const hasApprovalSteps = plan.steps.some(step => step.type === 'approve' || step.type === 'permit2-approve')
     const usesPermit2 = plan.steps.some(step => step.type === 'permit2-approve' || (step.label && step.label.includes('Permit2')))
     const stepsToSimulate = plan.steps.filter(step => step.type !== 'approve' && step.type !== 'permit2-approve')
+
     let stateOverride: StateOverride | undefined
     try {
       const overrides = await buildSimulationStateOverride(plan, address.value as Address)
@@ -704,12 +755,14 @@ export const useEulerOperations = () => {
         })
       }
       catch (err) {
-        if ((hasApprovalSteps || usesPermit2) && isNonBlockingSimulationError(err)) {
+        const isNonBlocking = (hasApprovalSteps || usesPermit2) && isNonBlockingSimulationError(err)
+        if (isNonBlocking) {
           continue
         }
         throw err
       }
     }
+
   }
 
   const buildSupplyPlan = async (
@@ -757,7 +810,7 @@ export const useEulerOperations = () => {
         })
       }
 
-      if (!needsPermit2Approval && includePermit2Call) {
+      if (includePermit2Call) {
         permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
       }
     }
@@ -1028,7 +1081,7 @@ export const useEulerOperations = () => {
           })
         }
 
-        if (!needsPermit2Approval && includePermit2Call) {
+        if (includePermit2Call) {
           permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Address)
         }
       }
@@ -1356,7 +1409,7 @@ export const useEulerOperations = () => {
           })
         }
 
-        if (!needsPermit2Approval && includePermit2Call) {
+        if (includePermit2Call) {
           permitCall = await buildPermit2Call(assetAddr, vaultAddr, amount, userAddr, permit2Addr)
         }
       }
@@ -1614,7 +1667,7 @@ export const useEulerOperations = () => {
         })
       }
 
-      if (!needsPermit2Approval && includePermit2Call) {
+      if (includePermit2Call) {
         permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, adjustedAmount, userAddr, permit2Address)
       }
     }
@@ -1723,7 +1776,7 @@ export const useEulerOperations = () => {
         })
       }
 
-      if (!needsPermit2Approval && includePermit2Call) {
+      if (includePermit2Call) {
         permitCall = await buildPermit2Call(borrowAssetAddr, borrowVaultAddr, adjustedAmount, userAddr, permit2Address)
       }
     }
@@ -2959,6 +3012,569 @@ export const useEulerOperations = () => {
     }
   }
 
+  /**
+   * Swap an arbitrary token from the user's wallet and deposit the output into a vault.
+   * On-chain flow:
+   *   1. [Pre-step] User approves SwapVerifier to spend inputToken
+   *   2. [EVC Batch]:
+   *      a. (ToS signature)
+   *      b. SwapVerifier.transferFromSender(inputToken, amount, swapperAddress)
+   *      c. Swapper.multicall([...swap calls])
+   *      d. SwapVerifier.verify (from API quote.verify)
+   */
+  const buildSwapAndSupplyPlan = async ({
+    inputTokenAddress,
+    inputAmount,
+    quote,
+    includePermit2Call = true,
+  }: {
+    inputTokenAddress: Address
+    inputAmount: bigint
+    quote: SwapApiQuote
+    includePermit2Call?: boolean
+  }): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const swapVerifierAddress = eulerPeripheryAddresses.value.swapVerifier as Address
+
+    const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
+    const allowance = await checkAllowance(inputTokenAddress, swapVerifierAddress, userAddr)
+    const permit2Address = resolvePermit2Address()
+    const canUsePermit2 = !!chainId.value && !!permit2Address && permit2Enabled.value
+
+    const steps: TxStep[] = []
+
+    let permitCall: EVCCall | undefined
+    const usesPermit2 = canUsePermit2 && allowance < inputAmount
+
+    if (usesPermit2 && permit2Address) {
+      const permit2Allowance = await checkAllowance(inputTokenAddress, permit2Address, userAddr)
+      const needsPermit2Approval = permit2Allowance < inputAmount
+      if (needsPermit2Approval) {
+        steps.push({
+          type: 'permit2-approve',
+          label: 'Approve token for Permit2',
+          to: inputTokenAddress,
+          abi: erc20ABI as Abi,
+          functionName: 'approve',
+          args: [permit2Address, maxUint256] as const,
+          value: 0n,
+        })
+      }
+
+      if (includePermit2Call) {
+        permitCall = await buildPermit2Call(inputTokenAddress, swapVerifierAddress, inputAmount, userAddr, permit2Address)
+      }
+    }
+    else if (allowance < inputAmount) {
+      steps.push({
+        type: 'approve',
+        label: 'Approve asset for swap',
+        to: inputTokenAddress,
+        abi: erc20ABI as Abi,
+        functionName: 'approve',
+        args: [swapVerifierAddress, inputAmount] as const,
+        value: 0n,
+      })
+    }
+
+    const hooks = new SaHooksBuilder()
+    hooks.addContractInterface(swapVerifierAddress, [...transferFromSenderAbi, ...swapVerifierAbi])
+    hooks.addContractInterface(quote.swap.swapperAddress, swapperAbi)
+
+    if (!hasSigned && enableTermsOfUseSignature) {
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
+    }
+
+    const evcCalls: EVCCall[] = []
+
+    // Permit2 call (if available)
+    if (permitCall) {
+      evcCalls.push(permitCall)
+    }
+
+    // ToS signature
+    if (!hasSigned && enableTermsOfUseSignature) {
+      evcCalls.push({
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
+      })
+    }
+
+    // transferFromSender: pull tokens from wallet to swapper
+    evcCalls.push({
+      targetContract: swapVerifierAddress,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: hooks.getDataForCall(swapVerifierAddress, 'transferFromSender', [inputTokenAddress, inputAmount, quote.swap.swapperAddress]) as Hash,
+    })
+
+    // Swapper multicall
+    evcCalls.push({
+      targetContract: quote.swap.swapperAddress,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: swapperAbi,
+        functionName: 'multicall',
+        args: [quote.swap.multicallItems.map(item => item.data)],
+      }),
+    })
+
+    // Verify min output and skim (deposit) into vault — use API-provided verify data
+    evcCalls.push({
+      targetContract: quote.verify.verifierAddress,
+      onBehalfOfAccount: quote.verify.account,
+      value: 0n,
+      data: quote.verify.verifierData,
+    })
+
+    const totalValue = sumCallValues(evcCalls)
+
+    steps.push({
+      type: 'evc-batch',
+      label: usesPermit2 ? 'Permit2 swap & supply via EVC' : 'Swap & supply via EVC',
+      to: evcAddress,
+      abi: EVC_ABI,
+      functionName: 'batch',
+      args: [evcCalls as never],
+      value: totalValue,
+    })
+
+    return {
+      kind: 'swap-supply',
+      steps,
+    }
+  }
+
+  /**
+   * Swap an arbitrary token from the user's wallet to the collateral vault's underlying,
+   * deposit as collateral, enable controller + collateral, and borrow.
+   * On-chain flow:
+   *   1. [Pre-step] User approves SwapVerifier (or Permit2) to spend inputToken
+   *   2. [EVC Batch]:
+   *      a. Pyth price updates (borrow triggers health check)
+   *      a'. (Permit2 permit, if using Permit2)
+   *      b. (ToS signature)
+   *      c. SwapVerifier.transferFromSender(inputToken, amount, swapperAddress)
+   *      d. Swapper.multicall([swap calls, output to collateral vault])
+   *      e. SwapVerifier.verify (from API quote.verify)
+   *      f. EVC.enableController(subAccount, borrowVault)
+   *      g. EVC.enableCollateral(subAccount, collateralVault)
+   *      h. borrowVault.borrow(borrowAmount, userAddress)
+   */
+  const buildSwapAndBorrowPlan = async ({
+    inputTokenAddress,
+    inputAmount,
+    collateralVaultAddress,
+    borrowVaultAddress,
+    borrowAmount: borrowAmountParam,
+    swapQuote,
+    subAccount,
+    enabledCollaterals,
+    includePermit2Call = true,
+  }: {
+    inputTokenAddress: Address
+    inputAmount: bigint
+    collateralVaultAddress: Address
+    borrowVaultAddress: Address
+    borrowAmount: bigint
+    swapQuote: SwapApiQuote
+    subAccount?: string
+    enabledCollaterals?: string[]
+    includePermit2Call?: boolean
+  }): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const swapVerifierAddress = eulerPeripheryAddresses.value.swapVerifier as Address
+
+    const subAccountAddr = (subAccount || await getNewSubAccount(address.value)) as Address
+
+    const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
+    const allowance = await checkAllowance(inputTokenAddress, swapVerifierAddress, userAddr)
+    const permit2Address = resolvePermit2Address()
+    const canUsePermit2 = !!chainId.value && !!permit2Address && permit2Enabled.value
+
+    const steps: TxStep[] = []
+
+    let permitCall: EVCCall | undefined
+    const usesPermit2 = canUsePermit2 && allowance < inputAmount
+
+    if (usesPermit2 && permit2Address) {
+      const permit2Allowance = await checkAllowance(inputTokenAddress, permit2Address, userAddr)
+      const needsPermit2Approval = permit2Allowance < inputAmount
+      if (needsPermit2Approval) {
+        steps.push({
+          type: 'permit2-approve',
+          label: 'Approve token for Permit2',
+          to: inputTokenAddress,
+          abi: erc20ABI as Abi,
+          functionName: 'approve',
+          args: [permit2Address, maxUint256] as const,
+          value: 0n,
+        })
+      }
+
+      if (includePermit2Call) {
+        permitCall = await buildPermit2Call(inputTokenAddress, swapVerifierAddress, inputAmount, userAddr, permit2Address)
+      }
+    }
+    else if (allowance < inputAmount) {
+      steps.push({
+        type: 'approve',
+        label: 'Approve asset for swap',
+        to: inputTokenAddress,
+        abi: erc20ABI as Abi,
+        functionName: 'approve',
+        args: [swapVerifierAddress, inputAmount] as const,
+        value: 0n,
+      })
+    }
+
+    const hooks = new SaHooksBuilder()
+    hooks.addContractInterface(swapVerifierAddress, [...transferFromSenderAbi, ...swapVerifierAbi])
+    hooks.addContractInterface(swapQuote.swap.swapperAddress, swapperAbi)
+    hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
+    hooks.addContractInterface(borrowVaultAddress, vaultBorrowAbi)
+
+    if (!hasSigned && enableTermsOfUseSignature) {
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
+    }
+
+    const evcCalls: EVCCall[] = []
+
+    // Permit2 call (if available)
+    if (permitCall) {
+      evcCalls.push(permitCall)
+    }
+
+    // ToS signature
+    if (!hasSigned && enableTermsOfUseSignature) {
+      evcCalls.push({
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
+      })
+    }
+
+    // transferFromSender: pull tokens from wallet to swapper
+    evcCalls.push({
+      targetContract: swapVerifierAddress,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: hooks.getDataForCall(swapVerifierAddress, 'transferFromSender', [inputTokenAddress, inputAmount, swapQuote.swap.swapperAddress]) as Hash,
+    })
+
+    // Swapper multicall
+    evcCalls.push({
+      targetContract: swapQuote.swap.swapperAddress,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: swapperAbi,
+        functionName: 'multicall',
+        args: [swapQuote.swap.multicallItems.map(item => item.data)],
+      }),
+    })
+
+    // Verify min output and skim (deposit) into collateral vault — use API-provided verify data
+    evcCalls.push({
+      targetContract: swapQuote.verify.verifierAddress,
+      onBehalfOfAccount: swapQuote.verify.account,
+      value: 0n,
+      data: swapQuote.verify.verifierData,
+    })
+
+    // Enable controller
+    evcCalls.push({
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableController', [subAccountAddr, borrowVaultAddress]) as Hash,
+    })
+
+    // Enable collateral
+    evcCalls.push({
+      targetContract: evcAddress,
+      onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+      value: 0n,
+      data: hooks.getDataForCall(evcAddress, 'enableCollateral', [subAccountAddr, collateralVaultAddress]) as Hash,
+    })
+
+    // Borrow
+    evcCalls.push({
+      targetContract: borrowVaultAddress,
+      onBehalfOfAccount: subAccountAddr,
+      value: 0n,
+      data: hooks.getDataForCall(borrowVaultAddress, 'borrow', [borrowAmountParam, userAddr]) as Hash,
+    })
+
+    // Collateral cleanup
+    const cleanupCalls = await buildCollateralCleanupCalls({
+      evcAddress,
+      accountLensAddress: eulerLensAddresses.value!.accountLens as Address,
+      subAccount: subAccountAddr,
+      providerUrl: EVM_PROVIDER_URL,
+      subgraphUrl: SUBGRAPH_URL,
+    })
+    if (cleanupCalls.length) {
+      // Insert cleanup before the borrow-related calls
+      evcCalls.splice(evcCalls.length - 3, 0, ...cleanupCalls)
+    }
+
+    // Pyth updates for health check (borrow triggers account status check)
+    const effectiveCollaterals = resolveEffectiveCollaterals(enabledCollaterals, [collateralVaultAddress])
+    const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(borrowVaultAddress, effectiveCollaterals, userAddr)
+    if (pythCalls.length) {
+      evcCalls.unshift(...pythCalls as EVCCall[])
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
+    steps.push({
+      type: 'evc-batch',
+      label: usesPermit2 ? 'Permit2 swap & borrow via EVC' : 'Swap & borrow via EVC',
+      to: evcAddress,
+      abi: EVC_ABI,
+      functionName: 'batch',
+      args: [evcCalls as never],
+      value: totalValue,
+    })
+
+    return {
+      kind: 'swap-borrow',
+      steps,
+    }
+  }
+
+  const buildWithdrawAndSwapPlan = async ({
+    vaultAddress: vaultAddr,
+    assetsAmount,
+    quote,
+    subAccount,
+    options = {},
+  }: {
+    vaultAddress: Address
+    assetsAmount: bigint
+    quote: SwapApiQuote
+    subAccount?: string
+    options?: { includePythUpdate?: boolean; liabilityVault?: string; enabledCollaterals?: string[] }
+  }): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const withdrawFromAddr = subAccount ? (subAccount as Address) : userAddr
+    const swapperAddress = quote.swap.swapperAddress as Address
+
+    const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
+
+    const hooks = new SaHooksBuilder()
+    hooks.addContractInterface(vaultAddr, vaultWithdrawAbi)
+    hooks.addContractInterface(swapperAddress, swapperAbi)
+
+    if (!hasSigned && enableTermsOfUseSignature) {
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
+    }
+
+    // Withdraw to swapper (not to user wallet)
+    if (subAccount) {
+      hooks.setMainCallHookCallFromSA(vaultAddr, 'withdraw', [assetsAmount, swapperAddress, withdrawFromAddr])
+    }
+    else {
+      hooks.setMainCallHookCallFromSelf(vaultAddr, 'withdraw', [assetsAmount, swapperAddress, withdrawFromAddr])
+    }
+
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, withdrawFromAddr)
+
+    // ToS signature
+    if (!hasSigned && enableTermsOfUseSignature) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    // Swapper multicall — use quote.accountIn (matches buildSwapEvcCalls pattern)
+    evcCalls.push({
+      targetContract: swapperAddress,
+      onBehalfOfAccount: quote.accountIn as Address,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: swapperAbi,
+        functionName: 'multicall',
+        args: [quote.swap.multicallItems.map(item => item.data)],
+      }),
+    })
+
+    // Verify min output and transfer to receiver (output goes to wallet)
+    evcCalls.push({
+      targetContract: quote.verify.verifierAddress,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: quote.verify.verifierData,
+    })
+
+    // Pyth price updates (when position has borrows)
+    if (options.includePythUpdate) {
+      const liabilityAddr = options.liabilityVault || vaultAddr
+      const effectiveCollaterals = resolveEffectiveCollaterals(options.enabledCollaterals)
+      const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(liabilityAddr, effectiveCollaterals, userAddr)
+      if (pythCalls.length) {
+        evcCalls.unshift(...pythCalls as EVCCall[])
+      }
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
+    return {
+      kind: 'swap-withdraw',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Withdraw & swap via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls] as const,
+          value: totalValue,
+        },
+      ],
+    }
+  }
+
+  /**
+   * Redeem all shares from a vault and swap the underlying to an arbitrary output token.
+   * Used for "withdraw all" + swap. Same as buildWithdrawAndSwapPlan but uses
+   * vault.redeem(shares, swapperAddress, account) instead of vault.withdraw.
+   */
+  const buildRedeemAndSwapPlan = async ({
+    vaultAddress: vaultAddr,
+    sharesAmount,
+    quote,
+    subAccount,
+    options = {},
+  }: {
+    vaultAddress: Address
+    sharesAmount: bigint
+    quote: SwapApiQuote
+    subAccount?: string
+    options?: { includePythUpdate?: boolean; liabilityVault?: string; enabledCollaterals?: string[] }
+  }): Promise<TxPlan> => {
+    if (!address.value || !eulerCoreAddresses.value || !eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const userAddr = address.value as Address
+    const evcAddress = eulerCoreAddresses.value.evc as Address
+    const tosSignerAddress = eulerPeripheryAddresses.value.termsOfUseSigner as Address
+    const redeemFromAddr = subAccount ? (subAccount as Address) : userAddr
+    const swapperAddress = quote.swap.swapperAddress as Address
+
+    const hasSigned = await hasSignature(userAddr)
+    const tosData = await getTosData()
+
+    const hooks = new SaHooksBuilder()
+    hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
+    hooks.addContractInterface(swapperAddress, swapperAbi)
+
+    if (!hasSigned && enableTermsOfUseSignature) {
+      hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
+    }
+
+    // Redeem shares to swapper (not to user wallet)
+    if (subAccount) {
+      hooks.setMainCallHookCallFromSA(vaultAddr, 'redeem', [sharesAmount, swapperAddress, redeemFromAddr])
+    }
+    else {
+      hooks.setMainCallHookCallFromSelf(vaultAddr, 'redeem', [sharesAmount, swapperAddress, redeemFromAddr])
+    }
+
+    const saHooks = hooks.build()
+    const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, redeemFromAddr)
+
+    // ToS signature
+    if (!hasSigned && enableTermsOfUseSignature) {
+      const tosCall = {
+        targetContract: tosSignerAddress,
+        onBehalfOfAccount: userAddr,
+        value: 0n,
+        data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hash,
+      }
+      evcCalls.unshift(tosCall)
+    }
+
+    // Swapper multicall — use quote.accountIn (matches buildSwapEvcCalls pattern)
+    evcCalls.push({
+      targetContract: swapperAddress,
+      onBehalfOfAccount: quote.accountIn as Address,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: swapperAbi,
+        functionName: 'multicall',
+        args: [quote.swap.multicallItems.map(item => item.data)],
+      }),
+    })
+
+    // Verify min output and transfer to receiver (output goes to wallet)
+    evcCalls.push({
+      targetContract: quote.verify.verifierAddress,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: quote.verify.verifierData,
+    })
+
+    // Pyth price updates (when position has borrows)
+    if (options.includePythUpdate) {
+      const liabilityAddr = options.liabilityVault || vaultAddr
+      const effectiveCollaterals = resolveEffectiveCollaterals(options.enabledCollaterals)
+      const { calls: pythCalls } = await preparePythUpdatesForHealthCheck(liabilityAddr, effectiveCollaterals, userAddr)
+      if (pythCalls.length) {
+        evcCalls.unshift(...pythCalls as EVCCall[])
+      }
+    }
+
+    const totalValue = sumCallValues(evcCalls)
+
+    return {
+      kind: 'swap-withdraw',
+      steps: [
+        {
+          type: 'evc-batch',
+          label: 'Withdraw & swap via EVC',
+          to: evcAddress,
+          abi: EVC_ABI,
+          functionName: 'batch',
+          args: [evcCalls] as const,
+          value: totalValue,
+        },
+      ],
+    }
+  }
+
   return {
     executeTxPlan,
     simulateTxPlan,
@@ -2980,5 +3596,9 @@ export const useEulerOperations = () => {
     buildSwapFullRepayPlan,
     buildSavingsRepayPlan,
     buildSavingsFullRepayPlan,
+    buildSwapAndSupplyPlan,
+    buildSwapAndBorrowPlan,
+    buildWithdrawAndSwapPlan,
+    buildRedeemAndSwapPlan,
   }
 }

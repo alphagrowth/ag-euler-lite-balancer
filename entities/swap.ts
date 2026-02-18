@@ -8,6 +8,7 @@ export enum SwapperMode {
 
 export enum SwapVerificationType {
   SkimMin = 'skimMin',
+  TransferMin = 'transferMin',
   DebtMax = 'debtMax',
 }
 

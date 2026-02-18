@@ -1084,6 +1084,34 @@ export const swapVerifierAbi = [
   },
   {
     type: 'function',
+    name: 'verifyAmountMinAndTransfer',
+    inputs: [
+      {
+        name: 'token',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'receiver',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'amountMin',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'deadline',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'verifyDebtMax',
     inputs: [
       {
@@ -1111,6 +1139,33 @@ export const swapVerifierAbi = [
     stateMutability: 'view',
   },
 ]
+
+export const transferFromSenderAbi = [
+  {
+    type: 'function',
+    name: 'transferFromSender',
+    inputs: [
+      {
+        name: 'token',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'to',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+]
+
 export const eulerUtilsLensABI = [
   {
     type: 'constructor',

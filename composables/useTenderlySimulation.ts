@@ -37,10 +37,9 @@ export const useTenderlySimulation = () => {
       return response.url
     }
     catch (error: unknown) {
-      const message = error instanceof Error
+      simulationError.value = error instanceof Error
         ? error.message
         : 'Tenderly simulation failed'
-      simulationError.value = message
       return null
     }
     finally {

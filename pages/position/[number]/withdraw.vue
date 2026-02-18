@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, formatUnits, type Address, type Abi } from 'viem'
+import { getAddress, formatUnits, type Address, type Abi, zeroAddress } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
 import { getPublicClient } from '~/utils/public-client'
 import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal } from '#components'
+import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
   getNetAPY,
   type Vault,
   type SecuritizeVault,
+  type VaultAsset,
 } from '~/entities/vault'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import {
@@ -22,14 +24,17 @@ import {
   conservativePriceRatio,
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
+import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import { getQuoteAmount } from '~/utils/swapQuotes'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
 const route = useRoute()
-const { buildWithdrawPlan, executeTxPlan } = useEulerOperations()
+const { buildWithdrawPlan, buildWithdrawAndSwapPlan, executeTxPlan } = useEulerOperations()
 const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
@@ -64,6 +69,33 @@ const estimatesError = ref('')
 const selectedCollateral = ref<Vault | SecuritizeVault | null>(null)
 const selectedCollateralAssets = ref(0n)
 const lastCollateralAddress = ref('')
+
+// Withdraw & swap state
+const { enableSwapDeposit } = useDeployConfig()
+const selectedOutputAsset = ref<VaultAsset | undefined>()
+const needsSwap = computed(() => {
+  if (!selectedOutputAsset.value || !asset.value) return false
+  try {
+    return getAddress(selectedOutputAsset.value.address) !== getAddress(asset.value.address)
+  }
+  catch {
+    return false
+  }
+})
+const { slippage: swapSlippage } = useSlippage()
+const {
+  sortedQuoteCards: swapQuoteCardsSorted,
+  selectedProvider: swapSelectedProvider,
+  selectedQuote: swapSelectedQuote,
+  effectiveQuote: swapEffectiveQuote,
+  isLoading: isSwapQuoteLoading,
+  quoteError: swapQuoteError,
+  statusLabel: swapQuotesStatusLabel,
+  getQuoteDiffPct: getSwapQuoteDiffPct,
+  reset: resetSwapQuoteState,
+  requestQuotes: requestSwapQuotes,
+  selectProvider: selectSwapQuote,
+} = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
 
 const position = computed(() => getPositionBySubAccountIndex(+positionIndex))
 const isPositionLoaded = computed(() => !!position.value)
@@ -140,8 +172,10 @@ const liquidationPrice = computed(() => {
 })
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  return collateralAssets.value < valueToNano(amount.value, asset.value?.decimals)
-    || isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
+  if (collateralAssets.value < valueToNano(amount.value, asset.value?.decimals)) return true
+  if (isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value) return true
+  if (needsSwap.value && !swapEffectiveQuote.value && !isSwapQuoteLoading.value) return true
+  return false
 })
 const isGeoBlocked = computed(() => {
   const addresses: string[] = []
@@ -149,7 +183,109 @@ const isGeoBlocked = computed(() => {
   if (collateralVault.value) addresses.push(collateralVault.value.address)
   return isAnyVaultBlockedByCountry(...addresses)
 })
-const reviewWithdrawDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isLoading.value || isSubmitDisabled.value))
+const isSwapRestricted = computed(() => needsSwap.value && isVaultRestrictedByCountry(collateralVault.value?.address || ''))
+const reviewWithdrawDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSwapRestricted.value || isLoading.value || isSubmitDisabled.value))
+
+// Swap quote helpers
+const swapEstimatedOutput = computed(() => {
+  if (!swapEffectiveQuote.value || !selectedOutputAsset.value) return ''
+  const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
+  if (amountOut <= 0n) return ''
+  return formatUnits(amountOut, Number(selectedOutputAsset.value.decimals))
+})
+
+const swapRouteItems = computed(() => {
+  if (!selectedOutputAsset.value) return []
+  const bestProvider = swapQuoteCardsSorted.value[0]?.provider
+  return swapQuoteCardsSorted.value.map((card) => {
+    const amountOut = getQuoteAmount(card.quote, 'amountOut')
+    const amountFormatted = formatSmartAmount(
+      formatUnits(amountOut, Number(selectedOutputAsset.value!.decimals)),
+    )
+    const diffPct = getSwapQuoteDiffPct(card.quote)
+    const badge = card.provider === bestProvider
+      ? { label: 'Best', tone: 'best' as const }
+      : diffPct !== null
+        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
+        : undefined
+    return {
+      provider: card.provider,
+      amount: amountFormatted,
+      symbol: selectedOutputAsset.value!.symbol,
+      routeLabel: card.quote.route?.length
+        ? `via ${card.quote.route.map(r => r.providerName).join(', ')}`
+        : '-',
+      badge,
+    }
+  })
+})
+
+const requestSwapQuote = useDebounceFn(async () => {
+  swapQuoteError.value = null
+
+  if (!selectedOutputAsset.value || !asset.value || !needsSwap.value || !amount.value) {
+    resetSwapQuoteState()
+    return
+  }
+
+  const withdrawAmountNano = valueToNano(amount.value || '0', asset.value.decimals)
+  if (withdrawAmountNano <= 0n) {
+    resetSwapQuoteState()
+    return
+  }
+
+  const userAddr = (address.value || zeroAddress) as Address
+  const subAccountAddr = position.value?.subAccount
+    ? (position.value.subAccount as Address)
+    : userAddr
+  await requestSwapQuotes({
+    tokenIn: asset.value.address as Address,
+    tokenOut: selectedOutputAsset.value.address as Address,
+    accountIn: subAccountAddr,
+    accountOut: zeroAddress as Address,
+    amount: withdrawAmountNano,
+    vaultIn: collateralVault.value!.address as Address,
+    receiver: userAddr,
+    transferOutputToReceiver: true,
+    slippage: swapSlippage.value,
+    swapperMode: SwapperMode.EXACT_IN,
+    isRepay: false,
+    targetDebt: 0n,
+    currentDebt: 0n,
+  }, {
+    logContext: {
+      tokenIn: asset.value.address,
+      tokenOut: selectedOutputAsset.value.address,
+      amount: amount.value,
+      slippage: swapSlippage.value,
+    },
+  })
+}, 500)
+
+const onSelectOutputAsset = (newAsset: VaultAsset) => {
+  selectedOutputAsset.value = newAsset
+  amount.value = ''
+  clearSimulationError()
+  resetSwapQuoteState()
+}
+
+const openSwapTokenSelector = () => {
+  modal.open(SwapTokenSelector, {
+    props: {
+      currentAssetAddress: selectedOutputAsset.value?.address || asset.value?.address,
+      onSelect: onSelectOutputAsset,
+    },
+  })
+}
+
+const openSlippageSettings = () => {
+  modal.open(SlippageSettingsModal)
+}
+
+const onRefreshSwapQuotes = () => {
+  resetSwapQuoteState()
+  requestSwapQuote()
+}
 
 const normalizeAddress = (address?: string) => {
   if (!address) {
@@ -237,7 +373,7 @@ const load = async () => {
   }
 }
 const submit = async () => {
-  if (isPreparing.value || isGeoBlocked.value) return
+  if (isPreparing.value || isGeoBlocked.value || isSwapRestricted.value) return
   isPreparing.value = true
   try {
     await guardWithTerms(async () => {
@@ -246,15 +382,30 @@ const submit = async () => {
       }
 
       try {
-        plan.value = await buildWithdrawPlan(
-          collateralVault.value.address,
-          valueToNano(amount.value || '0', asset.value.decimals),
-          position.value?.subAccount,
-          { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address, enabledCollaterals: position.value?.collaterals },
-        )
+        if (needsSwap.value && swapEffectiveQuote.value) {
+          plan.value = await buildWithdrawAndSwapPlan({
+            vaultAddress: collateralVault.value.address as Address,
+            assetsAmount: valueToNano(amount.value || '0', asset.value.decimals),
+            quote: swapEffectiveQuote.value,
+            subAccount: position.value?.subAccount,
+            options: {
+              includePythUpdate: (position.value?.borrowed || 0n) > 0n,
+              liabilityVault: borrowVault.value?.address,
+              enabledCollaterals: position.value?.collaterals,
+            },
+          })
+        }
+        else {
+          plan.value = await buildWithdrawPlan(
+            collateralVault.value.address,
+            valueToNano(amount.value || '0', asset.value.decimals),
+            position.value?.subAccount,
+            { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address, enabledCollaterals: position.value?.collaterals },
+          )
+        }
       }
       catch (e) {
-        console.warn('[OperationReviewModal] failed to build plan', e)
+        console.warn('[position/withdraw] failed to build plan', e)
         plan.value = null
       }
 
@@ -265,14 +416,17 @@ const submit = async () => {
         }
       }
 
+      const reviewType = needsSwap.value ? 'swap-withdraw' as const : 'withdraw' as const
       modal.open(OperationReviewModal, {
         props: {
-          type: 'withdraw',
+          type: reviewType,
           asset: asset.value,
           amount: amount.value,
           plan: plan.value || undefined,
           subAccount: position.value?.subAccount,
           hasBorrows: (position.value?.borrowed || 0n) > 0n,
+          swapToAsset: needsSwap.value ? selectedOutputAsset.value : undefined,
+          swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
           onConfirm: () => {
             setTimeout(() => {
               send()
@@ -293,12 +447,29 @@ const send = async () => {
       return
     }
 
-    const txPlan = await buildWithdrawPlan(
-      collateralVault.value!.address,
-      valueToNano(amount.value || '0', asset.value.decimals),
-      position.value?.subAccount,
-      { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address, enabledCollaterals: position.value?.collaterals },
-    )
+    let txPlan: TxPlan
+    if (needsSwap.value && (swapSelectedQuote.value || swapEffectiveQuote.value)) {
+      const quote = swapSelectedQuote.value || swapEffectiveQuote.value!
+      txPlan = await buildWithdrawAndSwapPlan({
+        vaultAddress: collateralVault.value!.address as Address,
+        assetsAmount: valueToNano(amount.value || '0', asset.value.decimals),
+        quote,
+        subAccount: position.value?.subAccount,
+        options: {
+          includePythUpdate: (position.value?.borrowed || 0n) > 0n,
+          liabilityVault: borrowVault.value?.address,
+          enabledCollaterals: position.value?.collaterals,
+        },
+      })
+    }
+    else {
+      txPlan = await buildWithdrawPlan(
+        collateralVault.value!.address,
+        valueToNano(amount.value || '0', asset.value.decimals),
+        position.value?.subAccount,
+        { includePythUpdate: (position.value?.borrowed || 0n) > 0n, liabilityVault: borrowVault.value?.address, enabledCollaterals: position.value?.collaterals },
+      )
+    }
     await executeTxPlan(txPlan)
 
     modal.close()
@@ -331,7 +502,7 @@ const updateEstimates = useDebounceFn(async () => {
     ])
     estimateNetAPY.value = getNetAPY(
       collateralUsd,
-      collateralSupplyApy.value, // TODO: consider calculated supplyAPY after withdraw
+      collateralSupplyApy.value,
       borrowedUsd,
       borrowApy.value,
       rewardApyForCollateral.value || null,
@@ -395,6 +566,32 @@ watch(amount, async () => {
     isEstimatesLoading.value = true
   }
   updateEstimates()
+  if (needsSwap.value) {
+    resetSwapQuoteState()
+    requestSwapQuote()
+  }
+})
+
+// Fetch swap quotes when output asset changes
+watch(selectedOutputAsset, () => {
+  clearSimulationError()
+  resetSwapQuoteState()
+  if (needsSwap.value && amount.value) {
+    requestSwapQuote()
+  }
+})
+
+// Re-request quote when slippage changes
+watch(swapSlippage, () => {
+  if (needsSwap.value && amount.value) {
+    clearSimulationError()
+    resetSwapQuoteState()
+    requestSwapQuote()
+  }
+})
+
+watch(swapSelectedQuote, () => {
+  clearSimulationError()
 })
 </script>
 
@@ -423,10 +620,83 @@ watch(amount, async () => {
             maxable
           />
 
+          <!-- Receive as token selector -->
+          <div v-if="enableSwapDeposit" class="flex items-center gap-8">
+            <span class="text-p3 text-content-tertiary">Receive as</span>
+            <button
+              type="button"
+              class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
+              @click="openSwapTokenSelector"
+            >
+              <BaseAvatar
+                :src="getAssetLogoUrl(selectedOutputAsset?.address || asset.address, selectedOutputAsset?.symbol || asset.symbol)"
+                :label="selectedOutputAsset?.symbol || asset.symbol"
+                class="icon--20"
+              />
+              {{ selectedOutputAsset?.symbol || asset.symbol }}
+              <SvgIcon
+                class="text-euler-dark-800 !w-16 !h-16"
+                name="arrow-down"
+              />
+            </button>
+          </div>
+
+          <!-- Swap info block -->
+          <template v-if="needsSwap && selectedOutputAsset">
+            <SwapRouteSelector
+              :items="swapRouteItems"
+              :selected-provider="swapSelectedProvider"
+              :status-label="swapQuotesStatusLabel"
+              :is-loading="isSwapQuoteLoading"
+              empty-message="Enter amount to fetch quotes"
+              @select="selectSwapQuote"
+              @refresh="onRefreshSwapQuotes"
+            />
+
+            <VaultFormInfoBlock
+              v-if="swapEstimatedOutput"
+              :loading="isSwapQuoteLoading"
+            >
+              <SummaryRow label="Estimated output" align-top>
+                <p class="text-p2">
+                  ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ selectedOutputAsset.symbol }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Slippage tolerance">
+                <button
+                  type="button"
+                  class="flex items-center gap-6 text-p2"
+                  @click="openSlippageSettings"
+                >
+                  <span>{{ formatNumber(swapSlippage, 2, 0) }}%</span>
+                  <SvgIcon
+                    name="edit"
+                    class="!w-16 !h-16 text-accent-600"
+                  />
+                </button>
+              </SummaryRow>
+            </VaultFormInfoBlock>
+
+            <UiToast
+              v-if="swapQuoteError"
+              title="Swap quote"
+              variant="warning"
+              :description="swapQuoteError"
+              size="compact"
+            />
+          </template>
+
           <UiToast
             v-if="isGeoBlocked"
             title="Region restricted"
             description="This operation is not available in your region. You can still repay existing debt."
+            variant="warning"
+            size="compact"
+          />
+          <UiToast
+            v-if="!isGeoBlocked && isSwapRestricted"
+            title="Swap restricted"
+            description="Swapping from this vault is not available in your region. You can withdraw the vault's underlying asset directly."
             variant="warning"
             size="compact"
           />
