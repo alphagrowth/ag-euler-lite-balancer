@@ -407,7 +407,19 @@ See [Pyth Oracle Handling](./pyth-oracle-handling.md) for the full Pyth architec
 
 | File | Purpose |
 |------|---------|
-| `composables/useEulerOperations.ts` | All operation builders and execution logic |
+| `composables/useEulerOperations/` | Modular operation builder directory |
+| `composables/useEulerOperations/index.ts` | Orchestrator composable, re-exports 24-function API |
+| `composables/useEulerOperations/types.ts` | `OperationsContext` and helper interfaces |
+| `composables/useEulerOperations/helpers.ts` | Shared helpers: token approval, TOS, Pyth injection, EVC batch step |
+| `composables/useEulerOperations/permit2.ts` | Permit2 resolution, allowance query, call building |
+| `composables/useEulerOperations/allowance.ts` | ERC20 allowance checks, slot computation, simulation overrides |
+| `composables/useEulerOperations/execution.ts` | `executeTxPlan`, `simulateTxPlan` |
+| `composables/useEulerOperations/vault.ts` | Supply, withdraw, redeem, borrow, borrowBySaving, multiply |
+| `composables/useEulerOperations/repay.ts` | Repay, fullRepay, disableCollateral, savingsRepay, savingsFullRepay |
+| `composables/useEulerOperations/swaps/` | Swap operation builders (4 files) |
+| `composables/useEulerOperations/swaps/same-asset.ts` | Same-asset swap, repay, full repay, and debt swap plans |
+| `composables/useEulerOperations/swaps/cross-asset.ts` | Cross-asset swap and swap full repay plans |
+| `composables/useEulerOperations/swaps/supply-borrow.ts` | Swap-and-supply, swap-and-borrow, withdraw-and-swap, redeem-and-swap |
 | `composables/useRepaySavingsOptions.ts` | Savings position selection for repay-from-savings flow |
 | `entities/txPlan.ts` | `TxPlan` and `TxStep` type definitions |
 | `entities/saHooksSDK.ts` | `SaHooksBuilder` for constructing hook sequences |

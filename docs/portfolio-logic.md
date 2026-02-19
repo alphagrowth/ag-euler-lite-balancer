@@ -311,7 +311,7 @@ This is a `staticCall` - no transaction is sent, no gas is spent, and the state 
 
 ### Where Pyth Simulation Is Used
 
-**Vault fetching** (`entities/vault.ts: fetchVault`):
+**Vault fetching** (`entities/vault/fetcher.ts: fetchVault`):
 1. Call `vaultLens.getVaultInfoFull()` normally (fast path).
 2. Check `collectPythFeedIds(vault.oracleDetailedInfo)`.
 3. If Pyth detected: re-query with `fetchVaultWithPythSimulation()`.

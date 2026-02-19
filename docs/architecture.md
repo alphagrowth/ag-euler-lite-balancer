@@ -60,6 +60,8 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 3. **Type Safety**: Full TypeScript integration for better development experience
 4. **Reactive State**: Vue 3 reactivity system for state management
 5. **Modular Design**: Well-defined boundaries between different system parts
+6. **Directory-based Modules**: Large composables and entity files are split into focused modules within directories (e.g., `useEulerOperations/`, `entities/vault/`, `composables/repay/`). Each directory has an `index.ts` re-exporting the public API
+7. **Centralized Error Handling**: `logWarn()` and `logError()` from `utils/errorHandling.ts` replace raw `console.warn`/`console.error` calls, enabling structured logging
 
 ## 🔄 Data Flow Architecture
 
@@ -98,7 +100,9 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 ├─────────────────────────────────────────────────────────────────┤
 │                    TypeScript + SCSS                            │
 ├─────────────────────────────────────────────────────────────────┤
-│                    Nuxt + ESLint                                │
+│              ESLint (flat config) + Playwright (E2E)            │
+├─────────────────────────────────────────────────────────────────┤
+│          simple-git-hooks + lint-staged (pre-commit)            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -230,10 +234,14 @@ This prevents re-fetching and re-rendering when users navigate between listing p
 
 1. **Code Splitting**: Automatic route-based code splitting
 2. **Lazy Loading**: Components and composables loaded on demand
-3. **Caching**: Smart caching of blockchain data and API responses
-4. **Batch Operations**: Batch API calls to reduce network overhead
-5. **Debouncing**: User input debouncing to prevent excessive API calls
-6. **Keepalive**: Listing pages cached in memory to avoid redundant data loads
+3. **Caching**: Smart caching of blockchain data and API responses. Asset prices are cached with TTL to avoid redundant RPC calls
+4. **RPC Deduplication**: Concurrent RPC calls for the same data are deduplicated so only one request is made
+5. **Batch Operations**: Batch API calls to reduce network overhead
+6. **Debouncing**: User input and position refresh debouncing to prevent excessive API calls
+7. **Keepalive**: Listing pages cached in memory to avoid redundant data loads
+8. **Lazy Chart Loading**: chart.js is lazy-loaded only when chart components are mounted
+9. **Interval Cleanup**: All `setInterval` timers are properly cleaned up to prevent memory leaks
+10. **shallowRef**: Collection data (arrays, maps) uses `shallowRef` instead of `ref` to avoid deep reactivity overhead
 
 ## 🔒 Security Architecture
 
@@ -275,10 +283,12 @@ This prevents re-fetching and re-rendering when users navigate between listing p
 
 ### State Management Patterns
 
-1. **Reactive References**: `ref()` and `reactive()` for local state
+1. **Reactive References**: `ref()` and `shallowRef()` for state (`shallowRef` for collections to avoid deep reactivity overhead)
 2. **Computed Properties**: `computed()` for derived state
 3. **Watchers**: `watch()` and `watchEffect()` for side effects
 4. **State Persistence**: Local storage for user preferences
+5. **Race Guards**: `createRaceGuard()` utility prevents stale async operations from overwriting fresh data. Used extensively in `watchEffect` patterns where rapid chain/account switching can cause race conditions
+6. **Reactive Maps**: `useReactiveMap()` composable encapsulates the race-guarded async watchEffect pattern for keyed async data loading
 
 ---
 

@@ -116,7 +116,7 @@ When submitting real transactions that interact with Pyth-priced vaults, the app
 
 ### `preparePythUpdates()`
 
-Located in `composables/useEulerOperations.ts`, this is the entry point for all transaction Pyth updates:
+Located in `composables/useEulerOperations/helpers.ts`, this is the entry point for all transaction Pyth updates:
 
 ```typescript
 const preparePythUpdates = async (vaultAddresses: string[], sender: Address) => {
@@ -206,6 +206,6 @@ All Pyth operations fail gracefully:
 | `abis/pyth.ts` | Pyth contract ABI (`getUpdateFee`, `updatePriceFeeds`) |
 | `entities/oracle.ts` | Oracle tree decoding, `collectPythFeedIds()` |
 | `entities/oracle-providers.ts` | Oracle provider logo mapping |
-| `composables/useEulerOperations.ts` | `preparePythUpdates()` for transaction building |
+| `composables/useEulerOperations/helpers.ts` | `preparePythUpdates()` for transaction building |
 | `composables/useEulerAccount.ts` | `hasPythOracles()` for portfolio loading |
 | `docs/pricing-system.md` | Full pricing architecture with detailed Pyth read path |

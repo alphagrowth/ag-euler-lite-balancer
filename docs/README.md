@@ -87,6 +87,9 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 
 - **Lend Assets**: Deposit crypto assets to earn yield
 - **Borrow Assets**: Use collateral to borrow other assets
+- **Swap Collateral & Debt**: Swap between collateral or debt assets via integrated DEX routing
+- **Swap-and-Supply/Borrow**: Deposit or borrow with automatic cross-asset swaps
+- **Repay from Savings**: Repay debt using savings positions (same or cross-asset)
 - **Explore Markets**: Discover and compare markets grouped by curator/product
 - **Manage Portfolio**: Track positions, rewards, and performance
 - **Access Rewards**: Participate in Merkl and Brevis reward programs
@@ -99,6 +102,8 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 - **Wallet Integration**: Wagmi / Reown (EVM wallets)
 - **Styling**: SCSS with custom design system
 - **State Management**: Vue Composition API with composables
+- **Linting**: ESLint (flat config) with pre-commit hooks (simple-git-hooks + lint-staged)
+- **Testing**: Playwright (E2E)
 
 ## 🔗 Quick Links
 

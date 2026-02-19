@@ -419,7 +419,7 @@ Located in `utils/pyth.ts`:
 **Utilities:**
 - `sumCallValues(calls)` - Sum fees from multiple calls
 
-**fetchVault() in `entities/vault.ts`:**
+**fetchVault() in `entities/vault/fetcher.ts`:**
 ```typescript
 // 1. Standard query first (fast path)
 const raw = await vaultLensContract.getVaultInfoFull(vaultAddress)
@@ -535,7 +535,11 @@ See [Intrinsic APY](./intrinsic-apy.md) for the full architecture and provider d
 ## Files
 
 - `services/pricing/priceProvider.ts` - Core pricing functions (Layers 1-3)
-- `entities/vault.ts` - Vault fetching with Pyth simulation support
+- `entities/vault/` - Vault data models (split into focused modules)
+  - `entities/vault/fetcher.ts` - Vault fetching with Pyth simulation support
+  - `entities/vault/pricing.ts` - Vault pricing helpers
+  - `entities/vault/types.ts` - Vault type definitions
+  - `entities/vault/utils.ts` - Type guards (`isEarnVault`, `isEscrowVault`, etc.)
 - `entities/oracle.ts` - Oracle decoding and Pyth feed collection (EulerRouter, CrossAdapter, PythOracle)
 - `composables/useEulerAccount.ts` - Portfolio/account loading with Pyth simulation for borrow positions
 - `composables/useIntrinsicApy.ts` - Intrinsic APY orchestrator (multi-provider, address-based lookup)

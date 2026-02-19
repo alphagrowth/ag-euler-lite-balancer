@@ -187,7 +187,7 @@ The `getEntitiesByVault(address)` function resolves entities for a given vault.
 |------|---------|
 | `composables/useEulerLabels.ts` | Label fetching, caching, and reactive composables |
 | `composables/useVaultRegistry.ts` | Vault registry with type detection and unknown resolution |
-| `entities/vault.ts` | Vault types, fetching, and data processing |
+| `entities/vault/` | Vault types, fetching, and data processing (split into `types.ts`, `fetcher.ts`, `factory.ts`, etc.) |
 | `entities/euler/labels.ts` | Label type definitions and helpers |
 | `components/entities/vault/VaultDisplayName.vue` | Name display with verification state |
 | `components/entities/vault/VaultUnverifiedDisclaimerModal.vue` | Security warning for unverified vaults |

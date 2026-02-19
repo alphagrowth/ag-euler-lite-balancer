@@ -59,11 +59,20 @@ The styling system follows a modular approach:
 ```
 components/
 ├── base/                                            # Base/primitive components
+│   ├── BaseAvatar.vue                               # Generic avatar display
+│   ├── BaseBackButton.vue                           # Navigation back button
+│   ├── BaseLoadableContent.vue                      # Loading state wrapper
+│   ├── BaseLoadingBar.vue                           # Loading progress bar
+│   ├── BaseModalWrapper.vue                         # Modal container
+│   └── BasePageHeader.vue                           # Page header layout
 ├── entities/                                        # Domain-specific components
 │   ├── portfolio/                                   # Portfolio display items
 │   └── vault/                                       # Vault-related components
-│       ├── discovery/                               # Explore page components
-│       │   └── DiscoveryMarketAccordion.vue         # Market group accordion for explore
+│       ├── discovery/                               # Explore page components (decomposed)
+│       │   ├── DiscoveryMarketAccordion.vue         # Market group accordion container
+│       │   ├── DiscoveryMarketCard.vue              # Individual market card display
+│       │   ├── DiscoveryMarketGraph.vue             # Market relationship graph
+│       │   └── DiscoveryMarketMatrix.vue            # Market metrics matrix
 │       ├── form/                                    # Form and summary components
 │       │   ├── SummaryPriceValue.vue                # Price + USD value summary row
 │       │   ├── SummaryRow.vue                       # Generic label + value row
@@ -88,41 +97,71 @@ components/
 
 ```
 composables/
-├── useAddressScreen.ts            # Address screening (compliance)
-├── useBrevis.ts                   # Brevis ZK proof rewards integration
-├── useChainConfig.ts              # Dynamic chain derivation from RPC_URL_HTTP_* env vars
-├── useCustomFilters.ts            # Generic custom metric filter system (gt/lt)
-├── useDeployConfig.ts             # Branding, social links, feature flags (from runtimeConfig)
-├── useEnvConfig.ts                # Runtime env config (API URLs, Pyth, Reown)
-├── useEulerAccount.ts             # Euler account and portfolio positions
-├── useEulerAddresses.ts           # Euler contract address resolution
-├── useEulerConfig.ts              # Aggregated config for Euler services
-├── useEulerLabels.ts              # Euler labels and metadata
-├── useEulerOperations.ts          # Euler protocol operations (supply, borrow, etc.)
-├── useEstimateFees.ts             # Transaction fee estimation
-├── useIntrinsicApy.ts             # Intrinsic APY (multi-provider: DefiLlama + Pendle, address-based lookup)
-├── useMarketGroups.ts             # Market grouping algorithm for explore page
-├── useMerkl.ts                    # Merkl rewards campaign fetching
+├── borrow/                         # Borrow page form composables
+│   ├── useBorrowForm.ts            # Borrow form state and validation
+│   └── useMultiplyForm.ts          # Multiply form state and validation
+├── position/                       # Position management composables
+│   └── useCollateralForm.ts        # Shared supply/withdraw collateral logic
+├── repay/                          # Repay page composables (decomposed from repay.vue)
+│   ├── useCollateralSwapRepay.ts   # Collateral swap repay logic
+│   ├── useRepayHealthMetrics.ts    # Health factor calculations for repay
+│   ├── useRepaySwapCore.ts         # Core swap repay state
+│   ├── useRepaySwapDetails.ts      # Swap repay UI details
+│   ├── useSavingsRepay.ts          # Savings-based repay logic
+│   ├── useSwapRepayQuotes.ts       # Swap quote fetching for repay
+│   └── useWalletRepay.ts           # Wallet-based repay logic
+├── useEulerOperations/             # Modular operation builders (see below)
+├── useAccountPortfolioMetrics.ts   # Portfolio metrics (TVL, PnL)
+├── useAccountPositions.ts          # Position loading and categorization
+├── useAccountValues.ts             # Position USD value calculations
+├── useAddressScreen.ts             # Address screening (compliance)
+├── useBestNetAPY.ts                # Best net APY calculations for sorting/filtering
+├── useBrevis.ts                    # Brevis ZK proof rewards integration
+├── useChainConfig.ts               # Dynamic chain derivation from RPC_URL_HTTP_* env vars
+├── useCustomFilters.ts             # Generic custom metric filter system (gt/lt)
+├── useCustomTokenResolver.ts       # Custom token metadata resolution
+├── useDeployConfig.ts              # Branding, social links, feature flags (from runtimeConfig)
+├── useEnvConfig.ts                 # Runtime env config (API URLs, Pyth, Reown)
+├── useEstimateFees.ts              # Transaction fee estimation
+├── useEulerAccount.ts              # Euler account and portfolio positions
+├── useEulerAddresses.ts            # Euler contract address resolution
+├── useEulerConfig.ts               # Aggregated config for Euler services
+├── useEulerLabels.ts               # Euler labels and metadata
+├── useGeoBlock.ts                  # Geo-blocking enforcement
+├── useIntrinsicApy.ts              # Intrinsic APY (multi-provider: DefiLlama + Pendle)
+├── useMarketGroups.ts              # Market grouping algorithm for explore page
+├── useMerkl.ts                     # Merkl rewards campaign fetching
 ├── useMultiplyCollateralOptions.ts # Multiply collateral selection
-├── usePositionIndex.ts            # Sub-account index validation from URL params (0–255)
-├── usePriceBackend.ts             # Backend price service client
-├── useREULLocks.ts                # REUL token lock management
-├── useRepaySavingsOptions.ts      # Savings position selection for repay-from-savings
-├── useRewardsApy.ts               # Unified reward APY aggregation (Merkl + Brevis)
-├── useSlippage.ts                 # Swap slippage settings
-├── useSwapApi.ts                  # Swap API integration
-├── useSwapCollateralOptions.ts    # Swap collateral selection
-├── useSwapDebtOptions.ts          # Swap debt selection
-├── useSwapQuotesParallel.ts       # Parallel swap quote fetching
-├── useTermsOfUseGate.ts           # Terms of use enforcement
-├── useTokens.ts                   # Token metadata and resolution
-├── useTokenSymbolResolver.ts      # Token symbol resolution
-├── useTosData.ts                  # Terms of service data
-├── useTxPlanSimulation.ts         # Transaction plan simulation
-├── useVaultRegistry.ts            # Vault registry and unknown vault resolution
-├── useVaults.ts                   # Vault data management
-├── useWagmi.ts                    # Wagmi wallet integration
-└── useWallets.ts                  # Wallet balance management
+├── useOracleAdapterPrices.ts       # Oracle adapter price display
+├── usePermit2Preference.ts         # Permit2 user preference toggle
+├── usePositionIndex.ts             # Sub-account index validation from URL params (0–255)
+├── usePriceBackend.ts              # Backend price service client
+├── usePriceInvert.ts               # Price inversion toggle for display
+├── useReactiveMap.ts               # Race-guarded async watchEffect pattern
+├── useREULLocks.ts                 # REUL token lock management
+├── useRepaySavingsOptions.ts       # Savings position selection for repay-from-savings
+├── useRewardsApy.ts                # Unified reward APY aggregation (Merkl + Brevis)
+├── useSlippage.ts                  # Swap slippage settings (with save button)
+├── useSwapApi.ts                   # Swap API integration
+├── useSwapCollateralOptions.ts     # Swap collateral selection
+├── useSwapDebtOptions.ts           # Swap debt selection
+├── useSwapPageLogic.ts             # Shared swap page state and logic
+├── useSwapQuotesParallel.ts        # Parallel swap quote fetching
+├── useTenderlySimulation.ts        # Tenderly simulation integration
+├── useTermsOfUseGate.ts            # Terms of use enforcement
+├── useTheme.ts                     # Theme management
+├── useTokens.ts                    # Token metadata and resolution
+├── useTokenSymbolResolver.ts       # Token symbol resolution
+├── useTosData.ts                   # Terms of service data
+├── useTxPlanSimulation.ts          # Transaction plan simulation
+├── useUrlQuerySync.ts              # URL query param sync for filters/sorting
+├── useUserSettings.ts              # User preference persistence
+├── useVaultRegistry.ts             # Vault registry and unknown vault resolution
+├── useVaults.ts                    # Vault data management
+├── useVaultSearch.ts               # Vault search/filter logic
+├── useVaultWarnings.ts             # Vault deprecation and warning detection
+├── useWagmi.ts                     # Wagmi wallet integration
+└── useWallets.ts                   # Wallet balance management
 ```
 
 ### Composable Naming Convention
@@ -138,26 +177,38 @@ composables/
 entities/
 ├── account.ts               # Account-related data models
 ├── brevis.ts                # Brevis ZK proof types
+├── chainRegistry.ts         # Chain registry and multi-chain config
 ├── constants.ts             # Shared constants
+├── country-constants.ts     # Country codes and group aliases (EU, EEA, EFTA)
 ├── custom.ts                # Theme hue and intrinsic APY source config (DefiLlama pools + Pendle PTs)
-├── intrinsic-apy.ts         # Intrinsic APY types (IntrinsicApyInfo, IntrinsicApyProvider)
-├── evc-error-signatures.ts  # EVC error signature decoding
 ├── euler/                   # Euler Finance specific entities
-├── lend-discovery.ts        # Market group and curator group types (explore page)
-├── reward-campaign.ts       # Unified RewardCampaign type (Merkl + Brevis)
 │   ├── abis.ts              # Smart contract ABIs
 │   └── labels.ts            # Euler labels and metadata types
+├── evc-error-signatures.ts  # EVC error signature decoding
+├── intrinsic-apy.ts         # Intrinsic APY types (IntrinsicApyInfo, IntrinsicApyProvider)
+├── lend-discovery.ts        # Market group and curator group types (explore page)
 ├── menu.ts                  # Navigation menu configuration
 ├── merkl.ts                 # Merkl rewards system models
 ├── oracle.ts                # Oracle decoding and Pyth feed collection
 ├── oracle-providers.ts      # Oracle provider type definitions
 ├── permit2.ts               # Permit2 approval types
 ├── reul.ts                  # REUL token types
+├── reward-campaign.ts       # Unified RewardCampaign type (Merkl + Brevis)
 ├── saHooksSDK.ts            # Smart account hooks builder
 ├── swap.ts                  # Swap types and utilities
 ├── token.ts                 # Token data models
+├── tuning-constants.ts      # Performance tuning constants (batch sizes, debounce)
 ├── txPlan.ts                # Transaction plan types (TxPlan, TxStep)
-└── vault.ts                 # Vault data models and fetching
+└── vault/                   # Vault data models (split from single vault.ts)
+    ├── index.ts             # Re-exports all vault types and functions
+    ├── types.ts             # Vault, EarnVault, SecuritizeVault, EscrowVault types
+    ├── fetcher.ts           # Vault data fetching (getVaultInfoFull, Pyth simulation)
+    ├── factory.ts           # Vault object construction and mapping
+    ├── escrow-fetcher.ts    # Escrow vault-specific data fetching
+    ├── apy.ts               # APY calculations (supply, borrow, interest rate info)
+    ├── ltv.ts               # LTV and liquidation threshold calculations
+    ├── pricing.ts           # Vault pricing helpers
+    └── utils.ts             # Vault type guards (isEarnVault, isEscrowVault, etc.)
 ```
 
 ### Entity Organization
@@ -259,15 +310,34 @@ types/
 
 ```
 utils/
+├── accountPositionHelpers.ts # Position display helpers (formatting, categorization)
+├── autoLink.ts              # Auto-link detection in text
 ├── block-explorer.ts        # Block explorer URL helpers
+├── collateral-cleanup.ts    # Collateral position cleanup utilities
+├── collateralOptions.ts     # Shared collateral option builders for swap/repay
 ├── crypto-utils.ts          # Cryptographic utilities
+├── discoveryCalculations.ts # Market group metric calculations
+├── errorHandling.ts         # Centralized error handling (logWarn, logError)
+├── eulerLabelsState.ts      # Labels state management (extracted from composable)
+├── eulerLabelsUtils.ts      # Pure label utility functions
 ├── evc-converter.ts         # EVC batch/call conversion utilities
+├── fixed-point.ts           # Fixed-point arithmetic helpers
+├── leverage.ts              # Leverage/multiply calculation utilities
 ├── multicall.ts             # Batch lens calls via EVC simulation
+├── normalizeAddress.ts      # Address normalization (deduplicated singleton)
+├── public-client.ts         # Viem public client helpers
 ├── pyth.ts                  # Pyth oracle utilities (Hermes API, batch building)
+├── race-guard.ts            # Race condition guard for async operations
+├── repayUtils.ts            # Shared repay calculation helpers
+├── safe-assign.ts           # Safe object assignment utilities
+├── stepDecoding.ts          # EVC batch step decoding for review modals
 ├── string-utils.ts          # String manipulation utilities
+├── subgraph.ts              # Subgraph query helpers
 ├── swapQuotes.ts            # Swap quote formatting
+├── swapRouteItems.ts        # Swap route display items builder
 ├── time-utils.ts            # Time and date utilities
-└── tx-errors.ts             # Transaction error parsing
+├── tx-errors.ts             # Transaction error parsing
+└── vault-utils.ts           # Vault utility functions
 ```
 
 ## 📊 Services Directory
