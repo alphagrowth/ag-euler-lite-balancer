@@ -5,6 +5,7 @@ import { truncate } from '~/utils/string-utils'
 import { useAddressScreen } from '~/composables/useAddressScreen'
 
 let isChangingChain = false
+let chainChangeCooldownUntil = 0
 let isRouterReplacing = false
 let isInitialRouteSync = true
 let hasWalletConnectedBefore = false
@@ -13,6 +14,7 @@ const walletName = ref('Wallet')
 const routeNetworkId: Ref<number | null> = ref(null)
 
 let cachedWagmiData: ReturnType<typeof initializeWagmi> | null = null
+let watchersInitialized = false
 
 const parseChainId = (value: unknown): number | null => {
   const normalized = Array.isArray(value) ? value[0] : value
@@ -201,6 +203,7 @@ export const useWagmi = () => {
       localStorage.setItem('chainId', String(targetChainId))
       changeCurrentChainId(targetChainId)
       await syncRouteNetwork(targetChainId)
+      routeNetworkId.value = targetChainId
       if (!isInitialRouteSync) {
         await redirectToMainIfInternal(targetChainId)
       }
@@ -214,6 +217,7 @@ export const useWagmi = () => {
     }
     finally {
       isChangingChain = false
+      chainChangeCooldownUntil = Date.now() + 500
     }
   }
 
@@ -221,99 +225,117 @@ export const useWagmi = () => {
   const isReconnecting = computed(() => status.value === 'reconnecting')
   const isDisconnected = computed(() => status.value === 'disconnected')
 
-  watch([isConnected, connector], ([connected, conn]) => {
-    if (connected && conn) {
-      walletName.value = conn.name || 'Wallet'
-    }
+  if (!watchersInitialized) {
+    watchersInitialized = true
 
-    if (connected && !isLoaded.value) {
-      isLoaded.value = true
-    }
-    else {
-      setTimeout(() => {
+    watch([isConnected, connector], ([connected, conn]) => {
+      if (connected && conn) {
+        walletName.value = conn.name || 'Wallet'
+      }
+
+      if (connected && !isLoaded.value) {
         isLoaded.value = true
-      }, 5000)
-    }
-  }, { immediate: true })
+      }
+      else {
+        setTimeout(() => {
+          isLoaded.value = true
+        }, 5000)
+      }
+    }, { immediate: true })
 
-  watch(computed(() => route.query.network), async (network, oldNetwork) => {
-    if (isChangingChain || (!oldNetwork && !isInitialRouteSync)) {
-      return
-    }
-
-    const parsed = parseChainId(network)
-    routeNetworkId.value = parsed && allowedChainIds.value.includes(parsed) ? parsed : null
-    const targetChainId = routeNetworkId.value || allowedChainIds.value[0]
-
-    // Skip if the route update targets the chain we're already on
-    // (caused by app-initiated route syncs that fire after changeChain completes)
-    if (targetChainId === currentChainId.value) {
-      isInitialRouteSync = false
-      return
-    }
-
-    await changeChain(targetChainId)
-    isInitialRouteSync = false
-  }, { immediate: true })
-
-  watch(currentChainId, (val) => {
-    if (!val) {
-      return
-    }
-
-    syncRouteNetwork(val)
-  }, { immediate: true })
-
-  watch(wagmiChain, async (val, oldVal) => {
-    if (!val?.id || isChangingChain) {
-      return
-    }
-
-    if (!allowedChainIds.value.includes(val.id)) {
-      console.warn(`[useWagmi] chainId ${val.id} is not allowed`)
-      return
-    }
-
-    // Skip stale wallet events that report the chain we're already on.
-    // The wallet fires chainChanged events asynchronously after switchChain resolves,
-    // often including intermediate/duplicate events that would bounce chainId back.
-    if (val.id === currentChainId.value) {
-      return
-    }
-
-    // On initial wallet connection, app chain (from URL) takes priority
-    const isInitialConnection = !hasWalletConnectedBefore && !oldVal?.id
-    if (isInitialConnection) {
-      hasWalletConnectedBefore = true
-      if (currentChainId.value && currentChainId.value !== val.id) {
-        isChangingChain = true
-        try {
-          await switchChain({ chainId: currentChainId.value })
-        }
-        catch {
-          // Wallet rejected switch — fall back to wallet's chain
-          changeCurrentChainId(val.id)
-          localStorage.setItem('chainId', String(val.id))
-          await syncRouteNetwork(val.id)
-        }
-        finally {
-          isChangingChain = false
-        }
+    watch(computed(() => route.query.network), async (network, oldNetwork) => {
+      if (isChangingChain || (!oldNetwork && !isInitialRouteSync)) {
         return
       }
-    }
 
-    // Normal flow: user-initiated wallet chain change
-    changeCurrentChainId(val.id)
-    localStorage.setItem('chainId', String(val.id))
-    syncRouteNetwork(val.id)
-  })
+      // Ignore route changes that arrive shortly after an app-initiated chain switch.
+      // The wallet SDK or stale navigations can briefly revert the URL query param.
+      if (Date.now() < chainChangeCooldownUntil) {
+        return
+      }
 
-  watch(isConnected, (connected, wasConnected) => {
-    if (wasConnected && !connected) {
-      hasWalletConnectedBefore = false
-    }
-  })
+      const parsed = parseChainId(network)
+      routeNetworkId.value = parsed && allowedChainIds.value.includes(parsed) ? parsed : null
+      const targetChainId = routeNetworkId.value || allowedChainIds.value[0]
+
+      // Skip if the route update targets the chain we're already on
+      // (caused by app-initiated route syncs that fire after changeChain completes)
+      if (targetChainId === currentChainId.value) {
+        isInitialRouteSync = false
+        return
+      }
+
+      await changeChain(targetChainId)
+      isInitialRouteSync = false
+    }, { immediate: true })
+
+    watch(currentChainId, (val) => {
+      if (!val) {
+        return
+      }
+
+      syncRouteNetwork(val)
+    }, { immediate: true })
+
+    watch(wagmiChain, async (val, oldVal) => {
+      if (!val?.id || isChangingChain) {
+        return
+      }
+
+      // Absorb stale wallet chainChanged events that arrive shortly after an
+      // app-initiated chain switch. Some wallets fire delayed events for the
+      // old chain after switchChain resolves.
+      if (Date.now() < chainChangeCooldownUntil) {
+        return
+      }
+
+      if (!allowedChainIds.value.includes(val.id)) {
+        return
+      }
+
+      // Skip stale wallet events that report the chain we're already on.
+      // The wallet fires chainChanged events asynchronously after switchChain resolves,
+      // often including intermediate/duplicate events that would bounce chainId back.
+      if (val.id === currentChainId.value) {
+        return
+      }
+
+      // On initial wallet connection, app chain (from URL) takes priority
+      const isInitialConnection = !hasWalletConnectedBefore && !oldVal?.id
+      if (isInitialConnection) {
+        hasWalletConnectedBefore = true
+        if (currentChainId.value && currentChainId.value !== val.id) {
+          isChangingChain = true
+          try {
+            await switchChain({ chainId: currentChainId.value })
+          }
+          catch {
+            // Wallet rejected switch — fall back to wallet's chain
+            changeCurrentChainId(val.id)
+            localStorage.setItem('chainId', String(val.id))
+            await syncRouteNetwork(val.id)
+            routeNetworkId.value = val.id
+          }
+          finally {
+            isChangingChain = false
+          }
+          return
+        }
+      }
+
+      // Normal flow: user-initiated wallet chain change
+      changeCurrentChainId(val.id)
+      localStorage.setItem('chainId', String(val.id))
+      routeNetworkId.value = val.id
+      syncRouteNetwork(val.id)
+    })
+
+    watch(isConnected, (connected, wasConnected) => {
+      if (wasConnected && !connected) {
+        hasWalletConnectedBefore = false
+      }
+    })
+  }
 
   return {
     isLoaded,
