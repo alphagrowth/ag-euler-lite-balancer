@@ -1,10 +1,8 @@
 import { getAddress, type Address } from 'viem'
-import { getProductByVault } from '~/composables/useEulerLabels'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
-import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getVaultTags } from '~/composables/useGeoBlock'
+import { buildCollateralOption, computeSupplyApy } from '~/utils/collateralOptions'
 import { createRaceGuard } from '~/utils/race-guard'
 
 type CollateralItem = {
@@ -64,26 +62,10 @@ export const useMultiplyCollateralOptions = ({
     const gen = walletGuard.next()
     const items = await Promise.all(inputs.map(async ({ vault, balance }) => {
       const amount = nanoToValue(balance, vault.asset.decimals)
-      const product = getProductByVault(vault.address)
-      const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
-      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.address) + getSupplyRewardApy(vault.address)
-
-      const { tags, disabled } = getVaultTags(vault.address, 'supply-source')
-
+      const apy = computeSupplyApy(vault, withIntrinsicSupplyApy, getSupplyRewardApy)
       return {
         vault,
-        option: {
-          type: 'wallet',
-          amount,
-          price: await getAssetUsdValueOrZero(amount, vault, 'off-chain'),
-          apy,
-          symbol: vault.asset.symbol,
-          assetAddress: vault.asset.address,
-          label: product.name || vault.name,
-          vaultAddress: vault.address,
-          tags,
-          disabled,
-        },
+        option: await buildCollateralOption({ vault, type: 'wallet', amount, priceAmount: amount, apy, tagContext: 'supply-source' }),
       } as CollateralItem
     }))
     if (walletGuard.isStale(gen)) return
@@ -111,26 +93,10 @@ export const useMultiplyCollateralOptions = ({
     const gen = savingGuard.next()
     const items = await Promise.all(inputs.map(async ({ vault, assets }) => {
       const amount = nanoToValue(assets, vault.asset.decimals)
-      const product = getProductByVault(vault.address)
-      const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
-      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.address) + getSupplyRewardApy(vault.address)
-
-      const { tags, disabled } = getVaultTags(vault.address, 'supply-source')
-
+      const apy = computeSupplyApy(vault, withIntrinsicSupplyApy, getSupplyRewardApy)
       return {
         vault,
-        option: {
-          type: 'saving',
-          amount,
-          price: await getAssetUsdValueOrZero(amount, vault, 'off-chain'),
-          apy,
-          symbol: vault.asset.symbol,
-          assetAddress: vault.asset.address,
-          label: product.name || vault.name,
-          vaultAddress: vault.address,
-          tags,
-          disabled,
-        },
+        option: await buildCollateralOption({ vault, type: 'saving', amount, priceAmount: amount, apy, tagContext: 'supply-source' }),
       } as CollateralItem
     }))
     if (savingGuard.isStale(gen)) return

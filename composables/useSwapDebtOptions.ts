@@ -1,10 +1,8 @@
 import { getAddress } from 'viem'
-import { getProductByVault } from '~/composables/useEulerLabels'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
-import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getVaultTags } from '~/composables/useGeoBlock'
+import { buildCollateralOption, computeBorrowApy } from '~/utils/collateralOptions'
 import { createRaceGuard } from '~/utils/race-guard'
 
 export const useSwapDebtOptions = ({
@@ -55,24 +53,8 @@ export const useSwapDebtOptions = ({
     void intrinsicVersion.value
     const gen = guard.next()
     const options = await Promise.all(vaults.map(async (vault) => {
-      const product = getProductByVault(vault.address)
-      const baseApy = nanoToValue(vault.interestRateInfo.borrowAPY || 0n, 25)
-      const apy = withIntrinsicBorrowApy(baseApy, vault.asset.address) - getBorrowRewardApy(vault.address, collateralVault?.value?.address)
-
-      const { tags, disabled } = getVaultTags(vault.address, 'swap-target')
-
-      return {
-        type: 'vault',
-        amount: 0,
-        price: await getAssetUsdValueOrZero(1, vault, 'off-chain'),
-        apy,
-        symbol: vault.asset.symbol,
-        assetAddress: vault.asset.address,
-        label: product.name || vault.name,
-        vaultAddress: vault.address,
-        tags,
-        disabled,
-      }
+      const apy = computeBorrowApy(vault, withIntrinsicBorrowApy, getBorrowRewardApy, collateralVault?.value?.address)
+      return buildCollateralOption({ vault, type: 'vault', amount: 0, priceAmount: 1, apy, tagContext: 'swap-target' })
     }))
     if (guard.isStale(gen)) return
     borrowOptions.value = options

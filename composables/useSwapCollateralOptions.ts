@@ -1,10 +1,9 @@
 import { getAddress, type Address } from 'viem'
-import { getProductByVault } from '~/composables/useEulerLabels'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
-import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getVaultTags, type VaultTagContext } from '~/composables/useGeoBlock'
+import { type VaultTagContext } from '~/composables/useGeoBlock'
+import { buildCollateralOption, computeSupplyApy } from '~/utils/collateralOptions'
 import { createRaceGuard } from '~/utils/race-guard'
 
 export const useSwapCollateralOptions = ({
@@ -76,25 +75,9 @@ export const useSwapCollateralOptions = ({
     const options = await Promise.all(vaults.map(async (vault) => {
       const balance = getBalance(vault.asset.address as Address)
       const amount = nanoToValue(balance, vault.asset.decimals)
-      const product = getProductByVault(vault.address)
-      const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
-      const apy = withIntrinsicSupplyApy(baseApy, vault.asset.address) + getSupplyRewardApy(vault.address)
-
-      const optionType = vault.vaultCategory === 'escrow' ? 'escrow' : 'vault'
-      const { tags, disabled } = getVaultTags(vault.address, tagContext)
-
-      return {
-        type: optionType,
-        amount,
-        price: await getAssetUsdValueOrZero(amount, vault, 'off-chain'),
-        apy,
-        symbol: vault.asset.symbol,
-        assetAddress: vault.asset.address,
-        label: product.name || vault.name,
-        vaultAddress: vault.address,
-        tags,
-        disabled,
-      }
+      const apy = computeSupplyApy(vault, withIntrinsicSupplyApy, getSupplyRewardApy)
+      const type = vault.vaultCategory === 'escrow' ? 'escrow' : 'vault'
+      return buildCollateralOption({ vault, type, amount, priceAmount: amount, apy, tagContext })
     }))
     if (guard.isStale(gen)) return
     collateralOptions.value = options
