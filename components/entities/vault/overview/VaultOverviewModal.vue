@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { getAddress } from 'viem'
 import type { AnyBorrowVaultPair, EarnVault, SecuritizeVault, Vault } from '~/entities/vault'
-import { getAssetLogoUrl } from '~/composables/useTokens'
+
 import type { AccountBorrowPosition } from '~/entities/account'
 
 const emits = defineEmits(['close'])
@@ -25,12 +25,11 @@ const tabs = computed(() => {
   if (!pair) {
     return []
   }
-  const list: Array<{ label: string; value: string | undefined; avatars: string[]; symbols: string[] }> = [
+  const list: Array<{ label: string; value: string | undefined; assets: { address: string; symbol: string }[] }> = [
     {
       label: 'Position details',
       value: undefined,
-      avatars: [getAssetLogoUrl(pair.collateral.asset.address, pair.collateral.asset.symbol), getAssetLogoUrl(pair.borrow.asset.address, pair.borrow.asset.symbol)],
-      symbols: [pair.collateral.asset.symbol, pair.borrow.asset.symbol],
+      assets: [pair.collateral.asset, pair.borrow.asset],
     },
   ]
   if (extraVault) {
@@ -41,8 +40,7 @@ const tabs = computed(() => {
       list.push({
         label: extraVault.asset.symbol,
         value: 'multiply-collateral',
-        avatars: [getAssetLogoUrl(extraVault.asset.address, extraVault.asset.symbol)],
-        symbols: [extraVault.asset.symbol],
+        assets: [extraVault.asset],
       })
     }
   }
@@ -52,16 +50,14 @@ const tabs = computed(() => {
     list.push({
       label: vault.asset.symbol,
       value: `collateral-${index}`,
-      avatars: [getAssetLogoUrl(vault.asset.address, vault.asset.symbol)],
-      symbols: [vault.asset.symbol],
+      assets: [vault.asset],
     })
   })
 
   list.push({
     label: pair.borrow.asset.symbol,
     value: 'borrow',
-    avatars: [getAssetLogoUrl(pair.borrow.asset.address, pair.borrow.asset.symbol)],
-    symbols: [pair.borrow.asset.symbol],
+    assets: [pair.borrow.asset],
   })
   return list
 })
@@ -103,7 +99,7 @@ const onVaultClick = (address: string) => {
     >
       <template #default="{ tab: slotTab }">
         <div class="flex items-center gap-8">
-          <BaseAvatar :src="(slotTab.avatars as string[])" :label="(slotTab.symbols as string[])" />
+          <AssetAvatar :asset="(slotTab.assets as { address: string, symbol: string }[])" />
           {{ slotTab.label }}
         </div>
       </template>

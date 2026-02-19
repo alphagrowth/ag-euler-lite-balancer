@@ -4,7 +4,7 @@ import { getAddress, type Address } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultUnverifiedDisclaimerModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
-import { getAssetLogoUrl } from '~/composables/useTokens'
+
 import { type AnyBorrowVaultPair, type BorrowVaultPair, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, isSecuritizeBorrowPair } from '~/entities/vault'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { getNewSubAccount } from '~/entities/account'
@@ -159,20 +159,17 @@ const tabs = computed(() => {
     {
       label: 'Pair details',
       value: undefined,
-      avatars: [getAssetLogoUrl(pair.value.collateral.asset.address, pair.value.collateral.asset.symbol), getAssetLogoUrl(pair.value.borrow.asset.address, pair.value.borrow.asset.symbol)],
-      symbols: [pair.value.collateral.asset.symbol, pair.value.borrow.asset.symbol],
+      assets: [pair.value.collateral.asset, pair.value.borrow.asset],
     },
     {
       label: pair.value.collateral.asset.symbol,
       value: 'collateral',
-      avatars: [getAssetLogoUrl(pair.value.collateral.asset.address, pair.value.collateral.asset.symbol)],
-      symbols: [pair.value.collateral.asset.symbol],
+      assets: [pair.value.collateral.asset],
     },
     {
       label: pair.value.borrow.asset.symbol,
       value: 'borrow',
-      avatars: [getAssetLogoUrl(pair.value.borrow.asset.address, pair.value.borrow.asset.symbol)],
-      symbols: [pair.value.borrow.asset.symbol],
+      assets: [pair.value.borrow.asset],
     },
   ]
   if (formTab.value === 'multiply' && multiply.multiplySupplyVault.value) {
@@ -183,8 +180,7 @@ const tabs = computed(() => {
       list.splice(1, 0, {
         label: multiply.multiplySupplyVault.value.asset.symbol,
         value: 'multiply-collateral',
-        avatars: [getAssetLogoUrl(multiply.multiplySupplyVault.value.asset.address, multiply.multiplySupplyVault.value.asset.symbol)],
-        symbols: [multiply.multiplySupplyVault.value.asset.symbol],
+        assets: [multiply.multiplySupplyVault.value.asset],
       })
     }
   }
@@ -785,7 +781,7 @@ watch(formTab, () => {
       >
         <template #default="{ tab: slotTab }">
           <div class="flex items-center gap-8">
-            <BaseAvatar :src="(slotTab.avatars as string[])" :label="(slotTab.symbols as string[])" />
+            <AssetAvatar :asset="(slotTab.assets as { address: string, symbol: string }[])" />
 
             {{ slotTab.label }}
           </div>
