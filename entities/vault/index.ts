@@ -37,6 +37,9 @@ export {
   fetchEarnVaults,
 } from './fetcher'
 
+// Pricing
+export { clearPriceCaches } from './pricing'
+
 // Escrow fetchers
 export {
   fetchEscrowVault,

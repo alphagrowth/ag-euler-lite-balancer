@@ -1,13 +1,12 @@
 import { getAddress, parseUnits, type Address } from 'viem'
 import type { Vault, VaultIteratorResult } from './types'
-import { resolveAssetPriceInfo, resolveUnitOfAccountPriceInfo } from './pricing'
+import { resolveAssetPriceInfo, resolveFullAssetPriceInfo, resolveUnitOfAccountPriceInfo } from './pricing'
 import { processRawVaultData, fetchVault } from './fetcher'
 import { logWarn } from '~/utils/errorHandling'
 import { USD_ADDRESS } from '~/entities/constants'
 import { BATCH_SIZE_RPC_CALLS } from '~/entities/tuning-constants'
 import {
   eulerPerspectiveABI,
-  eulerUtilsLensABI,
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
 import { getPublicClient } from '~/utils/public-client'
@@ -19,26 +18,24 @@ export const fetchEscrowVault = async (vaultAddress: string): Promise<Vault> => 
   const vault = await fetchVault(vaultAddress)
 
   try {
-    const client = getPublicClient(EVM_PROVIDER_URL)
-    const priceInfo = await client.readContract({
-      address: eulerLensAddresses.value!.utilsLens as Address,
-      abi: eulerUtilsLensABI,
-      functionName: 'getAssetPriceInfo',
-      args: [vault.asset.address as Address, USD_ADDRESS],
-    }) as Record<string, unknown>
+    const priceInfo = await resolveFullAssetPriceInfo(
+      EVM_PROVIDER_URL,
+      eulerLensAddresses.value!.utilsLens,
+      vault.asset.address,
+    )
 
-    if (!priceInfo.queryFailure && priceInfo.amountOutMid && (priceInfo.amountOutMid as bigint) > 0n) {
+    if (priceInfo && priceInfo.amountOutMid > 0n) {
       return {
         ...vault,
         liabilityPriceInfo: {
-          amountIn: (priceInfo.amountIn as bigint) || parseUnits('1', Number(vault.asset.decimals)),
-          amountOutAsk: (priceInfo.amountOutAsk as bigint) || (priceInfo.amountOutMid as bigint),
-          amountOutBid: (priceInfo.amountOutBid as bigint) || (priceInfo.amountOutMid as bigint),
-          amountOutMid: priceInfo.amountOutMid as bigint,
+          amountIn: priceInfo.amountIn || parseUnits('1', Number(vault.asset.decimals)),
+          amountOutAsk: priceInfo.amountOutAsk || priceInfo.amountOutMid,
+          amountOutBid: priceInfo.amountOutBid || priceInfo.amountOutMid,
+          amountOutMid: priceInfo.amountOutMid,
           queryFailure: false,
           queryFailureReason: '',
-          timestamp: priceInfo.timestamp as bigint,
-          oracle: priceInfo.oracle as string,
+          timestamp: priceInfo.timestamp,
+          oracle: priceInfo.oracle,
           asset: vault.asset.address,
           unitOfAccount: USD_ADDRESS,
         },
@@ -180,26 +177,24 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
           || vault.liabilityPriceInfo.queryFailure
         ) {
           try {
-            const priceInfo = await client.readContract({
-              address: utilsLensAddress as Address,
-              abi: eulerUtilsLensABI,
-              functionName: 'getAssetPriceInfo',
-              args: [vault.asset.address as Address, USD_ADDRESS],
-            }) as Record<string, unknown>
+            const priceInfo = await resolveFullAssetPriceInfo(
+              EVM_PROVIDER_URL,
+              utilsLensAddress,
+              vault.asset.address,
+            )
 
-            if (!priceInfo.queryFailure && priceInfo.amountOutMid && (priceInfo.amountOutMid as bigint) > 0n) {
+            if (priceInfo && priceInfo.amountOutMid > 0n) {
               return {
                 ...vault,
                 liabilityPriceInfo: {
-                  amountIn:
-                    (priceInfo.amountIn as bigint) || parseUnits('1', Number(vault.asset.decimals)),
-                  amountOutAsk: (priceInfo.amountOutAsk as bigint) || (priceInfo.amountOutMid as bigint),
-                  amountOutBid: (priceInfo.amountOutBid as bigint) || (priceInfo.amountOutMid as bigint),
-                  amountOutMid: priceInfo.amountOutMid as bigint,
+                  amountIn: priceInfo.amountIn || parseUnits('1', Number(vault.asset.decimals)),
+                  amountOutAsk: priceInfo.amountOutAsk || priceInfo.amountOutMid,
+                  amountOutBid: priceInfo.amountOutBid || priceInfo.amountOutMid,
+                  amountOutMid: priceInfo.amountOutMid,
                   queryFailure: false,
                   queryFailureReason: '',
-                  timestamp: priceInfo.timestamp as bigint,
-                  oracle: priceInfo.oracle as string,
+                  timestamp: priceInfo.timestamp,
+                  oracle: priceInfo.oracle,
                   asset: vault.asset.address,
                   unitOfAccount: USD_ADDRESS,
                 },

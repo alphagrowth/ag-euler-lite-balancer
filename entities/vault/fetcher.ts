@@ -9,7 +9,6 @@ import type {
 import { resolveAssetPriceInfo, resolveUnitOfAccountPriceInfo } from './pricing'
 import { calculateEarnVaultAPYFromExchangeRate, calculateEarnVaultAPYWithCache, fetchBlockDataForAPY } from './apy'
 import { logWarn } from '~/utils/errorHandling'
-import { USD_ADDRESS } from '~/entities/constants'
 import { BATCH_SIZE_VAULT_FETCH, BATCH_SIZE_PARALLEL_ROUNDS } from '~/entities/tuning-constants'
 import type { PythFeed } from '~/entities/oracle'
 import { collectPythFeedIds } from '~/entities/oracle'
@@ -328,30 +327,11 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     data.vaultDecimals as bigint,
   )
 
-  let assetPriceInfo
-  try {
-    const priceInfo = await client.readContract({
-      address: eulerLensAddresses.value!.utilsLens as Address,
-      abi: eulerUtilsLensABI,
-      functionName: 'getAssetPriceInfo',
-      args: [data.asset as Address, USD_ADDRESS],
-    }) as Record<string, unknown>
-
-    // Check if price query failed (0n is valid - very small price)
-    if (priceInfo.queryFailure || priceInfo.amountOutMid === undefined || priceInfo.amountOutMid === null) {
-      logWarn('vault/fetchPrice', `No price available for asset ${data.asset} (${data.assetSymbol})`)
-      assetPriceInfo = undefined
-    }
-    else {
-      assetPriceInfo = {
-        amountOutMid: priceInfo.amountOutMid as bigint,
-      }
-    }
-  }
-  catch (e) {
-    logWarn('vault/fetchPrice', e)
-    assetPriceInfo = undefined
-  }
+  const assetPriceInfo = await resolveAssetPriceInfo(
+    EVM_PROVIDER_URL,
+    eulerLensAddresses.value!.utilsLens,
+    data.asset as string,
+  )
 
   const { isCustomLabelsRepo } = useDeployConfig()
   const verified = isCustomLabelsRepo.value ? earnVaults.value.includes(vaultAddress) : verifiedEarnVaults.includes(vaultAddress)
@@ -668,26 +648,11 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
         }
       })
 
-      let assetPriceInfo
-      try {
-        const priceInfo = await client.readContract({
-          address: eulerLensAddresses.value!.utilsLens as Address,
-          abi: eulerUtilsLensABI,
-          functionName: 'getAssetPriceInfo',
-          args: [data.asset as Address, USD_ADDRESS],
-        }) as Record<string, unknown>
-
-        // Note: 0n is a valid price (very small value)
-        if (priceInfo.queryFailure || priceInfo.amountOutMid === undefined || priceInfo.amountOutMid === null) {
-          assetPriceInfo = undefined
-        }
-        else {
-          assetPriceInfo = { amountOutMid: priceInfo.amountOutMid as bigint }
-        }
-      }
-      catch {
-        assetPriceInfo = undefined
-      }
+      const assetPriceInfo = await resolveAssetPriceInfo(
+        _EVM_PROVIDER_URL,
+        eulerLensAddresses.value!.utilsLens,
+        data.asset as string,
+      )
 
       return {
         verified: true,

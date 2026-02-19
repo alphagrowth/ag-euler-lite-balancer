@@ -13,6 +13,7 @@ import {
   fetchSecuritizeVault,
   fetchVaults,
   fetchVaultFactories,
+  clearPriceCaches,
   isSecuritizeVault,
   type Vault,
 } from '~/entities/vault'
@@ -73,6 +74,7 @@ const resetVaultsState = () => {
   isEscrowLoadedOnce.value = false
   loadedChainId.value = null
   clear()
+  clearPriceCaches()
 }
 
 const updateVaults = async (vaultAddresses?: string[], generation?: number) => {
