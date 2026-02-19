@@ -327,7 +327,10 @@ const sortedList = computed(() => {
         v-else
         class="flex flex-col flex-1 gap-3 items-center justify-center text-content-tertiary"
       >
-        <UiIcon name="search" class="!w-24 !h-24" />
+        <UiIcon
+          name="search"
+          class="!w-24 !h-24"
+        />
         <div class="text-center max-w-[180px]">
           No markets were found by these filters
         </div>

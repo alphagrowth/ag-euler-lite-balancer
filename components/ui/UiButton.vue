@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { NuxtLink } from '#components'
 import type { RouteLocationRaw } from 'vue-router'
+import { NuxtLink } from '#components'
 
 const emits = defineEmits<{
   (e: 'click', event: Event): void

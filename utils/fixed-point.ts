@@ -22,7 +22,7 @@ export class FixedPoint {
     return new FixedPoint(BigInt(value), Number(decimals))
   }
 
-  private alignDecimals(other: FixedPoint): { a: bigint; b: bigint; decimals: number } {
+  private alignDecimals(other: FixedPoint): { a: bigint, b: bigint, decimals: number } {
     if (this.decimals === other.decimals) {
       return { a: this.value, b: other.value, decimals: this.decimals }
     }

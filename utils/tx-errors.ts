@@ -16,7 +16,7 @@ const parseErrorSignatureFromMessage = (message: string) => {
 
 const extractErrorCode = (error: unknown) => {
   if (error instanceof BaseError) {
-    const revertError = error.walk((err) => err instanceof ContractFunctionRevertedError)
+    const revertError = error.walk(err => err instanceof ContractFunctionRevertedError)
     if (
       revertError instanceof ContractFunctionRevertedError
       && revertError.data?.errorName

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { formatUnits } from 'viem'
-import { type Vault, type SecuritizeVault, type VaultAsset, type CollateralOption, type EarnVault } from '~/entities/vault'
+import type { Vault, SecuritizeVault, VaultAsset, CollateralOption, EarnVault } from '~/entities/vault'
 import { getAssetUsdPrice } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { compactNumber, formatNumber, formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
+import { compactNumber, formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
@@ -114,9 +114,9 @@ const openChooseCollateralModal = () => {
   <div
     class="flex flex-col gap-12 p-16 rounded-16 border transition-all duration-200"
     :class="[
-      isFocused 
-        ? 'bg-bg-surface border-accent-500 shadow-[0_0_0_3px_rgba(196,155,100,0.15),0_2px_4px_rgba(0,0,0,0.06)]' 
-        : 'bg-[var(--ui-form-field-background)] border-[var(--ui-form-field-border-color)] shadow-[var(--ui-form-field-shadow)]'
+      isFocused
+        ? 'bg-bg-surface border-accent-500 shadow-[0_0_0_3px_rgba(196,155,100,0.15),0_2px_4px_rgba(0,0,0,0.06)]'
+        : 'bg-[var(--ui-form-field-background)] border-[var(--ui-form-field-border-color)] shadow-[var(--ui-form-field-shadow)]',
     ]"
   >
     <div

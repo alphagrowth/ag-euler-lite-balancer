@@ -39,7 +39,10 @@ const marketDescription = computed(() => {
       to="/explore"
       class="flex items-center gap-4 text-p3 text-content-tertiary hover:text-accent-600 transition-colors mb-16"
     >
-      <UiIcon name="arrow-left" class="!w-16 !h-16" />
+      <UiIcon
+        name="arrow-left"
+        class="!w-16 !h-16"
+      />
       Back to Explore
     </NuxtLink>
 
@@ -54,7 +57,10 @@ const marketDescription = computed(() => {
       v-else-if="!market"
       class="flex flex-col flex-1 gap-12 items-center justify-center text-content-tertiary"
     >
-      <UiIcon name="search" class="!w-24 !h-24" />
+      <UiIcon
+        name="search"
+        class="!w-24 !h-24"
+      />
       <div class="text-center max-w-[240px]">
         Market not found. It may not exist on this network.
       </div>
@@ -80,7 +86,10 @@ const marketDescription = computed(() => {
           v-else
           class="w-[52px] h-[52px] rounded-[14px] mr-16 bg-gradient-to-br from-accent-300/30 to-accent-400/40 flex items-center justify-center text-accent-600 flex-shrink-0 shadow-sm"
         >
-          <SvgIcon name="nodes" class="!w-28 !h-28" />
+          <SvgIcon
+            name="nodes"
+            class="!w-28 !h-28"
+          />
         </div>
         <div>
           <div

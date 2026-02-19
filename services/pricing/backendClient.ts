@@ -54,7 +54,6 @@ export const isBackendConfigured = (): boolean => {
 // Cache
 // -------------------------------------------
 
-
 type CachedPrice = {
   data: BackendPriceData
   fetchedAt: number
@@ -101,7 +100,6 @@ export const clearBackendCache = () => {
 // -------------------------------------------
 // Request Batching
 // -------------------------------------------
-
 
 type PendingRequest = {
   address: Address
@@ -199,7 +197,7 @@ const fetchBackendPricesBatch = async (
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     })
 
@@ -288,7 +286,7 @@ export const fetchBackendPrice = async (
 // Price Conversion Helper
 // -------------------------------------------
 
-const ONE_18 = 10n ** 18n
+const _ONE_18 = 10n ** 18n
 
 /**
  * Convert backend price to bigint (18 decimals).

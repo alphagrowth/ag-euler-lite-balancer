@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatNumber, compactNumber, formatSignificant } from '~/utils/string-utils'
+import { formatNumber, formatSignificant } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { type SecuritizeBorrowVaultPair, getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 import { getAssetOraclePrice } from '~/services/pricing/priceProvider'
@@ -102,8 +102,15 @@ const onBorrowInfoIconClick = () => {
         <template v-if="price !== null">
           {{ formatSignificant(priceInvert.invertValue(price), 4) }}
           <span class="text-euler-dark-900">{{ priceInvert.displaySymbol }}</span>
-          <button type="button" class="ml-4 text-euler-dark-900 hover:text-white transition-colors inline-flex" @click.stop="priceInvert.toggle">
-            <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+          <button
+            type="button"
+            class="ml-4 text-euler-dark-900 hover:text-white transition-colors inline-flex"
+            @click.stop="priceInvert.toggle"
+          >
+            <SvgIcon
+              name="swap-horizontal"
+              class="!w-12 !h-12"
+            />
           </button>
         </template>
         <template v-else>
@@ -175,7 +182,10 @@ const onBorrowInfoIconClick = () => {
             title="Liquidation LTV ramping down"
           />
           <span>{{ `${formatNumber(nanoToValue(currentLiquidationLTV, 2), 2)}%` }}</span>
-          <span v-if="isRamping" @click.stop.prevent>
+          <span
+            v-if="isRamping"
+            @click.stop.prevent
+          >
             <UiFootnote
               title="LTV Ramping"
               :text="`The Liquidation LTV for this pair is being reduced. Target: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair))}.`"

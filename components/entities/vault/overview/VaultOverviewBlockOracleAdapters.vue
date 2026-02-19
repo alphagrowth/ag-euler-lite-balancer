@@ -218,7 +218,10 @@ const formatAdapterPrice = (adapter: OracleAdapterEntry) => {
               v-else-if="isAdapterPriceFailed(adapter)"
               class="flex items-center text-warning-500"
             >
-              <SvgIcon name="warning" class="mr-2 !w-20 !h-20" />
+              <SvgIcon
+                name="warning"
+                class="mr-2 !w-20 !h-20"
+              />
               Unknown
             </span>
             <span

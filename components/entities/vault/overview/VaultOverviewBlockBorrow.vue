@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatNumber, compactNumber } from '~/utils/string-utils'
+import { formatNumber } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
@@ -108,7 +108,10 @@ const formatTimeRemaining = (seconds: bigint): string => {
             <template #label>
               <span class="flex items-center gap-4">
                 Liquidation LTV
-                <span v-if="isLiquidationLTVRamping(pair)" @click.stop.prevent>
+                <span
+                  v-if="isLiquidationLTVRamping(pair)"
+                  @click.stop.prevent
+                >
                   <UiFootnote
                     title="LTV Ramping"
                     :text="`The Liquidation LTV for this collateral is currently being reduced. Target Liquidation LTV: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair))}.`"

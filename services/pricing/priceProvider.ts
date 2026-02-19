@@ -1,3 +1,9 @@
+import {
+  fetchBackendPrice,
+  backendPriceToBigInt,
+  isBackendConfigured,
+  type BackendPriceData,
+} from './backendClient'
 import { USD_ADDRESS } from '~/entities/constants'
 import type {
   Vault,
@@ -7,18 +13,11 @@ import type {
 } from '~/entities/vault'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { formatSmartAmount } from '~/utils/string-utils'
-import {
-  fetchBackendPrice,
-  backendPriceToBigInt,
-  isBackendConfigured,
-  type BackendPriceData,
-} from './backendClient'
 
 // Union type for all vault types that can be priced
 type AnyVault = Vault | EarnVault | SecuritizeVault
 
 export const ONE_18 = 10n ** 18n
-
 
 // Note: UoA price caching is handled in entities/vault.ts (unitOfAccountPriceCache)
 // which caches during vault loading. No separate cache needed here.
@@ -284,8 +283,8 @@ const backendPriceToPriceResult = (data: BackendPriceData): PriceResult | undefi
  */
 const getAssetUsdPriceFromOracle = async (
   vault: AnyVault | null | undefined,
-  source: PriceSource,
-  backend?: BackendConfig,
+  _source: PriceSource,
+  _backend?: BackendConfig,
 ): Promise<PriceResult | undefined> => {
   if (!vault) return undefined
 
@@ -320,8 +319,8 @@ const getAssetUsdPriceFromOracle = async (
 const getCollateralUsdPriceFromOracle = async (
   liabilityVault: Vault | null | undefined,
   collateralVault: Vault | SecuritizeVault | null | undefined,
-  source: PriceSource,
-  backend?: BackendConfig,
+  _source: PriceSource,
+  _backend?: BackendConfig,
 ): Promise<PriceResult | undefined> => {
   if (!liabilityVault || !collateralVault) return undefined
 
@@ -510,9 +509,9 @@ export const formatAssetValue = async (
   vault: AnyVault | null | undefined,
   source: PriceSource = 'on-chain',
   backend?: BackendConfig,
-  options: { maxDecimals?: number; minDecimals?: number } = {},
-): Promise<{ display: string; hasPrice: boolean; usdValue: number; assetAmount: number; assetSymbol: string }> => {
-  const { maxDecimals = 2, minDecimals = 2 } = options
+  options: { maxDecimals?: number, minDecimals?: number } = {},
+): Promise<{ display: string, hasPrice: boolean, usdValue: number, assetAmount: number, assetSymbol: string }> => {
+  const { maxDecimals = 2, minDecimals: _minDecimals = 2 } = options
 
   if (!vault) {
     return {

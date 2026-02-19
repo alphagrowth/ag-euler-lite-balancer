@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { type Vault } from '~/entities/vault'
+import type { Vault } from '~/entities/vault'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
@@ -138,7 +138,10 @@ const onClick = () => {
   >
     <div class="flex py-16 px-16 pb-12 border-b border-line-default">
       <div class="flex w-full">
-        <AssetAvatar :asset="vault.asset" size="40" />
+        <AssetAvatar
+          :asset="vault.asset"
+          size="40"
+        />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
             <VaultDisplayName
@@ -150,7 +153,10 @@ const onClick = () => {
               class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
               title="This vault is not available in your region"
             >
-              <SvgIcon name="warning" class="!w-14 !h-14" />
+              <SvgIcon
+                name="warning"
+                class="!w-14 !h-14"
+              />
               Restricted
             </span>
           </div>
@@ -230,20 +236,29 @@ const onClick = () => {
   >
     <div class="flex py-16 px-16 pb-12 border-b border-line-default">
       <div class="flex w-full">
-        <AssetAvatar :asset="vault.asset" size="40" />
+        <AssetAvatar
+          :asset="vault.asset"
+          size="40"
+        />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
             <VaultDisplayName
               :name="displayName"
               :is-unverified="isUnverified"
             />
-            <VaultWarningIcon :warning="utilisationWarning" tooltip-placement="top-start" />
+            <VaultWarningIcon
+              :warning="utilisationWarning"
+              tooltip-placement="top-start"
+            />
             <span
               v-if="isGeoBlocked"
               class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
               title="This vault is not available in your region"
             >
-              <SvgIcon name="warning" class="!w-14 !h-14" />
+              <SvgIcon
+                name="warning"
+                class="!w-14 !h-14"
+              />
               Restricted
             </span>
           </div>

@@ -19,7 +19,7 @@ import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
-import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import { SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -31,7 +31,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { buildWithdrawPlan, buildRedeemPlan, buildWithdrawAndSwapPlan, buildRedeemAndSwapPlan, executeTxPlan } = useEulerOperations()
-const { getVault, getSecuritizeVault, getEscrowVault } = useVaults()
+const { getVault, getSecuritizeVault: _getSecuritizeVault, getEscrowVault: _getEscrowVault } = useVaults()
 const { isConnected, address } = useAccount()
 const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -514,7 +514,10 @@ watch(swapSelectedQuote, () => {
           />
 
           <!-- Receive as token selector -->
-          <div v-if="enableSwapDeposit" class="flex items-center gap-8">
+          <div
+            v-if="enableSwapDeposit"
+            class="flex items-center gap-8"
+          >
             <span class="text-p3 text-content-tertiary">Receive as</span>
             <button
               type="button"
@@ -549,7 +552,10 @@ watch(swapSelectedQuote, () => {
               v-if="swapEstimatedOutput"
               :loading="isSwapQuoteLoading"
             >
-              <SummaryRow label="Estimated output" align-top>
+              <SummaryRow
+                label="Estimated output"
+                align-top
+              >
                 <p class="text-p2">
                   ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ selectedOutputAsset.symbol }}
                 </p>
@@ -608,7 +614,10 @@ watch(swapSelectedQuote, () => {
               suffix="%"
             />
           </SummaryRow>
-          <SummaryRow v-if="!isSecuritizeVaultType" label="Deposit">
+          <SummaryRow
+            v-if="!isSecuritizeVaultType"
+            label="Deposit"
+          >
             <SummaryValue
               :before="`$${formatNumber(assetsBalanceUsd)}`"
               :after="amount && delta !== assetsBalance && delta >= 0n ? `$${formatNumber(deltaUsd)}` : undefined"

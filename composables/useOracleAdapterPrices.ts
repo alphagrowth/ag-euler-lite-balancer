@@ -149,7 +149,7 @@ const fetchMissingDecimals = async (
 const buildPriceQueryItems = (
   adapters: OracleAdapterEntry[],
   decimals: Map<string, number>,
-): { filteredAdapters: OracleAdapterEntry[]; items: BatchItem[] } => {
+): { filteredAdapters: OracleAdapterEntry[], items: BatchItem[] } => {
   const filteredAdapters: OracleAdapterEntry[] = []
   const items: BatchItem[] = []
 
@@ -203,15 +203,15 @@ const decodePriceResults = (
       const isERC4626 = adapter.name === 'ERC4626Vault'
       const decoded = isERC4626
         ? decodeFunctionResult({
-          abi: vaultConvertToAssetsAbi,
-          functionName: 'convertToAssets',
-          data: res.result as Hex,
-        })
+            abi: vaultConvertToAssetsAbi,
+            functionName: 'convertToAssets',
+            data: res.result as Hex,
+          })
         : decodeFunctionResult({
-          abi: priceOracleAbi,
-          functionName: 'getQuote',
-          data: res.result as Hex,
-        })
+            abi: priceOracleAbi,
+            functionName: 'getQuote',
+            data: res.result as Hex,
+          })
 
       const outAmount = decoded as bigint
       const quoteDecimals = decimals.get(adapter.quote.toLowerCase()) ?? 18

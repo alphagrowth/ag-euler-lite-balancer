@@ -5,7 +5,7 @@ import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { SwapperMode } from '~/entities/swap'
 import { useSwapRepayQuotes } from '~/composables/repay/useSwapRepayQuotes'
-import { nanoToValue, valueToNano } from '~/utils/crypto-utils'
+import { valueToNano } from '~/utils/crypto-utils'
 import { trimTrailingZeros } from '~/utils/string-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { amountToPercent, percentToAmountNano } from '~/utils/repayUtils'
@@ -63,34 +63,46 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
   const spent = computed(() => {
     if (isSameAsset.value && sourceVault.value) {
       if (amount.value) {
-        try { return valueToNano(amount.value, sourceVault.value.asset.decimals) }
+        try {
+          return valueToNano(amount.value, sourceVault.value.asset.decimals)
+        }
         catch { return null }
       }
       if (debtAmount.value && borrowVault.value) {
-        try { return valueToNano(debtAmount.value, borrowVault.value.asset.decimals) }
+        try {
+          return valueToNano(debtAmount.value, borrowVault.value.asset.decimals)
+        }
         catch { return null }
       }
       return null
     }
     if (!quotes.quote.value) return null
-    try { return BigInt(quotes.quote.value.amountIn || 0) }
+    try {
+      return BigInt(quotes.quote.value.amountIn || 0)
+    }
     catch { return null }
   })
 
   const debtRepaid = computed(() => {
     if (isSameAsset.value && borrowVault.value) {
       if (debtAmount.value) {
-        try { return valueToNano(debtAmount.value, borrowVault.value.asset.decimals) }
+        try {
+          return valueToNano(debtAmount.value, borrowVault.value.asset.decimals)
+        }
         catch { return null }
       }
       if (amount.value && sourceVault.value) {
-        try { return valueToNano(amount.value, sourceVault.value.asset.decimals) }
+        try {
+          return valueToNano(amount.value, sourceVault.value.asset.decimals)
+        }
         catch { return null }
       }
       return null
     }
     if (!quotes.quote.value) return null
-    try { return BigInt(quotes.quote.value.amountOut || 0) }
+    try {
+      return BigInt(quotes.quote.value.amountOut || 0)
+    }
     catch { return null }
   })
 

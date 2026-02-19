@@ -135,7 +135,7 @@ const classes = computed(() => {
 
   &.is-disabled {
     box-shadow: none;
-    
+
     #{$block}__label {
       color: var(--ui-input-disabled-color);
     }

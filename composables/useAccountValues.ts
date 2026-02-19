@@ -1,17 +1,16 @@
 import { ref, watchEffect } from 'vue'
 import { useVaultRegistry } from './useVaultRegistry'
+import { useAccountPositions } from './useAccountPositions'
 import type { Vault } from '~/entities/vault'
 import {
   getAssetUsdValue,
   getCollateralUsdValue,
-  getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
-import { useAccountPositions } from './useAccountPositions'
 
 const totalSuppliedValue = ref(0)
-const totalSuppliedValueInfo = ref<{ total: number; hasMissingPrices: boolean }>({ total: 0, hasMissingPrices: false })
+const totalSuppliedValueInfo = ref<{ total: number, hasMissingPrices: boolean }>({ total: 0, hasMissingPrices: false })
 const totalBorrowedValue = ref(0)
-const totalBorrowedValueInfo = ref<{ total: number; hasMissingPrices: boolean }>({ total: 0, hasMissingPrices: false })
+const totalBorrowedValueInfo = ref<{ total: number, hasMissingPrices: boolean }>({ total: 0, hasMissingPrices: false })
 
 const { depositPositions, borrowPositions } = useAccountPositions()
 

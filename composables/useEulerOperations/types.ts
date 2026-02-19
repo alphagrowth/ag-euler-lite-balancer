@@ -27,10 +27,10 @@ export interface OperationsContext {
 
 export interface Permit2Helpers {
   resolvePermit2Address: () => Address | undefined
-  getPermit2Allowance: (token: Address, spender: Address, owner: Address, permit2Address?: Address) => Promise<{ amount: bigint; expiration: bigint; nonce: bigint }>
+  getPermit2Allowance: (token: Address, spender: Address, owner: Address, permit2Address?: Address) => Promise<{ amount: bigint, expiration: bigint, nonce: bigint }>
   buildPermit2Call: (token: Address, spender: Address, requiredAmount: bigint, owner: Address, permit2Address?: Address) => Promise<import('~/utils/evc-converter').EVCCall | undefined>
   computePermit2AllowanceSlot: (owner: Address, token: Address, spender: Address) => Hex
-  buildPermit2Overrides: (pairsByPermit2: Map<string, { address: Address; pairs: { token: Address; spender: Address }[] }>, owner: Address) => import('viem').StateOverride
+  buildPermit2Overrides: (pairsByPermit2: Map<string, { address: Address, pairs: { token: Address, spender: Address }[] }>, owner: Address) => import('viem').StateOverride
 }
 
 export interface AllowanceHelpers {
@@ -38,7 +38,7 @@ export interface AllowanceHelpers {
   normalizeAddress: (address: Address | string) => string
   computeErc20AllowanceSlot: (owner: Address, spender: Address, slotIndex: bigint) => Hex
   resolveAllowanceSlotIndex: (token: Address, owner: Address, spender: Address) => Promise<bigint | undefined>
-  buildErc20AllowanceOverrides: (pairs: { token: Address; spender: Address }[], owner: Address) => Promise<import('viem').StateOverride>
+  buildErc20AllowanceOverrides: (pairs: { token: Address, spender: Address }[], owner: Address) => Promise<import('viem').StateOverride>
   extractTokenFromTransferFromSender: (data: string) => Address | undefined
   buildSimulationStateOverride: (plan: import('~/entities/txPlan').TxPlan, owner: Address) => Promise<import('viem').StateOverride>
 }
@@ -50,11 +50,11 @@ export interface OperationHelpers {
     userAddr: Address
     amount: bigint
     includePermit2Call?: boolean
-  }) => Promise<{ steps: import('~/entities/txPlan').TxStep[]; permitCall: import('~/utils/evc-converter').EVCCall | undefined; usesPermit2: boolean }>
+  }) => Promise<{ steps: import('~/entities/txPlan').TxStep[], permitCall: import('~/utils/evc-converter').EVCCall | undefined, usesPermit2: boolean }>
 
   prepareTos: (userAddr: Address) => Promise<{
     hasSigned: boolean
-    tosData: { tosMessage: string; tosMessageHash: Hex }
+    tosData: { tosMessage: string, tosMessageHash: Hex }
     addTosInterface: (hooks: import('~/entities/saHooksSDK').SaHooksBuilder) => void
     injectTosCall: (evcCalls: import('~/utils/evc-converter').EVCCall[], hooks: import('~/entities/saHooksSDK').SaHooksBuilder) => void
   }>
@@ -79,7 +79,7 @@ export interface OperationHelpers {
 
   hasSignature: (userAddress: Address) => Promise<boolean>
 
-  preparePythUpdates: (vaultAddresses: string[], sender: Address) => Promise<{ calls: import('~/utils/evc-converter').EVCCall[]; totalFee: bigint }>
+  preparePythUpdates: (vaultAddresses: string[], sender: Address) => Promise<{ calls: import('~/utils/evc-converter').EVCCall[], totalFee: bigint }>
 
-  preparePythUpdatesForHealthCheck: (liabilityVaultAddress: string, collateralVaultAddresses: string[], sender: Address) => Promise<{ calls: import('~/utils/evc-converter').EVCCall[]; totalFee: bigint }>
+  preparePythUpdatesForHealthCheck: (liabilityVaultAddress: string, collateralVaultAddresses: string[], sender: Address) => Promise<{ calls: import('~/utils/evc-converter').EVCCall[], totalFee: bigint }>
 }

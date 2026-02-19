@@ -2,7 +2,7 @@
 import type { AnyBorrowVaultPair, SecuritizeVault, Vault } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 
-const props = defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition, desktopOverview?: boolean, collateralVaults?: (Vault | SecuritizeVault)[] }>()
+defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition, desktopOverview?: boolean, collateralVaults?: (Vault | SecuritizeVault)[] }>()
 </script>
 
 <template>

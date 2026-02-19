@@ -8,7 +8,6 @@ import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useVaultSearch } from '~/composables/useVaultSearch'
-import { formatNumber } from '~/utils/string-utils'
 
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()

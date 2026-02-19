@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, isAddress, zeroAddress, type Address, type Abi } from 'viem'
+import { zeroAddress, type Address, type Abi } from 'viem'
 import { getPublicClient } from '~/utils/public-client'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
-import {
-  type Vault,
-  type SecuritizeVault,
-  type VaultAsset,
+import type {
+  Vault,
+  SecuritizeVault,
+  VaultAsset,
 } from '~/entities/vault'
 import {
   getAssetUsdValue,
@@ -17,7 +17,6 @@ import {
   conservativePriceRatioNumber,
   getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { SwapperMode } from '~/entities/swap'
 import type { SwapApiQuote } from '~/entities/swap'
@@ -145,7 +144,7 @@ const swap = useSwapPageLogic({
     })
   },
 
-  getBalanceError: (amountNano) => balance.value < amountNano ? 'Not enough balance' : null,
+  getBalanceError: amountNano => balance.value < amountNano ? 'Not enough balance' : null,
 
   getGeoBlockedAddresses() {
     const addresses: string[] = []
@@ -369,7 +368,7 @@ const borrowAmount = computed(() => {
 })
 
 const currentLtv = computed(() => position.value ? nanoToValue(position.value.userLTV, 18) : null)
-const currentLiquidationLtv = computed(() => position.value ? nanoToValue(position.value.liquidationLTV, 2) : null)
+const _currentLiquidationLtv = computed(() => position.value ? nanoToValue(position.value.liquidationLTV, 2) : null)
 const nextLiquidationLtv = computed(() => {
   if (!borrowVault.value || !toVault.value) return null
   const match = borrowVault.value.collateralLTVs.find(
@@ -523,7 +522,10 @@ const nextLiquidationPrice = computed(() => {
               />
             </SummaryRow>
             <template v-if="!isSameAsset">
-              <SummaryRow label="Swap price" align-top>
+              <SummaryRow
+                label="Swap price"
+                align-top
+              >
                 <SummaryPriceValue
                   :value="currentPrice ? formatSmartAmount(swapPriceInvert.invertValue(currentPrice.value)) : undefined"
                   :symbol="swapPriceInvert.displaySymbol"
@@ -539,7 +541,10 @@ const nextLiquidationPrice = computed(() => {
                 </p>
               </SummaryRow>
             </template>
-            <SummaryRow label="Liquidation price" align-top>
+            <SummaryRow
+              label="Liquidation price"
+              align-top
+            >
               <SummaryPriceValue
                 :before="liqPriceInvert.invertValue(currentLiquidationPrice) != null ? formatSmartAmount(liqPriceInvert.invertValue(currentLiquidationPrice)!) : undefined"
                 :after="nextLiquidationPrice !== null && (quote || isSameAsset) ? formatSmartAmount(liqPriceInvert.invertValue(nextLiquidationPrice)) : undefined"
@@ -562,7 +567,10 @@ const nextLiquidationPrice = computed(() => {
               />
             </SummaryRow>
             <template v-if="!isSameAsset">
-              <SummaryRow label="Swap" align-top>
+              <SummaryRow
+                label="Swap"
+                align-top
+              >
                 <p class="text-p2 text-right flex flex-col items-end">
                   <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
                   <span

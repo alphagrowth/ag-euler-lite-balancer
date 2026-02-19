@@ -1,13 +1,13 @@
 import { ref, watchEffect } from 'vue'
 import { useVaultRegistry } from './useVaultRegistry'
+import { useAccountPositions } from './useAccountPositions'
+import { useAccountValues } from './useAccountValues'
 import type { Vault } from '~/entities/vault'
 import {
   getAssetUsdValue,
   getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { useAccountPositions } from './useAccountPositions'
-import { useAccountValues } from './useAccountValues'
 
 const portfolioRoe = ref(0)
 const portfolioNetApy = ref(0)

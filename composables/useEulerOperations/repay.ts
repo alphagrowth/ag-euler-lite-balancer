@@ -1,15 +1,14 @@
-import type { Address, Hash, Hex } from 'viem'
+import type { Address, Hash } from 'viem'
 import { maxUint256 } from 'viem'
+import { adjustForInterest } from './helpers'
+import type { OperationsContext, OperationHelpers } from './types'
 import { evcDisableCollateralAbi, evcDisableControllerAbi } from '~/abis/evc'
 import { vaultRepayAbi, vaultRepayWithSharesAbi, vaultRedeemAbi, vaultSkimAbi, vaultTransferFromMaxAbi, vaultWithdrawAbi, vaultConvertToAssetsAbi } from '~/abis/vault'
 import { erc20BalanceOfAbi } from '~/abis/erc20'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { convertSaHooksToEVCCalls, type EVCCall } from '~/utils/evc-converter'
-import { sumCallValues } from '~/utils/pyth'
 import { logWarn } from '~/utils/errorHandling'
-import type { TxPlan, TxStep } from '~/entities/txPlan'
-import { adjustForInterest } from './helpers'
-import type { OperationsContext, OperationHelpers, Permit2Helpers, AllowanceHelpers } from './types'
+import type { TxPlan } from '~/entities/txPlan'
 
 export const createRepayBuilders = (
   ctx: OperationsContext,

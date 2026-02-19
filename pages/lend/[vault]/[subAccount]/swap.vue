@@ -124,7 +124,7 @@ const swap = useSwapPageLogic({
     })
   },
 
-  getBalanceError: (amountNano) => balance.value < amountNano ? 'Not enough balance' : null,
+  getBalanceError: amountNano => balance.value < amountNano ? 'Not enough balance' : null,
   getGeoBlockedAddresses: () => [getVaultAddress()],
 })
 
@@ -286,12 +286,18 @@ watch([() => route.params.vault, () => route.query.to], () => {
               </p>
             </SummaryRow>
             <template v-if="!isSameAsset">
-              <SummaryRow label="Swap price" align-top>
+              <SummaryRow
+                label="Swap price"
+                align-top
+              >
                 <p class="text-p2 text-right">
                   {{ currentPrice ? `${formatSmartAmount(currentPrice.value)} ${currentPrice.symbol}` : '-' }}
                 </p>
               </SummaryRow>
-              <SummaryRow label="Swap" align-top>
+              <SummaryRow
+                label="Swap"
+                align-top
+              >
                 <p class="text-p2 text-right flex flex-col items-end">
                   <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
                   <span
@@ -326,7 +332,10 @@ watch([() => route.params.vault, () => route.query.to], () => {
                 </p>
               </SummaryRow>
             </template>
-            <SummaryRow v-else label="Transfer">
+            <SummaryRow
+              v-else
+              label="Transfer"
+            >
               <p class="text-p2">
                 1:1 (same asset, no slippage)
               </p>

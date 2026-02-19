@@ -6,7 +6,7 @@ const SCREENING_TIMEOUT_MS = 5000
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX = 10
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const rateLimitMap = new Map<string, { count: number, resetAt: number }>()
 
 // Clean up stale entries every 2 minutes.
 // .unref() lets the process exit naturally without waiting for this timer.
@@ -46,7 +46,8 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 429, statusMessage: 'Too Many Requests' })
     }
     rateLimitMap.set(ip, { count: entry.count + 1, resetAt: entry.resetAt })
-  } else {
+  }
+  else {
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
   }
 
@@ -94,7 +95,8 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     if (isAbortError(error)) {
       console.warn('[screen-address] TRM API timeout')
-    } else {
+    }
+    else {
       console.warn('[screen-address] TRM API error:', error)
     }
     // Fail open on errors (same as current client-side behavior)

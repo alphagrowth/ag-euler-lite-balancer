@@ -1,5 +1,7 @@
 import type { Address, Hash } from 'viem'
 import { maxUint256 } from 'viem'
+import { adjustForInterest } from '../helpers'
+import type { OperationsContext, OperationHelpers } from '../types'
 import { evcDisableCollateralAbi, evcDisableControllerAbi, evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
 import { erc20BalanceOfAbi } from '~/abis/erc20'
 import { vaultBorrowAbi, vaultConvertToAssetsAbi, vaultRedeemAbi, vaultRepayWithSharesAbi, vaultSkimAbi, vaultTransferFromMaxAbi, vaultWithdrawAbi } from '~/abis/vault'
@@ -7,8 +9,6 @@ import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import type { EVCCall } from '~/utils/evc-converter'
 import { logWarn } from '~/utils/errorHandling'
 import type { TxPlan } from '~/entities/txPlan'
-import { adjustForInterest } from '../helpers'
-import type { OperationsContext, OperationHelpers } from '../types'
 
 export const createSameAssetSwapBuilders = (
   ctx: OperationsContext,

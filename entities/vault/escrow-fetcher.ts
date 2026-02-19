@@ -1,4 +1,7 @@
 import { getAddress, parseUnits, type Address } from 'viem'
+import type { Vault, VaultIteratorResult } from './types'
+import { resolveAssetPriceInfo, resolveUnitOfAccountPriceInfo } from './pricing'
+import { processRawVaultData, fetchVault } from './fetcher'
 import { logWarn } from '~/utils/errorHandling'
 import { USD_ADDRESS } from '~/entities/constants'
 import { BATCH_SIZE_RPC_CALLS } from '~/entities/tuning-constants'
@@ -8,11 +11,6 @@ import {
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
 import { getPublicClient } from '~/utils/public-client'
-
-import type { Vault, VaultIteratorResult } from './types'
-import { resolveAssetPriceInfo, resolveUnitOfAccountPriceInfo } from './pricing'
-import { processRawVaultData } from './fetcher'
-import { fetchVault } from './fetcher'
 
 export const fetchEscrowVault = async (vaultAddress: string): Promise<Vault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()

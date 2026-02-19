@@ -1,7 +1,7 @@
 import type { Ref, ComputedRef } from 'vue'
-import { logWarn } from '~/utils/errorHandling'
 import { useAccount } from '@wagmi/vue'
 import { getAddress, formatUnits, zeroAddress, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SwapTokenSelector } from '#components'
@@ -63,7 +63,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     pair,
     borrowVault,
     collateralVault,
-    formTab,
+    formTab: _formTab,
     savingCollateral,
     balance,
     savingBalance,
@@ -74,11 +74,11 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     collateralSupplyRewardApy,
     borrowRewardApy,
     collateralSupplyApyWithRewards,
-    isSecuritizeCollateral,
+    isSecuritizeCollateral: _isSecuritizeCollateral,
     isGeoBlocked,
     isBorrowRestricted,
     collateralAddress,
-    borrowAddress,
+    borrowAddress: _borrowAddress,
   } = options
 
   const router = useRouter()

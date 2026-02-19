@@ -102,7 +102,10 @@ const onClick = () => {
       <div
         class="flex w-full"
       >
-        <AssetAvatar :asset="vault.asset" size="40" />
+        <AssetAvatar
+          :asset="vault.asset"
+          size="40"
+        />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
             <VaultDisplayName
@@ -114,7 +117,10 @@ const onClick = () => {
               class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
               title="This vault is not available in your region"
             >
-              <SvgIcon name="warning" class="!w-14 !h-14" />
+              <SvgIcon
+                name="warning"
+                class="!w-14 !h-14"
+              />
               Restricted
             </span>
           </div>

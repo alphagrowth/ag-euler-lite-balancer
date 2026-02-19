@@ -6,6 +6,7 @@ import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composabl
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { autoLink } from '~/utils/autoLink'
+
 const { vault } = defineProps<{ vault: EarnVault }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
 
@@ -44,8 +45,14 @@ const feeDisplay = computed(() => {
         class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
       >
         <div class="flex items-start gap-8">
-          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
-          <p class="text-p3 text-warning-500 auto-link" v-html="autoLink(deprecationReason)" />
+          <SvgIcon
+            name="warning"
+            class="!w-20 !h-20 flex-shrink-0 mt-2"
+          />
+          <p
+            class="text-p3 text-warning-500 auto-link"
+            v-html="autoLink(deprecationReason)"
+          />
         </div>
       </div>
       <div
@@ -53,15 +60,23 @@ const feeDisplay = computed(() => {
         class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
       >
         <div class="flex items-start gap-8">
-          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
-          <p class="text-p3 text-warning-500">This vault is not available in your region.</p>
+          <SvgIcon
+            name="warning"
+            class="!w-20 !h-20 flex-shrink-0 mt-2"
+          />
+          <p class="text-p3 text-warning-500">
+            This vault is not available in your region.
+          </p>
         </div>
       </div>
       <div
         v-if="product.description"
         class="w-full rounded-12 p-16 bg-surface-tertiary"
       >
-        <p class="text-p3 text-content-secondary auto-link" v-html="autoLink(product.description)" />
+        <p
+          class="text-p3 text-content-secondary auto-link"
+          v-html="autoLink(product.description)"
+        />
       </div>
       <VaultOverviewLabelValue
         label="Price"
@@ -71,7 +86,10 @@ const feeDisplay = computed(() => {
         label="Performance fee"
         :value="feeDisplay"
       />
-      <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Capital allocator(s)">
+      <VaultOverviewLabelValue
+        v-if="enableEntityBrandingDisplay"
+        label="Capital allocator(s)"
+      >
         <div
           v-if="entities.length && isOwnerVerified"
           class="flex flex-col gap-16"
@@ -103,7 +121,10 @@ const feeDisplay = computed(() => {
           Unknown
         </div>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue v-if="enableVaultTypeDisplay" label="Vault type">
+      <VaultOverviewLabelValue
+        v-if="enableVaultTypeDisplay"
+        label="Vault type"
+      >
         <VaultTypeChip
           :vault="vault"
           :type="entities.length ? 'managed' : 'unknown'"

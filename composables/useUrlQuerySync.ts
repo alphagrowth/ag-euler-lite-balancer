@@ -22,7 +22,8 @@ export function useUrlQuerySync(params: UrlSyncParam[]): void {
     if (Array.isArray(param.default)) {
       const arr = Array.isArray(queryValue) ? queryValue : [queryValue]
       ;(param.ref as Ref<string[]>).value = arr.filter((v): v is string => typeof v === 'string')
-    } else {
+    }
+    else {
       ;(param.ref as Ref<string>).value = typeof queryValue === 'string' ? queryValue : String(queryValue)
     }
   }
@@ -57,7 +58,8 @@ export function useUrlQuerySync(params: UrlSyncParam[]): void {
     isSyncing = true
     try {
       await router.replace({ query: buildQuery() })
-    } finally {
+    }
+    finally {
       isSyncing = false
     }
   }

@@ -118,8 +118,13 @@ const onMaxRoeInfoIconClick = () => {
         class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
       >
         <div class="flex items-start gap-8">
-          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
-          <p class="text-p3 text-warning-500">One or more vaults in this pair have been deprecated.</p>
+          <SvgIcon
+            name="warning"
+            class="!w-20 !h-20 flex-shrink-0 mt-2"
+          />
+          <p class="text-p3 text-warning-500">
+            One or more vaults in this pair have been deprecated.
+          </p>
         </div>
       </div>
       <div
@@ -127,8 +132,13 @@ const onMaxRoeInfoIconClick = () => {
         class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
       >
         <div class="flex items-start gap-8">
-          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
-          <p class="text-p3 text-warning-500">This vault is not available in your region.</p>
+          <SvgIcon
+            name="warning"
+            class="!w-20 !h-20 flex-shrink-0 mt-2"
+          />
+          <p class="text-p3 text-warning-500">
+            This vault is not available in your region.
+          </p>
         </div>
       </div>
       <VaultOverviewLabelValue
@@ -137,13 +147,23 @@ const onMaxRoeInfoIconClick = () => {
         <template v-if="price !== null">
           {{ formatSignificant(priceInvert.invertValue(price), 4) }}
           <span class="text-content-tertiary">{{ priceInvert.displaySymbol }}</span>
-          <button type="button" class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="priceInvert.toggle">
-            <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+          <button
+            type="button"
+            class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex"
+            @click.stop="priceInvert.toggle"
+          >
+            <SvgIcon
+              name="swap-horizontal"
+              class="!w-12 !h-12"
+            />
           </button>
         </template>
         <template v-else>
           <span class="flex items-center text-warning-500">
-            <SvgIcon name="warning" class="mr-2 !w-20 !h-20" />
+            <SvgIcon
+              name="warning"
+              class="mr-2 !w-20 !h-20"
+            />
             Unknown
           </span>
         </template>
@@ -212,7 +232,10 @@ const onMaxRoeInfoIconClick = () => {
             title="Liquidation LTV ramping down"
           />
           <span>{{ `${formatNumber(nanoToValue(currentLiquidationLTV, 2), 2)}%` }}</span>
-          <span v-if="isRamping" @click.stop.prevent>
+          <span
+            v-if="isRamping"
+            @click.stop.prevent
+          >
             <UiFootnote
               title="LTV Ramping"
               :text="`The Liquidation LTV for this pair is being reduced. Target: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair as AnyBorrowVaultPair))}.`"

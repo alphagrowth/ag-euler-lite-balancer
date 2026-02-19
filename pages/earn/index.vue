@@ -180,7 +180,6 @@ const sortedList = computed(() => {
   const directed = sortDir.value === 'asc' ? [...sorted].reverse() : sorted
   return applyDeprecatedSort(directed)
 })
-
 </script>
 
 <template>

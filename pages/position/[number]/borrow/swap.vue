@@ -2,9 +2,8 @@
 import { useAccount } from '@wagmi/vue'
 import { formatUnits, zeroAddress, type Address } from 'viem'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault, type VaultAsset } from '~/entities/vault'
+import type { Vault, VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
-import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { useSwapDebtOptions } from '~/composables/useSwapDebtOptions'
 import { SwapperMode } from '~/entities/swap'
 import type { TxPlan } from '~/entities/txPlan'
@@ -143,7 +142,7 @@ const nextBorrowAmount = computed(() => {
 })
 
 const currentLtv = computed(() => position.value ? nanoToValue(position.value.userLTV, 18) : null)
-const currentLiquidationLtv = computed(() => position.value ? nanoToValue(position.value.liquidationLTV, 2) : null)
+const _currentLiquidationLtv = computed(() => position.value ? nanoToValue(position.value.liquidationLTV, 2) : null)
 const nextLiquidationLtv = computed(() => {
   if (!toVault.value || !collateralVault.value) return null
   const match = toVault.value.collateralLTVs.find(
@@ -276,7 +275,7 @@ const {
   isQuoteLoading, quoteError, quotesStatusLabel, selectedProvider, selectedQuote,
   fromProduct, toProduct, swapPriceInvert, currentPrice, swapSummary, priceImpact, routedVia,
   swapRouteItems, swapRouteEmptyMessage,
-  selectProvider, onFromInput, onRefreshQuotes, submit, openSlippageSettings,
+  selectProvider, onFromInput: _onFromInput, onRefreshQuotes, submit, openSlippageSettings,
   normalizeAddress, clearSimulationError, requestQuote,
 } = swap
 
@@ -442,7 +441,11 @@ const onToVaultChange = (selectedIndex: number) => {
                 suffix="%"
               />
             </SummaryRow>
-            <SummaryRow v-if="!isSameAsset" label="Swap price" align-top>
+            <SummaryRow
+              v-if="!isSameAsset"
+              label="Swap price"
+              align-top
+            >
               <SummaryPriceValue
                 :value="currentPrice ? formatSmartAmount(swapPriceInvert.invertValue(currentPrice.value)) : undefined"
                 :symbol="swapPriceInvert.displaySymbol"
@@ -450,7 +453,10 @@ const onToVaultChange = (selectedIndex: number) => {
                 @invert="swapPriceInvert.toggle"
               />
             </SummaryRow>
-            <SummaryRow label="Liquidation price" align-top>
+            <SummaryRow
+              label="Liquidation price"
+              align-top
+            >
               <!-- Borrow swap changes the borrow vault, so before/after symbols may differ -->
               <p class="text-p2 text-right inline-flex items-center flex-wrap justify-end gap-x-4">
                 <template v-if="currentLiquidationPrice !== null && nextLiquidationPrice !== null && quote">
@@ -459,10 +465,20 @@ const onToVaultChange = (selectedIndex: number) => {
                 </template>
                 <template v-else>
                   {{ liqPriceInvert.invertValue(currentLiquidationPrice) != null ? formatSmartAmount(liqPriceInvert.invertValue(currentLiquidationPrice)!) : '-' }}
-                  <span v-if="liqPriceInvert.invertValue(currentLiquidationPrice) != null" class="text-content-tertiary text-p3">{{ currentLiqDisplaySymbol }}</span>
+                  <span
+                    v-if="liqPriceInvert.invertValue(currentLiquidationPrice) != null"
+                    class="text-content-tertiary text-p3"
+                  >{{ currentLiqDisplaySymbol }}</span>
                 </template>
-                <button type="button" class="text-content-tertiary hover:text-content-primary transition-colors inline-flex" @click.stop="liqPriceInvert.toggle">
-                  <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+                <button
+                  type="button"
+                  class="text-content-tertiary hover:text-content-primary transition-colors inline-flex"
+                  @click.stop="liqPriceInvert.toggle"
+                >
+                  <SvgIcon
+                    name="swap-horizontal"
+                    class="!w-12 !h-12"
+                  />
                 </button>
               </p>
             </SummaryRow>
@@ -480,7 +496,10 @@ const onToVaultChange = (selectedIndex: number) => {
               />
             </SummaryRow>
             <template v-if="!isSameAsset">
-              <SummaryRow label="Swap" align-top>
+              <SummaryRow
+                label="Swap"
+                align-top
+              >
                 <p class="text-p2 text-right flex flex-col items-end">
                   <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
                   <span

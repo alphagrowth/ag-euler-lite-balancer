@@ -4,7 +4,7 @@ import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/stri
 import { nanoToValue } from '~/utils/crypto-utils'
 import { getPublicClient } from '~/utils/public-client'
 import { vaultConvertToAssetsAbi } from '~/abis/vault'
-import { type Vault } from '~/entities/vault'
+import type { Vault } from '~/entities/vault'
 import { getSupplyCapPercentage, getBorrowCapPercentage } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 

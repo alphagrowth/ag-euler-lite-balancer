@@ -124,7 +124,7 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const simulateData = await simulateResponse.json() as { simulation?: { id?: string; status?: boolean } }
+    const simulateData = await simulateResponse.json() as { simulation?: { id?: string, status?: boolean } }
     const simulationId = simulateData?.simulation?.id
 
     if (!simulationId) {

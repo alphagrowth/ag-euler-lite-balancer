@@ -203,7 +203,6 @@ export interface EarnVault {
   }
 }
 
-
 export interface CollateralOption {
   type: string
   amount: number

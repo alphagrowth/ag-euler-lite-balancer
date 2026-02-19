@@ -56,9 +56,9 @@ export const getRoe = (
 // Cached block data for APY calculations (shared across all vaults)
 interface BlockDataCache {
   currentBlock: number
-  currentBlockData: { number: bigint; timestamp: bigint }
+  currentBlockData: { number: bigint, timestamp: bigint }
   oneHourAgoBlock: number
-  oneHourAgoBlockData: { number: bigint; timestamp: bigint }
+  oneHourAgoBlockData: { number: bigint, timestamp: bigint }
 }
 
 // Pre-fetch block data once for all APY calculations

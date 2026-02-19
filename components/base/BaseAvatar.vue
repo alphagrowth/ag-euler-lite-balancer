@@ -1,10 +1,11 @@
 <script lang="ts">
-const loadedImages = new Set<string>()
 </script>
 
 <script setup lang="ts">
 import { useImage } from '@vueuse/core'
 import { stringToColor } from '~/utils/string-utils'
+
+const loadedImages = new Set<string>()
 
 defineOptions({
   inheritAttrs: false,

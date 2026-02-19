@@ -19,7 +19,7 @@ interface REULUnlockInfo {
   daysUntilMaturity: number
 }
 
-const { type, asset, assetIconUrl, campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount, transferAmounts } = defineProps<{
+const { type, asset, assetIconUrl, campaignInfo: _campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount, transferAmounts } = defineProps<{
   type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'transfer' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral' | 'swap-supply' | 'swap-withdraw' | 'swap-borrow'
   asset: VaultAsset
   assetIconUrl?: string
@@ -51,7 +51,9 @@ const feeEstimate = ref<string | null>(null)
 const copied = ref(false)
 const tenderlyEnabled = ref(false)
 
-fetchTenderlyEnabled().then((enabled) => { tenderlyEnabled.value = enabled })
+fetchTenderlyEnabled().then((enabled) => {
+  tenderlyEnabled.value = enabled
+})
 
 const handleTenderlySimulate = async () => {
   if (!plan?.steps || !walletAddress.value || !currentChainId.value) return
@@ -71,8 +73,8 @@ const handleTenderlySimulate = async () => {
 
     const filteredItems = permit2Address
       ? batchItems.filter(
-        call => call.targetContract.toLowerCase() !== permit2Address.toLowerCase(),
-      )
+          call => call.targetContract.toLowerCase() !== permit2Address.toLowerCase(),
+        )
       : batchItems
 
     const data = encodeFunctionData({
@@ -158,7 +160,9 @@ const copyCalldata = () => {
 
     navigator.clipboard.writeText(JSON.stringify(calldataEntries, null, 2))
     copied.value = true
-    setTimeout(() => { copied.value = false }, 2000)
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
   }
   catch (err) {
     console.warn('[OperationReviewModal] calldata copy failed', err)

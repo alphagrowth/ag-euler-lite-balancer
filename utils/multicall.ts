@@ -95,9 +95,9 @@ export const batchLensCalls = async <T>(
   evcAddress: string,
   lensAddress: string,
   lensAbi: Abi | readonly unknown[],
-  calls: Array<{ functionName: string; args: unknown[] }>,
+  calls: Array<{ functionName: string, args: unknown[] }>,
   rpcUrl: string,
-): Promise<Array<{ success: boolean; result: T | null }>> => {
+): Promise<Array<{ success: boolean, result: T | null }>> => {
   if (calls.length === 0) {
     return []
   }

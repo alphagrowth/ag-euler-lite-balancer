@@ -1,6 +1,6 @@
 import { getAddress, formatUnits } from 'viem'
-import { logWarn } from '~/utils/errorHandling'
 import { useAccount } from '@wagmi/vue'
+import { logWarn } from '~/utils/errorHandling'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
@@ -14,7 +14,6 @@ import type { SwapApiRequestInput } from '~/composables/useSwapApi'
 import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
-import { formatSmartAmount } from '~/utils/string-utils'
 import { isSameUnderlyingAsset, isSameVault as isSameVaultCheck } from '~/utils/vault-utils'
 
 export type SwapRouteItem = {
@@ -50,7 +49,7 @@ export interface UseSwapPageLogicOptions {
    * Build the swap-API params for a given input amount.
    * Return `null` to skip the request (e.g. amount exceeds debt).
    */
-  buildQuoteRequest: (amount: bigint) => { params: SwapApiRequestInput; logContext: Record<string, unknown> } | null
+  buildQuoteRequest: (amount: bigint) => { params: SwapApiRequestInput, logContext: Record<string, unknown> } | null
   /** Build the TxPlan for the current swap (same-asset or quote-based). Must throw on failure. */
   buildPlan: () => Promise<TxPlan>
   /** Page-specific balance validation error. Receives the parsed nano amount. */
@@ -76,7 +75,7 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
     compare,
     fromVault,
     toVault,
-    balance,
+    balance: _balance,
     vaultOptions,
     displayAmountField,
     quoteDiffPrefix,
@@ -137,7 +136,9 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
   // ── Helpers ────────────────────────────────────────────────────────────
   const normalizeAddress = (addr?: string): string => {
     if (!addr) return ''
-    try { return getAddress(addr) }
+    try {
+      return getAddress(addr)
+    }
     catch { return '' }
   }
 
@@ -193,9 +194,9 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
     const currentAddr = toVault.value ? normalizeAddress(toVault.value.address) : ''
     const nextVault
       = (targetAddr && opts.find(v => normalizeAddress(v.address) === targetAddr))
-      || opts.find(v => normalizeAddress(v.address) === currentAddr)
-      || opts.find(v => !getVaultTags(v.address, 'swap-target').disabled)
-      || opts[0]
+        || opts.find(v => normalizeAddress(v.address) === currentAddr)
+        || opts.find(v => !getVaultTags(v.address, 'swap-target').disabled)
+        || opts[0]
 
     if (nextVault && (!toVault.value || normalizeAddress(toVault.value.address) !== normalizeAddress(nextVault.address))) {
       toVault.value = nextVault

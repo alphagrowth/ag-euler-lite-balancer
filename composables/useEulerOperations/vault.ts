@@ -1,25 +1,24 @@
-import type { Address, Abi, Hash, Hex } from 'viem'
-import { encodeFunctionData, getAddress, maxUint256 } from 'viem'
+import type { Address, Hash } from 'viem'
+import { encodeFunctionData, getAddress } from 'viem'
+import type { OperationsContext, OperationHelpers, Permit2Helpers, AllowanceHelpers } from './types'
 import { erc20ApproveAbi, erc20TransferAbi } from '~/abis/erc20'
 import { evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
 import { vaultBorrowAbi, vaultDepositAbi, vaultPreviewWithdrawAbi, vaultRedeemAbi, vaultWithdrawAbi } from '~/abis/vault'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
-import { erc20ABI, swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
+import { swapperAbi, swapVerifierAbi } from '~/entities/euler/abis'
 import { convertSaHooksToEVCCalls, type EVCCall } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
 import { buildCollateralCleanupCalls } from '~/utils/collateral-cleanup'
-import { sumCallValues } from '~/utils/pyth'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
 import type { SwapApiQuote } from '~/entities/swap'
 import { SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { logWarn } from '~/utils/errorHandling'
-import type { OperationsContext, OperationHelpers, Permit2Helpers, AllowanceHelpers } from './types'
 
 export const createVaultBuilders = (
   ctx: OperationsContext,
   helpers: OperationHelpers,
-  permit2: Permit2Helpers,
-  allowanceHelpers: AllowanceHelpers,
+  _permit2: Permit2Helpers,
+  _allowanceHelpers: AllowanceHelpers,
 ) => {
   const buildSupplyPlan = async (
     vaultAddress: string,
@@ -75,7 +74,7 @@ export const createVaultBuilders = (
     vaultAddress: string,
     assetsAmount: bigint,
     subAccount?: string,
-    options: { includePythUpdate?: boolean; liabilityVault?: string; enabledCollaterals?: string[] } = {},
+    options: { includePythUpdate?: boolean, liabilityVault?: string, enabledCollaterals?: string[] } = {},
   ): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -178,7 +177,7 @@ export const createVaultBuilders = (
     borrowVaultAddress: string,
     borrowAmount: bigint,
     subAccount?: string,
-    options: { includePermit2Call?: boolean; enabledCollaterals?: string[] } = {},
+    options: { includePermit2Call?: boolean, enabledCollaterals?: string[] } = {},
   ): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')

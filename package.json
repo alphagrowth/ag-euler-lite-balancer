@@ -7,7 +7,18 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "nuxt typecheck",
+    "postinstall": "nuxt prepare && simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "*.{ts,vue,js,mjs,mts}": [
+      "eslint --fix"
+    ]
   },
   "dependencies": {
     "@floating-ui/vue": "1.1.6",
@@ -35,7 +46,11 @@
     "@nuxtjs/tailwindcss": "6.14.0",
     "@types/luxon": "3.4.2",
     "eslint": "9.39.2",
+    "lint-staged": "16.2.7",
     "sass": "1.84.0",
-    "tailwindcss": "3.4.19"
+    "simple-git-hooks": "2.13.1",
+    "tailwindcss": "3.4.19",
+    "typescript": "5.9.3",
+    "vue-tsc": "2.2.12"
   }
 }

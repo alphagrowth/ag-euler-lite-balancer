@@ -75,9 +75,11 @@ export const useEnvConfig = (): EnvConfig => {
 
   if (import.meta.server) {
     cached = scanEnv()
-  } else if (typeof window !== 'undefined' && (window as any).__APP_CONFIG__) {
+  }
+  else if (typeof window !== 'undefined' && (window as any).__APP_CONFIG__) {
     cached = (window as any).__APP_CONFIG__
-  } else {
+  }
+  else {
     cached = fromRuntimeConfig()
   }
 

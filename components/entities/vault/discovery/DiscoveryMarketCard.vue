@@ -12,7 +12,7 @@ import {
   type BestNetApyResult,
 } from '~/utils/discoveryCalculations'
 
-const props = defineProps<{
+defineProps<{
   market: MarketGroup
   isExpanded: boolean
 }>()
@@ -69,7 +69,10 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
     @click="$emit('toggle')"
   >
     <div class="flex pb-12 border-b border-line-subtle">
-      <template v-for="marketEntities in [getMarketEntities(market)]" :key="'entities-' + market.id">
+      <template
+        v-for="(marketEntities, entitiesIdx) in [getMarketEntities(market)]"
+        :key="'entities-' + entitiesIdx"
+      >
         <BaseAvatar
           v-if="marketEntities.logos.length > 0"
           class="icon--40 shrink-0"
@@ -81,14 +84,23 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
           :class="marketEntities.logos.length > 0 ? 'ml-12' : ''"
         >
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
-            <template v-if="marketEntities.name">{{ marketEntities.name }}</template>
-            <template v-else-if="market.curator">{{ market.curator.name }}</template>
-            <template v-else>Ungrouped</template>
+            <template v-if="marketEntities.name">
+              {{ marketEntities.name }}
+            </template>
+            <template v-else-if="market.curator">
+              {{ market.curator.name }}
+            </template>
+            <template v-else>
+              Ungrouped
+            </template>
             <span
               v-if="market.metrics.hasFeatured"
               class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-accent-100 text-accent-600 text-p5"
             >
-              <SvgIcon name="star" class="!w-14 !h-14" />
+              <SvgIcon
+                name="star"
+                class="!w-14 !h-14"
+              />
               Featured
             </span>
           </div>
@@ -103,7 +115,10 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
           </div>
         </div>
       </template>
-      <template v-for="diagram in [getMiniDiagram(market)]" :key="'counts-' + market.id">
+      <template
+        v-for="(diagram, diagramIdx) in [getMiniDiagram(market)]"
+        :key="'counts-' + diagramIdx"
+      >
         <div class="flex flex-col items-end shrink-0 ml-12 text-content-tertiary text-p3">
           <span>{{ diagram.assetCount }} assets</span>
           <span class="text-content-muted">{{ diagram.pairCount }} pairs</span>
@@ -120,26 +135,37 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
     <div class="flex pt-12 items-center mobile:flex-wrap mobile:gap-y-12">
       <div class="flex-1 flex justify-between gap-12 mobile:flex-wrap mobile:gap-y-12">
         <div>
-          <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
+          <div class="text-content-tertiary text-p3 mb-4">
+            Total supply
+          </div>
           <div class="text-p2 text-content-primary">
             {{ formatCompactUsdValue(market.metrics.totalTVL) }}
           </div>
         </div>
         <div>
-          <div class="text-content-tertiary text-p3 mb-4">Total borrowed</div>
+          <div class="text-content-tertiary text-p3 mb-4">
+            Total borrowed
+          </div>
           <div class="text-p2 text-content-primary">
             {{ formatCompactUsdValue(market.metrics.totalBorrowed) }}
           </div>
         </div>
         <div>
-          <div class="text-content-tertiary text-p3 mb-4">Available liquidity</div>
+          <div class="text-content-tertiary text-p3 mb-4">
+            Available liquidity
+          </div>
           <div class="text-p2 text-content-primary">
             {{ formatCompactUsdValue(market.metrics.totalAvailableLiquidity) }}
           </div>
         </div>
-        <template v-for="bestNet in [getBestNetApy(market)]" :key="'net-apy-' + market.id">
+        <template
+          v-for="(bestNet, bestNetIdx) in [getBestNetApy(market)]"
+          :key="'net-apy-' + bestNetIdx"
+        >
           <div v-if="bestNet.value !== 0">
-            <div class="text-content-tertiary text-p3 mb-4">Best net APY</div>
+            <div class="text-content-tertiary text-p3 mb-4">
+              Best net APY
+            </div>
             <div class="text-p2 text-content-primary flex items-center gap-4">
               <SvgIcon
                 v-if="bestNet.hasRewards"
@@ -147,14 +173,20 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
                 class="!w-12 !h-12 text-accent-500 shrink-0"
               />
               {{ formatNumber(bestNet.value, 2, 2) }}%
-              <span v-if="bestNet.pair" class="text-p4 text-content-muted">{{ bestNet.pair }}</span>
+              <span
+                v-if="bestNet.pair"
+                class="text-p4 text-content-muted"
+              >{{ bestNet.pair }}</span>
             </div>
           </div>
         </template>
       </div>
 
       <!-- Mini topology graph (non-clickable preview) -->
-      <template v-for="diagram in [getMiniDiagram(market)]" :key="'graph-' + market.id">
+      <template
+        v-for="(diagram, graphIdx) in [getMiniDiagram(market)]"
+        :key="'graph-' + graphIdx"
+      >
         <div
           v-if="diagram.nodes.length > 1"
           class="shrink-0 w-[180px] h-[60px] hidden sm:flex items-center justify-end"
@@ -182,7 +214,11 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
               :key="node.address"
             >
               <clipPath :id="`clip-${market.id}-${node.address}`">
-                <circle :cx="node.x" :cy="node.y" r="6" />
+                <circle
+                  :cx="node.x"
+                  :cy="node.y"
+                  r="6"
+                />
               </clipPath>
               <circle
                 :cx="node.x"

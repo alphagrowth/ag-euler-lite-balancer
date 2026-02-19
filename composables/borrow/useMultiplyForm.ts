@@ -88,10 +88,10 @@ const calculateRoe = (
 
 export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   const {
-    pair,
+    pair: _pair,
     borrowVault,
     collateralVault,
-    formTab,
+    formTab: _formTab,
     resolvePendingSubAccount,
     isPendingSubAccountLoading,
     isGeoBlocked,

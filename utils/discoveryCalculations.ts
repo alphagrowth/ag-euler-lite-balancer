@@ -2,8 +2,7 @@ import type { MarketGroup, MiniDiagramData, MiniNode, MiniEdge } from '~/entitie
 import type { Vault, VaultCollateralLTV } from '~/entities/vault'
 import type { AnyVault } from '~/composables/useVaultRegistry'
 import type { EulerLabelEntity } from '~/entities/euler/labels'
-import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getVaultUtilization } from '~/entities/vault'
-import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
+import { getCurrentLiquidationLTV, isLiquidationLTVRamping } from '~/entities/vault'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { getEntitiesByVault, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -89,7 +88,7 @@ export const getVaultAssetAddress = (vault: AnyVault): string => {
 // ============================================================
 
 export const getDeprecatedVaultCount = (market: MarketGroup): number =>
-  market.vaults.filter(v => {
+  market.vaults.filter((v) => {
     const addr = getVaultAddress(v)
     return addr ? isVaultDeprecated(addr) : false
   }).length

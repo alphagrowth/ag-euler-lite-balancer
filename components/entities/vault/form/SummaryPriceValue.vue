@@ -41,7 +41,10 @@ const showTransition = computed(() => {
       class="ml-4 text-content-tertiary hover:text-content-primary transition-colors inline-flex"
       @click.stop="emit('invert')"
     >
-      <SvgIcon name="swap-horizontal" class="!w-12 !h-12" />
+      <SvgIcon
+        name="swap-horizontal"
+        class="!w-12 !h-12"
+      />
     </button>
   </p>
 </template>

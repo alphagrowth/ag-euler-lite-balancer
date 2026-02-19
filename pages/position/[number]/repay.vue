@@ -16,15 +16,15 @@ import { useWalletRepay } from '~/composables/repay/useWalletRepay'
 import { useCollateralSwapRepay } from '~/composables/repay/useCollateralSwapRepay'
 import { useSavingsRepay } from '~/composables/repay/useSavingsRepay'
 
-const route = useRoute()
-const router = useRouter()
+const _route = useRoute()
+const _router = useRouter()
 const modal = useModal()
 const { isConnected, address } = useAccount()
 const positionIndex = usePositionIndex()
-const { isPositionsLoading, isPositionsLoaded, isDepositsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
+const { isPositionsLoading, isPositionsLoaded, isDepositsLoaded, refreshAllPositions: _refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
-const { eulerLensAddresses } = useEulerAddresses()
+const { eulerLensAddresses: _eulerLensAddresses } = useEulerAddresses()
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { slippage } = useSlippage()
@@ -490,7 +490,10 @@ onUnmounted(() => {
               />
             </SummaryRow>
             <template v-if="!collateral.isSameAsset.value">
-              <SummaryRow label="Swap price" align-top>
+              <SummaryRow
+                label="Swap price"
+                align-top
+              >
                 <SummaryPriceValue
                   :value="collateral.currentPrice.value ? formatSmartAmount(collateral.priceInvert.invertValue(collateral.currentPrice.value.value)) : undefined"
                   :symbol="collateral.priceInvert.displaySymbol"
@@ -529,7 +532,10 @@ onUnmounted(() => {
               />
             </SummaryRow>
             <template v-if="!collateral.isSameAsset.value">
-              <SummaryRow label="Swap" align-top>
+              <SummaryRow
+                label="Swap"
+                align-top
+              >
                 <p class="text-p2 text-right flex flex-col items-end">
                   <span>{{ collateral.summary.value ? collateral.summary.value.from : '-' }}</span>
                   <span
@@ -673,7 +679,10 @@ onUnmounted(() => {
               />
             </SummaryRow>
             <template v-if="!savings.isSameAsset.value">
-              <SummaryRow label="Swap price" align-top>
+              <SummaryRow
+                label="Swap price"
+                align-top
+              >
                 <SummaryPriceValue
                   :value="savings.currentPrice.value ? formatSmartAmount(savings.priceInvert.invertValue(savings.currentPrice.value.value)) : undefined"
                   :symbol="savings.priceInvert.displaySymbol"
@@ -712,7 +721,10 @@ onUnmounted(() => {
               />
             </SummaryRow>
             <template v-if="!savings.isSameAsset.value">
-              <SummaryRow label="Swap" align-top>
+              <SummaryRow
+                label="Swap"
+                align-top
+              >
                 <p class="text-p2 text-right flex flex-col items-end">
                   <span>{{ savings.summary.value ? savings.summary.value.from : '-' }}</span>
                   <span

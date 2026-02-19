@@ -20,7 +20,7 @@ const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enab
 
 const { EVM_PROVIDER_URL } = useEulerConfig()
 const { chainId } = useEulerAddresses()
-const { borrowList, isVaultGovernorVerified } = useVaults()
+const { borrowList: _borrowList, isVaultGovernorVerified } = useVaults()
 const { getEvkVaults } = useVaultRegistry()
 const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const modal = useModal()
@@ -156,7 +156,7 @@ const supplyCapPercentageDisplay = computed(() => {
     <!-- Overview -->
     <div
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-          >
+    >
       <p class="text-h3 text-content-primary">
         Overview
       </p>
@@ -166,8 +166,14 @@ const supplyCapPercentageDisplay = computed(() => {
           class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
         >
           <div class="flex items-start gap-8">
-            <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
-            <p class="text-p3 text-warning-500 auto-link" v-html="autoLink(deprecationReason)" />
+            <SvgIcon
+              name="warning"
+              class="!w-20 !h-20 flex-shrink-0 mt-2"
+            />
+            <p
+              class="text-p3 text-warning-500 auto-link"
+              v-html="autoLink(deprecationReason)"
+            />
           </div>
         </div>
         <div
@@ -175,15 +181,23 @@ const supplyCapPercentageDisplay = computed(() => {
           class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
         >
           <div class="flex items-start gap-8">
-            <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
-            <p class="text-p3 text-warning-500">This vault is not available in your region.</p>
+            <SvgIcon
+              name="warning"
+              class="!w-20 !h-20 flex-shrink-0 mt-2"
+            />
+            <p class="text-p3 text-warning-500">
+              This vault is not available in your region.
+            </p>
           </div>
         </div>
         <div
           v-if="product.description"
           class="w-full rounded-12 p-16 bg-surface-tertiary"
         >
-          <p class="text-p3 text-content-secondary auto-link" v-html="autoLink(product.description)" />
+          <p
+            class="text-p3 text-content-secondary auto-link"
+            v-html="autoLink(product.description)"
+          />
         </div>
         <VaultOverviewLabelValue
           label="Price"
@@ -197,9 +211,14 @@ const supplyCapPercentageDisplay = computed(() => {
           >
             {{ product.name }}
           </NuxtLink>
-          <template v-else>{{ product.name || '-' }}</template>
+          <template v-else>
+            {{ product.name || '-' }}
+          </template>
         </VaultOverviewLabelValue>
-        <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager">
+        <VaultOverviewLabelValue
+          v-if="enableEntityBrandingDisplay"
+          label="Risk manager"
+        >
           <div
             v-if="entities.length && isGovernorVerified"
             class="flex flex-col gap-16"
@@ -234,7 +253,10 @@ const supplyCapPercentageDisplay = computed(() => {
             -
           </div>
         </VaultOverviewLabelValue>
-        <VaultOverviewLabelValue v-if="enableVaultTypeDisplay" label="Vault type">
+        <VaultOverviewLabelValue
+          v-if="enableVaultTypeDisplay"
+          label="Vault type"
+        >
           <VaultTypeChip
             :vault="vault as unknown as Vault"
             type="securitize"
@@ -266,7 +288,7 @@ const supplyCapPercentageDisplay = computed(() => {
     <!-- Statistics -->
     <div
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-          >
+    >
       <p class="text-h3 text-content-primary">
         Statistics
       </p>
@@ -298,7 +320,7 @@ const supplyCapPercentageDisplay = computed(() => {
     <!-- Risk Parameters -->
     <div
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-          >
+    >
       <p class="text-h3 text-content-primary">
         Risk parameters
       </p>
@@ -338,7 +360,7 @@ const supplyCapPercentageDisplay = computed(() => {
     <!-- Addresses -->
     <div
       class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
-          >
+    >
       <p class="text-h3 text-content-primary">
         Addresses
       </p>

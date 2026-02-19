@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getAddress } from 'viem'
-import { type EarnVault, type Vault } from '~/entities/vault'
+import type { EarnVault, Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'

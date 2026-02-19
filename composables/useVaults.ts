@@ -1,6 +1,6 @@
 import { getAddress } from 'viem'
-import { logWarn } from '~/utils/errorHandling'
 import { useVaultRegistry } from './useVaultRegistry'
+import { logWarn } from '~/utils/errorHandling'
 import {
   type AnyBorrowVaultPair,
   type EarnVault,
@@ -253,9 +253,15 @@ const loadVaults = async () => {
     let evkResolve: () => void = () => {}
     let earnResolve: () => void = () => {}
     let escrowAddrsResolve: (addrs: string[]) => void = () => {}
-    const evkLoaded = new Promise<void>(resolve => { evkResolve = resolve })
-    const earnLoaded = new Promise<void>(resolve => { earnResolve = resolve })
-    const escrowAddrsLoaded = new Promise<string[]>(resolve => { escrowAddrsResolve = resolve })
+    const evkLoaded = new Promise<void>((resolve) => {
+      evkResolve = resolve
+    })
+    const earnLoaded = new Promise<void>((resolve) => {
+      earnResolve = resolve
+    })
+    const escrowAddrsLoaded = new Promise<string[]>((resolve) => {
+      escrowAddrsResolve = resolve
+    })
 
     await Promise.all([
       (async () => {

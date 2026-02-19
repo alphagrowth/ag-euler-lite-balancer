@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, type Address } from 'viem'
+import { getAddress } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultUnverifiedDisclaimerModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -23,10 +23,10 @@ const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
-const { refreshAllPositions, depositPositions } = useEulerAccount()
+const { refreshAllPositions: _refreshAllPositions, depositPositions } = useEulerAccount()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
-const { eulerLensAddresses } = useEulerAddresses()
+const { eulerLensAddresses: _eulerLensAddresses } = useEulerAddresses()
 const { fetchSingleBalance, fetchVaultShareBalance } = useWallets()
 const openSlippageSettings = () => {
   modal.open(SlippageSettingsModal)
@@ -57,7 +57,9 @@ const pairAssets = computed(() => [collateralVault.value?.asset, borrowVault.val
 // --- Shared functions ---
 const normalizeAddress = (addr?: string) => {
   if (!addr) return ''
-  try { return getAddress(addr) }
+  try {
+    return getAddress(addr)
+  }
   catch { return '' }
 }
 
@@ -247,9 +249,9 @@ const hasPythOracles = (vault: Vault | undefined): boolean => {
 const hasBorrowPriceFailure = (vault: Vault | undefined): boolean => {
   if (!vault) return false
   return (
-    vault.liabilityPriceInfo?.queryFailure ||
-    vault.liabilityPriceInfo?.amountOutMid === undefined ||
-    vault.liabilityPriceInfo?.amountOutMid === null
+    vault.liabilityPriceInfo?.queryFailure
+    || vault.liabilityPriceInfo?.amountOutMid === undefined
+    || vault.liabilityPriceInfo?.amountOutMid === null
   )
 }
 
@@ -260,9 +262,9 @@ const hasCollateralPriceFailure = (bVault: Vault | undefined, collAddr: string |
   )
   if (!collateralPrice) return true
   return (
-    collateralPrice.queryFailure ||
-    collateralPrice.amountOutMid === undefined ||
-    collateralPrice.amountOutMid === null
+    collateralPrice.queryFailure
+    || collateralPrice.amountOutMid === undefined
+    || collateralPrice.amountOutMid === null
   )
 }
 
@@ -293,38 +295,39 @@ onUnmounted(() => {
 watch(pair, async (val) => {
   if (!val) return
 
-  const borrowAddr = val.borrow.address.toLowerCase()
-  const collAddr = val.collateral.address
+  let current = val
+  const borrowAddr = current.borrow.address.toLowerCase()
+  const collAddr = current.collateral.address
 
-  const borrowNeedsRefresh = needsRefresh(val.borrow) || needsRefreshForCollateral(val.borrow, collAddr)
+  const borrowNeedsRefresh = needsRefresh(current.borrow) || needsRefreshForCollateral(current.borrow, collAddr)
 
   if (borrowNeedsRefresh && !refreshedVaultAddresses.has(borrowAddr)) {
     refreshedVaultAddresses.add(borrowAddr)
-    const refreshedBorrow = await updateVault(val.borrow.address)
-    pair.value = { ...val, borrow: refreshedBorrow } as AnyBorrowVaultPair
-    val = pair.value
+    const refreshedBorrow = await updateVault(current.borrow.address)
+    pair.value = { ...current, borrow: refreshedBorrow } as AnyBorrowVaultPair
+    current = pair.value
   }
 
-  if ('liabilityPriceInfo' in val.collateral) {
-    const collateralVaultTyped = val.collateral as Vault
+  if ('liabilityPriceInfo' in current.collateral) {
+    const collateralVaultTyped = current.collateral as Vault
     const collateralAddr = collateralVaultTyped.address.toLowerCase()
 
     if (needsRefresh(collateralVaultTyped) && !refreshedVaultAddresses.has(collateralAddr)) {
       refreshedVaultAddresses.add(collateralAddr)
       const refreshedCollateral = await updateVault(collateralVaultTyped.address)
       pair.value = { ...pair.value, collateral: refreshedCollateral } as AnyBorrowVaultPair
-      val = pair.value
+      current = pair.value
     }
   }
 
   const supplyAddress = normalizeAddress(multiply.multiplySupplyVault.value?.address)
   const isSupplyAllowed = supplyAddress
-    ? val.borrow.collateralLTVs.some(ltv => normalizeAddress(ltv.collateral) === supplyAddress)
+    ? current.borrow.collateralLTVs.some(ltv => normalizeAddress(ltv.collateral) === supplyAddress)
     : false
   if (!multiply.multiplySupplyVault.value || !isSupplyAllowed) {
-    multiply.initMultiplySupplyVault(val.collateral as Vault)
+    multiply.initMultiplySupplyVault(current.collateral as Vault)
   }
-  if (!val.collateral.verified) {
+  if (!current.collateral.verified) {
     modal.open(VaultUnverifiedDisclaimerModal, {
       isNotClosable: true,
       props: {
@@ -391,7 +394,10 @@ watch(formTab, () => {
             />
 
             <!-- Pay with token selector -->
-            <div v-if="borrow.enableSwapDeposit && collateralVault" class="flex items-center gap-8">
+            <div
+              v-if="borrow.enableSwapDeposit && collateralVault"
+              class="flex items-center gap-8"
+            >
               <span class="text-p3 text-content-tertiary">Pay with</span>
               <button
                 type="button"
@@ -426,7 +432,10 @@ watch(formTab, () => {
                 v-if="borrow.borrowSwapEstimatedCollateral.value"
                 :loading="borrow.isBorrowSwapQuoteLoading.value"
               >
-                <SummaryRow label="Estimated collateral" align-top>
+                <SummaryRow
+                  label="Estimated collateral"
+                  align-top
+                >
                   <p class="text-p2">
                     ~{{ formatSmartAmount(borrow.borrowSwapEstimatedCollateral.value) }} {{ collateralVault.asset.symbol }}
                   </p>
@@ -676,7 +685,10 @@ watch(formTab, () => {
                       estimate-only
                     />
                   </SummaryRow>
-                  <SummaryRow label="Swap price" align-top>
+                  <SummaryRow
+                    label="Swap price"
+                    align-top
+                  >
                     <SummaryPriceValue
                       :value="multiply.multiplyCurrentPrice.value ? formatSmartAmount(multiply.multiplyPriceInvert.invertValue(multiply.multiplyCurrentPrice.value.value)) : undefined"
                       :symbol="multiply.multiplyPriceInvert.displaySymbol"
@@ -706,7 +718,10 @@ watch(formTab, () => {
                       estimate-only
                     />
                   </SummaryRow>
-                  <SummaryRow label="Swap" align-top>
+                  <SummaryRow
+                    label="Swap"
+                    align-top
+                  >
                     <p class="text-p2 text-right flex flex-col items-end">
                       <span>{{ multiply.multiplySwapSummary.value ? multiply.multiplySwapSummary.value.from : '-' }}</span>
                       <span

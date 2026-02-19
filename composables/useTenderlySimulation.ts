@@ -6,7 +6,7 @@ interface TenderlySimulateParams {
   to: Address
   data: Hex
   value: string
-  stateOverrides: { address: Address; stateDiff?: { slot: Hex; value: Hex }[] }[]
+  stateOverrides: { address: Address, stateDiff?: { slot: Hex, value: Hex }[] }[]
 }
 
 interface TenderlySimulateResponse {

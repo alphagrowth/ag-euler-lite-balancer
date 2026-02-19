@@ -1,5 +1,7 @@
 import type { Address, Hash } from 'viem'
 import { encodeFunctionData } from 'viem'
+import { adjustForInterest } from '../helpers'
+import type { OperationsContext, OperationHelpers } from '../types'
 import { evcDisableCollateralAbi, evcDisableControllerAbi, evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
 import { vaultBorrowAbi, vaultTransferFromMaxAbi, vaultWithdrawAbi } from '~/abis/vault'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
@@ -9,8 +11,6 @@ import { sumCallValues } from '~/utils/pyth'
 import { logWarn } from '~/utils/errorHandling'
 import type { TxPlan } from '~/entities/txPlan'
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
-import { adjustForInterest } from '../helpers'
-import type { OperationsContext, OperationHelpers } from '../types'
 
 const getSwapInputAmount = (quote: SwapApiQuote, swapperMode: SwapperMode) => {
   const amountIn = BigInt(quote.amountIn || 0)
@@ -206,7 +206,7 @@ export const createCrossAssetSwapBuilders = (
       })
     }
 
-    let pythResult: { calls: EVCCall[]; totalFee: bigint }
+    let pythResult: { calls: EVCCall[], totalFee: bigint }
     if (liabilityVault) {
       const removingCollaterals = disableCollateral ? [disableCollateral] : []
       const effectiveCollaterals = helpers.resolveEffectiveCollaterals(enabledCollaterals, enableCollateral ? [quote.receiver] : [], removingCollaterals)
@@ -248,7 +248,7 @@ export const createCrossAssetSwapBuilders = (
     enabledCollaterals?: string[]
     isDebtSwap?: boolean
   }): Promise<TxPlan> => {
-    const { evcCalls, evcAddress, totalValue } = await buildSwapEvcCalls({
+    const { evcCalls, evcAddress: _evcAddress, totalValue: _totalValue } = await buildSwapEvcCalls({
       quote, swapperMode, isRepay, targetDebt, currentDebt,
       enableCollateral, disableCollateral, liabilityVault, enabledCollaterals, isDebtSwap,
     })

@@ -20,8 +20,9 @@ function parseAllowedOrigins(): Set<string> {
   }
 
   if (corsOrigins) {
-    corsOrigins.split(',').forEach((url) => origins.add(url.trim()))
-  } else if (appUrl && appUrl !== '*') {
+    corsOrigins.split(',').forEach(url => origins.add(url.trim()))
+  }
+  else if (appUrl && appUrl !== '*') {
     origins.add(appUrl)
   }
 
@@ -63,7 +64,8 @@ export default defineEventHandler((event) => {
 
   if (origin && allowedOrigins.has(origin)) {
     setResponseHeader(event, 'Access-Control-Allow-Origin', origin)
-  } else if (origin && process.env.NODE_ENV === 'production') {
+  }
+  else if (origin && process.env.NODE_ENV === 'production') {
     if (allowedOrigins.size > 0) {
       console.warn('[cors] Rejected origin not in allow list:', origin)
     }

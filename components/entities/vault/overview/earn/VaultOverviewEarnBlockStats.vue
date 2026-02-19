@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { type EarnVault } from '~/entities/vault'
+import type { EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
-import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultSupplyApyModal } from '#components'

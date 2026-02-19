@@ -27,8 +27,12 @@ defineProps<{
           v-if="!step.iconOnly"
           class="text-p3"
         >
-          <template v-if="step.assetInfo.amount === 'max' || step.assetInfo.amount === 'remaining'">{{ step.assetInfo.amount }}&nbsp;</template>
-          <template v-else-if="step.assetInfo.amount !== undefined">{{ formatNumber(step.assetInfo.amount, 8, 0) }}&nbsp;</template>{{ step.assetInfo.symbol }}
+          <template v-if="step.assetInfo.amount === 'max' || step.assetInfo.amount === 'remaining'">
+            {{ step.assetInfo.amount }}&nbsp;
+          </template>
+          <template v-else-if="step.assetInfo.amount !== undefined">
+            {{ formatNumber(step.assetInfo.amount, 8, 0) }}&nbsp;
+          </template>{{ step.assetInfo.symbol }}
         </p>
       </template>
       <p
@@ -52,7 +56,9 @@ defineProps<{
           v-if="!step.iconOnly"
           class="text-p3"
         >
-          <template v-if="step.toAssetInfo.amount !== undefined">{{ formatNumber(step.toAssetInfo.amount, 8, 0) }}&nbsp;</template>{{ step.toAssetInfo.symbol }}
+          <template v-if="step.toAssetInfo.amount !== undefined">
+            {{ formatNumber(step.toAssetInfo.amount, 8, 0) }}&nbsp;
+          </template>{{ step.toAssetInfo.symbol }}
         </p>
       </template>
     </div>

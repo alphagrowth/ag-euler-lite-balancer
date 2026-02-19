@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { type EarnVault } from '~/entities/vault'
+import type { EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault, useEulerEntitiesOfEarnVault } from '~/composables/useEulerLabels'
 import { isVaultFeatured } from '~/utils/eulerLabelsUtils'
@@ -12,37 +12,37 @@ import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultSupplyApyModal } from '#components'
 
-const { isConnected } = useAccount();
-const { vault } = defineProps<{ vault: EarnVault }>();
-const product = useEulerProductOfVault(vault.address);
-const { enableEntityBranding } = useDeployConfig();
-const { isEarnVaultOwnerVerified } = useVaults();
-const entities = useEulerEntitiesOfEarnVault(vault);
-const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault));
+const { isConnected } = useAccount()
+const { vault } = defineProps<{ vault: EarnVault }>()
+const product = useEulerProductOfVault(vault.address)
+const { enableEntityBranding } = useDeployConfig()
+const { isEarnVaultOwnerVerified } = useVaults()
+const entities = useEulerEntitiesOfEarnVault(vault)
+const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
 const entityName = computed(() => {
   if (!isOwnerVerified.value || entities.length === 0) return ''
   if (entities.length === 1) return entities[0].name
   if (entities.length === 2) return `${entities[0].name} & ${entities[1].name}`
   return `${entities[0].name} & others`
-});
+})
 const entityLogos = computed(() => {
   if (!entityName.value || entities.length === 0) return []
-  return entities.map((e) => getEulerLabelEntityLogo(e.logo))
-});
-const { getBalance, isLoading: isBalancesLoading } = useWallets();
-const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy();
-const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy();
-const modal = useModal();
+  return entities.map(e => getEulerLabelEntityLogo(e.logo))
+})
+const { getBalance, isLoading: isBalancesLoading } = useWallets()
+const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
+const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
+const modal = useModal()
 
 const balance = computed(() =>
   getBalance(vault.asset.address as `0x${string}`),
-);
-const totalRewardsAPY = computed(() => getSupplyRewardApy(vault.address));
-const hasRewards = computed(() => hasSupplyRewards(vault.address));
+)
+const totalRewardsAPY = computed(() => getSupplyRewardApy(vault.address))
+const hasRewards = computed(() => hasSupplyRewards(vault.address))
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
 const isFeatured = computed(() => isVaultFeatured(vault.address))
-const isUnverified = computed(() => !vault.verified);
-const displayName = computed(() => product.name || vault.name);
+const isUnverified = computed(() => !vault.verified)
+const displayName = computed(() => product.name || vault.name)
 
 const prices = ref<{ totalSupply: string, liquidity: string, walletBalance: string }>({
   totalSupply: '-',
@@ -85,16 +85,25 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
     :to="`/earn/${vault.address}`"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-line-default">
-      <AssetAvatar :asset="vault.asset" size="40" />
+      <AssetAvatar
+        :asset="vault.asset"
+        size="40"
+      />
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
-          <VaultDisplayName :name="displayName" :is-unverified="isUnverified" />
+          <VaultDisplayName
+            :name="displayName"
+            :is-unverified="isUnverified"
+          />
           <span
             v-if="isFeatured"
             class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-accent-100 text-accent-600 text-p5"
             title="Featured Vault"
           >
-            <SvgIcon name="star" class="!w-14 !h-14" />
+            <SvgIcon
+              name="star"
+              class="!w-14 !h-14"
+            />
             Featured
           </span>
           <span
@@ -102,7 +111,10 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
             class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
             title="This vault is not available in your region"
           >
-            <SvgIcon name="warning" class="!w-14 !h-14" />
+            <SvgIcon
+              name="warning"
+              class="!w-14 !h-14"
+            />
             Restricted
           </span>
         </div>
@@ -134,9 +146,15 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
       </div>
     </div>
     <div class="flex py-12 px-16 pb-12 mobile:border-b mobile:border-line-subtle mobile:pb-12">
-      <div v-if="enableEntityBranding" class="flex-1">
+      <div
+        v-if="enableEntityBranding"
+        class="flex-1"
+      >
         <div class="text-content-tertiary text-p3 mb-4">Capital allocator</div>
-        <div v-if="entityName" class="flex items-center gap-6">
+        <div
+          v-if="entityName"
+          class="flex items-center gap-6"
+        >
           <BaseAvatar
             class="icon--20"
             :label="entityName"
@@ -144,7 +162,10 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
           />
           <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
         </div>
-        <div v-else class="text-p2 text-content-primary">-</div>
+        <div
+          v-else
+          class="text-p2 text-content-primary"
+        >-</div>
       </div>
       <div class="flex-1">
         <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
@@ -174,8 +195,14 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
         </template>
       </div>
     </div>
-    <div v-if="enableEntityBranding || isConnected" class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
-      <div v-if="enableEntityBranding" class="flex w-full justify-between">
+    <div
+      v-if="enableEntityBranding || isConnected"
+      class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16"
+    >
+      <div
+        v-if="enableEntityBranding"
+        class="flex w-full justify-between"
+      >
         <div class="flex-1">
           <div class="text-content-tertiary text-p3">Capital allocator</div>
         </div>
@@ -188,10 +215,16 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
             />
             <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
           </template>
-          <div v-else class="text-p2 text-content-primary">-</div>
+          <div
+            v-else
+            class="text-p2 text-content-primary"
+          >-</div>
         </div>
       </div>
-      <div v-if="isConnected" class="flex w-full justify-between">
+      <div
+        v-if="isConnected"
+        class="flex w-full justify-between"
+      >
         <div class="flex-1">
           <div class="text-content-tertiary text-p3">In wallet</div>
         </div>

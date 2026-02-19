@@ -39,9 +39,9 @@ export const getMaxRoe = (
 ): number => {
   const netApy = supplyApy - borrowApy
   if (
-    !Number.isFinite(maxMultiplier) ||
-    !Number.isFinite(supplyApy) ||
-    !Number.isFinite(netApy)
+    !Number.isFinite(maxMultiplier)
+    || !Number.isFinite(supplyApy)
+    || !Number.isFinite(netApy)
   ) {
     return 0
   }

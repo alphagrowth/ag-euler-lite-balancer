@@ -11,7 +11,6 @@ export const useGeoBlock = () => {
     if (detected) {
       country.value = detected
     }
-
   }
 
   return { country, loadCountry }

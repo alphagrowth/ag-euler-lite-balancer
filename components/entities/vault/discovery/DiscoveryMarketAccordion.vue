@@ -346,7 +346,9 @@ onMounted(() => {
         <template v-if="!matrixMap.get(market.id)">
           <div class="border-t border-line-subtle p-16 flex flex-col gap-12">
             <div class="flex flex-col gap-8">
-              <h4 class="text-p3 font-medium text-content-secondary">Vaults</h4>
+              <h4 class="text-p3 font-medium text-content-secondary">
+                Vaults
+              </h4>
               <VaultItem
                 v-for="vault in market.vaults.filter(isVaultType)"
                 :key="getVaultAddress(vault)"
@@ -355,14 +357,20 @@ onMounted(() => {
             </div>
           </div>
         </template>
-        <template v-for="matrix in [matrixMap.get(market.id)]" :key="'matrix-' + market.id">
+        <template
+          v-for="(matrix, matrixIdx) in [matrixMap.get(market.id)]"
+          :key="'matrix-' + matrixIdx"
+        >
           <div
             v-if="matrix"
             class="border-t border-line-subtle"
             @click="selectedGraphNode?.marketId === market.id && (selectedGraphNode = null)"
           >
             <!-- Controls: view toggle + metric dropdown -->
-            <div class="px-16 pt-12 pb-8 flex flex-wrap items-center gap-8" @click.stop>
+            <div
+              class="px-16 pt-12 pb-8 flex flex-wrap items-center gap-8"
+              @click.stop
+            >
               <!-- Graph / Matrix toggle -->
               <div class="flex rounded-[100px] border border-line-default overflow-hidden">
                 <button
@@ -372,7 +380,10 @@ onMounted(() => {
                     : 'bg-surface text-content-secondary hover:bg-surface-secondary'"
                   @click.stop="setExpandedView(market.id, 'graph')"
                 >
-                  <UiIcon name="nodes" class="!w-14 !h-14" />
+                  <UiIcon
+                    name="nodes"
+                    class="!w-14 !h-14"
+                  />
                   Graph
                 </button>
                 <button
@@ -382,18 +393,27 @@ onMounted(() => {
                     : 'bg-surface text-content-secondary hover:bg-surface-secondary'"
                   @click.stop="setExpandedView(market.id, 'matrix')"
                 >
-                  <UiIcon name="grid" class="!w-14 !h-14" />
+                  <UiIcon
+                    name="grid"
+                    class="!w-14 !h-14"
+                  />
                   Matrix
                 </button>
               </div>
 
               <!-- Metric dropdown (matrix view only) -->
-              <div v-if="getExpandedView(market.id) === 'matrix'" class="relative">
+              <div
+                v-if="getExpandedView(market.id) === 'matrix'"
+                class="relative"
+              >
                 <div
                   class="ui-select__field"
                   @click.stop="metricDropdownOpen = !metricDropdownOpen"
                 >
-                  <UiIcon name="filter" class="ui-select__icon" />
+                  <UiIcon
+                    name="filter"
+                    class="ui-select__icon"
+                  />
                   <span class="ui-select__text">{{ DOT_METRIC_OPTIONS.find(o => o.id === dotMetric)?.label }}</span>
                   <UiIcon
                     name="arrow-down"
@@ -455,17 +475,27 @@ onMounted(() => {
                   <!-- Header selection: lend card + multiple borrow pairs -->
                   <template v-if="selectedMatrixHeader?.marketId === market.id">
                     <div class="flex flex-col gap-12">
-                      <template v-for="vault in [getMatrixHeaderVault(market)]" :key="'header-lend-' + vault?.address">
+                      <template
+                        v-for="vault in [getMatrixHeaderVault(market)]"
+                        :key="'header-lend-' + vault?.address"
+                      >
                         <template v-if="vault">
-                          <h4 class="text-p3 font-medium text-content-secondary">Lend</h4>
+                          <h4 class="text-p3 font-medium text-content-secondary">
+                            Lend
+                          </h4>
                           <VaultItem :vault="vault" />
                         </template>
                       </template>
 
                       <template v-if="getMatrixHeaderBorrowPairs(market).length">
-                        <h4 class="text-p3 font-medium text-content-secondary">Borrow</h4>
+                        <h4 class="text-p3 font-medium text-content-secondary">
+                          Borrow
+                        </h4>
                       </template>
-                      <template v-for="pair in getMatrixHeaderBorrowPairs(market)" :key="`header-borrow-${pair.collateral.address}-${pair.borrow.address}`">
+                      <template
+                        v-for="pair in getMatrixHeaderBorrowPairs(market)"
+                        :key="`header-borrow-${pair.collateral.address}-${pair.borrow.address}`"
+                      >
                         <VaultBorrowItem :pair="pair" />
                       </template>
                     </div>
@@ -474,16 +504,26 @@ onMounted(() => {
                   <!-- Cell selection: single lend + single borrow card -->
                   <template v-else>
                     <div class="flex flex-col gap-12">
-                      <template v-for="lendVault in [getSelectedLendVault(market)]" :key="'lend-' + lendVault?.address">
+                      <template
+                        v-for="lendVault in [getSelectedLendVault(market)]"
+                        :key="'lend-' + lendVault?.address"
+                      >
                         <template v-if="lendVault">
-                          <h4 class="text-p3 font-medium text-content-secondary">Lend</h4>
+                          <h4 class="text-p3 font-medium text-content-secondary">
+                            Lend
+                          </h4>
                           <VaultItem :vault="lendVault" />
                         </template>
                       </template>
 
-                      <template v-for="pair in [getSelectedBorrowPair(market)]" :key="'borrow-' + market.id">
+                      <template
+                        v-for="(pair, pairIdx) in [getSelectedBorrowPair(market)]"
+                        :key="'borrow-' + pairIdx"
+                      >
                         <template v-if="pair">
-                          <h4 class="text-p3 font-medium text-content-secondary">Borrow</h4>
+                          <h4 class="text-p3 font-medium text-content-secondary">
+                            Borrow
+                          </h4>
                           <VaultBorrowItem :pair="pair" />
                         </template>
                       </template>
@@ -494,23 +534,36 @@ onMounted(() => {
                 <!-- Graph view: node selection cards -->
                 <template v-else>
                   <div class="flex flex-col gap-12">
-                    <template v-for="vault in [getGraphSelectedVault(market)]" :key="'graph-lend-' + vault?.address">
+                    <template
+                      v-for="vault in [getGraphSelectedVault(market)]"
+                      :key="'graph-lend-' + vault?.address"
+                    >
                       <template v-if="vault">
-                        <h4 class="text-p3 font-medium text-content-secondary">Lend</h4>
+                        <h4 class="text-p3 font-medium text-content-secondary">
+                          Lend
+                        </h4>
                         <VaultItem :vault="vault" />
                       </template>
                     </template>
 
                     <template v-if="getGraphBorrowPairs(market).length">
-                      <h4 class="text-p3 font-medium text-content-secondary">Borrow</h4>
+                      <h4 class="text-p3 font-medium text-content-secondary">
+                        Borrow
+                      </h4>
                     </template>
-                    <template v-for="pair in getGraphBorrowPairs(market)" :key="`graph-borrow-${pair.collateral.address}-${pair.borrow.address}`">
+                    <template
+                      v-for="pair in getGraphBorrowPairs(market)"
+                      :key="`graph-borrow-${pair.collateral.address}-${pair.borrow.address}`"
+                    >
                       <VaultBorrowItem :pair="pair" />
                     </template>
 
                     <template v-if="getGraphSelectedVault(market) && !getGraphBorrowPairs(market).length">
                       <div class="flex items-center gap-8 px-12 py-10 rounded-8 bg-surface-secondary text-content-tertiary text-p3">
-                        <SvgIcon name="info-circle" class="!w-16 !h-16 shrink-0" />
+                        <SvgIcon
+                          name="info-circle"
+                          class="!w-16 !h-16 shrink-0"
+                        />
                         <span>This vault is used as collateral only and does not support borrowing.</span>
                       </div>
                     </template>

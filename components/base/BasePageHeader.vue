@@ -24,7 +24,7 @@ defineProps({
       :class="[
         !icon && arrowRight ? '[&>svg]:-rotate-90' : '',
         !icon && arrowDown && !arrowRight ? '[&>svg]:rotate-0' : '',
-        !icon && !arrowDown && !arrowRight ? '[&>svg]:rotate-180' : ''
+        !icon && !arrowDown && !arrowRight ? '[&>svg]:rotate-180' : '',
       ]"
     >
       <SvgIcon

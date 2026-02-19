@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { getAddress, zeroAddress } from 'viem'
-import { type Vault } from '~/entities/vault'
+import type { Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getProductKeyByVault } from '~/utils/eulerLabelsUtils'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { autoLink } from '~/utils/autoLink'
+
 const { vault } = defineProps<{ vault: Vault }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
 
@@ -71,8 +72,14 @@ const vaultGovernanceType = computed(() => {
         class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
       >
         <div class="flex items-start gap-8">
-          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
-          <p class="text-p3 text-warning-500 auto-link" v-html="autoLink(deprecationReason)" />
+          <SvgIcon
+            name="warning"
+            class="!w-20 !h-20 flex-shrink-0 mt-2"
+          />
+          <p
+            class="text-p3 text-warning-500 auto-link"
+            v-html="autoLink(deprecationReason)"
+          />
         </div>
       </div>
       <div
@@ -80,15 +87,23 @@ const vaultGovernanceType = computed(() => {
         class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
       >
         <div class="flex items-start gap-8">
-          <SvgIcon name="warning" class="!w-20 !h-20 flex-shrink-0 mt-2" />
-          <p class="text-p3 text-warning-500">This vault is not available in your region.</p>
+          <SvgIcon
+            name="warning"
+            class="!w-20 !h-20 flex-shrink-0 mt-2"
+          />
+          <p class="text-p3 text-warning-500">
+            This vault is not available in your region.
+          </p>
         </div>
       </div>
       <div
         v-if="product.description"
         class="w-full rounded-12 p-16 bg-surface-tertiary"
       >
-        <p class="text-p3 text-content-secondary auto-link" v-html="autoLink(product.description)" />
+        <p
+          class="text-p3 text-content-secondary auto-link"
+          v-html="autoLink(product.description)"
+        />
       </div>
       <VaultOverviewLabelValue
         label="Price"
@@ -102,9 +117,14 @@ const vaultGovernanceType = computed(() => {
         >
           {{ product.name }}
         </NuxtLink>
-        <template v-else>{{ product.name || '-' }}</template>
+        <template v-else>
+          {{ product.name || '-' }}
+        </template>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue v-if="enableEntityBrandingDisplay" label="Risk manager">
+      <VaultOverviewLabelValue
+        v-if="enableEntityBrandingDisplay"
+        label="Risk manager"
+      >
         <div
           v-if="!isGovernorVerified"
           class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"
@@ -144,7 +164,10 @@ const vaultGovernanceType = computed(() => {
           -
         </div>
       </VaultOverviewLabelValue>
-      <VaultOverviewLabelValue v-if="enableVaultTypeDisplay" label="Vault type">
+      <VaultOverviewLabelValue
+        v-if="enableVaultTypeDisplay"
+        label="Vault type"
+      >
         <VaultTypeChip
           :vault="vault"
           :type="vaultGovernanceType"

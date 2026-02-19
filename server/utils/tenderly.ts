@@ -8,7 +8,7 @@ export interface TenderlyConfig {
 
 export interface ViemStateOverrideEntry {
   address: Address
-  stateDiff?: { slot: Hex; value: Hex }[]
+  stateDiff?: { slot: Hex, value: Hex }[]
 }
 
 export const resolveTenderlyConfig = (): TenderlyConfig | undefined => {

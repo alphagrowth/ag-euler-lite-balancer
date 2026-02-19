@@ -1,19 +1,17 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getAddress, type Address } from 'viem'
+import { zeroAddress } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
-import { useToast } from '~/components/ui/composables/useToast'
 import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { Vault, VaultAsset } from '~/entities/vault'
 import { fetchBackendPrice } from '~/services/pricing/backendClient'
-import type { TxPlan } from '~/entities/txPlan'
 import type { SwapApiQuote } from '~/entities/swap'
 import { SwapperMode } from '~/entities/swap'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
-import { zeroAddress } from 'viem'
 
 const { isConnected, address } = useAccount()
 const { fetchSingleBalance } = useWallets()
@@ -36,14 +34,14 @@ const needsSwap = computed(() => {
 })
 
 const activeBalance = computed(() => needsSwap.value ? selectedAssetBalance.value : balance.value)
-const activeAsset = computed(() => needsSwap.value ? selectedAsset.value : form.asset.value)
+const _activeAsset = computed(() => needsSwap.value ? selectedAsset.value : form.asset.value)
 
 const form = useCollateralForm({
   mode: 'supply',
   needsSwap,
   effectiveBalance: activeBalance,
 
-  computePriceFixed: (pos) =>
+  computePriceFixed: pos =>
     FixedPoint.fromValue(pos.price || 0n, 18),
 
   computeLiquidationPrice: (pos) => {
@@ -75,7 +73,7 @@ const form = useCollateralForm({
     })
   },
 
-  requestSwapQuoteParams: ({ userAddr, subAccountAddr, amountNano, slippage }) => {
+  requestSwapQuoteParams: ({ userAddr, subAccountAddr, amountNano: _amountNano, slippage }) => {
     if (!selectedAsset.value || !form.asset.value || !form.collateralVault.value) return null
     return {
       tokenIn: selectedAsset.value.address as Address,
@@ -99,7 +97,7 @@ const form = useCollateralForm({
   reviewLabel: 'Review Supply',
   reviewType: 'supply',
   swapReviewType: 'swap-supply',
-  getReviewAsset: (isSwap) => isSwap && selectedAsset.value ? selectedAsset.value : form.asset.value,
+  getReviewAsset: isSwap => isSwap && selectedAsset.value ? selectedAsset.value : form.asset.value,
   getSwapToAsset: () => form.asset.value,
 
   onAfterLoad: () => updateBalance(),
@@ -207,7 +205,10 @@ onUnmounted(() => {
           />
 
           <!-- Pay with token selector -->
-          <div v-if="form.enableSwapDeposit" class="flex items-center gap-8">
+          <div
+            v-if="form.enableSwapDeposit"
+            class="flex items-center gap-8"
+          >
             <span class="text-p3 text-content-tertiary">Pay with</span>
             <button
               type="button"
@@ -242,7 +243,10 @@ onUnmounted(() => {
               v-if="form.swapEstimatedOutput.value"
               :loading="form.isSwapQuoteLoading.value"
             >
-              <SummaryRow label="Estimated deposit" align-top>
+              <SummaryRow
+                label="Estimated deposit"
+                align-top
+              >
                 <p class="text-p2">
                   ~{{ formatSmartAmount(form.swapEstimatedOutput.value) }} {{ form.asset.value.symbol }}
                 </p>

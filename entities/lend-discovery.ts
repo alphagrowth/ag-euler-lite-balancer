@@ -86,5 +86,3 @@ export interface MiniDiagramData {
   assetCount: number
   viewWidth: number
 }
-
-

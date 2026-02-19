@@ -1,6 +1,6 @@
 import axios from 'axios'
-import { logWarn } from '~/utils/errorHandling'
 import { zeroAddress, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import {
   type RoutingConfig,
   type SwapApiQuote,
@@ -76,7 +76,7 @@ const parseSwapApiResponse = (payload: SwapApiResponse | { data?: SwapApiQuote[]
   return []
 }
 
-const parseSwapProvidersResponse = (payload: { success?: boolean; data?: string[] }) => {
+const parseSwapProvidersResponse = (payload: { success?: boolean, data?: string[] }) => {
   if ('success' in payload && payload.success === false) {
     throw new Error('Swap API returned success=false')
   }
@@ -121,7 +121,7 @@ export const useSwapApi = () => {
       return []
     }
     try {
-      const response = await axios.get<{ success?: boolean; data?: string[] }>(
+      const response = await axios.get<{ success?: boolean, data?: string[] }>(
         `${baseUrl}/providers`,
         {
           params: {

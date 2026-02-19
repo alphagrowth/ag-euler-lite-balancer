@@ -1,14 +1,14 @@
 import { getAddress } from 'viem'
-import { fetchAccountPositions, type SubgraphPositionEntry } from '~/utils/subgraph'
 import { watch, computed } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { useAccount } from '@wagmi/vue'
-import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
-import type { AccountBorrowPosition } from '~/entities/account'
-import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { useAccountPositions } from './useAccountPositions'
 import { useAccountValues } from './useAccountValues'
 import { useAccountPortfolioMetrics } from './useAccountPortfolioMetrics'
+import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
+import type { AccountBorrowPosition } from '~/entities/account'
+import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
+import { fetchAccountPositions, type SubgraphPositionEntry } from '~/utils/subgraph'
 
 const {
   depositPositions,

@@ -37,9 +37,11 @@ export const useChainConfig = (): ChainConfig => {
 
   if (import.meta.server) {
     cached = scanEnv()
-  } else if (typeof window !== 'undefined' && (window as any).__CHAIN_CONFIG__) {
+  }
+  else if (typeof window !== 'undefined' && (window as any).__CHAIN_CONFIG__) {
     cached = (window as any).__CHAIN_CONFIG__
-  } else {
+  }
+  else {
     cached = { enabledChainIds: [], subgraphUris: {} }
   }
 

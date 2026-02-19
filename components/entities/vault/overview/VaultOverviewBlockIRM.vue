@@ -47,31 +47,33 @@ const theme = useLocalStorage('theme', 'light')
 const isDark = computed(() => theme.value === 'dark')
 
 // Theme-aware colors
-const chartColors = computed(() => isDark.value ? {
-  text: '#a3a3a3',
-  textMuted: '#737373',
-  gridLine: 'rgba(255, 255, 255, 0.06)',
-  axisLine: 'rgba(255, 255, 255, 0.1)',
-  tooltip: {
-    bg: 'rgba(26, 26, 26, 0.95)',
-    border: '#404040',
-    text: '#fafafa',
-    textMuted: '#a3a3a3',
-  },
-  currentLine: '#a3a3a3',
-} : {
-  text: '#737373',
-  textMuted: '#525252',
-  gridLine: '#f5f5f5',
-  axisLine: '#e5e5e5',
-  tooltip: {
-    bg: 'rgba(255, 255, 255, 0.95)',
-    border: '#e5e5e5',
-    text: '#262626',
-    textMuted: '#525252',
-  },
-  currentLine: '#262626',
-})
+const chartColors = computed(() => isDark.value
+  ? {
+      text: '#a3a3a3',
+      textMuted: '#737373',
+      gridLine: 'rgba(255, 255, 255, 0.06)',
+      axisLine: 'rgba(255, 255, 255, 0.1)',
+      tooltip: {
+        bg: 'rgba(26, 26, 26, 0.95)',
+        border: '#404040',
+        text: '#fafafa',
+        textMuted: '#a3a3a3',
+      },
+      currentLine: '#a3a3a3',
+    }
+  : {
+      text: '#737373',
+      textMuted: '#525252',
+      gridLine: '#f5f5f5',
+      axisLine: '#e5e5e5',
+      tooltip: {
+        bg: 'rgba(255, 255, 255, 0.95)',
+        border: '#e5e5e5',
+        text: '#262626',
+        textMuted: '#525252',
+      },
+      currentLine: '#262626',
+    })
 
 const { EVM_PROVIDER_URL } = useEulerConfig()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -347,7 +349,7 @@ const renderChart = async () => {
           },
           ticks: {
             color: chartColors.value.text,
-            callback: function (value, index) {
+            callback: function (value, _index) {
               // Show every 10th label
               const label = this.getLabelForValue(Number(value))
               return Number(label) % 10 === 0 ? `${label}%` : ''
@@ -371,7 +373,7 @@ const renderChart = async () => {
           },
           ticks: {
             color: chartColors.value.text,
-            callback: (value) => `${value}%`,
+            callback: value => `${value}%`,
           },
           grid: {
             color: chartColors.value.gridLine,

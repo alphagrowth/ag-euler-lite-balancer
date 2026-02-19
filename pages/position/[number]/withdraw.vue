@@ -9,7 +9,6 @@ import {
   getCollateralOraclePrice,
   conservativePriceRatio,
 } from '~/services/pricing/priceProvider'
-import type { TxPlan } from '~/entities/txPlan'
 import type { SwapApiQuote } from '~/entities/swap'
 import { SwapperMode } from '~/entities/swap'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
@@ -186,7 +185,10 @@ watch(selectedOutputAsset, () => {
           />
 
           <!-- Receive as token selector -->
-          <div v-if="form.enableSwapDeposit" class="flex items-center gap-8">
+          <div
+            v-if="form.enableSwapDeposit"
+            class="flex items-center gap-8"
+          >
             <span class="text-p3 text-content-tertiary">Receive as</span>
             <button
               type="button"
@@ -221,7 +223,10 @@ watch(selectedOutputAsset, () => {
               v-if="form.swapEstimatedOutput.value"
               :loading="form.isSwapQuoteLoading.value"
             >
-              <SummaryRow label="Estimated output" align-top>
+              <SummaryRow
+                label="Estimated output"
+                align-top
+              >
                 <p class="text-p2">
                   ~{{ formatSmartAmount(form.swapEstimatedOutput.value) }} {{ selectedOutputAsset.symbol }}
                 </p>

@@ -3,8 +3,8 @@ export const themeHue = 150
 
 // Intrinsic APY sources (data mapping, not deployment config)
 export type IntrinsicApySourceConfig =
-  | { provider: 'defillama'; address: string; chainId: number; poolId: string; useSpotApy?: boolean }
-  | { provider: 'pendle'; address: string; chainId: number; pendleMarket: string; crossChainSourceChainId?: number }
+  | { provider: 'defillama', address: string, chainId: number, poolId: string, useSpotApy?: boolean }
+  | { provider: 'pendle', address: string, chainId: number, pendleMarket: string, crossChainSourceChainId?: number }
 
 export const intrinsicApySources: readonly IntrinsicApySourceConfig[] = [
   // DefiLlama pools — Ethereum (1)

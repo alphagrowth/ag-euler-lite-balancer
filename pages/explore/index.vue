@@ -2,7 +2,7 @@
 import { useMarketGroups } from '~/composables/useMarketGroups'
 import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { getProductByVault, getEntitiesByVault, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useBestNetAPY } from '~/composables/useBestNetAPY'
 import { useVaultSearch } from '~/composables/useVaultSearch'
@@ -98,7 +98,7 @@ const marketOptions = computed(() => {
       const entityObj = entityName ? entities[entityName] : null
 
       if (market.name && !result.find(option => option.label === market.name)) {
-        result = [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj?.logo}` : undefined }]
+        return [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj?.logo}` : undefined }]
       }
     }
     return result
@@ -215,7 +215,7 @@ const sortedMarkets = computed(() => {
       const deprecatedRatio = (group: MarketGroup): number => {
         const total = group.vaults.length
         if (total === 0) return 0
-        const deprecated = group.vaults.filter(v => {
+        const deprecated = group.vaults.filter((v) => {
           const addr = getVaultAddress(v)
           return addr ? isVaultDeprecated(addr) : false
         }).length
@@ -348,7 +348,10 @@ const isLoading = computed(() =>
         v-else
         class="flex flex-col flex-1 gap-3 items-center justify-center text-content-tertiary"
       >
-        <UiIcon name="search" class="!w-24 !h-24" />
+        <UiIcon
+          name="search"
+          class="!w-24 !h-24"
+        />
         <div class="text-center max-w-[180px]">
           No markets were found by these filters
         </div>

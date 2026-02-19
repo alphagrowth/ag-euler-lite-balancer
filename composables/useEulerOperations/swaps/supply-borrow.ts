@@ -1,5 +1,6 @@
 import type { Address, Hash } from 'viem'
 import { encodeFunctionData } from 'viem'
+import type { OperationsContext, OperationHelpers } from '../types'
 import { evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
 import { vaultBorrowAbi, vaultRedeemAbi, vaultWithdrawAbi } from '~/abis/vault'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
@@ -9,7 +10,6 @@ import { getNewSubAccount } from '~/entities/account'
 import { buildCollateralCleanupCalls } from '~/utils/collateral-cleanup'
 import type { TxPlan } from '~/entities/txPlan'
 import type { SwapApiQuote } from '~/entities/swap'
-import type { OperationsContext, OperationHelpers } from '../types'
 
 export const createSupplyBorrowSwapBuilders = (
   ctx: OperationsContext,
@@ -248,7 +248,7 @@ export const createSupplyBorrowSwapBuilders = (
     assetsAmount: bigint
     quote: SwapApiQuote
     subAccount?: string
-    options?: { includePythUpdate?: boolean; liabilityVault?: string; enabledCollaterals?: string[] }
+    options?: { includePythUpdate?: boolean, liabilityVault?: string, enabledCollaterals?: string[] }
   }): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -329,7 +329,7 @@ export const createSupplyBorrowSwapBuilders = (
     sharesAmount: bigint
     quote: SwapApiQuote
     subAccount?: string
-    options?: { includePythUpdate?: boolean; liabilityVault?: string; enabledCollaterals?: string[] }
+    options?: { includePythUpdate?: boolean, liabilityVault?: string, enabledCollaterals?: string[] }
   }): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')

@@ -1,4 +1,13 @@
 import { zeroAddress, type Address } from 'viem'
+import type {
+  Vault,
+  SecuritizeVault,
+  EarnVault,
+  EarnVaultStrategyInfo,
+  VaultIteratorResult,
+} from './types'
+import { resolveAssetPriceInfo, resolveUnitOfAccountPriceInfo } from './pricing'
+import { calculateEarnVaultAPYFromExchangeRate, calculateEarnVaultAPYWithCache, fetchBlockDataForAPY } from './apy'
 import { logWarn } from '~/utils/errorHandling'
 import { USD_ADDRESS } from '~/entities/constants'
 import { BATCH_SIZE_VAULT_FETCH, BATCH_SIZE_PARALLEL_ROUNDS } from '~/entities/tuning-constants'
@@ -15,16 +24,6 @@ import { valueToNano } from '~/utils/crypto-utils'
 import { batchLensCalls } from '~/utils/multicall'
 import { getPublicClient } from '~/utils/public-client'
 
-import type {
-  Vault,
-  SecuritizeVault,
-  EarnVault,
-  EarnVaultStrategyInfo,
-  VaultIteratorResult,
-} from './types'
-import { resolveAssetPriceInfo, resolveUnitOfAccountPriceInfo } from './pricing'
-import { calculateEarnVaultAPYFromExchangeRate, calculateEarnVaultAPYWithCache, fetchBlockDataForAPY } from './apy'
-
 interface ProcessVaultOptions {
   verified?: boolean
   vaultCategory?: string
@@ -34,7 +33,7 @@ interface ProcessVaultOptions {
  * Process raw vault lens data into a Vault object.
  * Shared by all vault fetchers — single source of truth for raw → Vault mapping.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export const processRawVaultData = (
   raw: any,
   vaultAddress: string,
@@ -636,10 +635,10 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
   const verifiedVaults = _isCustomLabelsRepo.value
     ? earnVaults.value
     : await client.readContract({
-        address: eulerPeripheryAddresses.value.eulerEarnGovernedPerspective as Address,
-        abi: eulerPerspectiveABI,
-        functionName: 'verifiedArray',
-      }) as string[]
+      address: eulerPeripheryAddresses.value.eulerEarnGovernedPerspective as Address,
+      abi: eulerPerspectiveABI,
+      functionName: 'verifiedArray',
+    }) as string[]
 
   // Start block prefetch in parallel - will be awaited when needed for APY calculation
   const blockCachePromise = fetchBlockDataForAPY(_EVM_PROVIDER_URL)

@@ -1,7 +1,7 @@
 import type { Address, Hex, Abi } from 'viem'
 import { getAddress, maxUint256 } from 'viem'
+import type { OperationsContext, Permit2Helpers, AllowanceHelpers, OperationHelpers } from './types'
 import { erc20ABI } from '~/entities/euler/abis'
-import { erc20ApproveAbi } from '~/abis/erc20'
 import { EVC_ABI } from '~/abis/evc'
 import { tosSignerReadAbi, tosSignerWriteAbi } from '~/abis/tos'
 import { getTosData } from '~/composables/useTosData'
@@ -12,7 +12,6 @@ import { buildPythUpdateCalls, buildPythUpdateCallsFromFeeds, collectPythFeedsFo
 import { logWarn } from '~/utils/errorHandling'
 import { INTEREST_ADJUSTMENT_BPS, BPS_BASE } from '~/entities/tuning-constants'
 import type { Vault } from '~/entities/vault'
-import type { OperationsContext, Permit2Helpers, AllowanceHelpers, OperationHelpers } from './types'
 
 /** Pad amount by 0.01% to cover interest accrual between plan build and tx execution */
 export const adjustForInterest = (amount: bigint) => (amount * INTEREST_ADJUSTMENT_BPS) / BPS_BASE

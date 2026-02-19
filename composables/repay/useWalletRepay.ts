@@ -1,5 +1,6 @@
 import type { Ref, ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
+import { formatUnits } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
 import { logWarn } from '~/utils/errorHandling'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -9,9 +10,8 @@ import { getNetAPY } from '~/entities/vault'
 import { getAssetUsdValue, getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
-import { nanoToValue, valueToNano } from '~/utils/crypto-utils'
+import { valueToNano } from '~/utils/crypto-utils'
 import { trimTrailingZeros } from '~/utils/string-utils'
-import { formatUnits } from 'viem'
 import { amountToPercent, percentToAmountNano } from '~/utils/repayUtils'
 
 interface UseWalletRepayOptions {

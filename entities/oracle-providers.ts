@@ -36,8 +36,6 @@ const ORACLE_PROVIDER_LOGOS: Record<string, string> = {
   'RateProviderOracle': '/oracles/rate-provider.svg',
 }
 
-
-
 export const getOracleProviderLogo = (provider?: string, adapterName?: string): string | undefined => {
   // When provider is known, only use its logo — never fall through to adapter name
   // This prevents e.g. Midas (using ChainlinkOracle) from showing Chainlink's logo

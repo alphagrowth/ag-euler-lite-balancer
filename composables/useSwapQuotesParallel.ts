@@ -150,14 +150,13 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
           }
         }
         finally {
-          if (guard.isStale(gen)) {
-            return
-          }
-          providersFetchedCount.value += 1
-          if (providersFetchedCount.value >= providersCount.value) {
-            isLoading.value = false
-            if (!quoteCards.value.length) {
-              quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote'
+          if (!guard.isStale(gen)) {
+            providersFetchedCount.value += 1
+            if (providersFetchedCount.value >= providersCount.value) {
+              isLoading.value = false
+              if (!quoteCards.value.length) {
+                quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote'
+              }
             }
           }
         }

@@ -23,7 +23,7 @@ export function isAbortError(error: unknown): boolean {
 export function logWarn(
   context: string,
   error: unknown,
-  options?: { severity?: LogSeverity; data?: unknown },
+  options?: { severity?: LogSeverity, data?: unknown },
 ): void {
   const severity = options?.severity ?? 'warn'
   if (severity === 'silent') return

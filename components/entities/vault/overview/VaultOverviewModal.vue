@@ -25,7 +25,7 @@ const tabs = computed(() => {
   if (!pair) {
     return []
   }
-  const list: Array<{ label: string; value: string | undefined; assets: { address: string; symbol: string }[] }> = [
+  const list: Array<{ label: string, value: string | undefined, assets: { address: string, symbol: string }[] }> = [
     {
       label: 'Position details',
       value: undefined,

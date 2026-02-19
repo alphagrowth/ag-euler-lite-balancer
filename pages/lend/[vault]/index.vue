@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, formatUnits, isAddress, type Address, zeroAddress } from 'viem'
+import { getAddress, formatUnits, type Address, zeroAddress } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -64,7 +64,7 @@ const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate(
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { buildSupplyPlan, buildSwapAndSupplyPlan, executeTxPlan } = useEulerOperations()
 const { getVault, getSecuritizeVault, getEscrowVault, updateVault, isEscrowLoadedOnce } = useVaults()
-const { get: registryGet, getVault: registryGetVault, isKnownEscrowAddress } = useVaultRegistry()
+const { get: registryGet, getVault: _registryGetVault, isKnownEscrowAddress } = useVaultRegistry()
 const { isConnected, address } = useAccount()
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
@@ -104,7 +104,7 @@ const {
   selectedProvider: swapSelectedProvider,
   selectedQuote: swapSelectedQuote,
   effectiveQuote: swapEffectiveQuote,
-  providersCount: swapProvidersCount,
+  providersCount: _swapProvidersCount,
   isLoading: isSwapQuoteLoading,
   quoteError: swapQuoteError,
   statusLabel: swapQuotesStatusLabel,
@@ -207,9 +207,9 @@ const hasPythOracles = (v: Vault | undefined): boolean => {
 const hasPriceFailure = (v: Vault | undefined): boolean => {
   if (!v) return false
   return (
-    v.liabilityPriceInfo?.queryFailure ||
-    v.liabilityPriceInfo?.amountOutMid === undefined ||
-    v.liabilityPriceInfo?.amountOutMid === null
+    v.liabilityPriceInfo?.queryFailure
+    || v.liabilityPriceInfo?.amountOutMid === undefined
+    || v.liabilityPriceInfo?.amountOutMid === null
   )
 }
 
@@ -231,7 +231,7 @@ const features = computed(() => VAULT_FEATURES[vaultType.value])
 const vaultType = computed<VaultType>(() => securitizeVault.value ? 'securitize' : 'evk')
 
 // Unified accessors - these provide a common interface regardless of vault type
-const vaultName = computed(() => evkVault.value?.name || securitizeVault.value?.name || '')
+const _vaultName = computed(() => evkVault.value?.name || securitizeVault.value?.name || '')
 const asset = computed(() => evkVault.value?.asset || securitizeVault.value?.asset)
 
 // For components that need the EVK Vault type (VaultLabelsAndAssets, VaultPoints, etc.)
@@ -721,7 +721,10 @@ watch(address, () => {
         />
 
         <!-- Pay with token selector -->
-        <div v-if="enableSwapDeposit" class="flex items-center gap-8">
+        <div
+          v-if="enableSwapDeposit"
+          class="flex items-center gap-8"
+        >
           <span class="text-p3 text-content-tertiary">Pay with</span>
           <button
             type="button"
@@ -756,7 +759,10 @@ watch(address, () => {
             v-if="swapEstimatedOutput"
             :loading="isSwapQuoteLoading"
           >
-            <SummaryRow label="Estimated deposit" align-top>
+            <SummaryRow
+              label="Estimated deposit"
+              align-top
+            >
               <p class="text-p2">
                 ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ asset.symbol }}
               </p>
@@ -820,7 +826,10 @@ watch(address, () => {
           v-if="isVaultLoaded && asset"
           :loading="isEstimatesLoading"
         >
-          <SummaryRow label="Projected earnings per month" align-top>
+          <SummaryRow
+            label="Projected earnings per month"
+            align-top
+          >
             <p class="text-content-tertiary">
               <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
                 asset.symbol

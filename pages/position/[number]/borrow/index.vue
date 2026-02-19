@@ -6,7 +6,7 @@ import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
-import { type BorrowVaultPair, getNetAPY, type Vault, type VaultAsset } from '~/entities/vault'
+import { type BorrowVaultPair, getNetAPY, type VaultAsset } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatio } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -17,7 +17,7 @@ import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros }
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
-const route = useRoute()
+const _route = useRoute()
 const modal = useModal()
 const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
@@ -132,7 +132,7 @@ const ltvFixed = computed(() => {
   return fn
 })
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
-const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
+const _collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
 
 const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
 const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))

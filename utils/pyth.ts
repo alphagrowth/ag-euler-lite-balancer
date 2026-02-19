@@ -1,12 +1,12 @@
 import { PriceServiceConnection } from '@pythnetwork/price-service-client'
 import { encodeFunctionData, decodeFunctionResult, zeroAddress, type Address, type Hex, type Abi } from 'viem'
+import type { EVCCall } from './evc-converter'
 import { PYTH_ABI } from '~/abis/pyth'
 import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
 import { DEFAULT_PRICE_CACHE_TTL_MS } from '~/entities/constants'
 import { CACHE_TTL_15S_MS, BATCH_DELAY_COLLECT_MS } from '~/entities/tuning-constants'
 import { collectPythFeedIds, collectPythFeedIdsForPair, type PythFeed } from '~/entities/oracle'
 import type { Vault } from '~/entities/vault'
-import type { EVCCall } from './evc-converter'
 import { getPublicClient } from '~/utils/public-client'
 
 const normalizeHex = (value: string): Hex => (value.startsWith('0x') ? value as Hex : (`0x${value}` as Hex))
@@ -14,7 +14,7 @@ const normalizeFeedId = (value: string): Hex => normalizeHex(value).toLowerCase(
 
 type PriceFeedLike = {
   id: string
-  getPriceUnchecked: () => { price: string; expo: number }
+  getPriceUnchecked: () => { price: string, expo: number }
 }
 
 type CachedPrice = {
@@ -29,7 +29,6 @@ const priceCache = new Map<string, CachedPrice>()
 // -------------------------------------------
 // Pyth Update Data Batching
 // -------------------------------------------
-
 
 type PythPendingRequest = {
   feedIds: Hex[]
@@ -153,7 +152,7 @@ const getPriceServiceClient = (endpoint: string) => {
   return priceServiceClient
 }
 
-const priceToAmountOutMid = (price: { price: string; expo: number }): bigint => {
+const priceToAmountOutMid = (price: { price: string, expo: number }): bigint => {
   const raw = BigInt(price.price)
   const scale = price.expo + 18
   if (scale >= 0) {
@@ -279,12 +278,12 @@ export const buildPythUpdateCallsFromFeeds = async (
   providerUrl: string,
   hermesEndpoint: string | undefined,
   sender: Address,
-): Promise<{ calls: EVCCall[]; totalFee: bigint }> => {
+): Promise<{ calls: EVCCall[], totalFee: bigint }> => {
   if (!feeds.length || !hermesEndpoint) {
     return { calls: [], totalFee: 0n }
   }
 
-  const grouped = new Map<string, { pythAddress: Address; feedIds: Set<Hex> }>()
+  const grouped = new Map<string, { pythAddress: Address, feedIds: Set<Hex> }>()
   feeds.forEach((feed) => {
     const key = feed.pythAddress.toLowerCase()
     if (!grouped.has(key)) {
@@ -337,7 +336,7 @@ export const buildPythUpdateCalls = async (
   providerUrl: string,
   hermesEndpoint: string | undefined,
   sender: Address,
-): Promise<{ calls: EVCCall[]; totalFee: bigint }> => {
+): Promise<{ calls: EVCCall[], totalFee: bigint }> => {
   const feeds = collectPythFeedsFromVaults(vaults)
   return buildPythUpdateCallsFromFeeds(feeds, providerUrl, hermesEndpoint, sender)
 }
@@ -405,7 +404,7 @@ export const buildPythBatchItems = async (
   vaults: (Vault | undefined)[],
   providerUrl: string,
   hermesEndpoint: string | undefined,
-): Promise<{ items: BatchItem[]; totalFee: bigint }> => {
+): Promise<{ items: BatchItem[], totalFee: bigint }> => {
   const feeds = collectPythFeedsFromVaults(vaults)
   if (!feeds.length || !hermesEndpoint) {
     return { items: [], totalFee: 0n }
@@ -471,7 +470,7 @@ export const buildPythBatchItemsFromFeeds = async (
   feeds: PythFeed[],
   providerUrl: string,
   hermesEndpoint: string | undefined,
-): Promise<{ items: BatchItem[]; totalFee: bigint }> => {
+): Promise<{ items: BatchItem[], totalFee: bigint }> => {
   if (!feeds.length || !hermesEndpoint) {
     return { items: [], totalFee: 0n }
   }

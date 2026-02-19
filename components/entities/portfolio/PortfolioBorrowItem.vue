@@ -130,7 +130,7 @@ const collateralValueDisplay = computed(() => {
     : `${roundAndCompactTokens(collateralItems.value[0]?.assets ?? 0n, BigInt(position.collateral.decimals))} ${position.collateral.asset.symbol}`
 })
 
-const borrowedValueInfo = ref<{ display: string; hasPrice: boolean }>({ display: '-', hasPrice: false })
+const borrowedValueInfo = ref<{ display: string, hasPrice: boolean }>({ display: '-', hasPrice: false })
 
 const updateBorrowedValueInfo = async () => {
   const price = await formatAssetValue(position.borrowed ?? 0n, borrowVault.value!, 'off-chain')
@@ -307,7 +307,10 @@ onMounted(() => {
                 class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
                 title="This vault is not available in your region"
               >
-                <SvgIcon name="warning" class="!w-14 !h-14" />
+                <SvgIcon
+                  name="warning"
+                  class="!w-14 !h-14"
+                />
                 Restricted
               </span>
             </div>
@@ -351,7 +354,10 @@ onMounted(() => {
           v-if="hasQueryFailure"
           class="flex items-center gap-6 text-warning-500 text-p4"
         >
-          <UiIcon name="info-circle" class="!w-14 !h-14 shrink-0" />
+          <UiIcon
+            name="info-circle"
+            class="!w-14 !h-14 shrink-0"
+          />
           Oracle pricing unavailable. Some details may be missing.
         </div>
         <div class="flex justify-between">
@@ -401,10 +407,16 @@ onMounted(() => {
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Health score
-            <VaultWarningIcon :warning="utilisationWarning" tooltip-placement="top-start" />
+            <VaultWarningIcon
+              :warning="utilisationWarning"
+              tooltip-placement="top-start"
+            />
           </div>
           <div class="text-content-primary text-p3">
-            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <span
+              v-if="hasQueryFailure"
+              class="text-warning-500"
+            >Unknown</span>
             <template v-else>
               {{ formatNumber(nanoToValue(position.health, 18)) }}
             </template>

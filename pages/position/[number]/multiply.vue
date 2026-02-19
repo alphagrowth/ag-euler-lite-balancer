@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, formatUnits, isAddress, type Address } from 'viem'
+import { getAddress, formatUnits, type Address } from 'viem'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
-import { type Vault, type VaultAsset } from '~/entities/vault'
+import type { Vault, VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
@@ -624,77 +624,77 @@ const submitMultiply = async () => {
       if (isSubmitting.value || !isConnected.value) {
         return
       }
-    if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
-      return
-    }
-    const debtAmount = multiplyDebtAmountNano.value
-    if (debtAmount <= 0n) {
-      return
-    }
-    if (multiplyErrorText.value) {
-      return
-    }
-    const subAccount = multiplySubAccount.value
-    if (!subAccount) {
-      error('Unable to resolve position')
-      return
-    }
-
-    const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
-    const quote = isSameAsset ? null : multiplySelectedQuote.value
-    if (!isSameAsset && !quote) {
-      return
-    }
-
-    const nextPlanParams: MultiplyPlanParams = {
-      supplyVaultAddress: multiplySupplyVault.value.address,
-      supplyAssetAddress: multiplySupplyVault.value.asset.address,
-      supplyAmount: 0n,
-      longVaultAddress: multiplyLongVault.value.address,
-      longAssetAddress: multiplyLongVault.value.asset.address,
-      borrowVaultAddress: multiplyShortVault.value.address,
-      debtAmount,
-      quote: quote || undefined,
-      swapperMode: SwapperMode.EXACT_IN,
-      subAccount,
-    }
-    planParams.value = nextPlanParams
-
-    try {
-      plan.value = await buildMultiplyPlan({
-        ...nextPlanParams,
-        includePermit2Call: false,
-        enabledCollaterals: position.value?.collaterals,
-      })
-    }
-    catch (e) {
-      console.warn('[Multiply] failed to build plan', e)
-      plan.value = null
-    }
-
-    if (plan.value) {
-      const ok = await runMultiplySimulation(plan.value)
-      if (!ok) {
+      if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
         return
       }
-    }
+      const debtAmount = multiplyDebtAmountNano.value
+      if (debtAmount <= 0n) {
+        return
+      }
+      if (multiplyErrorText.value) {
+        return
+      }
+      const subAccount = multiplySubAccount.value
+      if (!subAccount) {
+        error('Unable to resolve position')
+        return
+      }
 
-    modal.open(OperationReviewModal, {
-      props: {
-        type: 'borrow',
-        asset: multiplyShortVault.value.asset,
-        amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
-        plan: plan.value || undefined,
-        swapToAsset: quote ? multiplyLongVault.value.asset : undefined,
-        swapToAmount: quote ? multiplyLongAmount.value : undefined,
+      const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
+      const quote = isSameAsset ? null : multiplySelectedQuote.value
+      if (!isSameAsset && !quote) {
+        return
+      }
+
+      const nextPlanParams: MultiplyPlanParams = {
+        supplyVaultAddress: multiplySupplyVault.value.address,
+        supplyAssetAddress: multiplySupplyVault.value.asset.address,
+        supplyAmount: 0n,
+        longVaultAddress: multiplyLongVault.value.address,
+        longAssetAddress: multiplyLongVault.value.asset.address,
+        borrowVaultAddress: multiplyShortVault.value.address,
+        debtAmount,
+        quote: quote || undefined,
+        swapperMode: SwapperMode.EXACT_IN,
         subAccount,
-        onConfirm: () => {
-          setTimeout(() => {
-            sendMultiply()
-          }, 400)
+      }
+      planParams.value = nextPlanParams
+
+      try {
+        plan.value = await buildMultiplyPlan({
+          ...nextPlanParams,
+          includePermit2Call: false,
+          enabledCollaterals: position.value?.collaterals,
+        })
+      }
+      catch (e) {
+        console.warn('[Multiply] failed to build plan', e)
+        plan.value = null
+      }
+
+      if (plan.value) {
+        const ok = await runMultiplySimulation(plan.value)
+        if (!ok) {
+          return
+        }
+      }
+
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'borrow',
+          asset: multiplyShortVault.value.asset,
+          amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+          plan: plan.value || undefined,
+          swapToAsset: quote ? multiplyLongVault.value.asset : undefined,
+          swapToAmount: quote ? multiplyLongAmount.value : undefined,
+          subAccount,
+          onConfirm: () => {
+            setTimeout(() => {
+              sendMultiply()
+            }, 400)
+          },
         },
-      },
-    })
+      })
     })
   }
   finally {
@@ -937,7 +937,10 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
               suffix="%"
             />
           </SummaryRow>
-          <SummaryRow label="Swap price" align-top>
+          <SummaryRow
+            label="Swap price"
+            align-top
+          >
             <SummaryPriceValue
               :value="multiplyCurrentPrice ? formatSmartAmount(priceInvert.invertValue(multiplyCurrentPrice.value)) : undefined"
               :symbol="priceInvert.displaySymbol"
@@ -967,7 +970,10 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
               :after="multiplyNextHealth !== null && multiplySwapReady ? formatHealthScore(multiplyNextHealth) : undefined"
             />
           </SummaryRow>
-          <SummaryRow label="Swap" align-top>
+          <SummaryRow
+            label="Swap"
+            align-top
+          >
             <p class="text-p2 text-right flex flex-col items-end">
               <span>{{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}</span>
               <span

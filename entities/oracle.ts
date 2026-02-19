@@ -2,7 +2,6 @@ import { decodeAbiParameters, type Address, type Hex, isHex, toHex, zeroAddress 
 import {
   CROSS_ADAPTER_COMPONENTS,
   EULER_ROUTER_COMPONENTS,
-  ORACLE_DETAILED_INFO_COMPONENTS,
   PYTH_ORACLE_COMPONENTS,
 } from '~/entities/constants'
 
@@ -183,7 +182,7 @@ export const collectPythFeedIds = (
 const resolveERC4626Base = (
   resolvedAssets: Address[] | undefined,
   base: Address | undefined,
-): { effectiveBase: Address; wrapper: Address; underlying: Address } | null => {
+): { effectiveBase: Address, wrapper: Address, underlying: Address } | null => {
   if (!resolvedAssets || !base || !isERC4626Oracle(resolvedAssets)) return null
   const wrapper = (resolvedAssets.length >= 2 ? resolvedAssets[0] : base) as Address
   const underlying = (resolvedAssets.length >= 2 ? resolvedAssets[1] : resolvedAssets[0]) as Address

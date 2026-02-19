@@ -14,7 +14,7 @@ const lendItems = computed(() => depositPositions.value.filter(p => !isEarnVault
 const sortByUsdValue = async (positions: AccountDepositPosition[]): Promise<AccountDepositPosition[]> => {
   if (positions.length <= 1) return positions
   const withValues = await Promise.all(
-    positions.map(async (p) => ({
+    positions.map(async p => ({
       position: p,
       usdValue: await getAssetUsdValueOrZero(p.assets, p.vault, 'off-chain'),
     })),

@@ -24,5 +24,9 @@ const label = computed(() => {
 </script>
 
 <template>
-  <BaseAvatar :src="src" :label="label" :class="sizeClass" />
+  <BaseAvatar
+    :src="src"
+    :label="label"
+    :class="sizeClass"
+  />
 </template>

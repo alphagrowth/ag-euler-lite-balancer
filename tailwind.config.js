@@ -35,19 +35,19 @@ module.exports = {
 
         // Text (use as text-primary, text-secondary, etc.)
         'content': {
-          'primary': 'var(--text-primary)',
-          'secondary': 'var(--text-secondary)',
-          'tertiary': 'var(--text-tertiary)',
-          'muted': 'var(--text-muted)',
-          'inverse': 'var(--text-inverse)',
-          'accent': 'var(--text-accent)',
+          primary: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          tertiary: 'var(--text-tertiary)',
+          muted: 'var(--text-muted)',
+          inverse: 'var(--text-inverse)',
+          accent: 'var(--text-accent)',
         },
 
         // Borders (use as border-default, border-subtle, etc.)
         'line': {
-          'default': 'var(--border-default)',
-          'subtle': 'var(--border-subtle)',
-          'emphasis': 'var(--border-emphasis)',
+          default: 'var(--border-default)',
+          subtle: 'var(--border-subtle)',
+          emphasis: 'var(--border-emphasis)',
         },
 
         // ============================================
@@ -176,7 +176,7 @@ module.exports = {
       },
 
       maxWidth: {
-        container: '1000px',
+        'container': '1000px',
         'container-narrow': '800px',
       },
 
@@ -208,7 +208,7 @@ module.exports = {
       },
 
       backdropBlur: {
-        'header': '20px',
+        header: '20px',
       },
     },
   },

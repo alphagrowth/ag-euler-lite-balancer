@@ -1,7 +1,7 @@
 import { getAddress } from 'viem'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { type Vault } from '~/entities/vault'
+import type { Vault } from '~/entities/vault'
 import { buildCollateralOption, computeBorrowApy } from '~/utils/collateralOptions'
 import { useReactiveMap } from '~/composables/useReactiveMap'
 

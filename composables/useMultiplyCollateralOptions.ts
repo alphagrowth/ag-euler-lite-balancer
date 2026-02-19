@@ -1,7 +1,7 @@
 import { getAddress, type Address } from 'viem'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { type CollateralOption, type Vault } from '~/entities/vault'
+import type { CollateralOption, Vault } from '~/entities/vault'
 import { buildCollateralOption, computeSupplyApy } from '~/utils/collateralOptions'
 import { useReactiveMap } from '~/composables/useReactiveMap'
 
@@ -34,7 +34,7 @@ export const useMultiplyCollateralOptions = ({
       return []
     }
 
-    const items: { vault: Vault; balance: bigint }[] = []
+    const items: { vault: Vault, balance: bigint }[] = []
     liability.collateralLTVs
       .filter(ltv => ltv.borrowLTV > 0n)
       .forEach((ltv) => {

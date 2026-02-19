@@ -1,6 +1,6 @@
 import type { Hex } from 'viem'
-import { logWarn } from '~/utils/errorHandling'
 import { hashMessage, keccak256, stringToHex } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 
 let cachedTosData: TosData | null = null
 let fetchPromise: Promise<TosData> | null = null

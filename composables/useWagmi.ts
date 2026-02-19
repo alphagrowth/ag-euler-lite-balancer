@@ -1,7 +1,7 @@
 import { useAccount, useAccountEffect, useDisconnect, useBalance, useSwitchChain, useEnsName } from '@wagmi/vue'
-import { logWarn } from '~/utils/errorHandling'
 import { useAppKit } from '@reown/appkit/vue'
 import { formatUnits, getAddress, isAddress, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { truncate } from '~/utils/string-utils'
 import { useAddressScreen } from '~/composables/useAddressScreen'
 

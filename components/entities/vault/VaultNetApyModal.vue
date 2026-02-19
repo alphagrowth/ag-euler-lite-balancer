@@ -61,7 +61,7 @@ const rewardsInfo = computed(() => {
     id: string
     apr: number
     endDate: DateTime
-    rewardToken: { symbol: string; icon?: string }
+    rewardToken: { symbol: string, icon?: string }
     source: string
     side: string
   }> = []

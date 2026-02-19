@@ -33,7 +33,10 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
 </script>
 
 <template>
-  <template v-for="enlarged in [getEnlargedDiagram(diagram)]" :key="'edata-' + market.id">
+  <template
+    v-for="(enlarged, enlargedIdx) in [getEnlargedDiagram(diagram)]"
+    :key="'edata-' + enlargedIdx"
+  >
     <div class="px-16 pb-12 flex items-center justify-center">
       <svg
         class="h-auto max-w-full"
@@ -106,7 +109,11 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
           @click.stop="$emit('selectNode', node.address)"
         >
           <clipPath :id="`graph-clip-${market.id}-${node.address}`">
-            <circle :cx="node.x" :cy="node.y" r="12" />
+            <circle
+              :cx="node.x"
+              :cy="node.y"
+              r="12"
+            />
           </clipPath>
           <circle
             :cx="node.x"

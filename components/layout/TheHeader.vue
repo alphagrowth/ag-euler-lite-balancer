@@ -104,7 +104,10 @@ onClickOutside(reference, () => {
           @click.stop
         >
           <div class="flex flex-col gap-4 w-full">
-            <div v-if="links.length" class="mb-24">
+            <div
+              v-if="links.length"
+              class="mb-24"
+            >
               <p class="mb-8 text-content-tertiary text-h6 text-left">
                 Explore
               </p>
@@ -123,7 +126,10 @@ onClickOutside(reference, () => {
                 />
               </a>
             </div>
-            <div v-if="socials.length" class="flex gap-12">
+            <div
+              v-if="socials.length"
+              class="flex gap-12"
+            >
               <a
                 v-for="item in socials"
                 :key="item.name"
@@ -164,34 +170,37 @@ onClickOutside(reference, () => {
 
     <!-- Right: Wallet -->
     <div class="flex flex-nowrap gap-8 min-w-0">
-        <UiButton
-          class="py-6 px-12"
-          icon="arrow-down"
-          variant="secondary"
-          size="medium"
-          icon-right
-          @click="onChainButtonClick"
-        >
-          <BaseAvatar :src="`/chains/${chainId}.webp`" :label="String(chainId)" />
-        </UiButton>
-        <UiButton
-          class="min-w-0 [&>span]:truncate"
-          :icon="isConnected ? 'arrow-down' : 'plus'"
-          :variant="isConnected ? 'secondary' : 'primary'"
-          size="medium"
-          :icon-right="isConnected"
-          @click="onWalletButtonClick"
-        >
-          {{ isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : 'Connect wallet' }}
-        </UiButton>
-        <UiButton
-          class="flex-shrink-0"
-          variant="secondary"
-          size="medium"
-          icon="gear"
-          icon-only
-          @click="onSettingsClick"
+      <UiButton
+        class="py-6 px-12"
+        icon="arrow-down"
+        variant="secondary"
+        size="medium"
+        icon-right
+        @click="onChainButtonClick"
+      >
+        <BaseAvatar
+          :src="`/chains/${chainId}.webp`"
+          :label="String(chainId)"
         />
-      </div>
+      </UiButton>
+      <UiButton
+        class="min-w-0 [&>span]:truncate"
+        :icon="isConnected ? 'arrow-down' : 'plus'"
+        :variant="isConnected ? 'secondary' : 'primary'"
+        size="medium"
+        :icon-right="isConnected"
+        @click="onWalletButtonClick"
+      >
+        {{ isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : 'Connect wallet' }}
+      </UiButton>
+      <UiButton
+        class="flex-shrink-0"
+        variant="secondary"
+        size="medium"
+        icon="gear"
+        icon-only
+        @click="onSettingsClick"
+      />
+    </div>
   </header>
 </template>

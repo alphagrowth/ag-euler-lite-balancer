@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import type { EarnVault, Vault } from "~/entities/vault";
-import { useModal } from "~/components/ui/composables/useModal";
-import { VaultPointsModal } from "#components";
+import type { EarnVault, Vault } from '~/entities/vault'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultPointsModal } from '#components'
 
-const { vault } = defineProps<{ vault: Vault | EarnVault }>();
+const { vault } = defineProps<{ vault: Vault | EarnVault }>()
 
-const points = useEulerPointsOfVault(vault.address);
-const modal = useModal();
+const points = useEulerPointsOfVault(vault.address)
+const modal = useModal()
 
 const onPointClick = (
-  point: { name: string; logo: string },
+  point: { name: string, logo: string },
   event: MouseEvent | TouchEvent,
 ) => {
-  event.stopPropagation();
-  event.preventDefault();
+  event.stopPropagation()
+  event.preventDefault()
   modal.open(VaultPointsModal, {
     props: {
       pointName: point.name,
       pointLogo: point.logo,
     },
-  });
-};
+  })
+}
 </script>
 
 <template>
@@ -37,6 +37,6 @@ const onPointClick = (
       draggable="false"
       @click="onPointClick(point, $event)"
       @contextmenu.prevent
-    />
+    >
   </div>
 </template>

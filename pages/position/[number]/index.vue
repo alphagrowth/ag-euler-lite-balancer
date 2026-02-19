@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, formatUnits, isAddress, type Address, type Abi } from 'viem'
+import { getAddress, type Address, type Abi } from 'viem'
 import { getPublicClient } from '~/utils/public-client'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
@@ -16,7 +16,6 @@ import {
   getCollateralUsdPrice,
   getCollateralUsdValue,
   getUnitOfAccountUsdRate,
-  getAssetOraclePrice,
   toUsdAmount,
   type UsdAmount,
 } from '~/services/pricing/priceProvider'
@@ -25,12 +24,12 @@ import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl, nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { formatNumber, formatHealthScore, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
-import { VaultOverviewModal, OperationReviewModal, VaultNetApyModal, VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
+import { VaultOverviewModal, OperationReviewModal, VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
-const route = useRoute()
+const _route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
@@ -127,7 +126,7 @@ const baseSupplyAPY = computed(() => {
   return nanoToValue(collateralVault.value?.interestRateInfo.supplyAPY || 0n, 25)
 })
 const baseBorrowAPY = computed(() => nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25))
-const intrinsicSupplyAPY = computed(() => getIntrinsicApy(collateralVault.value?.asset.address))
+const _intrinsicSupplyAPY = computed(() => getIntrinsicApy(collateralVault.value?.asset.address))
 const intrinsicBorrowAPY = computed(() => getIntrinsicApy(borrowVault.value?.asset.address))
 const collateralSupplyApy = computed(() => withIntrinsicSupplyApy(
   baseSupplyAPY.value,
@@ -730,7 +729,10 @@ watch(isConnected, () => {
             Health score
           </div>
           <div class="text-neutral-800 text-p3">
-            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <span
+              v-if="hasQueryFailure"
+              class="text-warning-500"
+            >Unknown</span>
             <template v-else>
               {{ formatHealthScore(nanoToValue(position.health, 18)) }}
             </template>
@@ -741,7 +743,10 @@ watch(isConnected, () => {
             Time to liquidation
           </div>
           <div class="text-neutral-800 text-p3">
-            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <span
+              v-if="hasQueryFailure"
+              class="text-warning-500"
+            >Unknown</span>
             <template v-else>
               {{ timeToLiquidationDisplay }}
             </template>
@@ -752,7 +757,10 @@ watch(isConnected, () => {
             Liquidation LTV
           </div>
           <div class="text-neutral-800 text-p3">
-            <span v-if="hasQueryFailure" class="text-warning-500">Unknown</span>
+            <span
+              v-if="hasQueryFailure"
+              class="text-warning-500"
+            >Unknown</span>
             <template v-else>
               {{ formatNumber(nanoToValue(position.userLTV, 18), 2) }}/{{ nanoToValue(position.liquidationLTV, 2) }}%
             </template>

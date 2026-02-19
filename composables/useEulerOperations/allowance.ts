@@ -1,12 +1,12 @@
 import type { Address, Hex, StateOverride } from 'viem'
 import { encodePacked, getAddress, hexToBigInt, keccak256, maxUint256, toHex } from 'viem'
 import { readContract } from '@wagmi/vue/actions'
+import type { OperationsContext, Permit2Helpers, AllowanceHelpers } from './types'
 import { ALLOWANCE_MAX_SEQUENTIAL_SLOT, ALLOWANCE_EXTRA_SLOT_CANDIDATES } from '~/entities/constants'
 import { erc20ABI } from '~/entities/euler/abis'
 import type { EVCCall } from '~/utils/evc-converter'
 import type { TxPlan } from '~/entities/txPlan'
 import { logWarn } from '~/utils/errorHandling'
-import type { OperationsContext, Permit2Helpers, AllowanceHelpers } from './types'
 
 const allowanceSlotIndexCache = new Map<string, bigint>()
 const maxUint256Hex = toHex(maxUint256, { size: 32 })
@@ -89,10 +89,10 @@ export const createAllowanceHelpers = (ctx: OperationsContext, permit2: Permit2H
   }
 
   const buildErc20AllowanceOverrides = async (
-    pairs: { token: Address; spender: Address }[],
+    pairs: { token: Address, spender: Address }[],
     owner: Address,
   ): Promise<StateOverride> => {
-    const overridesByToken = new Map<string, { address: Address; stateDiff: { slot: Hex; value: Hex }[] }>()
+    const overridesByToken = new Map<string, { address: Address, stateDiff: { slot: Hex, value: Hex }[] }>()
     for (const pair of pairs) {
       let slotIndex: bigint | undefined
       try {
@@ -131,7 +131,7 @@ export const createAllowanceHelpers = (ctx: OperationsContext, permit2: Permit2H
   }
 
   const buildSimulationStateOverride = async (plan: TxPlan, owner: Address): Promise<StateOverride> => {
-    const approvalPairs: { token: Address; spender: Address }[] = []
+    const approvalPairs: { token: Address, spender: Address }[] = []
     const approvalSeen = new Set<string>()
     const permit2TokenAddresses: Address[] = []
 
@@ -157,7 +157,7 @@ export const createAllowanceHelpers = (ctx: OperationsContext, permit2: Permit2H
     // Always build Permit2 overrides — they're harmless when Permit2 isn't used
     // and essential when Permit2 IS used (even without a separate permit2-approve step,
     // e.g. when the user already approved the token for Permit2 in a previous tx).
-    const permit2Pairs = new Map<string, { address: Address; pairs: { token: Address; spender: Address }[] }>()
+    const permit2Pairs = new Map<string, { address: Address, pairs: { token: Address, spender: Address }[] }>()
     const permit2Address = permit2.resolvePermit2Address()
     if (permit2Address) {
       // Collect tokens from permit2-approve steps AND from transferFromSender calldata in the batch

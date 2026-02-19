@@ -1,4 +1,5 @@
 import type { Address } from 'viem'
+import type { Vault, BorrowVaultPair } from './types'
 import {
   vaultConvertToAssetsAbi,
   vaultConvertToSharesAbi,
@@ -6,7 +7,6 @@ import {
   vaultPreviewWithdrawAbi,
 } from '~/abis/vault'
 import { getPublicClient } from '~/utils/public-client'
-import type { Vault, BorrowVaultPair } from './types'
 
 export const getBorrowVaultsByMap = (vaultsMap: Map<string, Vault>) => {
   const arr: BorrowVaultPair[] = []

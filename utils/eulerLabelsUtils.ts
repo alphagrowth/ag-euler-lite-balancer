@@ -1,4 +1,3 @@
-import type { Address } from 'viem'
 import {
   type EulerLabelEntity,
   type EulerLabelProduct,
@@ -113,7 +112,7 @@ export const getProductByVault = (vaultAddress: string) => {
     product.vaults.includes(normalized)
     || product.deprecatedVaults?.includes(normalized),
   )
-    || eulerLabelProductEmpty
+  || eulerLabelProductEmpty
 }
 
 export const getProductKeyByVault = (vaultAddress: string): string | undefined => {

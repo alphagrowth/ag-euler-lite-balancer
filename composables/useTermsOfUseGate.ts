@@ -1,6 +1,6 @@
 import { unref } from 'vue'
-import { logWarn } from '~/utils/errorHandling'
 import type { Address, Hex } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { AcknowledgeTermsModal } from '#components'
 import { tosSignerReadAbi } from '~/abis/tos'
 import { useModal } from '~/components/ui/composables/useModal'
