@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { type AccountDepositPosition, getSubAccountIndex } from '~/entities/account'
 import type { EarnVault } from '~/entities/vault'
@@ -103,11 +102,7 @@ const onClick = () => {
       <div
         class="flex w-full"
       >
-        <BaseAvatar
-          class="icon--40"
-          :src="getAssetLogoUrl(vault.asset.address, vault.asset.symbol)"
-          :label="vault.asset.symbol"
-        />
+        <AssetAvatar :asset="vault.asset" size="40" />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
             <VaultDisplayName

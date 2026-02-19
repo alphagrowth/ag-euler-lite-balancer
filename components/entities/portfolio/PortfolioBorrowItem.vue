@@ -6,7 +6,6 @@ import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { getPublicClient } from '~/utils/public-client'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { getSubAccountIndex } from '~/entities/account'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import {
   getNetAPY,
@@ -293,10 +292,9 @@ onMounted(() => {
           Position {{ subAccountIndex }}
         </div>
         <div class="flex gap-12 w-full">
-          <BaseAvatar
-            :src="[position.collateral, position.borrow].map(v => getAssetLogoUrl(v.asset.address, v.asset.symbol))"
-            :label="[position.collateral.asset.symbol, position.borrow.asset.symbol]"
-            class="icon--40"
+          <AssetAvatar
+            :asset="[position.collateral.asset, position.borrow.asset]"
+            size="40"
           />
           <div class="flex-grow min-w-0">
             <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">

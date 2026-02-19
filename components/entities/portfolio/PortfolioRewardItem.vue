@@ -4,7 +4,6 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { Reward } from '~/entities/merkl'
 import type { TxPlan } from '~/entities/txPlan'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import { formatNumber, formatUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
@@ -25,13 +24,17 @@ const amount = computed(() => nanoToValue(reward.amount, reward.token.decimals))
 const claimed = computed(() => nanoToValue(reward.claimed, reward.token.decimals))
 const amountToClaim = computed(() => amount.value - claimed.value)
 const amountInUsd = computed(() => amountToClaim.value * reward.token.price)
-const tokenIconUrl = computed(() => {
-  if (isTokensLoading.value) return null
-  return ['rEUL', 'EUL'].includes(reward.token.symbol)
-    ? getAssetLogoUrl(reward.token.address, 'EUL')
-    : rewardTokens.value.find(token => token.address === reward.token.address)?.icon
-      || null
+const isEulFamily = computed(() => ['rEUL', 'EUL'].includes(reward.token.symbol))
+const externalIconUrl = computed(() => {
+  if (isTokensLoading.value || isEulFamily.value) return undefined
+  return rewardTokens.value.find(token => token.address === reward.token.address)?.icon
+    || undefined
 })
+const hasIcon = computed(() => isEulFamily.value || !!externalIconUrl.value)
+const avatarAsset = computed(() => isEulFamily.value
+  ? { address: reward.token.address, symbol: 'EUL' }
+  : { address: reward.token.address, symbol: reward.token.symbol },
+)
 
 const ensureWalletOnSiteChain = async () => {
   const targetChainId = siteChainId.value
@@ -89,7 +92,7 @@ const onClaimClick = async () => {
       props: {
         type: 'reward',
         asset: reward.token,
-        assetIconUrl: tokenIconUrl.value || undefined,
+        assetIconUrl: externalIconUrl.value,
         amount: amountToClaim.value,
         plan: plan.value || undefined,
         onConfirm: () => {
@@ -117,10 +120,11 @@ const onClaimClick = async () => {
       class="flex flex-col gap-12"
     >
       <div class="flex justify-between items-center mb-12">
-        <BaseAvatar
-          v-if="tokenIconUrl"
-          :src="tokenIconUrl"
-          class="icon--40"
+        <AssetAvatar
+          v-if="hasIcon"
+          :asset="avatarAsset"
+          :icon-url="externalIconUrl"
+          size="40"
         />
         <div
           v-else

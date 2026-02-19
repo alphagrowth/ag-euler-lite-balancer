@@ -6,7 +6,6 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import {
   convertSharesToAssets,
   isSecuritizeVault,
@@ -522,10 +521,9 @@ watch(swapSelectedQuote, () => {
               class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
               @click="openSwapTokenSelector"
             >
-              <BaseAvatar
-                :src="getAssetLogoUrl(selectedOutputAsset?.address || asset.address, selectedOutputAsset?.symbol || asset.symbol)"
-                :label="selectedOutputAsset?.symbol || asset.symbol"
-                class="icon--20"
+              <AssetAvatar
+                :asset="{ address: selectedOutputAsset?.address || asset.address, symbol: selectedOutputAsset?.symbol || asset.symbol }"
+                size="20"
               />
               {{ selectedOutputAsset?.symbol || asset.symbol }}
               <SvgIcon

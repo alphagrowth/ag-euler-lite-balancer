@@ -1375,10 +1375,9 @@ onMounted(() => {
                           @click.stop="toggleMatrixHeader(market.id, col.address, 'column')"
                         >
                           <div class="flex flex-col items-center gap-2">
-                            <BaseAvatar
-                              class="icon--16"
-                              :src="getAssetLogoUrl(col.assetAddress, col.symbol)"
-                              :label="col.symbol"
+                            <AssetAvatar
+                              :asset="{ address: col.assetAddress, symbol: col.symbol }"
+                              size="16"
                             />
                             {{ col.symbol }}
                           </div>
@@ -1398,10 +1397,10 @@ onMounted(() => {
                           @click.stop="toggleMatrixHeader(market.id, row.address, 'row')"
                         >
                           <div class="flex items-center gap-4">
-                            <BaseAvatar
-                              class="icon--16 shrink-0"
-                              :src="getAssetLogoUrl(row.assetAddress, row.symbol)"
-                              :label="row.symbol"
+                            <AssetAvatar
+                              class="shrink-0"
+                              :asset="{ address: row.assetAddress, symbol: row.symbol }"
+                              size="16"
                             />
                             {{ row.symbol }}
                           </div>

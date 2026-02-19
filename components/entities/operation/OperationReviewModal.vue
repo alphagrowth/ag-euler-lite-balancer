@@ -591,10 +591,10 @@ const feeDisplay = computed(() => {
                 {{ step.index }}. {{ step.label }}
               </p>
               <template v-if="step.assetInfo">
-                <BaseAvatar
-                  class="icon--16"
-                  :src="step.assetInfo.iconUrl || getAssetLogoUrl(step.assetInfo.address || '', step.assetInfo.symbol)"
-                  :label="step.assetInfo.symbol"
+                <AssetAvatar
+                  :asset="{ address: step.assetInfo.address || '', symbol: step.assetInfo.symbol }"
+                  :icon-url="step.assetInfo.iconUrl"
+                  size="16"
                 />
                 <p
                   v-if="!step.iconOnly"
@@ -617,10 +617,9 @@ const feeDisplay = computed(() => {
                 >
                   &rarr;
                 </p>
-                <BaseAvatar
-                  class="icon--16"
-                  :src="getAssetLogoUrl(step.toAssetInfo.address || '', step.toAssetInfo.symbol)"
-                  :label="step.toAssetInfo.symbol"
+                <AssetAvatar
+                  :asset="{ address: step.toAssetInfo.address || '', symbol: step.toAssetInfo.symbol }"
+                  size="16"
                 />
                 <p
                   v-if="!step.iconOnly"

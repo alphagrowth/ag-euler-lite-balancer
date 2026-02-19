@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { getAddress, isAddress } from 'viem'
 import type { VaultAsset } from '~/entities/vault'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import { formatNumber } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
@@ -147,10 +146,10 @@ const handleSelectCustomToken = () => {
         :class="isSelected(opt.asset.address) ? 'bg-euler-dark-600' : ''"
         @click="handleSelect(opt)"
       >
-        <BaseAvatar
-          :src="getAssetLogoUrl(opt.asset.address, opt.asset.symbol)"
-          :label="opt.asset.symbol"
-          class="icon--36 mr-10"
+        <AssetAvatar
+          :asset="opt.asset"
+          size="36"
+          class="mr-10"
         />
         <div class="flex-grow">
           <div class="text-euler-dark-900 mb-2">
@@ -184,10 +183,10 @@ const handleSelectCustomToken = () => {
         class="flex items-center py-12 px-16 rounded-16 cursor-pointer hover:bg-euler-dark-600"
         @click="handleSelectCustomToken"
       >
-        <BaseAvatar
-          :src="getAssetLogoUrl(customToken.address, customToken.symbol)"
-          :label="customToken.symbol"
-          class="icon--36 mr-10"
+        <AssetAvatar
+          :asset="customToken"
+          size="36"
+          class="mr-10"
         />
         <div class="flex-grow">
           <div class="flex items-center gap-6 mb-2">

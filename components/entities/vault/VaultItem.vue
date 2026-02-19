@@ -7,7 +7,6 @@ import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault, useEulerEntitiesOfVault, isVaultFeatured } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
@@ -118,11 +117,7 @@ watchEffect(async () => {
     :to="`/lend/${vault.address}`"
   >
     <div class="flex pb-12 p-16 border-b border-line-subtle">
-      <BaseAvatar
-        class="icon--40"
-        :src="getAssetLogoUrl(vault.asset.address, vault.asset.symbol)"
-        :label="vault.asset.symbol"
-      />
+      <AssetAvatar :asset="vault.asset" size="40" />
       <div class="flex-grow ml-12">
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
           <VaultDisplayName :name="displayName" :is-unverified="isUnverified" />

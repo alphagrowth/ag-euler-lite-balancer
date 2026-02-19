@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getProductByVault } from '~/composables/useEulerLabels'
 import type { CollateralOption } from '~/entities/vault'
 import { formatNumber } from '~/utils/string-utils'
@@ -77,10 +76,10 @@ const handleClose = () => {
           if (!option.disabled) { selectedIdx = idx;onSave(idx) }
         "
       >
-        <BaseAvatar
-          :src="getAssetLogoUrl(option.assetAddress || '', getOptionSymbol(option))"
-          :label="getOptionSymbol(option)"
-          class="icon--36 mr-10"
+        <AssetAvatar
+          :asset="{ address: option.assetAddress || '', symbol: getOptionSymbol(option) }"
+          size="36"
+          class="mr-10"
         />
         <div class="flex-grow">
           <div class="text-euler-dark-900 mb-2">

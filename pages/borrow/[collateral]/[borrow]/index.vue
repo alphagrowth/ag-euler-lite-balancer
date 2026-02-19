@@ -1907,10 +1907,9 @@ watch(borrowSwapSelectedQuote, () => {
                 class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
                 @click="openBorrowSwapTokenSelector"
               >
-                <BaseAvatar
-                  :src="getAssetLogoUrl(borrowSelectedAsset?.address || collateralVault.asset.address, borrowSelectedAsset?.symbol || collateralVault.asset.symbol)"
-                  :label="borrowSelectedAsset?.symbol || collateralVault.asset.symbol"
-                  class="icon--20"
+                <AssetAvatar
+                  :asset="{ address: borrowSelectedAsset?.address || collateralVault.asset.address, symbol: borrowSelectedAsset?.symbol || collateralVault.asset.symbol }"
+                  size="20"
                 />
                 {{ borrowSelectedAsset?.symbol || collateralVault.asset.symbol }}
                 <SvgIcon

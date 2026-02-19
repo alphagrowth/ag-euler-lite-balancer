@@ -3,7 +3,6 @@ import { getAddress } from 'viem'
 import type { EarnVault, SecuritizeVault, Vault, VaultAsset } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
   vault: Vault | EarnVault | SecuritizeVault
@@ -68,8 +67,6 @@ const displayLabel = computed(() => {
 })
 
 const displayAssetsLabel = computed(() => assetsLabel || assets.map(asset => asset.symbol).join('/'))
-const avatarSrcs = computed(() => assets.map(asset => getAssetLogoUrl(asset.address, asset.symbol)))
-const avatarLabels = computed(() => assets.map(asset => asset.symbol))
 </script>
 
 <template>
@@ -77,10 +74,9 @@ const avatarLabels = computed(() => assets.map(asset => asset.symbol))
     :class="[size === 'large' ? 'gap-16' : 'gap-12']"
     class="flex items-center"
   >
-    <BaseAvatar
-      :class="size === 'large' ? 'icon--46' : 'icon--38'"
-      :src="avatarSrcs"
-      :label="avatarLabels"
+    <AssetAvatar
+      :asset="assets"
+      :size="size === 'large' ? '46' : '38'"
     />
 
     <div>

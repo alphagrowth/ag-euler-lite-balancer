@@ -9,7 +9,6 @@ import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import { useEulerProductOfVault, isVaultFeatured, getEntitiesByVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultBorrowApyModal, VaultMaxRoeModal } from '#components'
 
@@ -197,14 +196,9 @@ const linkPath = computed(
     <!-- Header: contents on desktop (children become grid items), flex on mobile -->
     <div class="contents mobile:!flex mobile:py-16 mobile:px-16 mobile:pb-12 mobile:border-b mobile:border-line-subtle">
       <div :class="enableEntityBranding ? 'col-span-4' : 'col-span-3'" class="flex pl-16 py-16 pb-12 mobile:!p-0 mobile:flex-1 mobile:min-w-0 mobile:items-center">
-        <BaseAvatar
-          :src="
-            [pair.collateral, pair.borrow].map((v) =>
-              getAssetLogoUrl(v.asset.address, v.asset.symbol),
-            )
-          "
-          :label="[pair.collateral.asset.symbol, pair.borrow.asset.symbol]"
-          class="icon--40"
+        <AssetAvatar
+          :asset="[pair.collateral.asset, pair.borrow.asset]"
+          size="40"
         />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">

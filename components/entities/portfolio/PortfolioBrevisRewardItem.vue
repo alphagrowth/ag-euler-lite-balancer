@@ -3,7 +3,6 @@ import { OperationReviewModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { Campaign } from '~/entities/brevis'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatNumber, formatUsdValue } from '~/utils/string-utils'
 
@@ -114,11 +113,10 @@ const onClaimClick = async () => {
     >
       <div class="flex justify-between items-center mb-12">
         <div class="flex items-center">
-          <BaseAvatar
+          <AssetAvatar
             v-if="vault"
-            :src="getAssetLogoUrl(vault.asset.address, vault.asset.symbol)"
-            :label="vault.asset.symbol"
-            class="icon--40"
+            :asset="vault.asset"
+            size="40"
           />
           <div class="ml-12">
             <h4 class="text-h5 mb-4 text-content-primary">

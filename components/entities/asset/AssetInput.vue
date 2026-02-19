@@ -3,7 +3,6 @@ import { formatUnits } from 'viem'
 import { type Vault, type SecuritizeVault, type VaultAsset, type CollateralOption, type EarnVault } from '~/entities/vault'
 import { getAssetUsdPrice } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import { compactNumber, formatNumber, formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -156,10 +155,9 @@ const openChooseCollateralModal = () => {
         class="bg-euler-dark-500 text-p3 font-semibold gap-8 flex items-center justify-center px-12 h-36 rounded-[40px] whitespace-nowrap cursor-pointer"
         @click="swappable ? emits('click-asset') : openChooseCollateralModal()"
       >
-        <BaseAvatar
-          :src="getAssetLogoUrl(asset.address, asset.symbol)"
-          :label="asset.symbol"
-          class="icon--20"
+        <AssetAvatar
+          :asset="asset"
+          size="20"
         />
         {{ asset.symbol }}
         <SvgIcon

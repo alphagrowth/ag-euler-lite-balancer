@@ -7,7 +7,6 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
@@ -658,10 +657,9 @@ onUnmounted(() => {
               class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
               @click="openSwapTokenSelector"
             >
-              <BaseAvatar
-                :src="getAssetLogoUrl(selectedAsset?.address || asset?.address || '', selectedAsset?.symbol || asset?.symbol || '')"
-                :label="selectedAsset?.symbol || asset?.symbol"
-                class="icon--20"
+              <AssetAvatar
+                :asset="{ address: selectedAsset?.address || asset?.address || '', symbol: selectedAsset?.symbol || asset?.symbol || '' }"
+                size="20"
               />
               {{ selectedAsset?.symbol || asset?.symbol }}
               <SvgIcon
