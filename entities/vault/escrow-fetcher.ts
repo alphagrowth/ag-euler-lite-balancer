@@ -1,4 +1,5 @@
 import { getAddress, parseUnits, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { USD_ADDRESS } from '~/entities/constants'
 import { BATCH_SIZE_RPC_CALLS } from '~/entities/tuning-constants'
 import {
@@ -49,7 +50,7 @@ export const fetchEscrowVault = async (vaultAddress: string): Promise<Vault> => 
     }
   }
   catch (e) {
-    console.warn(`Could not fetch asset price for escrow vault ${vaultAddress}:`, e)
+    logWarn('escrow/fetchAssetPrice', e)
   }
 
   return {
@@ -87,7 +88,7 @@ export const fetchEscrowAddresses = async (): Promise<string[]> => {
     return addresses.map(addr => getAddress(addr))
   }
   catch (e) {
-    console.error('Error fetching escrow addresses from perspective:', e)
+    logWarn('escrow/fetchAddresses', e, { severity: 'error' })
     return []
   }
 }
@@ -131,7 +132,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
     }) as string[]
   }
   catch (e) {
-    console.error('Error fetching escrow vaults from perspective:', e)
+    logWarn('escrow/fetchVaults', e, { severity: 'error' })
     verifiedVaults = []
   }
 
@@ -154,7 +155,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
         return processRawVaultData(raw, vaultAddress, undefined, { verified: true, vaultCategory: 'escrow' })
       }
       catch (e) {
-        console.error(`Error fetching escrow vault ${vaultAddress}:`, e)
+        logWarn('escrow/fetchVault', e, { severity: 'error' })
         return undefined
       }
     })
@@ -208,7 +209,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
             }
           }
           catch (e) {
-            console.warn(`Could not fetch asset price for escrow vault ${vault.address}:`, e)
+            logWarn('escrow/fetchAssetPrice', e)
           }
         }
         return vault

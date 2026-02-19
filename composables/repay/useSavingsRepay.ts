@@ -1,6 +1,7 @@
 import type { Ref, ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { formatUnits, zeroAddress, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -16,6 +17,7 @@ import { useRepaySwapDetails } from '~/composables/repay/useRepaySwapDetails'
 import { useRepayHealthMetrics } from '~/composables/repay/useRepayHealthMetrics'
 import { nanoToValue, valueToNano } from '~/utils/crypto-utils'
 import { trimTrailingZeros } from '~/utils/string-utils'
+import { createRaceGuard } from '~/utils/race-guard'
 
 interface UseSavingsRepayOptions {
   position: Ref<AccountBorrowPosition | undefined>
@@ -126,7 +128,7 @@ export const useSavingsRepay = (options: UseSavingsRepayOptions) => {
   })
 
   // --- 4th USD watcher: primary collateral value (unchanged for savings) ---
-  let savingsCollateralUsdVersion = 0
+  const savingsCollateralUsdGuard = createRaceGuard()
   const savingsCollateralUsd = ref<number | null>(null)
 
   watchEffect(async () => {
@@ -134,9 +136,10 @@ export const useSavingsRepay = (options: UseSavingsRepayOptions) => {
       savingsCollateralUsd.value = null
       return
     }
-    const version = ++savingsCollateralUsdVersion
+    const gen = savingsCollateralUsdGuard.next()
     const result = (await getAssetUsdValue(position.value.supplied || 0n, collateralVault.value, 'off-chain')) ?? null
-    if (version === savingsCollateralUsdVersion) savingsCollateralUsd.value = result
+    if (savingsCollateralUsdGuard.isStale(gen)) return
+    savingsCollateralUsd.value = result
   })
 
   // --- Health metrics ---
@@ -271,7 +274,7 @@ export const useSavingsRepay = (options: UseSavingsRepayOptions) => {
         plan.value = await buildRepayPlan()
       }
       catch (e) {
-        console.warn('[OperationReviewModal] failed to build savings plan', e)
+        logWarn('savingsRepay/buildPlan', e)
         plan.value = null
       }
 
@@ -326,7 +329,7 @@ export const useSavingsRepay = (options: UseSavingsRepayOptions) => {
     }
     catch (e) {
       error('Transaction failed')
-      console.warn(e)
+      logWarn('savingsRepay/send', e)
     }
     finally {
       isSubmitting.value = false

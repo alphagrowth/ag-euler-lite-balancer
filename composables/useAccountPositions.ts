@@ -1,4 +1,5 @@
 import { getAddress, type Address, type Abi } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
 import { getPublicClient } from '~/utils/public-client'
 import type { SubgraphPositionEntry } from '~/utils/subgraph'
@@ -129,7 +130,7 @@ const updateBorrowPositions = async (
           }
         }
         catch (err) {
-          console.warn('[updateBorrowPositions] Error fetching account info:', err)
+          logWarn('updateBorrowPositions', err)
           return undefined
         }
 
@@ -248,7 +249,7 @@ const updateBorrowPositions = async (
           : 0n
 
         if (liabilityValueBorrowing === 0n && res.vaultAccountInfo.borrowed > 0n) {
-          console.warn('liabilityValueBorrowing is 0 but borrowed amount exists, calculating manually')
+          logWarn('updateBorrowPositions', 'liabilityValueBorrowing is 0 but borrowed amount exists, calculating manually')
           const borrowedInUnitOfAccount = FixedPoint.fromValue(res.vaultAccountInfo.borrowed, borrow.decimals)
             .mul(FixedPoint.fromValue(borrow.liabilityPriceInfo.amountOutMid, 18))
             .div(FixedPoint.fromValue(borrow.liabilityPriceInfo.amountIn, 0))
@@ -414,7 +415,7 @@ const updateSavingsPositions = async (
           } as AccountDepositPosition
         }
         catch (e) {
-          console.warn(`Failed to fetch vault ${vaultAddress}:`, e)
+          logWarn('updateSavingsPositions', e)
           return undefined
         }
       })

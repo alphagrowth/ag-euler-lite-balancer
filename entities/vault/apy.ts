@@ -1,4 +1,5 @@
 import { parseUnits, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { SECONDS_IN_YEAR, TARGET_TIME_AGO } from '~/entities/constants'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import { vaultConvertToAssetsAbi } from '~/abis/vault'
@@ -116,7 +117,7 @@ export const fetchBlockDataForAPY = async (rpcUrl: string): Promise<BlockDataCac
     }
   }
   catch (e) {
-    console.error('Error fetching block data for APY:', e)
+    logWarn('apy/fetchBlockData', e, { severity: 'error' })
     return null
   }
 }
@@ -165,7 +166,7 @@ export const calculateEarnVaultAPYWithCache = async (
     return Number.isFinite(apy) ? apy : 0
   }
   catch (e) {
-    console.error(`Error calculating APY for vault ${vaultAddress}:`, e)
+    logWarn('apy/calculate', e, { severity: 'error' })
     return 0
   }
 }

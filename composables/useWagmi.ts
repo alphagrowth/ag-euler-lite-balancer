@@ -1,4 +1,5 @@
 import { useAccount, useAccountEffect, useDisconnect, useBalance, useSwitchChain, useEnsName } from '@wagmi/vue'
+import { logWarn } from '~/utils/errorHandling'
 import { useAppKit } from '@reown/appkit/vue'
 import { formatUnits, getAddress, isAddress, type Address } from 'viem'
 import { truncate } from '~/utils/string-utils'
@@ -194,7 +195,7 @@ export const useWagmi = () => {
 
   const changeChain = async (targetChainId: number) => {
     if (!allowedChainIds.value.includes(targetChainId)) {
-      console.warn(`[useWagmi] chainId ${targetChainId} is not allowed`)
+      logWarn('useWagmi', `chainId ${targetChainId} is not allowed`)
       return
     }
 
@@ -212,7 +213,7 @@ export const useWagmi = () => {
       }
     }
     catch (error) {
-      console.error('Failed to switch chain:', error)
+      logWarn('useWagmi/changeChain', error, { severity: 'error' })
       throw error
     }
     finally {

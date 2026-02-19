@@ -1,4 +1,5 @@
 import { getAddress, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { getPublicClient } from '~/utils/public-client'
 import {
   type Vault,
@@ -247,7 +248,7 @@ const resolveUnknown = async (address: string): Promise<VaultEntry> => {
   else {
     // Factory not found - try to determine type by attempting fetches
     // This can happen if vault is not yet indexed in subgraph
-    console.warn(`[resolveUnknown] Factory not found for ${address}, trying fetch methods`)
+    logWarn('resolveUnknown', `Factory not found for ${address}, trying fetch methods`)
 
     // Try securitize first (has distinct structure), then fall back to EVK
     try {
@@ -303,7 +304,7 @@ const getOrFetch = async (address: string): Promise<AnyVault | undefined> => {
   const resolution = resolveUnknown(address)
     .then(entry => entry.vault)
     .catch((e) => {
-      console.warn(`Failed to resolve vault ${address}:`, e)
+      logWarn('vaultRegistry/resolve', e)
       return undefined
     })
     .finally(() => {

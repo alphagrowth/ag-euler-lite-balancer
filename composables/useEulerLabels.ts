@@ -149,7 +149,7 @@ export const useEulerLabels = () => {
         }
         catch {
           if (_enableEarnPage) {
-            console.warn(`[Labels] earn-vaults.json not found on ${_labelsRepo}@${_labelsRepoBranch}`)
+            logWarn('labels/earn-vaults', `earn-vaults.json not found on ${_labelsRepo}@${_labelsRepoBranch}`)
           }
         }
       }

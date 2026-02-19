@@ -1,4 +1,5 @@
 import { getAddress } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { useToast } from '~/components/ui/composables/useToast'
 import { getDefaultPageRoute } from '~/entities/menu'
 
@@ -121,7 +122,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       }
     }
     catch {
-      console.warn('[ensure-vault] failed to load vault')
+      logWarn('ensure-vault', 'failed to load vault')
       info('This vault could not be found on this chain!')
       return navigateTo({
         name: getDefaultRoute(),

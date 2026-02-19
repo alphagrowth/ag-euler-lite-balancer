@@ -1,4 +1,5 @@
 import type { Ref, ComputedRef } from 'vue'
+import { logWarn } from '~/utils/errorHandling'
 import { useAccount } from '@wagmi/vue'
 import { getAddress, formatUnits, zeroAddress, type Address } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
@@ -437,7 +438,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       await Promise.all([updateVault(collateralVault.value!.address), updateVault(borrowVault.value!.address)])
     }
     catch (e) {
-      console.error(e)
+      logWarn('borrow/updateEstimates', e, { severity: 'error' })
     }
     try {
       health.value = ltvFixed.value.toUnsafeFloat() <= 0
@@ -456,7 +457,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       )
     }
     catch (e) {
-      console.warn(e)
+      logWarn('borrow/estimates', e)
       health.value = undefined
       liquidationPrice.value = undefined
       netAPY.value = undefined
@@ -505,7 +506,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
             plan.value = await buildSwapBorrowPlanFromQuote(borrowSwapEffectiveQuote.value, { includePermit2Call: false })
           }
           catch (e) {
-            console.warn('[OperationReviewModal] failed to build swap-borrow plan', e)
+            logWarn('borrow/buildSwapPlan', e)
             plan.value = null
           }
 
@@ -571,7 +572,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
             )
         }
         catch (e) {
-          console.warn('[OperationReviewModal] failed to build plan', e)
+          logWarn('borrow/buildPlan', e)
           plan.value = null
         }
 
@@ -663,7 +664,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       }, 400)
     }
     catch (e) {
-      console.warn(e)
+      logWarn('borrow/send', e)
       error('Transaction failed')
     }
     finally {

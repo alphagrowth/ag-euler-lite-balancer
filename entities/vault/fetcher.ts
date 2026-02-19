@@ -1,4 +1,5 @@
 import { zeroAddress, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { USD_ADDRESS } from '~/entities/constants'
 import { BATCH_SIZE_VAULT_FETCH, BATCH_SIZE_PARALLEL_ROUNDS } from '~/entities/tuning-constants'
 import type { PythFeed } from '~/entities/oracle'
@@ -339,7 +340,7 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
 
     // Check if price query failed (0n is valid - very small price)
     if (priceInfo.queryFailure || priceInfo.amountOutMid === undefined || priceInfo.amountOutMid === null) {
-      console.warn(`No price available for asset ${data.asset} (${data.assetSymbol})`)
+      logWarn('vault/fetchPrice', `No price available for asset ${data.asset} (${data.assetSymbol})`)
       assetPriceInfo = undefined
     }
     else {
@@ -349,7 +350,7 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     }
   }
   catch (e) {
-    console.warn(`Error fetching price for asset ${data.asset} (${data.assetSymbol}):`, e)
+    logWarn('vault/fetchPrice', e)
     assetPriceInfo = undefined
   }
 
@@ -437,7 +438,7 @@ export const fetchVaults = async function* (
       return processRawVaultData(raw, vaultAddress, undefined, { verified: true })
     }
     catch (e) {
-      console.error(`Error processing vault ${vaultAddress}:`, e)
+      logWarn('vault/processResult', e, { severity: 'error' })
       return undefined
     }
   }
@@ -454,7 +455,7 @@ export const fetchVaults = async function* (
       return processVaultResult(raw, vaultAddress)
     }
     catch (e) {
-      console.error(`Error fetching vault ${vaultAddress}:`, e)
+      logWarn('vault/fetchIndividual', e, { severity: 'error' })
       return undefined
     }
   }
@@ -499,7 +500,7 @@ export const fetchVaults = async function* (
 
       // Retry failed items individually
       if (failedAddresses.length > 0) {
-        console.warn(`[fetchBatch] Retrying ${failedAddresses.length} failed vaults individually`)
+        logWarn('vault/fetchBatch', `Retrying ${failedAddresses.length} failed vaults individually`)
         const retryResults = await Promise.all(
           failedAddresses.map(addr => fetchVaultIndividually(addr)),
         )
@@ -725,7 +726,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
       } as PartialEarnVault
     }
     catch (e) {
-      console.error(`Error fetching Earn vault ${vaultAddress}:`, e)
+      logWarn('vault/fetchEarnVault', e, { severity: 'error' })
       return undefined
     }
   }

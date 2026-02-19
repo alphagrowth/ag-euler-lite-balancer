@@ -1,4 +1,5 @@
 import { getAddress, zeroAddress, type Address, type Hash } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { evcDisableCollateralAbi, evcDisableControllerAbi } from '~/abis/evc'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type { EVCCall } from '~/utils/evc-converter'
@@ -108,7 +109,7 @@ export async function buildCollateralCleanupCalls(params: CleanupParams): Promis
     return evcCalls
   }
   catch (error) {
-    console.error('[collateral-cleanup] Failed to build cleanup calls:', error)
+    logWarn('collateral-cleanup', error, { severity: 'error' })
     return []
   }
 }

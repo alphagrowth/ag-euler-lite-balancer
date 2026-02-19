@@ -1,6 +1,7 @@
 import type { Ref, ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { getAddress, formatUnits, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -720,7 +721,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
           subAccount = await resolvePendingSubAccount()
         }
         catch (e) {
-          console.warn('[Multiply] failed to resolve subaccount', e)
+          logWarn('multiply/resolveSubaccount', e)
           error('Unable to resolve position')
           return
         }
@@ -748,7 +749,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
           })
         }
         catch (e) {
-          console.warn('[OperationReviewModal] failed to build plan', e)
+          logWarn('multiply/buildPlan', e)
           multiplyPlan.value = null
         }
 
@@ -799,7 +800,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
       }, 400)
     }
     catch (e) {
-      console.warn(e)
+      logWarn('multiply/send', e)
       error('Transaction failed')
     }
     finally {

@@ -1,4 +1,5 @@
 import type { Hex } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { hashMessage, keccak256, stringToHex } from 'viem'
 
 let cachedTosData: TosData | null = null
@@ -39,7 +40,7 @@ export async function getTosData(): Promise<TosData> {
       return cachedTosData
     })
     .catch((error) => {
-      console.error('[TOS] Failed to load Terms of Use markdown:', error)
+      logWarn('tos/loadMarkdown', error, { severity: 'error' })
       throw error
     })
     .finally(() => {

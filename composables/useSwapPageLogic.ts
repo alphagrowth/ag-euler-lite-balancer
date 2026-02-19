@@ -1,4 +1,5 @@
 import { getAddress, formatUnits } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { useAccount } from '@wagmi/vue'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -454,7 +455,7 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
           plan.value = await buildPlan()
         }
         catch (e) {
-          console.warn('[OperationReviewModal] failed to build plan', e)
+          logWarn('swap/buildPlan', e)
           showError('Failed to build transaction')
           plan.value = null
           return
@@ -503,7 +504,7 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
     }
     catch (e) {
       showError('Transaction failed')
-      console.warn(e)
+      logWarn('swap/send', e)
     }
     finally {
       isSubmitting.value = false

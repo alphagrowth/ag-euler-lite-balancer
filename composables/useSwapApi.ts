@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { logWarn } from '~/utils/errorHandling'
 import { zeroAddress, type Address } from 'viem'
 import {
   type RoutingConfig,
@@ -132,7 +133,7 @@ export const useSwapApi = () => {
       return providers.filter(p => !EXCLUDED_SWAP_PROVIDERS.has(p.toLowerCase()))
     }
     catch (error) {
-      console.warn('[useSwapApi] providers failed', error)
+      logWarn('swapApi/providers', error)
       return []
     }
   }
@@ -150,7 +151,7 @@ export const useSwapApi = () => {
       await axios.post(`${baseUrl}/log`, payload)
     }
     catch (error) {
-      console.warn('[useSwapApi] log failed', error)
+      logWarn('swapApi/log', error)
     }
   }
 

@@ -1,6 +1,7 @@
 import type { Ref, ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { zeroAddress, type Address, type Abi } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -18,6 +19,7 @@ import { useRepayHealthMetrics } from '~/composables/repay/useRepayHealthMetrics
 import { getPublicClient } from '~/utils/public-client'
 import { nanoToValue, valueToNano } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
+import { createRaceGuard } from '~/utils/race-guard'
 
 interface UseCollateralSwapRepayOptions {
   position: Ref<AccountBorrowPosition | undefined>
@@ -164,7 +166,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
   })
 
   // --- 4th USD watcher: next collateral value ---
-  let nextCollateralValueUsdVersion = 0
+  const nextCollateralUsdGuard = createRaceGuard()
   const nextCollateralValueUsd = ref<number | null>(null)
 
   watchEffect(async () => {
@@ -172,10 +174,11 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
       nextCollateralValueUsd.value = null
       return
     }
-    const version = ++nextCollateralValueUsdVersion
+    const gen = nextCollateralUsdGuard.next()
     const nextAssets = sourceAssets.value - core.spent.value
     const result = (await getAssetUsdValue(nextAssets > 0n ? nextAssets : 0n, sourceVault.value, 'off-chain')) ?? null
-    if (version === nextCollateralValueUsdVersion) nextCollateralValueUsd.value = result
+    if (nextCollateralUsdGuard.isStale(gen)) return
+    nextCollateralValueUsd.value = result
   })
 
   // --- Health metrics ---
@@ -251,7 +254,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
       sourceAssets.value = res.assets
     }
     catch (e) {
-      console.warn('[Repay swap] failed to load collateral balance', e)
+      logWarn('collateralSwapRepay/loadBalance', e)
     }
   }
 
@@ -336,7 +339,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
         plan.value = await buildRepayPlan()
       }
       catch (e) {
-        console.warn('[OperationReviewModal] failed to build plan', e)
+        logWarn('collateralSwapRepay/buildPlan', e)
         plan.value = null
       }
 
@@ -382,7 +385,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
     }
     catch (e) {
       error('Transaction failed')
-      console.warn(e)
+      logWarn('collateralSwapRepay/send', e)
     }
     finally {
       isSubmitting.value = false

@@ -1,6 +1,7 @@
 import type { Ref, ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { FixedPoint } from '~/utils/fixed-point'
+import { logWarn } from '~/utils/errorHandling'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -123,7 +124,7 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
           )
       }
       catch (e) {
-        console.warn('[OperationReviewModal] failed to build plan', e)
+        logWarn('walletRepay/buildPlan', e)
         plan.value = null
       }
 
@@ -186,7 +187,7 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
     }
     catch (e) {
       error('Transaction failed')
-      console.warn(e)
+      logWarn('walletRepay/send', e)
     }
     finally {
       isSubmitting.value = false
@@ -232,7 +233,7 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
       }
     }
     catch (e: unknown) {
-      console.warn(e)
+      logWarn('walletRepay/estimates', e)
       estimateNetAPY.value = netAPY.value
       estimateUserLTV.value = position.value!.userLTV
       estimateHealth.value = position.value!.health

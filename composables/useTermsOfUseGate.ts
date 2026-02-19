@@ -1,4 +1,5 @@
 import { unref } from 'vue'
+import { logWarn } from '~/utils/errorHandling'
 import type { Address, Hex } from 'viem'
 import { AcknowledgeTermsModal } from '#components'
 import { tosSignerReadAbi } from '~/abis/tos'
@@ -52,7 +53,7 @@ export const useTermsOfUseGate = () => {
       return signed
     }
     catch (e) {
-      console.warn('[TermsOfUse] failed to check signature', e)
+      logWarn('termsOfUse/checkSignature', e)
       hasSigned.value = false
       return false
     }

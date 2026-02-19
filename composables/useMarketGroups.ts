@@ -1,4 +1,5 @@
 import type { Vault } from '~/entities/vault'
+import { logWarn } from '~/utils/errorHandling'
 import type { EulerLabelEntity, EulerLabelProduct } from '~/entities/euler/labels'
 import type { MarketGroup, MarketGroupMetrics, CuratorGroup } from '~/entities/lend-discovery'
 import type { AnyVault } from '~/composables/useVaultRegistry'
@@ -359,7 +360,7 @@ export const useMarketGroups = () => {
         marketGroups.value = resolved
       }
       catch (e) {
-        console.warn('[useMarketGroups] TVL resolution failed:', e)
+        logWarn('useMarketGroups', e)
         // On failure, show structural data without TVL as fallback
         if (marketGroups.value.length === 0) {
           marketGroups.value = groups

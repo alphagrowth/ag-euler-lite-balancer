@@ -6,6 +6,7 @@ import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { SwapperMode } from '~/entities/swap'
 import { getQuoteAmount } from '~/utils/swapQuotes'
 import { formatNumber } from '~/utils/string-utils'
+import { createRaceGuard } from '~/utils/race-guard'
 import type { useSwapRepayQuotes } from '~/composables/repay/useSwapRepayQuotes'
 
 interface UseRepaySwapDetailsOptions {
@@ -39,7 +40,7 @@ export const useRepaySwapDetails = (options: UseRepaySwapDetailsOptions) => {
     }
   })
 
-  let priceImpactVersion = 0
+  const priceImpactGuard = createRaceGuard()
   const priceImpact = ref<number | null>(null)
 
   watchEffect(async () => {
@@ -47,12 +48,12 @@ export const useRepaySwapDetails = (options: UseRepaySwapDetailsOptions) => {
       priceImpact.value = null
       return
     }
-    const version = ++priceImpactVersion
+    const gen = priceImpactGuard.next()
     const [amountInUsd, amountOutUsd] = await Promise.all([
       getAssetUsdValue(BigInt(quotes.quote.value.amountIn), sourceVault.value, 'off-chain'),
       getAssetUsdValue(BigInt(quotes.quote.value.amountOut), borrowVault.value, 'off-chain'),
     ])
-    if (version !== priceImpactVersion) return
+    if (priceImpactGuard.isStale(gen)) return
     if (!amountInUsd || !amountOutUsd) {
       priceImpact.value = null
       return

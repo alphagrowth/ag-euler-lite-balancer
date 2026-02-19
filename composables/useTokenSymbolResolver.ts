@@ -1,4 +1,5 @@
 import type { Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { USD_ADDRESS, EUR_ADDRESS, BTC_ADDRESS, ETH_ADDRESS } from '~/entities/constants'
 import { erc20SymbolAbi } from '~/abis/erc20'
 import { getPublicClient } from '~/utils/public-client'
@@ -62,7 +63,7 @@ export const useTokenSymbolResolver = () => {
       })
       .catch((error: unknown) => {
         failedAddresses.add(key)
-        console.warn(`[useTokenSymbolResolver] Failed to resolve symbol for ${address}:`, error)
+        logWarn('tokenSymbolResolver', error)
       })
       .finally(() => {
         pendingAddresses.delete(key)

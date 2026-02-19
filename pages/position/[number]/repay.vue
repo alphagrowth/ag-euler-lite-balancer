@@ -10,6 +10,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { SlippageSettingsModal } from '#components'
 import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { createRaceGuard } from '~/utils/race-guard'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { useWalletRepay } from '~/composables/repay/useWalletRepay'
 import { useCollateralSwapRepay } from '~/composables/repay/useCollateralSwapRepay'
@@ -77,19 +78,19 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
   borrowVault.value?.asset.address,
 ))
 
-let netAPYVersion = 0
+const netApyGuard = createRaceGuard()
 const netAPY = ref(0)
 watchEffect(async () => {
   if (!position.value || !collateralVault.value || !borrowVault.value) {
     netAPY.value = 0
     return
   }
-  const version = ++netAPYVersion
+  const gen = netApyGuard.next()
   const [supplyUsd, borrowUsd] = await Promise.all([
     getAssetUsdValueOrZero(position.value.supplied || 0n, collateralVault.value, 'off-chain'),
     getAssetUsdValueOrZero(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
   ])
-  if (version !== netAPYVersion) return
+  if (netApyGuard.isStale(gen)) return
   netAPY.value = getNetAPY(
     supplyUsd,
     collateralSupplyApy.value,

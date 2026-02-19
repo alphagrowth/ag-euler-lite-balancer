@@ -114,7 +114,7 @@ export const useBrevis = () => {
       const res = await axios.post(BREVIS_API_URL, request)
 
       if (res.data.err) {
-        console.warn('Brevis API error:', res.data.err)
+        logWarn('brevis/campaigns', res.data.err)
         return
       }
 
@@ -180,7 +180,7 @@ export const useBrevis = () => {
       const res = await axios.post(BREVIS_API_URL, request)
 
       if (res.data.err) {
-        console.warn('Brevis API error:', res.data.err)
+        logWarn('brevis/rewards', res.data.err)
         return
       }
 

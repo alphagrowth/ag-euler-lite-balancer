@@ -1,4 +1,5 @@
 import { getAddress } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { useVaultRegistry } from './useVaultRegistry'
 import {
   type AnyBorrowVaultPair,
@@ -184,7 +185,7 @@ const fetchNeededEscrowVaults = async (addresses: string[], generation: number):
       registrySet(result.value.address, result.value, 'evk')
     }
     else {
-      console.warn('Failed to fetch escrow vault:', result.reason)
+      logWarn('useVaults/escrow', result.reason)
     }
   })
 }

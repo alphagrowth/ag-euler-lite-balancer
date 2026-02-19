@@ -1,6 +1,7 @@
 import type { ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { formatUnits, type Address, type Abi, zeroAddress } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
 import { getPublicClient } from '~/utils/public-client'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -261,7 +262,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
       selectedCollateralAssets.value = res.assets as bigint
     }
     catch (e) {
-      console.warn(`[${options.mode}] failed to load collateral`, e)
+      logWarn(`collateral/${options.mode}`, e)
       if (!selectedCollateral.value) {
         selectedCollateral.value = position.value.collateral
       }
@@ -441,7 +442,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
         : FixedPoint.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
     }
     catch (e: unknown) {
-      console.warn(e)
+      logWarn('collateral/estimates', e)
       estimateNetAPY.value = netAPY.value
       estimateUserLTV.value = position.value!.userLTV
       estimateHealth.value = position.value!.health
@@ -466,7 +467,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     }
     catch (e) {
       showError('Unable to load Vault')
-      console.warn(e)
+      logWarn('collateral/load', e)
     }
     finally {
       isLoading.value = false
@@ -501,7 +502,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
           }
         }
         catch (e) {
-          console.warn(`[${options.mode}] failed to build plan`, e)
+          logWarn(`collateral/${options.mode}/buildPlan`, e)
           plan.value = null
         }
 
@@ -569,7 +570,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
       }, 400)
     }
     catch (e) {
-      console.warn(e)
+      logWarn('collateral/send', e)
       error('Transaction failed')
     }
     finally {

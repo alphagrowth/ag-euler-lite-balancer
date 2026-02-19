@@ -9,6 +9,7 @@ import { nanoToValue, valueToNano } from '~/utils/crypto-utils'
 import { trimTrailingZeros } from '~/utils/string-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { amountToPercent, percentToAmountNano } from '~/utils/repayUtils'
+import { createRaceGuard } from '~/utils/race-guard'
 
 interface QuoteAccounts {
   accountIn: Address
@@ -94,7 +95,7 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
   })
 
   // --- Async USD values ---
-  let sourceValueUsdVersion = 0
+  const sourceUsdGuard = createRaceGuard()
   const sourceValueUsd = ref<number | null>(null)
 
   watchEffect(async () => {
@@ -102,12 +103,13 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
       sourceValueUsd.value = null
       return
     }
-    const version = ++sourceValueUsdVersion
+    const gen = sourceUsdGuard.next()
     const result = (await getAssetUsdValue(sourceBalance.value, sourceVault.value, 'off-chain')) ?? null
-    if (version === sourceValueUsdVersion) sourceValueUsd.value = result
+    if (sourceUsdGuard.isStale(gen)) return
+    sourceValueUsd.value = result
   })
 
-  let borrowValueUsdVersion = 0
+  const borrowUsdGuard = createRaceGuard()
   const borrowValueUsd = ref<number | null>(null)
 
   watchEffect(async () => {
@@ -115,12 +117,13 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
       borrowValueUsd.value = null
       return
     }
-    const version = ++borrowValueUsdVersion
+    const gen = borrowUsdGuard.next()
     const result = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
-    if (version === borrowValueUsdVersion) borrowValueUsd.value = result
+    if (borrowUsdGuard.isStale(gen)) return
+    borrowValueUsd.value = result
   })
 
-  let nextBorrowValueUsdVersion = 0
+  const nextBorrowUsdGuard = createRaceGuard()
   const nextBorrowValueUsd = ref<number | null>(null)
 
   watchEffect(async () => {
@@ -128,10 +131,11 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
       nextBorrowValueUsd.value = null
       return
     }
-    const version = ++nextBorrowValueUsdVersion
+    const gen = nextBorrowUsdGuard.next()
     const nextBorrow = position.value.borrowed - debtRepaid.value
     const result = (await getAssetUsdValue(nextBorrow > 0n ? nextBorrow : 0n, borrowVault.value, 'off-chain')) ?? null
-    if (version === nextBorrowValueUsdVersion) nextBorrowValueUsd.value = result
+    if (nextBorrowUsdGuard.isStale(gen)) return
+    nextBorrowValueUsd.value = result
   })
 
   // --- Input handlers ---

@@ -1,4 +1,5 @@
 import { EULER_INTERFACES_CHAINS_URL } from '~/entities/constants'
+import { logWarn } from '~/utils/errorHandling'
 
 export type EulerLensAddresses = {
   accountLens: string
@@ -98,7 +99,7 @@ export const useEulerAddresses = () => {
 
   const changeCurrentChainId = (_chainId: number) => {
     if (!allowedChainIds.value.includes(_chainId)) {
-      console.warn(`[useEulerAddresses] chainId ${_chainId} is not allowed`)
+      logWarn('useEulerAddresses', `chainId ${_chainId} is not allowed`)
       return
     }
     if (chainId.value === _chainId) return
@@ -124,14 +125,14 @@ export const useEulerAddresses = () => {
       const filteredData = data.filter(chain => allowedChainIds.value.includes(chain.chainId))
 
       if (!filteredData.length) {
-        console.warn('[useEulerAddresses] enabledChainIds did not match any remote chains, using full list')
+        logWarn('useEulerAddresses', 'enabledChainIds did not match any remote chains, using full list')
       }
 
       eulerChainsConfig.value = filteredData.length ? filteredData : data
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      console.error('Failed to load Euler addresses:', err)
+      logWarn('useEulerAddresses', err, { severity: 'error' })
     }
     finally {
       isLoading.value = false
