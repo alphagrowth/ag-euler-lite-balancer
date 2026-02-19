@@ -82,15 +82,13 @@ export const useIntrinsicApy = () => {
   const getIntrinsicApyInfo = (address?: string) =>
     lookupInfo(address)
 
-  const withIntrinsicSupplyApy = (baseApy: number, address?: string) => {
+  const applyIntrinsicApy = (baseApy: number, address?: string) => {
     const intrinsic = getIntrinsicApy(address)
     return baseApy + (1 + baseApy / 100) * intrinsic
   }
 
-  const withIntrinsicBorrowApy = (baseApy: number, address?: string) => {
-    const intrinsic = getIntrinsicApy(address)
-    return baseApy + (1 + baseApy / 100) * intrinsic
-  }
+  const withIntrinsicSupplyApy = applyIntrinsicApy
+  const withIntrinsicBorrowApy = applyIntrinsicApy
 
   watch(chainId, () => {
     intrinsicApyByAddress.value = {}
@@ -125,6 +123,7 @@ export const useIntrinsicApy = () => {
     loadIntrinsicApy,
     getIntrinsicApy,
     getIntrinsicApyInfo,
+    applyIntrinsicApy,
     withIntrinsicSupplyApy,
     withIntrinsicBorrowApy,
   }
