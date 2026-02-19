@@ -33,12 +33,16 @@ export {
   fetchVault,
   fetchSecuritizeVault,
   fetchEarnVault,
-  fetchEscrowVault,
   fetchVaults,
   fetchEarnVaults,
+} from './fetcher'
+
+// Escrow fetchers
+export {
+  fetchEscrowVault,
   fetchEscrowAddresses,
   fetchEscrowVaults,
-} from './fetcher'
+} from './escrow-fetcher'
 
 // LTV ramp calculations
 export {

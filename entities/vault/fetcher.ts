@@ -1,7 +1,6 @@
-import { getAddress, zeroAddress, parseUnits, type Address } from 'viem'
-import axios from 'axios'
+import { zeroAddress, type Address } from 'viem'
 import { USD_ADDRESS } from '~/entities/constants'
-import { BATCH_SIZE_RPC_CALLS, BATCH_SIZE_VAULT_FETCH, BATCH_SIZE_PARALLEL_ROUNDS } from '~/entities/tuning-constants'
+import { BATCH_SIZE_VAULT_FETCH, BATCH_SIZE_PARALLEL_ROUNDS } from '~/entities/tuning-constants'
 import type { PythFeed } from '~/entities/oracle'
 import { collectPythFeedIds } from '~/entities/oracle'
 import {
@@ -25,18 +24,26 @@ import type {
 import { resolveAssetPriceInfo, resolveUnitOfAccountPriceInfo } from './pricing'
 import { calculateEarnVaultAPYFromExchangeRate, calculateEarnVaultAPYWithCache, fetchBlockDataForAPY } from './apy'
 
+interface ProcessVaultOptions {
+  verified?: boolean
+  vaultCategory?: string
+}
+
 /**
  * Process raw vault lens data into a Vault object.
- * Extracted to enable reuse between direct query and simulation-based fetch.
+ * Shared by all vault fetchers — single source of truth for raw → Vault mapping.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const processRawVaultData = (
+export const processRawVaultData = (
   raw: any,
   vaultAddress: string,
-  verifiedVaultAddresses: string[],
+  verifiedVaultAddresses?: string[],
+  options?: ProcessVaultOptions,
 ): Vault => {
+  const verified = verifiedVaultAddresses?.includes(vaultAddress) ?? options?.verified ?? false
   return {
-    verified: verifiedVaultAddresses.includes(vaultAddress),
+    verified,
+    ...(options?.vaultCategory ? { vaultCategory: options.vaultCategory } : {}),
     address: raw.vault,
     name: raw.vaultName,
     supply: raw.totalAssets,
@@ -392,52 +399,6 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
   } as EarnVault
 }
 
-export const fetchEscrowVault = async (vaultAddress: string): Promise<Vault> => {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerLensAddresses } = useEulerAddresses()
-
-  const vault = await fetchVault(vaultAddress)
-
-  try {
-    const client = getPublicClient(EVM_PROVIDER_URL)
-    const priceInfo = await client.readContract({
-      address: eulerLensAddresses.value!.utilsLens as Address,
-      abi: eulerUtilsLensABI,
-      functionName: 'getAssetPriceInfo',
-      args: [vault.asset.address as Address, USD_ADDRESS],
-    }) as Record<string, unknown>
-
-    if (!priceInfo.queryFailure && priceInfo.amountOutMid && (priceInfo.amountOutMid as bigint) > 0n) {
-      return {
-        ...vault,
-        liabilityPriceInfo: {
-          amountIn: (priceInfo.amountIn as bigint) || parseUnits('1', Number(vault.asset.decimals)),
-          amountOutAsk: (priceInfo.amountOutAsk as bigint) || (priceInfo.amountOutMid as bigint),
-          amountOutBid: (priceInfo.amountOutBid as bigint) || (priceInfo.amountOutMid as bigint),
-          amountOutMid: priceInfo.amountOutMid as bigint,
-          queryFailure: false,
-          queryFailureReason: '',
-          timestamp: priceInfo.timestamp as bigint,
-          oracle: priceInfo.oracle as string,
-          asset: vault.asset.address,
-          unitOfAccount: USD_ADDRESS,
-        },
-        vaultCategory: 'escrow' as const,
-        verified: true,
-      }
-    }
-  }
-  catch (e) {
-    console.warn(`Could not fetch asset price for escrow vault ${vaultAddress}:`, e)
-  }
-
-  return {
-    ...vault,
-    vaultCategory: 'escrow',
-    verified: true,
-  }
-}
-
 export const fetchVaults = async function* (
   vaultAddresses?: string[],
 ): AsyncGenerator<
@@ -470,59 +431,10 @@ export const fetchVaults = async function* (
   const batchCount = Math.ceil(verifiedVaults.length / batchSize)
   const parallelRounds = Math.ceil(batchCount / parallelBatches)
 
-  // Helper to process raw vault data into Vault object
+  // Helper to process raw vault data into Vault object (delegates to shared function)
   const processVaultResult = (raw: Record<string, unknown>, vaultAddress: string): Vault | undefined => {
     try {
-      const defaultInterestRateInfo = {
-        borrowAPY: 0n,
-        borrowSPY: 0n,
-        borrows: 0n,
-        cash: 0n,
-        supplyAPY: 0n,
-      }
-
-      return {
-        verified: true,
-        address: (raw as any).vault,
-        name: (raw as any).vaultName,
-        supply: (raw as any).totalAssets,
-        borrow: (raw as any).totalBorrowed,
-        symbol: (raw as any).vaultSymbol,
-        decimals: (raw as any).vaultDecimals,
-        supplyCap: (raw as any).supplyCap,
-        borrowCap: (raw as any).borrowCap,
-        totalCash: (raw as any).totalCash,
-        totalAssets: (raw as any).totalAssets,
-        totalShares: (raw as any).totalShares,
-        interestFee: (raw as any).interestFee,
-        configFlags: (raw as any).configFlags,
-        oracle: (raw as any).oracle,
-        collateralLTVs: (raw as any).collateralLTVInfo,
-        collateralPrices: (raw as any).collateralPriceInfo,
-        liabilityPriceInfo: (raw as any).liabilityPriceInfo,
-        maxLiquidationDiscount: (raw as any).maxLiquidationDiscount,
-        interestRateInfo: (raw as any).irmInfo?.interestRateInfo?.[0] ?? defaultInterestRateInfo,
-        asset: {
-          address: (raw as any).asset,
-          name: (raw as any).assetName,
-          symbol: (raw as any).assetSymbol,
-          decimals: (raw as any).assetDecimals,
-        },
-        oracleDetailedInfo: (raw as any).oracleInfo,
-        backupAssetOracleInfo: (raw as any).backupAssetOracleInfo,
-        dToken: (raw as any).dToken,
-        governorAdmin: (raw as any).governorAdmin,
-        governorFeeReceiver: (raw as any).governorFeeReceiver,
-        unitOfAccount: (raw as any).unitOfAccount,
-        unitOfAccountName: (raw as any).unitOfAccountName,
-        unitOfAccountSymbol: (raw as any).unitOfAccountSymbol,
-        unitOfAccountDecimals: (raw as any).unitOfAccountDecimals,
-        interestRateModelAddress: (raw as any).interestRateModel,
-        hookTarget: (raw as any).hookTarget,
-        irmInfo: (raw as any).irmInfo
-          ? { interestRateModelInfo: (raw as any).irmInfo.interestRateModelInfo }
-          : undefined,
-      } as Vault
+      return processRawVaultData(raw, vaultAddress, undefined, { verified: true })
     }
     catch (e) {
       console.error(`Error processing vault ${vaultAddress}:`, e)
@@ -855,223 +767,5 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
   yield {
     vaults: vaultsWithAPY,
     isFinished: true,
-  }
-}
-
-
-/**
- * Fetch escrow vault addresses only (no vault info).
- * Single RPC call to get the list of addresses from escrowedCollateralPerspective.
- * Used for lazy loading optimization - vault info is fetched on-demand.
- */
-export const fetchEscrowAddresses = async (): Promise<string[]> => {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerPeripheryAddresses } = useEulerAddresses()
-
-  await until(
-    computed(() => eulerPeripheryAddresses.value?.escrowedCollateralPerspective),
-  ).toBeTruthy()
-
-  if (!eulerPeripheryAddresses.value?.escrowedCollateralPerspective) {
-    return []
-  }
-
-  const client = getPublicClient(EVM_PROVIDER_URL)
-
-  try {
-    const addresses = await client.readContract({
-      address: eulerPeripheryAddresses.value.escrowedCollateralPerspective as Address,
-      abi: eulerPerspectiveABI,
-      functionName: 'verifiedArray',
-    }) as string[]
-    return addresses.map(addr => getAddress(addr))
-  }
-  catch (e) {
-    console.error('Error fetching escrow addresses from perspective:', e)
-    return []
-  }
-}
-
-export const fetchEscrowVaults = async function* (): AsyncGenerator<
-  VaultIteratorResult<Vault>,
-  void,
-  unknown
-> {
-  const { EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerPeripheryAddresses, eulerLensAddresses, chainId } = useEulerAddresses()
-
-  const startChainId = chainId.value
-
-  await until(
-    computed(() => {
-      return (
-        eulerPeripheryAddresses.value?.escrowedCollateralPerspective
-        && eulerLensAddresses.value?.vaultLens
-        && eulerLensAddresses.value?.utilsLens
-      )
-    }),
-  ).toBeTruthy()
-
-  if (
-    !eulerPeripheryAddresses.value?.escrowedCollateralPerspective
-    || !eulerLensAddresses.value?.vaultLens
-    || !eulerLensAddresses.value?.utilsLens
-  ) {
-    throw new Error('Escrow perspective or vault lens address not loaded yet')
-  }
-
-  const client = getPublicClient(EVM_PROVIDER_URL)
-
-  let verifiedVaults: string[]
-  try {
-    verifiedVaults = await client.readContract({
-      address: eulerPeripheryAddresses.value.escrowedCollateralPerspective as Address,
-      abi: eulerPerspectiveABI,
-      functionName: 'verifiedArray',
-    }) as string[]
-  }
-  catch (e) {
-    console.error('Error fetching escrow vaults from perspective:', e)
-    verifiedVaults = []
-  }
-
-  const batchSize = BATCH_SIZE_RPC_CALLS
-
-  for (let i = 0; i < verifiedVaults.length; i += batchSize) {
-    if (chainId.value !== startChainId) {
-      return
-    }
-    const batch = verifiedVaults.slice(i, i + batchSize)
-    const batchPromises = batch.map(async (vaultAddress) => {
-      try {
-        const raw = await client.readContract({
-          address: eulerLensAddresses.value!.vaultLens as Address,
-          abi: eulerVaultLensABI,
-          functionName: 'getVaultInfoFull',
-          args: [vaultAddress],
-        }) as Record<string, unknown>
-
-        const defaultInterestRateInfo = {
-          borrowAPY: 0n,
-          borrowSPY: 0n,
-          borrows: 0n,
-          cash: 0n,
-          supplyAPY: 0n,
-        }
-
-        return {
-          verified: true,
-          vaultCategory: 'escrow',
-          address: (raw as any).vault,
-          name: (raw as any).vaultName,
-          supply: (raw as any).totalAssets,
-          borrow: (raw as any).totalBorrowed,
-          symbol: (raw as any).vaultSymbol,
-          decimals: (raw as any).vaultDecimals,
-          supplyCap: (raw as any).supplyCap,
-          borrowCap: (raw as any).borrowCap,
-          totalCash: (raw as any).totalCash,
-          totalAssets: (raw as any).totalAssets,
-          totalShares: (raw as any).totalShares,
-          interestFee: (raw as any).interestFee,
-          configFlags: (raw as any).configFlags,
-          oracle: (raw as any).oracle,
-          collateralLTVs: (raw as any).collateralLTVInfo,
-          collateralPrices: (raw as any).collateralPriceInfo,
-          liabilityPriceInfo: (raw as any).liabilityPriceInfo,
-          maxLiquidationDiscount: (raw as any).maxLiquidationDiscount,
-          interestRateInfo: (raw as any).irmInfo?.interestRateInfo?.[0] ?? defaultInterestRateInfo,
-          asset: {
-            address: (raw as any).asset,
-            name: (raw as any).assetName,
-            symbol: (raw as any).assetSymbol,
-            decimals: (raw as any).assetDecimals,
-          },
-          oracleDetailedInfo: (raw as any).oracleInfo,
-          backupAssetOracleInfo: (raw as any).backupAssetOracleInfo,
-          dToken: (raw as any).dToken,
-          governorAdmin: (raw as any).governorAdmin,
-          governorFeeReceiver: (raw as any).governorFeeReceiver,
-          unitOfAccount: (raw as any).unitOfAccount,
-          unitOfAccountName: (raw as any).unitOfAccountName,
-          unitOfAccountSymbol: (raw as any).unitOfAccountSymbol,
-          unitOfAccountDecimals: (raw as any).unitOfAccountDecimals,
-          interestRateModelAddress: (raw as any).interestRateModel,
-          hookTarget: (raw as any).hookTarget,
-          irmInfo: (raw as any).irmInfo
-            ? {
-                interestRateModelInfo: (raw as any).irmInfo.interestRateModelInfo,
-              }
-            : undefined,
-        } as Vault
-      }
-      catch (e) {
-        console.error(`Error fetching escrow vault ${vaultAddress}:`, e)
-        return undefined
-      }
-    })
-
-    const res = await Promise.all(batchPromises)
-    let validVaults = res.filter(o => !!o) as Vault[]
-
-    const utilsLensAddress = eulerLensAddresses.value!.utilsLens
-    validVaults = await Promise.all(
-      validVaults.map(async (vault) => {
-        const [assetPriceInfo, unitOfAccountPriceInfo] = await Promise.all([
-          resolveAssetPriceInfo(EVM_PROVIDER_URL, utilsLensAddress, vault.asset.address),
-          resolveUnitOfAccountPriceInfo(EVM_PROVIDER_URL, utilsLensAddress, vault.unitOfAccount),
-        ])
-        return { ...vault, assetPriceInfo, unitOfAccountPriceInfo }
-      }),
-    )
-
-    validVaults = await Promise.all(
-      validVaults.map(async (vault) => {
-        // Refetch price if missing or query failed (0n is valid - very small price)
-        if (
-          !vault.liabilityPriceInfo
-          || vault.liabilityPriceInfo.queryFailure
-        ) {
-          try {
-            const priceInfo = await client.readContract({
-              address: utilsLensAddress as Address,
-              abi: eulerUtilsLensABI,
-              functionName: 'getAssetPriceInfo',
-              args: [vault.asset.address as Address, USD_ADDRESS],
-            }) as Record<string, unknown>
-
-            if (!priceInfo.queryFailure && priceInfo.amountOutMid && (priceInfo.amountOutMid as bigint) > 0n) {
-              return {
-                ...vault,
-                liabilityPriceInfo: {
-                  amountIn:
-                    (priceInfo.amountIn as bigint) || parseUnits('1', Number(vault.asset.decimals)),
-                  amountOutAsk: (priceInfo.amountOutAsk as bigint) || (priceInfo.amountOutMid as bigint),
-                  amountOutBid: (priceInfo.amountOutBid as bigint) || (priceInfo.amountOutMid as bigint),
-                  amountOutMid: priceInfo.amountOutMid as bigint,
-                  queryFailure: false,
-                  queryFailureReason: '',
-                  timestamp: priceInfo.timestamp as bigint,
-                  oracle: priceInfo.oracle as string,
-                  asset: vault.asset.address,
-                  unitOfAccount: USD_ADDRESS,
-                },
-              }
-            }
-          }
-          catch (e) {
-            console.warn(`Could not fetch asset price for escrow vault ${vault.address}:`, e)
-          }
-        }
-        return vault
-      }),
-    )
-
-    const isFinished = i + batchSize >= verifiedVaults.length
-
-    yield {
-      vaults: validVaults,
-      isFinished,
-    }
   }
 }
