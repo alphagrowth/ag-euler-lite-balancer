@@ -131,6 +131,7 @@ watch(() => props.selected, (val) => {
     display: flex;
     flex-direction: column;
     max-height: 300px;
+    min-height: 300px;
     overflow-y: auto;
     margin-bottom: 12px;
     scrollbar-width: none;
