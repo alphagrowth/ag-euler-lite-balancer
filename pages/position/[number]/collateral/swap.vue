@@ -368,7 +368,13 @@ const borrowAmount = computed(() => {
 })
 
 const currentLtv = computed(() => position.value ? nanoToValue(position.value.userLTV, 18) : null)
-const _currentLiquidationLtv = computed(() => position.value ? nanoToValue(position.value.liquidationLTV, 2) : null)
+const fromLiquidationLtv = computed(() => {
+  if (!borrowVault.value || !fromVault.value) return null
+  const match = borrowVault.value.collateralLTVs.find(
+    ltv => normalizeAddress(ltv.collateral) === normalizeAddress(fromVault.value?.address),
+  )
+  return match ? nanoToValue(match.liquidationLTV, 2) : null
+})
 const nextLiquidationLtv = computed(() => {
   if (!borrowVault.value || !toVault.value) return null
   const match = borrowVault.value.collateralLTVs.find(
@@ -376,16 +382,40 @@ const nextLiquidationLtv = computed(() => {
   )
   return match ? nanoToValue(match.liquidationLTV, 2) : null
 })
+// Remaining FROM collateral value after partial swap
+const remainingFromValue = computed(() => {
+  if (!fromVault.value || !fromAmount.value || !currentPriceRatio.value) return 0
+  try {
+    const swapped = valueToNano(fromAmount.value, fromVault.value.asset.decimals)
+    const remaining = selectedCollateralAssets.value - swapped
+    if (remaining <= 0n) return 0
+    return nanoToValue(remaining, fromVault.value.decimals) * currentPriceRatio.value
+  }
+  catch { return 0 }
+})
+// New TO collateral value from swap output
+const newToValue = computed(() => {
+  if (!nextCollateralAmount.value || !priceRatio.value) return 0
+  if (priceRatio.value <= 0 || nextCollateralAmount.value <= 0) return 0
+  return nextCollateralAmount.value * priceRatio.value
+})
 const nextLtv = computed(() => {
-  if (!borrowAmount.value || !nextCollateralAmount.value || !priceRatio.value) return null
-  if (priceRatio.value <= 0 || nextCollateralAmount.value <= 0) return null
-  return (borrowAmount.value / (nextCollateralAmount.value * priceRatio.value)) * 100
+  if (!borrowAmount.value) return null
+  const totalValue = remainingFromValue.value + newToValue.value
+  if (totalValue <= 0) return null
+  return (borrowAmount.value / totalValue) * 100
 })
 const currentHealth = computed(() => position.value ? nanoToValue(position.value.health, 18) : null)
 const nextHealth = computed(() => {
-  if (!nextLiquidationLtv.value || !nextLtv.value) return null
-  if (nextLtv.value <= 0) return null
-  return nextLiquidationLtv.value / nextLtv.value
+  if (!nextLtv.value || nextLtv.value <= 0) return null
+  const totalValue = remainingFromValue.value + newToValue.value
+  if (totalValue <= 0) return null
+  // Weighted average liquidation LTV across both collateral types
+  const weightedLiqLtv = (
+    remainingFromValue.value * (fromLiquidationLtv.value ?? 0)
+    + newToValue.value * (nextLiquidationLtv.value ?? 0)
+  ) / totalValue
+  return weightedLiqLtv / nextLtv.value
 })
 const currentPriceRatio = computed(() => {
   if (!fromVault.value || !borrowVault.value) return null
