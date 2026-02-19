@@ -6,6 +6,12 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss', '@nuxt/eslint', '@gvade/nuxt3-svg-sprite', '@vueuse/nuxt'],
   ssr: false,
 
+  imports: {
+    dirs: [
+      'composables/*/index.{ts,js,mjs,mts}',
+    ],
+  },
+
   components: [
     {
       path: '~/components',
