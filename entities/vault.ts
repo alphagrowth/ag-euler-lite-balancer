@@ -2,6 +2,7 @@ import { getAddress, zeroAddress, parseUnits, encodeFunctionData, decodeFunction
 import axios from 'axios'
 // labelsRepo is accessed via useDeployConfig() at call sites
 import { SECONDS_IN_YEAR, TARGET_TIME_AGO, USD_ADDRESS } from '~/entities/constants'
+import { BATCH_SIZE_RPC_CALLS, BATCH_SIZE_VAULT_FETCH, BATCH_SIZE_PARALLEL_ROUNDS } from '~/entities/tuning-constants'
 import {
   vaultConvertToAssetsAbi,
   vaultConvertToSharesAbi,
@@ -909,8 +910,8 @@ export const fetchVaults = async function* (
   // Use provided addresses if available, otherwise fall back to verifiedVaultAddresses
   // (pre-categorization by caller is preferred to eliminate per-vault RPC calls)
   const verifiedVaults = vaultAddresses || verifiedVaultAddresses.value
-  const batchSize = 25
-  const parallelBatches = 5 // Run 5 batches concurrently (125 vaults per round)
+  const batchSize = BATCH_SIZE_VAULT_FETCH
+  const parallelBatches = BATCH_SIZE_PARALLEL_ROUNDS
 
   const batchCount = Math.ceil(verifiedVaults.length / batchSize)
   const parallelRounds = Math.ceil(batchCount / parallelBatches)
@@ -1380,7 +1381,7 @@ export const fetchEscrowVaults = async function* (): AsyncGenerator<
     verifiedVaults = []
   }
 
-  const batchSize = 5
+  const batchSize = BATCH_SIZE_RPC_CALLS
 
   for (let i = 0; i < verifiedVaults.length; i += batchSize) {
     if (chainId.value !== startChainId) {
