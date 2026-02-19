@@ -335,6 +335,13 @@ export const useMerkl = () => {
     }
   }, { immediate: true })
 
+  onUnmounted(() => {
+    if (interval) {
+      clearInterval(interval)
+      interval = null
+    }
+  })
+
   return {
     merklCampaigns,
     rewards,

@@ -1,6 +1,7 @@
 import { getAddress } from 'viem'
 import { fetchAccountPositions, type SubgraphPositionEntry } from '~/utils/subgraph'
 import { watch, computed } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
 import { useAccount } from '@wagmi/vue'
 import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
 import type { AccountBorrowPosition } from '~/entities/account'
@@ -71,20 +72,24 @@ export const useEulerAccount = () => {
     )
   }
 
-  watch([isBalancesLoaded, isEulerLensAddressesReady], async () => {
+  const debouncedUpdatePositions = useDebounceFn(() => {
     if (isBalancesLoaded.value && isEulerLensAddressesReady.value) {
       updatePositions()
     }
+  }, 100)
+
+  watch([isBalancesLoaded, isEulerLensAddressesReady], () => {
+    debouncedUpdatePositions()
   }, { immediate: true })
 
   watch(isShowAllPositions, () => {
-    updatePositions()
+    debouncedUpdatePositions()
   })
 
   // Refresh positions when wallet address changes
   watch(portfolioAddress, (newAddress, oldAddress) => {
-    if (newAddress !== oldAddress && isBalancesLoaded.value && isEulerLensAddressesReady.value) {
-      updatePositions()
+    if (newAddress !== oldAddress) {
+      debouncedUpdatePositions()
     }
   })
 

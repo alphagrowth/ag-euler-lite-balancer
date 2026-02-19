@@ -110,6 +110,13 @@ export const useREULLocks = () => {
     }
   }, { immediate: true })
 
+  onUnmounted(() => {
+    if (interval) {
+      clearInterval(interval)
+      interval = null
+    }
+  })
+
   const unlockREUL = async (lockTimestamps: bigint[]) => {
     if (!wagmiAddress.value) {
       throw new Error('Wallet not connected')

@@ -314,6 +314,13 @@ export const useBrevis = () => {
     }
   }, { immediate: true })
 
+  onUnmounted(() => {
+    if (interval) {
+      clearInterval(interval)
+      interval = null
+    }
+  })
+
   return {
     brevisCampaigns,
     userRewards,

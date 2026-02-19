@@ -29,7 +29,7 @@ const { vault } = defineProps<{ vault: Vault, desktopOverview?: boolean }>()
       @vault-click="(address: string) => emits('vault-click', address)"
     />
 
-    <VaultOverviewBlockIRM
+    <LazyVaultOverviewBlockIRM
       :vault="vault"
     />
 

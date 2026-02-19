@@ -68,6 +68,7 @@ onActivated(async () => {
 onDeactivated(() => {
   if (interval.value) {
     clearInterval(interval.value)
+    interval.value = null
   }
 })
 </script>
