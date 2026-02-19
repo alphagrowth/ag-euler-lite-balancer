@@ -34,6 +34,7 @@ const entityLogos = computed(() => {
   return entities.map(e => getEulerLabelEntityLogo(e.logo))
 })
 const isEscrow = computed(() => vault.vaultCategory === 'escrow')
+const isBorrowable = computed(() => vault.vaultCategory !== 'escrow' && vault.collateralLTVs.some(ltv => ltv.borrowLTV > 0n))
 const displayName = computed(() => {
   if (isEscrow.value) return 'Escrowed collateral'
   return product.name || vault.name
@@ -227,7 +228,10 @@ watchEffect(async () => {
           {{ prices.totalSupply }}
         </div>
       </div>
-      <div class="flex-1 flex flex-col items-center mobile:items-end">
+      <div
+        v-if="isBorrowable"
+        class="flex-1 flex flex-col items-center mobile:items-end"
+      >
         <div class="text-content-tertiary text-p3 mb-4">
           Available liquidity
         </div>
@@ -236,6 +240,7 @@ watchEffect(async () => {
         </div>
       </div>
       <div
+        v-if="isBorrowable"
         class="flex flex-col flex-1 mobile:!hidden"
         :class="
           isConnected ? 'justify-center items-center' : 'items-end text-right'
@@ -293,7 +298,10 @@ watchEffect(async () => {
           >-</div>
         </div>
       </div>
-      <div class="flex w-full justify-between">
+      <div
+        v-if="isBorrowable"
+        class="flex w-full justify-between"
+      >
         <div class="flex-1">
           <div class="text-content-tertiary text-p3 flex items-center gap-4">
             Utilization

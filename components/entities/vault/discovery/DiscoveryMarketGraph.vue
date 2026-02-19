@@ -2,6 +2,7 @@
 import type { MarketGroup, MiniDiagramData } from '~/entities/lend-discovery'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { stringToColor } from '~/utils/string-utils'
 import {
   getEnlargedDiagram,
   getArrow,
@@ -119,7 +120,7 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
             :cx="node.x"
             :cy="node.y"
             r="12"
-            fill="#1f2937"
+            :fill="getAssetLogoUrl(node.assetAddress, node.assetSymbol) ? '#1f2937' : stringToColor(node.assetSymbol)"
             stroke="#4b5563"
             stroke-width="1"
           />
@@ -137,10 +138,10 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
             :x="node.x"
             :y="node.y + 4"
             text-anchor="middle"
-            fill="#9ca3af"
-            font-size="9"
+            fill="white"
+            font-size="10"
             font-weight="600"
-          >{{ node.assetSymbol.slice(0, 3) }}</text>
+          >{{ node.assetSymbol.slice(0, 2) }}</text>
           <!-- Deprecated badge -->
           <g v-if="isVaultDeprecated(node.address)">
             <circle
