@@ -5,6 +5,7 @@ import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getVaultTags } from '~/composables/useGeoBlock'
+import { createRaceGuard } from '~/utils/race-guard'
 
 export const useSwapDebtOptions = ({
   collateralVault,
@@ -46,13 +47,13 @@ export const useSwapDebtOptions = ({
   })
 
   const borrowOptions = ref<CollateralOption[]>([])
-  let optionsVersion = 0
+  const guard = createRaceGuard()
 
   watchEffect(async () => {
     const vaults = borrowVaults.value
     void rewardsVersion.value
     void intrinsicVersion.value
-    const myVersion = ++optionsVersion
+    const gen = guard.next()
     const options = await Promise.all(vaults.map(async (vault) => {
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.borrowAPY || 0n, 25)
@@ -73,7 +74,7 @@ export const useSwapDebtOptions = ({
         disabled,
       }
     }))
-    if (myVersion !== optionsVersion) return
+    if (guard.isStale(gen)) return
     borrowOptions.value = options
   })
 

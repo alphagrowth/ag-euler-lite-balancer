@@ -9,6 +9,7 @@ import {
   type SwapQuoteCard,
   type SwapQuoteCompare,
 } from '~/utils/swapQuotes'
+import { createRaceGuard } from '~/utils/race-guard'
 
 type SwapQuotesParallelOptions = {
   amountField: SwapQuoteAmountField
@@ -32,7 +33,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
   const quoteError = ref<string | null>(null)
 
   let quoteAbort: AbortController | null = null
-  let quoteRequestId = 0
+  const guard = createRaceGuard()
 
   const sortedQuoteCards = computed(() =>
     sortQuoteCards(quoteCards.value, options.amountField, options.compare),
@@ -74,7 +75,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
       quoteAbort.abort()
       quoteAbort = null
     }
-    quoteRequestId += 1
+    guard.next()
     isLoading.value = false
   }
 
@@ -98,7 +99,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
     }
     const controller = new AbortController()
     quoteAbort = controller
-    const requestId = ++quoteRequestId
+    const gen = guard.next()
 
     isLoading.value = true
     quoteCards.value = []
@@ -108,7 +109,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
 
     try {
       const providers = requestOptions.providers ?? await getSwapProviders()
-      if (requestId !== quoteRequestId) {
+      if (guard.isStale(gen)) {
         return
       }
       providersCount.value = providers.length
@@ -125,7 +126,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
             provider,
           }, { signal: controller.signal })
 
-          if (requestId !== quoteRequestId) {
+          if (guard.isStale(gen)) {
             return
           }
 
@@ -148,7 +149,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
           }
         }
         finally {
-          if (requestId !== quoteRequestId) {
+          if (guard.isStale(gen)) {
             return
           }
           providersFetchedCount.value += 1
@@ -174,7 +175,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
       quoteCards.value = []
     }
     finally {
-      if (requestId === quoteRequestId) {
+      if (!guard.isStale(gen)) {
         if (providersFetchedCount.value >= providersCount.value) {
           isLoading.value = false
         }

@@ -7,6 +7,7 @@ import { useAccount } from '@wagmi/vue'
 import { useVaultRegistry } from './useVaultRegistry'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
+import { createRaceGuard } from '~/utils/race-guard'
 import type {
   AccountBorrowPosition, AccountDepositPosition,
 } from '~/entities/account'
@@ -100,7 +101,7 @@ const isShowAllPositions = ref(false)
 
 // Generation counter to invalidate stale in-flight position fetches after chain switch.
 // Incremented on chain change; async operations capturing an older generation discard results.
-const positionGeneration = ref(0)
+const positionGuard = createRaceGuard()
 const normalizeAddress = (value?: string | null) => {
   if (!value) {
     return ''
@@ -286,7 +287,7 @@ const updateBorrowPositions = async (
   isInitialLoading = false,
   options: { forceAllPositions?: boolean } = {},
 ) => {
-  const gen = positionGeneration.value
+  const gen = positionGuard.current()
 
   if (isInitialLoading) {
     isPositionsLoaded.value = false
@@ -317,7 +318,7 @@ const updateBorrowPositions = async (
   const batchSize = 5
 
   for (let i = 0; i < borrowEntries.length; i += batchSize) {
-    if (positionGeneration.value !== gen) return
+    if (positionGuard.isStale(gen)) return
 
     const batch = borrowEntries
       .slice(i, i + batchSize)
@@ -540,7 +541,7 @@ const updateBorrowPositions = async (
     borrows = [...borrows, ...validResults]
   }
   // Discard results if chain switched during fetch
-  if (positionGeneration.value !== gen) return
+  if (positionGuard.isStale(gen)) return
 
   const collateralPositions: AccountBorrowPosition[] = []
   const shouldUpdate = options.forceAllPositions !== undefined
@@ -573,7 +574,7 @@ const updateSavingsPositions = async (
   options: { forceAllPositions?: boolean } = {},
   generation?: number,
 ) => {
-  const gen = generation ?? positionGeneration.value
+  const gen = generation ?? positionGuard.current()
 
   if (isInitialLoading) {
     isDepositsLoaded.value = false
@@ -605,7 +606,7 @@ const updateSavingsPositions = async (
   // Process entries in batches of 5
   const batchSize = 5
   for (let i = 0; i < depositEntries.length; i += batchSize) {
-    if (positionGeneration.value !== gen) return
+    if (positionGuard.isStale(gen)) return
 
     const batch = depositEntries
       .slice(i, i + batchSize)
@@ -658,7 +659,7 @@ const updateSavingsPositions = async (
   }
 
   // Discard results if chain switched during fetch
-  if (positionGeneration.value !== gen) return
+  if (positionGuard.isStale(gen)) return
 
   const shouldUpdate = options.forceAllPositions !== undefined
     ? true
@@ -680,7 +681,7 @@ export const useEulerAccount = () => {
   const isDebugPortfolio = computed(() => Boolean(normalizedDebugAddress.value))
 
   const updatePositions = async () => {
-    const gen = positionGeneration.value
+    const gen = positionGuard.current()
     const targetAddress = portfolioAddress.value
     const shouldShowAll = isShowAllPositions.value || isDebugPortfolio.value
     const { SUBGRAPH_URL } = useEulerConfig()
@@ -691,7 +692,7 @@ export const useEulerAccount = () => {
       : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
 
     // Discard if chain switched during subgraph fetch
-    if (positionGeneration.value !== gen) return
+    if (positionGuard.isStale(gen)) return
 
     // Borrow positions must be loaded first so deposits can filter against them
     await updateBorrowPositions(
@@ -788,7 +789,7 @@ export const useEulerAccount = () => {
 
   // Clear stale positions and invalidate in-flight fetches on chain change
   watch(chainId, () => {
-    positionGeneration.value++
+    positionGuard.next()
     borrowPositions.value = []
     depositPositions.value = []
     collateralUsageSet.value = new Set()
@@ -829,13 +830,13 @@ export const useEulerAccount = () => {
     lensAddresses: EulerLensAddresses,
     walletAddress: string,
   ) => {
-    const gen = positionGeneration.value
+    const gen = positionGuard.current()
     const { SUBGRAPH_URL } = useEulerConfig()
     const { borrows: borrowEntries, deposits: depositEntries } = walletAddress
       ? await fetchAccountPositions(SUBGRAPH_URL, walletAddress)
       : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
 
-    if (positionGeneration.value !== gen) return
+    if (positionGuard.isStale(gen)) return
 
     await updateBorrowPositions(lensAddresses, walletAddress, borrowEntries)
     await updateSavingsPositions(lensAddresses, walletAddress, depositEntries, false, {}, gen)

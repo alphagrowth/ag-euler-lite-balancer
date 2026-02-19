@@ -2,6 +2,7 @@ import { isAddress, type Address } from 'viem'
 import { erc20SymbolAbi, erc20DecimalsAbi, erc20NameAbi } from '~/abis/erc20'
 import { getPublicClient } from '~/utils/public-client'
 import type { VaultAsset } from '~/entities/vault'
+import { createRaceGuard } from '~/utils/race-guard'
 
 export const useCustomTokenResolver = () => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
@@ -12,14 +13,14 @@ export const useCustomTokenResolver = () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  let currentResolveId = 0
+  const guard = createRaceGuard()
 
   const resolve = async (input: string) => {
     reset()
 
     if (!isAddress(input)) return
 
-    const resolveId = ++currentResolveId
+    const gen = guard.next()
     isLoading.value = true
 
     const address = input as Address
@@ -45,7 +46,7 @@ export const useCustomTokenResolver = () => {
         fetchSingleBalance(input).catch(() => 0n),
       ])
 
-      if (resolveId !== currentResolveId) return
+      if (guard.isStale(gen)) return
 
       if (symbolResult == null || decimalsResult == null) {
         error.value = 'Not a valid ERC-20 token'
@@ -60,11 +61,11 @@ export const useCustomTokenResolver = () => {
       customTokenBalance.value = balance
     }
     catch {
-      if (resolveId !== currentResolveId) return
+      if (guard.isStale(gen)) return
       error.value = 'Not a valid ERC-20 token'
     }
     finally {
-      if (resolveId === currentResolveId) {
+      if (!guard.isStale(gen)) {
         isLoading.value = false
       }
     }

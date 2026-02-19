@@ -6,6 +6,7 @@ import type { AccountDepositPosition } from '~/entities/account'
 import type { CollateralOption, Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { createRaceGuard } from '~/utils/race-guard'
 
 /**
  * Provides eligible savings positions that can be used to repay debt.
@@ -35,13 +36,13 @@ export const useRepaySavingsOptions = () => {
   })
 
   const savingsOptions = ref<CollateralOption[]>([])
-  let optionsVersion = 0
+  const guard = createRaceGuard()
 
   watchEffect(async () => {
     const positions = savingsPositions.value
     void rewardsVersion.value
     void intrinsicVersion.value
-    const myVersion = ++optionsVersion
+    const gen = guard.next()
 
     const options = await Promise.all(positions.map(async (position) => {
       const vault = position.vault
@@ -62,7 +63,7 @@ export const useRepaySavingsOptions = () => {
       }
     }))
 
-    if (myVersion !== optionsVersion) return
+    if (guard.isStale(gen)) return
     savingsOptions.value = options
   })
 

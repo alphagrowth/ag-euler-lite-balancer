@@ -5,6 +5,7 @@ import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getVaultTags } from '~/composables/useGeoBlock'
+import { createRaceGuard } from '~/utils/race-guard'
 
 type CollateralItem = {
   vault: Vault
@@ -54,11 +55,13 @@ export const useMultiplyCollateralOptions = ({
   })
 
   const walletItems = ref<CollateralItem[]>([])
+  const walletGuard = createRaceGuard()
 
   watchEffect(async () => {
     const inputs = walletItemsInput.value
     void rewardsVersion.value
     void intrinsicVersion.value
+    const gen = walletGuard.next()
     const items = await Promise.all(inputs.map(async ({ vault, balance }) => {
       const amount = nanoToValue(balance, vault.asset.decimals)
       const product = getProductByVault(vault.address)
@@ -83,6 +86,7 @@ export const useMultiplyCollateralOptions = ({
         },
       } as CollateralItem
     }))
+    if (walletGuard.isStale(gen)) return
     walletItems.value = items
   })
 
@@ -98,11 +102,13 @@ export const useMultiplyCollateralOptions = ({
   })
 
   const savingItems = ref<CollateralItem[]>([])
+  const savingGuard = createRaceGuard()
 
   watchEffect(async () => {
     const inputs = savingItemsInput.value
     void rewardsVersion.value
     void intrinsicVersion.value
+    const gen = savingGuard.next()
     const items = await Promise.all(inputs.map(async ({ vault, assets }) => {
       const amount = nanoToValue(assets, vault.asset.decimals)
       const product = getProductByVault(vault.address)
@@ -127,6 +133,7 @@ export const useMultiplyCollateralOptions = ({
         },
       } as CollateralItem
     }))
+    if (savingGuard.isStale(gen)) return
     savingItems.value = items
   })
 
