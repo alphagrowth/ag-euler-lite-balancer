@@ -5,7 +5,7 @@ import type { EulerLabelEntity } from '~/entities/euler/labels'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getVaultUtilization } from '~/entities/vault'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
-import { getEntitiesByVault, isVaultDeprecated } from '~/composables/useEulerLabels'
+import { getEntitiesByVault, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { formatNumber } from '~/utils/string-utils'
 

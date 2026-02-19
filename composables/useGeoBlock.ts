@@ -1,5 +1,5 @@
 import { detectCountry } from '~/services/country'
-import { getVaultBlock, getEarnVaultBlock, getVaultRestricted, getEarnVaultRestricted, isVaultDeprecated } from '~/composables/useEulerLabels'
+import { getVaultBlock, getEarnVaultBlock, getVaultRestricted, getEarnVaultRestricted, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { SANCTIONED_COUNTRIES, COUNTRY_GROUPS } from '~/entities/constants'
 
 const country = ref<string | null>(null)

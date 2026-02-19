@@ -15,7 +15,7 @@ import {
   isSecuritizeVault,
   type Vault,
 } from '~/entities/vault'
-import { getProductByVault } from '~/composables/useEulerLabels'
+import { getProductByVault } from '~/utils/eulerLabelsUtils'
 
 const isReady = ref(false)
 const isLoading = ref(false)

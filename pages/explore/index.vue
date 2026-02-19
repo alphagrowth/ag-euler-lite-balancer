@@ -2,7 +2,7 @@
 import { useMarketGroups } from '~/composables/useMarketGroups'
 import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/composables/useEulerLabels'
+import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useBestNetAPY } from '~/composables/useBestNetAPY'
 import { useVaultSearch } from '~/composables/useVaultSearch'

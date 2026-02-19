@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { type AnyBorrowVaultPair, getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
-import { isVaultDeprecated } from '~/composables/useEulerLabels'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { getCollateralOraclePrice, getAssetOraclePrice } from '~/services/pricing/priceProvider'
 import { formatNumber, formatSignificant } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'

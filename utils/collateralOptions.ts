@@ -1,4 +1,4 @@
-import { getProductByVault } from '~/composables/useEulerLabels'
+import { getProductByVault } from '~/utils/eulerLabelsUtils'
 import { getVaultTags, type VaultTagContext } from '~/composables/useGeoBlock'
 import type { CollateralOption, Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'

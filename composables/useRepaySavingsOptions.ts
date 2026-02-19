@@ -1,5 +1,5 @@
 import { getAddress, type Address } from 'viem'
-import { getProductByVault } from '~/composables/useEulerLabels'
+import { getProductByVault } from '~/utils/eulerLabelsUtils'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import type { AccountDepositPosition } from '~/entities/account'

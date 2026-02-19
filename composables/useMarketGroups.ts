@@ -4,7 +4,7 @@ import type { MarketGroup, MarketGroupMetrics, CuratorGroup } from '~/entities/l
 import type { AnyVault } from '~/composables/useVaultRegistry'
 import { getVaultUtilization } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { isVaultFeatured } from '~/composables/useEulerLabels'
+import { isVaultFeatured } from '~/utils/eulerLabelsUtils'
 
 // -- Helpers --
 

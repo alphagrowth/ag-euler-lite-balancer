@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getProductByVault } from '~/composables/useEulerLabels'
+import { getProductByVault } from '~/utils/eulerLabelsUtils'
 import type { CollateralOption } from '~/entities/vault'
 import { formatNumber } from '~/utils/string-utils'
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MarketGroup, MiniDiagramData } from '~/entities/lend-discovery'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { isVaultDeprecated } from '~/composables/useEulerLabels'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import {
   getEnlargedDiagram,
   getArrow,
