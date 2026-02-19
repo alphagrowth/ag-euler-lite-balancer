@@ -1,168 +1,123 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, formatUnits, type Address, type Abi, zeroAddress } from 'viem'
+import { getAddress, type Address } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
-import { getPublicClient } from '~/utils/public-client'
-import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
-import { eulerAccountLensABI } from '~/entities/euler/abis'
-import {
-  getNetAPY,
-  type Vault,
-  type SecuritizeVault,
-  type VaultAsset,
-} from '~/entities/vault'
-import {
-  getAssetUsdValueOrZero,
-  getCollateralUsdValueOrZero,
-} from '~/services/pricing/priceProvider'
+import type { Vault, VaultAsset } from '~/entities/vault'
 import { fetchBackendPrice } from '~/services/pricing/backendClient'
 import type { TxPlan } from '~/entities/txPlan'
-import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
-import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
-import { getQuoteAmount } from '~/utils/swapQuotes'
+import type { SwapApiQuote } from '~/entities/swap'
+import { SwapperMode } from '~/entities/swap'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { useCollateralForm } from '~/composables/position/useCollateralForm'
+import { zeroAddress } from 'viem'
 
-const router = useRouter()
-const route = useRoute()
-const modal = useModal()
-const { error } = useToast()
-const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-const reviewSupplyLabel = getSubmitLabel('Review Supply')
-const { buildSupplyPlan, buildSwapAndSupplyPlan, executeTxPlan } = useEulerOperations()
 const { isConnected, address } = useAccount()
 const { fetchSingleBalance } = useWallets()
-const positionIndex = usePositionIndex()
-const { isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
-const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
-const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
-const { isReady: isVaultsReady } = useVaults()
-const { getOrFetch } = useVaultRegistry()
-const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-const { EVM_PROVIDER_URL } = useEulerConfig()
+const { buildSupplyPlan, buildSwapAndSupplyPlan } = useEulerOperations()
 
-const priceInvert = usePriceInvert(
-  () => collateralVault.value?.asset.symbol,
-  () => borrowVault.value?.asset.symbol,
-)
-
-const isLoading = ref(false)
-const isSubmitting = ref(false)
-const isPreparing = ref(false)
-const isEstimatesLoading = ref(false)
-const amount = ref('')
-const plan = ref<TxPlan | null>(null)
+// Supply-specific state
 const balance = ref(0n)
-const estimateNetAPY = ref(0)
-const estimateUserLTV = ref(0n)
-const estimateHealth = ref(0n)
-const estimatesError = ref('')
-const selectedCollateral = ref<Vault | SecuritizeVault | null>(null)
-const selectedCollateralAssets = ref(0n)
-const lastCollateralAddress = ref('')
-
-// Swap & deposit state
-const { enableSwapDeposit } = useDeployConfig()
 const selectedAsset = ref<VaultAsset | undefined>()
 const selectedAssetBalance = ref(0n)
 const swapAssetUsdPrice = ref<number | undefined>()
+
 const needsSwap = computed(() => {
-  if (!selectedAsset.value || !asset.value) return false
+  if (!selectedAsset.value || !form.asset.value) return false
   try {
-    return getAddress(selectedAsset.value.address) !== getAddress(asset.value.address)
+    return getAddress(selectedAsset.value.address) !== getAddress(form.asset.value.address)
   }
   catch {
     return false
   }
 })
-const { slippage: swapSlippage } = useSlippage()
-const {
-  sortedQuoteCards: swapQuoteCardsSorted,
-  selectedProvider: swapSelectedProvider,
-  selectedQuote: swapSelectedQuote,
-  effectiveQuote: swapEffectiveQuote,
-  providersCount: swapProvidersCount,
-  isLoading: isSwapQuoteLoading,
-  quoteError: swapQuoteError,
-  statusLabel: swapQuotesStatusLabel,
-  getQuoteDiffPct: getSwapQuoteDiffPct,
-  reset: resetSwapQuoteState,
-  requestQuotes: requestSwapQuotes,
-  selectProvider: selectSwapQuote,
-} = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
 
-const position = computed(() => getPositionBySubAccountIndex(+positionIndex))
-const isPositionLoaded = computed(() => !!position.value)
-const collateralVault = computed(() => selectedCollateral.value || position.value?.collateral)
-const borrowVault = computed(() => position.value?.borrow)
-const collateralAssets = computed(() => selectedCollateralAssets.value)
-const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
-const borrowRewardApy = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
-const collateralSupplyApy = computed(() => {
-  if (!collateralVault.value) return 0
-  return withIntrinsicSupplyApy(
-    nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
-    collateralVault.value?.asset.address,
-  )
+const activeBalance = computed(() => needsSwap.value ? selectedAssetBalance.value : balance.value)
+const activeAsset = computed(() => needsSwap.value ? selectedAsset.value : form.asset.value)
+
+const form = useCollateralForm({
+  mode: 'supply',
+  needsSwap,
+  effectiveBalance: activeBalance,
+
+  computePriceFixed: (pos) =>
+    FixedPoint.fromValue(pos.price || 0n, 18),
+
+  computeLiquidationPrice: (pos) => {
+    if (nanoToValue(pos.health || 0n, 18) < 0.1) return Infinity
+    return nanoToValue(pos.price || 0n, 18) / nanoToValue(pos.health || 1n, 18)
+  },
+
+  validateEstimate: ({ amountFixed, needsSwap: isSwap }) => {
+    if (!isSwap && balanceFixed.value.lt(amountFixed)) {
+      throw new Error('Not enough balance')
+    }
+    if (isSwap && selectedAssetBalance.value < valueToNano(form.amount.value, selectedAsset.value?.decimals)) {
+      throw new Error('Not enough balance')
+    }
+  },
+
+  buildDirectPlan: async ({ vaultAddress, assetAddress, amountNano, subAccount, includePermit2Call }) =>
+    buildSupplyPlan(vaultAddress, assetAddress, amountNano, subAccount, { includePermit2Call }),
+
+  buildSwapPlan: async (quote: SwapApiQuote, { includePermit2Call }) => {
+    if (!selectedAsset.value || !form.collateralVault.value) {
+      throw new Error('No selected asset or vault')
+    }
+    return buildSwapAndSupplyPlan({
+      inputTokenAddress: selectedAsset.value.address as Address,
+      inputAmount: valueToNano(form.amount.value || '0', selectedAsset.value.decimals),
+      quote,
+      includePermit2Call,
+    })
+  },
+
+  requestSwapQuoteParams: ({ userAddr, subAccountAddr, amountNano, slippage }) => {
+    if (!selectedAsset.value || !form.asset.value || !form.collateralVault.value) return null
+    return {
+      tokenIn: selectedAsset.value.address as Address,
+      tokenOut: form.asset.value.address as Address,
+      accountIn: zeroAddress as Address,
+      accountOut: subAccountAddr,
+      amount: valueToNano(form.amount.value || '0', selectedAsset.value.decimals),
+      vaultIn: zeroAddress as Address,
+      receiver: form.collateralVault.value.address as Address,
+      unusedInputReceiver: userAddr,
+      slippage,
+      swapperMode: SwapperMode.EXACT_IN,
+      isRepay: false,
+      targetDebt: 0n,
+      currentDebt: 0n,
+    }
+  },
+
+  getSwapOutputAsset: () => form.asset.value,
+
+  reviewLabel: 'Review Supply',
+  reviewType: 'supply',
+  swapReviewType: 'swap-supply',
+  getReviewAsset: (isSwap) => isSwap && selectedAsset.value ? selectedAsset.value : form.asset.value,
+  getSwapToAsset: () => form.asset.value,
+
+  onAfterLoad: () => updateBalance(),
 })
-const borrowApy = computed(() => withIntrinsicBorrowApy(
-  nanoToValue(borrowVault.value?.interestRateInfo.borrowAPY || 0n, 25),
-  borrowVault.value?.asset.address,
-))
-// Get collateral USD value using liability vault's price perspective (async)
-const getCollateralValueUsdLocal = async (amount: bigint) => {
-  if (!borrowVault.value || !collateralVault.value) return 0
-  return getCollateralUsdValueOrZero(amount, borrowVault.value, collateralVault.value as Vault, 'off-chain')
-}
-// Pre-computed net APY (async)
-const netAPY = ref(0)
 
-watchEffect(async () => {
-  if (!position.value || !borrowVault.value || !collateralVault.value) {
-    netAPY.value = 0
+const balanceFixed = computed(() => FixedPoint.fromValue(balance.value, form.collateralVault.value?.decimals || 18))
+const assets = computed(() => [form.asset.value].filter((v): v is VaultAsset => !!v))
+const { name } = useEulerProductOfVault(computed(() => form.collateralVault.value?.address || ''))
+
+// Supply-specific: balance management
+const updateBalance = async () => {
+  if (!isConnected.value || !form.collateralVault.value?.asset.address) {
+    balance.value = 0n
     return
   }
+  balance.value = await fetchSingleBalance(form.collateralVault.value.asset.address)
+}
 
-  const [collateralUsd, borrowedUsd] = await Promise.all([
-    getCollateralValueUsdLocal(collateralAssets.value),
-    getAssetUsdValueOrZero(position.value.borrowed ?? 0n, borrowVault.value, 'off-chain'),
-  ])
-
-  netAPY.value = getNetAPY(
-    collateralUsd,
-    collateralSupplyApy.value,
-    borrowedUsd,
-    borrowApy.value,
-    collateralSupplyRewardApy.value || null,
-    borrowRewardApy.value || null,
-  )
-})
-const amountFixed = computed(() => FixedPoint.fromValue(
-  valueToNano(amount.value || '0', collateralVault.value?.decimals),
-  Number(collateralVault.value?.decimals),
-))
-const borrowedFixed = computed(() => FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
-const suppliedFixed = computed(() => FixedPoint.fromValue(collateralAssets.value, collateralVault.value?.decimals || 18))
-const priceFixed = computed(() => FixedPoint.fromValue(position.value?.price || 0n, 18))
-const balanceFixed = computed(() => FixedPoint.fromValue(balance.value, collateralVault.value?.decimals || 18))
-const liquidationPrice = computed(() => {
-  if (nanoToValue(position.value?.health || 0n, 18) < 0.1) {
-    return Infinity
-  }
-  return nanoToValue(position.value?.price || 0n, 18) / nanoToValue(position.value?.health || 1n, 18)
-})
-const asset = computed(() => collateralVault.value?.asset)
-const assets = computed(() => [asset.value].filter((v): v is VaultAsset => !!v))
-
-// Swap helpers
 const fetchSelectedAssetBalance = async () => {
   if (!selectedAsset.value?.address) {
     selectedAssetBalance.value = 0n
@@ -170,423 +125,36 @@ const fetchSelectedAssetBalance = async () => {
   }
   selectedAssetBalance.value = await fetchSingleBalance(selectedAsset.value.address)
 }
-const activeBalance = computed(() => needsSwap.value ? selectedAssetBalance.value : balance.value)
-const activeAsset = computed(() => needsSwap.value ? selectedAsset.value : asset.value)
-
-const isSubmitDisabled = computed(() => {
-  if (!isConnected.value) return false
-  if (activeBalance.value < valueToNano(amount.value, activeAsset.value?.decimals)) return true
-  if (isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value) return true
-  if (needsSwap.value && !swapEffectiveQuote.value && !isSwapQuoteLoading.value) return true
-  return false
-})
-const isGeoBlocked = computed(() => {
-  const addresses: string[] = []
-  if (borrowVault.value) addresses.push(borrowVault.value.address)
-  if (collateralVault.value) addresses.push(collateralVault.value.address)
-  return isAnyVaultBlockedByCountry(...addresses)
-})
-const isSwapRestricted = computed(() => needsSwap.value && isVaultRestrictedByCountry(collateralVault.value?.address || ''))
-const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSwapRestricted.value || isLoading.value || isSubmitDisabled.value))
-const { name } = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
-
-// Swap quote helpers
-const swapEstimatedOutput = computed(() => {
-  if (!swapEffectiveQuote.value || !asset.value) return ''
-  const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
-  if (amountOut <= 0n) return ''
-  return formatUnits(amountOut, Number(asset.value.decimals))
-})
-
-const swapRouteItems = computed(() => {
-  if (!asset.value) return []
-  const bestProvider = swapQuoteCardsSorted.value[0]?.provider
-  return swapQuoteCardsSorted.value.map((card) => {
-    const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amountFormatted = formatSmartAmount(
-      formatUnits(amountOut, Number(asset.value!.decimals)),
-    )
-    const diffPct = getSwapQuoteDiffPct(card.quote)
-    const badge = card.provider === bestProvider
-      ? { label: 'Best', tone: 'best' as const }
-      : diffPct !== null
-        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
-        : undefined
-    return {
-      provider: card.provider,
-      amount: amountFormatted,
-      symbol: asset.value!.symbol,
-      routeLabel: card.quote.route?.length
-        ? `via ${card.quote.route.map(r => r.providerName).join(', ')}`
-        : '-',
-      badge,
-    }
-  })
-})
-
-const requestSwapQuote = useDebounceFn(async () => {
-  swapQuoteError.value = null
-
-  if (!selectedAsset.value || !asset.value || !needsSwap.value || !amount.value) {
-    resetSwapQuoteState()
-    return
-  }
-
-  const inputAmountNano = valueToNano(amount.value || '0', selectedAsset.value.decimals)
-  if (inputAmountNano <= 0n) {
-    resetSwapQuoteState()
-    return
-  }
-
-  const userAddr = (address.value || zeroAddress) as Address
-  const subAccountAddr = position.value?.subAccount
-    ? (position.value.subAccount as Address)
-    : userAddr
-  await requestSwapQuotes({
-    tokenIn: selectedAsset.value.address as Address,
-    tokenOut: asset.value.address as Address,
-    accountIn: zeroAddress as Address,
-    accountOut: subAccountAddr,
-    amount: inputAmountNano,
-    vaultIn: zeroAddress as Address,
-    receiver: collateralVault.value!.address as Address,
-    unusedInputReceiver: userAddr,
-    slippage: swapSlippage.value,
-    swapperMode: SwapperMode.EXACT_IN,
-    isRepay: false,
-    targetDebt: 0n,
-    currentDebt: 0n,
-  }, {
-    logContext: {
-      tokenIn: selectedAsset.value.address,
-      tokenOut: asset.value.address,
-      amount: amount.value,
-      slippage: swapSlippage.value,
-    },
-  })
-}, 500)
-
-const buildSwapSupplyPlanFromQuote = async (quote: SwapApiQuote, options: { includePermit2Call?: boolean } = {}): Promise<TxPlan> => {
-  if (!selectedAsset.value || !collateralVault.value) {
-    throw new Error('No selected asset or vault')
-  }
-  return buildSwapAndSupplyPlan({
-    inputTokenAddress: selectedAsset.value.address as Address,
-    inputAmount: valueToNano(amount.value || '0', selectedAsset.value.decimals),
-    quote,
-    includePermit2Call: options.includePermit2Call,
-  })
-}
 
 const onSelectSwapAsset = (newAsset: VaultAsset) => {
   selectedAsset.value = newAsset
-  amount.value = ''
-  clearSimulationError()
-  resetSwapQuoteState()
+  form.amount.value = ''
+  form.clearSimulationError()
+  form.resetSwapQuoteState()
 }
 
 const openSwapTokenSelector = () => {
-  modal.open(SwapTokenSelector, {
-    props: {
-      currentAssetAddress: selectedAsset.value?.address || asset.value?.address,
-      onSelect: onSelectSwapAsset,
-    },
-  })
+  form.openSwapTokenSelector(
+    selectedAsset.value?.address || form.asset.value?.address,
+    onSelectSwapAsset,
+  )
 }
 
-const openSlippageSettings = () => {
-  modal.open(SlippageSettingsModal)
-}
-
-const onRefreshSwapQuotes = () => {
-  resetSwapQuoteState()
-  requestSwapQuote()
-}
-
-const normalizeAddress = (address?: string) => {
-  if (!address) {
-    return ''
-  }
-  try {
-    return getAddress(address)
-  }
-  catch {
-    return ''
-  }
-}
-
-const getSelectedCollateralAddress = () =>
-  (typeof route.query.collateral === 'string' ? route.query.collateral : '')
-
-const loadSelectedCollateral = async () => {
-  if (!position.value) {
-    selectedCollateral.value = null
-    selectedCollateralAssets.value = 0n
-    return
-  }
-
-  const primaryAddress = normalizeAddress(position.value.collateral.address)
-  const targetAddress = normalizeAddress(getSelectedCollateralAddress()) || primaryAddress
-
-  if (targetAddress !== lastCollateralAddress.value) {
-    amount.value = ''
-    lastCollateralAddress.value = targetAddress
-  }
-
-  selectedCollateralAssets.value = targetAddress === primaryAddress ? position.value.supplied : 0n
-
-  try {
-    if (!isEulerAddressesReady.value) {
-      await loadEulerConfig()
-    }
-
-    await until(isVaultsReady).toBe(true)
-
-    // Use unified vault resolution - handles EVK, escrow, and securitize vaults
-    const vault = await getOrFetch(targetAddress) as Vault | SecuritizeVault | undefined
-    selectedCollateral.value = vault || null
-
-    const lensAddress = eulerLensAddresses.value?.accountLens
-    if (!lensAddress) {
-      throw new Error('Account lens address is not available')
-    }
-
-    const client = getPublicClient(EVM_PROVIDER_URL)
-    const res = await client.readContract({
-      address: lensAddress as Address,
-      abi: eulerAccountLensABI as Abi,
-      functionName: 'getVaultAccountInfo',
-      args: [position.value.subAccount, targetAddress],
-    }) as Record<string, any>
-    selectedCollateralAssets.value = res.assets
-  }
-  catch (e) {
-    console.warn('[Supply] failed to load collateral', e)
-    if (!selectedCollateral.value) {
-      selectedCollateral.value = position.value.collateral
-    }
-  }
-}
-
-const load = async () => {
-  if (!isConnected.value) {
-    return
-  }
-  isLoading.value = true
-  await until(isPositionLoaded).toBe(true)
-  try {
-    await loadSelectedCollateral()
-    // Fetch fresh underlying asset balance for this specific vault
-    await updateBalance()
-    estimateNetAPY.value = netAPY.value
-    estimateUserLTV.value = position.value!.userLTV
-    estimateHealth.value = position.value!.health
-  }
-  catch (e) {
-    showError('Unable to load Vault')
-    console.warn(e)
-  }
-  finally {
-    isLoading.value = false
-  }
-}
-const updateBalance = async () => {
-  if (!isConnected.value || !collateralVault.value?.asset.address) {
-    balance.value = 0n
-    return
-  }
-  balance.value = await fetchSingleBalance(collateralVault.value.asset.address)
-}
-const submit = async () => {
-  if (isPreparing.value || isGeoBlocked.value || isSwapRestricted.value) return
-  isPreparing.value = true
-  try {
-    await guardWithTerms(async () => {
-      if (!collateralVault.value?.asset.address) {
-        return
-      }
-
-      try {
-        if (needsSwap.value && swapEffectiveQuote.value) {
-          plan.value = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value, { includePermit2Call: false })
-        }
-        else {
-          plan.value = await buildSupplyPlan(
-            collateralVault.value.address,
-            collateralVault.value.asset.address,
-            valueToNano(amount.value || '0', collateralVault.value.asset.decimals),
-            position.value?.subAccount,
-            { includePermit2Call: false },
-          )
-        }
-      }
-      catch (e) {
-        console.warn('[OperationReviewModal] failed to build plan', e)
-        plan.value = null
-      }
-
-      if (plan.value) {
-        const ok = await runSimulation(plan.value)
-        if (!ok) {
-          return
-        }
-      }
-
-      const reviewAsset = needsSwap.value && selectedAsset.value ? selectedAsset.value : asset.value
-      const reviewType = needsSwap.value ? 'swap-supply' as const : 'supply' as const
-      modal.open(OperationReviewModal, {
-        props: {
-          type: reviewType,
-          asset: reviewAsset,
-          amount: amount.value,
-          plan: plan.value || undefined,
-          subAccount: position.value?.subAccount,
-          hasBorrows: (position.value?.borrowed || 0n) > 0n,
-          swapToAsset: needsSwap.value ? asset.value : undefined,
-          swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
-          onConfirm: () => {
-            setTimeout(() => {
-              send()
-            }, 400)
-          },
-        },
-      })
-    })
-  }
-  finally {
-    isPreparing.value = false
-  }
-}
-const send = async () => {
-  try {
-    isSubmitting.value = true
-    if (!asset.value?.address) {
-      return
-    }
-
-    let txPlan: TxPlan
-    if (needsSwap.value && swapSelectedQuote.value) {
-      txPlan = await buildSwapSupplyPlanFromQuote(swapSelectedQuote.value)
-    }
-    else if (needsSwap.value && swapEffectiveQuote.value) {
-      txPlan = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value)
-    }
-    else {
-      txPlan = await buildSupplyPlan(
-        collateralVault.value!.address,
-        asset.value.address,
-        valueToNano(amount.value || '0', asset.value.decimals),
-        position.value?.subAccount,
-        { includePermit2Call: true },
-      )
-    }
-    await executeTxPlan(txPlan)
-
-    modal.close()
-    await updateBalance()
-    setTimeout(() => {
-      router.replace('/portfolio')
-    }, 400)
-  }
-  catch (e) {
-    console.warn(e)
-    error('Transaction failed')
-  }
-  finally {
-    isSubmitting.value = false
-  }
-}
-const updateEstimates = useDebounceFn(async () => {
-  clearSimulationError()
-  estimatesError.value = ''
-  if (!collateralVault.value) {
-    return
-  }
-  try {
-    if (balanceFixed.value.lt(amountFixed.value) && !needsSwap.value) {
-      throw new Error('Not enough balance')
-    }
-    if (needsSwap.value && selectedAssetBalance.value < valueToNano(amount.value, selectedAsset.value?.decimals)) {
-      throw new Error('Not enough balance')
-    }
-    const [collateralUsd, borrowedUsd] = await Promise.all([
-      getCollateralValueUsdLocal(collateralAssets.value + valueToNano(amount.value, collateralVault.value.decimals)),
-      getAssetUsdValueOrZero(position.value!.borrowed || 0n, borrowVault.value!, 'off-chain'),
-    ])
-    estimateNetAPY.value = getNetAPY(
-      collateralUsd,
-      collateralSupplyApy.value,
-      borrowedUsd,
-      borrowApy.value,
-      collateralSupplyRewardApy.value || null,
-      borrowRewardApy.value || null,
-    )
-    const collateralValue = (suppliedFixed.value.add(amountFixed.value)).mul(priceFixed.value)
-    const userLtvFixed = collateralValue.isZero()
-      ? FixedPoint.fromValue(0n, 18)
-      : borrowedFixed.value
-          .div(collateralValue)
-          .mul(FixedPoint.fromValue(100n, 0))
-    estimateUserLTV.value = userLtvFixed.value
-    estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
-      ? 0n
-      : FixedPoint.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
-  }
-  catch (e: unknown) {
-    console.warn(e)
-    estimateNetAPY.value = netAPY.value
-    estimateUserLTV.value = position.value!.userLTV
-    estimateHealth.value = position.value!.health
-    estimatesError.value = (e as { message: string }).message
-  }
-  finally {
-    isEstimatesLoading.value = false
-  }
-}, 500)
-
-watch(isPositionsLoaded, (val) => {
-  if (val) {
-    load()
-  }
-}, { immediate: true })
-watch(() => route.query.collateral, async () => {
-  clearSimulationError()
-  if (!isPositionLoaded.value) {
-    return
-  }
-  await loadSelectedCollateral()
-  await updateBalance()
-  estimateNetAPY.value = netAPY.value
-  estimateUserLTV.value = position.value?.userLTV || 0n
-  estimateHealth.value = position.value?.health || 0n
-})
+// Supply-specific watchers
 watch(isConnected, () => {
   updateBalance()
 })
+
 watch(address, () => {
   updateBalance()
   fetchSelectedAssetBalance()
 })
-watch(amount, async () => {
-  if (!collateralVault.value) {
-    return
-  }
-  if (!isEstimatesLoading.value) {
-    isEstimatesLoading.value = true
-  }
-  updateEstimates()
-  if (needsSwap.value) {
-    resetSwapQuoteState()
-    requestSwapQuote()
-  }
-})
 
-// Fetch selected asset balance and USD price when it changes
 watch(selectedAsset, async () => {
   fetchSelectedAssetBalance()
-  if (needsSwap.value && amount.value) {
-    resetSwapQuoteState()
-    requestSwapQuote()
+  if (needsSwap.value && form.amount.value) {
+    form.resetSwapQuoteState()
+    form.requestSwapQuote()
   }
   if (selectedAsset.value?.address && needsSwap.value) {
     const priceData = await fetchBackendPrice(selectedAsset.value.address as Address)
@@ -597,19 +165,7 @@ watch(selectedAsset, async () => {
   }
 })
 
-// Re-request quote when slippage changes
-watch(swapSlippage, () => {
-  if (needsSwap.value && amount.value) {
-    clearSimulationError()
-    resetSwapQuoteState()
-    requestSwapQuote()
-  }
-})
-
-watch(swapSelectedQuote, () => {
-  clearSimulationError()
-})
-
+// Balance polling
 const interval = setInterval(() => {
   updateBalance()
 }, POLL_INTERVAL_5S_MS)
@@ -622,16 +178,16 @@ onUnmounted(() => {
 <template>
   <VaultForm
     title="Supply"
-    :loading="isLoading"
-    @submit.prevent="submit"
+    :loading="form.isLoading.value"
+    @submit.prevent="form.submit"
   >
     <div v-if="!isConnected">
       Connect your wallet to see your positions
     </div>
 
-    <template v-else-if="collateralVault">
+    <template v-else-if="form.collateralVault.value">
       <VaultLabelsAndAssets
-        :vault="collateralVault"
+        :vault="form.collateralVault.value"
         :assets="assets"
         size="large"
       />
@@ -639,19 +195,19 @@ onUnmounted(() => {
       <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
         <div class="flex flex-col gap-16 w-full">
           <AssetInput
-            v-if="asset"
-            v-model="amount"
+            v-if="form.asset.value"
+            v-model="form.amount.value"
             label="Deposit amount"
             :desc="name"
-            :asset="needsSwap && selectedAsset ? selectedAsset : asset"
-            :vault="needsSwap ? undefined : (collateralVault as Vault)"
+            :asset="needsSwap && selectedAsset ? selectedAsset : form.asset.value"
+            :vault="needsSwap ? undefined : (form.collateralVault.value as Vault)"
             :price-override="needsSwap ? swapAssetUsdPrice : undefined"
             :balance="activeBalance"
             maxable
           />
 
           <!-- Pay with token selector -->
-          <div v-if="enableSwapDeposit" class="flex items-center gap-8">
+          <div v-if="form.enableSwapDeposit" class="flex items-center gap-8">
             <span class="text-p3 text-content-tertiary">Pay with</span>
             <button
               type="button"
@@ -659,10 +215,10 @@ onUnmounted(() => {
               @click="openSwapTokenSelector"
             >
               <AssetAvatar
-                :asset="{ address: selectedAsset?.address || asset?.address || '', symbol: selectedAsset?.symbol || asset?.symbol || '' }"
+                :asset="{ address: selectedAsset?.address || form.asset.value?.address || '', symbol: selectedAsset?.symbol || form.asset.value?.symbol || '' }"
                 size="20"
               />
-              {{ selectedAsset?.symbol || asset?.symbol }}
+              {{ selectedAsset?.symbol || form.asset.value?.symbol }}
               <SvgIcon
                 class="text-euler-dark-800 !w-16 !h-16"
                 name="arrow-down"
@@ -671,33 +227,33 @@ onUnmounted(() => {
           </div>
 
           <!-- Swap info block -->
-          <template v-if="needsSwap && asset">
+          <template v-if="needsSwap && form.asset.value">
             <SwapRouteSelector
-              :items="swapRouteItems"
-              :selected-provider="swapSelectedProvider"
-              :status-label="swapQuotesStatusLabel"
-              :is-loading="isSwapQuoteLoading"
+              :items="form.swapRouteItems.value"
+              :selected-provider="form.swapSelectedProvider.value"
+              :status-label="form.swapQuotesStatusLabel.value"
+              :is-loading="form.isSwapQuoteLoading.value"
               empty-message="Enter amount to fetch quotes"
-              @select="selectSwapQuote"
-              @refresh="onRefreshSwapQuotes"
+              @select="form.selectSwapQuote"
+              @refresh="form.onRefreshSwapQuotes"
             />
 
             <VaultFormInfoBlock
-              v-if="swapEstimatedOutput"
-              :loading="isSwapQuoteLoading"
+              v-if="form.swapEstimatedOutput.value"
+              :loading="form.isSwapQuoteLoading.value"
             >
               <SummaryRow label="Estimated deposit" align-top>
                 <p class="text-p2">
-                  ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ asset.symbol }}
+                  ~{{ formatSmartAmount(form.swapEstimatedOutput.value) }} {{ form.asset.value.symbol }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Slippage tolerance">
                 <button
                   type="button"
                   class="flex items-center gap-6 text-p2"
-                  @click="openSlippageSettings"
+                  @click="form.openSlippageSettings"
                 >
-                  <span>{{ formatNumber(swapSlippage, 2, 0) }}%</span>
+                  <span>{{ formatNumber(form.swapSlippage.value, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"
@@ -707,98 +263,98 @@ onUnmounted(() => {
             </VaultFormInfoBlock>
 
             <UiToast
-              v-if="swapQuoteError"
+              v-if="form.swapQuoteError.value"
               title="Swap quote"
               variant="warning"
-              :description="swapQuoteError"
+              :description="form.swapQuoteError.value"
               size="compact"
             />
           </template>
 
           <UiToast
-            v-if="isGeoBlocked"
+            v-if="form.isGeoBlocked.value"
             title="Region restricted"
             description="This operation is not available in your region. You can still repay existing debt."
             variant="warning"
             size="compact"
           />
           <UiToast
-            v-if="!isGeoBlocked && isSwapRestricted"
+            v-if="!form.isGeoBlocked.value && form.isSwapRestricted.value"
             title="Swap restricted"
             description="Swapping into this vault is not available in your region. You can deposit the vault's underlying asset directly."
             variant="warning"
             size="compact"
           />
           <UiToast
-            v-show="estimatesError"
+            v-show="form.estimatesError.value"
             title="Error"
             variant="error"
-            :description="estimatesError"
+            :description="form.estimatesError.value"
             size="compact"
           />
           <UiToast
-            v-if="simulationError"
+            v-if="form.simulationError.value"
             title="Error"
             variant="error"
-            :description="simulationError"
+            :description="form.simulationError.value"
             size="compact"
           />
         </div>
 
         <VaultFormInfoBlock
-          v-if="position"
-          :loading="isEstimatesLoading"
+          v-if="form.position.value"
+          :loading="form.isEstimatesLoading.value"
           variant="card"
           class="w-full laptop:max-w-[360px]"
         >
           <SummaryRow label="Net APY">
             <SummaryValue
-              :before="formatNumber(netAPY)"
-              :after="formatNumber(estimateNetAPY)"
+              :before="formatNumber(form.netAPY.value)"
+              :after="formatNumber(form.estimateNetAPY.value)"
               suffix="%"
             />
           </SummaryRow>
           <SummaryRow label="Oracle price">
             <SummaryPriceValue
-              :value="!priceFixed.isZero() ? formatSmartAmount(priceInvert.invertValue(priceFixed.toUnsafeFloat())) : undefined"
-              :symbol="priceInvert.displaySymbol"
+              :value="!form.priceFixed.value.isZero() ? formatSmartAmount(form.priceInvert.invertValue(form.priceFixed.value.toUnsafeFloat())) : undefined"
+              :symbol="form.priceInvert.displaySymbol"
               invertible
-              @invert="priceInvert.toggle"
+              @invert="form.priceInvert.toggle"
             />
           </SummaryRow>
           <SummaryRow label="Liquidation price">
             <SummaryPriceValue
-              :value="liquidationPrice != null && liquidationPrice !== Infinity ? formatSmartAmount(priceInvert.invertValue(liquidationPrice)!) : undefined"
-              :symbol="priceInvert.displaySymbol"
+              :value="form.liquidationPrice.value != null && form.liquidationPrice.value !== Infinity ? formatSmartAmount(form.priceInvert.invertValue(form.liquidationPrice.value)!) : undefined"
+              :symbol="form.priceInvert.displaySymbol"
               invertible
-              @invert="priceInvert.toggle"
+              @invert="form.priceInvert.toggle"
             />
           </SummaryRow>
           <SummaryRow label="LTV">
             <SummaryValue
-              :before="formatNumber(nanoToValue(position.userLTV, 18))"
-              :after="formatNumber(nanoToValue(estimateUserLTV, 18))"
+              :before="formatNumber(nanoToValue(form.position.value.userLTV, 18))"
+              :after="formatNumber(nanoToValue(form.estimateUserLTV.value, 18))"
               suffix="%"
             />
           </SummaryRow>
           <SummaryRow label="Health score">
             <SummaryValue
-              :before="formatHealthScore(nanoToValue(position.health, 18))"
-              :after="formatHealthScore(nanoToValue(estimateHealth, 18))"
+              :before="formatHealthScore(nanoToValue(form.position.value.health, 18))"
+              :after="formatHealthScore(nanoToValue(form.estimateHealth.value, 18))"
             />
           </SummaryRow>
         </VaultFormInfoBlock>
 
         <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
           <VaultFormInfoButton
-            :disabled="isLoading || isSubmitting"
-            :vault="collateralVault"
+            :disabled="form.isLoading.value || form.isSubmitting.value"
+            :vault="form.collateralVault.value"
           />
           <VaultFormSubmit
-            :disabled="reviewSupplyDisabled"
-            :loading="isSubmitting || isPreparing"
+            :disabled="form.submitDisabled.value"
+            :loading="form.isSubmitting.value || form.isPreparing.value"
           >
-            {{ reviewSupplyLabel }}
+            {{ form.submitLabel.value }}
           </VaultFormSubmit>
         </div>
       </div>
