@@ -6,7 +6,7 @@ import {
   type SwapApiResponse,
   SwapperMode,
 } from '~/entities/swap'
-import { SWAP_DEFAULT_DEADLINE_SECONDS } from '~/entities/constants'
+import { EXCLUDED_SWAP_PROVIDERS, SWAP_DEFAULT_DEADLINE_SECONDS } from '~/entities/constants'
 
 export interface SwapApiRequestInput {
   chainId?: number
@@ -128,7 +128,8 @@ export const useSwapApi = () => {
           },
         },
       )
-      return parseSwapProvidersResponse(response.data)
+      const providers = parseSwapProvidersResponse(response.data)
+      return providers.filter(p => !EXCLUDED_SWAP_PROVIDERS.has(p.toLowerCase()))
     }
     catch (error) {
       console.warn('[useSwapApi] providers failed', error)
