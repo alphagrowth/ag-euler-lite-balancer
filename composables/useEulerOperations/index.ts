@@ -49,7 +49,7 @@ export const useEulerOperations = () => {
 
   const vault = createVaultBuilders(ctx, helpers, permit2, allowance)
   const repay = createRepayBuilders(ctx, helpers)
-  const swaps = createSwapBuilders(ctx, helpers, permit2, allowance)
+  const swaps = createSwapBuilders(ctx, helpers)
 
   return {
     ...execution,
