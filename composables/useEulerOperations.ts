@@ -220,7 +220,6 @@ export const useEulerOperations = () => {
         approvalPairs.push({ token, spender: spender as Address })
       }
     }
-
     // Always build Permit2 overrides — they're harmless when Permit2 isn't used
     // and essential when Permit2 IS used (even without a separate permit2-approve step,
     // e.g. when the user already approved the token for Permit2 in a previous tx).
@@ -242,42 +241,54 @@ export const useEulerOperations = () => {
       }
       const tokenAddresses = [...knownTokens].map(t => getAddress(t) as Address)
 
+      // Ensure ERC20 allowance overrides exist for token → Permit2.
+      // When the plan omits the permit2-approve step (e.g. user already approved
+      // in a previous session), the approval pairs list is empty and the simulation
+      // would fail because Permit2 can't pull the token from the user.
+      for (const token of tokenAddresses) {
+        const key = `${normalizeAddress(token)}:${normalizeAddress(permit2Address)}`
+        if (!approvalSeen.has(key)) {
+          approvalSeen.add(key)
+          approvalPairs.push({ token, spender: permit2Address })
+        }
+      }
+
       for (const step of plan.steps) {
         if (step.type !== 'evc-batch') continue
         const calls = step.args?.[0] as EVCCall[] | undefined
         if (!Array.isArray(calls)) continue
 
+        const permit2Key = normalizeAddress(permit2Address)
+        const entry = permit2Pairs.get(permit2Key) || { address: permit2Address, pairs: [] }
+
+        const addPair = (token: Address, spender: Address) => {
+          const pairKey = `${normalizeAddress(token)}:${normalizeAddress(spender)}`
+          if (!entry.pairs.some(pair => `${normalizeAddress(pair.token)}:${normalizeAddress(pair.spender)}` === pairKey)) {
+            entry.pairs.push({ token, spender })
+          }
+        }
+
         for (const call of calls) {
           const target = call?.targetContract
           if (!target) continue
 
-          const permit2Key = normalizeAddress(permit2Address)
-          const entry = permit2Pairs.get(permit2Key) || { address: permit2Address, pairs: [] }
-
-          // Check all vault types via registry
+          // Vault target: vault pulls tokens via Permit2.transferFrom
           const vaultEntry = registryGet(normalizeAddress(target))
           const vault = vaultEntry?.vault
-          const vaultAddress = vault?.address
-          const assetAddress = vault?.asset?.address
-          if (assetAddress && vaultAddress) {
-            const pairKey = `${normalizeAddress(assetAddress as Address)}:${normalizeAddress(vaultAddress as Address)}`
-            if (!entry.pairs.some(pair => `${normalizeAddress(pair.token)}:${normalizeAddress(pair.spender)}` === pairKey)) {
-              entry.pairs.push({ token: assetAddress as Address, spender: vaultAddress as Address })
-            }
+          if (vault?.asset?.address && vault.address) {
+            addPair(vault.asset.address as Address, vault.address as Address)
+            continue
           }
-          else if (tokenAddresses.length > 0) {
-            // Non-vault target (e.g. swapVerifier, swapper) — add permit2 overrides
-            // for all known tokens so simulation works regardless of approval state
-            for (const token of tokenAddresses) {
-              const pairKey = `${normalizeAddress(token)}:${normalizeAddress(target)}`
-              if (!entry.pairs.some(pair => `${normalizeAddress(pair.token)}:${normalizeAddress(pair.spender)}` === pairKey)) {
-                entry.pairs.push({ token, spender: target })
-              }
-            }
+
+          // Non-vault target: only override if this call uses transferFromSender
+          // (e.g. SwapVerifier pulls tokens via Permit2)
+          const transferToken = extractTokenFromTransferFromSender(call?.data)
+          if (transferToken) {
+            addPair(transferToken, target)
           }
-          // else: no vault match, no tokens — skip
-          permit2Pairs.set(permit2Key, entry)
         }
+
+        permit2Pairs.set(permit2Key, entry)
       }
     }
 
