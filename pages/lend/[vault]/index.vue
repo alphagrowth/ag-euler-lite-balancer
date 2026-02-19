@@ -1,22 +1,27 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, formatUnits, isAddress } from 'viem'
+import { getAddress, formatUnits, isAddress, type Address, zeroAddress } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
+import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
+import { getAssetLogoUrl } from '~/composables/useTokens'
 import { computeAPYs, getCurrentLiquidationLTV, isSecuritizeVault, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
 import { getUtilisationWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
+import { fetchBackendPrice } from '~/services/pricing/backendClient'
 import type { TxPlan } from '~/entities/txPlan'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
+import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import { getQuoteAmount } from '~/utils/swapQuotes'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
 import SecuritizeVaultOverview from '~/components/entities/vault/overview/SecuritizeVaultOverview.vue'
-import { formatNumber, compactNumber } from '~/utils/string-utils'
+import { formatNumber, compactNumber, formatSmartAmount } from '~/utils/string-utils'
 
 // Type definitions for vault display
 type VaultType = 'evk' | 'securitize'
@@ -58,7 +63,7 @@ const modal = useModal()
 const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewSupplyLabel = getSubmitLabel('Review Supply')
-const { buildSupplyPlan, executeTxPlan } = useEulerOperations()
+const { buildSupplyPlan, buildSwapAndSupplyPlan, executeTxPlan } = useEulerOperations()
 const { getVault, getSecuritizeVault, getEscrowVault, updateVault, isEscrowLoadedOnce } = useVaults()
 const { get: registryGet, getVault: registryGetVault, isKnownEscrowAddress } = useVaultRegistry()
 const { isConnected, address } = useAccount()
@@ -79,6 +84,36 @@ const plan = ref<TxPlan | null>(null)
 const estimateSupplyAPY = ref(0n)
 const monthlyEarnings = ref(0)
 const monthlyEarningsUsd = ref(0)
+
+// Swap & deposit state
+const { enableSwapDeposit } = useDeployConfig()
+const selectedAsset = ref<VaultAsset | undefined>()
+const selectedAssetBalance = ref(0n)
+const swapAssetUsdPrice = ref<number | undefined>()
+const needsSwap = computed(() => {
+  if (!selectedAsset.value || !asset.value) return false
+  try {
+    return getAddress(selectedAsset.value.address) !== getAddress(asset.value.address)
+  }
+  catch {
+    return false
+  }
+})
+const { slippage: swapSlippage } = useSlippage()
+const {
+  sortedQuoteCards: swapQuoteCardsSorted,
+  selectedProvider: swapSelectedProvider,
+  selectedQuote: swapSelectedQuote,
+  effectiveQuote: swapEffectiveQuote,
+  providersCount: swapProvidersCount,
+  isLoading: isSwapQuoteLoading,
+  quoteError: swapQuoteError,
+  statusLabel: swapQuotesStatusLabel,
+  getQuoteDiffPct: getSwapQuoteDiffPct,
+  reset: resetSwapQuoteState,
+  requestQuotes: requestSwapQuotes,
+  selectProvider: selectSwapQuote,
+} = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
 
 // Vault data - only one will be populated based on type
 const evkVault: Ref<Vault | undefined> = ref(undefined)
@@ -210,8 +245,17 @@ const fetchBalance = async () => {
   }
   balance.value = await fetchSingleBalance(asset.value.address)
 }
+const fetchSelectedAssetBalance = async () => {
+  if (!selectedAsset.value?.address) {
+    selectedAssetBalance.value = 0n
+    return
+  }
+  selectedAssetBalance.value = await fetchSingleBalance(selectedAsset.value.address)
+}
+const activeBalance = computed(() => needsSwap.value ? selectedAssetBalance.value : balance.value)
+const activeAsset = computed(() => needsSwap.value ? selectedAsset.value : asset.value)
 const errorText = computed(() => {
-  if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
+  if (activeBalance.value < valueToNano(amount.value, activeAsset.value?.decimals)) {
     return 'Not enough balance'
   }
   return null
@@ -219,11 +263,14 @@ const errorText = computed(() => {
 const assets = computed(() => [asset.value!])
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
-  return balance.value < valueToNano(amount.value, asset.value?.decimals)
-    || isLoading.value || !(+amount.value)
+  if (activeBalance.value < valueToNano(amount.value, activeAsset.value?.decimals)) return true
+  if (isLoading.value || !(+amount.value)) return true
+  if (needsSwap.value && !swapEffectiveQuote.value && !isSwapQuoteLoading.value) return true
+  return false
 })
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
-const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
+const isSwapRestricted = computed(() => needsSwap.value && isVaultRestrictedByCountry(vaultAddress))
+const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSwapRestricted.value || isSubmitDisabled.value))
 const totalRewardsAPY = computed(() => getSupplyRewardApy(vaultAddress))
 const hasRewards = computed(() => hasSupplyRewards(vaultAddress))
 const intrinsicApy = computed(() => getIntrinsicApy(asset.value?.address))
@@ -294,8 +341,20 @@ const load = async () => {
   }
 }
 
+const buildSwapSupplyPlanFromQuote = async (quote: SwapApiQuote, options: { includePermit2Call?: boolean } = {}): Promise<TxPlan> => {
+  if (!selectedAsset.value) {
+    throw new Error('No selected asset')
+  }
+  return buildSwapAndSupplyPlan({
+    inputTokenAddress: selectedAsset.value.address as Address,
+    inputAmount: valueToNano(amount.value || '0', selectedAsset.value.decimals),
+    quote,
+    includePermit2Call: options.includePermit2Call,
+  })
+}
+
 const submit = async () => {
-  if (isPreparing.value || isGeoBlocked.value) return
+  if (isPreparing.value || isGeoBlocked.value || isSwapRestricted.value) return
   isPreparing.value = true
   try {
     await guardWithTerms(async () => {
@@ -304,13 +363,18 @@ const submit = async () => {
       }
 
       try {
-        plan.value = await buildSupplyPlan(
-          vaultAddress,
-          asset.value.address,
-          valueToNano(amount.value || '0', asset.value.decimals),
-          undefined,
-          { includePermit2Call: false },
-        )
+        if (needsSwap.value && swapEffectiveQuote.value) {
+          plan.value = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value, { includePermit2Call: false })
+        }
+        else {
+          plan.value = await buildSupplyPlan(
+            vaultAddress,
+            asset.value.address,
+            valueToNano(amount.value || '0', asset.value.decimals),
+            undefined,
+            { includePermit2Call: false },
+          )
+        }
       }
       catch (e) {
         console.warn('[OperationReviewModal] failed to build plan', e)
@@ -324,12 +388,16 @@ const submit = async () => {
         }
       }
 
+      const reviewAsset = needsSwap.value && selectedAsset.value ? selectedAsset.value : asset.value
+      const reviewType = needsSwap.value ? 'swap-supply' as const : 'supply' as const
       modal.open(OperationReviewModal, {
         props: {
-          type: 'supply',
-          asset: asset.value,
+          type: reviewType,
+          asset: reviewAsset,
           amount: amount.value,
           plan: plan.value || undefined,
+          swapToAsset: needsSwap.value ? asset.value : undefined,
+          swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
           onConfirm: () => {
             setTimeout(() => {
               send()
@@ -350,7 +418,17 @@ const send = async () => {
     if (!asset.value?.address) {
       return
     }
-    const txPlan = await buildSupplyPlan(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), undefined, { includePermit2Call: true })
+
+    let txPlan: TxPlan
+    if (needsSwap.value && swapSelectedQuote.value) {
+      txPlan = await buildSwapSupplyPlanFromQuote(swapSelectedQuote.value)
+    }
+    else if (needsSwap.value && swapEffectiveQuote.value) {
+      txPlan = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value)
+    }
+    else {
+      txPlan = await buildSupplyPlan(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), undefined, { includePermit2Call: true })
+    }
     await executeTxPlan(txPlan)
 
     modal.close()
@@ -418,6 +496,141 @@ const onSupplyInfoIconClick = () => {
 
 load()
 
+// Swap quote helpers
+const swapEstimatedOutput = computed(() => {
+  if (!swapEffectiveQuote.value || !asset.value) return ''
+  const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
+  if (amountOut <= 0n) return ''
+  return formatUnits(amountOut, Number(asset.value.decimals))
+})
+
+const swapRouteItems = computed(() => {
+  if (!asset.value) return []
+  const bestProvider = swapQuoteCardsSorted.value[0]?.provider
+  return swapQuoteCardsSorted.value.map((card) => {
+    const amountOut = getQuoteAmount(card.quote, 'amountOut')
+    const amountFormatted = formatSmartAmount(
+      formatUnits(amountOut, Number(asset.value!.decimals)),
+    )
+    const diffPct = getSwapQuoteDiffPct(card.quote)
+    const badge = card.provider === bestProvider
+      ? { label: 'Best', tone: 'best' as const }
+      : diffPct !== null
+        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
+        : undefined
+    return {
+      provider: card.provider,
+      amount: amountFormatted,
+      symbol: asset.value!.symbol,
+      routeLabel: card.quote.route?.length
+        ? `via ${card.quote.route.map(r => r.providerName).join(', ')}`
+        : '-',
+      badge,
+    }
+  })
+})
+
+const requestSwapQuote = useDebounceFn(async () => {
+  swapQuoteError.value = null
+
+  if (!selectedAsset.value || !asset.value || !needsSwap.value || !amount.value) {
+    resetSwapQuoteState()
+    return
+  }
+
+  const inputAmountNano = valueToNano(amount.value || '0', selectedAsset.value.decimals)
+  if (inputAmountNano <= 0n) {
+    resetSwapQuoteState()
+    return
+  }
+
+  const userAddr = (address.value || zeroAddress) as Address
+  await requestSwapQuotes({
+    tokenIn: selectedAsset.value.address as Address,
+    tokenOut: asset.value.address as Address,
+    accountIn: zeroAddress as Address,
+    accountOut: userAddr,
+    amount: inputAmountNano,
+    vaultIn: zeroAddress as Address,
+    receiver: vaultAddress as Address,
+    unusedInputReceiver: userAddr,
+    slippage: swapSlippage.value,
+    swapperMode: SwapperMode.EXACT_IN,
+    isRepay: false,
+    targetDebt: 0n,
+    currentDebt: 0n,
+  }, {
+    logContext: {
+      tokenIn: selectedAsset.value.address,
+      tokenOut: asset.value.address,
+      amount: amount.value,
+      slippage: swapSlippage.value,
+    },
+  })
+}, 500)
+
+const onSelectSwapAsset = (newAsset: VaultAsset) => {
+  selectedAsset.value = newAsset
+  amount.value = ''
+  clearSimulationError()
+  resetSwapQuoteState()
+}
+
+const openSwapTokenSelector = () => {
+  modal.open(SwapTokenSelector, {
+    props: {
+      currentAssetAddress: selectedAsset.value?.address || asset.value?.address,
+      onSelect: onSelectSwapAsset,
+    },
+  })
+}
+
+const openSlippageSettings = () => {
+  modal.open(SlippageSettingsModal)
+}
+
+const onRefreshSwapQuotes = () => {
+  resetSwapQuoteState()
+  requestSwapQuote()
+}
+
+// Fetch selected asset balance and USD price when it changes
+watch(selectedAsset, async () => {
+  fetchSelectedAssetBalance()
+  if (needsSwap.value && amount.value) {
+    resetSwapQuoteState()
+    requestSwapQuote()
+  }
+  if (selectedAsset.value?.address && needsSwap.value) {
+    const priceData = await fetchBackendPrice(selectedAsset.value.address as Address)
+    swapAssetUsdPrice.value = priceData?.price
+  }
+  else {
+    swapAssetUsdPrice.value = undefined
+  }
+})
+
+// Re-request quote when amount changes and swap is needed
+watch(amount, () => {
+  if (needsSwap.value) {
+    resetSwapQuoteState()
+    requestSwapQuote()
+  }
+})
+
+// Re-request quote when slippage changes
+watch(swapSlippage, () => {
+  if (needsSwap.value && amount.value) {
+    clearSimulationError()
+    resetSwapQuoteState()
+    requestSwapQuote()
+  }
+})
+
+watch(swapSelectedQuote, () => {
+  clearSimulationError()
+})
+
 // Update USD value when monthlyEarnings or vault changes
 watchEffect(async () => {
   if (!vault.value || !monthlyEarnings.value) {
@@ -440,6 +653,7 @@ watch(amount, async () => {
 
 watch(address, () => {
   fetchBalance()
+  fetchSelectedAssetBalance()
 })
 </script>
 
@@ -500,16 +714,90 @@ watch(address, () => {
           v-model="amount"
           label="Deposit amount"
           :desc="name"
-          :asset="asset"
-          :vault="vault"
-          :balance="balance"
+          :asset="needsSwap && selectedAsset ? selectedAsset : asset"
+          :vault="needsSwap ? undefined : vault"
+          :price-override="needsSwap ? swapAssetUsdPrice : undefined"
+          :balance="activeBalance"
           maxable
         />
+
+        <!-- Pay with token selector -->
+        <div v-if="enableSwapDeposit" class="flex items-center gap-8">
+          <span class="text-p3 text-content-tertiary">Pay with</span>
+          <button
+            type="button"
+            class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
+            @click="openSwapTokenSelector"
+          >
+            <BaseAvatar
+              :src="getAssetLogoUrl(selectedAsset?.address || asset?.address || '', selectedAsset?.symbol || asset?.symbol || '')"
+              :label="selectedAsset?.symbol || asset?.symbol"
+              class="icon--20"
+            />
+            {{ selectedAsset?.symbol || asset?.symbol }}
+            <SvgIcon
+              class="text-euler-dark-800 !w-16 !h-16"
+              name="arrow-down"
+            />
+          </button>
+        </div>
+
+        <!-- Swap info block -->
+        <template v-if="needsSwap && asset">
+          <SwapRouteSelector
+            :items="swapRouteItems"
+            :selected-provider="swapSelectedProvider"
+            :status-label="swapQuotesStatusLabel"
+            :is-loading="isSwapQuoteLoading"
+            empty-message="Enter amount to fetch quotes"
+            @select="selectSwapQuote"
+            @refresh="onRefreshSwapQuotes"
+          />
+
+          <VaultFormInfoBlock
+            v-if="swapEstimatedOutput"
+            :loading="isSwapQuoteLoading"
+          >
+            <SummaryRow label="Estimated deposit" align-top>
+              <p class="text-p2">
+                ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ asset.symbol }}
+              </p>
+            </SummaryRow>
+            <SummaryRow label="Slippage tolerance">
+              <button
+                type="button"
+                class="flex items-center gap-6 text-p2"
+                @click="openSlippageSettings"
+              >
+                <span>{{ formatNumber(swapSlippage, 2, 0) }}%</span>
+                <SvgIcon
+                  name="edit"
+                  class="!w-16 !h-16 text-accent-600"
+                />
+              </button>
+            </SummaryRow>
+          </VaultFormInfoBlock>
+
+          <UiToast
+            v-if="swapQuoteError"
+            title="Swap quote"
+            variant="warning"
+            :description="swapQuoteError"
+            size="compact"
+          />
+        </template>
 
         <UiToast
           v-if="isGeoBlocked"
           title="Region restricted"
           description="This operation is not available in your region. You can still withdraw existing deposits."
+          variant="warning"
+          size="compact"
+        />
+        <UiToast
+          v-if="!isGeoBlocked && isSwapRestricted"
+          title="Swap restricted"
+          description="Swapping into this vault is not available in your region. You can deposit the vault's underlying asset directly."
           variant="warning"
           size="compact"
         />

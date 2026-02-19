@@ -6,6 +6,10 @@ export const useDeployConfig = () => {
     const s = String(val)
     return s !== 'false' && s !== '0'
   }
+  const isExplicitlyEnabled = (val: unknown) => {
+    const s = String(val)
+    return s === 'true' || s === '1'
+  }
 
   return {
     // URLs (empty string = not configured, hide UI element)
@@ -38,6 +42,7 @@ export const useDeployConfig = () => {
     enableEarnPage: isEnabled(rc.configEnableEarnPage),
     enableLendPage: isEnabled(rc.configEnableLendPage),
     enableExplorePage: isEnabled(rc.configEnableExplorePage),
+    enableSwapDeposit: isExplicitlyEnabled(rc.configEnableSwapDeposit),
 
     // Chains (derived from env vars at runtime via useChainConfig)
     ...useChainConfig(),

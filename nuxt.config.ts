@@ -114,6 +114,8 @@ export default defineNuxtConfig({
       configEnableEarnPage: '',
       configEnableLendPage: '',
       configEnableExplorePage: '',
+      // Feature flags: disabled by default. Set to 'true' to enable.
+      configEnableSwapDeposit: '',
       // Env config fallbacks (Doppler: NUXT_PUBLIC_*)
       // Prefer window.__APP_CONFIG__ at runtime; these are build-time fallbacks.
       appKitProjectId: '',

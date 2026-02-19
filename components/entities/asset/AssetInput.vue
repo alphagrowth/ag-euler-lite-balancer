@@ -20,8 +20,9 @@ const props = defineProps<{
   collateralModalTitle?: string
   readonly?: boolean
   priceOverride?: number // For vaults without standard price info (e.g., securitize)
+  swappable?: boolean // When true, asset pill shows dropdown arrow and emits click-asset
 }>()
-const emits = defineEmits(['input', 'change-collateral'])
+const emits = defineEmits(['input', 'change-collateral', 'click-asset'])
 const model = defineModel<string>({ default: '' })
 
 const inputEl = useTemplateRef<HTMLInputElement>('inputEl')
@@ -153,7 +154,7 @@ const openChooseCollateralModal = () => {
 
       <div
         class="bg-euler-dark-500 text-p3 font-semibold gap-8 flex items-center justify-center px-12 h-36 rounded-[40px] whitespace-nowrap cursor-pointer"
-        @click="openChooseCollateralModal"
+        @click="swappable ? emits('click-asset') : openChooseCollateralModal()"
       >
         <BaseAvatar
           :src="getAssetLogoUrl(asset.address, asset.symbol)"
@@ -162,7 +163,7 @@ const openChooseCollateralModal = () => {
         />
         {{ asset.symbol }}
         <SvgIcon
-          v-if="(collateralOptions?.length ?? 0) > 1"
+          v-if="swappable || (collateralOptions?.length ?? 0) > 1"
           class="text-euler-dark-800 !w-16 !h-16"
           name="arrow-down"
         />
