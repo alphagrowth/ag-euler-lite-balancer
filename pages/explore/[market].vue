@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { useMarketGroups } from '~/composables/useMarketGroups'
-import { getEntitiesByVault } from '~/composables/useEulerLabels'
-import { getEulerLabelEntityLogo, type EulerLabelEntity } from '~/entities/euler/labels'
-import type { Vault } from '~/entities/vault'
-import type { AnyVault } from '~/composables/useVaultRegistry'
+import { getMarketEntities } from '~/utils/discoveryCalculations'
 
 defineOptions({
   name: 'ExploreMarketPage',
@@ -25,29 +22,9 @@ const market = computed(() =>
   marketGroups.value.find(g => g.id === marketKey.value),
 )
 
-const isVaultType = (vault: AnyVault): vault is Vault =>
-  !('type' in vault) || (vault as { type?: string }).type === undefined
-
-const marketEntities = computed((): { name: string, logos: string[] } => {
-  if (!market.value) return { name: '', logos: [] }
-  const seen = new Set<string>()
-  const all: EulerLabelEntity[] = []
-  for (const v of market.value.vaults) {
-    if (!isVaultType(v)) continue
-    for (const entity of getEntitiesByVault(v)) {
-      if (seen.has(entity.name)) continue
-      seen.add(entity.name)
-      all.push(entity)
-    }
-  }
-  if (all.length === 0) return { name: '', logos: [] }
-  const name = all.length === 1
-    ? all[0].name
-    : all.length === 2
-      ? `${all[0].name} & ${all[1].name}`
-      : `${all[0].name} & others`
-  return { name, logos: all.map(e => getEulerLabelEntityLogo(e.logo)) }
-})
+const marketEntities = computed(() =>
+  market.value ? getMarketEntities(market.value) : { name: '', logos: [] },
+)
 
 const marketDescription = computed(() => {
   if (!market.value || market.value.source !== 'product') return ''

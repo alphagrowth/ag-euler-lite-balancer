@@ -8,7 +8,7 @@ import { useBestNetAPY } from '~/composables/useBestNetAPY'
 import { useVaultSearch } from '~/composables/useVaultSearch'
 import type { MarketGroup } from '~/entities/lend-discovery'
 import type { Vault } from '~/entities/vault'
-import type { AnyVault } from '~/composables/useVaultRegistry'
+import { isVaultType, getVaultAddress, getVaultAssetSymbol, getVaultAssetAddress } from '~/utils/discoveryCalculations'
 
 defineOptions({
   name: 'ExplorePage',
@@ -87,30 +87,6 @@ watch(chainId, (newChainId, oldChainId) => {
     clearCustomFilters()
   }
 })
-
-const isVaultType = (vault: AnyVault): vault is Vault =>
-  !('type' in vault) || (vault as { type?: string }).type === undefined
-
-const getVaultAddress = (vault: AnyVault): string =>
-  isVaultType(vault) ? vault.address : ''
-
-const getVaultAssetSymbol = (vault: AnyVault): string => {
-  if (isVaultType(vault)) return vault.asset.symbol
-  if ('asset' in vault && vault.asset && typeof vault.asset === 'object') {
-    const asset = vault.asset as unknown as Record<string, unknown>
-    if ('symbol' in asset && typeof asset.symbol === 'string') return asset.symbol
-  }
-  return '?'
-}
-
-const getVaultAssetAddress = (vault: AnyVault): string => {
-  if (isVaultType(vault)) return vault.asset.address
-  if ('asset' in vault && vault.asset && typeof vault.asset === 'object') {
-    const asset = vault.asset as unknown as Record<string, unknown>
-    if ('address' in asset && typeof asset.address === 'string') return asset.address
-  }
-  return ''
-}
 
 const marketOptions = computed(() => {
   return marketGroups.value.reduce((result, group) => {
