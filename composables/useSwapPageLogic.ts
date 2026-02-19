@@ -10,22 +10,12 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, getVaultTags } from '~/composables/useGeoBlock'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { getQuoteAmount, type SwapQuoteAmountField, type SwapQuoteCompare } from '~/utils/swapQuotes'
+import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import type { SwapApiRequestInput } from '~/composables/useSwapApi'
 import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { isSameUnderlyingAsset, isSameVault as isSameVaultCheck } from '~/utils/vault-utils'
-
-export type SwapRouteItem = {
-  provider: string
-  amount: string
-  symbol: string
-  routeLabel?: string
-  badge?: {
-    label: string
-    tone: 'best' | 'worse'
-  }
-}
 
 export interface UseSwapPageLogicOptions {
   /** Which quote field the swap engine optimises for ('amountIn' = min cost, 'amountOut' = max output) */
@@ -140,14 +130,6 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
       return getAddress(addr)
     }
     catch { return '' }
-  }
-
-  const formatSmallAmountLocal = (value: bigint, decimals: number): string => {
-    const formatted = formatUnits(value, decimals)
-    const numericValue = Number(formatted)
-    return numericValue < 0.01 && numericValue > 0
-      ? formatSignificant(formatted, 3)
-      : formatSignificant(formatted)
   }
 
   // ── Quote → toAmount sync ─────────────────────────────────────────────
@@ -410,27 +392,19 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
   })
 
   // ── Swap route cards ───────────────────────────────────────────────────
-  const swapRouteItems = computed((): SwapRouteItem[] => {
+  const swapRouteItems = computed(() => {
     if (!toVault.value) return []
-    const bestProvider = quoteCardsSorted.value[0]?.provider
-    return quoteCardsSorted.value.map((card) => {
-      const amt = getQuoteAmount(card.quote, displayAmountField)
-      const amount = formatSmallAmountLocal(amt, Number(toVault.value!.decimals))
-      const diffPct = getQuoteDiffPct(card.quote)
-      const badge = card.provider === bestProvider
-        ? { label: 'Best', tone: 'best' as const }
-        : diffPct !== null
-          ? { label: `${quoteDiffPrefix}${diffPct.toFixed(2)}%`, tone: 'worse' as const }
-          : undefined
-      return {
-        provider: card.provider,
-        amount,
-        symbol: toVault.value!.asset.symbol,
-        routeLabel: card.quote.route?.length
-          ? `via ${card.quote.route.map(r => r.providerName).join(', ')}`
-          : '-',
-        badge,
-      }
+    return buildSwapRouteItems({
+      quoteCards: quoteCardsSorted.value,
+      getQuoteDiffPct,
+      decimals: Number(toVault.value.decimals),
+      symbol: toVault.value.asset.symbol,
+      formatAmount: (raw) => {
+        const num = Number(raw)
+        return num < 0.01 && num > 0 ? formatSignificant(raw, 3) : formatSignificant(raw)
+      },
+      amountField: displayAmountField,
+      diffPrefix: quoteDiffPrefix,
     })
   })
 

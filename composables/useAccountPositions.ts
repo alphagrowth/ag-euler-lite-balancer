@@ -1,5 +1,5 @@
 import { getAddress, type Address, type Abi } from 'viem'
-import { ref, type Ref } from 'vue'
+import { ref, shallowRef, type Ref } from 'vue'
 import { useVaultRegistry } from './useVaultRegistry'
 import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
@@ -33,7 +33,7 @@ const borrowPositions: Ref<AccountBorrowPosition[]> = ref([])
 
 // Track which (subAccount, vaultAddress) pairs are used as collateral
 // Format: "subAccount:vaultAddress" (both checksummed)
-const collateralUsageSet: Ref<Set<string>> = ref(new Set())
+const collateralUsageSet: Ref<Set<string>> = shallowRef(new Set())
 
 const isPositionsLoading = ref(true)
 const isPositionsLoaded = ref(false)

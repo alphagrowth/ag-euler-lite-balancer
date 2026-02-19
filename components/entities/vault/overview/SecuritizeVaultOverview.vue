@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getAddress, maxUint256, type Address } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { getPublicClient } from '~/utils/public-client'
 import type { SecuritizeVault, Vault, VaultCollateralLTV } from '~/entities/vault'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
@@ -105,7 +106,7 @@ const loadRiskParameters = async () => {
     }) as bigint
   }
   catch (e) {
-    console.warn('[SecuritizeVaultOverview] Failed to load share token exchange rate', e)
+    logWarn('SecuritizeVaultOverview/shareTokenExchangeRate', e)
   }
 }
 

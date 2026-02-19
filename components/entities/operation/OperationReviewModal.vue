@@ -7,6 +7,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import type { EVCCall } from '~/utils/evc-converter'
 import { buildDisplaySteps, type DisplayStep, type StepDecodingContext } from '~/utils/stepDecoding'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { logWarn } from '~/utils/errorHandling'
 import { formatNumber } from '~/utils/string-utils'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 
@@ -115,7 +116,7 @@ const loadFeeEstimate = async () => {
     feeEstimate.value = res.totalNative
   }
   catch (err) {
-    console.warn('[OperationReviewModal] fee estimate failed', err)
+    logWarn('OperationReviewModal/feeEstimate', err)
     feeEstimate.value = null
   }
   finally {
@@ -165,7 +166,7 @@ const copyCalldata = () => {
     }, 2000)
   }
   catch (err) {
-    console.warn('[OperationReviewModal] calldata copy failed', err)
+    logWarn('OperationReviewModal/calldataCopy', err)
   }
 }
 

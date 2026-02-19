@@ -25,7 +25,7 @@ import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import type { SwapApiQuote } from '~/entities/swap'
 import type { SwapApiRequestInput } from '~/composables/useSwapApi'
-import { getQuoteAmount } from '~/utils/swapQuotes'
+import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
@@ -281,27 +281,12 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const swapRouteItems = computed(() => {
     const outputAsset = options.getSwapOutputAsset()
     if (!outputAsset) return []
-    const bestProvider = swapQuoteCardsSorted.value[0]?.provider
-    return swapQuoteCardsSorted.value.map((card) => {
-      const amountOut = getQuoteAmount(card.quote, 'amountOut')
-      const amountFormatted = formatSmartAmount(
-        formatUnits(amountOut, Number(outputAsset.decimals)),
-      )
-      const diffPct = getSwapQuoteDiffPct(card.quote)
-      const badge = card.provider === bestProvider
-        ? { label: 'Best', tone: 'best' as const }
-        : diffPct !== null
-          ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
-          : undefined
-      return {
-        provider: card.provider,
-        amount: amountFormatted,
-        symbol: outputAsset.symbol,
-        routeLabel: card.quote.route?.length
-          ? `via ${card.quote.route.map(r => r.providerName).join(', ')}`
-          : '-',
-        badge,
-      }
+    return buildSwapRouteItems({
+      quoteCards: swapQuoteCardsSorted.value,
+      getQuoteDiffPct: getSwapQuoteDiffPct,
+      decimals: Number(outputAsset.decimals),
+      symbol: outputAsset.symbol,
+      formatAmount: formatSmartAmount,
     })
   })
 

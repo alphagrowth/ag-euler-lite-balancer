@@ -15,6 +15,7 @@ import {
 } from 'chart.js'
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { formatUnits, type Address, type Abi } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { getPublicClient } from '~/utils/public-client'
 import { INTEREST_RATE_MODEL_TYPE } from '~/entities/constants'
 import { BPS_BASE } from '~/entities/tuning-constants'
@@ -149,7 +150,7 @@ const fetchIRMData = async () => {
         }) as Record<string, any>
       }
       catch (e) {
-        console.warn('Failed to fetch kink IRM data:', e)
+        logWarn('VaultOverviewBlockIRM/fetchKinkIRM', e)
       }
     }
 

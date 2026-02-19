@@ -1,7 +1,8 @@
 import type { Ref, ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
-import { getAddress, formatUnits, type Address } from 'viem'
+import { formatUnits, type Address } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
+import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -19,7 +20,7 @@ import {
   conservativePriceRatioNumber,
 } from '~/services/pricing/priceProvider'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
-import { getQuoteAmount } from '~/utils/swapQuotes'
+import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatNumber, formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import type { TxPlan } from '~/entities/txPlan'
@@ -56,15 +57,7 @@ export interface UseMultiplyFormOptions {
   isMultiplyRestricted: ComputedRef<boolean>
 }
 
-const normalizeAddress = (address?: string) => {
-  if (!address) return ''
-  try {
-    return getAddress(address)
-  }
-  catch {
-    return ''
-  }
-}
+const normalizeAddress = normalizeAddressOrEmpty
 
 const calculateRoe = (
   supplyUsd: number | null,
@@ -484,27 +477,12 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
 
   const multiplyRouteItems = computed(() => {
     if (!multiplyLongVault.value) return []
-    const bestProvider = multiplyQuoteCardsSorted.value[0]?.provider
-    return multiplyQuoteCardsSorted.value.map((card) => {
-      const amountOut = getQuoteAmount(card.quote, 'amountOut')
-      const amount = formatNumber(
-        formatUnits(amountOut, Number(multiplyLongVault.value!.asset.decimals)),
-      )
-      const diffPct = getQuoteDiffPct(card.quote)
-      const badge = card.provider === bestProvider
-        ? { label: 'Best', tone: 'best' as const }
-        : diffPct !== null
-          ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
-          : undefined
-      return {
-        provider: card.provider,
-        amount,
-        symbol: multiplyLongVault.value!.asset.symbol,
-        routeLabel: card.quote.route?.length
-          ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
-          : '-',
-        badge,
-      }
+    return buildSwapRouteItems({
+      quoteCards: multiplyQuoteCardsSorted.value,
+      getQuoteDiffPct,
+      decimals: Number(multiplyLongVault.value.asset.decimals),
+      symbol: multiplyLongVault.value.asset.symbol,
+      formatAmount: formatNumber,
     })
   })
 

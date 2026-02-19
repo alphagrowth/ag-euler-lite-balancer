@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, formatUnits, type Address } from 'viem'
+import { formatUnits, type Address } from 'viem'
+import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useModal } from '~/components/ui/composables/useModal'
@@ -12,7 +13,7 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
-import { getQuoteAmount } from '~/utils/swapQuotes'
+import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
@@ -103,43 +104,16 @@ const pairAssets = computed(() => {
 const multiplyLongProduct = useEulerProductOfVault(computed(() => multiplyLongVault.value?.address || ''))
 const multiplyShortProduct = useEulerProductOfVault(computed(() => multiplyShortVault.value?.address || ''))
 
-const normalizeAddress = (address?: string) => {
-  if (!address) {
-    return ''
-  }
-  try {
-    return getAddress(address)
-  }
-  catch {
-    return ''
-  }
-}
+const normalizeAddress = normalizeAddressOrEmpty
 
 const multiplyRouteItems = computed(() => {
-  if (!multiplyLongVault.value) {
-    return []
-  }
-  const bestProvider = multiplyQuoteCardsSorted.value[0]?.provider
-  return multiplyQuoteCardsSorted.value.map((card) => {
-    const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amount = formatSignificant(
-      formatUnits(amountOut, Number(multiplyLongVault.value!.asset.decimals)),
-    )
-    const diffPct = getQuoteDiffPct(card.quote)
-    const badge = card.provider === bestProvider
-      ? { label: 'Best', tone: 'best' as const }
-      : diffPct !== null
-        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
-        : undefined
-    return {
-      provider: card.provider,
-      amount,
-      symbol: multiplyLongVault.value!.asset.symbol,
-      routeLabel: card.quote.route?.length
-        ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
-        : '-',
-      badge,
-    }
+  if (!multiplyLongVault.value) return []
+  return buildSwapRouteItems({
+    quoteCards: multiplyQuoteCardsSorted.value,
+    getQuoteDiffPct,
+    decimals: Number(multiplyLongVault.value.asset.decimals),
+    symbol: multiplyLongVault.value.asset.symbol,
+    formatAmount: formatSignificant,
   })
 })
 const multiplyRouteEmptyMessage = computed(() => {

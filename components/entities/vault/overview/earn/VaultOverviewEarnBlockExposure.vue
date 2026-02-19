@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getAddress } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import type { EarnVault, Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -48,7 +49,7 @@ const load = async () => {
     await loadExposureUsdPrices()
   }
   catch (e) {
-    console.warn(e)
+    logWarn('VaultOverviewEarnBlockExposure/loadExposure', e)
   }
   finally {
     isLoading.value = false

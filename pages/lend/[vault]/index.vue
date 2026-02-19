@@ -16,7 +16,7 @@ import { isVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composabl
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
-import { getQuoteAmount } from '~/utils/swapQuotes'
+import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
 import SecuritizeVaultOverview from '~/components/entities/vault/overview/SecuritizeVaultOverview.vue'
@@ -505,27 +505,12 @@ const swapEstimatedOutput = computed(() => {
 
 const swapRouteItems = computed(() => {
   if (!asset.value) return []
-  const bestProvider = swapQuoteCardsSorted.value[0]?.provider
-  return swapQuoteCardsSorted.value.map((card) => {
-    const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amountFormatted = formatSmartAmount(
-      formatUnits(amountOut, Number(asset.value!.decimals)),
-    )
-    const diffPct = getSwapQuoteDiffPct(card.quote)
-    const badge = card.provider === bestProvider
-      ? { label: 'Best', tone: 'best' as const }
-      : diffPct !== null
-        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
-        : undefined
-    return {
-      provider: card.provider,
-      amount: amountFormatted,
-      symbol: asset.value!.symbol,
-      routeLabel: card.quote.route?.length
-        ? `via ${card.quote.route.map(r => r.providerName).join(', ')}`
-        : '-',
-      badge,
-    }
+  return buildSwapRouteItems({
+    quoteCards: swapQuoteCardsSorted.value,
+    getQuoteDiffPct: getSwapQuoteDiffPct,
+    decimals: Number(asset.value.decimals),
+    symbol: asset.value.symbol,
+    formatAmount: formatSmartAmount,
   })
 })
 

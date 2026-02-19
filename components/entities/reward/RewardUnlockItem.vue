@@ -5,6 +5,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { REULLock } from '~/entities/reul'
 import type { TxPlan } from '~/entities/txPlan'
+import { logWarn } from '~/utils/errorHandling'
 import { formatNumber } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
@@ -71,7 +72,7 @@ const unlock = async () => {
   }
   catch (e) {
     error('Transaction failed')
-    console.warn(e)
+    logWarn('RewardUnlockItem/unlock', e)
   }
   finally {
     isUnlocking.value = false
@@ -89,7 +90,7 @@ const onUnlockClick = async () => {
       plan.value = await buildUnlockREULPlan([item.timestamp])
     }
     catch (e) {
-      console.warn('[OperationReviewModal] failed to build plan', e)
+      logWarn('RewardUnlockItem/buildPlan', e)
       plan.value = null
     }
 
@@ -126,7 +127,7 @@ const onUnlockClick = async () => {
     })
   }
   catch (e) {
-    console.warn(e)
+    logWarn('RewardUnlockItem/onUnlockClick', e)
   }
   finally {
     isPreparing.value = false

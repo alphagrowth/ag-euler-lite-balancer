@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getAddress, type Address, type Abi } from 'viem'
+import { logWarn } from '~/utils/errorHandling'
 import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { getPublicClient } from '~/utils/public-client'
@@ -253,7 +254,7 @@ const loadCollaterals = async () => {
           return { vault, assets }
         }
         catch (e) {
-          console.warn('[PortfolioBorrowItem] failed to load collateral vault', address, e)
+          logWarn('[PortfolioBorrowItem] failed to load collateral vault', e, { data: address })
           return null
         }
       }),
@@ -262,7 +263,7 @@ const loadCollaterals = async () => {
     collateralItems.value = items.filter((item): item is PositionCollateral => !!item)
   }
   catch (e) {
-    console.warn('[PortfolioBorrowItem] failed to load collaterals', e)
+    logWarn('[PortfolioBorrowItem] failed to load collaterals', e)
   }
 }
 

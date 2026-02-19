@@ -4,6 +4,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { Reward } from '~/entities/merkl'
 import type { TxPlan } from '~/entities/txPlan'
+import { logWarn } from '~/utils/errorHandling'
 import { formatNumber, formatUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
@@ -60,7 +61,7 @@ const claim = async () => {
   }
   catch (e) {
     error('Transaction failed')
-    console.warn(e)
+    logWarn('PortfolioRewardItem/claim', e)
   }
   finally {
     isClaiming.value = false
@@ -77,7 +78,7 @@ const onClaimClick = async () => {
       plan.value = await buildClaimRewardPlan(reward)
     }
     catch (e) {
-      console.warn('[OperationReviewModal] failed to build plan', e)
+      logWarn('PortfolioRewardItem/buildPlan', e)
       plan.value = null
     }
 
@@ -104,7 +105,7 @@ const onClaimClick = async () => {
     })
   }
   catch (e) {
-    console.warn(e)
+    logWarn('PortfolioRewardItem/onClaimClick', e)
   }
   finally {
     isPreparing.value = false

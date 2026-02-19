@@ -1,5 +1,6 @@
-import { getAddress, type Address } from 'viem'
+import type { Address } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
+import { normalizeAddress } from '~/utils/normalizeAddress'
 import { getPublicClient } from '~/utils/public-client'
 import {
   type Vault,
@@ -34,11 +35,6 @@ const pendingResolutions = new Map<string, Promise<AnyVault | undefined>>()
 // Escrow address set - populated early, before full vault info is loaded
 // Used for O(1) lookups to determine if an address is an escrow vault
 const escrowAddresses: Ref<Set<string>> = shallowRef(new Set())
-
-// Normalize address for consistent lookups
-const normalizeAddress = (address: string): string => {
-  return getAddress(address)
-}
 
 // Get vault entry from registry
 const get = (address: string): VaultEntry | undefined => {

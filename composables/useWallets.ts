@@ -5,7 +5,7 @@ import { erc20BalanceOfAbi } from '~/abis/erc20'
 import { logWarn } from '~/utils/errorHandling'
 
 // Singleton state
-const balances = ref(new Map<string, bigint>())
+const balances = shallowRef(new Map<string, bigint>())
 const isLoaded = ref(false)
 const isFetching = ref(false)
 const lastFetchChainId = ref<number | null>(null)

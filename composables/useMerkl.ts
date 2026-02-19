@@ -24,7 +24,7 @@ const endpoints = {
 const address = ref('')
 
 const isLoaded = ref(false)
-const merklCampaigns: Ref<Map<string, RewardCampaign[]>> = ref(new Map())
+const merklCampaigns: Ref<Map<string, RewardCampaign[]>> = shallowRef(new Map())
 const rewards: Ref<Reward[]> = ref([])
 const rewardTokens: Ref<RewardToken[]> = ref([])
 const isTokensLoading = ref(true)

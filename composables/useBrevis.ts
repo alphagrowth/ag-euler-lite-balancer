@@ -55,7 +55,7 @@ const normalizeCampaign = (raw: Record<string, unknown>): Campaign => {
 const address = ref('')
 
 const isLoaded = ref(false)
-const brevisCampaigns: Ref<Map<string, RewardCampaign[]>> = ref(new Map())
+const brevisCampaigns: Ref<Map<string, RewardCampaign[]>> = shallowRef(new Map())
 const userRewards: Ref<Campaign[]> = ref([])
 const isCampaignsLoading = ref(true)
 const isRewardsLoading = ref(true)

@@ -4,6 +4,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { Campaign } from '~/entities/brevis'
 import type { TxPlan } from '~/entities/txPlan'
+import { logWarn } from '~/utils/errorHandling'
 import { formatNumber, formatUsdValue } from '~/utils/string-utils'
 
 const { campaign } = defineProps<{ campaign: Campaign }>()
@@ -48,7 +49,7 @@ const claim = async () => {
   }
   catch (e) {
     error('Transaction failed')
-    console.warn(e)
+    logWarn('PortfolioBrevisRewardItem/claim', e)
   }
   finally {
     isClaiming.value = false
@@ -65,7 +66,7 @@ const onClaimClick = async () => {
       plan.value = await buildClaimRewardPlan(campaign)
     }
     catch (e) {
-      console.warn('[OperationReviewModal] failed to build plan', e)
+      logWarn('PortfolioBrevisRewardItem/buildPlan', e)
       plan.value = null
     }
 
@@ -96,7 +97,7 @@ const onClaimClick = async () => {
     })
   }
   catch (e) {
-    console.warn(e)
+    logWarn('PortfolioBrevisRewardItem/onClaimClick', e)
   }
   finally {
     isPreparing.value = false

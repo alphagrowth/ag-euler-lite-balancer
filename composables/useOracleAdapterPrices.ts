@@ -232,7 +232,7 @@ export const useOracleAdapterPrices = (
   sourceVaults: ComputedRef<Vault[]>,
   collateralVaults: ComputedRef<(Vault | SecuritizeVault)[]>,
 ) => {
-  const prices: Ref<Map<string, AdapterPriceInfo>> = ref(new Map())
+  const prices: Ref<Map<string, AdapterPriceInfo>> = shallowRef(new Map())
   const isLoading = ref(false)
 
   const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()

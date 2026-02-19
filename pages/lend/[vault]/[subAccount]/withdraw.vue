@@ -20,7 +20,7 @@ import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { SwapperMode } from '~/entities/swap'
-import { getQuoteAmount } from '~/utils/swapQuotes'
+import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
@@ -144,27 +144,12 @@ const swapEstimatedOutput = computed(() => {
 
 const swapRouteItems = computed(() => {
   if (!selectedOutputAsset.value) return []
-  const bestProvider = swapQuoteCardsSorted.value[0]?.provider
-  return swapQuoteCardsSorted.value.map((card) => {
-    const amountOut = getQuoteAmount(card.quote, 'amountOut')
-    const amountFormatted = formatSmartAmount(
-      formatUnits(amountOut, Number(selectedOutputAsset.value!.decimals)),
-    )
-    const diffPct = getSwapQuoteDiffPct(card.quote)
-    const badge = card.provider === bestProvider
-      ? { label: 'Best', tone: 'best' as const }
-      : diffPct !== null
-        ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
-        : undefined
-    return {
-      provider: card.provider,
-      amount: amountFormatted,
-      symbol: selectedOutputAsset.value!.symbol,
-      routeLabel: card.quote.route?.length
-        ? `via ${card.quote.route.map(r => r.providerName).join(', ')}`
-        : '-',
-      badge,
-    }
+  return buildSwapRouteItems({
+    quoteCards: swapQuoteCardsSorted.value,
+    getQuoteDiffPct: getSwapQuoteDiffPct,
+    decimals: Number(selectedOutputAsset.value.decimals),
+    symbol: selectedOutputAsset.value.symbol,
+    formatAmount: formatSmartAmount,
   })
 })
 

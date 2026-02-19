@@ -4,7 +4,7 @@ import type { Vault } from '~/entities/vault'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import { SwapperMode } from '~/entities/swap'
-import { getQuoteAmount } from '~/utils/swapQuotes'
+import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatNumber } from '~/utils/string-utils'
 import { createRaceGuard } from '~/utils/race-guard'
 import type { useSwapRepayQuotes } from '~/composables/repay/useSwapRepayQuotes'
@@ -76,29 +76,15 @@ export const useRepaySwapDetails = (options: UseRepaySwapDetailsOptions) => {
 
   const routeItems = computed(() => {
     if (!borrowVault.value || !sourceVault.value) return []
-    const bestProvider = quotes.sortedQuoteCards.value[0]?.provider
     const isExactIn = direction.value === SwapperMode.EXACT_IN
-    return quotes.sortedQuoteCards.value.map((card) => {
-      const amount = getQuoteAmount(card.quote, isExactIn ? 'amountOut' : 'amountIn')
-      const symbol = isExactIn ? borrowVault.value!.asset.symbol : sourceVault.value!.asset.symbol
-      const amountLabel = formatSignificant(
-        formatUnits(amount, Number(isExactIn ? borrowVault.value!.asset.decimals : sourceVault.value!.asset.decimals)),
-      )
-      const diffPct = quotes.getQuoteDiffPct(card.quote)
-      const badge = card.provider === bestProvider
-        ? { label: 'Best', tone: 'best' as const }
-        : diffPct !== null
-          ? { label: `-${diffPct.toFixed(2)}%`, tone: 'worse' as const }
-          : undefined
-      return {
-        provider: card.provider,
-        amount: amountLabel,
-        symbol,
-        routeLabel: card.quote.route?.length
-          ? `via ${card.quote.route.map(route => route.providerName).join(', ')}`
-          : '-',
-        badge,
-      }
+    const asset = isExactIn ? borrowVault.value.asset : sourceVault.value.asset
+    return buildSwapRouteItems({
+      quoteCards: quotes.sortedQuoteCards.value,
+      getQuoteDiffPct: quotes.getQuoteDiffPct,
+      decimals: Number(asset.decimals),
+      symbol: asset.symbol,
+      formatAmount: formatSignificant,
+      amountField: isExactIn ? 'amountOut' : 'amountIn',
     })
   })
 
