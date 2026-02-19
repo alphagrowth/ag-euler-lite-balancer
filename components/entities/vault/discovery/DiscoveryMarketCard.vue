@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { MarketGroup } from '~/entities/lend-discovery'
-import { formatCompactUsdValue, formatNumber } from '~/utils/string-utils'
+import { formatCompactUsdValue, formatNumber, stringToColor } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import {
@@ -224,11 +224,12 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
                 :cx="node.x"
                 :cy="node.y"
                 r="6"
-                fill="#1f2937"
+                :fill="getAssetLogoUrl(node.assetAddress, node.assetSymbol) ? '#1f2937' : stringToColor(node.assetSymbol)"
                 stroke="#4b5563"
                 stroke-width="0.5"
               />
               <image
+                v-if="getAssetLogoUrl(node.assetAddress, node.assetSymbol)"
                 :x="node.x - 6"
                 :y="node.y - 6"
                 width="12"
@@ -236,6 +237,15 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
                 :href="getAssetLogoUrl(node.assetAddress, node.assetSymbol)"
                 :clip-path="`url(#clip-${market.id}-${node.address})`"
               />
+              <text
+                v-else
+                :x="node.x"
+                :y="node.y + 2"
+                text-anchor="middle"
+                fill="white"
+                font-size="5"
+                font-weight="600"
+              >{{ node.assetSymbol.slice(0, 2) }}</text>
             </g>
           </svg>
         </div>
