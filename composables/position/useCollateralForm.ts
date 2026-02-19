@@ -395,16 +395,23 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     if (!collateralVault.value) return
 
     try {
-      const direction = options.mode === 'supply' ? 1n : -1n
       const amountNano = valueToNano(amount.value, collateralVault.value.decimals)
 
+      // Normalize all FixedPoints to 18 decimals for consistent LTV/health math.
+      // borrowedFixed may have different decimals (e.g. 6 for USDC) than collateral (e.g. 18 for WETH),
+      // and FixedPoint.div inherits this.decimals — so without normalizing, the result would have
+      // wrong decimal scale vs what nanoToValue(..., 18) expects in the template.
+      const supplied18 = suppliedFixed.value.round(18)
+      const amount18 = amountFixed.value.round(18)
+      const borrowed18 = borrowedFixed.value.round(18)
+
       const collateralValue = options.mode === 'supply'
-        ? (suppliedFixed.value.add(amountFixed.value)).mul(priceFixed.value)
-        : (suppliedFixed.value.sub(amountFixed.value)).mul(priceFixed.value)
+        ? supplied18.add(amount18).mul(priceFixed.value)
+        : supplied18.sub(amount18).mul(priceFixed.value)
 
       const userLtvFixed = collateralValue.isZero()
         ? FixedPoint.fromValue(0n, 18)
-        : borrowedFixed.value
+        : borrowed18
             .div(collateralValue)
             .mul(FixedPoint.fromValue(100n, 0))
 
@@ -437,9 +444,11 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
       )
 
       estimateUserLTV.value = userLtvFixed.value
+      // liquidationLTV is in basis points (e.g. 8600 = 86%). Convert to 18-decimal
+      // percentage (8600 * 10^16 = 86 * 10^18) to match userLtvFixed's 18 decimals.
       estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
         ? 0n
-        : FixedPoint.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
+        : FixedPoint.fromValue(position.value!.liquidationLTV * (10n ** 16n), 18).div(userLtvFixed).value
     }
     catch (e: unknown) {
       logWarn('collateral/estimates', e)
@@ -587,6 +596,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     clearSimulationError()
     if (!isPositionLoaded.value) return
     await loadSelectedCollateral()
+    await options.onAfterLoad?.()
     estimateNetAPY.value = netAPY.value
     estimateUserLTV.value = position.value?.userLTV || 0n
     estimateHealth.value = position.value?.health || 0n
