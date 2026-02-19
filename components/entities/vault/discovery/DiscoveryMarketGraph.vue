@@ -124,6 +124,7 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
             stroke-width="1"
           />
           <image
+            v-if="getAssetLogoUrl(node.assetAddress, node.assetSymbol)"
             :x="node.x - 12"
             :y="node.y - 12"
             width="24"
@@ -131,6 +132,15 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
             :href="getAssetLogoUrl(node.assetAddress, node.assetSymbol)"
             :clip-path="`url(#graph-clip-${market.id}-${node.address})`"
           />
+          <text
+            v-else
+            :x="node.x"
+            :y="node.y + 4"
+            text-anchor="middle"
+            fill="#9ca3af"
+            font-size="9"
+            font-weight="600"
+          >{{ node.assetSymbol.slice(0, 3) }}</text>
           <!-- Deprecated badge -->
           <g v-if="isVaultDeprecated(node.address)">
             <circle

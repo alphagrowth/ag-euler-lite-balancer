@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { MarketGroup } from '~/entities/lend-discovery'
-import type { Vault, BorrowVaultPair } from '~/entities/vault'
+import type { Vault, SecuritizeVault, AnyBorrowVaultPair } from '~/entities/vault'
 import { formatCompactUsdValue } from '~/utils/string-utils'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import {
@@ -183,12 +183,12 @@ const onCellClick = (marketId: string, collateralAddr: string, liabilityAddr: st
 
 // -- Selection → vault resolution --
 
-const getSelectedLendVault = (market: MarketGroup): Vault | null => {
+const getSelectedLendVault = (market: MarketGroup): Vault | SecuritizeVault | null => {
   if (!selectedCell.value || selectedCell.value.marketId !== market.id) return null
   return findVault(market, selectedCell.value.liabilityAddr)
 }
 
-const getSelectedBorrowPair = (market: MarketGroup): BorrowVaultPair | null => {
+const getSelectedBorrowPair = (market: MarketGroup): AnyBorrowVaultPair | null => {
   if (!selectedCell.value || selectedCell.value.marketId !== market.id) return null
   const matrix = matrixMap.value.get(market.id)
   if (!matrix) return null
@@ -196,7 +196,7 @@ const getSelectedBorrowPair = (market: MarketGroup): BorrowVaultPair | null => {
   if (!cell) return null
   const collateral = findVault(market, selectedCell.value.collateralAddr)
   const borrow = findVault(market, selectedCell.value.liabilityAddr)
-  if (!collateral || !borrow) return null
+  if (!collateral || !borrow || !isVaultType(borrow)) return null
   return {
     borrow,
     collateral,
@@ -208,18 +208,18 @@ const getSelectedBorrowPair = (market: MarketGroup): BorrowVaultPair | null => {
   }
 }
 
-const getMatrixHeaderVault = (market: MarketGroup): Vault | null => {
+const getMatrixHeaderVault = (market: MarketGroup): Vault | SecuritizeVault | null => {
   if (!selectedMatrixHeader.value || selectedMatrixHeader.value.marketId !== market.id) return null
   return findVault(market, selectedMatrixHeader.value.address)
 }
 
-const getMatrixHeaderBorrowPairs = (market: MarketGroup): BorrowVaultPair[] => {
+const getMatrixHeaderBorrowPairs = (market: MarketGroup): AnyBorrowVaultPair[] => {
   if (!selectedMatrixHeader.value || selectedMatrixHeader.value.marketId !== market.id) return []
   const matrix = matrixMap.value.get(market.id)
   if (!matrix) return []
 
   const addr = selectedMatrixHeader.value.address.toLowerCase()
-  const pairs: BorrowVaultPair[] = []
+  const pairs: AnyBorrowVaultPair[] = []
 
   if (selectedMatrixHeader.value.axis === 'column') {
     for (const [collateralAddr, rowCells] of matrix.cells) {
@@ -227,7 +227,7 @@ const getMatrixHeaderBorrowPairs = (market: MarketGroup): BorrowVaultPair[] => {
       if (!cell || cell.ltv.borrowLTV <= 0n) continue
       const collateral = findVault(market, collateralAddr)
       const borrow = findVault(market, addr)
-      if (!collateral || !borrow) continue
+      if (!collateral || !borrow || !isVaultType(borrow)) continue
       pairs.push({
         borrow,
         collateral,
@@ -246,7 +246,7 @@ const getMatrixHeaderBorrowPairs = (market: MarketGroup): BorrowVaultPair[] => {
       if (cell.ltv.borrowLTV <= 0n) continue
       const collateral = findVault(market, addr)
       const borrow = findVault(market, liabilityAddr)
-      if (!collateral || !borrow) continue
+      if (!collateral || !borrow || !isVaultType(borrow)) continue
       pairs.push({
         borrow,
         collateral,
@@ -262,25 +262,25 @@ const getMatrixHeaderBorrowPairs = (market: MarketGroup): BorrowVaultPair[] => {
   return pairs
 }
 
-const getGraphSelectedVault = (market: MarketGroup): Vault | null => {
+const getGraphSelectedVault = (market: MarketGroup): Vault | SecuritizeVault | null => {
   if (!selectedGraphNode.value || selectedGraphNode.value.marketId !== market.id) return null
   return findVault(market, selectedGraphNode.value.address)
 }
 
-const getGraphBorrowPairs = (market: MarketGroup): BorrowVaultPair[] => {
+const getGraphBorrowPairs = (market: MarketGroup): AnyBorrowVaultPair[] => {
   if (!selectedGraphNode.value || selectedGraphNode.value.marketId !== market.id) return []
   const matrix = matrixMap.value.get(market.id)
   if (!matrix) return []
 
   const selectedAddr = selectedGraphNode.value.address.toLowerCase()
-  const pairs: BorrowVaultPair[] = []
+  const pairs: AnyBorrowVaultPair[] = []
 
   for (const [collateralAddr, rowCells] of matrix.cells) {
     const cell = rowCells.get(selectedAddr)
     if (!cell || cell.ltv.borrowLTV <= 0n) continue
     const collateral = findVault(market, collateralAddr)
     const borrow = findVault(market, selectedAddr)
-    if (!collateral || !borrow) continue
+    if (!collateral || !borrow || !isVaultType(borrow)) continue
     pairs.push({
       borrow,
       collateral,
@@ -477,13 +477,20 @@ onMounted(() => {
                     <div class="flex flex-col gap-12">
                       <template
                         v-for="vault in [getMatrixHeaderVault(market)]"
-                        :key="'header-lend-' + vault?.address"
+                        :key="'header-lend-' + (vault ? getVaultAddress(vault) : '')"
                       >
                         <template v-if="vault">
                           <h4 class="text-p3 font-medium text-content-secondary">
                             Lend
                           </h4>
-                          <VaultItem :vault="vault" />
+                          <VaultItem
+                            v-if="isVaultType(vault)"
+                            :vault="vault"
+                          />
+                          <SecuritizeVaultItem
+                            v-else
+                            :vault="vault as SecuritizeVault"
+                          />
                         </template>
                       </template>
 
@@ -506,13 +513,20 @@ onMounted(() => {
                     <div class="flex flex-col gap-12">
                       <template
                         v-for="lendVault in [getSelectedLendVault(market)]"
-                        :key="'lend-' + lendVault?.address"
+                        :key="'lend-' + (lendVault ? getVaultAddress(lendVault) : '')"
                       >
                         <template v-if="lendVault">
                           <h4 class="text-p3 font-medium text-content-secondary">
                             Lend
                           </h4>
-                          <VaultItem :vault="lendVault" />
+                          <VaultItem
+                            v-if="isVaultType(lendVault)"
+                            :vault="lendVault"
+                          />
+                          <SecuritizeVaultItem
+                            v-else
+                            :vault="lendVault as SecuritizeVault"
+                          />
                         </template>
                       </template>
 
@@ -536,13 +550,20 @@ onMounted(() => {
                   <div class="flex flex-col gap-12">
                     <template
                       v-for="vault in [getGraphSelectedVault(market)]"
-                      :key="'graph-lend-' + vault?.address"
+                      :key="'graph-lend-' + (vault ? getVaultAddress(vault) : '')"
                     >
                       <template v-if="vault">
                         <h4 class="text-p3 font-medium text-content-secondary">
                           Lend
                         </h4>
-                        <VaultItem :vault="vault" />
+                        <VaultItem
+                          v-if="isVaultType(vault)"
+                          :vault="vault"
+                        />
+                        <SecuritizeVaultItem
+                          v-else
+                          :vault="vault as SecuritizeVault"
+                        />
                       </template>
                     </template>
 

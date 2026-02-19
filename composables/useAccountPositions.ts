@@ -186,8 +186,8 @@ const updateBorrowPositions = async (
           return undefined
         }
 
-        // Skip positions where both vaults are unverified (unless showing all positions)
-        if (!shouldShowAllPositions && !borrow.verified && !collateral.verified) {
+        // Skip positions where either vault is unverified (unless showing all positions)
+        if (!shouldShowAllPositions && (!borrow.verified || !collateral.verified)) {
           return undefined
         }
 

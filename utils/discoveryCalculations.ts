@@ -1,5 +1,5 @@
 import type { MarketGroup, MiniDiagramData, MiniNode, MiniEdge } from '~/entities/lend-discovery'
-import type { Vault, VaultCollateralLTV } from '~/entities/vault'
+import type { Vault, SecuritizeVault, VaultCollateralLTV } from '~/entities/vault'
 import type { AnyVault } from '~/composables/useVaultRegistry'
 import type { EulerLabelEntity } from '~/entities/euler/labels'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping } from '~/entities/vault'
@@ -136,13 +136,13 @@ export const getActiveExternalCollateral = (market: MarketGroup): AnyVault[] => 
   })
 }
 
-export const findVault = (market: MarketGroup, address: string): Vault | null => {
+export const findVault = (market: MarketGroup, address: string): Vault | SecuritizeVault | null => {
   const normalized = address.toLowerCase()
   for (const v of market.vaults) {
-    if (isVaultType(v) && v.address.toLowerCase() === normalized) return v
+    if (getVaultAddress(v).toLowerCase() === normalized) return v as Vault | SecuritizeVault
   }
   for (const v of market.externalCollateral) {
-    if (isVaultType(v) && v.address.toLowerCase() === normalized) return v
+    if (getVaultAddress(v).toLowerCase() === normalized) return v as Vault | SecuritizeVault
   }
   return null
 }
