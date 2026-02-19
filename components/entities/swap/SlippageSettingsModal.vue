@@ -1,11 +1,18 @@
 <script setup lang="ts">
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 </script>
 
 <template>
   <BaseModalWrapper
-    @close="$emit('close')"
+    @close="emit('close')"
   >
     <SlippageSettings />
+    <UiButton
+      variant="primary"
+      size="xlarge"
+      @click="emit('close')"
+    >
+      Save
+    </UiButton>
   </BaseModalWrapper>
 </template>
