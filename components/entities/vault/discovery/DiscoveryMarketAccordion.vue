@@ -77,16 +77,19 @@ const setExpandedView = (marketId: string, mode: ExpandedViewMode) => {
 const vaultUsdCache = ref<Map<string, { supply: string, liquidity: string, supplyUsd: number }>>(new Map())
 
 const loadVaultUsdValues = async (market: MarketGroup) => {
-  const vaults = market.vaults.filter(isVaultType)
   const newEntries = new Map(vaultUsdCache.value)
 
   await Promise.all(
-    vaults.map(async (vault) => {
-      if (newEntries.has(vault.address)) return
-      const supplyPrice = await formatAssetValue(vault.totalAssets, vault, 'off-chain')
-      const liquidity = vault.supply >= vault.borrow ? vault.supply - vault.borrow : 0n
+    market.vaults.map(async (vault) => {
+      const addr = getVaultAddress(vault)
+      if (!addr || newEntries.has(addr)) return
+      const totalAssets = 'totalAssets' in vault ? vault.totalAssets as bigint : 0n
+      const supply = 'supply' in vault ? vault.supply as bigint : totalAssets
+      const borrow = 'borrow' in vault ? vault.borrow as bigint : 0n
+      const supplyPrice = await formatAssetValue(totalAssets, vault, 'off-chain')
+      const liquidity = supply >= borrow ? supply - borrow : 0n
       const liquidityPrice = await formatAssetValue(liquidity, vault, 'off-chain')
-      newEntries.set(vault.address, {
+      newEntries.set(addr, {
         supply: supplyPrice.hasPrice ? formatCompactUsdValue(supplyPrice.usdValue) : supplyPrice.display,
         liquidity: liquidityPrice.hasPrice ? formatCompactUsdValue(liquidityPrice.usdValue) : liquidityPrice.display,
         supplyUsd: supplyPrice.hasPrice ? supplyPrice.usdValue : 0,

@@ -13,7 +13,8 @@ const isVaultType = (vault: AnyVault): vault is Vault =>
 
 const isBorrowableVault = (vault: AnyVault): boolean => {
   if (!isVaultType(vault)) return false
-  return vault.vaultCategory !== 'escrow'
+  if (vault.vaultCategory === 'escrow') return false
+  return vault.collateralLTVs.some(ltv => ltv.borrowLTV > 0n)
 }
 
 const getCollateralAddresses = (vault: AnyVault): string[] => {
@@ -21,10 +22,8 @@ const getCollateralAddresses = (vault: AnyVault): string[] => {
   return vault.collateralLTVs.map(ltv => ltv.collateral)
 }
 
-const getVaultAddress = (vault: AnyVault): string => {
-  if (isVaultType(vault)) return vault.address
-  return ''
-}
+const getVaultAddress = (vault: AnyVault): string =>
+  isVaultType(vault) ? vault.address : ('address' in vault ? (vault as { address: string }).address : '')
 
 const getAssetSymbol = (vault: AnyVault): string => {
   if (isVaultType(vault)) return vault.asset.symbol
@@ -276,12 +275,12 @@ const resolveGroupTVL = async (group: MarketGroup): Promise<MarketGroup> => {
 
   const results = await Promise.all(
     group.vaults.map(async (vault: AnyVault) => {
-      if (!isVaultType(vault)) return { priced: false, value: 0, liquidity: 0, borrowUsd: 0, borrowable: false }
-      const usdValue = await getAssetUsdValueOrZero(vault.totalAssets, vault, 'off-chain')
+      const totalAssets = 'totalAssets' in vault ? vault.totalAssets as bigint : 0n
+      const usdValue = await getAssetUsdValueOrZero(totalAssets, vault, 'off-chain')
       const borrowable = isBorrowableVault(vault)
       let liquidity = 0
       let borrowUsd = 0
-      if (borrowable && usdValue > 0) {
+      if (borrowable && usdValue > 0 && isVaultType(vault)) {
         borrowUsd = await getAssetUsdValueOrZero(vault.borrow, vault, 'off-chain')
         liquidity = usdValue - borrowUsd
       }
