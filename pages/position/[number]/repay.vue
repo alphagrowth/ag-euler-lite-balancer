@@ -167,8 +167,8 @@ const formTabs = computed(() => {
 const reviewRepayLabel = getSubmitLabel('Review Repay')
 const reviewRepayDisabled = getSubmitDisabled(computed(() => {
   if (formTab.value === 'wallet') return wallet.isSubmitDisabled.value
-  if (formTab.value === 'savings') return savings.isSavingsSubmitDisabled.value
-  return collateral.isSwapSubmitDisabled.value
+  if (formTab.value === 'savings') return savings.isSubmitDisabled.value
+  return collateral.isSubmitDisabled.value
 }))
 
 const onSubmitForm = async () => {
@@ -177,10 +177,10 @@ const onSubmitForm = async () => {
       await wallet.submit()
     }
     else if (formTab.value === 'savings') {
-      await savings.submitSavings()
+      await savings.submit()
     }
     else {
-      await collateral.submitSwap()
+      await collateral.submit()
     }
   })
 }
@@ -408,17 +408,17 @@ onUnmounted(() => {
             />
 
             <AssetInput
-              v-if="collateral.swapCollateralVault.value"
-              v-model="collateral.collateralAmount.value"
+              v-if="collateral.sourceVault.value"
+              v-model="collateral.amount.value"
               label="Collateral to swap"
-              :desc="collateral.swapCollateralProduct.name"
-              :asset="collateral.swapCollateralVault.value.asset"
-              :vault="collateral.swapCollateralVault.value"
+              :desc="collateral.sourceProduct.name"
+              :asset="collateral.sourceVault.value.asset"
+              :vault="collateral.sourceVault.value"
               :collateral-options="collateral.repayCollateralOptions.value"
-              :balance="collateral.swapCollateralBalance.value"
+              :balance="collateral.sourceBalance.value"
               maxable
-              @input="collateral.onCollateralInput"
-              @change-collateral="collateral.onSwapCollateralChange"
+              @input="collateral.onAmountInput"
+              @change-collateral="collateral.onSourceVaultChange"
             />
             <AssetInput
               v-if="borrowVault"
@@ -427,44 +427,44 @@ onUnmounted(() => {
               :desc="name"
               :asset="borrowVault.asset"
               :vault="borrowVault"
-              :balance="collateral.swapDebtBalance.value"
+              :balance="collateral.debtBalance.value"
               maxable
               @input="collateral.onDebtInput"
             />
             <UiRange
               v-if="borrowVault"
-              v-model="collateral.repayDebtPercent.value"
+              v-model="collateral.debtPercent.value"
               label="Percent of debt to repay"
               :min="0"
               :max="100"
               :step="1"
               :number-filter="(n: number) => `${n}%`"
-              @update:model-value="collateral.onRepayPercentInput"
+              @update:model-value="collateral.onPercentInput"
             />
 
             <SwapRouteSelector
-              v-if="!collateral.swapIsSameAsset.value"
-              :items="collateral.swapRouteItems.value"
+              v-if="!collateral.isSameAsset.value"
+              :items="collateral.routeItems.value"
               :selected-provider="collateral.quotes.selectedProvider.value"
               :status-label="collateral.quotes.statusLabel.value"
               :is-loading="collateral.quotes.isLoading.value"
-              :empty-message="collateral.swapRouteEmptyMessage.value"
+              :empty-message="collateral.routeEmptyMessage.value"
               @select="collateral.quotes.selectProvider"
-              @refresh="collateral.onRefreshSwapQuotes"
+              @refresh="collateral.onRefreshQuotes"
             />
 
             <UiToast
-              v-if="collateral.quotes.quoteError.value && !collateral.swapIsSameAsset.value"
+              v-if="collateral.quotes.quoteError.value && !collateral.isSameAsset.value"
               title="Swap quote"
               variant="warning"
               :description="collateral.quotes.quoteError.value"
               size="compact"
             />
             <UiToast
-              v-if="collateral.swapDisabledReason.value"
+              v-if="collateral.disabledReason.value"
               title="Cannot submit"
               variant="warning"
-              :description="collateral.swapDisabledReason.value"
+              :description="collateral.disabledReason.value"
               size="compact"
             />
             <UiToast
@@ -477,24 +477,24 @@ onUnmounted(() => {
           </div>
 
           <VaultFormInfoBlock
-            :loading="!collateral.swapIsSameAsset.value && collateral.quotes.isLoading.value"
+            :loading="!collateral.isSameAsset.value && collateral.quotes.isLoading.value"
             variant="card"
             class="w-full laptop:max-w-[360px]"
           >
             <SummaryRow label="ROE">
               <SummaryValue
-                :before="collateral.swapRoeBefore.value !== null ? formatNumber(collateral.swapRoeBefore.value) : undefined"
-                :after="collateral.swapRoeAfter.value !== null && (collateral.quotes.quote.value || collateral.swapIsSameAsset.value) ? formatNumber(collateral.swapRoeAfter.value) : undefined"
+                :before="collateral.roeBefore.value !== null ? formatNumber(collateral.roeBefore.value) : undefined"
+                :after="collateral.roeAfter.value !== null && (collateral.quotes.quote.value || collateral.isSameAsset.value) ? formatNumber(collateral.roeAfter.value) : undefined"
                 suffix="%"
               />
             </SummaryRow>
-            <template v-if="!collateral.swapIsSameAsset.value">
+            <template v-if="!collateral.isSameAsset.value">
               <SummaryRow label="Swap price" align-top>
                 <SummaryPriceValue
-                  :value="collateral.swapCurrentPrice.value ? formatSmartAmount(collateral.swapPriceInvert.invertValue(collateral.swapCurrentPrice.value.value)) : undefined"
-                  :symbol="collateral.swapPriceInvert.displaySymbol"
+                  :value="collateral.currentPrice.value ? formatSmartAmount(collateral.priceInvert.invertValue(collateral.currentPrice.value.value)) : undefined"
+                  :symbol="collateral.priceInvert.displaySymbol"
                   invertible
-                  @invert="collateral.swapPriceInvert.toggle"
+                  @invert="collateral.priceInvert.toggle"
                 />
               </SummaryRow>
             </template>
@@ -507,46 +507,46 @@ onUnmounted(() => {
             </template>
             <SummaryRow label="Liquidation price">
               <SummaryPriceValue
-                :before="collateral.swapCurrentLiquidationPrice.value !== null ? formatSmartAmount(collateral.swapPriceInvert.invertValue(collateral.swapCurrentLiquidationPrice.value)) : undefined"
-                :after="collateral.swapNextLiquidationPrice.value !== null && (collateral.quotes.quote.value || collateral.swapIsSameAsset.value) ? formatSmartAmount(collateral.swapPriceInvert.invertValue(collateral.swapNextLiquidationPrice.value)) : undefined"
-                :symbol="collateral.swapPriceInvert.displaySymbol"
+                :before="collateral.currentLiquidationPrice.value !== null ? formatSmartAmount(collateral.priceInvert.invertValue(collateral.currentLiquidationPrice.value)) : undefined"
+                :after="collateral.nextLiquidationPrice.value !== null && (collateral.quotes.quote.value || collateral.isSameAsset.value) ? formatSmartAmount(collateral.priceInvert.invertValue(collateral.nextLiquidationPrice.value)) : undefined"
+                :symbol="collateral.priceInvert.displaySymbol"
                 invertible
-                @invert="collateral.swapPriceInvert.toggle"
+                @invert="collateral.priceInvert.toggle"
               />
             </SummaryRow>
             <SummaryRow label="LTV">
               <SummaryValue
-                :before="collateral.swapCurrentLtv.value !== null ? formatNumber(collateral.swapCurrentLtv.value) : undefined"
-                :after="collateral.swapNextLtv.value !== null && (collateral.quotes.quote.value || collateral.swapIsSameAsset.value) ? formatNumber(collateral.swapNextLtv.value) : undefined"
+                :before="collateral.currentLtv.value !== null ? formatNumber(collateral.currentLtv.value) : undefined"
+                :after="collateral.nextLtv.value !== null && (collateral.quotes.quote.value || collateral.isSameAsset.value) ? formatNumber(collateral.nextLtv.value) : undefined"
                 suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="Health score">
               <SummaryValue
-                :before="collateral.swapCurrentHealth.value !== null ? formatHealthScore(collateral.swapCurrentHealth.value) : undefined"
-                :after="collateral.swapNextHealth.value !== null && (collateral.quotes.quote.value || collateral.swapIsSameAsset.value) ? formatHealthScore(collateral.swapNextHealth.value) : undefined"
+                :before="collateral.currentHealth.value !== null ? formatHealthScore(collateral.currentHealth.value) : undefined"
+                :after="collateral.nextHealth.value !== null && (collateral.quotes.quote.value || collateral.isSameAsset.value) ? formatHealthScore(collateral.nextHealth.value) : undefined"
               />
             </SummaryRow>
-            <template v-if="!collateral.swapIsSameAsset.value">
+            <template v-if="!collateral.isSameAsset.value">
               <SummaryRow label="Swap" align-top>
                 <p class="text-p2 text-right flex flex-col items-end">
-                  <span>{{ collateral.swapSummary.value ? collateral.swapSummary.value.from : '-' }}</span>
+                  <span>{{ collateral.summary.value ? collateral.summary.value.from : '-' }}</span>
                   <span
-                    v-if="collateral.swapSummary.value"
+                    v-if="collateral.summary.value"
                     class="text-content-tertiary text-p3"
                   >
-                    {{ collateral.swapSummary.value.to }}
+                    {{ collateral.summary.value.to }}
                   </span>
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">
                 <p class="text-p2">
-                  {{ collateral.swapPriceImpact.value !== null ? `${formatNumber(collateral.swapPriceImpact.value, 2, 2)}%` : '-' }}
+                  {{ collateral.priceImpact.value !== null ? `${formatNumber(collateral.priceImpact.value, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Leveraged price impact">
                 <p class="text-p2">
-                  {{ collateral.swapLeveragedPriceImpact.value !== null ? `${formatNumber(collateral.swapLeveragedPriceImpact.value, 2, 2)}%` : '-' }}
+                  {{ collateral.leveragedPriceImpact.value !== null ? `${formatNumber(collateral.leveragedPriceImpact.value, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Slippage tolerance">
@@ -564,7 +564,7 @@ onUnmounted(() => {
               </SummaryRow>
               <SummaryRow label="Routed via">
                 <p class="text-p2 text-right">
-                  {{ collateral.swapRoutedVia.value || '-' }}
+                  {{ collateral.routedVia.value || '-' }}
                 </p>
               </SummaryRow>
             </template>
@@ -591,63 +591,63 @@ onUnmounted(() => {
         <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
           <div class="flex flex-col gap-16 w-full">
             <AssetInput
-              v-if="savings.savingsVault.value"
-              v-model="savings.savingsAmount.value"
+              v-if="savings.sourceVault.value"
+              v-model="savings.amount.value"
               label="Savings to use"
-              :desc="savings.savingsProduct.name"
-              :asset="savings.savingsVault.value.asset"
-              :vault="savings.savingsVault.value"
+              :desc="savings.sourceProduct.name"
+              :asset="savings.sourceVault.value.asset"
+              :vault="savings.sourceVault.value"
               :collateral-options="savings.savingsOptions.value"
-              :balance="savings.savingsBalance.value"
+              :balance="savings.sourceBalance.value"
               maxable
-              @input="savings.onSavingsAmountInput"
-              @change-collateral="savings.onSavingsVaultChange"
+              @input="savings.onAmountInput"
+              @change-collateral="savings.onSourceVaultChange"
             />
             <AssetInput
               v-if="borrowVault"
-              v-model="savings.savingsDebtAmount.value"
+              v-model="savings.debtAmount.value"
               label="Debt to repay"
               :desc="name"
               :asset="borrowVault.asset"
               :vault="borrowVault"
-              :balance="savings.savingsDebtBalance.value"
+              :balance="savings.debtBalance.value"
               maxable
-              @input="savings.onSavingsDebtInput"
+              @input="savings.onDebtInput"
             />
             <UiRange
               v-if="borrowVault"
-              v-model="savings.savingsDebtPercent.value"
+              v-model="savings.debtPercent.value"
               label="Percent of debt to repay"
               :min="0"
               :max="100"
               :step="1"
               :number-filter="(n: number) => `${n}%`"
-              @update:model-value="savings.onSavingsPercentInput"
+              @update:model-value="savings.onPercentInput"
             />
 
             <SwapRouteSelector
-              v-if="!savings.savingsIsSameAsset.value"
-              :items="savings.savingsRouteItems.value"
+              v-if="!savings.isSameAsset.value"
+              :items="savings.routeItems.value"
               :selected-provider="savings.quotes.selectedProvider.value"
               :status-label="savings.quotes.statusLabel.value"
               :is-loading="savings.quotes.isLoading.value"
-              :empty-message="savings.quotes.providersCount.value ? 'No quotes found' : 'Enter amount to fetch quotes'"
+              :empty-message="savings.routeEmptyMessage.value"
               @select="savings.quotes.selectProvider"
-              @refresh="savings.onRefreshSavingsQuotes"
+              @refresh="savings.onRefreshQuotes"
             />
 
             <UiToast
-              v-if="savings.quotes.quoteError.value && !savings.savingsIsSameAsset.value"
+              v-if="savings.quotes.quoteError.value && !savings.isSameAsset.value"
               title="Swap quote"
               variant="warning"
               :description="savings.quotes.quoteError.value"
               size="compact"
             />
             <UiToast
-              v-if="savings.savingsDisabledReason.value"
+              v-if="savings.disabledReason.value"
               title="Cannot submit"
               variant="warning"
-              :description="savings.savingsDisabledReason.value"
+              :description="savings.disabledReason.value"
               size="compact"
             />
             <UiToast
@@ -660,24 +660,24 @@ onUnmounted(() => {
           </div>
 
           <VaultFormInfoBlock
-            :loading="!savings.savingsIsSameAsset.value && savings.quotes.isLoading.value"
+            :loading="!savings.isSameAsset.value && savings.quotes.isLoading.value"
             variant="card"
             class="w-full laptop:max-w-[360px]"
           >
             <SummaryRow label="ROE">
               <SummaryValue
-                :before="savings.savingsRoeBefore.value !== null ? formatNumber(savings.savingsRoeBefore.value) : undefined"
-                :after="savings.savingsRoeAfter.value !== null && (savings.quotes.quote.value || savings.savingsIsSameAsset.value) ? formatNumber(savings.savingsRoeAfter.value) : undefined"
+                :before="savings.roeBefore.value !== null ? formatNumber(savings.roeBefore.value) : undefined"
+                :after="savings.roeAfter.value !== null && (savings.quotes.quote.value || savings.isSameAsset.value) ? formatNumber(savings.roeAfter.value) : undefined"
                 suffix="%"
               />
             </SummaryRow>
-            <template v-if="!savings.savingsIsSameAsset.value">
+            <template v-if="!savings.isSameAsset.value">
               <SummaryRow label="Swap price" align-top>
                 <SummaryPriceValue
-                  :value="savings.savingsSwapCurrentPrice.value ? formatSmartAmount(savings.savingsPriceInvert.invertValue(savings.savingsSwapCurrentPrice.value.value)) : undefined"
-                  :symbol="savings.savingsPriceInvert.displaySymbol"
+                  :value="savings.currentPrice.value ? formatSmartAmount(savings.priceInvert.invertValue(savings.currentPrice.value.value)) : undefined"
+                  :symbol="savings.priceInvert.displaySymbol"
                   invertible
-                  @invert="savings.savingsPriceInvert.toggle"
+                  @invert="savings.priceInvert.toggle"
                 />
               </SummaryRow>
             </template>
@@ -690,8 +690,8 @@ onUnmounted(() => {
             </template>
             <SummaryRow label="Liquidation price">
               <SummaryPriceValue
-                :before="savings.savingsCurrentLiquidationPrice.value !== null ? formatSmartAmount(walletPriceInvert.invertValue(savings.savingsCurrentLiquidationPrice.value)) : undefined"
-                :after="savings.savingsNextLiquidationPrice.value !== null && (savings.quotes.quote.value || savings.savingsIsSameAsset.value) ? formatSmartAmount(walletPriceInvert.invertValue(savings.savingsNextLiquidationPrice.value)) : undefined"
+                :before="savings.currentLiquidationPrice.value !== null ? formatSmartAmount(walletPriceInvert.invertValue(savings.currentLiquidationPrice.value)) : undefined"
+                :after="savings.nextLiquidationPrice.value !== null && (savings.quotes.quote.value || savings.isSameAsset.value) ? formatSmartAmount(walletPriceInvert.invertValue(savings.nextLiquidationPrice.value)) : undefined"
                 :symbol="walletPriceInvert.displaySymbol"
                 invertible
                 @invert="walletPriceInvert.toggle"
@@ -699,37 +699,37 @@ onUnmounted(() => {
             </SummaryRow>
             <SummaryRow label="LTV">
               <SummaryValue
-                :before="savings.savingsCurrentLtv.value !== null ? formatNumber(savings.savingsCurrentLtv.value) : undefined"
-                :after="savings.savingsNextLtv.value !== null && (savings.quotes.quote.value || savings.savingsIsSameAsset.value) ? formatNumber(savings.savingsNextLtv.value) : undefined"
+                :before="savings.currentLtv.value !== null ? formatNumber(savings.currentLtv.value) : undefined"
+                :after="savings.nextLtv.value !== null && (savings.quotes.quote.value || savings.isSameAsset.value) ? formatNumber(savings.nextLtv.value) : undefined"
                 suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="Health score">
               <SummaryValue
-                :before="savings.savingsCurrentHealth.value !== null ? formatHealthScore(savings.savingsCurrentHealth.value) : undefined"
-                :after="savings.savingsNextHealth.value !== null && (savings.quotes.quote.value || savings.savingsIsSameAsset.value) ? formatHealthScore(savings.savingsNextHealth.value) : undefined"
+                :before="savings.currentHealth.value !== null ? formatHealthScore(savings.currentHealth.value) : undefined"
+                :after="savings.nextHealth.value !== null && (savings.quotes.quote.value || savings.isSameAsset.value) ? formatHealthScore(savings.nextHealth.value) : undefined"
               />
             </SummaryRow>
-            <template v-if="!savings.savingsIsSameAsset.value">
+            <template v-if="!savings.isSameAsset.value">
               <SummaryRow label="Swap" align-top>
                 <p class="text-p2 text-right flex flex-col items-end">
-                  <span>{{ savings.savingsSwapSummary.value ? savings.savingsSwapSummary.value.from : '-' }}</span>
+                  <span>{{ savings.summary.value ? savings.summary.value.from : '-' }}</span>
                   <span
-                    v-if="savings.savingsSwapSummary.value"
+                    v-if="savings.summary.value"
                     class="text-content-tertiary text-p3"
                   >
-                    {{ savings.savingsSwapSummary.value.to }}
+                    {{ savings.summary.value.to }}
                   </span>
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">
                 <p class="text-p2">
-                  {{ savings.savingsPriceImpact.value !== null ? `${formatNumber(savings.savingsPriceImpact.value, 2, 2)}%` : '-' }}
+                  {{ savings.priceImpact.value !== null ? `${formatNumber(savings.priceImpact.value, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Leveraged price impact">
                 <p class="text-p2">
-                  {{ savings.savingsLeveragedPriceImpact.value !== null ? `${formatNumber(savings.savingsLeveragedPriceImpact.value, 2, 2)}%` : '-' }}
+                  {{ savings.leveragedPriceImpact.value !== null ? `${formatNumber(savings.leveragedPriceImpact.value, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Slippage tolerance">
@@ -747,7 +747,7 @@ onUnmounted(() => {
               </SummaryRow>
               <SummaryRow label="Routed via">
                 <p class="text-p2 text-right">
-                  {{ savings.savingsRoutedVia.value || '-' }}
+                  {{ savings.routedVia.value || '-' }}
                 </p>
               </SummaryRow>
             </template>
