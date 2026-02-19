@@ -1,10 +1,10 @@
 import { getAddress, type Address } from 'viem'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { type CollateralOption, type Vault } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
 import { type VaultTagContext } from '~/composables/useGeoBlock'
 import { buildCollateralOption, computeSupplyApy } from '~/utils/collateralOptions'
-import { createRaceGuard } from '~/utils/race-guard'
+import { useReactiveMap } from '~/composables/useReactiveMap'
 
 export const useSwapCollateralOptions = ({
   currentVault,
@@ -64,24 +64,17 @@ export const useSwapCollateralOptions = ({
     return [...unique.values()]
   })
 
-  const collateralOptions = ref<CollateralOption[]>([])
-  const guard = createRaceGuard()
-
-  watchEffect(async () => {
-    const vaults = collateralVaults.value
-    void rewardsVersion.value
-    void intrinsicVersion.value
-    const gen = guard.next()
-    const options = await Promise.all(vaults.map(async (vault) => {
+  const collateralOptions = useReactiveMap(
+    collateralVaults,
+    [rewardsVersion, intrinsicVersion],
+    async (vault) => {
       const balance = getBalance(vault.asset.address as Address)
       const amount = nanoToValue(balance, vault.asset.decimals)
       const apy = computeSupplyApy(vault, withIntrinsicSupplyApy, getSupplyRewardApy)
       const type = vault.vaultCategory === 'escrow' ? 'escrow' : 'vault'
       return buildCollateralOption({ vault, type, amount, priceAmount: amount, apy, tagContext })
-    }))
-    if (guard.isStale(gen)) return
-    collateralOptions.value = options
-  })
+    },
+  )
 
   return {
     collateralVaults,

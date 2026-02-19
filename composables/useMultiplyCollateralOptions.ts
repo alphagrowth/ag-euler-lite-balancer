@@ -3,7 +3,7 @@ import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { type CollateralOption, type Vault } from '~/entities/vault'
 import { buildCollateralOption, computeSupplyApy } from '~/utils/collateralOptions'
-import { createRaceGuard } from '~/utils/race-guard'
+import { useReactiveMap } from '~/composables/useReactiveMap'
 
 type CollateralItem = {
   vault: Vault
@@ -52,25 +52,20 @@ export const useMultiplyCollateralOptions = ({
     return items
   })
 
-  const walletItems = ref<CollateralItem[]>([])
-  const walletGuard = createRaceGuard()
-
-  watchEffect(async () => {
-    const inputs = walletItemsInput.value
-    void rewardsVersion.value
-    void intrinsicVersion.value
-    const gen = walletGuard.next()
-    const items = await Promise.all(inputs.map(async ({ vault, balance }) => {
-      const amount = nanoToValue(balance, vault.asset.decimals)
-      const apy = computeSupplyApy(vault, withIntrinsicSupplyApy, getSupplyRewardApy)
-      return {
-        vault,
-        option: await buildCollateralOption({ vault, type: 'wallet', amount, priceAmount: amount, apy, tagContext: 'supply-source' }),
-      } as CollateralItem
-    }))
-    if (walletGuard.isStale(gen)) return
-    walletItems.value = items
-  })
+  const walletItems = useReactiveMap(
+    walletItemsInput,
+    [rewardsVersion, intrinsicVersion],
+    async ({ vault, balance }) => ({
+      vault,
+      option: await buildCollateralOption({
+        vault, type: 'wallet',
+        amount: nanoToValue(balance, vault.asset.decimals),
+        priceAmount: nanoToValue(balance, vault.asset.decimals),
+        apy: computeSupplyApy(vault, withIntrinsicSupplyApy, getSupplyRewardApy),
+        tagContext: 'supply-source',
+      }),
+    } as CollateralItem),
+  )
 
   const savingItemsInput = computed(() => {
     const liability = liabilityVault?.value
@@ -83,25 +78,20 @@ export const useMultiplyCollateralOptions = ({
       .map(position => ({ vault: position.vault as Vault, assets: position.assets }))
   })
 
-  const savingItems = ref<CollateralItem[]>([])
-  const savingGuard = createRaceGuard()
-
-  watchEffect(async () => {
-    const inputs = savingItemsInput.value
-    void rewardsVersion.value
-    void intrinsicVersion.value
-    const gen = savingGuard.next()
-    const items = await Promise.all(inputs.map(async ({ vault, assets }) => {
-      const amount = nanoToValue(assets, vault.asset.decimals)
-      const apy = computeSupplyApy(vault, withIntrinsicSupplyApy, getSupplyRewardApy)
-      return {
-        vault,
-        option: await buildCollateralOption({ vault, type: 'saving', amount, priceAmount: amount, apy, tagContext: 'supply-source' }),
-      } as CollateralItem
-    }))
-    if (savingGuard.isStale(gen)) return
-    savingItems.value = items
-  })
+  const savingItems = useReactiveMap(
+    savingItemsInput,
+    [rewardsVersion, intrinsicVersion],
+    async ({ vault, assets }) => ({
+      vault,
+      option: await buildCollateralOption({
+        vault, type: 'saving',
+        amount: nanoToValue(assets, vault.asset.decimals),
+        priceAmount: nanoToValue(assets, vault.asset.decimals),
+        apy: computeSupplyApy(vault, withIntrinsicSupplyApy, getSupplyRewardApy),
+        tagContext: 'supply-source',
+      }),
+    } as CollateralItem),
+  )
 
   const combinedItems = computed<CollateralItem[]>(() => {
     const items = [...savingItems.value, ...walletItems.value]

@@ -1,12 +1,12 @@
-import { getAddress, type Address } from 'viem'
+import { getAddress } from 'viem'
 import { getProductByVault } from '~/utils/eulerLabelsUtils'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import type { AccountDepositPosition } from '~/entities/account'
-import type { CollateralOption, Vault } from '~/entities/vault'
+import type { Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { createRaceGuard } from '~/utils/race-guard'
+import { useReactiveMap } from '~/composables/useReactiveMap'
 
 /**
  * Provides eligible savings positions that can be used to repay debt.
@@ -35,22 +35,15 @@ export const useRepaySavingsOptions = () => {
     return savingsPositions.value.map(position => position.vault as Vault)
   })
 
-  const savingsOptions = ref<CollateralOption[]>([])
-  const guard = createRaceGuard()
-
-  watchEffect(async () => {
-    const positions = savingsPositions.value
-    void rewardsVersion.value
-    void intrinsicVersion.value
-    const gen = guard.next()
-
-    const options = await Promise.all(positions.map(async (position) => {
+  const savingsOptions = useReactiveMap(
+    savingsPositions,
+    [rewardsVersion, intrinsicVersion],
+    async (position) => {
       const vault = position.vault
       const amount = nanoToValue(position.assets, vault.asset.decimals)
       const product = getProductByVault(vault.address)
       const baseApy = nanoToValue(vault.interestRateInfo.supplyAPY || 0n, 25)
       const apy = withIntrinsicSupplyApy(baseApy, vault.asset.address) + getSupplyRewardApy(vault.address)
-
       return {
         type: 'vault' as const,
         amount,
@@ -61,11 +54,8 @@ export const useRepaySavingsOptions = () => {
         label: product.name || vault.name,
         vaultAddress: vault.address,
       }
-    }))
-
-    if (guard.isStale(gen)) return
-    savingsOptions.value = options
-  })
+    },
+  )
 
   const getSavingsPosition = (vaultAddress: string): AccountDepositPosition | undefined => {
     const normalized = getAddress(vaultAddress)

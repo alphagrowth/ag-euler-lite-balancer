@@ -1,9 +1,9 @@
 import { getAddress } from 'viem'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { type CollateralOption, type Vault } from '~/entities/vault'
+import { type Vault } from '~/entities/vault'
 import { buildCollateralOption, computeBorrowApy } from '~/utils/collateralOptions'
-import { createRaceGuard } from '~/utils/race-guard'
+import { useReactiveMap } from '~/composables/useReactiveMap'
 
 export const useSwapDebtOptions = ({
   collateralVault,
@@ -44,21 +44,14 @@ export const useSwapDebtOptions = ({
     })
   })
 
-  const borrowOptions = ref<CollateralOption[]>([])
-  const guard = createRaceGuard()
-
-  watchEffect(async () => {
-    const vaults = borrowVaults.value
-    void rewardsVersion.value
-    void intrinsicVersion.value
-    const gen = guard.next()
-    const options = await Promise.all(vaults.map(async (vault) => {
+  const borrowOptions = useReactiveMap(
+    borrowVaults,
+    [rewardsVersion, intrinsicVersion],
+    async (vault) => {
       const apy = computeBorrowApy(vault, withIntrinsicBorrowApy, getBorrowRewardApy, collateralVault?.value?.address)
       return buildCollateralOption({ vault, type: 'vault', amount: 0, priceAmount: 1, apy, tagContext: 'swap-target' })
-    }))
-    if (guard.isStale(gen)) return
-    borrowOptions.value = options
-  })
+    },
+  )
 
   return {
     borrowVaults,
