@@ -17,6 +17,7 @@ import annotationPlugin from 'chartjs-plugin-annotation'
 import { formatUnits, type Address, type Abi } from 'viem'
 import { getPublicClient } from '~/utils/public-client'
 import { INTEREST_RATE_MODEL_TYPE } from '~/entities/constants'
+import { BPS_BASE } from '~/entities/tuning-constants'
 import type { Vault } from '~/entities/vault'
 import { getVaultUtilization } from '~/entities/vault'
 import { eulerVaultLensABI } from '~/entities/euler/abis'
@@ -201,7 +202,7 @@ const renderChart = async () => {
       const kinkCash = kinkData.interestRateInfo[0]?.cash || 0n
       const kinkBorrows = kinkInfo?.borrows || 0n
       if (kinkCash > 0n) {
-        kinkUtilization = Number((kinkBorrows * 10000n) / kinkCash) / 100
+        kinkUtilization = Number((kinkBorrows * BPS_BASE) / kinkCash) / 100
       }
     }
 

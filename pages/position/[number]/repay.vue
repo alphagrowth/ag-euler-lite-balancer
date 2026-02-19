@@ -6,6 +6,7 @@ import { getPublicClient } from '~/utils/public-client'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
+import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getNetAPY, type VaultAsset, type Vault } from '~/entities/vault'
 import { getAssetUsdValue, getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
@@ -2015,7 +2016,7 @@ watch(debtAmount, () => {
 
 const interval = setInterval(() => {
   updateBalance()
-}, 5000)
+}, POLL_INTERVAL_5S_MS)
 
 onUnmounted(() => {
   clearInterval(interval)

@@ -1,4 +1,4 @@
-const BPS_BASE = 10000n
+import { BPS_BASE } from '~/entities/tuning-constants'
 
 // 0.5% safety margin subtracted from the raw multiplier (50 basis points)
 const SAFETY_MARGIN_BPS = 50n

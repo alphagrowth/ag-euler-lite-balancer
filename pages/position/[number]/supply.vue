@@ -7,6 +7,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
+import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
@@ -611,7 +612,7 @@ watch(swapSelectedQuote, () => {
 
 const interval = setInterval(() => {
   updateBalance()
-}, 5000)
+}, POLL_INTERVAL_5S_MS)
 
 onUnmounted(() => {
   clearInterval(interval)

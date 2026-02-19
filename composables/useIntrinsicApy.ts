@@ -3,8 +3,8 @@ import type { IntrinsicApyInfo, IntrinsicApyProvider, IntrinsicApyResult } from 
 import { EMPTY_INTRINSIC_APY } from '~/entities/intrinsic-apy'
 import { createDefiLlamaProvider } from '~/services/intrinsicApy/defillamaProvider'
 import { createPendleProvider } from '~/services/intrinsicApy/pendleProvider'
-
-const CACHE_TTL_MS = 5 * 60 * 1000
+import { logWarn } from '~/utils/errorHandling'
+import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
 
 const intrinsicApyByAddress: Ref<Record<string, IntrinsicApyInfo>> = ref({})
 const lastFetchedAt: Ref<number> = ref(0)
@@ -32,7 +32,7 @@ export const useIntrinsicApy = () => {
   const { settings } = useUserSettings()
 
   const enableIntrinsicApy = computed(() => settings.value.enableIntrinsicApy)
-  const isStale = () => Date.now() - lastFetchedAt.value > CACHE_TTL_MS
+  const isStale = () => Date.now() - lastFetchedAt.value > CACHE_TTL_5MIN_MS
   const isChainChanged = () => lastFetchedChainId.value !== chainId.value
 
   const loadIntrinsicApy = async () => {
@@ -62,7 +62,7 @@ export const useIntrinsicApy = () => {
       lastFetchedChainId.value = chainId.value
     }
     catch (err) {
-      console.warn('[useIntrinsicApy] failed to load intrinsic APY', err)
+      logWarn('intrinsicApy/load', err)
       intrinsicApyByAddress.value = {}
     }
     finally {

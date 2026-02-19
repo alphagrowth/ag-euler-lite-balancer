@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { POLL_INTERVAL_10S_MS } from '~/entities/tuning-constants'
 
 defineOptions({
   name: 'PortfolioPage',
@@ -62,7 +63,7 @@ onActivated(async () => {
   checkTab()
   await updateBalances()
   updatePositions()
-  interval.value = setInterval(updatePositions, 10000)
+  interval.value = setInterval(updatePositions, POLL_INTERVAL_10S_MS)
 })
 onDeactivated(() => {
   if (interval.value) {

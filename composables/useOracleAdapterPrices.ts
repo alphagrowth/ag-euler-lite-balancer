@@ -11,6 +11,7 @@ import { buildPythBatchItems } from '~/utils/pyth'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { buildBatchItem } from '~/utils/multicall'
 import { getPublicClient } from '~/utils/public-client'
+import { logWarn } from '~/utils/errorHandling'
 
 export type AdapterPriceInfo = {
   rate: number
@@ -302,7 +303,7 @@ export const useOracleAdapterPrices = (
       prices.value = decodePriceResults(filteredAdapters, priceResults, knownDecimals)
     }
     catch (err) {
-      console.warn('[useOracleAdapterPrices] fetchPrices failed:', err)
+      logWarn('oracleAdapterPrices/fetchPrices', err)
       prices.value = new Map()
     }
   }

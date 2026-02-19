@@ -7,6 +7,8 @@ import type { Campaign, CampaignsRequest, MerkleProofRequest, RewardInfo } from 
 import type { RewardCampaign } from '~/entities/reward-campaign'
 import type { TxPlan } from '~/entities/txPlan'
 import { CampaignAction } from '~/entities/brevis'
+import { CACHE_TTL_1MIN_MS, POLL_INTERVAL_10S_MS } from '~/entities/tuning-constants'
+import { logWarn } from '~/utils/errorHandling'
 
 const ACTION_MAP: Record<string, CampaignAction> = {
   EULER_BORROW: CampaignAction.BORROW,
@@ -60,7 +62,6 @@ const isRewardsLoading = ref(true)
 
 let interval: NodeJS.Timeout | null = null
 
-const BREVIS_CACHE_TTL_MS = 60 * 1000
 const cacheState = {
   campaigns: { timestamp: 0 },
   rewards: { timestamp: 0, address: '' },
@@ -96,7 +97,7 @@ export const useBrevis = () => {
       const now = Date.now()
       if (!forceRefresh
         && brevisCampaigns.value.size > 0
-        && (now - cacheState.campaigns.timestamp) < BREVIS_CACHE_TTL_MS) {
+        && (now - cacheState.campaigns.timestamp) < CACHE_TTL_1MIN_MS) {
         return
       }
 
@@ -144,7 +145,7 @@ export const useBrevis = () => {
       cacheState.campaigns.timestamp = Date.now()
     }
     catch (e) {
-      console.warn(e)
+      logWarn('brevis/campaigns', e)
     }
     finally {
       isCampaignsLoading.value = false
@@ -162,7 +163,7 @@ export const useBrevis = () => {
       if (!forceRefresh
         && cacheState.rewards.address === address.value
         && userRewards.value.length > 0
-        && (now - cacheState.rewards.timestamp) < BREVIS_CACHE_TTL_MS) {
+        && (now - cacheState.rewards.timestamp) < CACHE_TTL_1MIN_MS) {
         return
       }
 
@@ -188,7 +189,7 @@ export const useBrevis = () => {
       cacheState.rewards.address = address.value
     }
     catch (e) {
-      console.warn(e)
+      logWarn('brevis/allocations', e)
     }
     finally {
       isRewardsLoading.value = false
@@ -302,7 +303,7 @@ export const useBrevis = () => {
         interval = setInterval(() => {
           loadRewards(false)
           loadCampaigns(false)
-        }, 10000)
+        }, POLL_INTERVAL_10S_MS)
       }
     }
     else {

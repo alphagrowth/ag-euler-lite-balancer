@@ -11,6 +11,8 @@ import {
 import type { EarnVault, Vault } from '~/entities/vault'
 import type { OracleAdapterMeta } from '~/entities/oracle'
 import { safeAssign } from '~/utils/safe-assign'
+import { logWarn } from '~/utils/errorHandling'
+import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
 let _labelsRepo = 'euler-xyz/euler-labels'
 let _labelsRepoBranch = 'master'
 let _oracleChecksRepo = 'euler-xyz/oracle-checks'
@@ -36,7 +38,6 @@ const isLoading = ref(false)
 
 // Use a simple object to track loaded state (survives HMR better than ref)
 const loadState = { chainId: null as number | null, timestamp: 0 }
-const LABELS_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 const products: Record<string, EulerLabelProduct> = shallowReactive({})
 const entities: Record<string, EulerLabelEntity> = shallowReactive({})
@@ -204,7 +205,7 @@ export const useEulerLabels = () => {
       if (!forceRefresh
         && loadState.chainId === chainId
         && Object.keys(products).length > 0
-        && (now - loadState.timestamp) < LABELS_CACHE_TTL_MS) {
+        && (now - loadState.timestamp) < CACHE_TTL_5MIN_MS) {
         return
       }
 
@@ -280,7 +281,7 @@ export const useEulerLabels = () => {
       loadState.timestamp = Date.now()
     }
     catch (e) {
-      console.warn(e)
+      logWarn('labels/load', e)
     }
     finally {
       isLoading.value = false

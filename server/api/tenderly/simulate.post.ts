@@ -4,6 +4,7 @@ import {
   viemStateOverridesToTenderly,
   type ViemStateOverrideEntry,
 } from '~/server/utils/tenderly'
+import { isAbortError } from '~/utils/errorHandling'
 
 const UPSTREAM_TIMEOUT_MS = 30_000
 
@@ -143,7 +144,7 @@ export default defineEventHandler(async (event) => {
     return { url: `https://tdly.co/shared/simulation/${simulationId}` }
   }
   catch (error: unknown) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (isAbortError(error)) {
       throw createError({ statusCode: 504, statusMessage: 'Tenderly API timeout' })
     }
     if (error && typeof error === 'object' && 'statusCode' in error) {

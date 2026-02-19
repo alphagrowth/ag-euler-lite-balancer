@@ -1,4 +1,5 @@
 import type { Address } from 'viem'
+import { CACHE_TTL_1MIN_MS, BATCH_DELAY_COLLECT_MS } from '~/entities/tuning-constants'
 
 // -------------------------------------------
 // Backend Response Types
@@ -53,7 +54,6 @@ export const isBackendConfigured = (): boolean => {
 // Cache
 // -------------------------------------------
 
-const CACHE_TTL_MS = 60 * 1000 // 1 minute
 
 type CachedPrice = {
   data: BackendPriceData
@@ -72,7 +72,7 @@ const getCacheKey = (assetAddress: string, chainId?: number): string => {
 export const clearStaleBackendCache = () => {
   const now = Date.now()
   for (const [key, cached] of priceCache.entries()) {
-    if ((now - cached.fetchedAt) >= CACHE_TTL_MS) {
+    if ((now - cached.fetchedAt) >= CACHE_TTL_1MIN_MS) {
       priceCache.delete(key)
     }
   }
@@ -102,7 +102,6 @@ export const clearBackendCache = () => {
 // Request Batching
 // -------------------------------------------
 
-const BATCH_DELAY_MS = 50 // Wait 50ms to collect requests before batching
 
 type PendingRequest = {
   address: Address
@@ -178,7 +177,7 @@ const fetchBackendPricesBatch = async (
   for (const address of assetAddresses) {
     const key = getCacheKey(address, effectiveChainId)
     const cached = priceCache.get(key)
-    if (cached && (now - cached.fetchedAt) < CACHE_TTL_MS) {
+    if (cached && (now - cached.fetchedAt) < CACHE_TTL_1MIN_MS) {
       results.set(address.toLowerCase(), cached.data)
     }
     else {
@@ -265,7 +264,7 @@ export const fetchBackendPrice = async (
   // Check cache first to avoid adding to batch
   const key = getCacheKey(assetAddress, effectiveChainId)
   const cached = priceCache.get(key)
-  if (cached && (Date.now() - cached.fetchedAt) < CACHE_TTL_MS) {
+  if (cached && (Date.now() - cached.fetchedAt) < CACHE_TTL_1MIN_MS) {
     return cached.data
   }
 
@@ -280,7 +279,7 @@ export const fetchBackendPrice = async (
 
     // Schedule batch execution if not already scheduled
     if (!batchTimeout) {
-      batchTimeout = setTimeout(executeBatch, BATCH_DELAY_MS)
+      batchTimeout = setTimeout(executeBatch, BATCH_DELAY_COLLECT_MS)
     }
   })
 }

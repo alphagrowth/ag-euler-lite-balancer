@@ -1,9 +1,9 @@
-const CACHE_TTL_MS = 5 * 60 * 1000
+import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
 
 let cached: { value: boolean, timestamp: number } | null = null
 
 export async function detectVpn(): Promise<boolean> {
-  if (cached !== null && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+  if (cached !== null && Date.now() - cached.timestamp < CACHE_TTL_5MIN_MS) {
     return cached.value
   }
 

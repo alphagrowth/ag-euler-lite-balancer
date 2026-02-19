@@ -18,15 +18,17 @@ import { erc20ABI, swapperAbi, swapVerifierAbi, transferFromSenderAbi } from '~/
 import type { TxPlan, TxStep } from '~/entities/txPlan'
 import type { Vault } from '~/entities/vault'
 import { buildPythUpdateCalls, buildPythUpdateCallsFromFeeds, collectPythFeedsForHealthCheck, sumCallValues } from '~/utils/pyth'
+import { logWarn, catchToFallback } from '~/utils/errorHandling'
 import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { MAX_UINT160, PERMIT2_TYPES, permit2Abi } from '~/entities/permit2'
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { isNonBlockingSimulationError } from '~/utils/tx-errors'
+import { INTEREST_ADJUSTMENT_BPS, BPS_BASE } from '~/entities/tuning-constants'
 
 const allowanceSlotIndexCache = new Map<string, bigint>()
 /** Pad amount by 0.01% to cover interest accrual between plan build and tx execution */
-const adjustForInterest = (amount: bigint) => (amount * 10_001n) / 10_000n
+const adjustForInterest = (amount: bigint) => (amount * INTEREST_ADJUSTMENT_BPS) / BPS_BASE
 
 export const useEulerOperations = () => {
   const { address, chainId } = useWagmi()
@@ -127,7 +129,7 @@ export const useEulerOperations = () => {
       if (await trySlot(slotIndex)) return slotIndex
     }
 
-    console.warn('[resolveAllowanceSlotIndex] no slot found for token', { token: tokenKey, owner, spender })
+    logWarn('resolveAllowanceSlotIndex', 'no slot found for token', { data: { token: tokenKey, owner, spender } })
     return undefined
   }
   const buildErc20AllowanceOverrides = async (
@@ -370,7 +372,7 @@ export const useEulerOperations = () => {
       return await buildPythUpdateCalls(vaults, EVM_PROVIDER_URL, PYTH_HERMES_URL, sender)
     }
     catch (err) {
-      console.warn('[preparePythUpdates] failed', err)
+      logWarn('preparePythUpdates', err)
       return { calls: [], totalFee: 0n }
     }
   }
@@ -389,7 +391,7 @@ export const useEulerOperations = () => {
       const { getVault: registryGetVault } = useVaultRegistry()
       const liabilityVault = registryGetVault(getAddress(liabilityVaultAddress)) as Vault | undefined
       if (!liabilityVault) {
-        console.warn('[preparePythUpdatesForHealthCheck] liability vault not found:', liabilityVaultAddress)
+        logWarn('preparePythUpdatesForHealthCheck', `liability vault not found: ${liabilityVaultAddress}`)
         return { calls: [], totalFee: 0n }
       }
 
@@ -399,7 +401,7 @@ export const useEulerOperations = () => {
       return await buildPythUpdateCallsFromFeeds(feeds, EVM_PROVIDER_URL, PYTH_HERMES_URL, sender)
     }
     catch (err) {
-      console.warn('[preparePythUpdatesForHealthCheck] failed', err)
+      logWarn('preparePythUpdatesForHealthCheck', err)
       return { calls: [], totalFee: 0n }
     }
   }
@@ -566,7 +568,7 @@ export const useEulerOperations = () => {
     })
 
     if (verifierData.toLowerCase() !== quote.verify.verifierData.toLowerCase()) {
-      console.warn('[swap] SwapVerifier data mismatch')
+      logWarn('swap', 'SwapVerifier data mismatch')
       throw new Error('SwapVerifier data mismatch')
     }
 
@@ -731,16 +733,14 @@ export const useEulerOperations = () => {
     const usesPermit2 = plan.steps.some(step => step.type === 'permit2-approve' || (step.label && step.label.includes('Permit2')))
     const stepsToSimulate = plan.steps.filter(step => step.type !== 'approve' && step.type !== 'permit2-approve')
 
-    let stateOverride: StateOverride | undefined
-    try {
-      const overrides = await buildSimulationStateOverride(plan, address.value as Address)
-      if (overrides.length) {
-        stateOverride = overrides
-      }
-    }
-    catch (err) {
-      console.warn('[simulateTxPlan] failed to build state overrides', err)
-    }
+    const stateOverride = await catchToFallback(
+      async () => {
+        const overrides = await buildSimulationStateOverride(plan, address.value as Address)
+        return overrides.length ? overrides as StateOverride : undefined
+      },
+      undefined,
+      'simulateTxPlan/stateOverrides',
+    )
 
     for (const step of stepsToSimulate) {
       try {
@@ -1555,7 +1555,7 @@ export const useEulerOperations = () => {
         currentDebt: 0n,
       })
       if (verifierData.toLowerCase() !== quote!.verify.verifierData.toLowerCase()) {
-        console.warn('[multiply] SwapVerifier data mismatch')
+        logWarn('multiply', 'SwapVerifier data mismatch')
         throw new Error('SwapVerifier data mismatch')
       }
 
@@ -2232,7 +2232,7 @@ export const useEulerOperations = () => {
       }
     }
     catch (err) {
-      console.warn('[buildSameAssetFullRepayPlan] failed to read pre-existing deposit', err)
+      logWarn('buildSameAssetFullRepayPlan', err)
     }
 
     const hooks = new SaHooksBuilder()
@@ -2393,7 +2393,7 @@ export const useEulerOperations = () => {
       }
     }
     catch (err) {
-      console.warn('[buildSameAssetDebtSwapPlan] failed to read pre-existing deposit', err)
+      logWarn('buildSameAssetDebtSwapPlan', err)
     }
 
     const hooks = new SaHooksBuilder()
@@ -2760,7 +2760,7 @@ export const useEulerOperations = () => {
       }
     }
     catch (err) {
-      console.warn('[buildSavingsFullRepayPlan] failed to read pre-existing deposit', err)
+      logWarn('buildSavingsFullRepayPlan', err)
     }
 
     const sameVault = savingsVaultAddr.toLowerCase() === borrowVaultAddr.toLowerCase()

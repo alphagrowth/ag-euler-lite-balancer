@@ -4,6 +4,7 @@ import { formatEther, type Address, encodeFunctionData } from 'viem'
 import { useEulerConfig } from '~/composables/useEulerConfig'
 import type { TxPlan, TxStep } from '~/entities/txPlan'
 import { getPublicClient } from '~/utils/public-client'
+import { catchToFallback } from '~/utils/errorHandling'
 
 export const useEstimatePlanFees = () => {
   const { address } = useAccount()
@@ -49,19 +50,16 @@ export const useEstimatePlanFees = () => {
         args: step.args as any,
       })
 
-      let gasLimit: bigint
-      try {
-        gasLimit = await estimateGas(config, {
+      const gasLimit = await catchToFallback(
+        () => estimateGas(config, {
           account: address.value as Address,
           to: step.to,
           value: step.value ?? 0n,
           data,
-        })
-      }
-      catch (err) {
-        console.warn('[estimatePlanFees] gas estimate failed, using fallback', err)
-        gasLimit = getFallbackGasLimit(step)
-      }
+        }),
+        getFallbackGasLimit(step),
+        'estimatePlanFees/gasEstimate',
+      )
 
       const feeWei = gasLimit * gasPrice
       results.push({

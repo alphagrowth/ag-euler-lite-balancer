@@ -5,6 +5,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
+import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { type BorrowVaultPair, getNetAPY, type Vault, type VaultAsset } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatio } from '~/services/pricing/priceProvider'
@@ -374,7 +375,7 @@ watch([collateralAmount, borrowAmount], async () => {
 
 const interval = setInterval(() => {
   updateBalance()
-}, 5000)
+}, POLL_INTERVAL_5S_MS)
 
 onUnmounted(() => {
   clearInterval(interval)

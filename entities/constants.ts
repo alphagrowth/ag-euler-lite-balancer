@@ -44,7 +44,7 @@ export const TTL_MORE_THAN_ONE_YEAR = TTL_INFINITY - BigInt(1)
 export const TTL_LIQUIDATION = -BigInt(1)
 export const TTL_ERROR = -BigInt(2)
 
-export const DEFAULT_PRICE_CACHE_TTL_MS = 15_000
+export { CACHE_TTL_15S_MS as DEFAULT_PRICE_CACHE_TTL_MS } from './tuning-constants'
 export const SWAP_DEFAULT_DEADLINE_SECONDS = 1800
 export const SLIPPAGE_STORAGE_KEY = 'swap-slippage'
 export const PERMIT2_PREFERENCE_STORAGE_KEY = 'permit2-enabled'

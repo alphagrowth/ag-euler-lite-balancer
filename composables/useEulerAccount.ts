@@ -8,6 +8,7 @@ import { useVaultRegistry } from './useVaultRegistry'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
 import { createRaceGuard } from '~/utils/race-guard'
+import { BATCH_SIZE_RPC_CALLS, BPS_BASE } from '~/entities/tuning-constants'
 import type {
   AccountBorrowPosition, AccountDepositPosition,
 } from '~/entities/account'
@@ -315,7 +316,7 @@ const updateBorrowPositions = async (
   const client = getPublicClient(EVM_PROVIDER_URL)
 
   let borrows: AccountBorrowPosition[] = []
-  const batchSize = 5
+  const batchSize = BATCH_SIZE_RPC_CALLS
 
   for (let i = 0; i < borrowEntries.length; i += batchSize) {
     if (positionGuard.isStale(gen)) return
@@ -477,10 +478,10 @@ const updateBorrowPositions = async (
 
         // Compute effective LTVs from aggregates (handles multi-collateral correctly)
         const liquidationLTV = collateralValueRaw > 0n
-          ? collateralValueLiquidation * 10000n / collateralValueRaw
+          ? collateralValueLiquidation * BPS_BASE / collateralValueRaw
           : 0n
         const effectiveBorrowLTV = collateralValueRaw > 0n
-          ? liquidityInfo.collateralValueBorrowing * 10000n / collateralValueRaw
+          ? liquidityInfo.collateralValueBorrowing * BPS_BASE / collateralValueRaw
           : 0n
 
         if (liabilityValueBorrowing === 0n && res.vaultAccountInfo.borrowed > 0n) {
@@ -603,8 +604,7 @@ const updateSavingsPositions = async (
 
   let deposits: AccountDepositPosition[] = []
 
-  // Process entries in batches of 5
-  const batchSize = 5
+  const batchSize = BATCH_SIZE_RPC_CALLS
   for (let i = 0; i < depositEntries.length; i += batchSize) {
     if (positionGuard.isStale(gen)) return
 

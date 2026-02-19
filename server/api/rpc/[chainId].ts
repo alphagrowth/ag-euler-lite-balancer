@@ -1,5 +1,6 @@
 import { createError, getMethod, readBody, setResponseHeader, setResponseStatus } from 'h3'
 import { resolveRpcUrl } from '~/server/utils/rpc'
+import { isAbortError } from '~/utils/errorHandling'
 
 const ALLOWED_METHODS = new Set([
   'eth_call',
@@ -107,7 +108,7 @@ export default defineEventHandler(async (event) => {
     return await response.text()
   }
   catch (error: unknown) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (isAbortError(error)) {
       throw createError({ statusCode: 504, statusMessage: 'Upstream RPC timeout' })
     }
     throw createError({ statusCode: 502, statusMessage: 'Upstream RPC error' })

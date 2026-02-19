@@ -5,6 +5,7 @@ import type {
 } from '~/entities/token'
 import { useEulerConfig } from '~/composables/useEulerConfig'
 import { safeAssign } from '~/utils/safe-assign'
+import { logWarn } from '~/utils/errorHandling'
 
 const isLoading = ref(false)
 const tokensByAddress: Record<string, TokenData> = shallowReactive({})
@@ -30,7 +31,7 @@ export const useTokens = () => {
       safeAssign(tokensByAddress, Object.fromEntries(tokensArr.map(token => [token.address.toLowerCase(), token])))
     }
     catch (e) {
-      console.warn(e)
+      logWarn('tokens/fetch', e)
     }
     finally {
       isLoading.value = false

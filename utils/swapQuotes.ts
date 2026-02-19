@@ -1,4 +1,5 @@
 import type { SwapApiQuote } from '~/entities/swap'
+import { BPS_BASE } from '~/entities/tuning-constants'
 
 export type SwapQuoteAmountField = 'amountIn' | 'amountOut'
 export type SwapQuoteCompare = 'max' | 'min'
@@ -77,6 +78,6 @@ export const getQuoteDiffPct = (
   if (diff <= 0n) {
     return null
   }
-  const diffBps = (diff * 10_000n) / bestAmount
+  const diffBps = (diff * BPS_BASE) / bestAmount
   return Number(diffBps) / 100
 }

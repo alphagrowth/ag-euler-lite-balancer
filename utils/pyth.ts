@@ -3,6 +3,7 @@ import { encodeFunctionData, decodeFunctionResult, zeroAddress, type Address, ty
 import { PYTH_ABI } from '~/abis/pyth'
 import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
 import { DEFAULT_PRICE_CACHE_TTL_MS } from '~/entities/constants'
+import { CACHE_TTL_15S_MS, BATCH_DELAY_COLLECT_MS } from '~/entities/tuning-constants'
 import { collectPythFeedIds, collectPythFeedIdsForPair, type PythFeed } from '~/entities/oracle'
 import type { Vault } from '~/entities/vault'
 import type { EVCCall } from './evc-converter'
@@ -29,8 +30,6 @@ const priceCache = new Map<string, CachedPrice>()
 // Pyth Update Data Batching
 // -------------------------------------------
 
-const PYTH_BATCH_DELAY_MS = 50 // Wait 50ms to collect requests before batching
-const PYTH_UPDATE_CACHE_TTL_MS = 15 * 1000 // Cache Pyth update data for 15 seconds
 
 type PythPendingRequest = {
   feedIds: Hex[]
@@ -85,7 +84,7 @@ const executePythBatch = async () => {
 
     // Check cache first
     const cached = pythUpdateCache.get(cacheKey)
-    if (cached && (now - cached.fetchedAt) < PYTH_UPDATE_CACHE_TTL_MS) {
+    if (cached && (now - cached.fetchedAt) < CACHE_TTL_15S_MS) {
       for (const req of endpointRequests) {
         req.resolve(cached.data)
       }
@@ -255,7 +254,7 @@ export const fetchPythUpdateData = async (feedIds: Hex[], endpoint?: string): Pr
 
   // Check cache first to avoid adding to batch
   const cached = pythUpdateCache.get(cacheKey)
-  if (cached && (now - cached.fetchedAt) < PYTH_UPDATE_CACHE_TTL_MS) {
+  if (cached && (now - cached.fetchedAt) < CACHE_TTL_15S_MS) {
     return cached.data
   }
 
@@ -270,7 +269,7 @@ export const fetchPythUpdateData = async (feedIds: Hex[], endpoint?: string): Pr
 
     // Schedule batch execution if not already scheduled
     if (!pythBatchTimeout) {
-      pythBatchTimeout = setTimeout(executePythBatch, PYTH_BATCH_DELAY_MS)
+      pythBatchTimeout = setTimeout(executePythBatch, BATCH_DELAY_COLLECT_MS)
     }
   })
 }

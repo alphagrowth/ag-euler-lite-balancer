@@ -10,6 +10,7 @@ import {
   type SwapQuoteCompare,
 } from '~/utils/swapQuotes'
 import { createRaceGuard } from '~/utils/race-guard'
+import { isAbortError } from '~/utils/errorHandling'
 
 type SwapQuotesParallelOptions = {
   amountField: SwapQuoteAmountField
@@ -136,11 +137,11 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
           }
         }
         catch (err) {
-          const error = err as { name?: string; message?: string }
-          if (error?.name === 'CanceledError' || error?.name === 'AbortError') {
+          if (isAbortError(err)) {
             return
           }
           if (requestOptions.logContext) {
+            const error = err as { message?: string }
             logSwapFailure({
               reason: error?.message || 'Unknown error',
               provider,
@@ -167,8 +168,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
       })
     }
     catch (err) {
-      const error = err as { name?: string; message?: string }
-      if (error?.name === 'CanceledError' || error?.name === 'AbortError') {
+      if (isAbortError(err)) {
         return
       }
       quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote'

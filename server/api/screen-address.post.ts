@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import { createError, readBody } from 'h3'
+import { isAbortError } from '~/utils/errorHandling'
 
 const SCREENING_TIMEOUT_MS = 5000
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -91,7 +92,7 @@ export default defineEventHandler(async (event) => {
     return { addressIsSuspicious: isSuspicious }
   }
   catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (isAbortError(error)) {
       console.warn('[screen-address] TRM API timeout')
     } else {
       console.warn('[screen-address] TRM API error:', error)

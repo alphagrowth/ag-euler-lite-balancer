@@ -2,6 +2,7 @@ import { type Address, createPublicClient, http, getAddress } from 'viem'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import { erc20BalanceOfAbi } from '~/abis/erc20'
+import { logWarn } from '~/utils/errorHandling'
 
 // Singleton state
 const balances = ref(new Map<string, bigint>())
@@ -121,7 +122,7 @@ export const useWallets = () => {
       }
     }
     catch (e) {
-      console.warn('Error fetching balances:', e)
+      logWarn('wallets/fetchBalances', e)
       // Mark as loaded to avoid infinite retries
       if (chainId.value === currentChainId && !isLoaded.value) {
         isLoaded.value = true

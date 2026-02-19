@@ -5,6 +5,8 @@ import { getPublicClient } from '~/utils/public-client'
 import { reulLockAbi, reulWithdrawABI } from '~/abis/reul'
 import type { REULLock } from '~/entities/reul'
 import type { TxPlan } from '~/entities/txPlan'
+import { logWarn } from '~/utils/errorHandling'
+import { BATCH_SIZE_RPC_CALLS, POLL_INTERVAL_10S_MS } from '~/entities/tuning-constants'
 
 const isLoaded = ref(false)
 const isLocksLoading = ref(true)
@@ -48,7 +50,7 @@ export const useREULLocks = () => {
       }) as [bigint[], bigint[]]
       const withdrawAmountsData: { unlockableAmount: bigint, amountToBeBurned: bigint }[] = []
 
-      const batchSize = 5
+      const batchSize = BATCH_SIZE_RPC_CALLS
 
       for (let i = 0; i < lockTimestamps.length; i += batchSize) {
         const batch = lockTimestamps
@@ -77,7 +79,7 @@ export const useREULLocks = () => {
       }))
     }
     catch (e) {
-      console.warn(e)
+      logWarn('reulLocks/fetch', e)
     }
     finally {
       isLocksLoading.value = false
@@ -100,7 +102,7 @@ export const useREULLocks = () => {
         if (wagmiAddress.value) {
           loadREULLocksInfo(wagmiAddress.value, false)
         }
-      }, 10000)
+      }, POLL_INTERVAL_10S_MS)
     }
     else if (!connected && interval) {
       clearInterval(interval)

@@ -7,6 +7,8 @@ import type { Opportunity, Reward, RewardsResponseItem, RewardToken } from '~/en
 import type { RewardCampaign } from '~/entities/reward-campaign'
 import { mapMerklSubType } from '~/entities/reward-campaign'
 import type { TxPlan } from '~/entities/txPlan'
+import { CACHE_TTL_1MIN_MS, POLL_INTERVAL_10S_MS } from '~/entities/tuning-constants'
+import { logWarn } from '~/utils/errorHandling'
 
 const {
   MERKL_API_BASE_URL,
@@ -32,7 +34,6 @@ const isRewardsLoading = ref(true)
 let interval: NodeJS.Timeout | null = null
 
 // Cache state for Merkl data
-const MERKL_CACHE_TTL_MS = 60 * 1000 // 1 minute cache
 const cacheState = {
   tokens: { chainId: 0, timestamp: 0 },
   opportunities: { chainId: 0, timestamp: 0 },
@@ -45,7 +46,7 @@ const loadTokens = async (chainId: number, isInitialLoading = true, forceRefresh
   if (!forceRefresh
     && cacheState.tokens.chainId === chainId
     && rewardTokens.value.length > 0
-    && (now - cacheState.tokens.timestamp) < MERKL_CACHE_TTL_MS) {
+    && (now - cacheState.tokens.timestamp) < CACHE_TTL_1MIN_MS) {
     return
   }
 
@@ -59,7 +60,7 @@ const loadTokens = async (chainId: number, isInitialLoading = true, forceRefresh
     cacheState.tokens = { chainId, timestamp: Date.now() }
   }
   catch (e) {
-    console.warn(e)
+    logWarn('merkl/loadTokens', e)
   }
   finally {
     isTokensLoading.value = false
@@ -131,7 +132,7 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
   if (!forceRefresh
     && cacheState.opportunities.chainId === chainId
     && merklCampaigns.value.size > 0
-    && (now - cacheState.opportunities.timestamp) < MERKL_CACHE_TTL_MS) {
+    && (now - cacheState.opportunities.timestamp) < CACHE_TTL_1MIN_MS) {
     return
   }
 
@@ -154,7 +155,7 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
           return { data, type }
         }
         catch (error) {
-          console.warn('Error fetching opportunities from', url, error)
+          logWarn('merkl/fetchOpportunity', error)
           return { data: [] as Opportunity[], type }
         }
       }),
@@ -175,7 +176,7 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
     cacheState.opportunities = { chainId, timestamp: Date.now() }
   }
   catch (e) {
-    console.warn(e)
+    logWarn('merkl/loadOpportunities', e)
   }
   finally {
     isOpportunitiesLoading.value = false
@@ -193,7 +194,7 @@ const loadRewards = async (chainId: number, isInitialLoading = true, forceRefres
   if (!forceRefresh
     && cacheState.rewards.chainId === chainId
     && cacheState.rewards.address === address.value
-    && (now - cacheState.rewards.timestamp) < MERKL_CACHE_TTL_MS) {
+    && (now - cacheState.rewards.timestamp) < CACHE_TTL_1MIN_MS) {
     return
   }
 
@@ -218,7 +219,7 @@ const loadRewards = async (chainId: number, isInitialLoading = true, forceRefres
     cacheState.rewards = { chainId, address: address.value, timestamp: Date.now() }
   }
   catch (e) {
-    console.warn(e)
+    logWarn('merkl/loadRewards', e)
   }
   finally {
     isRewardsLoading.value = false
@@ -324,7 +325,7 @@ export const useMerkl = () => {
         loadRewards(chainId.value, false)
         loadOpportunities(chainId.value, false)
         loadTokens(chainId.value, false)
-      }, 10000)
+      }, POLL_INTERVAL_10S_MS)
     }
     else {
       if (interval) {
