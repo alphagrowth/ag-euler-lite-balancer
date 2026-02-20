@@ -1,9 +1,19 @@
 <script setup lang="ts">
+import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
+
 defineEmits(['close'])
 const { pointName, pointLogo } = defineProps<{
   pointName: string
   pointLogo: string
 }>()
+
+const onLogoError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  if (!img.dataset.triedFallback) {
+    img.dataset.triedFallback = 'true'
+    img.src = getEulerLabelEntityLogo(pointLogo)
+  }
+}
 
 const escapeHtml = (unsafe: string): string => {
   return unsafe
@@ -62,6 +72,7 @@ const formattedPointName = computed(() => convertMarkdownLinks(pointName))
         :src="`/entities/${pointLogo}`"
         alt="Point logo"
         class="w-20 h-20 rounded-full"
+        @error="onLogoError"
       >
       <!-- eslint-disable-next-line vue/no-v-html -->
       <span

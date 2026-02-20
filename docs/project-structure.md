@@ -288,10 +288,14 @@ plugins/
 server/
 ├── plugins/
 │   ├── app-config.ts        # Injects env config into HTML via window.__APP_CONFIG__
-│   └── chain-config.ts      # Injects chain config into HTML via window.__CHAIN_CONFIG__
+│   ├── chain-config.ts      # Injects chain config into HTML via window.__CHAIN_CONFIG__
+│   └── csp.ts               # Nonce-based Content Security Policy via HTTP header
 ```
 
-These Nitro plugins run at server startup and inject configuration into the rendered HTML so the client can read it synchronously. This enables runtime-injected env vars (e.g., Doppler on Railway) without rebuilding.
+These Nitro plugins run at server startup and hook into `render:html`:
+
+- **app-config / chain-config** inject configuration into the rendered HTML so the client can read it synchronously. This enables runtime-injected env vars (e.g., Doppler on Railway) without rebuilding.
+- **csp** generates a cryptographic nonce per request, injects it into every `<script>` tag, and sets the `Content-Security-Policy` HTTP response header. Extra connect-src origins can be added per deployment via `CSP_EXTRA_CONNECT_SRC` (comma-separated).
 
 ## 📝 Types Directory
 

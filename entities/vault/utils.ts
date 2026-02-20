@@ -1,5 +1,5 @@
 import type { Address } from 'viem'
-import type { Vault, BorrowVaultPair } from './types'
+import type { Vault, SecuritizeVault, BorrowVaultPair } from './types'
 import {
   vaultConvertToAssetsAbi,
   vaultConvertToSharesAbi,
@@ -123,6 +123,6 @@ export const getUtilization = (totalAssets: bigint, totalBorrow: bigint): number
   return Number(utilization.toFixed(2))
 }
 
-export const getVaultUtilization = (vault: Vault): number => {
+export const getVaultUtilization = (vault: Vault | SecuritizeVault): number => {
   return getUtilization(vault.totalAssets, vault.borrow)
 }

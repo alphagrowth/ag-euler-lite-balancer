@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const props = defineProps<{
   selected: string[]
-  options: { label: string, value: string, icon?: string }[]
+  options: { label: string, value: string, icon?: string, iconFallback?: string }[]
   title?: string
   inputPlaceholder?: string
   onSave?: (selected: string[]) => void
@@ -82,7 +82,7 @@ watch(() => props.selected, (val) => {
                 <img
                   :src="opt.icon"
                   alt="Asset icon"
-                  @error="opt.icon = ''"
+                  @error="opt.iconFallback && opt.icon !== opt.iconFallback ? (opt.icon = opt.iconFallback) : (opt.icon = '')"
                 >
               </div>
               <div

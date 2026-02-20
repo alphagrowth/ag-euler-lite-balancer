@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { EarnVault, Vault } from '~/entities/vault'
+import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultPointsModal } from '#components'
 
@@ -7,6 +8,14 @@ const { vault } = defineProps<{ vault: Vault | EarnVault }>()
 
 const points = useEulerPointsOfVault(vault.address)
 const modal = useModal()
+
+const onLogoError = (event: Event, logoFileName: string) => {
+  const img = event.target as HTMLImageElement
+  if (!img.dataset.triedFallback) {
+    img.dataset.triedFallback = 'true'
+    img.src = getEulerLabelEntityLogo(logoFileName)
+  }
+}
 
 const onPointClick = (
   point: { name: string, logo: string },
@@ -36,6 +45,7 @@ const onPointClick = (
       alt="Points entity logo"
       draggable="false"
       @click="onPointClick(point, $event)"
+      @error="onLogoError($event, point.logo)"
       @contextmenu.prevent
     >
   </div>

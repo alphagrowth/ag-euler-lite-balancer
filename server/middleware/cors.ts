@@ -1,15 +1,16 @@
 import { createError, getRequestURL, setResponseHeader, sendNoContent } from 'h3'
+import { logWarn } from '../utils/log'
 
 function parseAllowedOrigins(): Set<string> {
   // CORS_ALLOWED_ORIGINS is the dedicated CORS var (comma-separated).
   // Falls back to NUXT_PUBLIC_APP_URL (single origin used by Reown/AppKit).
   const corsOrigins = process.env.CORS_ALLOWED_ORIGINS?.trim()
   const appUrl = process.env.NUXT_PUBLIC_APP_URL?.trim()
-  const isDevelopment = process.env.NODE_ENV === 'development'
+  const isDev = process.env.DOPPLER_ENVIRONMENT === 'dev'
 
   const origins = new Set<string>()
 
-  if (isDevelopment) {
+  if (isDev) {
     const ports = [3000, 3001, 3002, 3003]
     for (const port of ports) {
       origins.add(`http://localhost:${port}`)
@@ -65,9 +66,9 @@ export default defineEventHandler((event) => {
   if (origin && allowedOrigins.has(origin)) {
     setResponseHeader(event, 'Access-Control-Allow-Origin', origin)
   }
-  else if (origin && process.env.NODE_ENV === 'production') {
+  else if (origin && process.env.DOPPLER_ENVIRONMENT !== 'dev') {
     if (allowedOrigins.size > 0) {
-      console.warn('[cors] Rejected origin not in allow list:', origin)
+      logWarn('cors', 'Rejected origin not in allow list:', origin)
     }
     throw createError({ statusCode: 403, statusMessage: 'Origin not allowed' })
   }

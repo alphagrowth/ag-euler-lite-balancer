@@ -3,6 +3,7 @@ import { useMarketGroups } from '~/composables/useMarketGroups'
 import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getProductByVault, getEntitiesByVault, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useBestNetAPY } from '~/composables/useBestNetAPY'
 import { useVaultSearch } from '~/composables/useVaultSearch'
@@ -98,11 +99,11 @@ const marketOptions = computed(() => {
       const entityObj = entityName ? entities[entityName] : null
 
       if (market.name && !result.find(option => option.label === market.name)) {
-        return [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj?.logo}` : undefined }]
+        return [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj.logo}` : undefined, iconFallback: entityObj?.logo ? getEulerLabelEntityLogo(entityObj.logo) : undefined }]
       }
     }
     return result
-  }, [] as { label: string, value: string, icon?: string }[])
+  }, [] as { label: string, value: string, icon?: string, iconFallback?: string }[])
 })
 
 const assetOptions = computed(() => {
@@ -126,7 +127,7 @@ const assetOptions = computed(() => {
 
 const riskManagerOptions = computed(() => {
   const seen = new Set<string>()
-  const result: { label: string, value: string, icon?: string }[] = []
+  const result: { label: string, value: string, icon?: string, iconFallback?: string }[] = []
   for (const group of marketGroups.value) {
     for (const vault of group.vaults) {
       if (!isVaultType(vault)) continue
@@ -137,6 +138,7 @@ const riskManagerOptions = computed(() => {
             label: entity.name,
             value: entity.name,
             icon: entity.logo ? `/entities/${entity.logo}` : undefined,
+            iconFallback: entity.logo ? getEulerLabelEntityLogo(entity.logo) : undefined,
           })
         }
       }

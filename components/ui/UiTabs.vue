@@ -1,5 +1,5 @@
-<script setup lang="ts">
-type UiTab = {
+<script lang="ts">
+export type UiTab = {
   label: string
   value: string | number | undefined
   icon?: string
@@ -8,9 +8,12 @@ type UiTab = {
   badge?: unknown
   [key: string]: unknown
 }
+</script>
+
+<script setup lang="ts" generic="T extends UiTab">
 const model = defineModel<string | number>({})
 const props = defineProps<{
-  list: UiTab[]
+  list: T[]
   label?: string
   rounded?: boolean
   pills?: boolean

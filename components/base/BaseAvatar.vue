@@ -6,23 +6,38 @@ import { useImage } from '@vueuse/core'
 import { stringToColor } from '~/utils/string-utils'
 
 const loadedImages = new Set<string>()
+const fallbackRedirects = reactive(new Map<string, string>())
 
 defineOptions({
   inheritAttrs: false,
 })
-const { src, label } = defineProps<{ src?: string | string[], label?: string | string[] }>()
+const { src, fallbackSrc, label } = defineProps<{ src?: string | string[], fallbackSrc?: string | string[], label?: string | string[] }>()
 const images = computed(() => {
   const srcs = !src || typeof src === 'string' ? [src || ''] : [...src]
+  const fallbacks = !fallbackSrc || typeof fallbackSrc === 'string' ? [fallbackSrc || ''] : [...fallbackSrc]
   const labels = !label || typeof label === 'string' ? [label || ''] : [...label]
   return srcs.map((s, index) => {
-    if (s && loadedImages.has(s)) {
-      return { label: labels[index], src: s, state: { isReady: true } }
+    const fb = fallbacks[index] || ''
+    const effectiveSrc = (fb && fallbackRedirects.get(s) === fb) ? fb : s
+
+    if (effectiveSrc && loadedImages.has(effectiveSrc)) {
+      return { label: labels[index], src: effectiveSrc, state: { isReady: true } }
     }
-    const state = reactive(useImage({ src: s }))
+
+    const state = reactive(useImage({ src: effectiveSrc }))
     watch(() => state.isReady, (ready) => {
-      if (ready && s) loadedImages.add(s)
+      if (ready && effectiveSrc) loadedImages.add(effectiveSrc)
     })
-    return { label: labels[index], src: s, state }
+
+    if (effectiveSrc === s && fb) {
+      watch(() => state.error, (err) => {
+        if (err && !fallbackRedirects.has(s)) {
+          fallbackRedirects.set(s, fb)
+        }
+      })
+    }
+
+    return { label: labels[index], src: effectiveSrc, state }
   })
 })
 </script>

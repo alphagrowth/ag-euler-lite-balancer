@@ -99,7 +99,7 @@ const onVaultClick = (address: string) => {
     >
       <template #default="{ tab: slotTab }">
         <div class="flex items-center gap-8">
-          <AssetAvatar :asset="(slotTab.assets as { address: string, symbol: string }[])" />
+          <AssetAvatar :asset="slotTab.assets" />
           {{ slotTab.label }}
         </div>
       </template>

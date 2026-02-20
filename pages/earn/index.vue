@@ -6,6 +6,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { EarnVault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, getEntitiesByEarnVault, isVaultFeatured, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useVaultSearch } from '~/composables/useVaultSearch'
 
@@ -121,11 +122,11 @@ const curatorOptions = computed(() => {
     const vaultEntities = getEntitiesByEarnVault(vault)
     for (const entity of vaultEntities) {
       if (!result.find(option => option.value === entity.name)) {
-        return [...result, { label: entity.name, value: entity.name, icon: entity.logo ? `/entities/${entity.logo}` : undefined }]
+        return [...result, { label: entity.name, value: entity.name, icon: entity.logo ? `/entities/${entity.logo}` : undefined, iconFallback: entity.logo ? getEulerLabelEntityLogo(entity.logo) : undefined }]
       }
     }
     return result
-  }, [] as { label: string, value: string, icon?: string }[])
+  }, [] as { label: string, value: string, icon?: string, iconFallback?: string }[])
 })
 
 const filteredList = computed(() => {

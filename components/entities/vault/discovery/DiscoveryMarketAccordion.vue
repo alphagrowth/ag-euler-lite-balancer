@@ -205,7 +205,7 @@ const getSelectedBorrowPair = (market: MarketGroup): AnyBorrowVaultPair | null =
     initialLiquidationLTV: cell.ltv.initialLiquidationLTV,
     targetTimestamp: cell.ltv.targetTimestamp,
     rampDuration: cell.ltv.rampDuration,
-  }
+  } as AnyBorrowVaultPair
 }
 
 const getMatrixHeaderVault = (market: MarketGroup): Vault | SecuritizeVault | null => {
@@ -236,7 +236,7 @@ const getMatrixHeaderBorrowPairs = (market: MarketGroup): AnyBorrowVaultPair[] =
         initialLiquidationLTV: cell.ltv.initialLiquidationLTV,
         targetTimestamp: cell.ltv.targetTimestamp,
         rampDuration: cell.ltv.rampDuration,
-      })
+      } as AnyBorrowVaultPair)
     }
   }
   else {
@@ -255,7 +255,7 @@ const getMatrixHeaderBorrowPairs = (market: MarketGroup): AnyBorrowVaultPair[] =
         initialLiquidationLTV: cell.ltv.initialLiquidationLTV,
         targetTimestamp: cell.ltv.targetTimestamp,
         rampDuration: cell.ltv.rampDuration,
-      })
+      } as AnyBorrowVaultPair)
     }
   }
 
@@ -289,7 +289,7 @@ const getGraphBorrowPairs = (market: MarketGroup): AnyBorrowVaultPair[] => {
       initialLiquidationLTV: cell.ltv.initialLiquidationLTV,
       targetTimestamp: cell.ltv.targetTimestamp,
       rampDuration: cell.ltv.rampDuration,
-    })
+    } as AnyBorrowVaultPair)
   }
 
   return pairs

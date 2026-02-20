@@ -185,7 +185,7 @@ const openChooseCollateralModal = () => {
 
       <BaseLoadableContent
         v-if="maxable"
-        :loading="balanceLoading"
+        :loading="balanceLoading ?? false"
       >
         <p @click="setMax">
           <span class="text-euler-dark-800">{{ formatSmartAmount(friendlyBalance) }} {{ asset.symbol }}</span> <span

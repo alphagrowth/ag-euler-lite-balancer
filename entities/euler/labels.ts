@@ -74,3 +74,5 @@ export const getEulerLabelEntityLogo = (fileName: string) => {
   const { EULER_LABELS_ENTITY_LOGO_URL } = useEulerConfig()
   return `${EULER_LABELS_ENTITY_LOGO_URL}/${fileName}`
 }
+
+export const getEntityLogoLocalPath = (fileName: string) => `/entities/${fileName}`

@@ -1,6 +1,6 @@
 import { setResponseHeader } from 'h3'
 
-const isDevelopment = process.env.NODE_ENV === 'development'
+const isDev = process.env.DOPPLER_ENVIRONMENT === 'dev'
 
 export default defineEventHandler((event) => {
   // Prevent clickjacking: deny all framing
@@ -16,7 +16,7 @@ export default defineEventHandler((event) => {
   setResponseHeader(event, 'Permissions-Policy', 'geolocation=(), microphone=(), camera=()')
 
   // HSTS: only in production (localhost uses plain HTTP in dev)
-  if (!isDevelopment) {
+  if (!isDev) {
     setResponseHeader(
       event,
       'Strict-Transport-Security',

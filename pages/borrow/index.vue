@@ -6,6 +6,7 @@ import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useVaultSearch } from '~/composables/useVaultSearch'
 
@@ -212,16 +213,16 @@ const marketOptions = computed(() => {
     const entityObj = entityName ? entities[entityName] : null
 
     if (market.name && !result.find(option => option.label === market.name)) {
-      return [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj?.logo}` : undefined }]
+      return [...result, { label: market.name, value: market.name, icon: entityObj?.logo ? `/entities/${entityObj.logo}` : undefined, iconFallback: entityObj?.logo ? getEulerLabelEntityLogo(entityObj.logo) : undefined }]
     }
 
     return result
-  }, [] as { label: string, value: string, icon?: string }[])
+  }, [] as { label: string, value: string, icon?: string, iconFallback?: string }[])
 })
 
 const riskManagerOptions = computed(() => {
   const seen = new Set<string>()
-  const result: { label: string, value: string, icon?: string }[] = []
+  const result: { label: string, value: string, icon?: string, iconFallback?: string }[] = []
   for (const pair of activeBorrowList.value) {
     for (const entity of getEntitiesByVault(pair.borrow)) {
       if (!seen.has(entity.name)) {
@@ -230,6 +231,7 @@ const riskManagerOptions = computed(() => {
           label: entity.name,
           value: entity.name,
           icon: entity.logo ? `/entities/${entity.logo}` : undefined,
+          iconFallback: entity.logo ? getEulerLabelEntityLogo(entity.logo) : undefined,
         })
       }
     }
