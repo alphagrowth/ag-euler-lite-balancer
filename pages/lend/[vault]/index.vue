@@ -836,9 +836,9 @@ watch(address, () => {
 
         <template #buttons>
           <VaultFormInfoButton
-            v-if="features.hasOverview && vault"
+            v-if="features.hasOverview && (vault || securitizeVault)"
             class="laptop:!hidden"
-            :vault="vault"
+            :vault="vault || securitizeVault"
             :disabled="isLoading || isSubmitting"
           />
           <VaultFormSubmit

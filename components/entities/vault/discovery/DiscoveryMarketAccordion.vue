@@ -349,11 +349,19 @@ onMounted(() => {
               <h4 class="text-p3 font-medium text-content-secondary">
                 Vaults
               </h4>
-              <VaultItem
-                v-for="vault in market.vaults.filter(isVaultType)"
+              <template
+                v-for="vault in market.vaults"
                 :key="getVaultAddress(vault)"
-                :vault="vault"
-              />
+              >
+                <VaultItem
+                  v-if="isVaultType(vault)"
+                  :vault="vault"
+                />
+                <SecuritizeVaultItem
+                  v-else
+                  :vault="vault as SecuritizeVault"
+                />
+              </template>
             </div>
           </div>
         </template>

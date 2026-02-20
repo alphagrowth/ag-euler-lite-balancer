@@ -328,6 +328,12 @@ export const getCollateralMatrix = (market: MarketGroup): CollateralMatrixData |
     .sort((a, b) => rowAvgLTV(b.address.toLowerCase()) - rowAvgLTV(a.address.toLowerCase()))
   for (const v of sortedNonBorrowable) addRow(v.address.toLowerCase(), v.asset.symbol, v.asset.address, 'escrow')
 
+  const securitizeMembers = market.vaults
+    .filter((v): v is SecuritizeVault => 'type' in v && (v as { type?: string }).type === 'securitize')
+    .filter(v => referencedCollateral.has(v.address.toLowerCase()))
+    .sort((a, b) => rowAvgLTV(b.address.toLowerCase()) - rowAvgLTV(a.address.toLowerCase()))
+  for (const v of securitizeMembers) addRow(v.address.toLowerCase(), v.asset.symbol, v.asset.address, 'external')
+
   const sortedExternal = [...external]
     .filter(v => referencedCollateral.has(getVaultAddress(v).toLowerCase()))
     .sort((a, b) => rowAvgLTV(getVaultAddress(b).toLowerCase()) - rowAvgLTV(getVaultAddress(a).toLowerCase()))

@@ -109,7 +109,8 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
           </div>
           <div
             v-if="getProductDescription(market)"
-            class="text-p3 text-content-tertiary mt-4 line-clamp-1"
+            class="text-p3 text-content-tertiary mt-4"
+            :class="isExpanded ? '' : 'line-clamp-1'"
           >
             {{ getProductDescription(market) }}
           </div>
