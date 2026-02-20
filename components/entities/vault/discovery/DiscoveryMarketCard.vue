@@ -68,7 +68,7 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
     class="w-full text-left cursor-pointer p-16"
     @click="$emit('toggle')"
   >
-    <div class="flex pb-12 border-b border-line-subtle">
+    <div class="flex items-start pb-12 border-b border-line-subtle">
       <template
         v-for="(marketEntities, entitiesIdx) in [getMarketEntities(market)]"
         :key="'entities-' + entitiesIdx"
