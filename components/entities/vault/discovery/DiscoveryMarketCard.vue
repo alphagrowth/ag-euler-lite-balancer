@@ -134,8 +134,8 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
     </div>
 
     <div class="flex pt-12 items-center mobile:flex-wrap mobile:gap-y-12">
-      <div class="flex-1 flex justify-between gap-12 mobile:flex-wrap mobile:gap-y-12">
-        <div>
+      <div class="flex-1 flex gap-12 mobile:flex-wrap mobile:gap-y-12">
+        <div class="flex-1 min-w-0">
           <div class="text-content-tertiary text-p3 mb-4">
             Total supply
           </div>
@@ -143,7 +143,7 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
             {{ formatCompactUsdValue(market.metrics.totalTVL) }}
           </div>
         </div>
-        <div>
+        <div class="flex-1 min-w-0">
           <div class="text-content-tertiary text-p3 mb-4">
             Total borrowed
           </div>
@@ -151,7 +151,7 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
             {{ formatCompactUsdValue(market.metrics.totalBorrowed) }}
           </div>
         </div>
-        <div>
+        <div class="flex-1 min-w-0">
           <div class="text-content-tertiary text-p3 mb-4">
             Available liquidity
           </div>
@@ -163,7 +163,10 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
           v-for="(bestNet, bestNetIdx) in [getBestNetApy(market)]"
           :key="'net-apy-' + bestNetIdx"
         >
-          <div v-if="bestNet.value !== 0">
+          <div
+            v-if="bestNet.value !== 0"
+            class="flex-1 min-w-0"
+          >
             <div class="text-content-tertiary text-p3 mb-4">
               Best net APY
             </div>
