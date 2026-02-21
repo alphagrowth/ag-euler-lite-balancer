@@ -642,229 +642,232 @@ watch(address, () => {
 </script>
 
 <template>
-  <div class="flex gap-32">
-    <div class="flex flex-col gap-16 w-full">
-      <BaseBackButton class="laptop:!hidden" />
-      <VaultForm
-        title="Open lend position"
-        class="w-full"
-        @submit.prevent="submit"
-      >
-        <!-- Vault header -->
-        <div
-          v-if="isVaultLoaded && asset"
-          class="flex justify-between"
-        >
-          <!-- Use VaultLabelsAndAssets for both EVK and Securitize vaults -->
-          <VaultLabelsAndAssets
-            v-if="vault || securitizeVault"
-            :vault="(vault || securitizeVault)!"
-            :assets="assets"
-            size="large"
-          />
-
-          <div class="flex flex-col items-end justify-end">
-            <p class="mb-4 text-content-tertiary flex items-center gap-4">
-              Supply APY
-              <SvgIcon
-                v-if="features.hasApyBreakdown"
-                class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
-                name="info-circle"
-                @click="onSupplyInfoIconClick"
-              />
-            </p>
-
-            <p class="flex justify-end gap-4 text-h3">
-              <VaultPoints
-                v-if="features.hasPoints && vault"
-                class="mr-4"
-                :vault="vault"
-              />
-              <SvgIcon
-                v-if="hasRewards"
-                class="!w-24 !h-24 text-accent-600 cursor-pointer"
-                name="sparks"
-                @click="onSupplyInfoIconClick"
-              />
-              <span>
-                {{ supplyAPYDisplay }}%
-              </span>
-            </p>
-          </div>
-        </div>
-
-        <AssetInput
-          v-if="asset"
-          v-model="amount"
-          label="Deposit amount"
-          :desc="name"
-          :asset="needsSwap && selectedAsset ? selectedAsset : asset"
-          :vault="needsSwap ? undefined : vault"
-          :price-override="needsSwap ? swapAssetUsdPrice : undefined"
-          :balance="activeBalance"
-          maxable
+  <div>
+    <BaseBackButton class="laptop:!hidden mb-16" />
+    <h1 class="text-p1 mb-16">
+      Open lend position
+    </h1>
+    <div class="flex gap-32">
+      <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
+        <!-- EVK Vault Overview -->
+        <VaultOverview
+          v-if="features.hasOverview && vault && vaultType === 'evk'"
+          :vault="vault"
+          desktop-overview
+          @vault-click="(address: string) => router.push(`/lend/${address}`)"
         />
-
-        <!-- Pay with token selector -->
-        <div
-          v-if="enableSwapDeposit"
-          class="flex items-center gap-8"
+        <!-- Securitize Vault Overview -->
+        <SecuritizeVaultOverview
+          v-if="features.hasOverview && securitizeVault && vaultType === 'securitize'"
+          :vault="securitizeVault"
+          desktop-overview
+        />
+      </div>
+      <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">
+        <VaultForm
+          class="w-full"
+          @submit.prevent="submit"
         >
-          <span class="text-p3 text-content-tertiary">Pay with</span>
-          <button
-            type="button"
-            class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
-            @click="openSwapTokenSelector"
+          <!-- Vault header -->
+          <div
+            v-if="isVaultLoaded && asset"
+            class="flex justify-between"
           >
-            <AssetAvatar
-              :asset="{ address: selectedAsset?.address || asset?.address || '', symbol: selectedAsset?.symbol || asset?.symbol || '' }"
-              size="20"
+            <!-- Use VaultLabelsAndAssets for both EVK and Securitize vaults -->
+            <VaultLabelsAndAssets
+              v-if="vault || securitizeVault"
+              :vault="(vault || securitizeVault)!"
+              :assets="assets"
+              size="large"
             />
-            {{ selectedAsset?.symbol || asset?.symbol }}
-            <SvgIcon
-              class="text-euler-dark-800 !w-16 !h-16"
-              name="arrow-down"
-            />
-          </button>
-        </div>
 
-        <!-- Swap info block -->
-        <template v-if="needsSwap && asset">
-          <SwapRouteSelector
-            :items="swapRouteItems"
-            :selected-provider="swapSelectedProvider"
-            :status-label="swapQuotesStatusLabel"
-            :is-loading="isSwapQuoteLoading"
-            empty-message="Enter amount to fetch quotes"
-            @select="selectSwapQuote"
-            @refresh="onRefreshSwapQuotes"
+            <div class="flex flex-col items-end justify-end">
+              <p class="mb-4 text-content-tertiary flex items-center gap-4">
+                Supply APY
+                <SvgIcon
+                  v-if="features.hasApyBreakdown"
+                  class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+                  name="info-circle"
+                  @click="onSupplyInfoIconClick"
+                />
+              </p>
+
+              <p class="flex justify-end gap-4 text-h3">
+                <VaultPoints
+                  v-if="features.hasPoints && vault"
+                  class="mr-4"
+                  :vault="vault"
+                />
+                <SvgIcon
+                  v-if="hasRewards"
+                  class="!w-24 !h-24 text-accent-600 cursor-pointer"
+                  name="sparks"
+                  @click="onSupplyInfoIconClick"
+                />
+                <span>
+                  {{ supplyAPYDisplay }}%
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <AssetInput
+            v-if="asset"
+            v-model="amount"
+            label="Deposit amount"
+            :desc="name"
+            :asset="needsSwap && selectedAsset ? selectedAsset : asset"
+            :vault="needsSwap ? undefined : vault"
+            :price-override="needsSwap ? swapAssetUsdPrice : undefined"
+            :balance="activeBalance"
+            maxable
           />
+
+          <!-- Pay with token selector -->
+          <div
+            v-if="enableSwapDeposit"
+            class="flex items-center gap-8"
+          >
+            <span class="text-p3 text-content-tertiary">Pay with</span>
+            <button
+              type="button"
+              class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
+              @click="openSwapTokenSelector"
+            >
+              <AssetAvatar
+                :asset="{ address: selectedAsset?.address || asset?.address || '', symbol: selectedAsset?.symbol || asset?.symbol || '' }"
+                size="20"
+              />
+              {{ selectedAsset?.symbol || asset?.symbol }}
+              <SvgIcon
+                class="text-euler-dark-800 !w-16 !h-16"
+                name="arrow-down"
+              />
+            </button>
+          </div>
+
+          <!-- Swap info block -->
+          <template v-if="needsSwap && asset">
+            <SwapRouteSelector
+              :items="swapRouteItems"
+              :selected-provider="swapSelectedProvider"
+              :status-label="swapQuotesStatusLabel"
+              :is-loading="isSwapQuoteLoading"
+              empty-message="Enter amount to fetch quotes"
+              @select="selectSwapQuote"
+              @refresh="onRefreshSwapQuotes"
+            />
+
+            <VaultFormInfoBlock
+              v-if="swapEstimatedOutput"
+              :loading="isSwapQuoteLoading"
+            >
+              <SummaryRow
+                label="Estimated deposit"
+                align-top
+              >
+                <p class="text-p2">
+                  ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ asset.symbol }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Slippage tolerance">
+                <button
+                  type="button"
+                  class="flex items-center gap-6 text-p2"
+                  @click="openSlippageSettings"
+                >
+                  <span>{{ formatNumber(swapSlippage, 2, 0) }}%</span>
+                  <SvgIcon
+                    name="edit"
+                    class="!w-16 !h-16 text-accent-600"
+                  />
+                </button>
+              </SummaryRow>
+            </VaultFormInfoBlock>
+
+            <UiToast
+              v-if="swapQuoteError"
+              title="Swap quote"
+              variant="warning"
+              :description="swapQuoteError"
+              size="compact"
+            />
+          </template>
+
+          <UiToast
+            v-if="isGeoBlocked"
+            title="Region restricted"
+            description="This operation is not available in your region. You can still withdraw existing deposits."
+            variant="warning"
+            size="compact"
+          />
+          <UiToast
+            v-if="!isGeoBlocked && isSwapRestricted"
+            title="Swap restricted"
+            description="Swapping into this vault is not available in your region. You can deposit the vault's underlying asset directly."
+            variant="warning"
+            size="compact"
+          />
+          <UiToast
+            v-show="errorText"
+            title="Error"
+            variant="error"
+            :description="errorText || ''"
+            size="compact"
+          />
+          <UiToast
+            v-if="simulationError"
+            title="Error"
+            variant="error"
+            :description="simulationError"
+            size="compact"
+          />
+
+          <VaultWarningBanner :warnings="lendWarnings" />
 
           <VaultFormInfoBlock
-            v-if="swapEstimatedOutput"
-            :loading="isSwapQuoteLoading"
+            v-if="isVaultLoaded && asset"
+            :loading="isEstimatesLoading"
           >
             <SummaryRow
-              label="Estimated deposit"
+              label="Projected earnings per month"
               align-top
             >
-              <p class="text-p2">
-                ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ asset.symbol }}
+              <p class="text-content-tertiary">
+                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
+                  asset.symbol
+                }}
+                <template v-if="features.hasPriceInfo && vault">
+                  ≈ ${{ compactNumber(monthlyEarningsUsd) }}
+                </template>
               </p>
             </SummaryRow>
-            <SummaryRow label="Slippage tolerance">
-              <button
-                type="button"
-                class="flex items-center gap-6 text-p2"
-                @click="openSlippageSettings"
-              >
-                <span>{{ formatNumber(swapSlippage, 2, 0) }}%</span>
-                <SvgIcon
-                  name="edit"
-                  class="!w-16 !h-16 text-accent-600"
-                />
-              </button>
+
+            <SummaryRow label="Supply APY">
+              <SummaryValue
+                :after="estimateSupplyAPYDisplay"
+                suffix="%"
+                estimate-only
+              />
             </SummaryRow>
           </VaultFormInfoBlock>
 
-          <UiToast
-            v-if="swapQuoteError"
-            title="Swap quote"
-            variant="warning"
-            :description="swapQuoteError"
-            size="compact"
-          />
-        </template>
-
-        <UiToast
-          v-if="isGeoBlocked"
-          title="Region restricted"
-          description="This operation is not available in your region. You can still withdraw existing deposits."
-          variant="warning"
-          size="compact"
-        />
-        <UiToast
-          v-if="!isGeoBlocked && isSwapRestricted"
-          title="Swap restricted"
-          description="Swapping into this vault is not available in your region. You can deposit the vault's underlying asset directly."
-          variant="warning"
-          size="compact"
-        />
-        <UiToast
-          v-show="errorText"
-          title="Error"
-          variant="error"
-          :description="errorText || ''"
-          size="compact"
-        />
-        <UiToast
-          v-if="simulationError"
-          title="Error"
-          variant="error"
-          :description="simulationError"
-          size="compact"
-        />
-
-        <VaultWarningBanner :warnings="lendWarnings" />
-
-        <VaultFormInfoBlock
-          v-if="isVaultLoaded && asset"
-          :loading="isEstimatesLoading"
-        >
-          <SummaryRow
-            label="Projected earnings per month"
-            align-top
-          >
-            <p class="text-content-tertiary">
-              <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
-                asset.symbol
-              }}
-              <template v-if="features.hasPriceInfo && vault">
-                ≈ ${{ compactNumber(monthlyEarningsUsd) }}
-              </template>
-            </p>
-          </SummaryRow>
-
-          <SummaryRow label="Supply APY">
-            <SummaryValue
-              :after="estimateSupplyAPYDisplay"
-              suffix="%"
-              estimate-only
+          <template #buttons>
+            <VaultFormInfoButton
+              v-if="features.hasOverview && (vault || securitizeVault)"
+              class="laptop:!hidden"
+              :vault="vault || securitizeVault"
+              :disabled="isLoading || isSubmitting"
             />
-          </SummaryRow>
-        </VaultFormInfoBlock>
-
-        <template #buttons>
-          <VaultFormInfoButton
-            v-if="features.hasOverview && (vault || securitizeVault)"
-            class="laptop:!hidden"
-            :vault="vault || securitizeVault"
-            :disabled="isLoading || isSubmitting"
-          />
-          <VaultFormSubmit
-            :disabled="reviewSupplyDisabled"
-            :loading="isSubmitting || isPreparing"
-          >
-            {{ reviewSupplyLabel }}
-          </VaultFormSubmit>
-        </template>
-      </VaultForm>
-    </div>
-
-    <div class="w-full hidden laptop:!block">
-      <!-- EVK Vault Overview -->
-      <VaultOverview
-        v-if="features.hasOverview && vault && vaultType === 'evk'"
-        :vault="vault"
-        desktop-overview
-        @vault-click="(address: string) => router.push(`/lend/${address}`)"
-      />
-      <!-- Securitize Vault Overview -->
-      <SecuritizeVaultOverview
-        v-if="features.hasOverview && securitizeVault && vaultType === 'securitize'"
-        :vault="securitizeVault"
-        desktop-overview
-      />
+            <VaultFormSubmit
+              :disabled="reviewSupplyDisabled"
+              :loading="isSubmitting || isPreparing"
+            >
+              {{ reviewSupplyLabel }}
+            </VaultFormSubmit>
+          </template>
+        </VaultForm>
+      </div>
     </div>
   </div>
 </template>
