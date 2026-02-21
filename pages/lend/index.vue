@@ -266,6 +266,7 @@ const sortedList = computed(() => {
           placeholder="Search by asset, market, curator..."
           icon="search"
           clearable
+          compact
         />
       </div>
 

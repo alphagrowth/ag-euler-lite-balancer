@@ -365,6 +365,7 @@ const sortedBorrowList = computed(() => {
           placeholder="Search by asset, market, curator..."
           icon="search"
           clearable
+          compact
         />
       </div>
       <div class="flex justify-start items-center w-full gap-8 flex-wrap">
