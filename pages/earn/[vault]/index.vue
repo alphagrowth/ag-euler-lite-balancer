@@ -230,131 +230,135 @@ watch(address, () => {
 </script>
 
 <template>
-  <div class="flex gap-32">
-    <div class="flex flex-col gap-16 w-full">
-      <BaseBackButton class="laptop:!hidden" />
-      <VaultForm
-        title="Open earn position"
-        class="w-full"
-        @submit.prevent="submit"
-      >
-        <div
-          v-if="vault && asset"
-          class="flex justify-between"
+  <div>
+    <BaseBackButton class="laptop:!hidden mb-16" />
+    <h1 class="text-p1 mb-16">
+      Open earn position
+    </h1>
+    <div class="flex gap-32">
+      <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
+        <VaultOverviewEarn
+          v-if="vault"
+          :vault="vault as EarnVault"
+          desktop-overview
+          @vault-click="(address: string) => router.push(`/lend/${address}`)"
+        />
+      </div>
+      <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">
+        <VaultForm
+          class="w-full"
+          @submit.prevent="submit"
         >
-          <VaultLabelsAndAssets
-            :vault="vault"
-            :assets="assets"
-            size="large"
-          />
-
-          <div class="flex flex-col items-end justify-end">
-            <p class="mb-4 text-content-tertiary flex items-center gap-4">
-              Supply APY
-              <SvgIcon
-                class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
-                name="info-circle"
-                @click="onSupplyInfoIconClick"
-              />
-            </p>
-
-            <p class="flex justify-end gap-4 text-h3">
-              <VaultPoints
-                :vault="vault"
-              />
-              <SvgIcon
-                v-if="hasRewards"
-                class="!w-24 !h-24 text-aquamarine-700 cursor-pointer"
-                name="sparks"
-                @click="onSupplyInfoIconClick"
-              />
-              <span>
-                {{ supplyAPYDisplay }}%
-              </span>
-            </p>
-          </div>
-        </div>
-
-        <AssetInput
-          v-if="asset"
-          v-model="amount"
-          label="Deposit amount"
-          :desc="name"
-          :asset="asset"
-          :vault="vault"
-          :balance="balance"
-          maxable
-        />
-
-        <UiToast
-          v-if="isGeoBlocked"
-          title="Region restricted"
-          description="This operation is not available in your region. You can still withdraw existing deposits."
-          variant="warning"
-          size="compact"
-        />
-        <UiToast
-          v-show="errorText"
-          title="Error"
-          variant="error"
-          :description="errorText || ''"
-          size="compact"
-        />
-        <UiToast
-          v-if="simulationError"
-          title="Error"
-          variant="error"
-          :description="simulationError"
-          size="compact"
-        />
-
-        <VaultFormInfoBlock
-          v-if="vault && asset"
-          :loading="isEstimatesLoading"
-        >
-          <SummaryRow
-            label="Projected earnings per month"
-            align-top
+          <div
+            v-if="vault && asset"
+            class="flex justify-between"
           >
-            <p class="text-content-tertiary">
-              <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
-                asset.symbol
-              }}
-              ≈ ${{ compactNumber(monthlyEarningsUsd) }}
-            </p>
-          </SummaryRow>
-
-          <SummaryRow label="Supply APY">
-            <SummaryValue
-              :after="estimateSupplyAPYDisplay"
-              suffix="%"
-              estimate-only
+            <VaultLabelsAndAssets
+              :vault="vault"
+              :assets="assets"
+              size="large"
             />
-          </SummaryRow>
-        </VaultFormInfoBlock>
 
-        <template #buttons>
-          <VaultFormInfoButton
-            :earn-vault="vault"
-            class="laptop:!hidden"
-            :disabled="isLoading || isSubmitting"
+            <div class="flex flex-col items-end justify-end">
+              <p class="mb-4 text-content-tertiary flex items-center gap-4">
+                Supply APY
+                <SvgIcon
+                  class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+                  name="info-circle"
+                  @click="onSupplyInfoIconClick"
+                />
+              </p>
+
+              <p class="flex justify-end gap-4 text-h3">
+                <VaultPoints
+                  :vault="vault"
+                />
+                <SvgIcon
+                  v-if="hasRewards"
+                  class="!w-24 !h-24 text-aquamarine-700 cursor-pointer"
+                  name="sparks"
+                  @click="onSupplyInfoIconClick"
+                />
+                <span>
+                  {{ supplyAPYDisplay }}%
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <AssetInput
+            v-if="asset"
+            v-model="amount"
+            label="Deposit amount"
+            :desc="name"
+            :asset="asset"
+            :vault="vault"
+            :balance="balance"
+            maxable
           />
-          <VaultFormSubmit
-            :disabled="reviewSupplyDisabled"
-            :loading="isSubmitting || isPreparing"
+
+          <UiToast
+            v-if="isGeoBlocked"
+            title="Region restricted"
+            description="This operation is not available in your region. You can still withdraw existing deposits."
+            variant="warning"
+            size="compact"
+          />
+          <UiToast
+            v-show="errorText"
+            title="Error"
+            variant="error"
+            :description="errorText || ''"
+            size="compact"
+          />
+          <UiToast
+            v-if="simulationError"
+            title="Error"
+            variant="error"
+            :description="simulationError"
+            size="compact"
+          />
+
+          <VaultFormInfoBlock
+            v-if="vault && asset"
+            :loading="isEstimatesLoading"
           >
-            {{ reviewSupplyLabel }}
-          </VaultFormSubmit>
-        </template>
-      </VaultForm>
-    </div>
-    <div class="w-full mobile:hidden">
-      <VaultOverviewEarn
-        v-if="vault"
-        :vault="vault as EarnVault"
-        desktop-overview
-        @vault-click="(address: string) => router.push(`/lend/${address}`)"
-      />
+            <SummaryRow
+              label="Projected earnings per month"
+              align-top
+            >
+              <p class="text-content-tertiary">
+                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
+                  asset.symbol
+                }}
+                ≈ ${{ compactNumber(monthlyEarningsUsd) }}
+              </p>
+            </SummaryRow>
+
+            <SummaryRow label="Supply APY">
+              <SummaryValue
+                :after="estimateSupplyAPYDisplay"
+                suffix="%"
+                estimate-only
+              />
+            </SummaryRow>
+          </VaultFormInfoBlock>
+
+          <template #buttons>
+            <VaultFormInfoButton
+              :earn-vault="vault"
+              class="laptop:!hidden"
+              :disabled="isLoading || isSubmitting"
+            />
+            <VaultFormSubmit
+              :disabled="reviewSupplyDisabled"
+              :loading="isSubmitting || isPreparing"
+            >
+              {{ reviewSupplyLabel }}
+            </VaultFormSubmit>
+          </template>
+        </VaultForm>
+      </div>
     </div>
   </div>
 </template>
