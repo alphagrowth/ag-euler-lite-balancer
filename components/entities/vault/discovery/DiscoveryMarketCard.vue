@@ -68,7 +68,7 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
     class="w-full text-left cursor-pointer p-16"
     @click="$emit('toggle')"
   >
-    <div class="flex items-start pb-12 border-b border-line-subtle">
+    <div class="flex items-start pb-12 border-b border-line-subtle mobile:flex-wrap">
       <template
         v-for="(marketEntities, entitiesIdx) in [getMarketEntities(market)]"
         :key="'entities-' + entitiesIdx"
@@ -120,12 +120,12 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
         v-for="(diagram, diagramIdx) in [getMiniDiagram(market)]"
         :key="'counts-' + diagramIdx"
       >
-        <div class="flex flex-col items-end shrink-0 ml-12 text-content-tertiary text-p3">
+        <div class="flex flex-col items-end shrink-0 ml-12 text-content-tertiary text-p3 mobile:flex-row mobile:w-full mobile:items-center mobile:gap-8 mobile:mt-8 mobile:ml-0">
           <span>{{ diagram.assetCount }} assets</span>
           <span class="text-content-muted">{{ diagram.pairCount }} pairs</span>
           <span
             v-if="getDeprecatedVaultCount(market) > 0"
-            class="text-warning-500 text-p5 mt-4"
+            class="text-warning-500 text-p5 mt-4 mobile:mt-0"
           >
             {{ getDeprecatedVaultCount(market) }} deprecated
           </span>
@@ -134,7 +134,7 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
     </div>
 
     <div class="flex pt-12 items-center mobile:flex-wrap mobile:gap-y-12">
-      <div class="flex-1 flex gap-12 mobile:flex-wrap mobile:gap-y-12">
+      <div class="flex-1 flex gap-12 mobile:grid mobile:grid-cols-2 mobile:gap-y-12 mobile:gap-x-12">
         <div class="flex-1 min-w-0">
           <div class="text-content-tertiary text-p3 mb-4">
             Total supply
