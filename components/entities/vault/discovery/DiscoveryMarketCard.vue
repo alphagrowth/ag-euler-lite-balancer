@@ -170,16 +170,16 @@ const getBestNetApy = (market: MarketGroup): BestNetApyResult => {
             <div class="text-content-tertiary text-p3 mb-4">
               Best net APY
             </div>
-            <div class="text-p2 text-content-primary flex items-center gap-4">
+            <div class="text-p2 text-content-primary flex items-center gap-4 min-w-0 mobile:overflow-hidden">
               <SvgIcon
                 v-if="bestNet.hasRewards"
                 name="sparks"
                 class="!w-12 !h-12 text-accent-500 shrink-0"
               />
-              {{ formatNumber(bestNet.value, 2, 2) }}%
+              <span class="shrink-0">{{ formatNumber(bestNet.value, 2, 2) }}%</span>
               <span
                 v-if="bestNet.pair"
-                class="text-p4 text-content-muted"
+                class="text-p4 text-content-muted min-w-0 truncate"
               >{{ bestNet.pair }}</span>
             </div>
           </div>
