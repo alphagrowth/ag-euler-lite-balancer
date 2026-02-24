@@ -5,7 +5,7 @@ defineProps<{ title?: string, loading?: boolean }>()
 <template>
   <form
     v-bind="$attrs"
-    class="flex flex-col gap-16 mobile:min-h-[calc(100dvh-100px)]"
+    class="flex flex-col mobile:min-h-[calc(100dvh-100px)] laptop:max-h-[calc(100dvh-88px)] laptop:overflow-clip laptop:px-16"
   >
     <h1
       v-if="title"
@@ -22,10 +22,15 @@ defineProps<{ title?: string, loading?: boolean }>()
       <UiLoader />
     </div>
 
-    <slot v-else />
+    <div
+      v-else
+      class="flex flex-col gap-16 laptop:overflow-y-auto laptop:min-h-0 laptop:-mx-16 laptop:px-16 [&>*]:shrink-0"
+    >
+      <slot />
+    </div>
 
     <div
-      class="flex flex-col gap-8 mobile:mt-auto"
+      class="flex flex-col gap-8 pt-16 mobile:mt-auto laptop:-mx-16 laptop:px-16"
     >
       <slot name="buttons" />
     </div>
