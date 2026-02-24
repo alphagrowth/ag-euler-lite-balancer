@@ -5,7 +5,7 @@ import { isAbortError } from '~/utils/errorHandling'
 const SCREENING_TIMEOUT_MS = 5000
 
 const rateLimiter = createRateLimiter({
-  max: 10,
+  max: 100,
   windowMs: 60_000,
   label: 'screen-address',
 })

@@ -10,7 +10,7 @@ import { isAbortError } from '~/utils/errorHandling'
 const UPSTREAM_TIMEOUT_MS = 30_000
 
 const rateLimiter = createRateLimiter({
-  max: 5,
+  max: 50,
   windowMs: 60_000,
   label: 'tenderly',
 })
