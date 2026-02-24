@@ -1,13 +1,13 @@
-export function assertSwapperAllowed(
-  swapperAddress: string,
-  knownSwapper: string | undefined,
+export function assertSwapperVerifierAllowed(
+  swapVerifierAddress: string,
+  knownSwapVerifier: string | undefined,
 ): void {
-  if (!knownSwapper) {
-    throw new Error('Known swapper address not configured')
+  if (!knownSwapVerifier) {
+    throw new Error('Known swap verifier address not configured')
   }
-  if (swapperAddress.toLowerCase() !== knownSwapper.toLowerCase()) {
+  if (swapVerifierAddress.toLowerCase() !== knownSwapVerifier.toLowerCase()) {
     throw new Error(
-      `Unknown swapper address: ${swapperAddress}. Expected: ${knownSwapper}`,
+      `Unknown swap verifier address: ${swapVerifierAddress}. Expected: ${knownSwapVerifier}`,
     )
   }
 }

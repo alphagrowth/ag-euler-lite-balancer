@@ -13,7 +13,7 @@ import type { TxPlan, TxStep } from '~/entities/txPlan'
 import type { SwapApiQuote } from '~/entities/swap'
 import { SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { logWarn } from '~/utils/errorHandling'
-import { assertSwapperAllowed } from '~/utils/swap-validation'
+import { assertSwapperVerifierAllowed } from '~/utils/swap-validation'
 
 export const createVaultBuilders = (
   ctx: OperationsContext,
@@ -545,7 +545,7 @@ export const createVaultBuilders = (
     }
 
     if (hasSwap) {
-      assertSwapperAllowed(quote!.swap.swapperAddress, ctx.eulerPeripheryAddresses.value!.swapper)
+      assertSwapperVerifierAllowed(quote!.verify.verifierAddress, ctx.eulerPeripheryAddresses.value!.swapVerifier)
     }
 
     const borrowRecipient = hasSwap ? quote!.swap.swapperAddress : userAddr
