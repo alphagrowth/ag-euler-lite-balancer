@@ -26,7 +26,7 @@ const MAX_BATCH_SIZE = 100
 const UPSTREAM_TIMEOUT_MS = 30_000
 
 const rateLimiter = createRateLimiter({
-  max: 200,
+  max: 2000,
   windowMs: 60_000,
   label: 'rpc',
 })
