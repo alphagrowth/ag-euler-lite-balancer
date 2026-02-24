@@ -1,6 +1,7 @@
 import type { Address, Hash } from 'viem'
 import { encodeFunctionData } from 'viem'
 import type { OperationsContext, OperationHelpers } from '../types'
+import { buildSwapVerifierData } from './verify'
 import { evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
 import { vaultBorrowAbi, vaultRedeemAbi, vaultWithdrawAbi } from '~/abis/vault'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
@@ -9,7 +10,8 @@ import { convertSaHooksToEVCCalls, type EVCCall } from '~/utils/evc-converter'
 import { getNewSubAccount } from '~/entities/account'
 import { buildCollateralCleanupCalls } from '~/utils/collateral-cleanup'
 import type { TxPlan } from '~/entities/txPlan'
-import type { SwapApiQuote } from '~/entities/swap'
+import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
+import { logWarn } from '~/utils/errorHandling'
 
 export const createSupplyBorrowSwapBuilders = (
   ctx: OperationsContext,
@@ -80,11 +82,21 @@ export const createSupplyBorrowSwapBuilders = (
     })
 
     // Verify min output and skim into vault
+    if (quote.verify.type !== SwapVerificationType.SkimMin) {
+      throw new Error('Swap verifier type mismatch')
+    }
+
+    const verifierData = buildSwapVerifierData({ quote, swapperMode: SwapperMode.EXACT_IN, isRepay: false })
+    if (verifierData.toLowerCase() !== quote.verify.verifierData.toLowerCase()) {
+      logWarn('swap-supply', 'SwapVerifier data mismatch')
+      throw new Error('SwapVerifier data mismatch')
+    }
+
     evcCalls.push({
       targetContract: quote.verify.verifierAddress,
       onBehalfOfAccount: quote.verify.account,
       value: 0n,
-      data: quote.verify.verifierData,
+      data: verifierData,
     })
 
     steps.push(helpers.buildEvcBatchStep({
@@ -176,11 +188,21 @@ export const createSupplyBorrowSwapBuilders = (
     })
 
     // Verify min output and skim into collateral vault
+    if (swapQuote.verify.type !== SwapVerificationType.SkimMin) {
+      throw new Error('Swap verifier type mismatch')
+    }
+
+    const verifierData = buildSwapVerifierData({ quote: swapQuote, swapperMode: SwapperMode.EXACT_IN, isRepay: false })
+    if (verifierData.toLowerCase() !== swapQuote.verify.verifierData.toLowerCase()) {
+      logWarn('swap-borrow', 'SwapVerifier data mismatch')
+      throw new Error('SwapVerifier data mismatch')
+    }
+
     evcCalls.push({
       targetContract: swapQuote.verify.verifierAddress,
       onBehalfOfAccount: swapQuote.verify.account,
       value: 0n,
-      data: swapQuote.verify.verifierData,
+      data: verifierData,
     })
 
     // Enable controller
@@ -291,11 +313,21 @@ export const createSupplyBorrowSwapBuilders = (
     })
 
     // Verify min output
+    if (quote.verify.type !== SwapVerificationType.TransferMin) {
+      throw new Error('Swap verifier type mismatch')
+    }
+
+    const verifierData = buildSwapVerifierData({ quote, swapperMode: SwapperMode.EXACT_IN, isRepay: false })
+    if (verifierData.toLowerCase() !== quote.verify.verifierData.toLowerCase()) {
+      logWarn('swap-withdraw', 'SwapVerifier data mismatch')
+      throw new Error('SwapVerifier data mismatch')
+    }
+
     evcCalls.push({
       targetContract: quote.verify.verifierAddress,
       onBehalfOfAccount: userAddr,
       value: 0n,
-      data: quote.verify.verifierData,
+      data: verifierData,
     })
 
     // Pyth price updates (when position has borrows)
@@ -372,11 +404,21 @@ export const createSupplyBorrowSwapBuilders = (
     })
 
     // Verify min output
+    if (quote.verify.type !== SwapVerificationType.TransferMin) {
+      throw new Error('Swap verifier type mismatch')
+    }
+
+    const redeemVerifierData = buildSwapVerifierData({ quote, swapperMode: SwapperMode.EXACT_IN, isRepay: false })
+    if (redeemVerifierData.toLowerCase() !== quote.verify.verifierData.toLowerCase()) {
+      logWarn('swap-redeem', 'SwapVerifier data mismatch')
+      throw new Error('SwapVerifier data mismatch')
+    }
+
     evcCalls.push({
       targetContract: quote.verify.verifierAddress,
       onBehalfOfAccount: userAddr,
       value: 0n,
-      data: quote.verify.verifierData,
+      data: redeemVerifierData,
     })
 
     // Pyth price updates
