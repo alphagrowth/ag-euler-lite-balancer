@@ -9,7 +9,7 @@ import { swapperAbi } from '~/entities/euler/abis'
 import type { EVCCall } from '~/utils/evc-converter'
 import { sumCallValues } from '~/utils/pyth'
 import { logWarn } from '~/utils/errorHandling'
-import { assertSwapperAllowed } from '~/utils/swap-validation'
+import { assertSwapperVerifierAllowed } from '~/utils/swap-validation'
 import type { TxPlan } from '~/entities/txPlan'
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
 
@@ -47,7 +47,7 @@ export const createCrossAssetSwapBuilders = (
     const userAddr = ctx.address.value as Address
     const evcAddress = ctx.eulerCoreAddresses.value.evc as Address
 
-    assertSwapperAllowed(quote.swap.swapperAddress, ctx.eulerPeripheryAddresses.value.swapper)
+    assertSwapperVerifierAllowed(quote.verify.verifierAddress, ctx.eulerPeripheryAddresses.value.swapVerifier)
 
     const tos = await helpers.prepareTos(userAddr)
 

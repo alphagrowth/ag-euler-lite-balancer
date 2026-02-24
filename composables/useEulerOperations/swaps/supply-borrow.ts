@@ -12,7 +12,7 @@ import { buildCollateralCleanupCalls } from '~/utils/collateral-cleanup'
 import type { TxPlan } from '~/entities/txPlan'
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { logWarn } from '~/utils/errorHandling'
-import { assertSwapperAllowed } from '~/utils/swap-validation'
+import { assertSwapperVerifierAllowed } from '~/utils/swap-validation'
 
 export const createSupplyBorrowSwapBuilders = (
   ctx: OperationsContext,
@@ -39,7 +39,7 @@ export const createSupplyBorrowSwapBuilders = (
     const userAddr = ctx.address.value as Address
     const swapVerifierAddress = ctx.eulerPeripheryAddresses.value.swapVerifier as Address
 
-    assertSwapperAllowed(quote.swap.swapperAddress, ctx.eulerPeripheryAddresses.value.swapper)
+    assertSwapperVerifierAllowed(quote.verify.verifierAddress, ctx.eulerPeripheryAddresses.value.swapVerifier)
 
     const { steps, permitCall, usesPermit2 } = await helpers.prepareTokenApproval({
       assetAddr: inputTokenAddress,
@@ -143,7 +143,7 @@ export const createSupplyBorrowSwapBuilders = (
     const evcAddress = ctx.eulerCoreAddresses.value.evc as Address
     const swapVerifierAddress = ctx.eulerPeripheryAddresses.value.swapVerifier as Address
 
-    assertSwapperAllowed(swapQuote.swap.swapperAddress, ctx.eulerPeripheryAddresses.value.swapper)
+    assertSwapperVerifierAllowed(swapQuote.verify.verifierAddress, ctx.eulerPeripheryAddresses.value.swapVerifier)
 
     const subAccountAddr = (subAccount || await getNewSubAccount(ctx.address.value)) as Address
 
@@ -285,7 +285,7 @@ export const createSupplyBorrowSwapBuilders = (
     const withdrawFromAddr = subAccount ? (subAccount as Address) : userAddr
     const swapperAddress = quote.swap.swapperAddress as Address
 
-    assertSwapperAllowed(swapperAddress, ctx.eulerPeripheryAddresses.value.swapper)
+    assertSwapperVerifierAllowed(quote.verify.verifierAddress, ctx.eulerPeripheryAddresses.value.swapVerifier)
 
     const tos = await helpers.prepareTos(userAddr)
 
@@ -378,7 +378,7 @@ export const createSupplyBorrowSwapBuilders = (
     const redeemFromAddr = subAccount ? (subAccount as Address) : userAddr
     const swapperAddress = quote.swap.swapperAddress as Address
 
-    assertSwapperAllowed(swapperAddress, ctx.eulerPeripheryAddresses.value.swapper)
+    assertSwapperVerifierAllowed(quote.verify.verifierAddress, ctx.eulerPeripheryAddresses.value.swapVerifier)
 
     const tos = await helpers.prepareTos(userAddr)
 
