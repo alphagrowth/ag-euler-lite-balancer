@@ -21,6 +21,12 @@ cleanup.unref()
 // NOTE: In-memory rate limiting is per-process. If Nitro runs multiple
 // workers the effective limit is multiplied by the worker count.
 function getClientIp(event: H3Event): string {
+  // CF-Connecting-IP is set by Cloudflare to the true client IP
+  // and cannot be spoofed by the client. Prefer it over X-Forwarded-For.
+  const cfIp = event.node.req.headers['cf-connecting-ip']
+  if (typeof cfIp === 'string' && cfIp.trim()) return cfIp.trim()
+
+  // Fallback for non-Cloudflare environments (e.g. local dev)
   const forwarded = event.node.req.headers['x-forwarded-for']
   const forwardedStr = Array.isArray(forwarded) ? forwarded[0] : forwarded
   return (
