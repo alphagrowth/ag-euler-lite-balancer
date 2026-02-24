@@ -1,4 +1,5 @@
 import { createError, readBody } from 'h3'
+import { createRateLimiter } from '~/server/utils/rate-limit'
 import {
   resolveTenderlyConfig,
   viemStateOverridesToTenderly,
@@ -7,6 +8,12 @@ import {
 import { isAbortError } from '~/utils/errorHandling'
 
 const UPSTREAM_TIMEOUT_MS = 30_000
+
+const rateLimiter = createRateLimiter({
+  max: 5,
+  windowMs: 60_000,
+  label: 'tenderly',
+})
 
 interface SimulateRequest {
   chainId: number
@@ -79,6 +86,8 @@ export default defineEventHandler(async (event) => {
   if (value !== undefined && value !== '' && !isValidValue(value)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid value' })
   }
+
+  rateLimiter.consume(event)
 
   const MAX_STATE_OVERRIDES = 50
   const validatedOverrides = Array.isArray(stateOverrides)
