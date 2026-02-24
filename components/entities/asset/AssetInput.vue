@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { formatUnits } from 'viem'
+import { formatUnits, type Address } from 'viem'
 import type { Vault, SecuritizeVault, VaultAsset, CollateralOption, EarnVault } from '~/entities/vault'
 import { getAssetUsdPrice } from '~/services/pricing/priceProvider'
+import { backendPriceToBigInt, fetchBackendPrice, isBackendConfigured } from '~/services/pricing/backendClient'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { compactNumber, formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { ChooseCollateralModal } from '#components'
@@ -27,6 +28,7 @@ const model = defineModel<string>({ default: '' })
 const inputEl = useTemplateRef<HTMLInputElement>('inputEl')
 const modal = useModal()
 const isFocused = ref(false)
+const { chainId } = useEulerAddresses()
 
 const selectedIdx = ref(0)
 const friendlyBalance = computed(() => nanoToValue(props.balance ?? 0n, props.asset?.decimals || 18))
@@ -48,12 +50,22 @@ watch(() => props.collateralOptions, (options) => {
 const usdUnitPrice = ref<number | null>(null)
 
 watchEffect(async () => {
-  if (!props.vault) {
-    usdUnitPrice.value = null
+  if (props.vault) {
+    const priceInfo = await getAssetUsdPrice(props.vault, 'off-chain')
+    usdUnitPrice.value = priceInfo ? nanoToValue(priceInfo.amountOutMid, 18) : null
     return
   }
-  const priceInfo = await getAssetUsdPrice(props.vault, 'off-chain')
-  usdUnitPrice.value = priceInfo ? nanoToValue(priceInfo.amountOutMid, 18) : null
+
+  if (isBackendConfigured()) {
+    const backendPrice = await fetchBackendPrice(props.asset.address as Address, chainId.value)
+    if (backendPrice) {
+      const mid = backendPriceToBigInt(backendPrice.price)
+      usdUnitPrice.value = mid > 0n ? nanoToValue(mid, 18) : null
+      return
+    }
+  }
+
+  usdUnitPrice.value = null
 })
 
 // Display price (synchronous computed — tracks model.value reactively)
