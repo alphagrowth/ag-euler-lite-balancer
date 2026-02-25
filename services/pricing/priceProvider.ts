@@ -290,7 +290,7 @@ const getAssetUsdPriceFromOracle = async (
 
   // Earn/Escrow/Securitize vaults - use UtilsLens (assetPriceInfo is already in USD)
   if (usesUtilsLensPricing(vault)) {
-    const priceInfo = (vault as Vault | EarnVault).assetPriceInfo
+    const priceInfo = (vault as Vault | EarnVault | SecuritizeVault).assetPriceInfo
     if (priceInfo?.amountOutMid) {
       const mid = priceInfo.amountOutMid
       return { amountOutMid: mid, amountOutAsk: mid, amountOutBid: mid }

@@ -13,7 +13,6 @@ import {
   getAssetUsdValue,
   getAssetOraclePrice,
   getCollateralOraclePrice,
-  getCollateralUsdPrice,
   conservativePriceRatioNumber,
   getCollateralUsdValueOrZero,
 } from '~/services/pricing/priceProvider'
@@ -273,20 +272,6 @@ const getCollateralValueUsdLocal = async (amount: bigint) => {
   if (!borrowVault.value || !fromVault.value) return 0
   return getCollateralUsdValueOrZero(amount, borrowVault.value, fromVault.value as Vault, 'off-chain')
 }
-const collateralPricePerUnit = ref<number | undefined>(undefined)
-watchEffect(async () => {
-  if (!borrowVault.value || !fromVault.value) {
-    collateralPricePerUnit.value = undefined
-    return
-  }
-  const priceInfo = await getCollateralUsdPrice(borrowVault.value, fromVault.value as Vault, 'off-chain')
-  if (!priceInfo?.amountOutMid) {
-    collateralPricePerUnit.value = undefined
-    return
-  }
-  collateralPricePerUnit.value = nanoToValue(priceInfo.amountOutMid, 18)
-})
-
 // ── ROE ──────────────────────────────────────────────────────────────────
 const supplyValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -456,9 +441,8 @@ const nextLiquidationPrice = computed(() => {
               :desc="fromProduct.name"
               label="From"
               :asset="fromVault.asset"
-              :vault="isFromSecuritize ? undefined : (fromVault as Vault)"
+              :vault="fromVault"
               :balance="balance"
-              :price-override="isFromSecuritize ? collateralPricePerUnit : undefined"
               maxable
               @input="onFromInput"
             />

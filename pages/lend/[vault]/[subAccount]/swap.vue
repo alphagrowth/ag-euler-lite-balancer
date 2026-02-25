@@ -30,7 +30,6 @@ const subAccount = computed(() => {
 const fromVault: Ref<Vault | SecuritizeVault | undefined> = ref()
 const toVault: Ref<Vault | undefined> = ref()
 
-const isFromSecuritizeVault = computed(() => fromVault.value && 'type' in fromVault.value && fromVault.value.type === 'securitize')
 const fromVaultAsRegular = computed(() => fromVault.value as Vault | undefined)
 const { collateralOptions, collateralVaults } = useSwapCollateralOptions({ currentVault: fromVaultAsRegular })
 
@@ -196,7 +195,7 @@ watch([() => route.params.vault, () => route.query.to], () => {
               :desc="fromProduct.name"
               label="From"
               :asset="fromVault.asset"
-              :vault="isFromSecuritizeVault ? undefined : (fromVault as Vault)"
+              :vault="fromVault"
               :balance="balance"
               maxable
               @input="onFromInput"

@@ -32,7 +32,6 @@ const utilisationWarning = computed(() => {
 
 // Check if securitize vault by type field
 const isSecuritize = computed(() => 'type' in vault.value && vault.value.type === 'securitize')
-const regularVault = computed(() => isSecuritize.value ? null : vault.value as Vault)
 
 const rewardsExist = computed(() => hasSupplyRewards(vault.value.address))
 const supplyApy = computed(() => {
@@ -55,11 +54,7 @@ const displayName = computed(() => {
 const supplyValueDisplay = ref('-')
 
 const updateSupplyValueDisplay = async () => {
-  if (!regularVault.value) {
-    supplyValueDisplay.value = `${formatSmartAmount(nanoToValue(position.assets, vault.value.asset.decimals))} ${vault.value.asset.symbol}`
-    return
-  }
-  const price = await formatAssetValue(position.assets, regularVault.value, 'off-chain')
+  const price = await formatAssetValue(position.assets, vault.value, 'off-chain')
   supplyValueDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 }
 
@@ -70,11 +65,7 @@ watchEffect(() => {
 const hasPrice = ref(false)
 
 const updateHasPrice = async () => {
-  if (!regularVault.value) {
-    hasPrice.value = false
-    return
-  }
-  const price = await getAssetUsdValue(position.assets, regularVault.value, 'off-chain')
+  const price = await getAssetUsdValue(position.assets, vault.value, 'off-chain')
   hasPrice.value = price !== undefined && price > 0
 }
 
@@ -85,11 +76,7 @@ watchEffect(() => {
 const projectedEarningsPerMonth = ref('—')
 
 const updateProjectedEarningsPerMonth = async () => {
-  if (!regularVault.value) {
-    projectedEarningsPerMonth.value = '—'
-    return
-  }
-  const price = await getAssetUsdValue(position.assets, regularVault.value, 'off-chain')
+  const price = await getAssetUsdValue(position.assets, vault.value, 'off-chain')
   if (price === undefined || price === 0) {
     projectedEarningsPerMonth.value = '—'
     return
@@ -298,10 +285,10 @@ const onClick = () => {
               {{ supplyValueDisplay }}
             </div>
             <div
-              v-if="regularVault && hasPrice"
+              v-if="hasPrice"
               class="text-content-tertiary text-p3"
             >
-              ~ {{ roundAndCompactTokens(position.assets, regularVault.decimals) }}
+              ~ {{ roundAndCompactTokens(position.assets, vault.decimals) }}
               {{ vault.asset.symbol }}
             </div>
           </div>

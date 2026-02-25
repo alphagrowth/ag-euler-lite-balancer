@@ -250,6 +250,14 @@ export const fetchSecuritizeVault = async (vaultAddress: string): Promise<Securi
     // supplyCapResolved may not exist on all vaults
   }
 
+  const assetPriceInfo = eulerLensAddresses.value?.utilsLens
+    ? await resolveAssetPriceInfo(
+      EVM_PROVIDER_URL,
+      eulerLensAddresses.value.utilsLens,
+      data.asset as string,
+    )
+    : undefined
+
   return {
     type: 'securitize',
     verified: verifiedVaultAddresses.value.includes(vaultAddress),
@@ -278,6 +286,7 @@ export const fetchSecuritizeVault = async (vaultAddress: string): Promise<Securi
       cash: data.totalAssets,
       supplyAPY: 0n,
     },
+    assetPriceInfo,
   } as SecuritizeVault
 }
 
