@@ -12,14 +12,23 @@
 interface ChainConfig {
   enabledChainIds: number[]
   subgraphUris: Record<string, string>
+  rpcUrls: Record<string, string>
 }
 
 let cached: ChainConfig | null = null
 
 function scanEnv(): ChainConfig {
-  const enabledChainIds = Object.keys(process.env)
-    .filter(k => /^RPC_URL_HTTP_\d+$/.test(k) && process.env[k])
-    .map(k => Number(k.replace('RPC_URL_HTTP_', '')))
+  const rpcUrls: Record<string, string> = {}
+  const enabledChainIds: number[] = []
+
+  for (const [key, value] of Object.entries(process.env)) {
+    const rpcMatch = key.match(/^RPC_URL_HTTP_(\d+)$/)
+    if (rpcMatch && value) {
+      const chainId = Number(rpcMatch[1])
+      enabledChainIds.push(chainId)
+      rpcUrls[String(chainId)] = value
+    }
+  }
 
   const subgraphUris: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
@@ -29,7 +38,7 @@ function scanEnv(): ChainConfig {
     }
   }
 
-  return { enabledChainIds, subgraphUris }
+  return { enabledChainIds, subgraphUris, rpcUrls }
 }
 
 export const useChainConfig = (): ChainConfig => {
@@ -42,7 +51,7 @@ export const useChainConfig = (): ChainConfig => {
     cached = (window as any).__CHAIN_CONFIG__
   }
   else {
-    cached = { enabledChainIds: [], subgraphUris: {} }
+    cached = { enabledChainIds: [], subgraphUris: {}, rpcUrls: {} }
   }
 
   return cached!

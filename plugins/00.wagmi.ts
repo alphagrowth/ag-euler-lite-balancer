@@ -9,7 +9,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const projectId = envConfig.appKitProjectId
   const appUrl = envConfig.appUrl
   const normalizedAppUrl = appUrl ? appUrl.replace(/\/+$/, '') : ''
-  const { enabledChainIds } = useChainConfig()
+  const { enabledChainIds, rpcUrls } = useChainConfig()
 
   if (!projectId) {
     console.warn('[wagmi] Missing APPKIT_PROJECT_ID in runtime config')
@@ -36,9 +36,15 @@ export default defineNuxtPlugin((nuxtApp) => {
     icons: normalizedAppUrl ? [`${normalizedAppUrl}/manifest-img.png`] : [],
   }
 
+  const customRpcUrls: Record<string, { url: string }[]> = {}
+  for (const [chainId, url] of Object.entries(rpcUrls)) {
+    customRpcUrls[`eip155:${chainId}`] = [{ url }]
+  }
+
   const wagmiAdapter = new WagmiAdapter({
     networks,
     projectId: projectId || '',
+    customRpcUrls,
   })
 
   createAppKit({
