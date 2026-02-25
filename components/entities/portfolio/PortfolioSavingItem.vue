@@ -4,6 +4,7 @@ import type { Vault } from '~/entities/vault'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { formatNumber, compactNumber, formatCompactUsdValue, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { type AccountDepositPosition, getSubAccountIndex } from '~/entities/account'
@@ -45,6 +46,7 @@ const supplyApyWithRewards = computed(() => supplyApy.value + getSupplyRewardApy
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.value.address))
+const isDeprecated = computed(() => isVaultDeprecated(vault.value.address))
 const isEscrow = computed(() => 'vaultCategory' in vault.value && vault.value.vaultCategory === 'escrow')
 const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
 const displayName = computed(() => {
@@ -159,6 +161,17 @@ const onClick = () => {
               />
               Restricted
             </span>
+            <span
+              v-if="isDeprecated"
+              class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+              title="This vault has been deprecated."
+            >
+              <SvgIcon
+                name="warning"
+                class="!w-14 !h-14"
+              />
+              Deprecated
+            </span>
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
@@ -246,10 +259,6 @@ const onClick = () => {
               :name="displayName"
               :is-unverified="isUnverified"
             />
-            <VaultWarningIcon
-              :warning="utilisationWarning"
-              tooltip-placement="top-start"
-            />
             <span
               v-if="isGeoBlocked"
               class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
@@ -261,6 +270,21 @@ const onClick = () => {
               />
               Restricted
             </span>
+            <span
+              v-if="isDeprecated"
+              class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+              title="This vault has been deprecated."
+            >
+              <SvgIcon
+                name="warning"
+                class="!w-14 !h-14"
+              />
+              Deprecated
+            </span>
+            <VaultWarningIcon
+              :warning="utilisationWarning"
+              tooltip-placement="top-start"
+            />
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
