@@ -36,6 +36,7 @@ const { borrowOptions, borrowVaults } = useSwapDebtOptions({
 const currentDebt = computed(() => position.value?.borrowed || 0n)
 const balance = computed(() => currentDebt.value)
 const targetVaultAddress = computed(() => typeof route.query.to === 'string' ? route.query.to : '')
+const hasBorrowSwapOptions = computed(() => borrowVaults.value.length > 0)
 
 const setFromAmountToMax = () => {
   if (!fromVault.value) {
@@ -308,6 +309,14 @@ watch([currentDebt, fromVault], () => {
   }
 })
 
+watch(borrowVaults, (vaults) => {
+  if (!toVault.value) return
+  const existsInOptions = vaults.some(v => normalizeAddress(v.address) === normalizeAddress(toVault.value?.address))
+  if (!existsInOptions) {
+    toVault.value = undefined
+  }
+})
+
 const onToVaultChange = (selectedIndex: number) => {
   clearSimulationError()
   const nextVault = borrowVaults.value[selectedIndex]
@@ -326,7 +335,7 @@ const onToVaultChange = (selectedIndex: number) => {
       :loading="isLoading || isPositionsLoading"
       @submit.prevent="submit"
     >
-      <template v-if="fromVault && toVault">
+      <template v-if="fromVault">
         <VaultLabelsAndAssets
           :vault="fromVault"
           :assets="[fromVault.asset] as VaultAsset[]"
@@ -353,7 +362,7 @@ const onToVaultChange = (selectedIndex: number) => {
             />
 
             <SwapRouteSelector
-              v-if="!isSameAsset"
+              v-if="toVault && !isSameAsset"
               :items="swapRouteItems"
               :selected-provider="selectedProvider"
               :status-label="quotesStatusLabel"
@@ -364,6 +373,7 @@ const onToVaultChange = (selectedIndex: number) => {
             />
 
             <AssetInput
+              v-if="toVault"
               v-model="toAmount"
               :desc="toProduct.name"
               label="To"
@@ -373,6 +383,13 @@ const onToVaultChange = (selectedIndex: number) => {
               collateral-modal-title="Select debt"
               :readonly="true"
               @change-collateral="onToVaultChange"
+            />
+            <UiToast
+              v-else-if="!isLoading && !isPositionsLoading && !hasBorrowSwapOptions"
+              title="No debt swap options available"
+              description="There are no other debt assets available to swap into for this position."
+              variant="warning"
+              size="compact"
             />
 
             <UiToast
@@ -419,7 +436,10 @@ const onToVaultChange = (selectedIndex: number) => {
               size="compact"
             />
 
-            <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
+            <div
+              v-if="toVault"
+              class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2"
+            >
               <VaultFormSubmit
                 :disabled="reviewSwapDisabled"
                 :loading="isSubmitting || isPreparing"
@@ -430,6 +450,7 @@ const onToVaultChange = (selectedIndex: number) => {
           </div>
 
           <VaultFormInfoBlock
+            v-if="toVault"
             :loading="!isSameAsset && isQuoteLoading"
             variant="card"
             class="w-full laptop:max-w-[360px]"
