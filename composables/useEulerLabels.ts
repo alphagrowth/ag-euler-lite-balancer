@@ -17,6 +17,7 @@ import {
   earnVaultBlocks,
   earnVaultRestrictions,
   featuredEarnVaults,
+  deprecatedEarnVaults,
   verifiedVaultAddresses,
   oracleAdapters,
   loadingAdapters,
@@ -118,6 +119,7 @@ export const useEulerLabels = () => {
       Object.keys(oracleAdapters).forEach(key => delete oracleAdapters[key])
       Object.keys(earnVaultBlocks).forEach(key => delete earnVaultBlocks[key])
       Object.keys(earnVaultRestrictions).forEach(key => delete earnVaultRestrictions[key])
+      Object.keys(deprecatedEarnVaults).forEach(key => delete deprecatedEarnVaults[key])
       featuredEarnVaults.clear()
       earnVaults.value = []
       verifiedVaultAddresses.value = []
@@ -128,29 +130,30 @@ export const useEulerLabels = () => {
         axios.get(getLabelsUrl(chainId, 'points.json')),
       ])
 
-      if (_isCustomLabelsRepo) {
-        try {
-          const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
-          const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], restricted?: string[], featured?: boolean }>
-          earnVaults.value = earnEntries.map((entry) => {
-            if (typeof entry === 'string') return normalizeAddress(entry)
-            const addr = normalizeAddress(entry.address)
-            if (entry.block?.length) {
-              earnVaultBlocks[addr.toLowerCase()] = entry.block
-            }
-            if (entry.restricted?.length) {
-              earnVaultRestrictions[addr.toLowerCase()] = entry.restricted
-            }
-            if (entry.featured) {
-              featuredEarnVaults.add(addr)
-            }
-            return addr
-          })
-        }
-        catch {
-          if (_enableEarnPage) {
-            logWarn('labels/earn-vaults', `earn-vaults.json not found on ${_labelsRepo}@${_labelsRepoBranch}`)
+      try {
+        const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
+        const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], restricted?: string[], featured?: boolean, deprecated?: boolean, deprecationReason?: string }>
+        earnVaults.value = earnEntries.map((entry) => {
+          if (typeof entry === 'string') return normalizeAddress(entry)
+          const addr = normalizeAddress(entry.address)
+          if (entry.block?.length) {
+            earnVaultBlocks[addr.toLowerCase()] = entry.block
           }
+          if (entry.restricted?.length) {
+            earnVaultRestrictions[addr.toLowerCase()] = entry.restricted
+          }
+          if (entry.featured) {
+            featuredEarnVaults.add(addr)
+          }
+          if (entry.deprecated) {
+            deprecatedEarnVaults[addr.toLowerCase()] = entry.deprecationReason ?? ''
+          }
+          return addr
+        })
+      }
+      catch {
+        if (_enableEarnPage) {
+          logWarn('labels/earn-vaults', `earn-vaults.json not found on ${_labelsRepo}@${_labelsRepoBranch}`)
         }
       }
 

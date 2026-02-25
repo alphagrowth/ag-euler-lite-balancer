@@ -5,6 +5,7 @@ import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isEarnVaultDeprecated, getEarnVaultDeprecationReason } from '~/utils/eulerLabelsUtils'
 import { autoLink } from '~/utils/autoLink'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
@@ -17,9 +18,13 @@ const entities = useEulerEntitiesOfEarnVault(vault)
 const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
 
 const isDeprecated = computed(() => {
-  return product.deprecatedVaults?.includes(vaultAddress.value) ?? false
+  return isEarnVaultDeprecated(vault.address)
+    || (product.deprecatedVaults?.includes(vaultAddress.value) ?? false)
 })
-const deprecationReason = computed(() => isDeprecated.value ? product.deprecationReason : '')
+const deprecationReason = computed(() => {
+  if (!isDeprecated.value) return ''
+  return getEarnVaultDeprecationReason(vault.address) || product.deprecationReason || ''
+})
 const isRestricted = computed(() => isVaultBlockedByCountry(vault.address))
 
 const priceDisplay = ref('-')
