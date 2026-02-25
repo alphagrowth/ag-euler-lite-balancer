@@ -253,6 +253,40 @@ This prevents re-fetching and re-rendering when users navigate between listing p
 4. **Wallet Security**: Secure wallet connection and transaction signing
 5. **Error Handling**: Secure error messages that don't leak sensitive information
 
+### Server-Side API Protection
+
+The Nuxt server layer (`server/api/`) proxies requests to external services (RPC nodes, Tenderly, TRM) to keep operator API keys out of client bundles. Several layers protect these endpoints:
+
+| Layer | Purpose |
+|---|---|
+| **CORS** (`server/middleware/cors.ts`) | Restricts API access to configured origins |
+| **Body size limits** (`server/middleware/body-limit.ts`) | Caps request payloads (1 MB RPC, 2 MB Tenderly) |
+| **Geo-blocking** (`server/middleware/geo-gate.ts`) | Blocks sanctioned countries via Cloudflare headers |
+| **RPC method whitelist** (`server/api/rpc/[chainId].ts`) | Only 16 safe read/send methods are proxied |
+| **Rate limiting** (`server/utils/rate-limit.ts`) | Per-IP cost-based budgets (see below) |
+| **Swap verifier validation** (`utils/swap-validation.ts`) | Validates swap verifier addresses against known config |
+
+#### Rate Limiting
+
+The app includes a built-in per-IP rate limiter as a defense-in-depth measure. Default budgets per 60-second window:
+
+- **RPC proxy**: 1000 units (batch of N costs N)
+- **Tenderly simulate**: 10 requests
+- **Address screening**: 10 requests
+
+**Important**: This is a best-effort safeguard, not a security boundary. It catches accidental abuse (e.g. a client stuck in a retry loop) but will not stop a determined attacker. Known limitations:
+
+- **In-memory state is per-process** — if Nitro spawns multiple workers, each gets its own budget, effectively multiplying the limit.
+- **IP detection depends on the network layer** — behind Cloudflare, the limiter uses `CF-Connecting-IP` (reliable, not spoofable). Without a trusted reverse proxy, it falls back to `X-Forwarded-For`, which is client-controlled and trivially spoofable.
+
+#### Deployment Recommendations
+
+For production, operators should run the app behind a reverse proxy that handles rate limiting at the infrastructure level:
+
+- **Cloudflare**: Recommended. Provides rate limiting, DDoS protection, geo-headers, and a trustworthy `CF-Connecting-IP` header out of the box.
+- **Nginx / Caddy / HAProxy**: Configure `limit_req` (Nginx) or equivalent, and ensure the proxy forwards the real client IP in a header the app can trust.
+- **No reverse proxy**: The built-in rate limiter still provides basic protection against casual abuse, but should not be relied upon as the sole defense for API keys and upstream service quotas.
+
 ## 📱 Mobile-First Architecture
 
 ### Responsive Design Principles
