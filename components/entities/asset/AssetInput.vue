@@ -27,6 +27,24 @@ const model = defineModel<string>({ default: '' })
 const inputEl = useTemplateRef<HTMLInputElement>('inputEl')
 const modal = useModal()
 const isFocused = ref(false)
+const emitInputTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
+const emitInputDebounced = () => {
+  if (emitInputTimeout.value) {
+    clearTimeout(emitInputTimeout.value)
+  }
+  emitInputTimeout.value = setTimeout(() => {
+    emits('input')
+    emitInputTimeout.value = null
+  }, 250)
+}
+
+const emitInputNow = () => {
+  if (emitInputTimeout.value) {
+    clearTimeout(emitInputTimeout.value)
+    emitInputTimeout.value = null
+  }
+  emits('input')
+}
 
 const selectedIdx = ref(0)
 const friendlyBalance = computed(() => nanoToValue(props.balance ?? 0n, props.asset?.decimals || 18))
@@ -68,7 +86,7 @@ const price = computed(() => {
 const hasPrice = computed(() => price.value !== null)
 const setMax = () => {
   model.value = trimTrailingZeros(formatUnits(props.balance ?? 0n, Number(props.asset.decimals)))
-  emits('input')
+  emitInputNow()
   if (inputEl.value) {
     inputEl.value.value = model.value || ''
   }
@@ -87,8 +105,21 @@ const onInput = (e: Event) => {
   else {
     model.value = value
   }
-  emits('input', e)
+  emitInputDebounced()
 }
+const onBlur = () => {
+  isFocused.value = false
+  if (!props.readonly) {
+    emitInputNow()
+  }
+}
+
+onBeforeUnmount(() => {
+  if (emitInputTimeout.value) {
+    clearTimeout(emitInputTimeout.value)
+    emitInputTimeout.value = null
+  }
+})
 const openChooseCollateralModal = () => {
   if ((props.collateralOptions?.length ?? 0) < 2) {
     return
@@ -147,7 +178,7 @@ const openChooseCollateralModal = () => {
         :readonly="readonly"
         :inputmode="readonly ? 'none' : 'decimal'"
         @focus="isFocused = true"
-        @blur="isFocused = false"
+        @blur="onBlur"
         @input="onInput"
       >
 
