@@ -11,6 +11,7 @@ import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
 import { normalizeAddress } from '~/utils/normalizeAddress'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 
 const route = useRoute()
 const { getVault } = useVaults()
@@ -33,6 +34,14 @@ const toVault: Ref<Vault | undefined> = ref()
 const isFromSecuritizeVault = computed(() => fromVault.value && 'type' in fromVault.value && fromVault.value.type === 'securitize')
 const fromVaultAsRegular = computed(() => fromVault.value as Vault | undefined)
 const { collateralOptions, collateralVaults } = useSwapCollateralOptions({ currentVault: fromVaultAsRegular })
+const toVaultOptions = computed(() => collateralVaults.value.filter(vault => !isVaultDeprecated(vault.address)))
+const toVaultOptionAddresses = computed(() => new Set(toVaultOptions.value.map(vault => normalizeAddress(vault.address))))
+const toCollateralOptions = computed(() => {
+  return collateralOptions.value.filter((option) => {
+    if (!option.vaultAddress) return false
+    return toVaultOptionAddresses.value.has(normalizeAddress(option.vaultAddress))
+  })
+})
 
 const getVaultAddress = () => route.params.vault as string
 
@@ -68,7 +77,7 @@ const swap = useSwapPageLogic({
   fromVault,
   toVault,
   balance,
-  vaultOptions: collateralVaults,
+  vaultOptions: toVaultOptions,
   displayAmountField: 'amountOut',
   quoteDiffPrefix: '-',
   redirectPath: '/portfolio/saving',
@@ -220,7 +229,7 @@ watch([() => route.params.vault, () => route.query.to], () => {
               label="To"
               :asset="toVault.asset"
               :vault="toVault"
-              :collateral-options="collateralOptions"
+              :collateral-options="toCollateralOptions"
               collateral-modal-title="Select vault"
               :readonly="true"
               @change-collateral="onToVaultChange"
