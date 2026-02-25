@@ -264,6 +264,14 @@ const renderChart = async () => {
     }
 
     if (kinkUtilization !== null) {
+      const labelsAreClose = Math.abs(currentUtilization - kinkUtilization) < 20
+      const currentIsLower = currentUtilization <= kinkUtilization
+      const yOffset = labelsAreClose ? 24 : 0
+
+      if (labelsAreClose && currentIsLower) {
+        annotations.currentLine.label.yAdjust = yOffset
+      }
+
       annotations.kinkLine = {
         type: 'line',
         xMin: kinkUtilization.toFixed(0),
@@ -275,6 +283,7 @@ const renderChart = async () => {
           display: true,
           content: `Kink (${kinkUtilization.toFixed(2)}%)`,
           position: 'end',
+          yAdjust: labelsAreClose && !currentIsLower ? yOffset : 0,
           backgroundColor: 'rgba(5, 150, 105, 0.8)',
           color: '#FFFFFF',
           font: {
