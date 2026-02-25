@@ -24,6 +24,8 @@ const {
   updateSavingsPositions,
 } = useAccountPositions()
 
+let fetchInProgress = false
+
 const {
   totalSuppliedValue,
   totalSuppliedValueInfo,
@@ -41,35 +43,42 @@ export const useEulerAccount = () => {
   const isDebugPortfolio = computed(() => Boolean(normalizedDebugAddress.value))
 
   const updatePositions = async () => {
-    const gen = positionGuard.current()
-    const targetAddress = portfolioAddress.value
-    const shouldShowAll = isShowAllPositions.value || isDebugPortfolio.value
-    const { SUBGRAPH_URL } = useEulerConfig()
+    if (fetchInProgress) return
+    fetchInProgress = true
+    try {
+      const gen = positionGuard.current()
+      const targetAddress = portfolioAddress.value
+      const shouldShowAll = isShowAllPositions.value || isDebugPortfolio.value
+      const { SUBGRAPH_URL } = useEulerConfig()
 
-    // Fetch both borrow and deposit entries in a single subgraph query
-    const { borrows: borrowEntries, deposits: depositEntries } = targetAddress
-      ? await fetchAccountPositions(SUBGRAPH_URL, targetAddress)
-      : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
+      // Fetch both borrow and deposit entries in a single subgraph query
+      const { borrows: borrowEntries, deposits: depositEntries } = targetAddress
+        ? await fetchAccountPositions(SUBGRAPH_URL, targetAddress)
+        : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
 
-    // Discard if chain switched during subgraph fetch
-    if (positionGuard.isStale(gen)) return
+      // Discard if chain switched during subgraph fetch
+      if (positionGuard.isStale(gen)) return
 
-    // Borrow positions must be loaded first so deposits can filter against them
-    await updateBorrowPositions(
-      eulerLensAddresses.value,
-      targetAddress,
-      borrowEntries,
-      false,
-      { forceAllPositions: shouldShowAll },
-    )
-    await updateSavingsPositions(
-      eulerLensAddresses.value,
-      targetAddress,
-      depositEntries,
-      false,
-      { forceAllPositions: shouldShowAll },
-      gen,
-    )
+      // Borrow positions must be loaded first so deposits can filter against them
+      await updateBorrowPositions(
+        eulerLensAddresses.value,
+        targetAddress,
+        borrowEntries,
+        false,
+        { forceAllPositions: shouldShowAll },
+      )
+      await updateSavingsPositions(
+        eulerLensAddresses.value,
+        targetAddress,
+        depositEntries,
+        false,
+        { forceAllPositions: shouldShowAll },
+        gen,
+      )
+    }
+    finally {
+      fetchInProgress = false
+    }
   }
 
   const debouncedUpdatePositions = useDebounceFn(() => {
@@ -139,16 +148,23 @@ export const useEulerAccount = () => {
     lensAddresses: EulerLensAddresses,
     walletAddress: string,
   ) => {
-    const gen = positionGuard.current()
-    const { SUBGRAPH_URL } = useEulerConfig()
-    const { borrows: borrowEntries, deposits: depositEntries } = walletAddress
-      ? await fetchAccountPositions(SUBGRAPH_URL, walletAddress)
-      : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
+    if (fetchInProgress) return
+    fetchInProgress = true
+    try {
+      const gen = positionGuard.current()
+      const { SUBGRAPH_URL } = useEulerConfig()
+      const { borrows: borrowEntries, deposits: depositEntries } = walletAddress
+        ? await fetchAccountPositions(SUBGRAPH_URL, walletAddress)
+        : { borrows: [] as SubgraphPositionEntry[], deposits: [] as SubgraphPositionEntry[] }
 
-    if (positionGuard.isStale(gen)) return
+      if (positionGuard.isStale(gen)) return
 
-    await updateBorrowPositions(lensAddresses, walletAddress, borrowEntries)
-    await updateSavingsPositions(lensAddresses, walletAddress, depositEntries, false, {}, gen)
+      await updateBorrowPositions(lensAddresses, walletAddress, borrowEntries)
+      await updateSavingsPositions(lensAddresses, walletAddress, depositEntries, false, {}, gen)
+    }
+    finally {
+      fetchInProgress = false
+    }
   }
 
   return {

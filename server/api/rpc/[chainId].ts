@@ -98,8 +98,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const cost = isBatch ? body.length : 1
-  rateLimiter.consume(event, cost)
+  rateLimiter.consume(event)
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS)
