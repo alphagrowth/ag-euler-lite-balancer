@@ -78,7 +78,7 @@ onClickOutside(reference, () => {
       @click="onLogoClick"
     >
       <img
-        class="!w-32 !h-32"
+        class="!w-24 !h-24"
         src="/logo.png"
         alt="Euler"
       >
