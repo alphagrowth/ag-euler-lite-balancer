@@ -20,6 +20,7 @@ const props = defineProps<{
   readonly?: boolean
   priceOverride?: number // For vaults without standard price info (e.g., securitize)
   swappable?: boolean // When true, asset pill shows dropdown arrow and emits click-asset
+  selectedSource?: 'wallet' | 'saving' // Source indicator chip when multiple collateral options exist
 }>()
 const emits = defineEmits(['input', 'change-collateral', 'click-asset'])
 const model = defineModel<string>({ default: '' })
@@ -46,7 +47,18 @@ const emitInputNow = () => {
   emits('input')
 }
 
-const selectedIdx = ref(0)
+const getSelectedIdx = () => {
+  if (props.selectedSource && props.collateralOptions?.length) {
+    const idx = props.collateralOptions.findIndex(o => o.type === props.selectedSource)
+    if (idx >= 0) return idx
+  }
+  return 0
+}
+const selectedIdx = ref(getSelectedIdx())
+watch(
+  [() => props.selectedSource, () => props.collateralOptions],
+  () => { selectedIdx.value = getSelectedIdx() },
+)
 const friendlyBalance = computed(() => nanoToValue(props.balance ?? 0n, props.asset?.decimals || 18))
 
 // Auto-advance past disabled options (blocked/restricted vaults)
@@ -183,19 +195,35 @@ const openChooseCollateralModal = () => {
       >
 
       <div
-        class="bg-euler-dark-500 text-p3 font-semibold gap-8 flex items-center justify-center px-12 h-36 rounded-[40px] whitespace-nowrap cursor-pointer"
+        class="bg-euler-dark-500 text-p3 font-semibold gap-8 flex items-center justify-center px-12 min-h-36 py-6 rounded-[40px] whitespace-nowrap cursor-pointer"
         @click="swappable ? emits('click-asset') : openChooseCollateralModal()"
       >
         <AssetAvatar
           :asset="asset"
           size="20"
         />
-        {{ asset.symbol }}
-        <SvgIcon
-          v-if="swappable || (collateralOptions?.length ?? 0) > 1"
-          class="text-euler-dark-800 !w-16 !h-16"
-          name="arrow-down"
-        />
+        <div class="flex flex-col items-start">
+          <span class="flex items-center gap-8">
+            {{ asset.symbol }}
+            <SvgIcon
+              v-if="swappable || (collateralOptions?.length ?? 0) > 1"
+              class="text-euler-dark-800 !w-16 !h-16"
+              name="arrow-down"
+            />
+          </span>
+          <span
+            v-if="selectedSource === 'wallet' && (collateralOptions?.length ?? 0) > 1"
+            class="text-[10px] leading-[12px] text-aquamarine-600"
+          >
+            Wallet
+          </span>
+          <span
+            v-else-if="selectedSource === 'saving' && (collateralOptions?.length ?? 0) > 1"
+            class="text-[10px] leading-[12px] text-yellow-600"
+          >
+            Savings
+          </span>
+        </div>
       </div>
     </div>
     <div

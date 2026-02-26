@@ -10,7 +10,7 @@ const { productName, symbol, collateralOptions, selected = 0, title = 'Select co
   collateralOptions: CollateralOption[]
   selected?: number
   title?: string
-  onSave: any
+  onSave: (selectedIndex: number) => void
 }>()
 
 const { isEscrowVault } = useVaultRegistry()
@@ -112,7 +112,10 @@ const handleClose = () => {
             </span>
           </div>
         </div>
-        <div class="text-right grow-1">
+        <div
+          v-if="getOptionType(option) !== 'wallet'"
+          class="text-right grow-1"
+        >
           <div class="text-euler-dark-900 mb-2">
             APY
           </div>
