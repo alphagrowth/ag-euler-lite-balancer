@@ -836,7 +836,7 @@ watch(address, () => {
               align-top
             >
               <p class="text-content-tertiary">
-                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
+                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
                   asset.symbol
                 }}
                 <template v-if="features.hasPriceInfo && vault">

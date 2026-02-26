@@ -61,11 +61,16 @@ export const formatSignificantFloor = (value: string | number = 0, maximumSignif
 }
 
 export const compactNumber = (value: string | number = 0, maximumFractionDigits = 2, minimumFractionDigits = 0) => {
-  return Intl.NumberFormat('en-US', {
+  const formattedValue = Intl.NumberFormat('en-US', {
     notation: 'compact',
     maximumFractionDigits,
     minimumFractionDigits,
   }).format(Number(value))
+
+  if (Number(value) > 0 && formattedValue === '0') return `<0.${'1'.padStart(maximumFractionDigits, '0')}`
+  if (Number(value) < 0 && formattedValue === '-0') return '≈0'
+
+  return formattedValue
 }
 
 /**
