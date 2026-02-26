@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { zeroAddress, type Address, type Abi } from 'viem'
+import { getAddress, zeroAddress, type Address, type Abi } from 'viem'
 import { getPublicClient } from '~/utils/public-client'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
@@ -58,6 +58,26 @@ const { collateralOptions, collateralVaults } = useSwapCollateralOptions({
   currentVault: fromVaultAsRegular,
   liabilityVault: computed(() => borrowVault.value as Vault | undefined),
 })
+const normalizeVaultAddress = (address?: string) => {
+  if (!address) return ''
+  try {
+    return getAddress(address)
+  }
+  catch {
+    return ''
+  }
+}
+const swapTargetVaults = computed(() => {
+  const fromAddress = normalizeVaultAddress(fromVault.value?.address)
+  return collateralVaults.value.filter(vault => normalizeVaultAddress(vault.address) !== fromAddress)
+})
+const swapTargetVaultAddresses = computed(() => new Set(swapTargetVaults.value.map(vault => normalizeVaultAddress(vault.address))))
+const swapTargetOptions = computed(() => {
+  return collateralOptions.value.filter((option) => {
+    if (!option.vaultAddress) return false
+    return swapTargetVaultAddresses.value.has(normalizeVaultAddress(option.vaultAddress))
+  })
+})
 
 const balance = computed(() => selectedCollateralAssets.value)
 const targetVaultAddress = computed(() => typeof route.query.to === 'string' ? route.query.to : '')
@@ -78,7 +98,7 @@ const swap = useSwapPageLogic({
   fromVault,
   toVault,
   balance,
-  vaultOptions: collateralVaults,
+  vaultOptions: swapTargetVaults,
   displayAmountField: 'amountOut',
   quoteDiffPrefix: '-',
   redirectPath: '/portfolio',
@@ -169,8 +189,8 @@ const {
   isQuoteLoading, quoteError, quotesStatusLabel, selectedProvider, selectedQuote,
   fromProduct, toProduct, swapPriceInvert, currentPrice, swapSummary, priceImpact, routedVia,
   swapRouteItems, swapRouteEmptyMessage,
-  selectProvider, onFromInput, onToVaultChange, onRefreshQuotes, submit, openSlippageSettings,
-  normalizeAddress, resetQuoteState,
+  selectProvider, onFromInput, onRefreshQuotes, submit, openSlippageSettings,
+  normalizeAddress, clearSimulationError, resetQuoteState,
 } = swap
 
 // ── Position loading ─────────────────────────────────────────────────────
@@ -216,8 +236,8 @@ const loadSelectedCollateral = async () => {
       abi: eulerAccountLensABI as Abi,
       functionName: 'getVaultAccountInfo',
       args: [position.value.subAccount, targetAddress],
-    }) as Record<string, any>
-    selectedCollateralAssets.value = res.assets
+    }) as { assets?: bigint }
+    selectedCollateralAssets.value = res.assets ?? 0n
   }
   catch (e) {
     console.warn('[Collateral swap] failed to load collateral', e)
@@ -249,6 +269,46 @@ watch(() => route.query.collateral, async () => {
   if (!position.value) return
   await loadSelectedCollateral()
 })
+
+watch([swapTargetVaults, fromVault], ([vaults, sourceVault]) => {
+  if (!toVault.value) return
+
+  const toAddress = normalizeVaultAddress(toVault.value.address)
+  const fromAddress = normalizeVaultAddress(sourceVault?.address)
+  const existsInOptions = vaults.some(v => normalizeVaultAddress(v.address) === toAddress)
+  const pointsToSourceVault = !!toAddress && !!fromAddress && toAddress === fromAddress
+
+  if (!existsInOptions || pointsToSourceVault) {
+    toVault.value = undefined
+  }
+}, { immediate: true })
+
+watch([toVault, fromVault], ([targetVault, sourceVault]) => {
+  if (!targetVault || !sourceVault) return
+  const targetAddress = normalizeVaultAddress(targetVault.address)
+  const sourceAddress = normalizeVaultAddress(sourceVault.address)
+  if (targetAddress && sourceAddress && targetAddress === sourceAddress) {
+    toVault.value = undefined
+  }
+})
+
+const onToVaultChange = (selectedIndex: number) => {
+  clearSimulationError()
+  const selectedOption = swapTargetOptions.value[selectedIndex]
+  if (!selectedOption?.vaultAddress) return
+
+  const nextVault = swapTargetVaults.value.find(vault =>
+    normalizeVaultAddress(vault.address) === normalizeVaultAddress(selectedOption.vaultAddress),
+  )
+  if (!nextVault) {
+    toVault.value = undefined
+    return
+  }
+
+  if (!toVault.value || normalizeVaultAddress(toVault.value.address) !== normalizeVaultAddress(nextVault.address)) {
+    toVault.value = nextVault
+  }
+}
 
 // ── Supply & borrow APY ──────────────────────────────────────────────────
 const fromSupplyApy = computed(() => {
@@ -448,7 +508,7 @@ const nextLiquidationPrice = computed(() => {
             />
 
             <SwapRouteSelector
-              v-if="!isSameAsset"
+              v-if="toVault && !isSameAsset"
               :items="swapRouteItems"
               :selected-provider="selectedProvider"
               :status-label="quotesStatusLabel"
@@ -465,16 +525,17 @@ const nextLiquidationPrice = computed(() => {
               label="To"
               :asset="toVault.asset"
               :vault="toVault"
-              :collateral-options="collateralOptions"
+              :collateral-options="swapTargetOptions"
               :readonly="true"
               @change-collateral="onToVaultChange"
             />
-            <div
-              v-else
-              class="bg-euler-dark-400 rounded-16 p-16 text-euler-dark-900"
-            >
-              No collateral swap options available
-            </div>
+            <UiToast
+              v-else-if="!isLoading && !isPositionsLoading"
+              title="No collateral swap options"
+              description="There are no other vaults that accept this collateral for this position."
+              variant="warning"
+              size="compact"
+            />
 
             <UiToast
               v-if="isGeoBlocked"
@@ -491,7 +552,7 @@ const nextLiquidationPrice = computed(() => {
               size="compact"
             />
             <UiToast
-              v-if="sameVaultError"
+              v-if="toVault && sameVaultError"
               title="Error"
               variant="error"
               :description="sameVaultError"
@@ -506,14 +567,17 @@ const nextLiquidationPrice = computed(() => {
             />
 
             <UiToast
-              v-if="quoteError"
+              v-if="toVault && quoteError"
               title="Swap quote"
               variant="warning"
               :description="quoteError"
               size="compact"
             />
 
-            <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
+            <div
+              v-if="toVault"
+              class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2"
+            >
               <VaultFormSubmit
                 :disabled="reviewSwapDisabled"
                 :loading="isSubmitting || isPreparing"
@@ -524,6 +588,7 @@ const nextLiquidationPrice = computed(() => {
           </div>
 
           <VaultFormInfoBlock
+            v-if="toVault"
             :loading="!isSameAsset && isQuoteLoading"
             variant="card"
             class="w-full laptop:max-w-[360px]"
