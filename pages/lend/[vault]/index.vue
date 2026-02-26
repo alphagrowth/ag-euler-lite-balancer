@@ -645,7 +645,7 @@ watch(address, () => {
   <div>
     <BaseBackButton class="laptop:!hidden mb-16" />
     <h1 class="text-p1 mb-16">
-      Open lend position
+      Supply to the vault
     </h1>
     <div class="flex gap-32">
       <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
