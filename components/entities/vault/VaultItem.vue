@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getAddress } from 'viem'
-import { getVaultUtilization, type Vault } from '~/entities/vault'
+import { getVaultUtilization, getCurrentLiquidationLTV, type Vault } from '~/entities/vault'
 import { getUtilisationWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault, useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
@@ -12,7 +12,8 @@ import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/stri
 import { nanoToValue } from '~/utils/crypto-utils'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 import { useModal } from '~/components/ui/composables/useModal'
-import { VaultSupplyApyModal } from '#components'
+import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { VaultSupplyApyModal, VaultCollateralExposureModal } from '#components'
 
 const { isConnected } = useAccount()
 const { vault } = defineProps<{ vault: Vault }>()
@@ -43,6 +44,27 @@ const { getBalance, isLoading: isBalancesLoading } = useWallets()
 const { withIntrinsicSupplyApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
 const modal = useModal()
+const { get: registryGet } = useVaultRegistry()
+
+const collateralAssets = computed(() => {
+  if (!isBorrowable.value) return []
+  const seen = new Set<string>()
+  const assets: { address: string, symbol: string }[] = []
+  for (const ltv of vault.collateralLTVs) {
+    if (ltv.borrowLTV <= 0n) continue
+    if (getCurrentLiquidationLTV(ltv) <= 0n) continue
+    const entry = registryGet(ltv.collateral)
+    if (entry) {
+      const assetAddr = entry.vault.asset.address.toLowerCase()
+      if (seen.has(assetAddr)) continue
+      seen.add(assetAddr)
+      assets.push({ address: entry.vault.asset.address, symbol: entry.vault.asset.symbol })
+    }
+  }
+  return assets
+})
+const collateralDisplayAssets = computed(() => collateralAssets.value.slice(0, 5))
+const collateralOverflowCount = computed(() => Math.max(0, collateralAssets.value.length - 5))
 
 const balance = computed(() =>
   getBalance(vault.asset.address as `0x${string}`),
@@ -71,6 +93,7 @@ const statsGridCols = computed(() => {
   if (isBorrowable.value) {
     cols.push('1fr') // Available liquidity
     cols.push('1fr') // Utilization
+    cols.push('1fr') // Collateral
   }
   if (isConnected.value) cols.push('1fr') // In wallet
   return cols.join(' ')
@@ -99,6 +122,12 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
       campaigns: getSupplyRewardCampaigns(vault.address),
     },
   })
+}
+
+const onCollateralInfoClick = (event: MouseEvent) => {
+  event.preventDefault()
+  event.stopPropagation()
+  modal.open(VaultCollateralExposureModal, { props: { vault } })
 }
 
 const prices = ref<{ totalSupply: string, liquidity: string, walletBalance: string }>({
@@ -283,6 +312,41 @@ watchEffect(async () => {
         </div>
       </div>
       <div
+        v-if="isBorrowable"
+        class="flex flex-col flex-1 mobile:!hidden"
+        :class="isConnected ? 'items-center' : 'items-end text-right'"
+      >
+        <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
+          Collateral
+          <SvgIcon
+            v-if="collateralAssets.length > 0"
+            class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+            name="info-circle"
+            @click="onCollateralInfoClick"
+          />
+        </div>
+        <div
+          v-if="collateralAssets.length > 0"
+          class="flex items-center gap-4 cursor-pointer"
+          @click="onCollateralInfoClick"
+        >
+          <AssetAvatar
+            :asset="collateralDisplayAssets"
+            size="20"
+          />
+          <span
+            v-if="collateralOverflowCount > 0"
+            class="text-p3 text-content-tertiary whitespace-nowrap"
+          >
+            & {{ collateralOverflowCount }} more
+          </span>
+        </div>
+        <div
+          v-else
+          class="text-p2 text-content-primary"
+        >-</div>
+      </div>
+      <div
         v-if="isConnected"
         class="flex flex-col flex-1 items-end text-right mobile:!hidden"
       >
@@ -348,6 +412,44 @@ watchEffect(async () => {
           <div class="text-p2 text-content-primary">
             {{ compactNumber(utilization, 2, 2) }}%
           </div>
+        </div>
+      </div>
+      <div
+        v-if="isBorrowable"
+        class="flex w-full justify-between"
+      >
+        <div class="flex-1">
+          <div class="text-content-tertiary text-p3 flex items-center gap-4">
+            Collateral
+            <SvgIcon
+              v-if="collateralAssets.length > 0"
+              class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+              name="info-circle"
+              @click="onCollateralInfoClick"
+            />
+          </div>
+        </div>
+        <div class="flex gap-8 justify-end items-center text-right flex-1">
+          <div
+            v-if="collateralAssets.length > 0"
+            class="flex items-center gap-8 cursor-pointer"
+            @click="onCollateralInfoClick"
+          >
+            <AssetAvatar
+              :asset="collateralDisplayAssets"
+              size="20"
+            />
+            <span
+              v-if="collateralOverflowCount > 0"
+              class="text-p3 text-content-tertiary whitespace-nowrap"
+            >
+              & {{ collateralOverflowCount }} more
+            </span>
+          </div>
+          <div
+            v-else
+            class="text-p2 text-content-primary"
+          >-</div>
         </div>
       </div>
       <div

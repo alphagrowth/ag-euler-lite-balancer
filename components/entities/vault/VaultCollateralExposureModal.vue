@@ -5,18 +5,11 @@ import type { Vault, SecuritizeVault } from '~/entities/vault'
 import { getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 
-const emits = defineEmits<{
-  'vault-click': [address: string]
-}>()
+const emits = defineEmits(['close'])
+const router = useRouter()
 const { vault } = defineProps<{ vault: Vault }>()
 const { get: registryGet } = useVaultRegistry()
 
-const onCollateralClick = (address: string) => {
-  emits('vault-click', address)
-}
-
-// Build collateral pairs from ALL collateralLTVs where currentLiquidationLTV > 0
-// This includes collaterals that are ramping down (borrowLTV == 0 but currentLiquidationLTV > 0)
 const allCollateralPairs = computed(() => {
   const pairs: Array<{
     collateral: Vault | SecuritizeVault
@@ -28,7 +21,6 @@ const allCollateralPairs = computed(() => {
   }> = []
 
   vault.collateralLTVs.forEach((ltv) => {
-    // Check if current liquidation LTV > 0 (not yet fully ramped down)
     if (getCurrentLiquidationLTV(ltv) <= 0n) return
 
     const pairData = {
@@ -39,18 +31,15 @@ const allCollateralPairs = computed(() => {
       rampDuration: ltv.rampDuration,
     }
 
-    // Try to find the collateral vault from registry
     const collateralEntry = registryGet(ltv.collateral)
     if (collateralEntry) {
       pairs.push({ collateral: collateralEntry.vault as Vault | SecuritizeVault, ...pairData })
     }
   })
 
-  // Sort by borrow LTV descending (highest first)
   return pairs.sort((a, b) => (b.borrowLTV > a.borrowLTV ? 1 : b.borrowLTV < a.borrowLTV ? -1 : 0))
 })
 
-// Helper to format time remaining
 const formatTimeRemaining = (seconds: bigint): string => {
   const days = Number(seconds) / 86400
   if (days >= 1) {
@@ -63,34 +52,33 @@ const formatTimeRemaining = (seconds: bigint): string => {
   const minutes = Number(seconds) / 60
   return `${Math.ceil(minutes)} minute${Math.ceil(minutes) > 1 ? 's' : ''}`
 }
+
+const onCollateralClick = (address: string) => {
+  emits('close')
+  router.push(`/lend/${address}`)
+}
 </script>
 
 <template>
-  <div
-    v-if="allCollateralPairs.length"
-    class="bg-surface-secondary rounded-xl flex flex-col gap-24 p-24 shadow-card"
+  <BaseModalWrapper
+    title="Collateral exposure"
+    @close="$emit('close')"
   >
-    <div>
-      <p class="text-h3 text-content-primary mb-12">
-        Collateral exposure
-      </p>
-      <p class="text-content-secondary">
+    <div
+      v-if="allCollateralPairs.length > 0"
+      class="flex flex-col gap-12"
+    >
+      <p class="text-p3 text-content-secondary mb-4">
         Deposits in this vault can be borrowed.
-        Please make sure you're comfortable accepting the collaterals
-        listed in the table below before supplying.
+        Make sure you're comfortable accepting the collaterals listed below before supplying.
       </p>
-    </div>
-
-    <div class="flex flex-col gap-12">
       <div
         v-for="pair in allCollateralPairs"
         :key="pair.collateral.address"
-        class="bg-surface rounded-xl text-content-primary block no-underline cursor-pointer hover:bg-card-hover transition-colors shadow-sm"
+        class="bg-surface rounded-12 text-content-primary block no-underline cursor-pointer hover:bg-card-hover transition-colors"
         @click="onCollateralClick(pair.collateral.address)"
       >
-        <div
-          class="px-16 pt-16 pb-12 border-b border-line-subtle"
-        >
+        <div class="px-16 pt-16 pb-12 border-b border-line-subtle">
           <VaultLabelsAndAssets
             :vault="pair.collateral"
             :assets="[pair.collateral.asset]"
@@ -102,9 +90,7 @@ const formatTimeRemaining = (seconds: bigint): string => {
             orientation="horizontal"
             :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
           />
-          <VaultOverviewLabelValue
-            orientation="horizontal"
-          >
+          <VaultOverviewLabelValue orientation="horizontal">
             <template #label>
               <span class="flex items-center gap-4">
                 Liquidation LTV
@@ -133,5 +119,11 @@ const formatTimeRemaining = (seconds: bigint): string => {
         </div>
       </div>
     </div>
-  </div>
+    <div
+      v-else
+      class="py-24 text-center text-content-secondary"
+    >
+      No active collateral for this vault.
+    </div>
+  </BaseModalWrapper>
 </template>
