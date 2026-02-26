@@ -444,6 +444,7 @@ watch(formTab, () => {
                 :price-override="borrow.borrowNeedsSwap.value ? borrow.borrowSwapAssetUsdPrice.value : borrow.collateralUnitPrice.value"
                 :balance="borrow.borrowActiveBalance.value"
                 :collateral-options="borrow.borrowNeedsSwap.value ? undefined : (borrow.collateralOptions.value as CollateralOption[])"
+                :selected-source="borrow.isSavingCollateral.value ? 'saving' : 'wallet'"
                 maxable
                 @input="borrow.onCollateralInput"
                 @change-collateral="borrow.onChangeCollateral"
@@ -639,6 +640,7 @@ watch(formTab, () => {
                     :vault="multiply.multiplySupplyVault.value"
                     :balance="multiply.multiplyBalance.value"
                     :collateral-options="multiply.multiplyCollateralOptions.value"
+                    :selected-source="multiply.isMultiplySavingCollateral.value ? 'saving' : 'wallet'"
                     maxable
                     @input="multiply.onMultiplyInput"
                     @change-collateral="multiply.onMultiplyCollateralChange"
