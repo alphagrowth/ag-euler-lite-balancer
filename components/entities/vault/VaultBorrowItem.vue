@@ -15,6 +15,15 @@ import { VaultBorrowApyModal, VaultMaxRoeModal } from '#components'
 
 const { pair } = defineProps<{ pair: AnyBorrowVaultPair }>()
 const { enableEntityBranding } = useDeployConfig()
+const { isVaultGovernorVerified } = useVaults()
+
+const isAnyGovernorUnverified = computed(() => {
+  const borrowUnverified = !isVaultGovernorVerified(pair.borrow)
+  const collateralUnverified = 'governorAdmin' in pair.collateral
+    ? !isVaultGovernorVerified(pair.collateral as Vault)
+    : false
+  return borrowUnverified || collateralUnverified
+})
 
 const entityDisplay = computed(() => {
   const borrowEntities = getEntitiesByVault(pair.borrow)
@@ -319,7 +328,17 @@ const linkPath = computed(
       >
         <div class="text-content-tertiary text-p3 mb-4">Risk manager</div>
         <div
-          v-if="entityDisplay.name"
+          v-if="isAnyGovernorUnverified"
+          class="flex gap-8 items-center py-4 px-8 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p2 w-fit"
+        >
+          <SvgIcon
+            name="warning"
+            class="!w-16 !h-16"
+          />
+          Unknown
+        </div>
+        <div
+          v-else-if="entityDisplay.name"
           class="flex items-center gap-6"
         >
           <BaseAvatar
@@ -394,7 +413,17 @@ const linkPath = computed(
           <div class="text-content-tertiary text-p3">Risk manager</div>
         </div>
         <div class="flex gap-8 justify-end items-center text-right flex-1">
-          <template v-if="entityDisplay.name">
+          <div
+            v-if="isAnyGovernorUnverified"
+            class="flex gap-8 items-center py-4 px-8 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p2 w-fit"
+          >
+            <SvgIcon
+              name="warning"
+              class="!w-16 !h-16"
+            />
+            Unknown
+          </div>
+          <template v-else-if="entityDisplay.name">
             <BaseAvatar
               class="icon--20"
               :label="entityDisplay.name"
