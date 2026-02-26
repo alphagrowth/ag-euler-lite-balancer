@@ -6,6 +6,7 @@ import type { AccountBorrowPosition } from '~/entities/account'
 
 const emits = defineEmits(['close'])
 const router = useRouter()
+const route = useRoute()
 
 const { pair, vault, earnVault, extraVault, securitizeVault, collateralVaults, title = 'Market information' } = defineProps<{ pair?: AnyBorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault, extraVault?: Vault, securitizeVault?: SecuritizeVault, collateralVaults?: (Vault | SecuritizeVault)[], title?: string }>()
 
@@ -80,7 +81,7 @@ const activeCollateralVault = computed(() => {
 
 const onVaultClick = (address: string) => {
   emits('close')
-  router.push(`/lend/${address}`)
+  router.push({ path: `/lend/${address}`, query: { network: route.query.network } })
 }
 </script>
 

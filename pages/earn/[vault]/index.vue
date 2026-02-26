@@ -241,7 +241,7 @@ watch(address, () => {
           v-if="vault"
           :vault="vault as EarnVault"
           desktop-overview
-          @vault-click="(address: string) => router.push(`/lend/${address}`)"
+          @vault-click="(address: string) => router.push({ path: `/lend/${address}`, query: { network: route.query.network } })"
         />
       </div>
       <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">

@@ -25,6 +25,7 @@ import {
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 
 const { position } = defineProps<{ position: AccountBorrowPosition }>()
 
@@ -66,6 +67,9 @@ const collateralSymbolLabel = computed(() => {
 const pairSymbols = computed(() => `${collateralSymbolLabel.value}/${position.borrow.asset.symbol}`)
 
 const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(position.collateral.address, position.borrow.address))
+const isAnyDeprecated = computed(() =>
+  isVaultDeprecated(position.collateral.address) || isVaultDeprecated(position.borrow.address),
+)
 
 const isAnyUnverified = computed(() => {
   const collateralUnverified = 'verified' in position.collateral && !position.collateral.verified
@@ -280,7 +284,7 @@ onMounted(() => {
 
 <template>
   <NuxtLink
-    :to="`/position/${subAccountIndex}`"
+    :to="{ path: `/position/${subAccountIndex}`, query: { network: $route.query.network } }"
     class="block no-underline bg-surface rounded-xl border border-line-subtle shadow-card transition-all duration-default ease-default hover:shadow-card-hover hover:border-line-emphasis"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-line-default">
@@ -313,6 +317,17 @@ onMounted(() => {
                   class="!w-14 !h-14"
                 />
                 Restricted
+              </span>
+              <span
+                v-if="isAnyDeprecated"
+                class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+                title="One or more vaults in this position have been deprecated."
+              >
+                <SvgIcon
+                  name="warning"
+                  class="!w-14 !h-14"
+                />
+                Deprecated
               </span>
             </div>
             <div class="text-h5 text-content-primary truncate">

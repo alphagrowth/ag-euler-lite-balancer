@@ -2,6 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { type AccountDepositPosition, getSubAccountIndex } from '~/entities/account'
 import type { EarnVault } from '~/entities/vault'
 import { VaultOverviewModal, VaultSupplyApyModal } from '#components'
@@ -28,6 +29,7 @@ const rewardsExist = computed(() => hasSupplyRewards(vault.value.address))
 
 const product = useEulerProductOfVault(computed(() => vault.value.address))
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.value.address))
+const isDeprecated = computed(() => isVaultDeprecated(vault.value.address))
 const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
 const displayName = computed(() => product.name || vault.value.name)
 
@@ -124,6 +126,17 @@ const onClick = () => {
               />
               Restricted
             </span>
+            <span
+              v-if="isDeprecated"
+              class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"
+              title="This vault has been deprecated."
+            >
+              <SvgIcon
+                name="warning"
+                class="!w-14 !h-14"
+              />
+              Deprecated
+            </span>
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
@@ -190,7 +203,7 @@ const onClick = () => {
           @click.stop
         >
           <UiButton
-            :to="isGeoBlocked ? undefined : `/earn/${vault.address}/`"
+            :to="isGeoBlocked ? undefined : { path: `/earn/${vault.address}/`, query: { network: $route.query.network } }"
             :disabled="isGeoBlocked"
             rounded
           >
@@ -198,7 +211,7 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/earn/${vault.address}/${subAccountIndex}/withdraw`"
+            :to="{ path: `/earn/${vault.address}/${subAccountIndex}/withdraw`, query: { network: $route.query.network } }"
             rounded
           >
             Withdraw
