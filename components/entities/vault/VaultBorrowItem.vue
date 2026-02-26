@@ -201,7 +201,7 @@ const linkPath = computed(
       enableEntityBranding ? '' : 'grid-cols-5',
       (isGeoBlocked || isPairEffectivelyBlocked) ? 'opacity-50' : '',
     ]"
-    :style="enableEntityBranding ? { gridTemplateColumns: '1.5fr repeat(5, 1fr)' } : undefined"
+    :style="enableEntityBranding ? { gridTemplateColumns: 'repeat(6, 1fr)' } : undefined"
   >
     <!-- Header: contents on desktop (children become grid items), flex on mobile -->
     <div class="contents mobile:!flex mobile:py-16 mobile:px-16 mobile:pb-12 mobile:border-b mobile:border-line-subtle">

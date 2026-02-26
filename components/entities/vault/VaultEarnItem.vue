@@ -67,7 +67,7 @@ watchEffect(async () => {
 
 const statsGridCols = computed(() => {
   const cols: string[] = []
-  if (enableEntityBranding) cols.push('1.5fr')
+  if (enableEntityBranding) cols.push('1fr')
   cols.push('1fr') // Total supply
   cols.push('1fr') // Available liquidity
   if (isConnected.value) cols.push('1fr') // In wallet
@@ -196,7 +196,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
           class="text-p2 text-content-primary"
         >-</div>
       </div>
-      <div class="flex-1">
+      <div class="flex-1 flex flex-col items-center mobile:items-start">
         <div class="text-content-tertiary text-p3 mb-4">Total supply</div>
         <div class="text-p2 text-content-primary">
           {{ prices.totalSupply }}

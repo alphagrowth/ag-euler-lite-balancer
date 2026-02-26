@@ -53,6 +53,14 @@ const supplyApyWithRewards = computed(
   () => supplyApy.value + totalRewardsAPY.value,
 )
 
+const statsGridCols = computed(() => {
+  const cols: string[] = []
+  if (enableEntityBranding) cols.push('1fr')
+  cols.push('1fr') // Total supply
+  if (isConnected.value) cols.push('1fr') // In wallet
+  return cols.join(' ')
+})
+
 const prices = ref<{ totalSupply: string, walletBalance: string }>({
   totalSupply: '-',
   walletBalance: '-',
@@ -121,11 +129,12 @@ watchEffect(async () => {
       </div>
     </div>
     <div
-      class="flex-1 flex py-12 px-16 pb-12 justify-between mobile:border-b mobile:border-line-subtle"
+      class="grid gap-x-16 py-12 px-16 pb-12 mobile:!flex mobile:justify-between mobile:border-b mobile:border-line-subtle"
+      :style="{ gridTemplateColumns: statsGridCols }"
     >
       <div
         v-if="enableEntityBranding"
-        class="flex-1 mr-16"
+        class="flex-1"
       >
         <div class="text-content-tertiary text-p3 mb-4">Risk manager</div>
         <div
@@ -154,7 +163,7 @@ watchEffect(async () => {
           class="text-p2 text-content-primary"
         >-</div>
       </div>
-      <div class="flex-1">
+      <div class="flex-1 flex flex-col items-center mobile:items-start">
         <div class="text-content-tertiary text-p3 mb-4">
           Total supply
         </div>
