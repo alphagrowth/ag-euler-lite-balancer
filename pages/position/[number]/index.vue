@@ -625,14 +625,15 @@ const openCollateralInfoModal = (vault: Vault | SecuritizeVault) => {
   const isSecuritize = 'type' in vault && vault.type === 'securitize'
   modal.open(VaultOverviewModal, {
     props: isSecuritize
-      ? { securitizeVault: vault as SecuritizeVault }
-      : { vault: vault as Vault },
+      ? { title: 'Position information', securitizeVault: vault as SecuritizeVault }
+      : { title: 'Position information', vault: vault as Vault },
   })
 }
 const openPairInfoModal = () => {
   const allCollateralVaults = collateralItems.value.map(item => item.vault)
   modal.open(VaultOverviewModal, {
     props: {
+      title: 'Position information',
       pair: position.value,
       collateralVaults: allCollateralVaults,
     },

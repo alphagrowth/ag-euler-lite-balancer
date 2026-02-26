@@ -87,6 +87,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
 const onClick = () => {
   modal.open(VaultOverviewModal, {
     props: {
+      title: 'Vault information',
       earnVault: vault,
     },
   })

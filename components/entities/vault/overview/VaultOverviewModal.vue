@@ -7,7 +7,7 @@ import type { AccountBorrowPosition } from '~/entities/account'
 const emits = defineEmits(['close'])
 const router = useRouter()
 
-const { pair, vault, earnVault, extraVault, securitizeVault, collateralVaults } = defineProps<{ pair?: AnyBorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault, extraVault?: Vault, securitizeVault?: SecuritizeVault, collateralVaults?: (Vault | SecuritizeVault)[] }>()
+const { pair, vault, earnVault, extraVault, securitizeVault, collateralVaults, title = 'Market information' } = defineProps<{ pair?: AnyBorrowVaultPair | AccountBorrowPosition, vault?: Vault, earnVault?: EarnVault, extraVault?: Vault, securitizeVault?: SecuritizeVault, collateralVaults?: (Vault | SecuritizeVault)[], title?: string }>()
 
 const tab = ref()
 const normalizeAddress = (address?: string) => {
@@ -88,7 +88,7 @@ const onVaultClick = (address: string) => {
   <BaseModalWrapper
     class="w-full max-w-[500px]"
     full
-    title="Market information"
+    :title="title"
     @close="$emit('close')"
   >
     <UiTabs

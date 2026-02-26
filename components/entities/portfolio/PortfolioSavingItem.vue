@@ -123,8 +123,8 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
 const onClick = () => {
   modal.open(VaultOverviewModal, {
     props: isSecuritize.value
-      ? { securitizeVault: vault.value }
-      : { vault: vault.value },
+      ? { title: 'Vault information', securitizeVault: vault.value }
+      : { title: 'Vault information', vault: vault.value },
   })
 }
 </script>
