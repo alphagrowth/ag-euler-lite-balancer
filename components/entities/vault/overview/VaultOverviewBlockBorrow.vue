@@ -128,6 +128,16 @@ const formatTimeRemaining = (seconds: bigint): string => {
                 title="Liquidation LTV ramping down"
               />
               <span>{{ `${formatNumber(nanoToValue(getCurrentLiquidationLTV(pair), 2), 2)}%` }}</span>
+              <span
+                v-if="isLiquidationLTVRamping(pair)"
+                @click.stop.prevent
+              >
+                <UiFootnote
+                  title="LTV Ramping"
+                  :text="`The Liquidation LTV for this pair is being reduced. Target: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair))}.`"
+                  class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
+                />
+              </span>
             </div>
           </VaultOverviewLabelValue>
         </div>
