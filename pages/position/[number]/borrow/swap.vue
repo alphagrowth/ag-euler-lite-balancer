@@ -101,13 +101,6 @@ watchEffect(async () => {
   currentBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, fromVault.value, 'off-chain')) ?? null
 })
 const nextBorrowValueUsd = ref<number | null>(null)
-watchEffect(async () => {
-  if (!quote.value || !toVault.value) {
-    nextBorrowValueUsd.value = null
-    return
-  }
-  nextBorrowValueUsd.value = (await getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value, 'off-chain')) ?? null
-})
 
 const calculateRoe = (
   supplyUsd: number | null,
@@ -280,6 +273,15 @@ const {
   normalizeAddress, clearSimulationError, requestQuote,
 } = swap
 
+// Must be after `swap` destructuring so `quote` is in scope
+watchEffect(async () => {
+  if (!quote.value || !toVault.value) {
+    nextBorrowValueUsd.value = null
+    return
+  }
+  nextBorrowValueUsd.value = (await getAssetUsdValue(BigInt(quote.value.amountIn), toVault.value, 'off-chain')) ?? null
+})
+
 // ── Position loading ─────────────────────────────────────────────────────
 const loadPosition = async () => {
   if (!isConnected.value) {
@@ -384,10 +386,22 @@ const onToVaultChange = (selectedIndex: number) => {
               :readonly="true"
               @change-collateral="onToVaultChange"
             />
+            <div
+              v-else
+              class="flex flex-col gap-12 p-16 rounded-16 border bg-[var(--ui-form-field-background)] border-[var(--ui-form-field-border-color)] shadow-[var(--ui-form-field-shadow)] opacity-60"
+            >
+              <div class="flex justify-between text-euler-dark-800">
+                <p>To</p>
+              </div>
+              <div class="flex items-center gap-12">
+                <span class="text-h1 text-euler-dark-800 w-full h-40 flex items-center">0.00</span>
+              </div>
+            </div>
+
             <UiToast
-              v-else-if="!isLoading && !isPositionsLoading && !hasBorrowSwapOptions"
-              title="No debt swap options available"
-              description="There are no other debt assets available to swap into for this position."
+              v-if="!toVault && !isLoading && !isPositionsLoading"
+              title="No debt swap options"
+              description="There are no other vaults that accept this collateral to swap your debt to."
               variant="warning"
               size="compact"
             />
