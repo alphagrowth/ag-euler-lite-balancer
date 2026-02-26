@@ -503,6 +503,9 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     return null
   })
 
+  const isSupplyCapReached = computed(() => multiplySupplyVault.value ? getIsSupplyCapReached(multiplySupplyVault.value) : false)
+  const isBorrowCapReached = computed(() => multiplyShortVault.value ? getIsBorrowCapReached(multiplyShortVault.value) : false)
+
   const isMultiplySubmitDisabled = computed(() => {
     if (!isConnected.value) return false
     if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) return true
@@ -511,6 +514,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     if (isPendingSubAccountLoading.value) return true
     const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
     if (!isSameAsset && !multiplySelectedQuote.value) return true
+    if (isSupplyCapReached.value || isBorrowCapReached.value) return true
     return false
   })
 
