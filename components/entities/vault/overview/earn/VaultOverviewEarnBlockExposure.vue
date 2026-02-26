@@ -75,6 +75,12 @@ const getExposureVaultByAddress = (address: string) => {
   return exposureVaults.value.find(vlt => normalized === getAddress(vlt.address))
 }
 
+const exposureRows = computed(() => {
+  return exposureList.value
+    .map(exposure => ({ exposure, vault: getExposureVaultByAddress(exposure.info.vault) }))
+    .filter((row): row is { exposure: typeof exposureList.value[number], vault: Vault } => Boolean(row.vault))
+})
+
 const hasExposureUsdPrice = (exposure: typeof exposureList.value[0]) => {
   return exposureUsdPrices.value.has(exposure.strategy)
 }
@@ -113,21 +119,21 @@ load()
       class="flex flex-col gap-12"
     >
       <div
-        v-for="exposure in exposureList"
-        :key="exposure.strategy"
+        v-for="row in exposureRows"
+        :key="row.exposure.strategy"
         class="bg-surface rounded-xl text-content-primary block no-underline cursor-pointer shadow-card hover:shadow-card-hover transition-shadow border border-line-default"
-        @click="onExposureClick(exposure.info.vault)"
+        @click="onExposureClick(row.exposure.info.vault)"
       >
         <div
           class="px-16 pt-16 pb-12 border-b border-line-subtle"
         >
           <VaultLabelsAndAssets
-            :vault="getExposureVaultByAddress(exposure.info.vault) as Vault"
+            :vault="row.vault"
             :assets="[{
-              address: exposure.info.asset,
-              decimals: exposure.info.assetDecimals,
-              name: exposure.info.assetName,
-              symbol: exposure.info.assetSymbol,
+              address: row.exposure.info.asset,
+              decimals: row.exposure.info.assetDecimals,
+              name: row.exposure.info.assetName,
+              symbol: row.exposure.info.assetSymbol,
             }]"
           />
         </div>
@@ -135,17 +141,17 @@ load()
           <VaultOverviewLabelValue
             label="Allocation (%)"
             orientation="horizontal"
-            :value="`${formatNumber(Number(exposure.allocatedAssets) / Number(totalAllocatedAssets) * 100, 2)}%`"
+            :value="`${formatNumber(Number(row.exposure.allocatedAssets) / Number(totalAllocatedAssets) * 100, 2)}%`"
           />
           <VaultOverviewLabelValue
             label="Allocation ($)"
             orientation="horizontal"
           >
-            <template v-if="hasExposureUsdPrice(exposure)">
-              {{ formatCompactUsdValue(getExposureUsdPrice(exposure)) }}
+            <template v-if="hasExposureUsdPrice(row.exposure)">
+              {{ formatCompactUsdValue(getExposureUsdPrice(row.exposure)) }}
             </template>
             <template v-else>
-              {{ getExposureAssetAmount(exposure) }}
+              {{ getExposureAssetAmount(row.exposure) }}
             </template>
           </VaultOverviewLabelValue>
         </div>

@@ -169,8 +169,11 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
   // ── syncToVault ────────────────────────────────────────────────────────
   const syncToVault = () => {
     if (!fromVault.value) return
-    const opts = vaultOptions.value
-    if (!opts.length) return
+    const opts = vaultOptions.value.filter(v => !isSameVaultCheck(fromVault.value, v))
+    if (!opts.length) {
+      toVault.value = undefined
+      return
+    }
 
     const targetAddr = targetVaultAddress ? normalizeAddress(unref(targetVaultAddress)) : ''
     const currentAddr = toVault.value ? normalizeAddress(toVault.value.address) : ''
@@ -255,6 +258,10 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
     clearSimulationError()
     const nextVault = vaultOptions.value[selectedIndex]
     if (!nextVault) return
+    if (isSameVaultCheck(fromVault.value, nextVault)) {
+      toVault.value = undefined
+      return
+    }
     if (!toVault.value || normalizeAddress(toVault.value.address) !== normalizeAddress(nextVault.address)) {
       toVault.value = nextVault
     }
@@ -277,6 +284,13 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
       onFromInput()
     }
   })
+
+  watch([toVault, fromVault], ([targetVault, sourceVault]) => {
+    if (!targetVault || !sourceVault) return
+    if (isSameVaultCheck(sourceVault, targetVault)) {
+      toVault.value = undefined
+    }
+  }, { immediate: true })
 
   watch([fromVault, slippage], () => {
     clearSimulationError()
