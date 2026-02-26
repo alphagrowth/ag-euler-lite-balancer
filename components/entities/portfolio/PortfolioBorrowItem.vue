@@ -284,7 +284,7 @@ onMounted(() => {
 
 <template>
   <NuxtLink
-    :to="`/position/${subAccountIndex}`"
+    :to="{ path: `/position/${subAccountIndex}`, query: { network: $route.query.network } }"
     class="block no-underline bg-surface rounded-xl border border-line-subtle shadow-card transition-all duration-default ease-default hover:shadow-card-hover hover:border-line-emphasis"
   >
     <div class="flex py-16 px-16 pb-12 border-b border-line-default">

@@ -396,19 +396,19 @@ watch(formTab, () => {
             v-else-if="tab === 'collateral'"
             :vault="(pair.collateral as Vault)"
             desktop-overview
-            @vault-click="(address: string) => router.push(`/lend/${address}`)"
+            @vault-click="(address: string) => router.push({ path: `/lend/${address}`, query: { network: route.query.network } })"
           />
           <VaultOverview
             v-else-if="tab === 'multiply-collateral' && multiply.multiplySupplyVault.value"
             :vault="multiply.multiplySupplyVault.value"
             desktop-overview
-            @vault-click="(address: string) => router.push(`/lend/${address}`)"
+            @vault-click="(address: string) => router.push({ path: `/lend/${address}`, query: { network: route.query.network } })"
           />
           <VaultOverview
             v-else-if="tab === 'borrow'"
             :vault="pair.borrow"
             desktop-overview
-            @vault-click="(address: string) => router.push(`/lend/${address}`)"
+            @vault-click="(address: string) => router.push({ path: `/lend/${address}`, query: { network: route.query.network } })"
           />
         </Transition>
       </div>
