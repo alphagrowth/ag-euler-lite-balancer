@@ -18,7 +18,7 @@ const props = defineProps<{
   collateralOptions?: CollateralOption[]
   collateralModalTitle?: string
   readonly?: boolean
-  priceOverride?: number // For vaults without standard price info (e.g., securitize)
+  priceOverride?: number // USD unit price for assets without a vault (e.g., swap-to-deposit)
   swappable?: boolean // When true, asset pill shows dropdown arrow and emits click-asset
 }>()
 const emits = defineEmits(['input', 'change-collateral', 'click-asset'])
@@ -66,12 +66,13 @@ watch(() => props.collateralOptions, (options) => {
 const usdUnitPrice = ref<number | null>(null)
 
 watchEffect(async () => {
-  if (!props.vault) {
-    usdUnitPrice.value = null
+  if (props.vault) {
+    const priceInfo = await getAssetUsdPrice(props.vault, 'off-chain')
+    usdUnitPrice.value = priceInfo ? nanoToValue(priceInfo.amountOutMid, 18) : null
     return
   }
-  const priceInfo = await getAssetUsdPrice(props.vault, 'off-chain')
-  usdUnitPrice.value = priceInfo ? nanoToValue(priceInfo.amountOutMid, 18) : null
+
+  usdUnitPrice.value = null
 })
 
 // Display price (synchronous computed — tracks model.value reactively)

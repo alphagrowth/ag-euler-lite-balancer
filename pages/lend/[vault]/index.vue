@@ -717,7 +717,7 @@ watch(address, () => {
             label="Deposit amount"
             :desc="name"
             :asset="needsSwap && selectedAsset ? selectedAsset : asset"
-            :vault="needsSwap ? undefined : vault"
+            :vault="needsSwap ? undefined : (vault || securitizeVault)"
             :price-override="needsSwap ? swapAssetUsdPrice : undefined"
             :balance="activeBalance"
             maxable

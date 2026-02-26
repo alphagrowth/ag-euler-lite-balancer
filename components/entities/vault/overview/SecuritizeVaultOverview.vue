@@ -116,7 +116,7 @@ loadRiskParameters()
 const priceDisplay = ref('-')
 
 watchEffect(async () => {
-  const price = await formatAssetValue(1, vault as unknown as Vault, 'off-chain')
+  const price = await formatAssetValue(1, vault, 'off-chain')
   priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : '-'
 })
 
@@ -124,7 +124,7 @@ watchEffect(async () => {
 const totalSupplyDisplay = ref('-')
 
 watchEffect(async () => {
-  const price = await formatAssetValue(vault.totalAssets, vault as unknown as Vault, 'off-chain')
+  const price = await formatAssetValue(vault.totalAssets, vault, 'off-chain')
   totalSupplyDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
@@ -136,7 +136,7 @@ watchEffect(async () => {
     supplyCapDisplay.value = '∞'
     return
   }
-  const price = await formatAssetValue(vault.supplyCap, vault as unknown as Vault, 'off-chain')
+  const price = await formatAssetValue(vault.supplyCap, vault, 'off-chain')
   supplyCapDisplay.value = price.hasPrice ? formatCompactUsdValue(price.usdValue) : price.display
 })
 
@@ -259,7 +259,7 @@ const supplyCapPercentageDisplay = computed(() => {
           label="Vault type"
         >
           <VaultTypeChip
-            :vault="vault as unknown as Vault"
+            :vault="vault"
             type="securitize"
           />
         </VaultOverviewLabelValue>
