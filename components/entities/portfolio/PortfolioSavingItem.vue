@@ -202,7 +202,7 @@ const onClick = () => {
           @click.stop
         >
           <UiButton
-            :to="isGeoBlocked ? undefined : `/lend/${vault.address}/`"
+            :to="isGeoBlocked ? undefined : { path: `/lend/${vault.address}/`, query: { network: $route.query.network } }"
             :disabled="isGeoBlocked"
             rounded
           >
@@ -210,14 +210,14 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/lend/${vault.address}/${subAccountIndex}/withdraw`"
+            :to="{ path: `/lend/${vault.address}/${subAccountIndex}/withdraw`, query: { network: $route.query.network } }"
             rounded
           >
             Withdraw
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="isGeoBlocked ? undefined : `/lend/${vault.address}/${subAccountIndex}/swap`"
+            :to="isGeoBlocked ? undefined : { path: `/lend/${vault.address}/${subAccountIndex}/swap`, query: { network: $route.query.network } }"
             :disabled="isGeoBlocked"
             rounded
           >
@@ -324,7 +324,7 @@ const onClick = () => {
           @click.stop
         >
           <UiButton
-            :to="isGeoBlocked ? undefined : `/lend/${vault.address}/`"
+            :to="isGeoBlocked ? undefined : { path: `/lend/${vault.address}/`, query: { network: $route.query.network } }"
             :disabled="isGeoBlocked"
             rounded
           >
@@ -332,14 +332,14 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/lend/${vault.address}/${subAccountIndex}/withdraw`"
+            :to="{ path: `/lend/${vault.address}/${subAccountIndex}/withdraw`, query: { network: $route.query.network } }"
             rounded
           >
             Withdraw
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="isGeoBlocked ? undefined : `/lend/${vault.address}/${subAccountIndex}/swap`"
+            :to="isGeoBlocked ? undefined : { path: `/lend/${vault.address}/${subAccountIndex}/swap`, query: { network: $route.query.network } }"
             :disabled="isGeoBlocked"
             rounded
           >

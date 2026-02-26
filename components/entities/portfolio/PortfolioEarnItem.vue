@@ -190,7 +190,7 @@ const onClick = () => {
           @click.stop
         >
           <UiButton
-            :to="isGeoBlocked ? undefined : `/earn/${vault.address}/`"
+            :to="isGeoBlocked ? undefined : { path: `/earn/${vault.address}/`, query: { network: $route.query.network } }"
             :disabled="isGeoBlocked"
             rounded
           >
@@ -198,7 +198,7 @@ const onClick = () => {
           </UiButton>
           <UiButton
             variant="primary-stroke"
-            :to="`/earn/${vault.address}/${subAccountIndex}/withdraw`"
+            :to="{ path: `/earn/${vault.address}/${subAccountIndex}/withdraw`, query: { network: $route.query.network } }"
             rounded
           >
             Withdraw

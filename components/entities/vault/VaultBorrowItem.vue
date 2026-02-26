@@ -188,9 +188,12 @@ const onMaxRoeInfoIconClick = (event: MouseEvent) => {
   })
 }
 
-const linkPath = computed(
-  () => `/borrow/${pair.collateral.address}/${pair.borrow.address}`,
-)
+const route = useRoute()
+
+const linkPath = computed(() => ({
+  path: `/borrow/${pair.collateral.address}/${pair.borrow.address}`,
+  query: { network: route.query.network },
+}))
 </script>
 
 <template>
