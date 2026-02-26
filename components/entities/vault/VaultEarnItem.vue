@@ -3,7 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import type { EarnVault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault, useEulerEntitiesOfEarnVault } from '~/composables/useEulerLabels'
-import { isVaultFeatured } from '~/utils/eulerLabelsUtils'
+import { isVaultFeatured, getEarnVaultDescription } from '~/utils/eulerLabelsUtils'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
@@ -43,6 +43,7 @@ const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
 const isFeatured = computed(() => isVaultFeatured(vault.address))
 const isUnverified = computed(() => !vault.verified)
 const displayName = computed(() => product.name || vault.name)
+const description = computed(() => getEarnVaultDescription(vault.address))
 
 const prices = ref<{ totalSupply: string, liquidity: string, walletBalance: string }>({
   totalSupply: '-',
@@ -62,6 +63,15 @@ watchEffect(async () => {
     liquidity: liquidityResult.hasPrice ? formatCompactUsdValue(liquidityResult.usdValue) : liquidityResult.display,
     walletBalance: walletResult.hasPrice ? formatCompactUsdValue(walletResult.usdValue) : walletResult.display,
   }
+})
+
+const statsGridCols = computed(() => {
+  const cols: string[] = []
+  if (enableEntityBranding) cols.push('1.5fr')
+  cols.push('1fr') // Total supply
+  cols.push('1fr') // Available liquidity
+  if (isConnected.value) cols.push('1fr') // In wallet
+  return cols.join(' ')
 })
 
 const onSupplyInfoIconClick = (event: MouseEvent) => {
@@ -121,6 +131,12 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
         <div class="text-h5 text-content-primary">
           {{ vault.asset.symbol }}
         </div>
+        <div
+          v-if="description"
+          class="text-p3 text-content-tertiary mt-4 line-clamp-1"
+        >
+          {{ description }}
+        </div>
       </div>
       <div class="flex flex-col items-end">
         <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
@@ -145,7 +161,10 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
         </div>
       </div>
     </div>
-    <div class="flex py-12 px-16 pb-12 mobile:border-b mobile:border-line-subtle mobile:pb-12">
+    <div
+      class="grid gap-x-16 py-12 px-16 pb-12 mobile:!flex mobile:justify-between mobile:border-b mobile:border-line-subtle mobile:pb-12"
+      :style="{ gridTemplateColumns: statsGridCols }"
+    >
       <div
         v-if="enableEntityBranding"
         class="flex-1"

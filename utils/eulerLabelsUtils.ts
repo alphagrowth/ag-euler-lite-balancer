@@ -15,6 +15,7 @@ import {
   earnVaultRestrictions,
   featuredEarnVaults,
   deprecatedEarnVaults,
+  earnVaultDescriptions,
 } from '~/utils/eulerLabelsState'
 
 // ── Normalization helpers ────────────────────────────────────
@@ -163,6 +164,11 @@ export const isEarnVaultDeprecated = (vaultAddress: string): boolean => {
 export const getEarnVaultDeprecationReason = (vaultAddress: string): string => {
   const normalized = normalizeAddress(vaultAddress)
   return deprecatedEarnVaults[normalized.toLowerCase()] ?? ''
+}
+
+export const getEarnVaultDescription = (vaultAddress: string): string => {
+  const normalized = normalizeAddress(vaultAddress)
+  return earnVaultDescriptions[normalized.toLowerCase()] ?? ''
 }
 
 export const isVaultDeprecated = (vaultAddress: string): boolean => {

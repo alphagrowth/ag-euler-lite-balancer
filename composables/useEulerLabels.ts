@@ -18,6 +18,7 @@ import {
   earnVaultRestrictions,
   featuredEarnVaults,
   deprecatedEarnVaults,
+  earnVaultDescriptions,
   verifiedVaultAddresses,
   oracleAdapters,
   loadingAdapters,
@@ -120,6 +121,7 @@ export const useEulerLabels = () => {
       Object.keys(earnVaultBlocks).forEach(key => delete earnVaultBlocks[key])
       Object.keys(earnVaultRestrictions).forEach(key => delete earnVaultRestrictions[key])
       Object.keys(deprecatedEarnVaults).forEach(key => delete deprecatedEarnVaults[key])
+      Object.keys(earnVaultDescriptions).forEach(key => delete earnVaultDescriptions[key])
       featuredEarnVaults.clear()
       earnVaults.value = []
       verifiedVaultAddresses.value = []
@@ -132,7 +134,7 @@ export const useEulerLabels = () => {
 
       try {
         const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
-        const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], restricted?: string[], featured?: boolean, deprecated?: boolean, deprecationReason?: string }>
+        const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], restricted?: string[], featured?: boolean, deprecated?: boolean, deprecationReason?: string, description?: string }>
         earnVaults.value = earnEntries.map((entry) => {
           if (typeof entry === 'string') return normalizeAddress(entry)
           const addr = normalizeAddress(entry.address)
@@ -147,6 +149,9 @@ export const useEulerLabels = () => {
           }
           if (entry.deprecated) {
             deprecatedEarnVaults[addr.toLowerCase()] = entry.deprecationReason ?? ''
+          }
+          if (entry.description) {
+            earnVaultDescriptions[addr.toLowerCase()] = entry.description
           }
           return addr
         })
