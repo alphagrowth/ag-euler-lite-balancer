@@ -45,7 +45,14 @@ const { estimatePlanFees } = useEstimatePlanFees()
 const { getVault } = useVaultRegistry()
 const { buildSimulationStateOverride } = useEulerOperations()
 const { eulerCoreAddresses } = useEulerAddresses()
-const { isSimulating: isTenderlySimulating, simulationError: tenderlyError, simulate: tenderlySimulate, clearSimulation: clearTenderly, fetchEnabled: fetchTenderlyEnabled } = useTenderlySimulation()
+const {
+  isSimulating: isTenderlySimulating,
+  simulationError: tenderlyError,
+  simulationUrl: tenderlyUrl,
+  simulate: tenderlySimulate,
+  clearSimulation: clearTenderly,
+  fetchEnabled: fetchTenderlyEnabled,
+} = useTenderlySimulation()
 
 const isEstimatingFee = ref(false)
 const feeEstimate = ref<string | null>(null)
@@ -94,7 +101,7 @@ const handleTenderlySimulate = async () => {
     })
 
     if (url) {
-      window.open(url, '_blank', 'noopener,noreferrer')
+      return
     }
   }
   catch {
@@ -282,8 +289,21 @@ const feeDisplay = computed(() => {
           />
           {{ copied ? 'Copied!' : 'Copy calldata' }}
         </button>
+        <a
+          v-if="tenderlyEnabled && tenderlyUrl"
+          :href="tenderlyUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-6 text-p3 text-success-600 hover:text-success-700 transition-colors"
+        >
+          <SvgIcon
+            name="check-circle"
+            class="!w-16 !h-16"
+          />
+          View simulation
+        </a>
         <button
-          v-if="tenderlyEnabled"
+          v-else-if="tenderlyEnabled"
           type="button"
           class="flex items-center gap-6 text-p3 text-euler-dark-900 hover:text-euler-dark-1000 transition-colors"
           :disabled="isTenderlySimulating"

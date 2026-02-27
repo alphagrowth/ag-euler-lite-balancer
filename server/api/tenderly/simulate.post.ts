@@ -112,8 +112,8 @@ export default defineEventHandler(async (event) => {
       input: data,
       value: value || '0',
       network_id: String(chainId),
-      save: false,
-      save_if_fails: false,
+      save: true,
+      save_if_fails: true,
       simulation_type: 'full',
       state_objects: stateObjects,
     }
