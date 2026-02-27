@@ -113,15 +113,16 @@ const allCollateralPairs = computed(() => {
                 />
               </span>
             </template>
-            <div class="flex items-center gap-4">
+            <span class="flex items-center gap-4">
               <SvgIcon
                 v-if="isLiquidationLTVRamping(pair)"
                 name="arrow-top-right"
-                class="!w-14 !h-14 text-warning-500 shrink-0 rotate-180"
+                class="!w-14 !h-14 text-warning-500 shrink-0 rotate-180 cursor-pointer"
                 title="Liquidation LTV ramping down"
+                @click.stop.prevent="onRampDownInfoIconClick($event, pair)"
               />
-              <span>{{ `${formatNumber(nanoToValue(getCurrentLiquidationLTV(pair), 2), 2)}%` }}</span>
-            </div>
+              {{ `${formatNumber(nanoToValue(getCurrentLiquidationLTV(pair), 2), 2)}%` }}
+            </span>
           </VaultOverviewLabelValue>
         </div>
       </div>

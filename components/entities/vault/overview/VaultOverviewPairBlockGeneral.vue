@@ -219,24 +219,28 @@ const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
         label="Max LTV"
         :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
       />
-      <VaultOverviewLabelValue
-        label="Liquidation LTV"
-      >
-        <div class="flex items-center gap-4">
+      <VaultOverviewLabelValue>
+        <template #label>
+          <span class="flex items-center gap-4">
+            Liquidation LTV
+            <SvgIcon
+              v-if="isRamping"
+              class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click.stop.prevent="onRampDownInfoIconClick($event, pair as AnyBorrowVaultPair)"
+            />
+          </span>
+        </template>
+        <span class="flex items-center gap-4">
           <SvgIcon
             v-if="isRamping"
             name="arrow-top-right"
-            class="!w-14 !h-14 text-warning-500 shrink-0 rotate-180"
+            class="!w-14 !h-14 text-warning-500 shrink-0 rotate-180 cursor-pointer"
             title="Liquidation LTV ramping down"
-          />
-          <span>{{ `${formatNumber(nanoToValue(currentLiquidationLTV, 2), 2)}%` }}</span>
-          <SvgIcon
-            v-if="isRamping"
-            class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
-            name="info-circle"
             @click.stop.prevent="onRampDownInfoIconClick($event, pair as AnyBorrowVaultPair)"
           />
-        </div>
+          {{ `${formatNumber(nanoToValue(currentLiquidationLTV, 2), 2)}%` }}
+        </span>
       </VaultOverviewLabelValue>
     </div>
   </div>
