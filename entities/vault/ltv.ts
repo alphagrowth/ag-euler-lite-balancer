@@ -1,7 +1,7 @@
 import type { VaultCollateralLTV } from './types'
 
 /** Shared LTV ramp config fields used by both VaultCollateralLTV and BorrowVaultPair */
-type LTVRampConfig = Pick<VaultCollateralLTV, 'liquidationLTV' | 'initialLiquidationLTV' | 'targetTimestamp' | 'rampDuration'>
+export type LTVRampConfig = Pick<VaultCollateralLTV, 'liquidationLTV' | 'initialLiquidationLTV' | 'targetTimestamp' | 'rampDuration'>
 
 /**
  * Calculate the current liquidation LTV, taking into account ramping.

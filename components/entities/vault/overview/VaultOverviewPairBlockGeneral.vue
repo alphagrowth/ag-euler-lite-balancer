@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type AnyBorrowVaultPair, getCurrentLiquidationLTV, isLiquidationLTVRamping, getRampTimeRemaining } from '~/entities/vault'
+import { type AnyBorrowVaultPair, getCurrentLiquidationLTV, isLiquidationLTVRamping } from '~/entities/vault'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { getCollateralOraclePrice, getAssetOraclePrice } from '~/services/pricing/priceProvider'
@@ -7,8 +7,9 @@ import { formatNumber, formatSignificant } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import type { AccountBorrowPosition } from '~/entities/account'
+import type { LTVRampConfig } from '~/entities/vault/ltv'
 import { useModal } from '~/components/ui/composables/useModal'
-import { VaultNetApyPairModal, VaultMaxRoeModal } from '#components'
+import { VaultNetApyPairModal, VaultMaxRoeModal, VaultRampDownModal } from '#components'
 
 const { pair } = defineProps<{ pair: AnyBorrowVaultPair | AccountBorrowPosition }>()
 
@@ -19,15 +20,6 @@ const currentLiquidationLTV = computed(() =>
 const isRamping = computed(() =>
   hasRampConfig.value && isLiquidationLTVRamping(pair as AnyBorrowVaultPair),
 )
-
-const formatTimeRemaining = (seconds: bigint): string => {
-  const days = Number(seconds) / 86400
-  if (days >= 1) return `${Math.ceil(days)} day${Math.ceil(days) > 1 ? 's' : ''}`
-  const hours = Number(seconds) / 3600
-  if (hours >= 1) return `${Math.ceil(hours)} hour${Math.ceil(hours) > 1 ? 's' : ''}`
-  const minutes = Number(seconds) / 60
-  return `${Math.ceil(minutes)} minute${Math.ceil(minutes) > 1 ? 's' : ''}`
-}
 
 const modal = useModal()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
@@ -103,6 +95,12 @@ const onMaxRoeInfoIconClick = () => {
       borrowAPY: borrowApyWithRewards.value,
       borrowLTV: nanoToValue(pair.borrowLTV, 2),
     },
+  })
+}
+
+const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
+  modal.open(VaultRampDownModal, {
+    props: pair,
   })
 }
 </script>
@@ -221,28 +219,28 @@ const onMaxRoeInfoIconClick = () => {
         label="Max LTV"
         :value="`${formatNumber(nanoToValue(pair.borrowLTV, 2), 2)}%`"
       />
-      <VaultOverviewLabelValue
-        label="Liquidation LTV"
-      >
-        <div class="flex items-center gap-4">
+      <VaultOverviewLabelValue>
+        <template #label>
+          <span class="flex items-center gap-4">
+            Liquidation LTV
+            <SvgIcon
+              v-if="isRamping"
+              class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click.stop.prevent="onRampDownInfoIconClick($event, pair as AnyBorrowVaultPair)"
+            />
+          </span>
+        </template>
+        <span class="flex items-center gap-4">
           <SvgIcon
             v-if="isRamping"
             name="arrow-top-right"
-            class="!w-14 !h-14 text-warning-500 shrink-0 rotate-180"
+            class="!w-14 !h-14 text-warning-500 shrink-0 rotate-180 cursor-pointer"
             title="Liquidation LTV ramping down"
+            @click.stop.prevent="onRampDownInfoIconClick($event, pair as AnyBorrowVaultPair)"
           />
-          <span>{{ `${formatNumber(nanoToValue(currentLiquidationLTV, 2), 2)}%` }}</span>
-          <span
-            v-if="isRamping"
-            @click.stop.prevent
-          >
-            <UiFootnote
-              title="LTV Ramping"
-              :text="`The Liquidation LTV for this pair is being reduced. Target: ${formatNumber(nanoToValue(pair.liquidationLTV, 2), 2)}%. Time remaining: ${formatTimeRemaining(getRampTimeRemaining(pair as AnyBorrowVaultPair))}.`"
-              class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
-            />
-          </span>
-        </div>
+          {{ `${formatNumber(nanoToValue(currentLiquidationLTV, 2), 2)}%` }}
+        </span>
       </VaultOverviewLabelValue>
     </div>
   </div>
