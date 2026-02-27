@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   variant: 'info',
   size: 'normal',
-  persistent: false,
+  persistent: true,
   duration: 5000,
 })
 

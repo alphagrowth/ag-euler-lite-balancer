@@ -16,6 +16,5 @@ const activeWarnings = computed(() => warnings.filter((w): w is VaultWarning => 
     :description="warning.message"
     :variant="warning.level === 'critical' ? 'error' : warning.level === 'info' ? 'info' : 'warning'"
     size="compact"
-    persistent
   />
 </template>

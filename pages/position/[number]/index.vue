@@ -664,7 +664,6 @@ watch(isConnected, () => {
         description="Oracle pricing is currently unavailable. Some position details cannot be displayed. You can still repay debt and supply collateral."
         variant="warning"
         size="compact"
-        persistent
       />
 
       <div
@@ -865,7 +864,6 @@ watch(isConnected, () => {
               description="This position is eligible for liquidation. Multiply and borrow are disabled."
               variant="error"
               size="compact"
-              persistent
             />
             <UiToast
               v-if="isOverBorrowLTV && !isEligibleForLiquidation"
@@ -874,7 +872,6 @@ watch(isConnected, () => {
               description="Your current LTV exceeds the borrow limit. Repay debt or supply more collateral to borrow again."
               variant="warning"
               size="compact"
-              persistent
             />
             <UiToast
               v-if="isPositionGeoBlocked || isPairFullyRestricted"
@@ -883,7 +880,6 @@ watch(isConnected, () => {
               description="This pair is not available in your region. You can still repay existing debt."
               variant="warning"
               size="compact"
-              persistent
             />
             <UiToast
               v-if="!isPositionGeoBlocked && !isPairFullyRestricted && (isBorrowRestricted || isMultiplyRestricted)"
@@ -892,7 +888,6 @@ watch(isConnected, () => {
               description="Some operations on this pair are restricted in your region. Supply, withdraw, and repay remain available."
               variant="warning"
               size="compact"
-              persistent
             />
             <div
               class="flex justify-between gap-8 mt-4"
@@ -1041,7 +1036,6 @@ watch(isConnected, () => {
                 description="Withdraw is disabled while this position is eligible for liquidation."
                 variant="error"
                 size="compact"
-                persistent
               />
               <div
                 v-if="!hasNoBorrow"

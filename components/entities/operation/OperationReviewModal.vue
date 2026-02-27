@@ -349,13 +349,6 @@ const feeDisplay = computed(() => {
         size="compact"
       />
       <UiToast
-        v-if="type === 'disableCollateral'"
-        title="Disclaimer"
-        variant="warning"
-        description="Disabling collateral will move this deposit to savings"
-        size="compact"
-      />
-      <UiToast
         v-if="hasPermit2Approval"
         title="Infinite approval"
         variant="info"
