@@ -109,7 +109,9 @@ export const getSupplyCapWarning = (vault: Vault): VaultWarning | null => {
       ? 'The supply cap is nearly reached. New deposits may be limited or fail.'
       : 'The supply cap is approaching its limit. Available capacity for new deposits is limited.'
 
-  return { level, title, message }
+  // Cap level only determines the message text, not the visual severity.
+  // Reaching a cap means the vault is popular, not that something is wrong.
+  return { level: 'info', title, message }
 }
 
 export const getIsSupplyCapReached = (vault: Vault): boolean => {
@@ -134,7 +136,9 @@ export const getBorrowCapWarning = (vault: Vault): VaultWarning | null => {
       ? 'The borrow cap is nearly reached. New borrows may be limited or fail.'
       : 'The borrow cap is approaching its limit. Available capacity for new borrows is limited.'
 
-  return { level, title, message }
+  // Cap level only determines the message text, not the visual severity.
+  // Reaching a cap means the vault is popular, not that something is wrong.
+  return { level: 'info', title, message }
 }
 
 export const getIsBorrowCapReached = (vault: Vault): boolean => {
