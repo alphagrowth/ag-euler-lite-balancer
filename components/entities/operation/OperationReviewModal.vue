@@ -294,7 +294,7 @@ const feeDisplay = computed(() => {
           :href="tenderlyUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="flex items-center gap-6 text-p3 text-success-600 hover:text-success-700 transition-colors"
+          class="flex items-center gap-6 text-p3 text-success-500 hover:text-success-600 transition-colors"
         >
           <SvgIcon
             name="check-circle"
