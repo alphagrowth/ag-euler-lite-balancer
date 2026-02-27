@@ -5,7 +5,7 @@ import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfEarnVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
-import { isEarnVaultDeprecated, getEarnVaultDeprecationReason } from '~/utils/eulerLabelsUtils'
+import { isEarnVaultDeprecated, getEarnVaultDeprecationReason, getEarnVaultDescription } from '~/utils/eulerLabelsUtils'
 import { autoLink } from '~/utils/autoLink'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
@@ -16,6 +16,7 @@ const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfEarnVault(vault)
 const isOwnerVerified = computed(() => isEarnVaultOwnerVerified(vault))
+const earnDescription = computed(() => getEarnVaultDescription(vault.address))
 
 const isDeprecated = computed(() => {
   return isEarnVaultDeprecated(vault.address)
@@ -73,6 +74,15 @@ const feeDisplay = computed(() => {
             This vault is not available in your region.
           </p>
         </div>
+      </div>
+      <div
+        v-if="earnDescription"
+        class="w-full rounded-12 p-16 bg-surface-tertiary"
+      >
+        <p
+          class="text-p3 text-content-secondary auto-link"
+          v-html="autoLink(earnDescription)"
+        />
       </div>
       <div
         v-if="product.description"

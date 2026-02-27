@@ -28,6 +28,9 @@ const modal = useModal()
 const { getSupplyRewardApy, getSupplyRewardCampaigns, hasSupplyRewards } = useRewardsApy()
 const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
+const description = computed(() => {
+  return product.vaultOverrides?.[vaultAddress.value]?.description ?? product.description
+})
 const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault as unknown as Vault))
 const marketProductKey = computed(() => getProductKeyByVault(vault.address))
@@ -192,12 +195,12 @@ const supplyCapPercentageDisplay = computed(() => {
           </div>
         </div>
         <div
-          v-if="product.description"
+          v-if="description"
           class="w-full rounded-12 p-16 bg-surface-tertiary"
         >
           <p
             class="text-p3 text-content-secondary auto-link"
-            v-html="autoLink(product.description)"
+            v-html="autoLink(description)"
           />
         </div>
         <VaultOverviewLabelValue

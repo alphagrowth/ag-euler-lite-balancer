@@ -22,7 +22,7 @@ import {
 
 export const extractVaultOverrides = (raw: Record<string, unknown>): Record<string, EulerLabelVaultOverride> => {
   const overrides: Record<string, EulerLabelVaultOverride> = {}
-  for (const [key, value] of Object.entries(raw)) {
+  for (const [key, value] of Object.entries(raw.vaultOverrides || {})) {
     if (!key.startsWith('0x') || typeof value !== 'object' || value === null) continue
     const entry = value as Record<string, unknown>
     const override: EulerLabelVaultOverride = {}

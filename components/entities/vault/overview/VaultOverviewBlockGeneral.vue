@@ -17,6 +17,9 @@ const vaultAddress = computed(() => getAddress(vault.address))
 const product = useEulerProductOfVault(vaultAddress)
 const entities = useEulerEntitiesOfVault(vault)
 const marketProductKey = computed(() => getProductKeyByVault(vault.address))
+const description = computed(() => {
+  return product.vaultOverrides?.[vaultAddress.value]?.description ?? product.description
+})
 
 const isDeprecated = computed(() => {
   return product.deprecatedVaults?.includes(vaultAddress.value) ?? false
@@ -97,12 +100,12 @@ const vaultGovernanceType = computed(() => {
         </div>
       </div>
       <div
-        v-if="product.description"
+        v-if="description"
         class="w-full rounded-12 p-16 bg-surface-tertiary"
       >
         <p
           class="text-p3 text-content-secondary auto-link"
-          v-html="autoLink(product.description)"
+          v-html="autoLink(description)"
         />
       </div>
       <VaultOverviewLabelValue
