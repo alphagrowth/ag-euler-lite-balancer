@@ -259,12 +259,14 @@ const errorText = computed(() => {
   }
   return null
 })
+const isSupplyCapReached = computed(() => evkVault.value ? getIsSupplyCapReached(evkVault.value) : false)
 const assets = computed(() => [asset.value!])
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   if (activeBalance.value < valueToNano(amount.value, activeAsset.value?.decimals)) return true
   if (isLoading.value || !(+amount.value)) return true
   if (needsSwap.value && !swapEffectiveQuote.value && !isSwapQuoteLoading.value) return true
+  if (isSupplyCapReached.value) return true
   return false
 })
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
@@ -834,7 +836,7 @@ watch(address, () => {
               align-top
             >
               <p class="text-content-tertiary">
-                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
+                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
                   asset.symbol
                 }}
                 <template v-if="features.hasPriceInfo && vault">
