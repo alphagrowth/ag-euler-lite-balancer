@@ -5,6 +5,7 @@ export const themeHue = 150
 export type IntrinsicApySourceConfig =
   | { provider: 'defillama', address: string, chainId: number, poolId: string, useSpotApy?: boolean }
   | { provider: 'pendle', address: string, chainId: number, pendleMarket: string, crossChainSourceChainId?: number }
+  | { provider: 'securitize', address: string, chainId: number, symbol: string, yieldField: 'nav_yield_30d' | 'distribution_yield' }
 
 export const intrinsicApySources: readonly IntrinsicApySourceConfig[] = [
   // DefiLlama pools — Ethereum (1)
@@ -172,4 +173,9 @@ export const intrinsicApySources: readonly IntrinsicApySourceConfig[] = [
   { provider: 'pendle', address: '0xFFaF49f320b8Ae1Bb9Ea596197040077a3666105', chainId: 9745, pendleMarket: '0x23180d15651FE6e4415ce27b212Cf8e5d2dEDa96' }, // PT-wstUSR-26FEB2026
   { provider: 'pendle', address: '0xD516188daf64EFa04a8d60872F891f2cC811A561', chainId: 9745, pendleMarket: '0x15735f2F53c5cd25A57dFf83B11C93EcEaf72073' }, // PT-USDai-19MAR2026
   { provider: 'pendle', address: '0xedac81b27790e0728f54dEa3B7718e5437E85353', chainId: 9745, pendleMarket: '0x0d7d9abEE602c7f0A242EA7e200e47C372aCba84' }, // PT-sUSDai-19MAR2026
+
+  // Securitize tokens — Ethereum (1)
+  { provider: 'securitize', chainId: 1, address: '0x17418038ecF73BA4026c4f428547BF099706F27B', symbol: 'ACRED', yieldField: 'nav_yield_30d' },
+  { provider: 'securitize', chainId: 1, address: '0x2255718832bC9fD3bE1CaF75084F4803DA14FF01', symbol: 'VBILL', yieldField: 'distribution_yield' },
+  { provider: 'securitize', chainId: 1, address: '0x51C2d74017390CbBd30550179A16A1c28F7210fc', symbol: 'STAC', yieldField: 'nav_yield_30d' },
 ]
