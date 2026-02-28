@@ -31,7 +31,6 @@ interface VaultFeatures {
   hasPriceInfo: boolean
   hasVerifiedStatus: boolean
   hasPoints: boolean
-  hasApyBreakdown: boolean
   hasOverview: boolean
 }
 
@@ -42,7 +41,6 @@ const VAULT_FEATURES: Record<VaultType, VaultFeatures> = {
     hasPriceInfo: true,
     hasVerifiedStatus: true,
     hasPoints: true,
-    hasApyBreakdown: true,
     hasOverview: true,
   },
   securitize: {
@@ -51,7 +49,6 @@ const VAULT_FEATURES: Record<VaultType, VaultFeatures> = {
     hasPriceInfo: false,
     hasVerifiedStatus: false,
     hasPoints: false,
-    hasApyBreakdown: false,
     hasOverview: true,
   },
 }
@@ -259,12 +256,14 @@ const errorText = computed(() => {
   }
   return null
 })
+const isSupplyCapReached = computed(() => evkVault.value ? getIsSupplyCapReached(evkVault.value) : false)
 const assets = computed(() => [asset.value!])
 const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   if (activeBalance.value < valueToNano(amount.value, activeAsset.value?.decimals)) return true
   if (isLoading.value || !(+amount.value)) return true
   if (needsSwap.value && !swapEffectiveQuote.value && !isSwapQuoteLoading.value) return true
+  if (isSupplyCapReached.value) return true
   return false
 })
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
@@ -685,7 +684,6 @@ watch(address, () => {
               <p class="mb-4 text-content-tertiary flex items-center gap-4">
                 Supply APY
                 <SvgIcon
-                  v-if="features.hasApyBreakdown"
                   class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
                   name="info-circle"
                   @click="onSupplyInfoIconClick"
@@ -834,7 +832,7 @@ watch(address, () => {
               align-top
             >
               <p class="text-content-tertiary">
-                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings) }}</span> {{
+                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
                   asset.symbol
                 }}
                 <template v-if="features.hasPriceInfo && vault">

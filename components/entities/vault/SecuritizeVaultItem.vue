@@ -7,6 +7,8 @@ import { useEulerProductOfVault, useEulerEntitiesOfVault } from '~/composables/u
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultSupplyApyModal } from '#components'
 import BaseLoadableContent from '~/components/base/BaseLoadableContent.vue'
 
 const { isConnected } = useAccount()
@@ -35,8 +37,9 @@ const displayName = computed(() => product.name || vault.name)
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
 
 const { getBalance, isLoading: isBalancesLoading } = useWallets()
-const { withIntrinsicSupplyApy } = useIntrinsicApy()
-const { getSupplyRewardApy, hasSupplyRewards } = useRewardsApy()
+const modal = useModal()
+const { withIntrinsicSupplyApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
+const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
 
 const balance = computed(() =>
   getBalance(vault.asset.address as `0x${string}`),
@@ -52,6 +55,19 @@ const supplyApy = computed(() =>
 const supplyApyWithRewards = computed(
   () => supplyApy.value + totalRewardsAPY.value,
 )
+
+const onSupplyInfoIconClick = (event: MouseEvent) => {
+  event.preventDefault()
+  event.stopPropagation()
+  modal.open(VaultSupplyApyModal, {
+    props: {
+      lendingAPY: lendingAPY.value,
+      intrinsicAPY: getIntrinsicApy(vault.asset.address),
+      intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
+      campaigns: getSupplyRewardCampaigns(vault.address),
+    },
+  })
+}
 
 const statsGridCols = computed(() => {
   const cols: string[] = []
@@ -113,8 +129,13 @@ watchEffect(async () => {
         </div>
       </div>
       <div class="flex flex-col items-end">
-        <div class="text-content-tertiary text-p3 mb-4 text-right">
+        <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
           Supply APY
+          <SvgIcon
+            class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+            name="info-circle"
+            @click="onSupplyInfoIconClick"
+          />
         </div>
         <div class="flex items-center">
           <div class="text-p2 flex items-center text-accent-600 font-semibold">

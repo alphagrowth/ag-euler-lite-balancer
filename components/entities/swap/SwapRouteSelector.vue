@@ -38,30 +38,30 @@ const onSelect = (provider: string) => {
 </script>
 
 <template>
-  <div class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-12 border border-line-default">
-    <div class="flex justify-between items-center">
-      <p class="text-p2 text-content-primary">
-        {{ title }}
+  <div class="flex justify-between items-center">
+    <p class="text-h4 text-content-primary">
+      {{ title }}
+    </p>
+    <div class="flex items-center gap-8">
+      <p class="text-p3 text-content-secondary">
+        {{ statusLabel || '-' }}
       </p>
-      <div class="flex items-center gap-8">
-        <p class="text-p3 text-content-secondary">
-          {{ statusLabel || '-' }}
-        </p>
-        <button
-          type="button"
-          aria-label="Refresh swap quotes"
-          class="text-content-secondary hover:text-accent-600 transition-colors disabled:opacity-50"
-          :disabled="isLoading || !items.length"
-          @click="emit('refresh')"
-        >
-          <SvgIcon
-            name="refresh"
-            class="!w-16 !h-16"
-            :class="{ 'animate-spin': isLoading }"
-          />
-        </button>
-      </div>
+      <button
+        type="button"
+        aria-label="Refresh swap quotes"
+        class="text-content-secondary hover:text-accent-600 transition-colors disabled:opacity-50"
+        :disabled="isLoading || !items.length"
+        @click="emit('refresh')"
+      >
+        <SvgIcon
+          name="refresh"
+          class="!w-16 !h-16"
+          :class="{ 'animate-spin': isLoading }"
+        />
+      </button>
     </div>
+  </div>
+  <div class="bg-surface-secondary p-16 rounded-16 flex flex-col gap-12 border border-line-default">
     <div class="flex flex-col gap-8 max-h-[240px] overflow-y-auto pr-4">
       <template v-if="items.length">
         <button

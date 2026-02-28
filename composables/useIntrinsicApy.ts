@@ -3,6 +3,7 @@ import type { IntrinsicApyInfo, IntrinsicApyProvider, IntrinsicApyResult } from 
 import { EMPTY_INTRINSIC_APY } from '~/entities/intrinsic-apy'
 import { createDefiLlamaProvider } from '~/services/intrinsicApy/defillamaProvider'
 import { createPendleProvider } from '~/services/intrinsicApy/pendleProvider'
+import { createSecuritizeProvider } from '~/services/intrinsicApy/securitizeProvider'
 import { logWarn } from '~/utils/errorHandling'
 import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
 
@@ -17,6 +18,7 @@ const normalize = (value?: string) => value?.toLowerCase() || ''
 const providers: IntrinsicApyProvider[] = [
   createDefiLlamaProvider(intrinsicApySources),
   createPendleProvider(intrinsicApySources),
+  createSecuritizeProvider(intrinsicApySources),
 ]
 
 const mergeResults = (allResults: IntrinsicApyResult[]): Record<string, IntrinsicApyInfo> => {

@@ -294,6 +294,9 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     return null
   })
 
+  const isSupplyCapReached = computed(() => collateralVault.value ? getIsSupplyCapReached(collateralVault.value) : false)
+  const isBorrowCapReached = computed(() => borrowVault.value ? getIsBorrowCapReached(borrowVault.value) : false)
+
   const isSubmitDisabled = computed(() => {
     if (!isConnected.value) return false
     if (borrowActiveBalance.value < valueToNano(collateralAmount.value, borrowActiveAssetDecimals.value)) return true
@@ -301,6 +304,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     if ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals)) return true
     if (!valueToNano(borrowAmount.value, borrowVault.value?.decimals)) return true
     if (borrowNeedsSwap.value && !borrowSwapEffectiveQuote.value && !isBorrowSwapQuoteLoading.value) return true
+    if (isSupplyCapReached.value || isBorrowCapReached.value) return true
     return false
   })
 
