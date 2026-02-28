@@ -31,7 +31,6 @@ interface VaultFeatures {
   hasPriceInfo: boolean
   hasVerifiedStatus: boolean
   hasPoints: boolean
-  hasApyBreakdown: boolean
   hasOverview: boolean
 }
 
@@ -42,7 +41,6 @@ const VAULT_FEATURES: Record<VaultType, VaultFeatures> = {
     hasPriceInfo: true,
     hasVerifiedStatus: true,
     hasPoints: true,
-    hasApyBreakdown: true,
     hasOverview: true,
   },
   securitize: {
@@ -51,7 +49,6 @@ const VAULT_FEATURES: Record<VaultType, VaultFeatures> = {
     hasPriceInfo: false,
     hasVerifiedStatus: false,
     hasPoints: false,
-    hasApyBreakdown: false,
     hasOverview: true,
   },
 }
@@ -687,7 +684,6 @@ watch(address, () => {
               <p class="mb-4 text-content-tertiary flex items-center gap-4">
                 Supply APY
                 <SvgIcon
-                  v-if="features.hasApyBreakdown"
                   class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
                   name="info-circle"
                   @click="onSupplyInfoIconClick"

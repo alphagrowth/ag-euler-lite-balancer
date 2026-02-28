@@ -64,6 +64,7 @@ const CONNECT_SRC_BASE = [
   // External data APIs
   'https://yields.llama.fi',
   'https://api-v2.pendle.finance',
+  'https://public-feed.securitize.io',
   // Reown AppKit SDK version check
   'https://registry.npmjs.org',
   // RPC providers (wildcard — operators configure per chain)
