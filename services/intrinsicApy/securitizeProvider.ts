@@ -19,7 +19,7 @@ type SecuritizeAssetStats = {
 const normalize = (value?: string) => value?.toLowerCase() || ''
 
 const buildSourceUrl = (symbol: string) =>
-  `https://id.securitize.io/#/investment/${symbol}`
+  `${SECURITIZE_FEED_URL}?symbol=${symbol}`
 
 const fetchBySymbol = async (
   symbol: string,
