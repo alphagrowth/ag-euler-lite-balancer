@@ -317,7 +317,7 @@ watchEffect(async () => {
         :class="isConnected ? 'items-center' : 'items-end text-right'"
       >
         <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
-          Collateral
+          Collateral exposure
           <SvgIcon
             v-if="collateralAssets.length > 0"
             class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
@@ -420,7 +420,7 @@ watchEffect(async () => {
       >
         <div class="flex-1">
           <div class="text-content-tertiary text-p3 flex items-center gap-4">
-            Collateral
+            Collateral exposure
             <SvgIcon
               v-if="collateralAssets.length > 0"
               class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
