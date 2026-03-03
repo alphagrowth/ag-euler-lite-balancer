@@ -106,13 +106,10 @@ onClickOutside(reference, () => {
         alt="Euler"
       >
       <div class="flex flex-col items-start mr-4 mobile:hidden">
-        <span class="text-[14px] font-semibold leading-tight text-content-accent">{{
-          appTitle
-        }}</span>
         <span
-          v-if="appTitle !== 'Euler'"
-          class="text-[10px] text-content-tertiary leading-tight"
-        >Powered by Euler</span>
+          class="text-[14px] font-semibold leading-tight text-content-accent"
+        >{{ appTitle }}</span>
+        <span class="text-[10px] text-content-tertiary leading-tight">Powered by Euler</span>
       </div>
       <SvgIcon
         class="!w-18 !h-18 transition-transform duration-fast text-content-tertiary"
