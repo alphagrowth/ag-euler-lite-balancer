@@ -41,7 +41,6 @@ module.exports = {
           muted: 'var(--text-muted)',
           inverse: 'var(--text-inverse)',
           accent: 'var(--text-accent)',
-          logo: 'var(--text-logo)',
         },
 
         // Borders (use as border-default, border-subtle, etc.)
@@ -69,6 +68,7 @@ module.exports = {
           900: 'var(--primary-900)',
         },
         'accent': {
+          100: 'var(--accent-100)',
           300: 'var(--accent-300)',
           400: 'var(--accent-400)',
           500: 'var(--accent-500)',
@@ -112,15 +112,6 @@ module.exports = {
           800: 'hsl(var(--euler-dark-800))',
           900: 'hsl(var(--euler-dark-900))',
           1000: 'hsl(var(--euler-dark-1000))',
-        },
-        'aquamarine': {
-          300: 'hsl(var(--aquamarine-300))',
-          500: 'hsl(var(--aquamarine-500))',
-          600: 'hsl(var(--aquamarine-600))',
-          700: 'hsl(var(--aquamarine-700))',
-          800: 'hsl(var(--aquamarine-800))',
-          900: 'hsl(var(--aquamarine-900))',
-          1000: 'hsl(var(--aquamarine-1000))',
         },
         'red': {
           600: 'rgb(var(--red-600))',

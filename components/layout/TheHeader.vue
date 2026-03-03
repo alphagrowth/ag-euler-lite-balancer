@@ -108,7 +108,7 @@ onClickOutside(reference, () => {
       >
       <div class="flex flex-col items-start mr-4 mobile:hidden">
         <span
-          class="text-[14px] font-semibold text-content-logo leading-tight"
+          class="text-[14px] font-semibold text-content-primary leading-tight"
         >{{ appTitle }}</span>
         <span
           v-if="enablePoweredByEuler"

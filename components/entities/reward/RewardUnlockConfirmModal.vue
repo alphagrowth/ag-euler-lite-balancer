@@ -34,9 +34,9 @@ const amountToBeBurned = computed(() => {
       Are you sure?
     </div>
     <div class="text-p2 text-euler-dark-900 mb-24">
-      This action will unlock <span class="text-aquamarine-700">{{ formatNumber(unlockableAmount, 6) }} EUL</span>,
-      and <span class="text-aquamarine-700">{{ formatNumber(amountToBeBurned, 6) }} EUL will be permanently burned.</span>
-      To fully redeem your EUL rewards, you must wait for the <span class="text-aquamarine-700">6-month</span> vesting period to complete.
+      This action will unlock <span class="text-accent-500">{{ formatNumber(unlockableAmount, 6) }} EUL</span>,
+      and <span class="text-accent-500">{{ formatNumber(amountToBeBurned, 6) }} EUL will be permanently burned.</span>
+      To fully redeem your EUL rewards, you must wait for the <span class="text-accent-500">6-month</span> vesting period to complete.
     </div>
     <div class="flex justify-between gap-8">
       <UiButton
