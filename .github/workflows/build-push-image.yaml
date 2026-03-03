@@ -68,7 +68,7 @@ jobs:
     name: Deploy to ECS
     needs: build-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
+    # if: github.ref == 'refs/heads/master'
     steps:
       - name: Download current task definition
         env:
