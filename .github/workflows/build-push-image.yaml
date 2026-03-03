@@ -14,8 +14,8 @@ env:
   ECR_REPOSITORY: euler-lite
   ECS_CLUSTER: euler-lite-fargate
   ECS_SERVICE: euler-lite-prod
-  ECS_TASK_DEFINITION: euler-lite
-  ECS_CONTAINER_NAME: euler-lite
+  ECS_TASK_DEFINITION: euler-lite-fargate-task
+  ECS_CONTAINER_NAME: euler-lite-fargate-prod
 
 jobs:
   build-push:
