@@ -41,6 +41,7 @@ module.exports = {
           muted: 'var(--text-muted)',
           inverse: 'var(--text-inverse)',
           accent: 'var(--text-accent)',
+          logo: 'var(--text-logo)',
         },
 
         // Borders (use as border-default, border-subtle, etc.)
