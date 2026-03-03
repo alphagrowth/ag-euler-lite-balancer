@@ -15,7 +15,7 @@ const { address, isConnected } = useAccount()
 const { chainId } = useEulerAddresses()
 const modal = useModal()
 const route = useRoute()
-const { docsUrl, tosUrl, xUrl, discordUrl, telegramUrl, githubUrl, appTitle, enableEarnPage, enableLendPage, enableExplorePage } = useDeployConfig()
+const { docsUrl, tosUrl, xUrl, discordUrl, telegramUrl, githubUrl, appTitle, enableEarnPage, enableLendPage, enableExplorePage, enablePoweredByEuler } = useDeployConfig()
 const menuItems = getMenuItems(enableEarnPage, enableLendPage, enableExplorePage)
 
 const links = computed(() => [
@@ -84,7 +84,10 @@ onClickOutside(reference, () => {
       >
       <div class="flex flex-col items-start mr-4 mobile:hidden">
         <span class="text-[14px] font-semibold text-content-primary leading-tight">{{ appTitle }}</span>
-        <span class="text-[10px] text-content-tertiary leading-tight">Powered by Euler</span>
+        <span
+          v-if="enablePoweredByEuler"
+          class="text-[10px] text-content-tertiary leading-tight"
+        >Powered by Euler</span>
       </div>
       <SvgIcon
         class="!w-18 !h-18 transition-transform duration-fast text-content-tertiary"
