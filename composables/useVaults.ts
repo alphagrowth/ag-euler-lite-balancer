@@ -380,11 +380,17 @@ const getEarnVault = async (address: string): Promise<EarnVault> => {
   registrySet(normalizedAddress, vault, 'earn')
   return vault
 }
-const updateVault = async (vaultAddress: string): Promise<Vault> => {
-  const { set: registrySet, isKnownEscrowAddress } = useVaultRegistry()
+const updateVault = async (vaultAddress: string): Promise<Vault | SecuritizeVault> => {
+  const { set: registrySet, isKnownEscrowAddress, getType } = useVaultRegistry()
   const address = getAddress(vaultAddress)
 
-  // Use appropriate fetch function to preserve escrow status
+  // Use appropriate fetch function based on vault type
+  if (getType(address) === 'securitize') {
+    const vault = await fetchSecuritizeVault(address)
+    registrySet(address, vault, 'securitize')
+    return vault
+  }
+
   const vault = isKnownEscrowAddress(address)
     ? await fetchEscrowVault(address)
     : await fetchVault(address)
