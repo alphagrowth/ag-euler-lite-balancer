@@ -1,21 +1,33 @@
-name: Build and Push Image
+name: Build, Push & Deploy
 on:
   push:
     branches:
       - master
+      - feature/init_ecs_deployment
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY: euler-lite
+  ECS_CLUSTER: euler-lite-fargate
+  ECS_SERVICE: euler-lite-prod
+  ECS_TASK_DEFINITION: euler-lite
+  ECS_CONTAINER_NAME: euler-lite
+
 jobs:
-  push-image:
+  build-push:
+    name: Build & Push Image
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      image: ${{ steps.build.outputs.image }}
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
 
@@ -30,23 +42,61 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
         env:
-          AWS_REGION: eu-west-1
+          AWS_REGION: ${{ env.AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECR }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECR }}
 
       - name: Build, tag, and push docker image to Amazon ECR
+        id: build
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          REPOSITORY: euler-lite
           IMAGE_TAG: ${{ steps.generate-tag.outputs.image_tag }}
-          AWS_REGION: eu-west-1
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECR }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECR }}
         run: |
+          FULL_IMAGE="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           docker build --platform linux/amd64 -t euler-lite .
-          docker tag euler-lite $REGISTRY/$REPOSITORY:$IMAGE_TAG
-          docker tag euler-lite $REGISTRY/$REPOSITORY:latest
-          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
-          docker push $REGISTRY/$REPOSITORY:latest
+          docker tag euler-lite "$FULL_IMAGE"
+          docker tag euler-lite "$REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$FULL_IMAGE"
+          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+          echo "image=$FULL_IMAGE" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy to ECS
+    needs: build-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Download current task definition
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECS_PROD }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECS_PROD }}
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Update image in task definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.ECS_CONTAINER_NAME }}
+          image: ${{ needs.build-push.outputs.image }}
+
+      - name: Deploy new task definition to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECS_PROD }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECS_PROD }}
+        with:
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
