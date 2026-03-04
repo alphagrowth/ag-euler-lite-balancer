@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: read
     outputs:
-      image: ${{ steps.build.outputs.image }}
+      image_tag: ${{ steps.generate-tag.outputs.image_tag }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
           docker tag euler-lite "$REGISTRY/$ECR_REPOSITORY:latest"
           docker push "$FULL_IMAGE"
           docker push "$REGISTRY/$ECR_REPOSITORY:latest"
-          echo "image=$FULL_IMAGE" >> $GITHUB_OUTPUT
+          echo "image=$FULL_IMAGE"
 
   deploy:
     name: Deploy to ECS
@@ -63,6 +63,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {}
     steps:
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECR }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECR }}
+
       - name: Download current task definition
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -81,7 +89,7 @@ jobs:
         with:
           task-definition: task-definition.json
           container-name: ${{ secrets.ECS_CONTAINER_NAME }}
-          image: ${{ needs.build-push.outputs.image }}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ needs.build-push.outputs.image_tag }}
 
       - name: Deploy new task definition to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
