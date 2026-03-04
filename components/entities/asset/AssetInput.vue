@@ -214,7 +214,7 @@ const openChooseCollateralModal = () => {
           </span>
           <span
             v-if="selectedSource === 'wallet' && (collateralOptions?.length ?? 0) > 1"
-            class="text-[10px] leading-[12px] text-aquamarine-600"
+            class="text-[10px] leading-[12px] text-accent-600"
           >
             Wallet
           </span>
@@ -249,7 +249,7 @@ const openChooseCollateralModal = () => {
       >
         <p @click="setMax">
           <span class="text-euler-dark-800">{{ formatSmartAmount(friendlyBalance) }} {{ asset.symbol }}</span> <span
-            class="text-aquamarine-700 font-semibold px-4 cursor-pointer select-none text-[12px] leading-[16px]"
+            class="text-accent-500 font-semibold px-4 cursor-pointer select-none text-[12px] leading-[16px]"
           >Max</span> <!-- TODO: button -->
         </p>
       </BaseLoadableContent>

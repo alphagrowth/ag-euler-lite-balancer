@@ -1,4 +1,4 @@
-import { getAddress } from 'viem'
+import { getAddress, zeroAddress } from 'viem'
 import { useVaultRegistry } from './useVaultRegistry'
 import { logWarn } from '~/utils/errorHandling'
 import {
@@ -18,6 +18,7 @@ import {
   type Vault,
 } from '~/entities/vault'
 import { getProductByVault } from '~/utils/eulerLabelsUtils'
+import { getEulerRouterGovernor } from '~/entities/oracle'
 
 const isReady = ref(false)
 const isLoading = ref(false)
@@ -380,11 +381,17 @@ const getEarnVault = async (address: string): Promise<EarnVault> => {
   registrySet(normalizedAddress, vault, 'earn')
   return vault
 }
-const updateVault = async (vaultAddress: string): Promise<Vault> => {
-  const { set: registrySet, isKnownEscrowAddress } = useVaultRegistry()
+const updateVault = async (vaultAddress: string): Promise<Vault | SecuritizeVault> => {
+  const { set: registrySet, isKnownEscrowAddress, getType } = useVaultRegistry()
   const address = getAddress(vaultAddress)
 
-  // Use appropriate fetch function to preserve escrow status
+  // Use appropriate fetch function based on vault type
+  if (getType(address) === 'securitize') {
+    const vault = await fetchSecuritizeVault(address)
+    registrySet(address, vault, 'securitize')
+    return vault
+  }
+
   const vault = isKnownEscrowAddress(address)
     ? await fetchEscrowVault(address)
     : await fetchVault(address)
@@ -578,14 +585,29 @@ export const useVaults = () => {
     }
 
     // Check if governorAdmin matches any address in any of the declared entities
-    for (const entityKey of declaredEntityKeys) {
+    const governorAdminVerified = declaredEntityKeys.some((entityKey) => {
       const entity = entities[entityKey]
-      if (entity && Object.keys(entity.addresses).includes(vault.governorAdmin)) {
-        return true
+      return entity && Object.keys(entity.addresses).includes(vault.governorAdmin)
+    })
+
+    if (!governorAdminVerified) {
+      return false
+    }
+
+    // Also verify oracle router governor if the oracle is an EulerRouter
+    const routerGovernor = getEulerRouterGovernor(vault.oracleDetailedInfo)
+    if (routerGovernor && routerGovernor !== zeroAddress) {
+      const routerGovernorVerified = declaredEntityKeys.some((entityKey) => {
+        const entity = entities[entityKey]
+        return entity && Object.keys(entity.addresses).includes(routerGovernor)
+      })
+
+      if (!routerGovernorVerified) {
+        return false
       }
     }
 
-    return false
+    return true
   }
 
   // Check if earn vault's on-chain owner matches any of the product's declared entities

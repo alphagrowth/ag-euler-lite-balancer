@@ -77,7 +77,7 @@ const handleClose = () => {
           <div>
             <p class="mb-4 flex gap-4">
               <SvgIcon
-                class="!w-20 !h-20 text-aquamarine-700"
+                class="!w-20 !h-20 text-accent-500"
                 name="sparks"
               />
               <span>Supply rewards APY</span>
@@ -125,7 +125,7 @@ const handleClose = () => {
           <div>
             <p class="mb-4 flex gap-4">
               <SvgIcon
-                class="!w-20 !h-20 text-aquamarine-700"
+                class="!w-20 !h-20 text-accent-500"
                 name="sparks"
               />
               <span>Borrow rewards APY</span>

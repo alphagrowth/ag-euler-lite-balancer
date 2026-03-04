@@ -59,19 +59,19 @@ const onAccept = () => {
           href="https://www.euler.finance/terms"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+          class="text-accent-500 underline cursor-pointer hover:text-accent-600"
         >Terms of Use</a>,
         <a
           href="https://www.euler.finance/privacy"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+          class="text-accent-500 underline cursor-pointer hover:text-accent-600"
         >Privacy Policy</a>, and
         <a
           href="https://www.euler.finance/risk"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-aquamarine-700 underline cursor-pointer hover:text-aquamarine-600"
+          class="text-accent-500 underline cursor-pointer hover:text-accent-600"
         >Risk Disclosures</a>.
         I further represent and warrant:
       </div>

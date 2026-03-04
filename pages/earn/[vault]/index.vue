@@ -275,7 +275,7 @@ watch(address, () => {
                 />
                 <SvgIcon
                   v-if="hasRewards"
-                  class="!w-24 !h-24 text-aquamarine-700 cursor-pointer"
+                  class="!w-24 !h-24 text-accent-500 cursor-pointer"
                   name="sparks"
                   @click="onSupplyInfoIconClick"
                 />
