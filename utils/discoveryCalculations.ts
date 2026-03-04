@@ -23,10 +23,14 @@ export interface CollateralMatrixData {
   pairCount: number
 }
 
-export interface BestNetApyResult {
+export interface BestMaxRoeResult {
   value: number
   hasRewards: boolean
   pair: string
+  maxMultiplier: number
+  supplyAPY: number
+  borrowAPY: number
+  borrowLTV: number
 }
 
 export interface EnhancedCellApys {
