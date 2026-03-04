@@ -1,12 +1,7 @@
 import type { MarketGroup } from '~/entities/lend-discovery'
-import type { Vault } from '~/entities/vault'
-import type { BestMaxRoeResult } from '~/utils/discoveryCalculations'
-import type { AnyVault } from '~/composables/useVaultRegistry'
+import { type BestMaxRoeResult, getBorrowableVaults, isVaultType } from '~/utils/discoveryCalculations'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
-
-const isVaultType = (vault: AnyVault): vault is Vault =>
-  !('type' in vault) || (vault as { type?: string }).type === undefined
 
 /**
  * Computes the best max ROE for each market group by iterating all actual
@@ -20,9 +15,7 @@ export const useBestMaxROE = (marketGroups: Ref<MarketGroup[]>) => {
   const { getSupplyRewardApy, getBorrowRewardApy, version: rewardsVersion } = useRewardsApy()
 
   const computeForGroup = (group: MarketGroup): BestMaxRoeResult => {
-    const borrowableVaults = group.vaults.filter(
-      v => isVaultType(v) && v.vaultCategory !== 'escrow',
-    ) as Vault[]
+    const borrowableVaults = getBorrowableVaults(group)
 
     const allVaults = [...group.vaults, ...group.externalCollateral]
     const knownAddresses = new Set(
