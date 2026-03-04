@@ -111,6 +111,7 @@ export default defineNuxtConfig({
       configEnableLendPage: '',
       configEnableExplorePage: '',
       configEnablePoweredByEuler: '',
+      configEnableAppTitle: '',
       // Feature flags: disabled by default. Set to 'true' to enable.
       configEnableSwapDeposit: '',
       // Env config fallbacks (Doppler: NUXT_PUBLIC_*)

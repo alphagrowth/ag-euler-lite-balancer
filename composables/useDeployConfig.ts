@@ -43,6 +43,7 @@ export const useDeployConfig = () => {
     enableLendPage: isEnabled(rc.configEnableLendPage),
     enableExplorePage: isEnabled(rc.configEnableExplorePage),
     enablePoweredByEuler: isEnabled(rc.configEnablePoweredByEuler),
+    enableAppTitle: isEnabled(rc.configEnableAppTitle),
     enableSwapDeposit: isExplicitlyEnabled(rc.configEnableSwapDeposit),
 
     // Chains (derived from env vars at runtime via useChainConfig)

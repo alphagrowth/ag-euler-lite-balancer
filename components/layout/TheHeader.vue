@@ -31,6 +31,7 @@ const {
   enableLendPage,
   enableExplorePage,
   enablePoweredByEuler,
+  enableAppTitle,
 } = useDeployConfig()
 const menuItems = getMenuItems(
   enableEarnPage,
@@ -106,8 +107,12 @@ onClickOutside(reference, () => {
         src="/logo.svg"
         alt="Euler"
       >
-      <div class="flex flex-col items-start mr-4 mobile:hidden">
+      <div
+        v-if="enableAppTitle || enablePoweredByEuler"
+        class="flex flex-col items-start mr-4 mobile:hidden"
+      >
         <span
+          v-if="enableAppTitle"
           class="text-[14px] font-semibold text-content-primary leading-tight"
         >{{ appTitle }}</span>
         <span
