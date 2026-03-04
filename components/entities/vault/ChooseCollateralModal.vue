@@ -89,7 +89,7 @@ const handleClose = () => {
             {{ getOptionSymbol(option) }}
             <div
               v-if="getOptionType(option) === 'wallet'"
-              class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-[#A1F4E01A] text-accent-600"
+              class="ml-6 text-[12px] leading-[16px] py-4 px-8 rounded-8 bg-accent-600/10 text-accent-600"
             >
               Wallet
             </div>
