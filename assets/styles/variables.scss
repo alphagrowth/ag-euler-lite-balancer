@@ -19,12 +19,13 @@
   --primary-800: #243b53;
   --primary-900: #102a43;
 
-  // Accent - Sophisticated Gold/Bronze (for CTAs, APY highlights)
-  --accent-300: #e8d5b7;
-  --accent-400: #d4a574;
-  --accent-500: #c49b64;
-  --accent-600: #a88347;
-  --accent-700: #8b6914;
+  // Accent - Brand Gold derived from #DBA751 = hsl(37, 66%, 59%)
+  --accent-100: #FAF2E6;
+  --accent-300: #EFD8B3;
+  --accent-400: #E6C084;
+  --accent-500: #DBA751;
+  --accent-600: #CB8D2A;
+  --accent-700: #94671E;
 
   // Neutral - Warm Grays
   --neutral-50: #fafafa;
@@ -123,15 +124,6 @@
   --euler-dark-900: 210 11% 32%;   // Body text (--neutral-600)
   --euler-dark-1000: 210 11% 15%;  // Primary text (--neutral-800)
 
-  // Accent palette - Gold/Bronze for institutional look
-  --aquamarine-300: 36 56% 35%;    // Dark gold
-  --aquamarine-500: 36 56% 50%;    // Medium gold
-  --aquamarine-600: 36 56% 55%;    // Gold
-  --aquamarine-700: 36 56% 58%;    // Primary accent (gold)
-  --aquamarine-800: 36 56% 65%;    // Lighter gold
-  --aquamarine-900: 36 56% 75%;    // Very light gold
-  --aquamarine-1000: 36 56% 30%;   // Gold for text on light bg
-
   --teal-light-100: 235, 249, 249;
   --teal-light-300: 177, 230, 231;
 
@@ -197,24 +189,6 @@
   --c-euler-dark-900: hsl(var(--euler-dark-900));
   --c-euler-dark-1000: hsl(var(--euler-dark-1000));
 
-  --c-aquamarine-300: hsl(var(--aquamarine-300));
-  --c-aquamarine-500: hsl(var(--aquamarine-500));
-  --c-aquamarine-600: hsl(var(--aquamarine-600));
-  --c-aquamarine-700: hsl(var(--aquamarine-700));
-  --c-aquamarine-800: hsl(var(--aquamarine-800));
-  --c-aquamarine-900: hsl(var(--aquamarine-900));
-  --c-aquamarine-1000: hsl(var(--aquamarine-1000));
-
-  --c-aquamarine-opaque-200: hsl(var(--aquamarine-700) / 0.1);
-  --c-aquamarine-opaque-300: hsl(var(--aquamarine-700) / 0.2);
-  --c-aquamarine-opaque-400: hsl(var(--aquamarine-700) / 0.3);
-  --c-aquamarine-opaque-500: hsl(var(--aquamarine-700) / 0.4);
-  --c-aquamarine-opaque-600: hsl(var(--aquamarine-700) / 0.5);
-  --c-aquamarine-opaque-700: hsl(var(--aquamarine-700) / 0.6);
-  --c-aquamarine-opaque-800: hsl(var(--aquamarine-700) / 0.7);
-  --c-aquamarine-opaque-900: hsl(var(--aquamarine-700) / 0.8);
-  --c-aquamarine-opaque-1000: hsl(var(--aquamarine-700) / 0.9);
-
   --c-teal-light-100: rgb(var(--teal-light-100));
   --c-teal-light-300: rgb(var(--teal-light-300));
 
@@ -243,7 +217,7 @@
   --text-muted: var(--neutral-400);
   --text-inverse: #ffffff;
   --text-accent: var(--accent-600);
-  
+
   // Borders
   --border-default: var(--neutral-200);
   --border-subtle: rgba(0, 0, 0, 0.06);
@@ -285,12 +259,13 @@
   --neutral-800: #e5e5e5;
   --neutral-900: #fafafa;
 
-  // Accent - Keep gold but slightly brighter for dark bg
-  --accent-300: #f5e6c8;
-  --accent-400: #e8c078;
-  --accent-500: #d4a95a;
-  --accent-600: #c49b64;
-  --accent-700: #a88347;
+  // Accent - Brand Gold adjusted for dark backgrounds
+  --accent-100: #362812;
+  --accent-300: #F2DFBF;
+  --accent-400: #E8C58D;
+  --accent-500: #DFAF62;
+  --accent-600: #D89E41;
+  --accent-700: #BE8427;
 
   // Semantic backgrounds
   --bg-body: #0a0a0a;
