@@ -46,8 +46,6 @@ jobs:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ steps.generate-tag.outputs.image_tag }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECR }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECR }}
         run: |
           FULL_IMAGE="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           docker build --platform linux/amd64 -t euler-lite .
