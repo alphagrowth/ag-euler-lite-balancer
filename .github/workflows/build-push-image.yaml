@@ -3,25 +3,18 @@ on:
   push:
     branches:
       - master
+      - feature/init_ecs_deployment
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
-
-env:
-  AWS_REGION: eu-west-1
-  ECR_REPOSITORY: euler-lite
-  ECS_CLUSTER: euler-lite-fargate
-  ECS_SERVICE: euler-lite-prod
-  ECS_TASK_DEFINITION: euler-lite-fargate-task
-  ECS_CONTAINER_NAME: euler-lite-fargate-prod
 
 jobs:
   build-push:
     name: Build & Push Image
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     outputs:
       image: ${{ steps.build.outputs.image }}
     steps:
@@ -43,7 +36,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
         env:
-          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECR }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECR }}
 
@@ -52,6 +45,7 @@ jobs:
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ steps.generate-tag.outputs.image_tag }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECR }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECR }}
         run: |
@@ -67,16 +61,18 @@ jobs:
     name: Deploy to ECS
     needs: build-push
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Download current task definition
         env:
-          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECS_PROD }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECS_PROD }}
         run: |
           aws ecs describe-task-definition \
-            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+            --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
             --query taskDefinition \
+            | jq 'del(.taskDefinitionArn, .revision, .status, .registeredAt, .registeredBy, .requiresAttributes, .compatibilities)' \
             > task-definition.json
 
       - name: Update image in task definition
@@ -84,17 +80,17 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
-          container-name: ${{ env.ECS_CONTAINER_NAME }}
+          container-name: ${{ secrets.ECS_CONTAINER_NAME }}
           image: ${{ needs.build-push.outputs.image }}
 
       - name: Deploy new task definition to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         env:
-          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_ECS_PROD }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ECS_PROD }}
         with:
           task-definition: ${{ steps.render-task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ secrets.ECS_SERVICE }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
           wait-for-service-stability: true
