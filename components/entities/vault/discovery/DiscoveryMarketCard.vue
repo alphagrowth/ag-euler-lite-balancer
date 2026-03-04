@@ -204,36 +204,28 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
           :key="'max-roe-' + bestRoeIdx"
         >
           <div class="flex-1 min-w-0">
-            <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
-              Best max ROE
-              <SvgIcon
-                v-if="bestRoe.value > 0"
-                class="!w-14 !h-14 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
-                name="info-circle"
-                @click="onMaxRoeInfoIconClick($event, bestRoe)"
-              />
-            </div>
-            <div
-              v-if="bestRoe.value > 0"
-              class="text-p2 text-content-primary flex items-center gap-4 min-w-0 mobile:overflow-hidden"
-            >
-              <SvgIcon
-                v-if="bestRoe.hasRewards"
-                name="sparks"
-                class="!w-12 !h-12 text-accent-500 shrink-0"
-              />
-              <span class="shrink-0">{{ formatNumber(bestRoe.value, 2, 2) }}%</span>
-              <span
-                v-if="bestRoe.pair"
-                class="text-p4 text-content-muted min-w-0 truncate"
-              >{{ bestRoe.pair }}</span>
-            </div>
-            <div
-              v-else
-              class="text-p2 text-content-muted"
-            >
-              &mdash;
-            </div>
+            <template v-if="bestRoe.value > 0">
+              <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
+                Best max ROE
+                <SvgIcon
+                  class="!w-14 !h-14 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+                  name="info-circle"
+                  @click="onMaxRoeInfoIconClick($event, bestRoe)"
+                />
+              </div>
+              <div class="text-p2 text-content-primary flex items-center gap-4 min-w-0 mobile:overflow-hidden">
+                <SvgIcon
+                  v-if="bestRoe.hasRewards"
+                  name="sparks"
+                  class="!w-12 !h-12 text-accent-500 shrink-0"
+                />
+                <span class="shrink-0">{{ formatNumber(bestRoe.value, 2, 2) }}%</span>
+                <span
+                  v-if="bestRoe.pair"
+                  class="text-p4 text-content-muted min-w-0 truncate"
+                >{{ bestRoe.pair }}</span>
+              </div>
+            </template>
           </div>
         </template>
       </div>
