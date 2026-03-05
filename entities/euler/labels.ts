@@ -36,8 +36,6 @@ export type EulerLabelPoint = {
   name: string
   logo: string
   collateralVaults?: string[]
-  isTurtleClub?: boolean
-  skipValidation?: boolean
 }
 
 export type EulerLabelPointReward = {
