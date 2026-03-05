@@ -5,7 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getProductByVault, getEntitiesByVault, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
-import { useBestNetAPY } from '~/composables/useBestNetAPY'
+import { useBestMaxROE } from '~/composables/useBestMaxROE'
 import { useVaultSearch } from '~/composables/useVaultSearch'
 import type { MarketGroup } from '~/entities/lend-discovery'
 import type { Vault } from '~/entities/vault'
@@ -16,7 +16,7 @@ defineOptions({
 })
 
 const { marketGroups, isResolvingTVL } = useMarketGroups()
-const { getBestNetAPY } = useBestNetAPY(marketGroups)
+const { getBestMaxROE } = useBestMaxROE(marketGroups)
 const { isUpdating, isEarnUpdating, isEscrowUpdating } = useVaults()
 const { chainId } = useEulerAddresses()
 const { entities } = useEulerLabels()
@@ -61,13 +61,13 @@ const {
   matchesCustomFilters,
 } = useCustomFilters<MarketGroup>(
   [
-    { key: 'bestNetAPY', label: 'Best net APY', shortLabel: 'Best net APY', unit: 'percent' },
+    { key: 'bestMaxROE', label: 'Best max ROE', shortLabel: 'Best max ROE', unit: 'percent' },
     { key: 'totalTVL', label: 'Total supply', shortLabel: 'Total supply', unit: 'usd' },
     { key: 'totalBorrowed', label: 'Total borrowed', shortLabel: 'Total borrowed', unit: 'usd' },
     { key: 'totalAvailableLiquidity', label: 'Available liquidity', shortLabel: 'Avail. liquidity', unit: 'usd' },
   ],
   (group, metric) => {
-    if (metric === 'bestNetAPY') return getBestNetAPY(group.id)
+    if (metric === 'bestMaxROE') return getBestMaxROE(group.id).value
     const val = group.metrics[metric as keyof typeof group.metrics]
     return typeof val === 'number' ? val : 0
   },
@@ -235,9 +235,9 @@ const sortedMarkets = computed(() => {
       scored.sort((a, b) => b.compositeScore - a.compositeScore)
       return applyDeprecatedGroupSort(applyFeaturedSort(scored.map(s => s.group)))
     }
-    case 'Best Net APY':
+    case 'Best Max ROE':
       sorted = applyFeaturedSort([...filteredMarkets.value].sort((a, b) =>
-        getBestNetAPY(b.id) - getBestNetAPY(a.id),
+        getBestMaxROE(b.id).value - getBestMaxROE(a.id).value,
       ))
       break
     case 'Total Supply':
@@ -294,7 +294,7 @@ const isLoading = computed(() =>
         <VaultSortButton
           v-model="sortBy"
           v-model:dir="sortDir"
-          :options="['Recommended', 'Best Net APY', 'Total Supply', 'Total Borrowed', 'Available Liquidity']"
+          :options="['Recommended', 'Best Max ROE', 'Total Supply', 'Total Borrowed', 'Available Liquidity']"
           :disable-dir="sortBy === 'Recommended'"
           title="Sorting type"
         />

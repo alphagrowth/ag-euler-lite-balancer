@@ -23,10 +23,14 @@ export interface CollateralMatrixData {
   pairCount: number
 }
 
-export interface BestNetApyResult {
+export interface BestMaxRoeResult {
   value: number
   hasRewards: boolean
   pair: string
+  maxMultiplier: number
+  supplyAPY: number
+  borrowAPY: number
+  borrowLTV: number
 }
 
 export interface EnhancedCellApys {
@@ -113,11 +117,14 @@ export const getMarketEntities = (market: MarketGroup): { name: string, logos: s
   return { name, logos: all.map(e => getEulerLabelEntityLogo(e.logo)) }
 }
 
+const hasBorrowableLTV = (vault: Vault): boolean =>
+  vault.collateralLTVs.some(ltv => ltv.borrowLTV > 0n)
+
 export const getBorrowableVaults = (market: MarketGroup): Vault[] =>
-  market.vaults.filter(isVaultType).filter(v => v.vaultCategory !== 'escrow' && v.borrowCap > 0n)
+  market.vaults.filter(isVaultType).filter(hasBorrowableLTV)
 
 export const getNonBorrowableMemberVaults = (market: MarketGroup): Vault[] =>
-  market.vaults.filter(isVaultType).filter(v => v.vaultCategory === 'escrow' || v.borrowCap === 0n)
+  market.vaults.filter(isVaultType).filter(v => !hasBorrowableLTV(v))
 
 export const isExternalCollateral = (market: MarketGroup, address: string): boolean => {
   const normalized = address.toLowerCase()

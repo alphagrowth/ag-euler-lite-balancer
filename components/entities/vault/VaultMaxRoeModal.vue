@@ -14,6 +14,7 @@ const {
   supplyAPY: number
   borrowAPY: number
   borrowLTV: number
+  isBestInMarket?: boolean
 }>()
 
 const handleClose = () => {
@@ -23,9 +24,15 @@ const handleClose = () => {
 
 <template>
   <BaseModalWrapper
-    title="Max ROE"
+    :title="isBestInMarket ? 'Best Max ROE' : 'Max ROE'"
     @close="handleClose"
   >
+    <p class="text-euler-dark-900 text-p3 mb-16">
+      ROE (Return on Equity) estimates the annualized return on your own capital in a multiplied position. A positive ROE means the supply yield exceeds borrowing costs at the given multiplier. A negative ROE means the position is gradually losing value to interest costs.
+      <template v-if="isBestInMarket">
+        The value shown is the best max ROE out of all possible collateral/borrow pairs in this market.
+      </template>
+    </p>
     <div class="mb-24">
       <div class="pb-16 mb-16 border-b border-euler-dark-600">
         <div class="flex justify-between items-center mb-16">
@@ -47,7 +54,7 @@ const handleClose = () => {
               Max multiplier
             </p>
             <p class="text-euler-dark-900">
-              Max multiplier at full LTV
+              Max multiplier at max LTV
             </p>
           </div>
           <div class="text-h5">
@@ -92,7 +99,7 @@ const handleClose = () => {
         </div>
       </div>
     </div>
-    <div class="bg-euler-dark-600 rounded-12 p-16 flex justify-between items-center">
+    <div class="bg-euler-dark-600 rounded-12 p-16 flex justify-between items-center mb-16">
       <div>
         <p>Max ROE</p>
         <p class="text-euler-dark-900 text-p3">
