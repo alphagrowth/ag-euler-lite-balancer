@@ -62,6 +62,7 @@ const CONNECT_SRC_BASE = [
   'https://chain-proxy.wallet.coinbase.com',
   'https://cca-lite.coinbase.com',
   // External data APIs
+  'https://api.fuul.xyz',
   'https://yields.llama.fi',
   'https://api-v2.pendle.finance',
   'https://public-feed.securitize.io',

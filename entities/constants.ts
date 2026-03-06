@@ -136,6 +136,8 @@ export const SECURITIZE_FEED_URL = 'https://public-feed.securitize.io/asset-stat
 export const BREVIS_API_URL = 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns'
 export const BREVIS_MERKLE_PROOF_URL = 'https://incentra-prd.brevis.network/v1/getMerkleProofsBatch'
 export const FUUL_API_BASE_URL = 'https://api.fuul.xyz/api/v1'
+export const FUUL_MANAGER_ADDRESS = '0x8a0836dA623ea1083c85acB958DeEa3716b39dc6'
+export const FUUL_FACTORY_ADDRESS = '0xa0080A60EE9f1985151161Fa6b09652Dc46afdEF'
 export const STABLEWATCH_POOLS_URL = 'https://api.stablewatch.io/api/pools'
 export const STABLEWATCH_SOURCE_URL = 'https://stablewatch.io'
 

@@ -23,3 +23,28 @@ export interface FuulIncentive {
   tvl: number
   refreshed_at: string
 }
+
+export interface FuulClaimCheck {
+  project_address: string
+  to: string
+  currency: string
+  currency_type: number
+  amount: string
+  reason: number
+  token_id: string
+  deadline: string
+  proof: string
+  signatures: string[]
+}
+
+export interface FuulTotalEntry {
+  currency: string
+  currency_type: number
+  amount: string
+  chain_id: number
+}
+
+export interface FuulTotals {
+  claimed: FuulTotalEntry[]
+  unclaimed: FuulTotalEntry[]
+}

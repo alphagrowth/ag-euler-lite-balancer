@@ -6,7 +6,10 @@ const { isConnected } = useAccount()
 const { enableMerkl, enableIncentra, enableFuul } = useDeployConfig()
 const { rewards, isRewardsLoading } = useMerkl()
 const { userRewards: brevisRewards, isRewardsLoading: isBrevisRewardsLoading } = useBrevis()
+const { fuulTotals, isTotalsLoading: isFuulTotalsLoading } = useFuul()
 const { locks, isLocksLoading } = useREULLocks()
+
+const hasUnclaimedFuul = computed(() => fuulTotals.value.unclaimed.length > 0)
 
 const sortedRewards = computed(() => {
   return [...rewards.value].sort((a, b) => {
@@ -120,12 +123,43 @@ const sortedBrevisRewards = computed(() => {
           </h3>
         </div>
         <div class="flex flex-1 rounded-12 p-8 mb-16 border border-line-default bg-card">
-          <div class="flex flex-1 min-h-[100px] justify-center items-center py-32">
+          <div
+            v-if="isFuulTotalsLoading"
+            class="flex flex-1 min-h-[100px] justify-center items-center"
+          >
+            <UiLoader class="text-neutral-500" />
+          </div>
+          <div
+            v-else-if="!hasUnclaimedFuul"
+            class="flex flex-1 min-h-[100px] justify-center items-center py-32"
+          >
             <div class="flex flex-col gap-8 items-center text-neutral-500 text-p2">
               <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-neutral-100">
                 <SvgIcon name="search" />
               </div>
-              Fuul rewards claiming coming soon
+              <template v-if="isConnected">
+                You don't have rewards yet
+              </template>
+              <template v-else>
+                Connect your wallet to see your rewards
+              </template>
+            </div>
+          </div>
+          <div
+            v-else
+            class="flex-1 min-h-[100px]"
+          >
+            <div
+              v-for="entry in fuulTotals.unclaimed"
+              :key="entry.currency"
+              class="flex items-center justify-between p-12 rounded-8"
+            >
+              <span class="text-p2 text-neutral-800 font-mono">
+                {{ entry.currency }}
+              </span>
+              <span class="text-p2 text-neutral-800 font-mono">
+                {{ entry.amount }}
+              </span>
             </div>
           </div>
         </div>

@@ -17,7 +17,7 @@ interface TxPlan {
   kind: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'full-repay'
       | 'savings-repay' | 'savings-full-repay' | 'swap-collateral-full-repay'
       | 'swap-savings-full-repay' | 'disable-collateral' | 'reward'
-      | 'brevis-reward' | 'reul-unlock' | string
+      | 'brevis-reward' | 'fuul-reward' | 'reul-unlock' | string
   steps: TxStep[]
 }
 ```

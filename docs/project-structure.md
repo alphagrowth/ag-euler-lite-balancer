@@ -368,6 +368,7 @@ abis/
 ├── brevis.ts                # Brevis contract ABI
 ├── erc20.ts                 # ERC-20 token ABI
 ├── evc.ts                   # EVC (Ethereum Vault Connector) ABI
+├── fuul.ts                  # Fuul Manager + Factory ABIs
 ├── merkl.ts                 # Merkl distributor ABI
 ├── pyth.ts                  # Pyth oracle contract ABI
 ├── reul.ts                  # REUL token ABI

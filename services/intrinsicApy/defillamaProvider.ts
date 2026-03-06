@@ -28,7 +28,10 @@ export const createDefiLlamaProvider = (sources: readonly IntrinsicApySourceConf
   return {
     name: 'DefiLlama',
 
-    async fetch(): Promise<IntrinsicApyResult[]> {
+    async fetch(chainId: number): Promise<IntrinsicApyResult[]> {
+      const chainSources = defillamaSources.filter(s => s.chainId === chainId)
+      if (chainSources.length === 0) return []
+
       const res = await axios.get(DEFILLAMA_YIELDS_URL)
       const rawPools = (res.data?.data || []) as DefiLlamaPool[]
 
@@ -41,7 +44,7 @@ export const createDefiLlamaProvider = (sources: readonly IntrinsicApySourceConf
 
       const results: IntrinsicApyResult[] = []
 
-      for (const source of defillamaSources) {
+      for (const source of chainSources) {
         const pool = poolsById.get(source.poolId)
         if (!pool) continue
 
