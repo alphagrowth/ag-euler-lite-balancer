@@ -1,8 +1,10 @@
 import { createError, readBody } from 'h3'
 import { createRateLimiter } from '~/server/utils/rate-limit'
+import { logWarn } from '~/server/utils/log'
 import { FUUL_API_BASE_URL } from '~/entities/constants'
 
 const TIMEOUT_MS = 10_000
+let keyWarningLogged = false
 
 const rateLimiter = createRateLimiter({
   max: 30,
@@ -15,7 +17,11 @@ export default defineEventHandler(async (event) => {
 
   const apiKey = process.env.FUUL_API_KEY
   if (!apiKey) {
-    throw createError({ statusCode: 503, statusMessage: 'Fuul API key not configured' })
+    if (!keyWarningLogged) {
+      logWarn('fuul/claim-checks', 'FUUL_API_KEY not configured')
+      keyWarningLogged = true
+    }
+    return []
   }
 
   const body = await readBody(event)
