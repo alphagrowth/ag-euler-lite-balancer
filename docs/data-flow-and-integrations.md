@@ -164,9 +164,11 @@ The rewards system was unified in a refactor that introduced the `RewardCampaign
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
 │  │ useMerkl    │ │ useBrevis   │ │ useFuul     │                │
 │  │ (campaigns, │ │ (campaigns, │ │ (campaigns) │                │
-│  │  claiming,  │ │  ZK proofs) │ │             │                │
-│  │  REUL locks)│ │             │ │             │                │
+│  │  claiming)  │ │  ZK proofs) │ │             │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
+│  ┌──────────────┐                                               │
+│  │ useREULLocks │ (separate composable, not part of Merkl)      │
+│  └──────────────┘                                               │
 │           │               │                                     │
 │           ▼               ▼                                     │
 ├─────────────────────────────────────────────────────────────────┤
@@ -208,7 +210,8 @@ interface RewardCampaign {
 
 #### Provider Details
 
-- **useMerkl** — Fetches campaigns from the Merkl API, maps `subType` indices (0 = lend, 1 = borrow, 2 = borrow-collateral) to `RewardCampaignType`. Also handles user reward balances, claiming, and REUL lock management.
+- **useMerkl** — Fetches campaigns from the Merkl API, maps `subType` indices (0 = lend, 1 = borrow, 2 = borrow-collateral) to `RewardCampaignType`. Also handles user reward balances and claiming.
+- **useREULLocks** — Reads locked rEUL positions directly from the rEUL contract on-chain (`getLockedAmounts`, `getWithdrawAmountsByLockTimestamp`) and handles unlocking via `withdrawToByLockTimestamp()`. This is independent from Merkl.
 - **useBrevis** — Fetches ZK-proof reward campaigns from the Brevis/Incentra backend, normalizes them to `RewardCampaign`.
 - **useFuul** — Fetches incentive campaigns from the Fuul API, normalizes them to `RewardCampaign`. Supports campaign APY aggregation and reward claiming via FuulManager contract. User reward totals and claim checks are fetched through server-side proxy routes (`/api/fuul/totals`, `/api/fuul/claim-checks`) to keep the `FUUL_API_KEY` secret.
 
@@ -2389,7 +2392,7 @@ const claim = async () => {
 
 - [Back to the top](#table-of-contents)
 
-#### Locks fetching, storing it in useMerkl composable
+#### Locks fetching, storing it in useREULLocks composable
 
 ```typescript
 const locks: Ref<REULLock[]> = ref([]);
@@ -2510,7 +2513,8 @@ const unlockREUL = async (lockTimestamps: bigint[]) => {
 
 ```vue
 <script setup lang="ts">
-const { rewards, isRewardsLoading, locks, isLocksLoading } = useMerkl();
+const { rewards, isRewardsLoading } = useMerkl();
+const { locks, isLocksLoading } = useREULLocks();
 </script>
 
 <template>
