@@ -103,6 +103,7 @@ export const useFuul = () => {
   const loadTotals = async (isInitialLoading = true, forceRefresh = false) => {
     if (!address.value) {
       fuulTotals.value = { claimed: [], unclaimed: [] }
+      isTotalsLoading.value = false
       return
     }
 

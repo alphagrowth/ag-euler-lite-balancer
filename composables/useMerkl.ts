@@ -195,6 +195,7 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
 const loadRewards = async (chainId: number, isInitialLoading = true, forceRefresh = false) => {
   if (!address.value) {
     rewards.value = []
+    isRewardsLoading.value = false
     return
   }
 
@@ -321,8 +322,8 @@ export const useMerkl = () => {
     else {
       address.value = ''
     }
-    // Force-refresh rewards when the connected wallet changes
-    if (val !== oldVal && chainId.value) {
+    // Force-refresh rewards when the connected wallet changes (skip initial mount)
+    if (oldVal && val && val !== oldVal && chainId.value) {
       loadRewards(chainId.value, true, true)
     }
   }, { immediate: true })

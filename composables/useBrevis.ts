@@ -164,6 +164,7 @@ export const useBrevis = () => {
   const loadRewards = async (isInitialLoading = true, forceRefresh = false) => {
     if (!address.value) {
       userRewards.value = []
+      isRewardsLoading.value = false
       return
     }
 
@@ -305,8 +306,8 @@ export const useBrevis = () => {
     else {
       address.value = ''
     }
-    // Force-refresh rewards when the connected wallet changes
-    if (val !== oldVal) {
+    // Force-refresh rewards when the connected wallet changes (skip initial mount)
+    if (oldVal && val && val !== oldVal) {
       loadRewards(true, true)
     }
   }, { immediate: true })
