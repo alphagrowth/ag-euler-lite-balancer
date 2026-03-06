@@ -147,7 +147,7 @@ The rewards system was unified in a refactor that introduced the `RewardCampaign
 
 #### Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Reward Providers                             │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
@@ -231,7 +231,7 @@ The system uses a **provider abstraction** with three implementations:
 - **Pendle** — per-market API fetch for PT implied yield, with maturity detection
 - **Securitize** — public feed fetch for tokenized RWA yield, symbol-based matching
 
-All lookups are by **token address** (not symbol). Results are cached for 5 minutes with automatic chain-switch invalidation. APY modals show provider name and source link for transparency.
+All lookups are by **token address** (except Securitize, which uses symbol-based matching). Results are cached for 5 minutes with automatic chain-switch invalidation. APY modals show provider name and source link for transparency.
 
 #### Key API
 
