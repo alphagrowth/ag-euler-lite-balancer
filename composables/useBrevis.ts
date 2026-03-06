@@ -282,12 +282,16 @@ export const useBrevis = () => {
     }
   }
 
-  watch(wagmiAddress, (val) => {
+  watch(wagmiAddress, (val, oldVal) => {
     if (val) {
       address.value = val
     }
     else {
       address.value = ''
+    }
+    // Force-refresh rewards when the connected wallet changes
+    if (oldVal && val && val !== oldVal) {
+      loadRewards(true, true)
     }
   }, { immediate: true })
 

@@ -299,12 +299,16 @@ export const useMerkl = () => {
     }
   }
 
-  watch(wagmiAddress, (val) => {
+  watch(wagmiAddress, (val, oldVal) => {
     if (val) {
       address.value = val
     }
     else {
       address.value = ''
+    }
+    // Force-refresh rewards when the connected wallet changes
+    if (oldVal && val && val !== oldVal && chainId.value) {
+      loadRewards(chainId.value, true, true)
     }
   }, { immediate: true })
 
