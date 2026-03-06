@@ -4,6 +4,7 @@ import { EMPTY_INTRINSIC_APY } from '~/entities/intrinsic-apy'
 import { createDefiLlamaProvider } from '~/services/intrinsicApy/defillamaProvider'
 import { createPendleProvider } from '~/services/intrinsicApy/pendleProvider'
 import { createSecuritizeProvider } from '~/services/intrinsicApy/securitizeProvider'
+import { createStablewatchProvider } from '~/services/intrinsicApy/stablewatchProvider'
 import { logWarn } from '~/utils/errorHandling'
 import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
 
@@ -19,11 +20,16 @@ const providers: IntrinsicApyProvider[] = [
   createDefiLlamaProvider(intrinsicApySources),
   createPendleProvider(intrinsicApySources),
   createSecuritizeProvider(intrinsicApySources),
+  createStablewatchProvider(intrinsicApySources),
 ]
 
 const mergeResults = (allResults: IntrinsicApyResult[]): Record<string, IntrinsicApyInfo> => {
   const byAddress: Record<string, IntrinsicApyInfo> = {}
   for (const result of allResults) {
+    const existing = byAddress[result.address]
+    if (existing) {
+      logWarn('intrinsicApy/merge', `Duplicate APY for ${result.address}: "${existing.provider}" (${existing.apy}%) overwritten by "${result.info.provider}" (${result.info.apy}%)`)
+    }
     byAddress[result.address] = result.info
   }
   return byAddress

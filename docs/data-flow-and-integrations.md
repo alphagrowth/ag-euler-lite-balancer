@@ -33,6 +33,10 @@ The Euler Lite application integrates with multiple external systems to provide 
 │  │ DeFi Llama  │ │ Pendle API  │ │ Securitize  │                │
 │  │ (yields)    │ │ (PT yield)  │ │ (RWA yield) │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
+│  ┌─────────────┐                                                 │
+│  │ Stablewatch │                                                 │
+│  │ (APY, proxy)│                                                 │
+│  └─────────────┘                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -230,8 +234,9 @@ The system uses a **provider abstraction** with three implementations:
 - **DefiLlama** — bulk pool fetch, poolId-based matching, 30-day average APY
 - **Pendle** — per-market API fetch for PT implied yield, with maturity detection
 - **Securitize** — public feed fetch for tokenized RWA yield, symbol-based matching
+- **Stablewatch** — server-proxied API for stablecoin/yield-bearing token APY, chain+address matching (requires `STABLEWATCH_API_KEY`)
 
-All lookups are by **token address** (except Securitize, which uses symbol-based matching). Results are cached for 5 minutes with automatic chain-switch invalidation. APY modals show provider name and source link for transparency.
+All lookups are by **token address** (except Securitize, which uses symbol-based matching). Stablewatch uses a server proxy to keep the API key server-side. Results are cached for 5 minutes with automatic chain-switch invalidation. APY modals show provider name and source link for transparency.
 
 #### Key API
 

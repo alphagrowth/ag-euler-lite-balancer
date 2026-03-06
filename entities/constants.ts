@@ -136,6 +136,8 @@ export const SECURITIZE_FEED_URL = 'https://public-feed.securitize.io/asset-stat
 export const BREVIS_API_URL = 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns'
 export const BREVIS_MERKLE_PROOF_URL = 'https://incentra-prd.brevis.network/v1/getMerkleProofsBatch'
 export const FUUL_API_BASE_URL = 'https://api.fuul.xyz/api/v1'
+export const STABLEWATCH_POOLS_URL = 'https://api.stablewatch.io/api/pools'
+export const STABLEWATCH_SOURCE_URL = 'https://stablewatch.io'
 
 // Re-export geo-blocking constants (separated to avoid pulling BigInt into server builds)
 export { SANCTIONED_COUNTRIES, EU_COUNTRIES, EEA_COUNTRIES, EFTA_COUNTRIES, COUNTRY_GROUPS } from './country-constants'
