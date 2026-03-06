@@ -3,6 +3,7 @@ import {
   BREVIS_API_URL,
   BREVIS_MERKLE_PROOF_URL,
   EULER_INTERFACES_CHAINS_URL,
+  FUUL_API_BASE_URL,
   MERKL_API_BASE_URL,
   MERKL_DISTRIBUTOR_ADDRESS,
 } from '~/entities/constants'
@@ -32,6 +33,7 @@ export const useEulerConfig = () => {
     BREVIS_API_URL,
     BREVIS_MERKLE_PROOF_URL,
     EULER_INTERFACES_CHAINS_URL,
+    FUUL_API_BASE_URL,
     MERKL_API_BASE_URL,
 
     // Labels (built from CONFIG_LABELS_REPO)
