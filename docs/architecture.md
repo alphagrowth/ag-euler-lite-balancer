@@ -48,7 +48,7 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 ├─────────────────────────────────────────────────────────────────┤
 │                        Entities                                 │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │   Vault     │ │   Account   │ │   Merkl     │                │
+│  │   Vault     │ │   Account   │ │  Rewards    │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -183,8 +183,8 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 │                    External Services                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
 │  │ Euler       │ │ EVM RPC     │ │ Merkl /     │                │
-│  │ Finance     │ │ (multi-     │ │ Brevis      │                │
-│  │             │ │  chain)     │ │ Rewards     │                │
+│  │ Finance     │ │ (multi-     │ │ Brevis /    │                │
+│  │             │ │  chain)     │ │ Fuul        │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 └─────────────────────────────────────────────────────────────────┘
 ```
