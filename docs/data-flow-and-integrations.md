@@ -230,7 +230,7 @@ const borrowReward = getBorrowRewardApy(borrowVault.address, collateral.address)
 
 The `useIntrinsicApy` composable (`composables/useIntrinsicApy.ts`) adds yield intrinsic to the underlying asset (e.g., stETH staking yield, sDAI DSR, Pendle PT implied yield) on top of vault lending/borrowing APY.
 
-The system uses a **provider abstraction** with three implementations:
+The system uses a **provider abstraction** with four implementations:
 - **DefiLlama** — bulk pool fetch, poolId-based matching, 30-day average APY
 - **Pendle** — per-market API fetch for PT implied yield, with maturity detection
 - **Securitize** — public feed fetch for tokenized RWA yield, symbol-based matching

@@ -23,7 +23,8 @@ export default defineEventHandler(async (event) => {
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const url = `${STABLEWATCH_POOLS_URL}?api_key=${encodeURIComponent(apiKey)}`
+    const url = new URL(STABLEWATCH_POOLS_URL)
+    url.searchParams.set('api_key', apiKey)
     const resp = await fetch(url, { signal: controller.signal })
 
     if (!resp.ok) {
@@ -38,7 +39,8 @@ export default defineEventHandler(async (event) => {
     if (error && typeof error === 'object' && 'statusCode' in error) {
       throw error
     }
-    console.warn('[stablewatch-pools] API error:', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.warn('[stablewatch-pools] API error:', message)
     throw createError({ statusCode: 502, statusMessage: 'Upstream error' })
   }
   finally {
