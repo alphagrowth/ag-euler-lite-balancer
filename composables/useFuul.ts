@@ -15,6 +15,8 @@ const cacheState = {
   campaigns: { chainId: 0, timestamp: 0 },
 }
 
+let latestRequestId = 0
+
 const getFuulCampaignsForVault = (vaultAddress: string): RewardCampaign[] => {
   return fuulCampaigns.value.get(vaultAddress.toLowerCase()) || []
 }
@@ -35,6 +37,8 @@ export const useFuul = () => {
       return
     }
 
+    const requestId = ++latestRequestId
+
     try {
       if (isInitialLoading) {
         isCampaignsLoading.value = true
@@ -43,6 +47,8 @@ export const useFuul = () => {
       const res = await axios.get(`${FUUL_API_BASE_URL}/incentives`, {
         params: { protocol: 'euler', chain_id: currentChainId },
       })
+
+      if (requestId !== latestRequestId || chainId.value !== currentChainId) return
 
       const data: FuulIncentive[] = Array.isArray(res.data) ? res.data : []
       const campaignMap = new Map<string, RewardCampaign[]>()
@@ -74,13 +80,18 @@ export const useFuul = () => {
       logWarn('fuul/incentives', e)
     }
     finally {
-      isCampaignsLoading.value = false
+      if (requestId === latestRequestId) {
+        isCampaignsLoading.value = false
+      }
     }
   }
 
   watch(chainId, (val, oldVal) => {
     if (oldVal && val !== oldVal) {
       isLoaded.value = false
+      fuulCampaigns.value = new Map()
+      cacheState.campaigns = { chainId: 0, timestamp: 0 }
+      isCampaignsLoading.value = true
     }
 
     if (!isLoaded.value) {

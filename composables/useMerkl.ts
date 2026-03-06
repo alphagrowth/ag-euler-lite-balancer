@@ -40,6 +40,9 @@ const cacheState = {
   rewards: { chainId: 0, address: '', timestamp: 0 },
 }
 
+let latestOpportunitiesRequestId = 0
+let latestRewardsRequestId = 0
+
 const loadTokens = async (chainId: number, isInitialLoading = true, forceRefresh = false) => {
   const now = Date.now()
   // Skip if cached and not expired
@@ -136,6 +139,8 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
     return
   }
 
+  const requestId = ++latestOpportunitiesRequestId
+
   try {
     if (isInitialLoading) {
       isOpportunitiesLoading.value = true
@@ -161,6 +166,8 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
       }),
     )
 
+    if (requestId !== latestOpportunitiesRequestId) return
+
     const merged = new Map<string, RewardCampaign[]>()
 
     for (const { data, type } of results) {
@@ -179,7 +186,9 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
     logWarn('merkl/loadOpportunities', e)
   }
   finally {
-    isOpportunitiesLoading.value = false
+    if (requestId === latestOpportunitiesRequestId) {
+      isOpportunitiesLoading.value = false
+    }
   }
 }
 
@@ -198,6 +207,8 @@ const loadRewards = async (chainId: number, isInitialLoading = true, forceRefres
     return
   }
 
+  const requestId = ++latestRewardsRequestId
+
   try {
     if (isInitialLoading) {
       isRewardsLoading.value = true
@@ -207,6 +218,8 @@ const loadRewards = async (chainId: number, isInitialLoading = true, forceRefres
         chainId,
       },
     })
+
+    if (requestId !== latestRewardsRequestId) return
 
     const data = res.data
 
@@ -222,7 +235,9 @@ const loadRewards = async (chainId: number, isInitialLoading = true, forceRefres
     logWarn('merkl/loadRewards', e)
   }
   finally {
-    isRewardsLoading.value = false
+    if (requestId === latestRewardsRequestId) {
+      isRewardsLoading.value = false
+    }
   }
 }
 
@@ -307,7 +322,7 @@ export const useMerkl = () => {
       address.value = ''
     }
     // Force-refresh rewards when the connected wallet changes
-    if (oldVal && val && val !== oldVal && chainId.value) {
+    if (val !== oldVal && chainId.value) {
       loadRewards(chainId.value, true, true)
     }
   }, { immediate: true })
@@ -315,6 +330,10 @@ export const useMerkl = () => {
   watch([isConnected, chainId], (val, oldVal) => {
     if (oldVal[1] && val[1] !== oldVal[1]) {
       isLoaded.value = false
+      merklCampaigns.value = new Map()
+      rewards.value = []
+      cacheState.opportunities = { chainId: 0, timestamp: 0 }
+      cacheState.rewards = { chainId: 0, address: '', timestamp: 0 }
     }
 
     if (!isLoaded.value) {
