@@ -1,28 +1,47 @@
-# Euler Lite
+# Euler Lite — Balancer
 
-## Overview
+Euler Finance lending/borrowing interface customized for Balancer V3 BPT vault markets on Monad.
 
-Euler Lite provides all the core functionality of Euler Finance in a customizable package:
+**Live at:** `balancer.alphagrowth.fun`
+**Repo:** `rootdraws/ag-euler-lite-balancer`
+**Forked from:** `euler-lite` (shared AG frontend)
 
-- **Lending & Borrowing**: Users can deposit assets to earn yield or borrow against collateral
-- **Portfolio Management**: Track positions and performance
-- **Rewards**: Participate in Merkl/Brevis reward programs
-- **Multi-chain Support**: Connect to multiple EVM-compatible networks
+## What this adds
+
+On top of the standard Euler Lite features (lending, borrowing, portfolio, rewards), this frontend adds:
+
+- **Zap BPT** — convert AUSD or WMON into Balancer Pool Tokens from a dedicated page (single transaction)
+- **Multiply/Leverage** for BPT collateral vaults — borrow against BPT to loop into more BPT, using Enso Finance routing or a custom BalancerBptAdapter (via the standard borrow page)
+- **Enso Finance integration** — server-side proxy for Enso's routing API, used for zap, multiply, and repay operations
+
+## Markets
+
+Four Balancer V3 pools on Monad (chain 143):
+
+| Pool | Collateral | Borrow Asset | Multiply Route |
+|------|-----------|-------------|----------------|
+| Pool 1 | wnAUSD/wnUSDC/wnUSDT0 (Stableswap) | AUSD | Adapter |
+| Pool 2 | sMON/wnWMON (Kintsu) | WMON | Enso |
+| Pool 3 | shMON/wnWMON (Fastlane) | WMON | Enso |
+| Pool 4 | wnLOAZND/AZND/wnAUSD | AUSD | Adapter |
+
+Contract addresses and adapter details: see `../balancer-contracts/balancer-claude.md`.
 
 ## Prerequisites
 
 - **Node.js** 18+ (recommended: 20.12.2)
 - **npm** package manager
 - **Git**
-- A **Reown Project ID** (formerly WalletConnect) - get one at [reown.com](https://reown.com/)
+- A **Reown Project ID** (formerly WalletConnect) — get one at [reown.com](https://reown.com/)
+- An **Enso Finance API key** — for multiply/repay/loop-zap routing
 
 ## Quick Start
 
 ### 1. Clone and Install
 
 ```bash
-git clone <repository-url>
-cd euler-lite
+git clone https://github.com/rootdraws/ag-euler-lite-balancer.git
+cd ag-euler-lite-balancer
 npm install
 ```
 
@@ -40,8 +59,19 @@ cp .env.example .env
 |----------|-------------|
 | `APPKIT_PROJECT_ID` | Reown (WalletConnect) project ID |
 | `NUXT_PUBLIC_APP_URL` | Your app's public URL |
-| `RPC_URL_HTTP_<chainId>` | RPC endpoint per chain (e.g. `RPC_URL_HTTP_1` for Ethereum) |
-| `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>` | Subgraph URI per chain |
+| `RPC_URL_HTTP_143` | Monad RPC endpoint |
+| `NUXT_PUBLIC_SUBGRAPH_URI_143` | Monad subgraph URI |
+| `ENSO_API_KEY` | Enso Finance API key (server-side only) |
+
+#### Balancer-Specific Variables
+
+| Variable | Description |
+|----------|-------------|
+| `ENSO_API_KEY` | Enso Finance API key (never exposed to client) |
+| `ENSO_API_URL` | Enso API base URL (default: `https://api.enso.build`) |
+| `NUXT_PUBLIC_CONFIG_ENABLE_ENSO_MULTIPLY` | `true` to enable multiply with Enso/adapter routing |
+| `NUXT_PUBLIC_CONFIG_ENABLE_LOOP_ZAP_PAGE` | `true` to show Zap BPT in navigation |
+| `NUXT_PUBLIC_CONFIG_BPT_ADAPTER_CONFIG` | JSON map of collateral vault → adapter config (see `.env.example`) |
 
 #### API URLs
 
@@ -51,8 +81,6 @@ cp .env.example .env
 | `SWAP_API_URL` | — | Euler swap API |
 | `PRICE_API_URL` | — | Euler price API |
 | `PYTH_HERMES_URL` | `https://hermes.pyth.network` | Pyth oracle endpoint |
-
-> **Doppler compatibility:** If your secret manager injects `NUXT_PUBLIC_*` prefixed names (e.g. `NUXT_PUBLIC_EULER_API_URL`), the app accepts both forms automatically.
 
 #### Branding & Feature Flags
 
@@ -65,107 +93,26 @@ These use Nuxt's `runtimeConfig` and are set via `NUXT_PUBLIC_CONFIG_*` env vars
 | `NUXT_PUBLIC_CONFIG_LABELS_REPO` | `euler-xyz/euler-labels` | GitHub labels repo |
 | `NUXT_PUBLIC_CONFIG_LABELS_REPO_BRANCH` | `master` | Branch to fetch labels from |
 | `NUXT_PUBLIC_CONFIG_DOCS_URL` | — | Documentation link |
-| `NUXT_PUBLIC_CONFIG_TOS_URL` | — | Terms of Service link |
-| `NUXT_PUBLIC_CONFIG_TOS_MD_URL` | — | TOS markdown URL (enables TOS signing when set) |
 | `NUXT_PUBLIC_CONFIG_X_URL` | — | X (Twitter) link |
 | `NUXT_PUBLIC_CONFIG_DISCORD_URL` | — | Discord link |
 | `NUXT_PUBLIC_CONFIG_TELEGRAM_URL` | — | Telegram link |
 | `NUXT_PUBLIC_CONFIG_GITHUB_URL` | — | GitHub link |
 | `NUXT_PUBLIC_CONFIG_ENABLE_EARN_PAGE` | `true` | Show Earn page |
 | `NUXT_PUBLIC_CONFIG_ENABLE_LEND_PAGE` | `true` | Show Lend page |
-| `NUXT_PUBLIC_CONFIG_ENABLE_ENTITY_BRANDING` | `true` | Show entity branding |
-| `NUXT_PUBLIC_CONFIG_ENABLE_VAULT_TYPE` | `true` | Show vault type labels |
-| `NUXT_PUBLIC_CONFIG_ENABLE_SWAP_DEPOSIT` | `false` | Enable swap token selector on deposit/withdraw/borrow |
+| `NUXT_PUBLIC_CONFIG_ENABLE_EXPLORE_PAGE` | `true` | Show Explore page |
 
 #### Chain Configuration
 
-Chains are configured dynamically at runtime. Each chain requires two env vars:
+Chains are configured dynamically at runtime. Each chain requires:
 
 ```bash
-# Ethereum Mainnet
-RPC_URL_HTTP_1=https://your-rpc-endpoint.com
-NUXT_PUBLIC_SUBGRAPH_URI_1=https://api.goldsky.com/.../euler-simple-mainnet/latest/gn
-
-# Arbitrum
-RPC_URL_HTTP_42161=https://your-arbitrum-rpc.com
-NUXT_PUBLIC_SUBGRAPH_URI_42161=https://api.goldsky.com/.../euler-simple-arbitrum/latest/gn
+RPC_URL_HTTP_143=https://your-monad-rpc.com
+NUXT_PUBLIC_SUBGRAPH_URI_143=https://api.goldsky.com/.../euler-simple-monad/latest/gn
 ```
 
-The app scans for `RPC_URL_HTTP_<chainId>` env vars at server startup and automatically enables those chains. No code changes needed to add or remove chains.
+The app scans for `RPC_URL_HTTP_<chainId>` env vars at server startup and automatically enables those chains.
 
-### 3. Customize Your Instance
-
-#### Theme (`entities/custom.ts`)
-
-The `themeHue` value (0-360) shifts the entire color palette:
-
-```typescript
-export const themeHue = 150 // Change to shift brand palette
-```
-
-#### Intrinsic APY Sources (`entities/custom.ts`)
-
-Configure which tokens show DeFiLlama base APY:
-
-```typescript
-export const intrinsicApySources = [
-  { symbol: 'steth', project: 'lido' },
-  { symbol: 'wsteth', sourceSymbol: 'steth', project: 'lido' },
-  // Add your tokens here
-] as const
-```
-
-- `symbol` — vault asset symbol (case-insensitive)
-- `project` — DefiLlama project slug (from https://yields.llama.fi/pools)
-- `sourceSymbol` — optional; use when the vault asset is wrapped but APY is tied to another symbol
-
-#### Favicon
-
-Replace the favicon files in `public/favicons/`:
-
-- `favicon.ico`
-- `favicon.svg`
-
-#### Token Icons
-
-Token icons are loaded from the Euler Indexer API (`EULER_API_URL/v1/tokens`). Each token's `logoURI` field provides the icon URL.
-
-To override an icon for a specific token, add a file to `assets/tokens/`:
-
-```
-assets/tokens/
-  eul.png       # overrides the EUL token icon
-  mytoken.png   # overrides MYTOKEN icon
-```
-
-The resolution order in `getAssetLogoUrl(address, symbol)`:
-1. Local override in `assets/tokens/<symbol>.png`
-2. `logoURI` from the indexer API
-3. Empty string (component shows initials fallback)
-
-#### EulerEarn Vaults
-
-If using a custom labels repository, create chain-specific `earn-vaults.json` files to curate which EulerEarn vaults appear:
-
-```
-your-labels-repo/
-├── 1/earn-vaults.json          # Ethereum
-├── 42161/earn-vaults.json      # Arbitrum
-└── 8453/earn-vaults.json       # Base
-```
-
-Each file is a JSON array of vault addresses:
-
-```json
-[
-  "0x1234567890123456789012345678901234567890",
-  "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-]
-```
-
-When using the default `euler-xyz/euler-labels` repository, all verified EulerEarn vaults are shown automatically.
-
-### 4. Development
+### 3. Development
 
 ```bash
 npm run dev
@@ -173,70 +120,41 @@ npm run dev
 
 The app will be available at `http://localhost:3000`.
 
-For HTTPS in local development, set `HTTPS_KEY` and `HTTPS_CERT` env vars pointing to your certificate files.
-
-### 5. Build for Production
+### 4. Build for Production
 
 ```bash
 npm run build
 npm run preview   # preview locally
 ```
 
-## Docker Deployment
+## Deployment (Vercel)
 
-The project includes a Dockerfile that uses [Doppler](https://doppler.com) for runtime secret injection:
+The app is deployed on Vercel (project `ag-euler-balancer`). Environment variables are set in the Vercel dashboard. Key settings:
 
-```bash
-docker build --build-arg APP_PORT=3000 -t euler-lite .
+- **Framework:** Nuxt.js
+- **Build command:** `npm run build`
+- **All `ENSO_*` vars** are set as non-public (server-side only)
+- **`NUXT_PUBLIC_CONFIG_BPT_ADAPTER_CONFIG`** is the full JSON string with adapter addresses
 
-docker run -p 3000:3000 \
-  -e DOPPLER_TOKEN=your-doppler-token \
-  -e DOPPLER_PROJECT=euler-lite \
-  -e DOPPLER_CONFIG=production \
-  euler-lite
-```
-
-Doppler injects all environment variables at runtime. The server plugins scan the injected env vars and pass config to the client via `window.__APP_CONFIG__` and `window.__CHAIN_CONFIG__`.
-
-To run without Doppler, override the `CMD` and pass env vars directly:
-
-```bash
-docker run -p 3000:3000 \
-  -e EULER_API_URL=https://indexer.euler.finance \
-  -e SWAP_API_URL=https://swap.euler.finance \
-  -e PRICE_API_URL=https://indexer.euler.finance \
-  -e APPKIT_PROJECT_ID=your-project-id \
-  -e RPC_URL_HTTP_1=https://your-rpc.com \
-  -e NUXT_PUBLIC_SUBGRAPH_URI_1=https://your-subgraph.com \
-  euler-lite node .output/server/index.mjs
-```
-
-## Project Structure
+## Project Structure (Balancer additions)
 
 ```
-assets/
-  styles/variables.scss    # Theme colors and CSS variables
-  tokens/                  # Token icon overrides
-components/                # Vue components organized by feature
 composables/
-  useEnvConfig.ts          # Runtime env config (API URLs, Pyth, Reown)
-  useDeployConfig.ts       # Branding, social links, feature flags
-  useChainConfig.ts        # Dynamic chain derivation from env vars
-  useEulerConfig.ts        # Aggregated config for Euler services
-  useTokens.ts             # Token data fetching and icon resolution
-  useEulerOperations.ts    # Operation builders (deposit, borrow, etc.)
-entities/
-  custom.ts                # Theme hue and intrinsic APY sources
-  vault.ts                 # Vault types and fetching
-  account.ts               # Position types
-pages/                     # Nuxt pages/routes
-plugins/
-  00.wagmi.ts              # Wagmi/Reown wallet configuration
-public/
-  favicons/                # Favicon files
+  useEnsoRoute.ts          # Enso + adapter quote/swap logic
+  useLoopZap.ts            # Zap BPT composable (useZapBpt)
+  borrow/useMultiplyForm.ts  # Multiply form with Enso/adapter routing
+  repay/useCollateralSwapRepay.ts  # Repay with Enso routing
+  useEulerOperations/vault.ts  # buildMultiplyPlan (EVC batch builder)
+  useDeployConfig.ts       # bptAdapterConfig parsing
+pages/
+  loop-zap/index.vue       # Zap BPT page
 server/
-  plugins/app-config.ts    # Injects env config into HTML
-  plugins/chain-config.ts  # Injects chain config into HTML
+  api/enso/route.get.ts    # Enso API proxy (rate-limited, auth)
+  utils/enso.ts            # Enso config resolver
+abis/
+  vault.ts                 # Added vaultPreviewDepositAbi for ERC4626
+entities/
+  menu.ts                  # Added Loop Zap menu item
 ```
 
 ## Available Scripts
@@ -249,44 +167,11 @@ server/
 | `npm run generate` | Generate static site |
 | `npm run postinstall` | Prepare Nuxt (runs automatically) |
 
-## Configuration Checklist
+## Known Issues
 
-Before deploying:
+1. **Monad SwapVerifier lacks `transferFromSender`.** Any flow that needs to pull user tokens into an EVC batch atomically will fail. The SwapVerifier is immutable.
 
-- [ ] Copied `.env.example` to `.env` and filled in values
-- [ ] Set `APPKIT_PROJECT_ID` and `NUXT_PUBLIC_APP_URL`
-- [ ] Set `EULER_API_URL`, `SWAP_API_URL`, `PRICE_API_URL`
-- [ ] Added at least one `RPC_URL_HTTP_<chainId>` with matching `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>`
-- [ ] Configured branding via `NUXT_PUBLIC_CONFIG_*` env vars (title, description, social links)
-- [ ] Set `themeHue` in `entities/custom.ts`
-- [ ] Replaced favicon files in `public/favicons/`
-- [ ] Added token icon overrides in `assets/tokens/` (if needed)
+## AI Context
 
-## Troubleshooting
-
-### Token logos not loading
-
-- Verify `EULER_API_URL` is set correctly. If using Doppler, ensure the env var name matches (`EULER_API_URL` or `NUXT_PUBLIC_EULER_API_URL`).
-- Check the browser console for failed `/v1/tokens` requests.
-
-### Build Errors
-
-- Ensure Node.js version is 18+ (20.12.2 recommended)
-- Clear and reinstall: `rm -rf node_modules && npm install`
-
-### Wallet Connection Issues
-
-- Verify `APPKIT_PROJECT_ID` is correct (or `NUXT_PUBLIC_APP_KIT_PROJECT_ID` for Doppler)
-- Ensure `NUXT_PUBLIC_APP_URL` matches your domain
-- Check browser console for errors
-
-### No Chains Available
-
-- Ensure at least one `RPC_URL_HTTP_<chainId>` env var is set
-- Each chain needs a matching `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>`
-
-## Additional Resources
-
-- [Nuxt.js Documentation](https://nuxt.com/docs)
-- [Reown (WalletConnect) Documentation](https://docs.reown.com/)
-- [Euler Finance Documentation](https://docs.euler.finance/)
+See `euler-lite-balancer-claude.md` for detailed AI context including architecture, composable documentation, routing decisions, and gotchas.
+See `../balancer-contracts/balancer-claude.md` for deployed contracts, adapter details, and hard-won lessons.
