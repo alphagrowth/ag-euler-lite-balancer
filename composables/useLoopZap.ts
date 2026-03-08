@@ -11,6 +11,7 @@ import {
   type BptAdapterConfigEntry,
 } from '~/composables/useEnsoRoute'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
+import { getNewSubAccount } from '~/entities/account'
 import { logWarn } from '~/utils/errorHandling'
 import { getTxErrorMessage } from '~/utils/tx-errors'
 
@@ -118,6 +119,7 @@ export const useLoopZap = () => {
   const multiplyQuote = ref<SwapApiQuote | null>(null)
   const walletBalance = ref<bigint>(0n)
   const expectedBptTotal = ref<bigint>(0n)
+  const resolvedSubAccount = ref<string>('')
 
   const selectedPool = computed(() => POOLS.find(p => p.id === selectedPoolId.value)!)
 
@@ -200,6 +202,7 @@ export const useLoopZap = () => {
     quoteError.value = null
     expectedBptTotal.value = 0n
     simulationError.value = ''
+    resolvedSubAccount.value = ''
   }
 
   async function updateBalance() {
@@ -234,7 +237,8 @@ export const useLoopZap = () => {
       const tokenOut = pool.bptAddress as Address
       const deadline = Math.floor(Date.now() / 1000) + 1800
 
-      const subAccount = address.value as Address
+      const subAccount = await getNewSubAccount(address.value!) as Address
+      resolvedSubAccount.value = subAccount
 
       const buildQuoteCtx = (amount: bigint) => ({
         swapperAddress: swapperAddr,
@@ -346,6 +350,7 @@ export const useLoopZap = () => {
         debtAmount: debtAmount.value,
         zapQuote: zapQuote.value,
         multiplyQuote: multiplyQuote.value,
+        subAccount: resolvedSubAccount.value || undefined,
         includePermit2Call: false,
       })
 
@@ -397,6 +402,7 @@ export const useLoopZap = () => {
         debtAmount: debtAmount.value,
         zapQuote: zapQuote.value,
         multiplyQuote: multiplyQuote.value,
+        subAccount: resolvedSubAccount.value || undefined,
         includePermit2Call: true,
       })
 

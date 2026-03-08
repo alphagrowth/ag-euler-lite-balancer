@@ -31,15 +31,22 @@ const {
 
 const { isConnected } = useWagmi()
 
+function trimDecimals(raw: string, maxDecimals: number): string {
+  const [int, frac] = raw.split('.')
+  if (!frac) return int
+  const trimmed = frac.slice(0, maxDecimals).replace(/0+$/, '')
+  return trimmed ? `${int}.${trimmed}` : int
+}
+
 const walletBalanceFormatted = computed(() => {
   const token = selectedInputToken.value
   if (!token || walletBalance.value <= 0n) return '0'
-  return formatUnits(walletBalance.value, token.decimals)
+  return trimDecimals(formatUnits(walletBalance.value, token.decimals), 6)
 })
 
 const expectedBptFormatted = computed(() => {
   if (expectedBptTotal.value <= 0n) return '0'
-  return formatUnits(expectedBptTotal.value, 18)
+  return trimDecimals(formatUnits(expectedBptTotal.value, 18), 6)
 })
 
 const isInsufficient = computed(() => {
@@ -48,7 +55,7 @@ const isInsufficient = computed(() => {
 
 const availableLiquidityFormatted = computed(() => {
   if (availableLiquidity.value <= 0n) return '0'
-  return formatUnits(availableLiquidity.value, selectedPool.value?.borrowAssetDecimals ?? 18)
+  return trimDecimals(formatUnits(availableLiquidity.value, selectedPool.value?.borrowAssetDecimals ?? 18), 6)
 })
 
 const setMax = () => {
