@@ -158,14 +158,22 @@ const multiplyDebtAmountNano = computed(() => {
   }
   const numerator = BigInt(Math.floor((targetMultiple - 1) * 100_000))
   const denominator = Math.floor((currentMultiple - 1) * 100_000)
+  let rawDebt: bigint
   if (denominator <= 0) {
-    return (currentBorrowed * numerator) / 100_000n
+    rawDebt = (currentBorrowed * numerator) / 100_000n
   }
-  const newLiability = (currentBorrowed * numerator) / BigInt(denominator)
-  if (newLiability <= currentBorrowed) {
-    return 0n
+  else {
+    const newLiability = (currentBorrowed * numerator) / BigInt(denominator)
+    if (newLiability <= currentBorrowed) {
+      return 0n
+    }
+    rawDebt = newLiability - currentBorrowed
   }
-  return newLiability - currentBorrowed
+  // Reduce borrow by slippage + buffer to keep position within LTV after
+  // swap price impact (especially relevant for Enso routes on non-stable pools)
+  const slippageBps = Math.round(multiplySlippage.value * 100)
+  const safetyBps = Math.max(slippageBps * 3, 100) // 3× slippage or 1% min
+  return rawDebt * BigInt(10000 - safetyBps) / 10000n
 })
 const multiplyBorrowLtv = computed(() => {
   if (!multiplySupplyVault.value || !multiplyShortVault.value) {

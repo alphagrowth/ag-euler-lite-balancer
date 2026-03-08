@@ -214,7 +214,12 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     const totalDebtValue = multipliedCollateral - suppliedCollateralValue
     const liabilityOutAsk = liabilityPrice.amountOutAsk || liabilityPrice.amountOutMid
     const liabilityIn = liabilityPrice.amountIn
-    return (totalDebtValue * liabilityIn) / liabilityOutAsk
+    const rawDebt = (totalDebtValue * liabilityIn) / liabilityOutAsk
+    // Reduce borrow by slippage + buffer to keep position within LTV after
+    // swap price impact (especially relevant for Enso routes on non-stable pools)
+    const slippageBps = Math.round(multiplySlippage.value * 100)
+    const safetyBps = Math.max(slippageBps * 3, 100) // 3× slippage or 1% min
+    return rawDebt * BigInt(10000 - safetyBps) / 10000n
   })
 
   // --- LTV / multiplier bounds ---
