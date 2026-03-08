@@ -147,7 +147,7 @@ export async function previewAdapterZapIn(
   return { expectedBptOut, minBptOut }
 }
 
-const zapInFunctionAbi = [{
+export const zapInFunctionAbi = [{
   type: 'function' as const,
   name: 'zapIn',
   inputs: [

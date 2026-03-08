@@ -1,19 +1,18 @@
 import { useAccount, useConfig } from '@wagmi/vue'
-import { formatUnits, parseUnits, type Address } from 'viem'
-import { useModal } from '~/components/ui/composables/useModal'
-import { OperationReviewModal } from '#components'
+import { formatUnits, parseUnits, type Address, type Hex, erc20Abi } from 'viem'
+import { sendTransaction, waitForTransactionReceipt, writeContract, readContract } from '@wagmi/vue/actions'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import {
   useEnsoRoute,
   encodeAdapterZapIn,
   previewAdapterZapIn,
+  zapInFunctionAbi,
   type BptAdapterConfigEntry,
 } from '~/composables/useEnsoRoute'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getNewSubAccount } from '~/entities/account'
 import { logWarn } from '~/utils/errorHandling'
-import { getTxErrorMessage } from '~/utils/tx-errors'
 
 export interface LoopZapPool {
   id: string
@@ -40,7 +39,7 @@ const POOLS: LoopZapPool[] = [
     inputTokens: [
       { address: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a', symbol: 'AUSD', decimals: 6 },
     ],
-    routeType: 'adapter',
+    routeType: 'enso',
     bptAddress: '0x2DAA146dfB7EAef0038F9F15B2EC1e4DE003f72b',
   },
   {
@@ -92,7 +91,7 @@ const MULTIPLIER_OPTIONS = [2, 3, 4, 5]
 export const useLoopZap = () => {
   const wagmiConfig = useConfig()
   const { address, isConnected } = useAccount()
-  const { buildLoopZapPlan, executeTxPlan, simulateTxPlan } = useEulerOperations()
+  const { buildMultiplyPlan, executeTxPlan } = useEulerOperations()
   const { eulerPeripheryAddresses, chainId: currentChainId } = useEulerAddresses()
   const { refreshAllPositions } = useEulerAccount()
   const { eulerLensAddresses } = useEulerAddresses()
@@ -101,8 +100,7 @@ export const useLoopZap = () => {
   const { bptAdapterConfig } = useDeployConfig()
   const { getEnsoRoute, buildEnsoSwapQuote, buildAdapterSwapQuote } = useEnsoRoute()
   const { getVault } = useVaultRegistry()
-  const modal = useModal()
-  const { error: showError } = useToast()
+  const { error: showError, success: showSuccess } = useToast()
 
   const selectedPoolId = ref<string>(POOLS[0].id)
   const selectedMultiplier = ref<number>(3)
@@ -110,15 +108,18 @@ export const useLoopZap = () => {
   const inputTokenAddress = ref<string>('')
 
   const isQuoting = ref(false)
-  const isPreparing = ref(false)
-  const isSubmitting = ref(false)
+  const isZapping = ref(false)
+  const isMultiplying = ref(false)
   const quoteError = ref<string | null>(null)
-  const simulationError = ref<string>('')
 
-  const zapQuote = ref<SwapApiQuote | null>(null)
-  const multiplyQuote = ref<SwapApiQuote | null>(null)
   const walletBalance = ref<bigint>(0n)
-  const expectedBptTotal = ref<bigint>(0n)
+  const expectedBptFromZap = ref<bigint>(0n)
+  const bptReceivedFromZap = ref<bigint>(0n)
+
+  // Two-phase state: 'input' → 'zapped' → 'done'
+  const phase = ref<'input' | 'zapped' | 'done'>('input')
+
+  const multiplyQuote = ref<SwapApiQuote | null>(null)
   const resolvedSubAccount = ref<string>('')
 
   const selectedPool = computed(() => POOLS.find(p => p.id === selectedPoolId.value)!)
@@ -135,7 +136,7 @@ export const useLoopZap = () => {
     if (pool) {
       inputTokenAddress.value = pool.inputTokens[0].address
       inputAmount.value = ''
-      resetQuoteState()
+      resetState()
     }
   }, { immediate: true })
 
@@ -186,22 +187,33 @@ export const useLoopZap = () => {
     return debtAmount.value > 0n && debtAmount.value > availableLiquidity.value
   })
 
-  const isReady = computed(() => {
-    return isConnected.value
-      && inputAmountNano.value > 0n
-      && inputAmountNano.value <= walletBalance.value
-      && !isInsufficientLiquidity.value
-      && zapQuote.value !== null
-      && multiplyQuote.value !== null
-      && !quoteError.value
+  const isInsufficient = computed(() => {
+    return inputAmountNano.value > 0n && inputAmountNano.value > walletBalance.value
   })
 
-  function resetQuoteState() {
-    zapQuote.value = null
+  const isZapReady = computed(() => {
+    return isConnected.value
+      && inputAmountNano.value > 0n
+      && !isInsufficient.value
+      && !isInsufficientLiquidity.value
+      && expectedBptFromZap.value > 0n
+      && !quoteError.value
+      && phase.value === 'input'
+  })
+
+  const isMultiplyReady = computed(() => {
+    return isConnected.value
+      && phase.value === 'zapped'
+      && bptReceivedFromZap.value > 0n
+      && multiplyQuote.value !== null
+  })
+
+  function resetState() {
+    phase.value = 'input'
+    expectedBptFromZap.value = 0n
+    bptReceivedFromZap.value = 0n
     multiplyQuote.value = null
     quoteError.value = null
-    expectedBptTotal.value = 0n
-    simulationError.value = ''
     resolvedSubAccount.value = ''
   }
 
@@ -216,211 +228,295 @@ export const useLoopZap = () => {
 
   watch([selectedInputToken, isConnected], () => updateBalance(), { immediate: true })
 
-  const fetchQuotes = useDebounceFn(async () => {
-    resetQuoteState()
+  // Fetch Zap-In preview (Enso or adapter)
+  const fetchZapPreview = useDebounceFn(async () => {
+    expectedBptFromZap.value = 0n
+    quoteError.value = null
 
     const pool = selectedPool.value
     const input = inputAmountNano.value
-    const debt = debtAmount.value
-    if (!pool || input <= 0n || debt <= 0n) return
-    if (!eulerPeripheryAddresses.value?.swapper || !currentChainId.value) return
+    if (!pool || input <= 0n) return
+    if (!currentChainId.value) return
 
     isQuoting.value = true
-    quoteError.value = null
 
     try {
-      const swapperAddr = eulerPeripheryAddresses.value.swapper as Address
-      const swapVerifierAddr = eulerPeripheryAddresses.value.swapVerifier as Address
-      const collateralVaultAddr = pool.collateralVault as Address
-      const borrowVaultAddr = pool.borrowVault as Address
-      const tokenIn = pool.borrowAsset as Address
-      const tokenOut = pool.bptAddress as Address
-      const deadline = Math.floor(Date.now() / 1000) + 1800
-
-      const subAccount = await getNewSubAccount(address.value!) as Address
-      resolvedSubAccount.value = subAccount
-
-      const buildQuoteCtx = (amount: bigint) => ({
-        swapperAddress: swapperAddr,
-        swapVerifierAddress: swapVerifierAddr,
-        collateralVault: collateralVaultAddr,
-        borrowVault: borrowVaultAddr,
-        subAccount,
-        tokenIn,
-        tokenOut,
-        borrowAmount: amount,
-        deadline,
-      })
-
-      const adapterEntry = bptAdapterConfig[collateralVaultAddr.toLowerCase()]
-        || bptAdapterConfig[pool.collateralVault]
-
-      if (pool.routeType === 'adapter' && adapterEntry?.pool && adapterEntry?.wrapper && adapterEntry?.numTokens) {
-        const fullEntry = adapterEntry as BptAdapterConfigEntry
-
-        const [zapPreview, multiplyPreview] = await Promise.all([
-          previewAdapterZapIn(wagmiConfig, fullEntry, input, slippage.value),
-          previewAdapterZapIn(wagmiConfig, fullEntry, debt, slippage.value),
-        ])
-
-        const zapCalldata = encodeAdapterZapIn(fullEntry.tokenIndex, input, zapPreview.minBptOut)
-        const multiplyCalldata = encodeAdapterZapIn(fullEntry.tokenIndex, debt, multiplyPreview.minBptOut)
-
-        const zq = buildAdapterSwapQuote({
-          ...buildQuoteCtx(input),
-          adapterAddress: fullEntry.adapter as Address,
-          adapterCalldata: zapCalldata,
-          minAmountOut: zapPreview.minBptOut,
-        })
-        zq.amountOut = zapPreview.expectedBptOut.toString()
-        zq.amountOutMin = zapPreview.minBptOut.toString()
-
-        const mq = buildAdapterSwapQuote({
-          ...buildQuoteCtx(debt),
-          adapterAddress: fullEntry.adapter as Address,
-          adapterCalldata: multiplyCalldata,
-          minAmountOut: multiplyPreview.minBptOut,
-        })
-        mq.amountOut = multiplyPreview.expectedBptOut.toString()
-        mq.amountOutMin = multiplyPreview.minBptOut.toString()
-
-        zapQuote.value = zq
-        multiplyQuote.value = mq
-        expectedBptTotal.value = zapPreview.expectedBptOut + multiplyPreview.expectedBptOut
+      if (pool.routeType === 'adapter') {
+        const adapterEntry = bptAdapterConfig[pool.collateralVault.toLowerCase()]
+          || bptAdapterConfig[pool.collateralVault]
+        if (!adapterEntry?.pool || !adapterEntry?.wrapper || !adapterEntry?.numTokens) {
+          throw new Error('Adapter config missing for this pool')
+        }
+        const { expectedBptOut } = await previewAdapterZapIn(
+          wagmiConfig,
+          adapterEntry as BptAdapterConfigEntry,
+          input,
+          slippage.value,
+        )
+        expectedBptFromZap.value = expectedBptOut
       }
       else {
-        const chainId = currentChainId.value
-        const [zapEnsoRoute, multiplyEnsoRoute] = await Promise.all([
-          getEnsoRoute({
-            chainId,
-            fromAddress: swapperAddr,
-            tokenIn,
-            tokenOut,
-            amountIn: input,
-            receiver: swapperAddr,
-            slippage: slippage.value,
-          }),
-          getEnsoRoute({
-            chainId,
-            fromAddress: swapperAddr,
-            tokenIn,
-            tokenOut,
-            amountIn: debt,
-            receiver: swapperAddr,
-            slippage: slippage.value,
-          }),
-        ])
-
-        zapQuote.value = buildEnsoSwapQuote(zapEnsoRoute, buildQuoteCtx(input))
-        multiplyQuote.value = buildEnsoSwapQuote(multiplyEnsoRoute, buildQuoteCtx(debt))
-        expectedBptTotal.value = BigInt(zapEnsoRoute.amountOut) + BigInt(multiplyEnsoRoute.amountOut)
+        const ensoRoute = await getEnsoRoute({
+          chainId: currentChainId.value,
+          fromAddress: address.value! as Address,
+          tokenIn: pool.borrowAsset as Address,
+          tokenOut: pool.bptAddress as Address,
+          amountIn: input,
+          receiver: address.value! as Address,
+          slippage: slippage.value,
+        })
+        expectedBptFromZap.value = BigInt(ensoRoute.amountOut)
       }
     }
     catch (e: any) {
-      quoteError.value = e?.message || 'Failed to get quote'
-      logWarn('loop-zap/quote', e)
+      quoteError.value = e?.message || 'Failed to get zap preview'
+      logWarn('loop-zap/preview', e)
     }
     finally {
       isQuoting.value = false
     }
   }, 600)
 
-  watch([inputAmountNano, selectedMultiplier, selectedPoolId, slippage], () => {
+  watch([inputAmountNano, selectedPoolId, slippage], () => {
+    if (phase.value !== 'input') return
     if (inputAmountNano.value > 0n) {
-      fetchQuotes()
+      fetchZapPreview()
     }
     else {
-      resetQuoteState()
+      expectedBptFromZap.value = 0n
+      quoteError.value = null
     }
   })
 
-  async function submitLoopZap() {
+  // ── Tx 1: Zap In ──────────────────────────────────────────────
+  async function executeZapIn() {
     const pool = selectedPool.value
-    if (!pool || !zapQuote.value || !multiplyQuote.value || !address.value) return
+    if (!pool || !address.value) return
 
-    isPreparing.value = true
-    simulationError.value = ''
+    isZapping.value = true
 
     try {
-      const plan = await buildLoopZapPlan({
-        inputTokenAddress: selectedInputToken.value!.address,
-        inputAmount: inputAmountNano.value,
-        collateralVaultAddress: pool.collateralVault,
-        borrowVaultAddress: pool.borrowVault,
-        debtAmount: debtAmount.value,
-        zapQuote: zapQuote.value,
-        multiplyQuote: multiplyQuote.value,
-        subAccount: resolvedSubAccount.value || undefined,
-        includePermit2Call: false,
+      const input = inputAmountNano.value
+      const userAddr = address.value as Address
+
+      const bptBalanceBefore = await readContract(wagmiConfig, {
+        address: pool.bptAddress as Address,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [userAddr],
       })
 
-      try {
-        await simulateTxPlan(plan)
+      if (pool.routeType === 'adapter') {
+        const adapterEntry = bptAdapterConfig[pool.collateralVault.toLowerCase()]
+          || bptAdapterConfig[pool.collateralVault]
+        const fullEntry = adapterEntry as BptAdapterConfigEntry
+        const { minBptOut } = await previewAdapterZapIn(wagmiConfig, fullEntry, input, slippage.value)
+        const adapterAddr = fullEntry.adapter as Address
+        const inputAddr = pool.borrowAsset as Address
+
+        const currentAllowance = await readContract(wagmiConfig, {
+          address: inputAddr,
+          abi: erc20Abi,
+          functionName: 'allowance',
+          args: [userAddr, adapterAddr],
+        })
+        if (currentAllowance < input) {
+          const approveHash = await writeContract(wagmiConfig, {
+            address: inputAddr,
+            abi: erc20Abi,
+            functionName: 'approve',
+            args: [adapterAddr, input],
+          })
+          await waitForTransactionReceipt(wagmiConfig, { hash: approveHash })
+        }
+
+        const zapHash = await writeContract(wagmiConfig, {
+          address: adapterAddr,
+          abi: zapInFunctionAbi,
+          functionName: 'zapIn',
+          args: [BigInt(fullEntry.tokenIndex), input, minBptOut],
+        })
+        await waitForTransactionReceipt(wagmiConfig, { hash: zapHash })
       }
-      catch (simErr) {
-        simulationError.value = getTxErrorMessage(simErr)
-        return
+      else {
+        const ensoRoute = await getEnsoRoute({
+          chainId: currentChainId.value,
+          fromAddress: userAddr,
+          tokenIn: pool.borrowAsset as Address,
+          tokenOut: pool.bptAddress as Address,
+          amountIn: input,
+          receiver: userAddr,
+          slippage: slippage.value,
+        })
+
+        const ensoRouter = ensoRoute.tx.to as Address
+        const inputAddr = pool.borrowAsset as Address
+
+        const currentAllowance = await readContract(wagmiConfig, {
+          address: inputAddr,
+          abi: erc20Abi,
+          functionName: 'allowance',
+          args: [userAddr, ensoRouter],
+        })
+        if (currentAllowance < input) {
+          const approveHash = await writeContract(wagmiConfig, {
+            address: inputAddr,
+            abi: erc20Abi,
+            functionName: 'approve',
+            args: [ensoRouter, input],
+          })
+          await waitForTransactionReceipt(wagmiConfig, { hash: approveHash })
+        }
+
+        const hash = await sendTransaction(wagmiConfig, {
+          to: ensoRoute.tx.to,
+          data: ensoRoute.tx.data,
+          value: BigInt(ensoRoute.tx.value),
+        })
+        await waitForTransactionReceipt(wagmiConfig, { hash })
       }
 
-      modal.open(OperationReviewModal, {
-        props: {
-          type: 'borrow',
-          asset: { symbol: pool.borrowAssetSymbol, decimals: pool.borrowAssetDecimals, address: pool.borrowAsset },
-          amount: borrowAmountFormatted.value,
-          plan,
-          supplyingAssetForBorrow: selectedInputToken.value,
-          supplyingAmount: inputAmount.value,
-          onConfirm: () => {
-            setTimeout(() => {
-              executeLoopZap()
-            }, 400)
-          },
-        },
+      const bptBalanceAfter = await readContract(wagmiConfig, {
+        address: pool.bptAddress as Address,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [userAddr],
       })
+
+      bptReceivedFromZap.value = bptBalanceAfter - bptBalanceBefore
+      phase.value = 'zapped'
+      showSuccess('Zap In complete — BPT received')
+
+      await updateBalance()
+      await fetchMultiplyQuote()
     }
-    catch (e) {
-      logWarn('loop-zap/prepare', e)
-      showError('Failed to prepare transaction')
+    catch (e: any) {
+      logWarn('loop-zap/zap-in', e)
+      showError(e?.shortMessage || e?.message || 'Zap In failed')
     }
     finally {
-      isPreparing.value = false
+      isZapping.value = false
     }
   }
 
-  async function executeLoopZap() {
-    const pool = selectedPool.value
-    if (!pool || !zapQuote.value || !multiplyQuote.value) return
+  // ── Multiply quote (for Tx 2) ──────────────────────────────────
+  async function fetchMultiplyQuote() {
+    multiplyQuote.value = null
 
-    isSubmitting.value = true
+    const pool = selectedPool.value
+    if (!pool || !eulerPeripheryAddresses.value?.swapper || !currentChainId.value || !address.value) return
+    if (bptReceivedFromZap.value <= 0n || debtAmount.value <= 0n) return
+
+    const swapperAddr = eulerPeripheryAddresses.value.swapper as Address
+    const swapVerifierAddr = eulerPeripheryAddresses.value.swapVerifier as Address
+    const collateralVaultAddr = pool.collateralVault as Address
+    const borrowVaultAddr = pool.borrowVault as Address
+    const tokenIn = pool.borrowAsset as Address
+    const tokenOut = pool.bptAddress as Address
+    const debt = debtAmount.value
+    const deadline = Math.floor(Date.now() / 1000) + 1800
+
+    const subAccount = await getNewSubAccount(address.value!) as Address
+    resolvedSubAccount.value = subAccount
+
+    const adapterEntry = bptAdapterConfig[collateralVaultAddr.toLowerCase()]
+      || bptAdapterConfig[pool.collateralVault]
 
     try {
-      const plan = await buildLoopZapPlan({
-        inputTokenAddress: selectedInputToken.value!.address,
-        inputAmount: inputAmountNano.value,
-        collateralVaultAddress: pool.collateralVault,
+      if (adapterEntry?.pool && adapterEntry?.wrapper && adapterEntry?.numTokens) {
+        const fullEntry = adapterEntry as BptAdapterConfigEntry
+        const { expectedBptOut, minBptOut } = await previewAdapterZapIn(wagmiConfig, fullEntry, debt, slippage.value)
+        const adapterCalldata = encodeAdapterZapIn(fullEntry.tokenIndex, debt, minBptOut)
+
+        const quote = buildAdapterSwapQuote({
+          swapperAddress: swapperAddr,
+          swapVerifierAddress: swapVerifierAddr,
+          collateralVault: collateralVaultAddr,
+          borrowVault: borrowVaultAddr,
+          subAccount,
+          tokenIn,
+          tokenOut,
+          borrowAmount: debt,
+          deadline,
+          adapterAddress: fullEntry.adapter as Address,
+          adapterCalldata,
+          minAmountOut: minBptOut,
+        })
+        quote.amountOut = expectedBptOut.toString()
+        quote.amountOutMin = minBptOut.toString()
+        multiplyQuote.value = quote
+      }
+      else {
+        const ensoRoute = await getEnsoRoute({
+          chainId: currentChainId.value,
+          fromAddress: swapperAddr,
+          tokenIn,
+          tokenOut,
+          amountIn: debt,
+          receiver: swapperAddr,
+          slippage: slippage.value,
+        })
+        multiplyQuote.value = buildEnsoSwapQuote(ensoRoute, {
+          swapperAddress: swapperAddr,
+          swapVerifierAddress: swapVerifierAddr,
+          collateralVault: collateralVaultAddr,
+          borrowVault: borrowVaultAddr,
+          subAccount,
+          tokenIn,
+          tokenOut,
+          borrowAmount: debt,
+          deadline,
+        })
+      }
+    }
+    catch (e: any) {
+      logWarn('loop-zap/multiply-quote', e)
+      showError('Failed to get multiply quote')
+    }
+  }
+
+  // ── Tx 2: Multiply ────────────────────────────────────────────
+  async function executeMultiply() {
+    const pool = selectedPool.value
+    if (!pool || !multiplyQuote.value || !address.value) return
+    if (bptReceivedFromZap.value <= 0n) return
+
+    isMultiplying.value = true
+
+    try {
+      const subAccount = resolvedSubAccount.value || await getNewSubAccount(address.value!) as string
+
+      const plan = await buildMultiplyPlan({
+        supplyVaultAddress: pool.collateralVault,
+        supplyAssetAddress: pool.bptAddress,
+        supplyAmount: bptReceivedFromZap.value,
+        longVaultAddress: pool.collateralVault,
+        longAssetAddress: pool.bptAddress,
         borrowVaultAddress: pool.borrowVault,
         debtAmount: debtAmount.value,
-        zapQuote: zapQuote.value,
-        multiplyQuote: multiplyQuote.value,
-        subAccount: resolvedSubAccount.value || undefined,
+        quote: multiplyQuote.value,
+        swapperMode: SwapperMode.EXACT_IN,
+        subAccount,
         includePermit2Call: true,
       })
 
       await executeTxPlan(plan)
-      modal.close()
+
+      phase.value = 'done'
+      showSuccess('Multiply complete — leveraged position opened')
 
       refreshAllPositions(eulerLensAddresses.value, address.value || '')
 
       inputAmount.value = ''
-      resetQuoteState()
+      resetState()
       await updateBalance()
     }
-    catch (e) {
-      logWarn('loop-zap/execute', e)
-      showError('Transaction failed')
+    catch (e: any) {
+      logWarn('loop-zap/multiply', e)
+      showError(e?.shortMessage || e?.message || 'Multiply failed')
     }
     finally {
-      isSubmitting.value = false
+      isMultiplying.value = false
     }
   }
 
@@ -441,18 +537,23 @@ export const useLoopZap = () => {
     borrowAmountFormatted,
     totalExposureFormatted,
     walletBalance,
-    expectedBptTotal,
+    expectedBptFromZap,
+    bptReceivedFromZap,
     availableLiquidity,
     isInsufficientLiquidity,
+    isInsufficient,
 
+    phase,
     isQuoting,
-    isPreparing,
-    isSubmitting,
+    isZapping,
+    isMultiplying,
     quoteError,
-    simulationError,
-    isReady,
+    isZapReady,
+    isMultiplyReady,
 
-    submitLoopZap,
+    executeZapIn,
+    executeMultiply,
     updateBalance,
+    resetState,
   }
 }
