@@ -55,10 +55,12 @@ This frontend adds features for Balancer V3 BPT collateral vaults:
 1. EVC.borrow(borrowVault, amount)        → AUSD/WMON to Swapper
 2. Swapper.multicall([
      swap(GenericHandler, adapter/enso)    → borrow asset becomes BPT
-     deposit(BPT, collateralVault)         → BPT into Euler vault
+     sweep(BPT, 0, collateralVault)        → transfer BPT to collateral vault
    ])
-3. SwapVerifier.verifyAmountMinAndSkim     → slippage check
+3. SwapVerifier.verifyAmountMinAndSkim     → slippage check + deposit into vault
 ```
+
+**Why `sweep` not `deposit`:** The SwapVerifier's `verifyAmountMinAndSkim` calls `skim()` on the collateral vault, which claims any tokens sitting at the vault address. `Swapper.deposit()` would consume the tokens internally (leaving nothing to skim), causing the verifier to revert with `SwapVerifier_skimMin`. `Swapper.sweep()` transfers BPT directly to the vault address, where `skim()` can claim them.
 
 ### Routing decision (per pool)
 
@@ -75,14 +77,14 @@ The decision is driven by the `bptAdapterConfig` map. If a collateral vault addr
 
 **Adapter multiply (Pools 1, 4):**
 1. `useMultiplyForm` detects `bptAdapterConfig[collateralVaultAddr]`
-2. Calls `previewAdapterZapIn()` — two-step on-chain preview: `ERC4626.previewDeposit` → `BalancerRouter.queryAddLiquidityUnbalanced` → applies slippage
+2. Calls `previewAdapterZapIn()` — on-chain preview: `ERC4626.previewDeposit(amount)` → scale wrapper decimals to 18 (BPT decimals) → apply slippage. Returns `{ expectedBptOut, minBptOut }`.
 3. Calls `encodeAdapterZapIn(tokenIndex, borrowAmount, minBptOut)` to build adapter calldata
-4. Calls `buildAdapterSwapQuote()` which encodes: `GenericHandler` data → `Swapper.swap` → `Swapper.deposit`
+4. Calls `buildAdapterSwapQuote()` which encodes: `GenericHandler` data → `Swapper.swap` → `Swapper.sweep`
 
 **Enso multiply (Pools 2, 3):**
 1. No adapter entry found
 2. Calls `getEnsoRoute()` via server proxy → Enso `/route` API (`fromAddress=swapper`, `receiver=swapper`)
-3. Calls `buildEnsoSwapQuote()` to wrap Enso route in `SwapApiQuote` format
+3. Calls `buildEnsoSwapQuote()` to wrap Enso route in `SwapApiQuote` format (uses `Swapper.swap` → `Swapper.sweep`)
 
 **Enso repay (all pools):**
 1. `useCollateralSwapRepay` → `ensoRepayFetcher`
@@ -160,7 +162,7 @@ This is the bridge between Enso/adapter and Euler's swap system.
 - `buildEnsoRepaySwapQuote(route, ctx)` — Same for repay direction. Uses `SwapVerificationType.DebtMax` with interest adjustment buffer.
 - `buildAdapterSwapQuote(ctx)` — Builds `SwapApiQuote` for adapter-based multiply. Encodes `GenericHandler` data targeting the adapter's `zapIn`.
 - `encodeAdapterZapIn(tokenIndex, amount, minBptOut)` — Encodes adapter calldata.
-- `previewAdapterZapIn(config, adapterEntry, amount, slippage)` — Two-step on-chain preview: ERC4626 `previewDeposit` → Balancer `queryAddLiquidityUnbalanced` → applies slippage. Returns `{ expectedBptOut, minBptOut }`.
+- `previewAdapterZapIn(config, adapterEntry, amount, slippage)` — On-chain preview: ERC4626 `previewDeposit` → scale wrapper decimals to 18 (BPT standard) → apply slippage. Does NOT call `queryAddLiquidityUnbalanced` (reverts with `NotStaticCall()` on Monad). Returns `{ expectedBptOut, minBptOut }`.
 - `zapInFunctionAbi` — ABI for `adapter.zapIn(uint256, uint256, uint256)`, exported for direct calls in Zap BPT.
 
 The `HANDLER_GENERIC` bytes32 (`0x47656e65726963...`) identifies the Euler Swapper's GenericHandler. The handler decodes `(address target, bytes payload)` from `params.data`, approves `tokenIn` to the target, then calls `target.call(payload)`.
@@ -184,6 +186,19 @@ Single-phase zap composable for the Zap BPT page.
 
 ---
 
+## Multiply Debt Safety Margin
+
+Both multiply pages (`useMultiplyForm.ts` for new positions, `multiply.vue` for existing positions) apply a safety reduction to the calculated borrow amount:
+
+```
+safetyBps = max(slippage × 3, 100)   // 3× slippage setting or 1% minimum
+adjustedDebt = rawDebt × (10000 - safetyBps) / 10000
+```
+
+This prevents `EVC_ControllerViolation` at high multipliers where swap price impact pushes the actual LTV past the on-chain limit. Pools 1/4 (adapter, stableswap) have negligible slippage; Pools 2/3 (Enso) have ~1% price impact. Without the margin, a 19x multiply on Pool 2 would produce ~95.6% actual LTV against a 95% limit. The margin caps effective max leverage slightly below theoretical max.
+
+---
+
 ## Gotchas
 
 1. **Enso API key must be server-side.** The proxy at `/api/enso/route` keeps the key out of the browser. Never expose it in `NUXT_PUBLIC_*` vars.
@@ -203,3 +218,9 @@ Single-phase zap composable for the Zap BPT page.
 8. **AUSD has 6 decimals.** The `POOLS` array in `useLoopZap.ts` must have `borrowAssetDecimals: 6` for AUSD pools (Pool 1, Pool 4). WMON pools use 18. Getting this wrong causes display values to be off by 10^12.
 
 9. **SwapVerifier lacks `transferFromSender` on Monad.** Any single-batch flow that needs to pull tokens from the user's wallet into the Swapper will fail. The `buildMultiplyPlan` works because it operates vault-to-vault.
+
+10. **`queryAddLiquidityUnbalanced` reverts on Monad.** Balancer V3 Router's query function requires a static call context, but `simulateContract` in viem sends a real call, causing `NotStaticCall()` revert (`0x67f84ab2`). The adapter preview uses `ERC4626.previewDeposit` + decimal scaling instead.
+
+11. **Wrapper token decimals != BPT decimals.** ERC4626 wrappers (wnAUSD, etc.) may have different decimals than BPT (always 18). `previewAdapterZapIn` reads the wrapper's `decimals()` and scales accordingly. Omitting this causes the BPT estimate to be off by orders of magnitude, leading to `SwapVerifier_skimMin` failures.
+
+12. **`Swapper.deposit()` vs `Swapper.sweep()` in multicall.** Always use `sweep(token, minAmount, to)` to move tokens to a vault within the Swapper multicall. `deposit()` consumes tokens internally, leaving nothing for `SwapVerifier.verifyAmountMinAndSkim()` to skim. This causes a silent revert.

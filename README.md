@@ -140,21 +140,22 @@ The app is deployed on Vercel (project `ag-euler-balancer`). Environment variabl
 
 ```
 composables/
-  useEnsoRoute.ts          # Enso + adapter quote/swap logic
-  useLoopZap.ts            # Zap BPT composable (useZapBpt)
-  borrow/useMultiplyForm.ts  # Multiply form with Enso/adapter routing
+  useEnsoRoute.ts            # Enso + adapter quote/swap logic, preview helpers
+  useLoopZap.ts              # Zap BPT composable (useZapBpt)
+  borrow/useMultiplyForm.ts  # Multiply form with Enso/adapter routing + safety margin
   repay/useCollateralSwapRepay.ts  # Repay with Enso routing
   useEulerOperations/vault.ts  # buildMultiplyPlan (EVC batch builder)
-  useDeployConfig.ts       # bptAdapterConfig parsing
+  useDeployConfig.ts         # bptAdapterConfig parsing
 pages/
-  loop-zap/index.vue       # Zap BPT page
+  loop-zap/index.vue         # Zap BPT page
+  position/[number]/multiply.vue  # Existing position multiply (increase leverage)
 server/
-  api/enso/route.get.ts    # Enso API proxy (rate-limited, auth)
-  utils/enso.ts            # Enso config resolver
+  api/enso/route.get.ts      # Enso API proxy (rate-limited, auth)
+  utils/enso.ts              # Enso config resolver
 abis/
-  vault.ts                 # Added vaultPreviewDepositAbi for ERC4626
+  vault.ts                   # vaultPreviewDepositAbi for ERC4626
 entities/
-  menu.ts                  # Added Loop Zap menu item
+  menu.ts                    # Zap BPT menu item
 ```
 
 ## Available Scripts
@@ -167,9 +168,21 @@ entities/
 | `npm run generate` | Generate static site |
 | `npm run postinstall` | Prepare Nuxt (runs automatically) |
 
-## Known Issues
+## Multiply Details
 
-1. **Monad SwapVerifier lacks `transferFromSender`.** Any flow that needs to pull user tokens into an EVC batch atomically will fail. The SwapVerifier is immutable.
+The multiplier slider represents total exposure relative to initial deposit (2x = borrow equal to deposit, 10x = borrow 9x deposit). Max multiplier is bounded by LTV: `max = 1 / (1 - LTV)`. At 95% LTV, theoretical max is 20x.
+
+A safety margin reduces the actual borrow amount by `max(3× slippage, 1%)` to prevent on-chain health check failures from swap price impact. This makes the effective max slightly lower than the theoretical max, especially for Enso-routed pools (2, 3) where price impact is ~1%.
+
+Available leverage is also capped by **borrow vault supply** — if the vault only has 5 AUSD deposited, you can't borrow more than 5 AUSD regardless of multiplier.
+
+## Known Issues & Constraints
+
+1. **Monad SwapVerifier lacks `transferFromSender`.** Any flow that needs to pull user tokens into an EVC batch atomically will fail. The SwapVerifier is immutable. This is why the Zap BPT page exists separately from multiply.
+
+2. **`queryAddLiquidityUnbalanced` reverts on Monad.** Balancer V3 Router's query function requires a static call context. Adapter BPT previews use `ERC4626.previewDeposit` + decimal scaling as a workaround.
+
+3. **Pool hooks block single-sided LP removal.** `removeLiquiditySingleTokenExactIn` reverts with `AfterRemoveLiquidityHookFailed` on all pools. Repay uses Enso routing which works around this.
 
 ## AI Context
 
