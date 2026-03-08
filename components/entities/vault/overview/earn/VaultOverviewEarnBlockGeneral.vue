@@ -7,6 +7,7 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { isEarnVaultDeprecated, getEarnVaultDeprecationReason, getEarnVaultDescription } from '~/utils/eulerLabelsUtils'
 import { autoLink } from '~/utils/autoLink'
+import { getVaultTypeDescription, getVaultTypeLabel } from '~/entities/vault/descriptions'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
@@ -38,6 +39,14 @@ watchEffect(async () => {
 const feeDisplay = computed(() => {
   return `${compactNumber(nanoToValue(vault.performanceFee, 18) * 100, 2, 2)}%`
 })
+
+const earnVaultType = computed(() => entities.length ? 'managed' : 'unknown')
+const vaultTypeLabel = computed(() =>
+  getVaultTypeLabel(earnVaultType.value, isOwnerVerified.value),
+)
+const vaultTypeDescription = computed(() =>
+  getVaultTypeDescription(earnVaultType.value, isOwnerVerified.value),
+)
 </script>
 
 <template>
@@ -103,7 +112,7 @@ const feeDisplay = computed(() => {
       />
       <VaultOverviewLabelValue
         v-if="enableEntityBrandingDisplay"
-        label="Capital allocator(s)"
+        label="Capital allocator"
       >
         <div
           v-if="entities.length && isOwnerVerified"
@@ -138,11 +147,20 @@ const feeDisplay = computed(() => {
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="enableVaultTypeDisplay"
-        label="Vault type"
       >
+        <template #label>
+          <span class="flex items-center gap-4">
+            Vault type
+            <UiFootnote
+              :title="vaultTypeLabel"
+              :text="vaultTypeDescription"
+              class="[--ui-footnote-icon-color:var(--text-muted)] hover:[--ui-footnote-icon-color:var(--text-secondary)]"
+            />
+          </span>
+        </template>
         <VaultTypeChip
           :vault="vault"
-          :type="entities.length ? 'managed' : 'unknown'"
+          :type="earnVaultType"
         />
       </VaultOverviewLabelValue>
     </div>
