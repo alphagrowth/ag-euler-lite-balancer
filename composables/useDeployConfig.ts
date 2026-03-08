@@ -7,9 +7,11 @@ export interface BptAdapterEntry {
 }
 
 function parseBptAdapterConfig(raw: unknown): Record<string, BptAdapterEntry> {
-  if (!raw || typeof raw !== 'string') return {}
+  if (!raw) return {}
+  if (typeof raw === 'object') return raw as Record<string, BptAdapterEntry>
+  if (typeof raw !== 'string') return {}
   try {
-    return JSON.parse(raw)
+    return JSON.parse(raw.trim())
   }
   catch {
     return {}
