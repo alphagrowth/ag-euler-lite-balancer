@@ -36,21 +36,21 @@ cp .env.example .env
 
 #### Required Variables
 
-| Variable | Description |
-|----------|-------------|
-| `APPKIT_PROJECT_ID` | Reown (WalletConnect) project ID |
-| `NUXT_PUBLIC_APP_URL` | Your app's public URL |
-| `RPC_URL_HTTP_<chainId>` | RPC endpoint per chain (e.g. `RPC_URL_HTTP_1` for Ethereum) |
-| `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>` | Subgraph URI per chain |
+| Variable                             | Description                                                 |
+| ------------------------------------ | ----------------------------------------------------------- |
+| `APPKIT_PROJECT_ID`                  | Reown (WalletConnect) project ID                            |
+| `NUXT_PUBLIC_APP_URL`                | Your app's public URL                                       |
+| `RPC_URL_HTTP_<chainId>`             | RPC endpoint per chain (e.g. `RPC_URL_HTTP_1` for Ethereum) |
+| `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>` | Subgraph URI per chain                                      |
 
 #### API URLs
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `EULER_API_URL` | — | Euler indexer API (token data, logos) |
-| `SWAP_API_URL` | — | Euler swap API |
-| `PRICE_API_URL` | — | Euler price API |
-| `PYTH_HERMES_URL` | `https://hermes.pyth.network` | Pyth oracle endpoint |
+| Variable          | Default                       | Description                           |
+| ----------------- | ----------------------------- | ------------------------------------- |
+| `EULER_API_URL`   | —                             | Euler indexer API (token data, logos) |
+| `SWAP_API_URL`    | —                             | Euler swap API                        |
+| `PRICE_API_URL`   | —                             | Euler price API                       |
+| `PYTH_HERMES_URL` | `https://hermes.pyth.network` | Pyth oracle endpoint                  |
 
 > **Doppler compatibility:** If your secret manager injects `NUXT_PUBLIC_*` prefixed names (e.g. `NUXT_PUBLIC_EULER_API_URL`), the app accepts both forms automatically.
 
@@ -58,25 +58,25 @@ cp .env.example .env
 
 These use Nuxt's `runtimeConfig` and are set via `NUXT_PUBLIC_CONFIG_*` env vars:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NUXT_PUBLIC_CONFIG_APP_TITLE` | `Euler Lite` | App title (SEO, meta tags) |
-| `NUXT_PUBLIC_CONFIG_APP_DESCRIPTION` | `Lightweight interface for Euler Finance.` | App description |
-| `NUXT_PUBLIC_CONFIG_LABELS_REPO` | `euler-xyz/euler-labels` | GitHub labels repo |
-| `NUXT_PUBLIC_CONFIG_LABELS_REPO_BRANCH` | `master` | Branch to fetch labels from |
-| `NUXT_PUBLIC_CONFIG_DOCS_URL` | — | Documentation link |
-| `NUXT_PUBLIC_CONFIG_TOS_URL` | — | Terms of Service link |
-| `NUXT_PUBLIC_CONFIG_TOS_MD_URL` | — | TOS markdown URL (enables TOS signing when set) |
-| `NUXT_PUBLIC_CONFIG_X_URL` | — | X (Twitter) link |
-| `NUXT_PUBLIC_CONFIG_DISCORD_URL` | — | Discord link |
-| `NUXT_PUBLIC_CONFIG_TELEGRAM_URL` | — | Telegram link |
-| `NUXT_PUBLIC_CONFIG_GITHUB_URL` | — | GitHub link |
-| `NUXT_PUBLIC_CONFIG_ENABLE_EARN_PAGE` | `true` | Show Earn page |
-| `NUXT_PUBLIC_CONFIG_ENABLE_LEND_PAGE` | `true` | Show Lend page |
-| `NUXT_PUBLIC_CONFIG_ENABLE_ENTITY_BRANDING` | `true` | Show entity branding |
-| `NUXT_PUBLIC_CONFIG_ENABLE_VAULT_TYPE` | `true` | Show vault type labels |
-| `NUXT_PUBLIC_CONFIG_ENABLE_APP_TITLE` | `true` | Show app title in the navbar |
-| `NUXT_PUBLIC_CONFIG_ENABLE_SWAP_DEPOSIT` | `false` | Enable swap token selector on deposit/withdraw/borrow |
+| Variable                                    | Default                                    | Description                                           |
+| ------------------------------------------- | ------------------------------------------ | ----------------------------------------------------- |
+| `NUXT_PUBLIC_CONFIG_APP_TITLE`              | `Euler Lite`                               | App title (SEO, meta tags)                            |
+| `NUXT_PUBLIC_CONFIG_APP_DESCRIPTION`        | `Lightweight interface for Euler Finance.` | App description                                       |
+| `NUXT_PUBLIC_CONFIG_LABELS_REPO`            | `euler-xyz/euler-labels`                   | GitHub labels repo                                    |
+| `NUXT_PUBLIC_CONFIG_LABELS_REPO_BRANCH`     | `master`                                   | Branch to fetch labels from                           |
+| `NUXT_PUBLIC_CONFIG_DOCS_URL`               | —                                          | Documentation link                                    |
+| `NUXT_PUBLIC_CONFIG_TOS_URL`                | —                                          | Terms of Service link                                 |
+| `NUXT_PUBLIC_CONFIG_TOS_MD_URL`             | —                                          | TOS markdown URL (enables TOS signing when set)       |
+| `NUXT_PUBLIC_CONFIG_X_URL`                  | —                                          | X (Twitter) link                                      |
+| `NUXT_PUBLIC_CONFIG_DISCORD_URL`            | —                                          | Discord link                                          |
+| `NUXT_PUBLIC_CONFIG_TELEGRAM_URL`           | —                                          | Telegram link                                         |
+| `NUXT_PUBLIC_CONFIG_GITHUB_URL`             | —                                          | GitHub link                                           |
+| `NUXT_PUBLIC_CONFIG_ENABLE_EARN_PAGE`       | `true`                                     | Show Earn page                                        |
+| `NUXT_PUBLIC_CONFIG_ENABLE_LEND_PAGE`       | `true`                                     | Show Lend page                                        |
+| `NUXT_PUBLIC_CONFIG_ENABLE_ENTITY_BRANDING` | `true`                                     | Show entity branding                                  |
+| `NUXT_PUBLIC_CONFIG_ENABLE_VAULT_TYPE`      | `true`                                     | Show vault type labels                                |
+| `NUXT_PUBLIC_CONFIG_ENABLE_APP_TITLE`       | `true`                                     | Show app title in the navbar                          |
+| `NUXT_PUBLIC_CONFIG_ENABLE_SWAP_DEPOSIT`    | `false`                                    | Enable swap token selector on deposit/withdraw/borrow |
 
 #### Chain Configuration
 
@@ -101,7 +101,7 @@ The app scans for `RPC_URL_HTTP_<chainId>` env vars at server startup and automa
 The `themeHue` value (0-360) shifts the entire color palette:
 
 ```typescript
-export const themeHue = 150 // Change to shift brand palette
+export const themeHue = 150; // Change to shift brand palette
 ```
 
 #### Intrinsic APY Sources (`entities/custom.ts`)
@@ -110,10 +110,10 @@ Configure which tokens show DeFiLlama base APY:
 
 ```typescript
 export const intrinsicApySources = [
-  { symbol: 'steth', project: 'lido' },
-  { symbol: 'wsteth', sourceSymbol: 'steth', project: 'lido' },
+  { symbol: "steth", project: "lido" },
+  { symbol: "wsteth", sourceSymbol: "steth", project: "lido" },
   // Add your tokens here
-] as const
+] as const;
 ```
 
 - `symbol` — vault asset symbol (case-insensitive)
@@ -140,6 +140,7 @@ assets/tokens/
 ```
 
 The resolution order in `getAssetLogoUrl(address, symbol)`:
+
 1. Local override in `assets/tokens/<symbol>.png`
 2. `logoURI` from the indexer API
 3. Empty string (component shows initials fallback)
@@ -242,12 +243,12 @@ server/
 
 ## Available Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run preview` | Preview production build locally |
-| `npm run generate` | Generate static site |
+| Command               | Description                       |
+| --------------------- | --------------------------------- |
+| `npm run dev`         | Start development server          |
+| `npm run build`       | Build for production              |
+| `npm run preview`     | Preview production build locally  |
+| `npm run generate`    | Generate static site              |
 | `npm run postinstall` | Prepare Nuxt (runs automatically) |
 
 ## Configuration Checklist
@@ -291,3 +292,7 @@ Before deploying:
 - [Nuxt.js Documentation](https://nuxt.com/docs)
 - [Reown (WalletConnect) Documentation](https://docs.reown.com/)
 - [Euler Finance Documentation](https://docs.euler.finance/)
+
+## License
+
+MIT — see the [LICENSE](./LICENSE) file.
