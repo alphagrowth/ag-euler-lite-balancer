@@ -2,6 +2,7 @@ import type { Address } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
 import { normalizeAddress } from '~/utils/normalizeAddress'
 import { getPublicClient } from '~/utils/public-client'
+import { isVaultExposureOnly } from '~/utils/eulerLabelsUtils'
 import {
   type Vault,
   type EarnVault,
@@ -125,7 +126,7 @@ const getStandardEvkVaults = (): Vault[] => {
 
 // Verified EVK vaults (for display in tables) - excludes dynamically fetched unknown vaults
 const getVerifiedEvkVaults = (): Vault[] => {
-  return getEvkVaults().filter(v => v.verified === true)
+  return getEvkVaults().filter(v => v.verified === true && !isVaultExposureOnly(v.address))
 }
 
 // Type checker convenience methods

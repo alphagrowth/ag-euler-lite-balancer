@@ -17,7 +17,7 @@ import {
   isSecuritizeVault,
   type Vault,
 } from '~/entities/vault'
-import { getProductByVault } from '~/utils/eulerLabelsUtils'
+import { getProductByVault, isVaultExposureOnly } from '~/utils/eulerLabelsUtils'
 import { getEulerRouterGovernor } from '~/entities/oracle'
 
 const isReady = ref(false)
@@ -44,11 +44,16 @@ const borrowList = computed((): AnyBorrowVaultPair[] => {
   const evkVaults = getVerifiedEvkVaults()
 
   evkVaults.forEach((borrowVault) => {
+    if (isVaultExposureOnly(borrowVault.address)) {
+      return
+    }
+
     borrowVault.collateralLTVs.forEach((ltv) => {
       if (ltv.borrowLTV <= 0n) return
 
       const collateralVault = registryGetVault(ltv.collateral)
       if (!collateralVault) return
+      if (isVaultExposureOnly(collateralVault.address)) return
 
       pairs.push({
         borrow: borrowVault,

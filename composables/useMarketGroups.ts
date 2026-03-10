@@ -5,7 +5,7 @@ import type { MarketGroup, MarketGroupMetrics, CuratorGroup } from '~/entities/l
 import type { AnyVault } from '~/composables/useVaultRegistry'
 import { getVaultUtilization } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { isVaultFeatured } from '~/utils/eulerLabelsUtils'
+import { isVaultExposureOnly, isVaultFeatured } from '~/utils/eulerLabelsUtils'
 
 // -- Helpers --
 
@@ -324,7 +324,12 @@ export const useMarketGroups = () => {
 
   /** All vaults available for grouping */
   const allVaults = computed((): AnyVault[] => {
-    return getAll().map(entry => entry.vault)
+    return getAll()
+      .map(entry => entry.vault)
+      .filter((vault) => {
+        const address = getVaultAddress(vault)
+        return address ? !isVaultExposureOnly(address) : true
+      })
   })
 
   /** Synchronous market groups (metrics without TVL) */
