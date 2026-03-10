@@ -39,21 +39,22 @@ const allCollateralPairs = computed(() => {
   }> = []
 
   vault.collateralLTVs.forEach((ltv) => {
-    // Check if current liquidation LTV > 0 (not yet fully ramped down)
     if (getCurrentLiquidationLTV(ltv) <= 0n) return
-
-    const pairData = {
-      borrowLTV: ltv.borrowLTV,
-      liquidationLTV: ltv.liquidationLTV,
-      initialLiquidationLTV: ltv.initialLiquidationLTV,
-      targetTimestamp: ltv.targetTimestamp,
-      rampDuration: ltv.rampDuration,
-    }
 
     // Try to find the collateral vault from registry
     const collateralEntry = registryGet(ltv.collateral)
     if (collateralEntry) {
-      pairs.push({ collateral: collateralEntry.vault as Vault | SecuritizeVault, ...pairData })
+      const collateral = collateralEntry.vault as Vault | SecuritizeVault
+      if (ltv.borrowLTV <= 0n && collateral.totalAssets <= 0n) return
+
+      pairs.push({
+        collateral,
+        borrowLTV: ltv.borrowLTV,
+        liquidationLTV: ltv.liquidationLTV,
+        initialLiquidationLTV: ltv.initialLiquidationLTV,
+        targetTimestamp: ltv.targetTimestamp,
+        rampDuration: ltv.rampDuration,
+      })
     }
   })
 
