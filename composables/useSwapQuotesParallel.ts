@@ -55,9 +55,10 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
     }
     const current = Math.min(providersFetchedCount.value, providersCount.value)
     const total = providersCount.value
+    const progress = Math.round((current / total) * 100)
     return current < total
-      ? `Fetching quotes ${current}/${total}`
-      : `Quotes returned ${current}/${total}`
+      ? `Fetching quotes ${progress}%`
+      : 'Quotes fetched'
   })
 
   const getQuoteDiffPctFor = (quote: SwapApiQuote) => {
