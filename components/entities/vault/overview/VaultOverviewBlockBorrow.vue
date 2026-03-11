@@ -26,8 +26,8 @@ const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
   })
 }
 
-// Build collateral pairs from ALL collateralLTVs where currentLiquidationLTV > 0
-// This includes collaterals that are ramping down (borrowLTV == 0 but currentLiquidationLTV > 0)
+// Build collateral pairs from collateralLTVs where currentLiquidationLTV > 0
+// Excludes fully ramped-down collaterals (borrowLTV == 0) with no remaining supply
 const allCollateralPairs = computed(() => {
   const pairs: Array<{
     collateral: Vault | SecuritizeVault

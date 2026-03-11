@@ -157,18 +157,10 @@ else {
 
     // Load any collateral vaults that aren't already in registry
     if (evkVault.value) {
-      const { get: registryGet, has: registryHas } = useVaultRegistry()
+      const { has: registryHas } = useVaultRegistry()
 
       const collateralAddresses = evkVault.value.collateralLTVs
-        .filter((ltv) => {
-          if (getCurrentLiquidationLTV(ltv) <= 0n) return false
-          if (ltv.borrowLTV > 0n) return true
-
-          const collateralEntry = registryGet(ltv.collateral)
-          if (!collateralEntry) return true
-
-          return collateralEntry.vault.totalAssets > 0n
-        })
+        .filter(ltv => getCurrentLiquidationLTV(ltv) > 0n)
         .map(ltv => ltv.collateral)
 
       // Check and load missing collaterals in parallel
