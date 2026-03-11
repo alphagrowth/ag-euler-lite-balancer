@@ -96,6 +96,9 @@ export const useBrevis = () => {
   }
 
   const loadCampaigns = async (isInitialLoading = true, forceRefresh = false) => {
+    const currentChainId = chainId.value
+    if (!currentChainId) return
+
     const now = Date.now()
     if (!forceRefresh
       && brevisCampaigns.value.size > 0
@@ -111,7 +114,7 @@ export const useBrevis = () => {
       }
 
       const request: CampaignsRequest = {
-        chain_id: [1],
+        chain_id: [currentChainId],
         action: [CampaignAction.LEND, CampaignAction.BORROW],
         status: [3],
       }
@@ -162,6 +165,9 @@ export const useBrevis = () => {
   }
 
   const loadRewards = async (isInitialLoading = true, forceRefresh = false) => {
+    const currentChainId = chainId.value
+    if (!currentChainId) return
+
     if (!address.value) {
       userRewards.value = []
       isRewardsLoading.value = false
@@ -185,7 +191,7 @@ export const useBrevis = () => {
       }
 
       const request: CampaignsRequest = {
-        chain_id: [1],
+        chain_id: [currentChainId],
         user_address: [capturedAddress],
         status: [3, 4],
       }
@@ -311,6 +317,17 @@ export const useBrevis = () => {
       loadRewards(true, true)
     }
   }, { immediate: true })
+
+  watch(chainId, (val, oldVal) => {
+    if (oldVal && val !== oldVal) {
+      isLoaded.value = false
+      brevisCampaigns.value = new Map()
+      userRewards.value = []
+      cacheState.campaigns.timestamp = 0
+      cacheState.rewards.timestamp = 0
+      cacheState.rewards.address = ''
+    }
+  })
 
   watch(isConnected, (connected) => {
     if (connected) {

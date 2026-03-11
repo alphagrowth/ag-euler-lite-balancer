@@ -19,6 +19,7 @@ const fuulTotals: Ref<FuulTotals> = ref({ claimed: [], unclaimed: [] })
 const isTotalsLoading = ref(true)
 
 let interval: NodeJS.Timeout | null = null
+let subscriberCount = 0
 let latestTotalsRequestId = 0
 
 const cacheState = {
@@ -178,9 +179,11 @@ export const useFuul = () => {
       throw new Error('No claimable rewards found')
     }
 
-    // Read fee from first check's project (all checks may share fee, but read per-project to be safe)
-    const feePerCheck = await readClaimFee(claimChecks[0].project_address)
-    const totalFee = feePerCheck * BigInt(claimChecks.length)
+    // Read fee per unique project and aggregate
+    const uniqueProjects = [...new Set(claimChecks.map(c => c.project_address))]
+    const fees = await Promise.all(uniqueProjects.map(addr => readClaimFee(addr)))
+    const feeMap = new Map(uniqueProjects.map((addr, i) => [addr, fees[i]]))
+    const totalFee = claimChecks.reduce((sum, c) => sum + (feeMap.get(c.project_address) ?? 0n), 0n)
 
     const contractChecks = claimChecks.map(check => ({
       projectAddress: check.project_address as Address,
@@ -216,8 +219,10 @@ export const useFuul = () => {
       throw new Error('No claimable rewards found')
     }
 
-    const feePerCheck = await readClaimFee(claimChecks[0].project_address)
-    const totalFee = feePerCheck * BigInt(claimChecks.length)
+    const uniqueProjects = [...new Set(claimChecks.map(c => c.project_address))]
+    const fees = await Promise.all(uniqueProjects.map(addr => readClaimFee(addr)))
+    const feeMap = new Map(uniqueProjects.map((addr, i) => [addr, fees[i]]))
+    const totalFee = claimChecks.reduce((sum, c) => sum + (feeMap.get(c.project_address) ?? 0n), 0n)
 
     const contractChecks = claimChecks.map(check => ({
       projectAddress: check.project_address as Address,
@@ -265,7 +270,7 @@ export const useFuul = () => {
       isLoaded.value = false
     }
 
-    if (!isLoaded.value) {
+    if (!isLoaded.value && val) {
       loadIncentives()
       loadTotals()
       isLoaded.value = true
@@ -279,8 +284,11 @@ export const useFuul = () => {
     }
   }, { immediate: true })
 
+  subscriberCount++
+
   onUnmounted(() => {
-    if (interval) {
+    subscriberCount--
+    if (subscriberCount === 0 && interval) {
       clearInterval(interval)
       interval = null
     }
