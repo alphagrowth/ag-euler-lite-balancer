@@ -31,7 +31,6 @@ export const extractVaultOverrides = (raw: Record<string, unknown>): Record<stri
     if (typeof reason === 'string') override.deprecationReason = reason
     if (Array.isArray(entry.block)) override.block = entry.block.filter((v): v is string => typeof v === 'string')
     if (Array.isArray(entry.restricted)) override.restricted = entry.restricted.filter((v): v is string => typeof v === 'string')
-    if (typeof entry.exposureOnly === 'boolean') override.exposureOnly = entry.exposureOnly
     if (Object.keys(override).length > 0) {
       overrides[normalizeAddress(key)] = override
     }
@@ -180,9 +179,9 @@ export const isVaultDeprecated = (vaultAddress: string): boolean => {
   )
 }
 
-export const isVaultExposureOnly = (vaultAddress: string): boolean => {
+export const isVaultNotExplorable = (vaultAddress: string): boolean => {
   const product = getProductByVault(vaultAddress)
-  return product.vaultOverrides?.[normalizeAddress(vaultAddress)]?.exposureOnly === true
+  return product.notExplorable === true
 }
 
 export const getEntitiesByVault = (vault: Vault) => {
