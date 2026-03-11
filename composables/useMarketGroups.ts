@@ -353,26 +353,34 @@ export const useMarketGroups = () => {
   /** Market groups with async TVL resolution */
   const marketGroups = ref<MarketGroup[]>([])
   const isResolvingTVL = ref(false)
+  let resolveRunId = 0
 
   watch(
     marketGroupsSync,
     async (groups: MarketGroup[]) => {
-      if (groups.length === 0) return
+      const runId = ++resolveRunId
+      if (groups.length === 0) {
+        marketGroups.value = []
+        return
+      }
 
       isResolvingTVL.value = true
       try {
         const resolved = await Promise.all(groups.map(resolveGroupTVL))
-        marketGroups.value = resolved
+        if (runId === resolveRunId) {
+          marketGroups.value = resolved
+        }
       }
       catch (e) {
         logWarn('useMarketGroups', e)
-        // On failure, show structural data without TVL as fallback
-        if (marketGroups.value.length === 0) {
+        if (runId === resolveRunId && marketGroups.value.length === 0) {
           marketGroups.value = groups
         }
       }
       finally {
-        isResolvingTVL.value = false
+        if (runId === resolveRunId) {
+          isResolvingTVL.value = false
+        }
       }
     },
     { immediate: true },
