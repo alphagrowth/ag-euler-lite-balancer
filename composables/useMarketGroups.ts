@@ -361,6 +361,7 @@ export const useMarketGroups = () => {
       const runId = ++resolveRunId
       if (groups.length === 0) {
         marketGroups.value = []
+        isResolvingTVL.value = false
         return
       }
 
@@ -373,7 +374,7 @@ export const useMarketGroups = () => {
       }
       catch (e) {
         logWarn('useMarketGroups', e)
-        if (runId === resolveRunId && marketGroups.value.length === 0) {
+        if (runId === resolveRunId) {
           marketGroups.value = groups
         }
       }
