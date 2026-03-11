@@ -329,11 +329,21 @@ export const useMerkl = () => {
   }, { immediate: true })
 
   watch([isConnected, chainId], (val, oldVal) => {
-    if (oldVal[1] && val[1] !== oldVal[1]) {
+    const [connected, currentChainId] = val
+    const [oldConnected, oldChainId] = oldVal ?? [undefined, undefined]
+
+    if (oldChainId && currentChainId !== oldChainId) {
       isLoaded.value = false
       merklCampaigns.value = new Map()
       rewards.value = []
       cacheState.opportunities = { chainId: 0, timestamp: 0 }
+      cacheState.rewards = { chainId: 0, address: '', timestamp: 0 }
+    }
+
+    // Clear user-specific data on disconnect
+    if (oldConnected && !connected) {
+      rewards.value = []
+      isRewardsLoading.value = false
       cacheState.rewards = { chainId: 0, address: '', timestamp: 0 }
     }
 
@@ -344,18 +354,16 @@ export const useMerkl = () => {
       isLoaded.value = true
     }
 
-    if (!interval) {
+    if (connected && !interval) {
       interval = setInterval(() => {
         loadRewards(chainId.value, false)
         loadOpportunities(chainId.value, false)
         loadTokens(chainId.value, false)
       }, POLL_INTERVAL_10S_MS)
     }
-    else {
-      if (interval) {
-        clearInterval(interval)
-        interval = null
-      }
+    else if (!connected && interval) {
+      clearInterval(interval)
+      interval = null
     }
   }, { immediate: true })
 

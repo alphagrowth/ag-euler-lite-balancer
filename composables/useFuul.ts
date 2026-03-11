@@ -259,6 +259,9 @@ export const useFuul = () => {
     }
     else {
       address.value = ''
+      fuulTotals.value = { claimed: [], unclaimed: [] }
+      isTotalsLoading.value = false
+      cacheState.totals = { timestamp: 0, address: '' }
     }
     if (oldVal && val && val !== oldVal) {
       loadTotals(true, true)

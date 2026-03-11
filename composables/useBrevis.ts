@@ -345,6 +345,10 @@ export const useBrevis = () => {
       }
     }
     else {
+      userRewards.value = []
+      isCampaignsLoading.value = false
+      isRewardsLoading.value = false
+      cacheState.rewards = { timestamp: 0, address: '' }
       if (interval) {
         clearInterval(interval)
         interval = null
