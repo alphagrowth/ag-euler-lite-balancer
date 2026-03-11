@@ -28,6 +28,7 @@ export type EulerLabelProduct = {
   deprecatedVaults?: string[]
   deprecationReason?: string
   isGovernanceLimited?: boolean
+  notExplorable?: boolean
   block?: string[]
   featuredVaults?: string[]
   vaultOverrides?: Record<string, EulerLabelVaultOverride>
