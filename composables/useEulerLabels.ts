@@ -170,7 +170,7 @@ export const useEulerLabels = () => {
 
       const pointsData = pointsRes.data as EulerLabelPoint[]
       pointsData.forEach((point) => {
-        if (!point.collateralVaults || point.isTurtleClub) {
+        if (!point.collateralVaults) {
           return
         }
 

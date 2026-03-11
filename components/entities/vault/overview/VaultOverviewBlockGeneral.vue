@@ -7,6 +7,7 @@ import { getProductKeyByVault } from '~/utils/eulerLabelsUtils'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { autoLink } from '~/utils/autoLink'
+import { getVaultTypeDescription, getVaultTypeLabel } from '~/entities/vault/descriptions'
 
 const { vault } = defineProps<{ vault: Vault }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
@@ -51,9 +52,9 @@ const vaultGovernanceType = computed(() => {
   if (vault.vaultCategory === 'escrow') {
     return 'escrow'
   }
-  // Has matching entity → governed
+  // Has matching entity → governed (or governance-limited)
   if (entities.length) {
-    return 'governed'
+    return isGovernanceLimited.value ? 'governanceLimited' : 'governed'
   }
   // Zero governorAdmin → ungoverned
   if (!vault.governorAdmin || vault.governorAdmin === zeroAddress) {
@@ -62,6 +63,13 @@ const vaultGovernanceType = computed(() => {
   // Non-zero but no matching entity → unknown
   return 'unknown'
 })
+
+const vaultTypeLabel = computed(() =>
+  getVaultTypeLabel(vaultGovernanceType.value, isGovernorVerified.value),
+)
+const vaultTypeDescription = computed(() =>
+  getVaultTypeDescription(vaultGovernanceType.value, isGovernorVerified.value),
+)
 </script>
 
 <template>
@@ -139,11 +147,6 @@ const vaultGovernanceType = computed(() => {
           Unknown
         </div>
         <div
-          v-else-if="isGovernanceLimited"
-        >
-          -
-        </div>
-        <div
           v-else-if="entities.length"
           class="flex flex-col gap-16"
         >
@@ -162,6 +165,10 @@ const vaultGovernanceType = computed(() => {
               class="text-p2 text-content-primary hover:text-accent-600 underline transition-colors"
             >{{ entity.name }}</a>
           </div>
+          <span
+            v-if="isGovernanceLimited"
+            class="text-p3 text-content-tertiary"
+          >Limited risk management</span>
         </div>
         <div v-else>
           -
@@ -169,8 +176,17 @@ const vaultGovernanceType = computed(() => {
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="enableVaultTypeDisplay"
-        label="Vault type"
       >
+        <template #label>
+          <span class="flex items-center gap-4">
+            Vault type
+            <UiFootnote
+              :title="vaultTypeLabel"
+              :text="vaultTypeDescription"
+              class="[--ui-footnote-icon-color:var(--text-muted)] hover:[--ui-footnote-icon-color:var(--text-secondary)]"
+            />
+          </span>
+        </template>
         <VaultTypeChip
           :vault="vault"
           :type="vaultGovernanceType"

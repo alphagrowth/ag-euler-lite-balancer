@@ -115,7 +115,7 @@ composables/
 ├── useAccountPositions.ts          # Position loading and categorization
 ├── useAccountValues.ts             # Position USD value calculations
 ├── useAddressScreen.ts             # Address screening (compliance)
-├── useBestNetAPY.ts                # Best net APY calculations for sorting/filtering
+├── useBestMaxROE.ts                # Best max ROE calculations for sorting/filtering
 ├── useBrevis.ts                    # Brevis ZK proof rewards integration
 ├── useChainConfig.ts               # Dynamic chain derivation from RPC_URL_HTTP_* env vars
 ├── useCustomFilters.ts             # Generic custom metric filter system (gt/lt)

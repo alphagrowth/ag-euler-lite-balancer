@@ -28,6 +28,7 @@ export type EulerLabelProduct = {
   deprecatedVaults?: string[]
   deprecationReason?: string
   isGovernanceLimited?: boolean
+  notExplorable?: boolean
   block?: string[]
   featuredVaults?: string[]
   vaultOverrides?: Record<string, EulerLabelVaultOverride>
@@ -36,8 +37,6 @@ export type EulerLabelPoint = {
   name: string
   logo: string
   collateralVaults?: string[]
-  isTurtleClub?: boolean
-  skipValidation?: boolean
 }
 
 export type EulerLabelPointReward = {

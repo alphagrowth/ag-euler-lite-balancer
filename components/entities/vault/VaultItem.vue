@@ -238,7 +238,7 @@ watchEffect(async () => {
     >
       <div
         v-if="enableEntityBranding"
-        class="flex-1"
+        class="flex-1 mobile:!hidden"
       >
         <div class="text-content-tertiary text-p3 mb-4">Risk manager</div>
         <div

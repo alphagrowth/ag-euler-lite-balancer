@@ -179,6 +179,11 @@ export const isVaultDeprecated = (vaultAddress: string): boolean => {
   )
 }
 
+export const isVaultNotExplorable = (vaultAddress: string): boolean => {
+  const product = getProductByVault(vaultAddress)
+  return product.notExplorable === true
+}
+
 export const getEntitiesByVault = (vault: Vault) => {
   const arr: EulerLabelEntity[] = []
   Object.values(entities).forEach((entity) => {

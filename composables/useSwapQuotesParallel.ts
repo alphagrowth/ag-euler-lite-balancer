@@ -55,9 +55,10 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
     }
     const current = Math.min(providersFetchedCount.value, providersCount.value)
     const total = providersCount.value
+    const progress = Math.round((current / total) * 100)
     return current < total
-      ? `Fetching quotes ${current}/${total}`
-      : `Quotes returned ${current}/${total}`
+      ? `Fetching quotes ${progress}%`
+      : 'Quotes fetched'
   })
 
   const getQuoteDiffPctFor = (quote: SwapApiQuote) => {
@@ -155,7 +156,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
             if (providersFetchedCount.value >= providersCount.value) {
               isLoading.value = false
               if (!quoteCards.value.length) {
-                quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote'
+                quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote. Multiply feature is not available for this asset.'
               }
             }
           }
@@ -170,7 +171,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
       if (isAbortError(err)) {
         return
       }
-      quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote'
+      quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote. Multiply feature is not available for this asse.'
       quoteCards.value = []
     }
     finally {
