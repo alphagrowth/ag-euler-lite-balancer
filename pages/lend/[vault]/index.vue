@@ -219,7 +219,7 @@ const needsRefresh = (v: Vault | undefined): boolean => {
 // Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
 if (evkVault.value && needsRefresh(evkVault.value)) {
   const refreshedVault = await updateVault(vaultAddress)
-  evkVault.value = refreshedVault
+  evkVault.value = refreshedVault as Vault
 }
 
 const features = computed(() => VAULT_FEATURES[vaultType.value])
@@ -653,7 +653,7 @@ watch(address, () => {
           v-if="features.hasOverview && vault && vaultType === 'evk'"
           :vault="vault"
           desktop-overview
-          @vault-click="(address: string) => router.push({ path: `/borrow/${address}/${vault.address}`, query: { network: route.query.network } })"
+          @vault-click="(address: string) => router.push({ path: `/borrow/${address}/${vault!.address}`, query: { network: route.query.network } })"
         />
         <!-- Securitize Vault Overview -->
         <SecuritizeVaultOverview
