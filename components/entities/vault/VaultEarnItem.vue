@@ -70,6 +70,7 @@ const statsGridCols = computed(() => {
   if (enableEntityBranding) cols.push('1fr')
   cols.push('1fr') // Total supply
   cols.push('1fr') // Available liquidity
+  cols.push('1fr') // Strategies
   if (isConnected.value) cols.push('1fr') // In wallet
   return cols.join(' ')
 })
@@ -142,7 +143,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
         <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
           Supply APY
           <SvgIcon
-            class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+            class="!w-16 !h-16 shrink-0 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
             name="info-circle"
             @click="onSupplyInfoIconClick"
           />
@@ -167,7 +168,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
     >
       <div
         v-if="enableEntityBranding"
-        class="flex-1"
+        class="flex-1 mobile:!hidden"
       >
         <div class="text-content-tertiary text-p3 mb-4">Capital allocator</div>
         <div
@@ -210,6 +211,17 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
           {{ prices.liquidity }}
         </div>
       </div>
+      <div
+        class="flex flex-col flex-1 mobile:!hidden"
+        :class="isConnected ? 'items-center' : 'items-end text-right'"
+      >
+        <div class="text-content-tertiary text-p3 mb-4">
+          Allocates into
+        </div>
+        <div class="text-p2 text-content-primary">
+          {{ vault.strategies.length }} {{ vault.strategies.length === 1 ? 'strategy' : 'strategies' }}
+        </div>
+      </div>
       <div class="flex flex-col flex-1 items-end text-right mobile:!hidden">
         <template v-if="isConnected">
           <div class="text-content-tertiary text-p3 mb-4">In wallet</div>
@@ -224,10 +236,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
         </template>
       </div>
     </div>
-    <div
-      v-if="enableEntityBranding || isConnected"
-      class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16"
-    >
+    <div class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-16 pb-16">
       <div
         v-if="enableEntityBranding"
         class="flex w-full justify-between"
@@ -258,6 +267,14 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
             v-else
             class="text-p2 text-content-primary"
           >-</div>
+        </div>
+      </div>
+      <div class="flex w-full justify-between">
+        <div class="text-content-tertiary text-p3">
+          Allocates into
+        </div>
+        <div class="text-p2 text-content-primary">
+          {{ vault.strategies.length }} {{ vault.strategies.length === 1 ? 'strategy' : 'strategies' }}
         </div>
       </div>
       <div
