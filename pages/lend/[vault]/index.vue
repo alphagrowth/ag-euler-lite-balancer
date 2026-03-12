@@ -653,7 +653,7 @@ watch(address, () => {
           v-if="features.hasOverview && vault && vaultType === 'evk'"
           :vault="vault"
           desktop-overview
-          @vault-click="(address: string) => router.push({ path: `/lend/${address}`, query: { network: route.query.network } })"
+          @vault-click="(address: string) => router.push({ path: `/borrow/${address}/${vault.address}`, query: { network: route.query.network } })"
         />
         <!-- Securitize Vault Overview -->
         <SecuritizeVaultOverview
