@@ -277,7 +277,7 @@ const linkPath = computed(() => ({
         <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
           Borrow APY
           <SvgIcon
-            class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+            class="!w-16 !h-16 shrink-0 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
             name="info-circle"
             @click="onBorrowInfoIconClick"
           />
@@ -295,7 +295,7 @@ const linkPath = computed(() => ({
           <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
             Max ROE
             <SvgIcon
-              class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+              class="!w-16 !h-16 shrink-0 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
               name="info-circle"
               @click="onMaxRoeInfoIconClick"
             />
@@ -309,7 +309,7 @@ const linkPath = computed(() => ({
         <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
           Max ROE
           <SvgIcon
-            class="!w-16 !h-16 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+            class="!w-16 !h-16 shrink-0 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
             name="info-circle"
             @click="onMaxRoeInfoIconClick"
           />

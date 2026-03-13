@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { getAddress } from 'viem'
+import { DateTime } from 'luxon'
 import { logWarn } from '~/utils/errorHandling'
-import type { EarnVault, Vault } from '~/entities/vault'
+import type { EarnVault, EarnVaultStrategyInfo, Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
@@ -22,6 +23,18 @@ const { isEscrowLoadedOnce } = useVaults()
 const exposureVaults: Ref<Vault[]> = ref([])
 const isLoading = ref(false)
 const exposureUsdPrices = ref<Map<string, number>>(new Map())
+const exposureCapUsdPrices = ref<Map<string, number>>(new Map())
+
+const UINT136_MAX = 2n ** 136n - 1n
+
+const isPendingRemoval = (strategy: EarnVaultStrategyInfo) => strategy.removableAt > 0n
+
+const isUnlimitedCap = (strategy: EarnVaultStrategyInfo) => strategy.currentAllocationCap >= UINT136_MAX
+
+const getPendingRemovalTooltipText = (strategy: EarnVaultStrategyInfo) => {
+  const removableAt = DateTime.fromSeconds(Number(strategy.removableAt))
+  return `This strategy is pending removal. Removable ${removableAt.toRelative({ base: DateTime.now(), style: 'short' })}.`
+}
 
 const exposureList = computed(() => {
   return [...vault.strategies].sort((a, b) => {
@@ -59,15 +72,25 @@ const load = async () => {
 const loadExposureUsdPrices = async () => {
   const pricePromises = exposureList.value.map(async (exposure) => {
     const exposureVault = getExposureVaultByAddress(exposure.info.vault)
-    if (!exposureVault) return { key: exposure.strategy, value: 0 }
-    const usdValue = await getAssetUsdValueOrZero(exposure.allocatedAssets, exposureVault, 'off-chain')
-    return { key: exposure.strategy, value: usdValue }
+    if (!exposureVault) return { key: exposure.strategy, allocationUsd: 0, capUsd: 0 }
+    const [allocationUsd, capUsd] = await Promise.all([
+      getAssetUsdValueOrZero(exposure.allocatedAssets, exposureVault, 'off-chain'),
+      isUnlimitedCap(exposure)
+        ? Promise.resolve(0)
+        : getAssetUsdValueOrZero(exposure.currentAllocationCap, exposureVault, 'off-chain'),
+    ])
+    return { key: exposure.strategy, allocationUsd, capUsd }
   })
 
   const results = await Promise.all(pricePromises)
   const newPrices = new Map<string, number>()
-  results.forEach(({ key, value }) => newPrices.set(key, value))
+  const newCapPrices = new Map<string, number>()
+  results.forEach(({ key, allocationUsd, capUsd }) => {
+    newPrices.set(key, allocationUsd)
+    newCapPrices.set(key, capUsd)
+  })
   exposureUsdPrices.value = newPrices
+  exposureCapUsdPrices.value = newCapPrices
 }
 
 const getExposureVaultByAddress = (address: string) => {
@@ -125,7 +148,7 @@ load()
         @click="onExposureClick(row.exposure.info.vault)"
       >
         <div
-          class="px-16 pt-16 pb-12 border-b border-line-subtle"
+          class="px-16 pt-16 pb-12 border-b border-line-subtle flex items-center justify-between"
         >
           <VaultLabelsAndAssets
             :vault="row.vault"
@@ -136,15 +159,13 @@ load()
               symbol: row.exposure.info.assetSymbol,
             }]"
           />
+          <span class="text-content-secondary text-p2 shrink-0">
+            {{ `${formatNumber(Number(row.exposure.allocatedAssets) / Number(totalAllocatedAssets) * 100, 2)}%` }}
+          </span>
         </div>
         <div class="flex flex-col gap-12 px-16 pt-12 pb-16">
           <VaultOverviewLabelValue
-            label="Allocation (%)"
-            orientation="horizontal"
-            :value="`${formatNumber(Number(row.exposure.allocatedAssets) / Number(totalAllocatedAssets) * 100, 2)}%`"
-          />
-          <VaultOverviewLabelValue
-            label="Allocation ($)"
+            label="Current allocation"
             orientation="horizontal"
           >
             <template v-if="hasExposureUsdPrice(row.exposure)">
@@ -154,8 +175,68 @@ load()
               {{ getExposureAssetAmount(row.exposure) }}
             </template>
           </VaultOverviewLabelValue>
+          <VaultOverviewLabelValue
+            orientation="horizontal"
+          >
+            <template #label>
+              <span class="flex items-center gap-4">
+                Allocation cap
+                <span @click.stop.prevent>
+                  <UiFootnote
+                    title="Allocation cap"
+                    text="The maximum amount that can be allocated to this strategy."
+                    class="footnote-info [--ui-footnote-icon-color:var(--text-muted)] hover:[--ui-footnote-icon-color:var(--text-secondary)]"
+                  />
+                </span>
+              </span>
+            </template>
+            <span class="flex items-center gap-4">
+              <span
+                v-if="isPendingRemoval(row.exposure)"
+                @click.stop.prevent
+              >
+                <UiFootnote
+                  icon="clock"
+                  title="Pending removal"
+                  :text="getPendingRemovalTooltipText(row.exposure)"
+                  class="footnote-clock [--ui-footnote-icon-color:var(--warning-500)]"
+                />
+              </span>
+              <template v-if="isUnlimitedCap(row.exposure)">
+                ∞
+              </template>
+              <template v-else-if="exposureCapUsdPrices.has(row.exposure.strategy)">
+                {{ formatCompactUsdValue(exposureCapUsdPrices.get(row.exposure.strategy) || 0) }}
+              </template>
+              <template v-else>
+                {{ roundAndCompactTokens(row.exposure.currentAllocationCap, row.exposure.info.assetDecimals) }} {{ row.exposure.info.assetSymbol }}
+              </template>
+            </span>
+          </VaultOverviewLabelValue>
         </div>
       </div>
     </div>
   </div>
 </template>
+
+<style lang="scss" scoped>
+.footnote-info:deep(.ui-footnote__icon) {
+  width: 20px;
+  height: 20px;
+}
+
+.footnote-info {
+  width: 20px;
+  height: 20px;
+}
+
+.footnote-clock:deep(.ui-footnote__icon) {
+  width: 14px;
+  height: 14px;
+}
+
+.footnote-clock {
+  width: 14px;
+  height: 14px;
+}
+</style>

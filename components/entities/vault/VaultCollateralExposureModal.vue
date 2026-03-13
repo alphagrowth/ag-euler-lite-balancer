@@ -56,7 +56,7 @@ const formatTimeRemaining = (seconds: bigint): string => {
 
 const onCollateralClick = (address: string) => {
   emits('close')
-  router.push({ path: `/lend/${address}`, query: { network: route.query.network } })
+  router.push({ path: `/borrow/${address}/${vault.address}`, query: { network: route.query.network } })
 }
 </script>
 

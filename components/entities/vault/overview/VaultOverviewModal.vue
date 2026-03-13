@@ -79,9 +79,9 @@ const activeCollateralVault = computed(() => {
   return collaterals?.[index] ?? null
 })
 
-const onVaultClick = (address: string) => {
+const navigateToBorrow = (collateralAddress: string, borrowVaultAddress: string) => {
   emits('close')
-  router.push({ path: `/lend/${address}`, query: { network: route.query.network } })
+  router.push({ path: `/borrow/${collateralAddress}/${borrowVaultAddress}`, query: { network: route.query.network } })
 }
 </script>
 
@@ -127,17 +127,17 @@ const onVaultClick = (address: string) => {
           <VaultOverview
             v-else-if="activeCollateralVault"
             :vault="(activeCollateralVault as Vault)"
-            @vault-click="onVaultClick"
+            @vault-click="(address: string) => navigateToBorrow(address, (activeCollateralVault as Vault).address)"
           />
           <VaultOverview
             v-else-if="tab === 'multiply-collateral' && extraVault"
             :vault="extraVault"
-            @vault-click="onVaultClick"
+            @vault-click="(address: string) => navigateToBorrow(address, extraVault!.address)"
           />
           <VaultOverview
             v-else-if="tab === 'borrow'"
             :vault="pair.borrow"
-            @vault-click="onVaultClick"
+            @vault-click="(address: string) => navigateToBorrow(address, pair!.borrow.address)"
           />
         </Transition>
       </template>
@@ -145,7 +145,7 @@ const onVaultClick = (address: string) => {
       <template v-else-if="vault">
         <VaultOverview
           :vault="vault"
-          @vault-click="onVaultClick"
+          @vault-click="(address: string) => navigateToBorrow(address, vault!.address)"
         />
       </template>
 
@@ -158,7 +158,7 @@ const onVaultClick = (address: string) => {
       <template v-else-if="earnVault">
         <VaultOverviewEarn
           :vault="earnVault"
-          @vault-click="onVaultClick"
+          @vault-click="(address: string) => navigateToBorrow(address, earnVault!.address)"
         />
       </template>
     </div>
