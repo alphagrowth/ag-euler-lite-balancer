@@ -67,6 +67,9 @@ const cacheState = {
   rewards: { timestamp: 0, address: '' },
 }
 
+let latestCampaignsRequestId = 0
+let latestRewardsRequestId = 0
+
 const getBrevisCampaignsForVault = (vaultAddress: string): RewardCampaign[] => {
   return brevisCampaigns.value.get(vaultAddress.toLowerCase()) || []
 }
@@ -93,25 +96,32 @@ export const useBrevis = () => {
   }
 
   const loadCampaigns = async (isInitialLoading = true, forceRefresh = false) => {
-    try {
-      const now = Date.now()
-      if (!forceRefresh
-        && brevisCampaigns.value.size > 0
-        && (now - cacheState.campaigns.timestamp) < CACHE_TTL_1MIN_MS) {
-        return
-      }
+    const currentChainId = chainId.value
+    if (!currentChainId) return
 
+    const now = Date.now()
+    if (!forceRefresh
+      && brevisCampaigns.value.size > 0
+      && (now - cacheState.campaigns.timestamp) < CACHE_TTL_1MIN_MS) {
+      return
+    }
+
+    const requestId = ++latestCampaignsRequestId
+
+    try {
       if (isInitialLoading) {
         isCampaignsLoading.value = true
       }
 
       const request: CampaignsRequest = {
-        chain_id: [1],
+        chain_id: [currentChainId],
         action: [CampaignAction.LEND, CampaignAction.BORROW],
         status: [3],
       }
 
       const res = await axios.post(BREVIS_API_URL, request)
+
+      if (requestId !== latestCampaignsRequestId) return
 
       if (res.data.err) {
         logWarn('brevis/campaigns', res.data.err)
@@ -148,36 +158,47 @@ export const useBrevis = () => {
       logWarn('brevis/campaigns', e)
     }
     finally {
-      isCampaignsLoading.value = false
+      if (requestId === latestCampaignsRequestId) {
+        isCampaignsLoading.value = false
+      }
     }
   }
 
   const loadRewards = async (isInitialLoading = true, forceRefresh = false) => {
+    const currentChainId = chainId.value
+    if (!currentChainId) return
+
+    if (!address.value) {
+      userRewards.value = []
+      isRewardsLoading.value = false
+      return
+    }
+
+    const now = Date.now()
+    if (!forceRefresh
+      && cacheState.rewards.address === address.value
+      && userRewards.value.length > 0
+      && (now - cacheState.rewards.timestamp) < CACHE_TTL_1MIN_MS) {
+      return
+    }
+
+    const requestId = ++latestRewardsRequestId
+    const capturedAddress = address.value
+
     try {
-      if (!address.value) {
-        userRewards.value = []
-        return
-      }
-
-      const now = Date.now()
-      if (!forceRefresh
-        && cacheState.rewards.address === address.value
-        && userRewards.value.length > 0
-        && (now - cacheState.rewards.timestamp) < CACHE_TTL_1MIN_MS) {
-        return
-      }
-
       if (isInitialLoading) {
         isRewardsLoading.value = true
       }
 
       const request: CampaignsRequest = {
-        chain_id: [1],
-        user_address: [address.value],
+        chain_id: [currentChainId],
+        user_address: [capturedAddress],
         status: [3, 4],
       }
 
       const res = await axios.post(BREVIS_API_URL, request)
+
+      if (requestId !== latestRewardsRequestId) return
 
       if (res.data.err) {
         logWarn('brevis/rewards', res.data.err)
@@ -186,13 +207,15 @@ export const useBrevis = () => {
 
       userRewards.value = (res.data.campaigns || []).map(normalizeCampaign)
       cacheState.rewards.timestamp = Date.now()
-      cacheState.rewards.address = address.value
+      cacheState.rewards.address = capturedAddress
     }
     catch (e) {
       logWarn('brevis/allocations', e)
     }
     finally {
-      isRewardsLoading.value = false
+      if (requestId === latestRewardsRequestId) {
+        isRewardsLoading.value = false
+      }
     }
   }
 
@@ -282,14 +305,29 @@ export const useBrevis = () => {
     }
   }
 
-  watch(wagmiAddress, (val) => {
+  watch(wagmiAddress, (val, oldVal) => {
     if (val) {
       address.value = val
     }
     else {
       address.value = ''
     }
+    // Force-refresh rewards when the connected wallet changes (skip initial mount)
+    if (oldVal && val && val !== oldVal) {
+      loadRewards(true, true)
+    }
   }, { immediate: true })
+
+  watch(chainId, (val, oldVal) => {
+    if (oldVal && val !== oldVal) {
+      isLoaded.value = false
+      brevisCampaigns.value = new Map()
+      userRewards.value = []
+      cacheState.campaigns.timestamp = 0
+      cacheState.rewards.timestamp = 0
+      cacheState.rewards.address = ''
+    }
+  })
 
   watch(isConnected, (connected) => {
     if (connected) {
@@ -307,6 +345,10 @@ export const useBrevis = () => {
       }
     }
     else {
+      userRewards.value = []
+      isCampaignsLoading.value = false
+      isRewardsLoading.value = false
+      cacheState.rewards = { timestamp: 0, address: '' }
       if (interval) {
         clearInterval(interval)
         interval = null

@@ -16,7 +16,7 @@ The Euler Lite application integrates with multiple external systems to provide 
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
 │  │ Wagmi/Viem  │ │ Euler       │ │ Rewards     │                │
 │  │ (EVM RPC)   │ │ Finance     │ │ (Merkl +    │                │
-│  │             │ │             │ │  Brevis)    │                │
+│  │             │ │             │ │ Brevis+Fuul)│                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 ├─────────────────────────────────────────────────────────────────┤
 │                    External Services                            │
@@ -26,9 +26,17 @@ The Euler Lite application integrates with multiple external systems to provide 
 │  │  chain)     │ │             │ │             │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Merkl API   │ │ Brevis API  │ │ DeFi Llama  │                │
-│  │ (rewards)   │ │ (ZK proofs) │ │ (yields)    │                │
+│  │ Merkl API   │ │ Brevis API  │ │ Fuul API    │                │
+│  │ (rewards)   │ │ (ZK proofs) │ │ (incentives)│                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
+│  │ DeFi Llama  │ │ Pendle API  │ │ Securitize  │                │
+│  │ (yields)    │ │ (PT yield)  │ │ (RWA yield) │                │
+│  └─────────────┘ └─────────────┘ └─────────────┘                │
+│  ┌─────────────┐                                                 │
+│  │ Stablewatch │                                                 │
+│  │ (APY, proxy)│                                                 │
+│  └─────────────┘                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -47,7 +55,7 @@ The Euler Lite application integrates with multiple external systems to provide 
 │                    Data Integration Layer                       │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
 │  │ Vault Lens  │ │ EVC Batch   │ │ Merkl/Brevis│                │
-│  │ Multicall   │ │ Simulation  │ │ Clients     │                │
+│  │ Multicall   │ │ Simulation  │ │ /Fuul       │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 │           │               │               │                     │
 │           ▼               ▼               ▼                     │
@@ -139,26 +147,28 @@ The Euler Lite application integrates with multiple external systems to provide 
 
 - [Back to the top](#table-of-contents)
 
-The rewards system was unified in a refactor that introduced the `RewardCampaign` type, consolidating data from multiple reward providers into a single interface.
+The rewards system was unified in a refactor that introduced the `RewardCampaign` type, consolidating data from multiple reward providers into a single interface. Each provider can be independently toggled via environment variable feature flags (`NUXT_PUBLIC_CONFIG_ENABLE_MERKL`, `NUXT_PUBLIC_CONFIG_ENABLE_INCENTRA`, `NUXT_PUBLIC_CONFIG_ENABLE_FUUL`).
 
 #### Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Reward Providers                             │
-│  ┌─────────────┐ ┌─────────────┐                                │
-│  │ Merkl API   │ │ Brevis API  │                                │
-│  └─────────────┘ └─────────────┘                                │
-│           │               │                                     │
-│           ▼               ▼                                     │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
+│  │ Merkl API   │ │ Brevis API  │ │ Fuul API    │                │
+│  └─────────────┘ └─────────────┘ └─────────────┘                │
+│           │               │               │                     │
+│           ▼               ▼               ▼                     │
 ├─────────────────────────────────────────────────────────────────┤
 │              Provider Composables                               │
-│  ┌─────────────┐ ┌─────────────┐                                │
-│  │ useMerkl    │ │ useBrevis   │                                │
-│  │ (campaigns, │ │ (campaigns, │                                │
-│  │  claiming,  │ │  ZK proofs) │                                │
-│  │  REUL locks)│ │             │                                │
-│  └─────────────┘ └─────────────┘                                │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
+│  │ useMerkl    │ │ useBrevis   │ │ useFuul     │                │
+│  │ (campaigns, │ │ (campaigns, │ │ (campaigns) │                │
+│  │  claiming)  │ │  ZK proofs) │ │             │                │
+│  └─────────────┘ └─────────────┘ └─────────────┘                │
+│  ┌──────────────┐                                               │
+│  │ useREULLocks │ (separate composable, not part of Merkl)      │
+│  └──────────────┘                                               │
 │           │               │                                     │
 │           ▼               ▼                                     │
 ├─────────────────────────────────────────────────────────────────┤
@@ -192,7 +202,7 @@ interface RewardCampaign {
   collateral?: string               // For borrow-collateral campaigns
   type: RewardCampaignType          // 'euler_lend' | 'euler_borrow' | 'euler_borrow_collateral'
   apr: number                       // Annual percentage rate
-  provider: 'merkl' | 'brevis'     // Which provider sourced this campaign
+  provider: 'merkl' | 'brevis' | 'fuul'  // Which provider sourced this campaign
   endTimestamp: number              // Campaign expiry
   rewardToken?: { symbol: string; icon: string }
 }
@@ -200,8 +210,10 @@ interface RewardCampaign {
 
 #### Provider Details
 
-- **useMerkl** — Fetches campaigns from the Merkl API, maps `subType` indices (0 = lend, 1 = borrow, 2 = borrow-collateral) to `RewardCampaignType`. Also handles user reward balances, claiming, and REUL lock management.
-- **useBrevis** — Fetches ZK-proof reward campaigns from the Brevis backend, normalizes them to `RewardCampaign`.
+- **useMerkl** — Fetches campaigns from the Merkl API, maps `subType` indices (0 = lend, 1 = borrow, 2 = borrow-collateral) to `RewardCampaignType`. Also handles user reward balances and claiming.
+- **useREULLocks** — Reads locked rEUL positions directly from the rEUL contract on-chain (`getLockedAmounts`, `getWithdrawAmountsByLockTimestamp`) and handles unlocking via `withdrawToByLockTimestamp()`. This is independent from Merkl.
+- **useBrevis** — Fetches ZK-proof reward campaigns from the Brevis/Incentra backend, normalizes them to `RewardCampaign`.
+- **useFuul** — Fetches incentive campaigns from the Fuul API, normalizes them to `RewardCampaign`. Supports campaign APY aggregation and reward claiming via FuulManager contract. User reward totals and claim checks are fetched through server-side proxy routes (`/api/fuul/totals`, `/api/fuul/claim-checks`) to keep the `FUUL_API_KEY` secret.
 
 #### Consuming Rewards in UI
 
@@ -221,11 +233,13 @@ const borrowReward = getBorrowRewardApy(borrowVault.address, collateral.address)
 
 The `useIntrinsicApy` composable (`composables/useIntrinsicApy.ts`) adds yield intrinsic to the underlying asset (e.g., stETH staking yield, sDAI DSR, Pendle PT implied yield) on top of vault lending/borrowing APY.
 
-The system uses a **provider abstraction** with two implementations:
+The system uses a **provider abstraction** with four implementations:
 - **DefiLlama** — bulk pool fetch, poolId-based matching, 30-day average APY
 - **Pendle** — per-market API fetch for PT implied yield, with maturity detection
+- **Securitize** — public feed fetch for tokenized RWA yield, symbol-based matching
+- **Stablewatch** — server-proxied API for stablecoin/yield-bearing token APY, chain+address matching (requires `STABLEWATCH_API_KEY`)
 
-All lookups are by **token address** (not symbol). Results are cached for 5 minutes with automatic chain-switch invalidation. APY modals show provider name and source link for transparency.
+All lookups are by **token address** (except Securitize, which uses symbol-based matching). Stablewatch uses a server proxy to keep the API key server-side. Results are cached for 5 minutes with automatic chain-switch invalidation. APY modals show provider name and source link for transparency.
 
 #### Key API
 
@@ -2378,7 +2392,7 @@ const claim = async () => {
 
 - [Back to the top](#table-of-contents)
 
-#### Locks fetching, storing it in useMerkl composable
+#### Locks fetching, storing it in useREULLocks composable
 
 ```typescript
 const locks: Ref<REULLock[]> = ref([]);
@@ -2499,7 +2513,8 @@ const unlockREUL = async (lockTimestamps: bigint[]) => {
 
 ```vue
 <script setup lang="ts">
-const { rewards, isRewardsLoading, locks, isLocksLoading } = useMerkl();
+const { rewards, isRewardsLoading } = useMerkl();
+const { locks, isLocksLoading } = useREULLocks();
 </script>
 
 <template>

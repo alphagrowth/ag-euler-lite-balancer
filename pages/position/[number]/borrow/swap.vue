@@ -36,7 +36,7 @@ const { borrowOptions, borrowVaults } = useSwapDebtOptions({
 const currentDebt = computed(() => position.value?.borrowed || 0n)
 const balance = computed(() => currentDebt.value)
 const targetVaultAddress = computed(() => typeof route.query.to === 'string' ? route.query.to : '')
-const hasBorrowSwapOptions = computed(() => borrowVaults.value.length > 0)
+const _hasBorrowSwapOptions = computed(() => borrowVaults.value.length > 0)
 
 const setFromAmountToMax = () => {
   if (!fromVault.value) {

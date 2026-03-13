@@ -2,8 +2,10 @@ import type { RewardCampaign } from '~/entities/reward-campaign'
 
 export const useRewardsApy = () => {
   const { settings } = useUserSettings()
+  const { enableMerkl, enableIncentra, enableFuul } = useDeployConfig()
   const { merklCampaigns, getMerklCampaignsForVault } = useMerkl()
   const { brevisCampaigns, getBrevisCampaignsForVault } = useBrevis()
+  const { fuulCampaigns, getFuulCampaignsForVault } = useFuul()
 
   const isEnabled = computed(() => settings.value.enableRewardsApy)
 
@@ -12,7 +14,7 @@ export const useRewardsApy = () => {
   // to ensure they re-run when reward data updates.
   const _versionCounter = ref(0)
   watch(
-    [isEnabled, merklCampaigns, brevisCampaigns],
+    [isEnabled, merklCampaigns, brevisCampaigns, fuulCampaigns],
     () => { _versionCounter.value++ },
   )
   const version = computed(() => _versionCounter.value)
@@ -20,8 +22,9 @@ export const useRewardsApy = () => {
   const getCampaignsForVault = (vaultAddress: string): RewardCampaign[] => {
     if (!isEnabled.value) return []
     return [
-      ...getMerklCampaignsForVault(vaultAddress),
-      ...getBrevisCampaignsForVault(vaultAddress),
+      ...(enableMerkl ? getMerklCampaignsForVault(vaultAddress) : []),
+      ...(enableIncentra ? getBrevisCampaignsForVault(vaultAddress) : []),
+      ...(enableFuul ? getFuulCampaignsForVault(vaultAddress) : []),
     ]
   }
 

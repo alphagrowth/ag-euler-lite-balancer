@@ -104,9 +104,13 @@ export const useREULLocks = () => {
         }
       }, POLL_INTERVAL_60S_MS)
     }
-    else if (!connected && interval) {
-      clearInterval(interval)
-      interval = null
+    else if (!connected) {
+      locks.value = []
+      isLocksLoading.value = false
+      if (interval) {
+        clearInterval(interval)
+        interval = null
+      }
     }
   }, { immediate: true })
 

@@ -52,13 +52,14 @@ const vaultGovernanceType = computed(() => {
   if (vault.vaultCategory === 'escrow') {
     return 'escrow'
   }
+  // Zero governorAdmin → ungoverned (check before entity match,
+  // since ungoverned vaults may have a label entity for display purposes)
+  if (!vault.governorAdmin || vault.governorAdmin === zeroAddress) {
+    return 'ungoverned'
+  }
   // Has matching entity → governed (or governance-limited)
   if (entities.length) {
     return isGovernanceLimited.value ? 'governanceLimited' : 'governed'
-  }
-  // Zero governorAdmin → ungoverned
-  if (!vault.governorAdmin || vault.governorAdmin === zeroAddress) {
-    return 'ungoverned'
   }
   // Non-zero but no matching entity → unknown
   return 'unknown'

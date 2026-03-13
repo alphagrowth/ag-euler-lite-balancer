@@ -5,7 +5,7 @@ export interface RewardCampaign {
   collateral?: string
   type: RewardCampaignType
   apr: number
-  provider: 'merkl' | 'brevis'
+  provider: 'merkl' | 'brevis' | 'fuul'
   endTimestamp: number
   rewardToken?: {
     symbol: string

@@ -219,7 +219,9 @@ const needsRefresh = (v: Vault | undefined): boolean => {
 // Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
 if (evkVault.value && needsRefresh(evkVault.value)) {
   const refreshedVault = await updateVault(vaultAddress)
-  evkVault.value = refreshedVault as Vault
+  if (!('type' in refreshedVault && refreshedVault.type === 'securitize')) {
+    evkVault.value = refreshedVault as Vault
+  }
 }
 
 const features = computed(() => VAULT_FEATURES[vaultType.value])
