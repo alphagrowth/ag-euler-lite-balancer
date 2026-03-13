@@ -1,16 +1,25 @@
 <script setup lang="ts">
 const emit = defineEmits(['close'])
+const slippageRef = ref<InstanceType<typeof SlippageSettings> | null>(null)
+
+const onSave = () => {
+  slippageRef.value?.savePending()
+  emit('close')
+}
 </script>
 
 <template>
   <BaseModalWrapper
     @close="emit('close')"
   >
-    <SlippageSettings />
+    <SlippageSettings
+      ref="slippageRef"
+      defer-save
+    />
     <UiButton
       variant="primary"
       size="xlarge"
-      @click="emit('close')"
+      @click="onSave"
     >
       Save
     </UiButton>

@@ -9,6 +9,7 @@ import { SwapperMode } from '~/entities/swap'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
 
@@ -36,7 +37,7 @@ const { borrowOptions, borrowVaults } = useSwapDebtOptions({
 const currentDebt = computed(() => position.value?.borrowed || 0n)
 const balance = computed(() => currentDebt.value)
 const targetVaultAddress = computed(() => typeof route.query.to === 'string' ? route.query.to : '')
-const hasBorrowSwapOptions = computed(() => borrowVaults.value.length > 0)
+const _hasBorrowSwapOptions = computed(() => borrowVaults.value.length > 0)
 
 const setFromAmountToMax = () => {
   if (!fromVault.value) {
@@ -546,7 +547,10 @@ const onToVaultChange = (selectedIndex: number) => {
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">
-                <p class="text-p2">
+                <p
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(priceImpact) }"
+                >
                   {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
@@ -556,7 +560,7 @@ const onToVaultChange = (selectedIndex: number) => {
                   class="flex items-center gap-6 text-p2"
                   @click="openSlippageSettings"
                 >
-                  <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"

@@ -8,6 +8,7 @@ import { SwapperMode } from '~/entities/swap'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
 import { normalizeAddress } from '~/utils/normalizeAddress'
@@ -317,7 +318,10 @@ watch([() => route.params.vault, () => route.query.to], () => {
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">
-                <p class="text-p2">
+                <p
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(priceImpact) }"
+                >
                   {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
@@ -327,7 +331,7 @@ watch([() => route.params.vault, () => route.query.to], () => {
                   class="flex items-center gap-6 text-p2"
                   @click="openSlippageSettings"
                 >
-                  <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"
