@@ -186,14 +186,25 @@ export const getMiniDiagram = (market: MarketGroup): MiniDiagramData => {
     }
   }
 
-  if (connectedAddresses.size === 0) {
+  const disconnectedVaults: Array<{ address: string, vault: AnyVault }> = []
+  for (const v of market.vaults) {
+    const addr = getVaultAddress(v).toLowerCase()
+    if (addr && !connectedAddresses.has(addr)) {
+      disconnectedVaults.push({ address: addr, vault: v })
+    }
+  }
+
+  if (connectedAddresses.size === 0 && disconnectedVaults.length === 0) {
     const assetSymbols = new Set<string>()
     for (const v of market.vaults) assetSymbols.add(getVaultAssetSymbol(v))
     return { nodes: [], edges: [], pairCount: 0, assetCount: assetSymbols.size, viewWidth: 0 }
   }
 
-  const connectedVaults = [...connectedAddresses]
-  const count = connectedVaults.length
+  const allNodeEntries = [
+    ...[...connectedAddresses].map(addr => ({ address: addr, vault: vaultByAddr.get(addr)! })),
+    ...disconnectedVaults,
+  ]
+  const count = allNodeEntries.length
   const baseR = Math.min(24, 10 + count * 2)
   const stretch = count > 6 ? 1.6 : count > 3 ? 1.3 : 1.0
   const rx = baseR * stretch
@@ -202,9 +213,8 @@ export const getMiniDiagram = (market: MarketGroup): MiniDiagramData => {
   const cy = 30
   const assetSymbols = new Set<string>()
 
-  const nodes: MiniNode[] = connectedVaults.map((address, i) => {
+  const nodes: MiniNode[] = allNodeEntries.map(({ address, vault }, i) => {
     const angle = (Math.PI * 2 * i) / Math.max(count, 1) - Math.PI / 2
-    const vault = vaultByAddr.get(address)
     const assetSymbol = vault ? getVaultAssetSymbol(vault) : '?'
     const assetAddress = vault ? getVaultAssetAddress(vault) : ''
     assetSymbols.add(assetSymbol)
