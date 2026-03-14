@@ -22,6 +22,7 @@ import {
 } from '~/services/pricing/priceProvider'
 import { fetchBackendPrice } from '~/services/pricing/backendClient'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
+import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -232,6 +233,11 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     const amountOut = BigInt(borrowSwapEffectiveQuote.value.amountOut || 0)
     if (amountOut <= 0n) return ''
     return formatUnits(amountOut, Number(collateralVault.value.asset.decimals))
+  })
+
+  const { priceImpact: borrowSwapPriceImpact } = useSwapPriceImpact({
+    quote: borrowSwapEffectiveQuote,
+    toVault: collateralVault,
   })
 
   const borrowSwapRouteItems = computed(() => {
@@ -774,6 +780,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
 
     // Computed: swap
     borrowSwapEstimatedCollateral,
+    borrowSwapPriceImpact,
     borrowSwapRouteItems,
 
     // Swap state

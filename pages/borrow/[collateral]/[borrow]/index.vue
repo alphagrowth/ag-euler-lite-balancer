@@ -152,6 +152,10 @@ const { guardWithPriceImpact: guardWithMultiplyPriceImpact } = usePriceImpactGat
   multipliedPriceImpact: multiply.multipliedPriceImpact,
 })
 
+const { guardWithPriceImpact: guardWithBorrowSwapPriceImpact } = usePriceImpactGate({
+  directPriceImpact: borrow.borrowSwapPriceImpact,
+})
+
 // --- Submit disabled ---
 const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isBorrowRestricted.value || borrow.isBorrowSwapRestricted.value || borrow.isSubmitDisabled.value))
 const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplyRestricted.value || multiply.isMultiplySubmitDisabled.value))
@@ -239,7 +243,7 @@ const updateBalance = async () => {
 // --- Submit dispatcher ---
 const onSubmit = async () => {
   if (formTab.value === 'borrow') {
-    borrow.submit()
+    await guardWithBorrowSwapPriceImpact(() => borrow.submit())
   }
   else if (formTab.value === 'multiply') {
     await guardWithMultiplyPriceImpact(() => multiply.submitMultiply())
@@ -503,6 +507,17 @@ watch(formTab, () => {
                     <p class="text-p2">
                       ~{{ formatSmartAmount(borrow.borrowSwapEstimatedCollateral.value) }} {{ collateralVault.asset.symbol }}
                     </p>
+                  </SummaryRow>
+                  <SummaryRow
+                    v-if="borrow.borrowSwapPriceImpact.value !== null"
+                    label="Price impact"
+                  >
+                    <span
+                      class="text-p2"
+                      :class="{ 'text-error-500': isPriceImpactWarning(borrow.borrowSwapPriceImpact.value) }"
+                    >
+                      {{ formatNumber(borrow.borrowSwapPriceImpact.value, 2) }}%
+                    </span>
                   </SummaryRow>
                   <SummaryRow label="Slippage tolerance">
                     <button

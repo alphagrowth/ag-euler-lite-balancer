@@ -3,7 +3,7 @@ const emit = defineEmits(['close'])
 const slippageRef = ref<InstanceType<typeof SlippageSettings> | null>(null)
 
 const onSave = () => {
-  slippageRef.value?.savePending()
+  if (slippageRef.value?.savePending() === false) return
   emit('close')
 }
 </script>

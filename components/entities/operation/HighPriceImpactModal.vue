@@ -4,20 +4,27 @@ import { formatNumber } from '~/utils/string-utils'
 const props = defineProps<{
   directPriceImpact: number
   multipliedPriceImpact?: number | null
-  onConfirm: () => void
+  onConfirm: () => void | Promise<void>
 }>()
 const emits = defineEmits(['close'])
 
 const confirmText = ref('')
+const isSubmitting = ref(false)
 const isConfirmed = computed(() => confirmText.value.trim().toLowerCase() === 'i understand')
 
 const onCancel = () => {
   emits('close')
 }
 
-const onSubmit = () => {
-  if (!isConfirmed.value) return
-  props.onConfirm()
+const onSubmit = async () => {
+  if (!isConfirmed.value || isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    await props.onConfirm()
+  }
+  finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -74,7 +81,7 @@ const onSubmit = () => {
           variant="primary"
           size="xlarge"
           rounded
-          :disabled="!isConfirmed"
+          :disabled="!isConfirmed || isSubmitting"
           @click="onSubmit"
         >
           Confirm

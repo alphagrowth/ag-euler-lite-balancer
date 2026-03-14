@@ -80,13 +80,18 @@ watch(customInput, () => {
   }
 })
 
-const savePending = () => {
-  if (!isCustomInputVisible.value) return
+const savePending = (): boolean => {
+  if (!isCustomInputVisible.value) return true
   const parsed = parsedCustomSlippage.value
-  if (parsed === null) return
+  if (parsed === null) {
+    customInputError.value = `Enter a value between ${minSlippage} and ${maxSlippage}`
+    return false
+  }
+  customInputError.value = ''
   setSlippage(parsed)
   slippageSelection.value = 'custom'
   isCustomInputVisible.value = false
+  return true
 }
 
 defineExpose({ savePending })
