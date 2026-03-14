@@ -12,6 +12,8 @@ import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { createRaceGuard } from '~/utils/race-guard'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
+import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { useWalletRepay } from '~/composables/repay/useWalletRepay'
 import { useCollateralSwapRepay } from '~/composables/repay/useCollateralSwapRepay'
 import { useSavingsRepay } from '~/composables/repay/useSavingsRepay'
@@ -152,6 +154,13 @@ const savings = useSavingsRepay({
   borrowApy,
 })
 
+const { guardWithPriceImpact: guardWithCollateralPriceImpact } = usePriceImpactGate({
+  directPriceImpact: collateral.priceImpact,
+})
+const { guardWithPriceImpact: guardWithSavingsPriceImpact } = usePriceImpactGate({
+  directPriceImpact: savings.priceImpact,
+})
+
 // --- Form tabs ---
 const formTabs = computed(() => {
   const tabs = [
@@ -178,10 +187,10 @@ const onSubmitForm = async () => {
       await wallet.submit()
     }
     else if (formTab.value === 'savings') {
-      await savings.submit()
+      await guardWithSavingsPriceImpact(() => savings.submit())
     }
     else {
-      await collateral.submit()
+      await guardWithCollateralPriceImpact(() => collateral.submit())
     }
   })
 }
@@ -547,13 +556,11 @@ onUnmounted(() => {
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">
-                <p class="text-p2">
+                <p
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(collateral.priceImpact.value) }"
+                >
                   {{ collateral.priceImpact.value !== null ? `${formatNumber(collateral.priceImpact.value, 2, 2)}%` : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Leveraged price impact">
-                <p class="text-p2">
-                  {{ collateral.leveragedPriceImpact.value !== null ? `${formatNumber(collateral.leveragedPriceImpact.value, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Slippage tolerance">
@@ -562,7 +569,7 @@ onUnmounted(() => {
                   class="flex items-center gap-6 text-p2"
                   @click="openSlippageSettings"
                 >
-                  <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"
@@ -736,13 +743,11 @@ onUnmounted(() => {
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">
-                <p class="text-p2">
+                <p
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(savings.priceImpact.value) }"
+                >
                   {{ savings.priceImpact.value !== null ? `${formatNumber(savings.priceImpact.value, 2, 2)}%` : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Leveraged price impact">
-                <p class="text-p2">
-                  {{ savings.leveragedPriceImpact.value !== null ? `${formatNumber(savings.leveragedPriceImpact.value, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Slippage tolerance">
@@ -751,7 +756,7 @@ onUnmounted(() => {
                   class="flex items-center gap-6 text-p2"
                   @click="openSlippageSettings"
                 >
-                  <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"

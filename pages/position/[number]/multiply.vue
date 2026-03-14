@@ -9,6 +9,8 @@ import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { Vault, VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
+import { computeMultipliedPriceImpact, isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
+import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
@@ -465,6 +467,13 @@ watchEffect(async () => {
   }
   multiplyPriceImpact.value = impact
 })
+const multipliedPriceImpact = computed(() =>
+  computeMultipliedPriceImpact(multiplyPriceImpact.value, multiplier.value),
+)
+const { guardWithPriceImpact } = usePriceImpactGate({
+  directPriceImpact: multiplyPriceImpact,
+  multipliedPriceImpact,
+})
 const multiplyRoutedVia = computed(() => {
   if (isMultiplyQuoteLoading.value) {
     return null
@@ -595,79 +604,81 @@ const submitMultiply = async () => {
   isPreparing.value = true
   try {
     await guardWithTerms(async () => {
-      if (isSubmitting.value || !isConnected.value) {
-        return
-      }
-      if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
-        return
-      }
-      const debtAmount = multiplyDebtAmountNano.value
-      if (debtAmount <= 0n) {
-        return
-      }
-      if (multiplyErrorText.value) {
-        return
-      }
-      const subAccount = multiplySubAccount.value
-      if (!subAccount) {
-        error('Unable to resolve position')
-        return
-      }
-
-      const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
-      const quote = isSameAsset ? null : multiplySelectedQuote.value
-      if (!isSameAsset && !quote) {
-        return
-      }
-
-      const nextPlanParams: MultiplyPlanParams = {
-        supplyVaultAddress: multiplySupplyVault.value.address,
-        supplyAssetAddress: multiplySupplyVault.value.asset.address,
-        supplyAmount: 0n,
-        longVaultAddress: multiplyLongVault.value.address,
-        longAssetAddress: multiplyLongVault.value.asset.address,
-        borrowVaultAddress: multiplyShortVault.value.address,
-        debtAmount,
-        quote: quote || undefined,
-        swapperMode: SwapperMode.EXACT_IN,
-        subAccount,
-      }
-      planParams.value = nextPlanParams
-
-      try {
-        plan.value = await buildMultiplyPlan({
-          ...nextPlanParams,
-          includePermit2Call: false,
-          enabledCollaterals: position.value?.collaterals,
-        })
-      }
-      catch (e) {
-        console.warn('[Multiply] failed to build plan', e)
-        plan.value = null
-      }
-
-      if (plan.value) {
-        const ok = await runMultiplySimulation(plan.value)
-        if (!ok) {
+      await guardWithPriceImpact(async () => {
+        if (isSubmitting.value || !isConnected.value) {
           return
         }
-      }
+        if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
+          return
+        }
+        const debtAmount = multiplyDebtAmountNano.value
+        if (debtAmount <= 0n) {
+          return
+        }
+        if (multiplyErrorText.value) {
+          return
+        }
+        const subAccount = multiplySubAccount.value
+        if (!subAccount) {
+          error('Unable to resolve position')
+          return
+        }
 
-      modal.open(OperationReviewModal, {
-        props: {
-          type: 'borrow',
-          asset: multiplyShortVault.value.asset,
-          amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
-          plan: plan.value || undefined,
-          swapToAsset: quote ? multiplyLongVault.value.asset : undefined,
-          swapToAmount: quote ? multiplyLongAmount.value : undefined,
+        const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
+        const quote = isSameAsset ? null : multiplySelectedQuote.value
+        if (!isSameAsset && !quote) {
+          return
+        }
+
+        const nextPlanParams: MultiplyPlanParams = {
+          supplyVaultAddress: multiplySupplyVault.value.address,
+          supplyAssetAddress: multiplySupplyVault.value.asset.address,
+          supplyAmount: 0n,
+          longVaultAddress: multiplyLongVault.value.address,
+          longAssetAddress: multiplyLongVault.value.asset.address,
+          borrowVaultAddress: multiplyShortVault.value.address,
+          debtAmount,
+          quote: quote || undefined,
+          swapperMode: SwapperMode.EXACT_IN,
           subAccount,
-          onConfirm: () => {
-            setTimeout(() => {
-              sendMultiply()
-            }, 400)
+        }
+        planParams.value = nextPlanParams
+
+        try {
+          plan.value = await buildMultiplyPlan({
+            ...nextPlanParams,
+            includePermit2Call: false,
+            enabledCollaterals: position.value?.collaterals,
+          })
+        }
+        catch (e) {
+          console.warn('[Multiply] failed to build plan', e)
+          plan.value = null
+        }
+
+        if (plan.value) {
+          const ok = await runMultiplySimulation(plan.value)
+          if (!ok) {
+            return
+          }
+        }
+
+        modal.open(OperationReviewModal, {
+          props: {
+            type: 'borrow',
+            asset: multiplyShortVault.value.asset,
+            amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+            plan: plan.value || undefined,
+            swapToAsset: quote ? multiplyLongVault.value.asset : undefined,
+            swapToAmount: quote ? multiplyLongAmount.value : undefined,
+            subAccount,
+            onConfirm: () => {
+              setTimeout(() => {
+                sendMultiply()
+              }, 400)
+            },
           },
-        },
+        })
       })
     })
   }
@@ -959,8 +970,22 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             </p>
           </SummaryRow>
           <SummaryRow label="Price impact">
-            <p class="text-p2">
+            <p
+              class="text-p2"
+              :class="{ 'text-error-500': isPriceImpactWarning(multiplyPriceImpact) }"
+            >
               {{ multiplyPriceImpact !== null ? `${formatNumber(multiplyPriceImpact, 2, 2)}%` : '-' }}
+            </p>
+          </SummaryRow>
+          <SummaryRow
+            v-if="multipliedPriceImpact !== null"
+            label="Multiplied price impact"
+          >
+            <p
+              class="text-p2"
+              :class="{ 'text-error-500': isPriceImpactWarning(multipliedPriceImpact) }"
+            >
+              {{ formatNumber(multipliedPriceImpact, 2, 2) }}%
             </p>
           </SummaryRow>
           <SummaryRow label="Slippage tolerance">
@@ -969,7 +994,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
               class="flex items-center gap-6 text-p2"
               @click="openSlippageSettings"
             >
-              <span>{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
+              <span :class="{ 'text-error-500': isSlippageWarning(multiplySlippage) }">{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
               <SvgIcon
                 name="edit"
                 class="!w-16 !h-16 text-accent-600"

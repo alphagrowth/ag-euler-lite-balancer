@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { formatNumber } from '~/utils/string-utils'
 
+const _props = withDefaults(defineProps<{
+  deferSave?: boolean
+}>(), {
+  deferSave: false,
+})
+
 const { slippage, setSlippage, minSlippage, maxSlippage } = useSlippage()
 
 const slippagePresets = [
@@ -73,6 +79,22 @@ watch(customInput, () => {
     customInputError.value = ''
   }
 })
+
+const savePending = (): boolean => {
+  if (!isCustomInputVisible.value) return true
+  const parsed = parsedCustomSlippage.value
+  if (parsed === null) {
+    customInputError.value = `Enter a value between ${minSlippage} and ${maxSlippage}`
+    return false
+  }
+  customInputError.value = ''
+  setSlippage(parsed)
+  slippageSelection.value = 'custom'
+  isCustomInputVisible.value = false
+  return true
+}
+
+defineExpose({ savePending })
 </script>
 
 <template>
@@ -122,6 +144,7 @@ watch(customInput, () => {
           @keyup.enter="onSaveCustom"
         />
         <UiButton
+          v-if="!deferSave"
           size="medium"
           @click="onSaveCustom"
         >

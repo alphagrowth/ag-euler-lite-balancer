@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { logWarn } from '~/utils/errorHandling'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
+import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
 import type { SwapApiQuote } from '~/entities/swap'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
@@ -377,6 +378,7 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
 
   // ── Price impact ───────────────────────────────────────────────────────
   const priceImpact = ref<number | null>(null)
+  const { guardWithPriceImpact } = usePriceImpactGate({ directPriceImpact: priceImpact })
 
   watchEffect(async () => {
     if (!quote.value || !fromVault.value || !toVault.value) {
@@ -437,39 +439,41 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
     isPreparing.value = true
     try {
       await guardWithTerms(async () => {
-        if (isSubmitting.value || !fromVault.value) return
-        if (!isSameAsset.value && !selectedQuote.value) return
+        await guardWithPriceImpact(async () => {
+          if (isSubmitting.value || !fromVault.value) return
+          if (!isSameAsset.value && !selectedQuote.value) return
 
-        try {
-          plan.value = await buildPlan()
-        }
-        catch (e) {
-          logWarn('swap/buildPlan', e)
-          showError('Failed to build transaction')
-          plan.value = null
-          return
-        }
+          try {
+            plan.value = await buildPlan()
+          }
+          catch (e) {
+            logWarn('swap/buildPlan', e)
+            showError('Failed to build transaction')
+            plan.value = null
+            return
+          }
 
-        if (plan.value) {
-          const ok = await runSimulation(plan.value)
-          if (!ok) return
-        }
+          if (plan.value) {
+            const ok = await runSimulation(plan.value)
+            if (!ok) return
+          }
 
-        const showSwapAmounts = sameAssetModalType === 'transfer' || !isSameAsset.value
-        modal.open(OperationReviewModal, {
-          props: {
-            type: isSameAsset.value ? sameAssetModalType : 'swap',
-            asset: fromVault.value.asset,
-            amount: fromAmount.value,
-            swapToAsset: showSwapAmounts ? toVault.value?.asset : undefined,
-            swapToAmount: showSwapAmounts ? toAmount.value : undefined,
-            plan: plan.value || undefined,
-            onConfirm: () => {
-              setTimeout(() => {
-                send()
-              }, 400)
+          const showSwapAmounts = sameAssetModalType === 'transfer' || !isSameAsset.value
+          modal.open(OperationReviewModal, {
+            props: {
+              type: isSameAsset.value ? sameAssetModalType : 'swap',
+              asset: fromVault.value.asset,
+              amount: fromAmount.value,
+              swapToAsset: showSwapAmounts ? toVault.value?.asset : undefined,
+              swapToAmount: showSwapAmounts ? toAmount.value : undefined,
+              plan: plan.value || undefined,
+              onConfirm: () => {
+                setTimeout(() => {
+                  send()
+                }, 400)
+              },
             },
-          },
+          })
         })
       })
     }

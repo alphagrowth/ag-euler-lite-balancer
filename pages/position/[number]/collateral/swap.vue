@@ -9,6 +9,7 @@ import type {
   SecuritizeVault,
   VaultAsset,
 } from '~/entities/vault'
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import {
   getAssetUsdValue,
   getAssetOraclePrice,
@@ -661,7 +662,10 @@ const nextLiquidationPrice = computed(() => {
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">
-                <p class="text-p2">
+                <p
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(priceImpact) }"
+                >
                   {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
@@ -671,7 +675,7 @@ const nextLiquidationPrice = computed(() => {
                   class="flex items-center gap-6 text-p2"
                   @click="openSlippageSettings"
                 >
-                  <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"
