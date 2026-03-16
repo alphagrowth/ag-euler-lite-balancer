@@ -548,18 +548,14 @@ onUnmounted(() => {
               />
             </SummaryRow>
             <template v-if="!collateral.isSameAsset.value">
-              <SummaryRow
-                label="Swap"
-                align-top
-              >
-                <p class="text-p2 text-right flex flex-col items-end">
-                  <span>{{ collateral.summary.value ? collateral.summary.value.from : '-' }}</span>
-                  <span
-                    v-if="collateral.summary.value"
-                    class="text-content-tertiary text-p3"
-                  >
-                    {{ collateral.summary.value.to }}
-                  </span>
+              <SummaryRow label="Swap in">
+                <p class="text-p2 text-right">
+                  {{ collateral.summary.value ? collateral.summary.value.from : '-' }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Swap out">
+                <p class="text-p2 text-right">
+                  {{ collateral.summary.value ? collateral.summary.value.to : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">
@@ -742,18 +738,14 @@ onUnmounted(() => {
               />
             </SummaryRow>
             <template v-if="!savings.isSameAsset.value">
-              <SummaryRow
-                label="Swap"
-                align-top
-              >
-                <p class="text-p2 text-right flex flex-col items-end">
-                  <span>{{ savings.summary.value ? savings.summary.value.from : '-' }}</span>
-                  <span
-                    v-if="savings.summary.value"
-                    class="text-content-tertiary text-p3"
-                  >
-                    {{ savings.summary.value.to }}
-                  </span>
+              <SummaryRow label="Swap in">
+                <p class="text-p2 text-right">
+                  {{ savings.summary.value ? savings.summary.value.from : '-' }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Swap out">
+                <p class="text-p2 text-right">
+                  {{ savings.summary.value ? savings.summary.value.to : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">

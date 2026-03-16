@@ -115,7 +115,7 @@ const multiplyRouteItems = computed(() => {
     getQuoteDiffPct,
     decimals: Number(multiplyLongVault.value.asset.decimals),
     symbol: multiplyLongVault.value.asset.symbol,
-    formatAmount: formatSignificant,
+    formatAmount: formatSmartAmount,
   })
 })
 const multiplyRouteEmptyMessage = computed(() => {
@@ -440,8 +440,8 @@ const multiplySwapSummary = computed(() => {
   const amountIn = formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals))
   const amountOut = formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals))
   return {
-    from: `${formatNumber(amountIn)} ${multiplyShortVault.value.asset.symbol}`,
-    to: `${formatSignificant(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
+    from: `${formatSmartAmount(amountIn)} ${multiplyShortVault.value.asset.symbol}`,
+    to: `${formatSmartAmount(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
   }
 })
 const multiplyPriceImpact = ref<number | null>(null)
@@ -955,18 +955,14 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
               :after="multiplyNextHealth !== null && multiplySwapReady ? formatHealthScore(multiplyNextHealth) : undefined"
             />
           </SummaryRow>
-          <SummaryRow
-            label="Swap"
-            align-top
-          >
-            <p class="text-p2 text-right flex flex-col items-end">
-              <span>{{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}</span>
-              <span
-                v-if="multiplySwapSummary"
-                class="text-content-tertiary text-p3"
-              >
-                {{ multiplySwapSummary.to }}
-              </span>
+          <SummaryRow label="Swap in">
+            <p class="text-p2 text-right">
+              {{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}
+            </p>
+          </SummaryRow>
+          <SummaryRow label="Swap out">
+            <p class="text-p2 text-right">
+              {{ multiplySwapSummary ? multiplySwapSummary.to : '-' }}
             </p>
           </SummaryRow>
           <SummaryRow label="Price impact">

@@ -21,7 +21,7 @@ import {
 } from '~/services/pricing/priceProvider'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
-import { formatNumber, formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
+import { formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { computeMultipliedPriceImpact } from '~/utils/priceImpact'
 import type { TxPlan } from '~/entities/txPlan'
@@ -487,7 +487,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
       getQuoteDiffPct,
       decimals: Number(multiplyLongVault.value.asset.decimals),
       symbol: multiplyLongVault.value.asset.symbol,
-      formatAmount: formatNumber,
+      formatAmount: formatSmartAmount,
     })
   })
 

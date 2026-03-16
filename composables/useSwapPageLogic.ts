@@ -371,8 +371,8 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
     const fromSide = formatUnits(BigInt(quote.value[otherAmountField]), Number(fromVault.value.asset.decimals))
     const toSide = formatUnits(BigInt(quote.value[displayAmountField]), Number(toVault.value.asset.decimals))
     return {
-      from: `${formatSignificant(fromSide)} ${fromVault.value.asset.symbol}`,
-      to: `${formatSignificant(toSide)} ${toVault.value.asset.symbol}`,
+      from: `${formatSmartAmount(fromSide)} ${fromVault.value.asset.symbol}`,
+      to: `${formatSmartAmount(toSide)} ${toVault.value.asset.symbol}`,
     }
   })
 
@@ -415,10 +415,7 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
       getQuoteDiffPct,
       decimals: Number(toVault.value.decimals),
       symbol: toVault.value.asset.symbol,
-      formatAmount: (raw) => {
-        const num = Number(raw)
-        return num < 0.01 && num > 0 ? formatSignificant(raw, 3) : formatSignificant(raw)
-      },
+      formatAmount: formatSmartAmount,
       amountField: displayAmountField,
       diffPrefix: quoteDiffPrefix,
     })

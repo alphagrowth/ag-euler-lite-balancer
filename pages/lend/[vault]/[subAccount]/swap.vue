@@ -303,18 +303,14 @@ watch([() => route.params.vault, () => route.query.to], () => {
                   {{ currentPrice ? `${formatSmartAmount(currentPrice.value)} ${currentPrice.symbol}` : '-' }}
                 </p>
               </SummaryRow>
-              <SummaryRow
-                label="Swap"
-                align-top
-              >
-                <p class="text-p2 text-right flex flex-col items-end">
-                  <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
-                  <span
-                    v-if="swapSummary"
-                    class="text-content-tertiary text-p3"
-                  >
-                    {{ swapSummary.to }}
-                  </span>
+              <SummaryRow label="Swap in">
+                <p class="text-p2 text-right">
+                  {{ swapSummary ? swapSummary.from : '-' }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Swap out">
+                <p class="text-p2 text-right">
+                  {{ swapSummary ? swapSummary.to : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">

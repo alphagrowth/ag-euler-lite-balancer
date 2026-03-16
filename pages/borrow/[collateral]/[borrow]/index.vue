@@ -798,18 +798,14 @@ watch(formTab, () => {
                         estimate-only
                       />
                     </SummaryRow>
-                    <SummaryRow
-                      label="Swap"
-                      align-top
-                    >
-                      <p class="text-p2 text-right flex flex-col items-end">
-                        <span>{{ multiply.multiplySwapSummary.value ? multiply.multiplySwapSummary.value.from : '-' }}</span>
-                        <span
-                          v-if="multiply.multiplySwapSummary.value"
-                          class="text-content-tertiary text-p3"
-                        >
-                          {{ multiply.multiplySwapSummary.value.to }}
-                        </span>
+                    <SummaryRow label="Swap in">
+                      <p class="text-p2 text-right">
+                        {{ multiply.multiplySwapSummary.value ? multiply.multiplySwapSummary.value.from : '-' }}
+                      </p>
+                    </SummaryRow>
+                    <SummaryRow label="Swap out">
+                      <p class="text-p2 text-right">
+                        {{ multiply.multiplySwapSummary.value ? multiply.multiplySwapSummary.value.to : '-' }}
                       </p>
                     </SummaryRow>
                     <SummaryRow label="Price impact">
