@@ -5,8 +5,10 @@ import { logWarn } from '~/utils/errorHandling'
 import type { EarnVault, EarnVaultStrategyInfo, Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
+import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultSupplyApyModal } from '#components'
 
 const emits = defineEmits<{
   'vault-click': [address: string]
@@ -19,6 +21,9 @@ const { vault } = defineProps<{ vault: EarnVault }>()
 
 const { getOrFetch } = useVaultRegistry()
 const { isEscrowLoadedOnce } = useVaults()
+const { withIntrinsicSupplyApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
+const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
+const modal = useModal()
 
 const exposureVaults: Ref<Vault[]> = ref([])
 const isLoading = ref(false)
@@ -99,10 +104,36 @@ const getExposureVaultByAddress = (address: string) => {
 }
 
 const exposureRows = computed(() => {
-  return exposureList.value
-    .map(exposure => ({ exposure, vault: getExposureVaultByAddress(exposure.info.vault) }))
-    .filter((row): row is { exposure: typeof exposureList.value[number], vault: Vault } => Boolean(row.vault))
+  return exposureList.value.map(exposure => ({
+    exposure,
+    vault: getExposureVaultByAddress(exposure.info.vault),
+  }))
 })
+
+const getAllocationPercentage = (exposure: EarnVaultStrategyInfo) => {
+  if (totalAllocatedAssets.value === 0n) return 0
+  return Number(exposure.allocatedAssets) / Number(totalAllocatedAssets.value) * 100
+}
+
+const getStrategySupplyApy = (strategyVault: Vault) => {
+  const lendingAPY = nanoToValue(strategyVault.interestRateInfo.supplyAPY, 25)
+  const supplyApy = withIntrinsicSupplyApy(lendingAPY, strategyVault.asset.address)
+  return supplyApy + getSupplyRewardApy(strategyVault.address)
+}
+
+const onStrategySupplyInfoClick = (event: MouseEvent, strategyVault: Vault) => {
+  event.preventDefault()
+  event.stopPropagation()
+  const lendingAPY = nanoToValue(strategyVault.interestRateInfo.supplyAPY, 25)
+  modal.open(VaultSupplyApyModal, {
+    props: {
+      lendingAPY,
+      intrinsicAPY: getIntrinsicApy(strategyVault.asset.address),
+      intrinsicApyInfo: getIntrinsicApyInfo(strategyVault.asset.address),
+      campaigns: getSupplyRewardCampaigns(strategyVault.address),
+    },
+  })
+}
 
 const hasExposureUsdPrice = (exposure: typeof exposureList.value[0]) => {
   return exposureUsdPrices.value.has(exposure.strategy)
@@ -150,18 +181,55 @@ load()
         <div
           class="px-16 pt-16 pb-12 border-b border-line-subtle flex items-center justify-between"
         >
-          <VaultLabelsAndAssets
-            :vault="row.vault"
-            :assets="[{
-              address: row.exposure.info.asset,
-              decimals: row.exposure.info.assetDecimals,
-              name: row.exposure.info.assetName,
-              symbol: row.exposure.info.assetSymbol,
-            }]"
-          />
-          <span class="text-content-secondary text-p2 shrink-0">
-            {{ `${formatNumber(Number(row.exposure.allocatedAssets) / Number(totalAllocatedAssets) * 100, 2)}%` }}
-          </span>
+          <template v-if="row.vault">
+            <VaultLabelsAndAssets
+              :vault="row.vault"
+              :assets="[{
+                address: row.exposure.info.asset,
+                decimals: row.exposure.info.assetDecimals,
+                name: row.exposure.info.assetName,
+                symbol: row.exposure.info.assetSymbol,
+              }]"
+            />
+          </template>
+          <template v-else>
+            <div class="flex items-center gap-12">
+              <AssetAvatar
+                :asset="{ address: row.exposure.info.asset, symbol: row.exposure.info.assetSymbol }"
+                size="40"
+              />
+              <div>
+                <div class="text-content-tertiary text-p3">
+                  {{ row.exposure.info.vaultName }}
+                </div>
+                <div class="text-h5 text-content-primary">
+                  {{ row.exposure.info.assetSymbol }}
+                </div>
+              </div>
+            </div>
+          </template>
+          <div
+            v-if="row.vault"
+            class="flex flex-col items-end shrink-0"
+          >
+            <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
+              Supply APY
+              <SvgIcon
+                class="!w-16 !h-16 shrink-0 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+                name="info-circle"
+                @click="onStrategySupplyInfoClick($event, row.vault)"
+              />
+            </div>
+            <div class="text-p2 flex items-center text-accent-600 font-semibold">
+              <SvgIcon
+                v-if="hasSupplyRewards(row.vault.address)"
+                class="!w-20 !h-20 text-accent-500 mr-4 cursor-pointer"
+                name="sparks"
+                @click="onStrategySupplyInfoClick($event, row.vault)"
+              />
+              {{ formatNumber(getStrategySupplyApy(row.vault)) }}%
+            </div>
+          </div>
         </div>
         <div class="flex flex-col gap-12 px-16 pt-12 pb-16">
           <VaultOverviewLabelValue
@@ -170,9 +238,11 @@ load()
           >
             <template v-if="hasExposureUsdPrice(row.exposure)">
               {{ formatCompactUsdValue(getExposureUsdPrice(row.exposure)) }}
+              <span class="text-content-secondary">({{ compactNumber(getAllocationPercentage(row.exposure), 2) }}%)</span>
             </template>
             <template v-else>
               {{ getExposureAssetAmount(row.exposure) }}
+              <span class="text-content-secondary">({{ compactNumber(getAllocationPercentage(row.exposure), 2) }}%)</span>
             </template>
           </VaultOverviewLabelValue>
           <VaultOverviewLabelValue
