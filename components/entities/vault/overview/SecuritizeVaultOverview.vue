@@ -410,7 +410,7 @@ const supplyCapPercentageDisplay = computed(() => {
           </div>
         </VaultOverviewLabelValue>
         <VaultOverviewLabelValue
-          :label="`${vault.symbol} vault`"
+          :label="`${vault.asset.symbol} vault`"
           orientation="horizontal"
         >
           <div class="flex gap-4 items-center">
