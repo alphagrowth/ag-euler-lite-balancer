@@ -30,6 +30,13 @@ jobs:
           echo "$OUTPUT"
           echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
 
+          MAX_CHARS=60000
+          if [ ${#OUTPUT} -gt $MAX_CHARS ]; then
+            OUTPUT="${OUTPUT:0:$MAX_CHARS}
+
+...[truncated — full output exceeds GitHub API limit]"
+          fi
+
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "output<<$EOF" >> "$GITHUB_OUTPUT"
           echo "$OUTPUT" >> "$GITHUB_OUTPUT"
