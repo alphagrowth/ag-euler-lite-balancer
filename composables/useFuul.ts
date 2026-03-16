@@ -4,7 +4,7 @@ import axios from 'axios'
 
 import { fuulManagerABI, fuulFactoryABI } from '~/abis/fuul'
 import { getPublicClient } from '~/utils/public-client'
-import type { FuulClaimCheck, FuulIncentive, FuulTotals } from '~/entities/fuul'
+import type { FuulClaimableEntry, FuulClaimableReward, FuulIncentive } from '~/entities/fuul'
 import type { RewardCampaign } from '~/entities/reward-campaign'
 import type { TxPlan } from '~/entities/txPlan'
 import { CACHE_TTL_1MIN_MS, POLL_INTERVAL_10S_MS } from '~/entities/tuning-constants'
@@ -15,16 +15,16 @@ const address = ref('')
 const isLoaded = ref(false)
 const fuulCampaigns: Ref<Map<string, RewardCampaign[]>> = shallowRef(new Map())
 const isCampaignsLoading = ref(true)
-const fuulTotals: Ref<FuulTotals> = ref({ claimed: [], unclaimed: [] })
-const isTotalsLoading = ref(true)
+const fuulClaimableEntries: Ref<FuulClaimableEntry[]> = shallowRef([])
+const isClaimableLoading = ref(true)
 
 let interval: NodeJS.Timeout | null = null
 let subscriberCount = 0
-let latestTotalsRequestId = 0
+let latestClaimableRequestId = 0
 
 const cacheState = {
   campaigns: { chainId: 0, timestamp: 0 },
-  totals: { timestamp: 0, address: '' },
+  claimable: { timestamp: 0, address: '', chainId: 0 },
 }
 
 const getFuulCampaignsForVault = (vaultAddress: string): RewardCampaign[] => {
@@ -37,6 +37,10 @@ export const useFuul = () => {
   const { writeContractAsync } = useWriteContract()
   const { FUUL_API_BASE_URL, FUUL_MANAGER_ADDRESS, FUUL_FACTORY_ADDRESS, EVM_PROVIDER_URL } = useEulerConfig()
   const { chainId } = useEulerAddresses()
+
+  const unclaimedFuulRewards = computed(() =>
+    fuulClaimableEntries.value.flatMap(entry => entry.claimable_rewards),
+  )
 
   const ensureWalletOnCurrentChain = async () => {
     const targetChainId = chainId.value
@@ -102,57 +106,51 @@ export const useFuul = () => {
     }
   }
 
-  const loadTotals = async (isInitialLoading = true, forceRefresh = false) => {
-    if (!address.value) {
-      fuulTotals.value = { claimed: [], unclaimed: [] }
-      isTotalsLoading.value = false
+  const loadClaimableRewards = async (isInitialLoading = true, forceRefresh = false) => {
+    const currentChainId = chainId.value
+    if (!address.value || !currentChainId) {
+      fuulClaimableEntries.value = []
+      isClaimableLoading.value = false
       return
     }
 
     const now = Date.now()
     if (!forceRefresh
-      && cacheState.totals.address === address.value
-      && (now - cacheState.totals.timestamp) < CACHE_TTL_1MIN_MS) {
+      && cacheState.claimable.address === address.value
+      && cacheState.claimable.chainId === currentChainId
+      && (now - cacheState.claimable.timestamp) < CACHE_TTL_1MIN_MS) {
       return
     }
 
-    const requestId = ++latestTotalsRequestId
+    const requestId = ++latestClaimableRequestId
     const capturedAddress = address.value
 
     try {
       if (isInitialLoading) {
-        isTotalsLoading.value = true
+        isClaimableLoading.value = true
       }
 
-      const res = await axios.get('/api/fuul/totals', {
-        params: { user_identifier: capturedAddress },
+      const res = await axios.get(`${FUUL_API_BASE_URL}/claimable-rewards`, {
+        params: {
+          protocol: 'euler',
+          user_address: capturedAddress,
+          chain_id: currentChainId,
+        },
       })
 
-      if (requestId !== latestTotalsRequestId) return
+      if (requestId !== latestClaimableRequestId) return
 
-      fuulTotals.value = res.data || { claimed: [], unclaimed: [] }
-      cacheState.totals = { timestamp: Date.now(), address: capturedAddress }
+      fuulClaimableEntries.value = Array.isArray(res.data) ? res.data : []
+      cacheState.claimable = { timestamp: Date.now(), address: capturedAddress, chainId: currentChainId }
     }
     catch (e) {
-      logWarn('fuul/totals', e)
+      logWarn('fuul/claimable-rewards', e)
     }
     finally {
-      if (requestId === latestTotalsRequestId) {
-        isTotalsLoading.value = false
+      if (requestId === latestClaimableRequestId) {
+        isClaimableLoading.value = false
       }
     }
-  }
-
-  const fetchClaimChecks = async (): Promise<FuulClaimCheck[]> => {
-    if (!wagmiAddress.value) {
-      throw new Error('Wallet not connected')
-    }
-
-    const res = await axios.post('/api/fuul/claim-checks', {
-      userIdentifier: wagmiAddress.value,
-    })
-
-    return Array.isArray(res.data) ? res.data : []
   }
 
   const readClaimFee = async (projectAddress: string): Promise<bigint> => {
@@ -168,87 +166,59 @@ export const useFuul = () => {
     return (feesInfo as { nativeUserClaimFee: bigint }).nativeUserClaimFee
   }
 
-  const claimRewards = async () => {
+  const mapRewardToContractCheck = (reward: FuulClaimableReward) => ({
+    projectAddress: reward.project_address as Address,
+    to: wagmiAddress.value as Address,
+    currency: reward.currency_address as Address,
+    currencyType: 1,
+    amount: BigInt(reward.amount),
+    reason: reward.reason,
+    tokenId: BigInt(reward.token_id),
+    deadline: BigInt(reward.deadline),
+    proof: reward.proof as `0x${string}`,
+    signatures: reward.signatures as `0x${string}`[],
+  })
+
+  const claimReward = async (reward: FuulClaimableReward) => {
     if (!wagmiAddress.value) {
       throw new Error('Wallet not connected')
     }
 
     await ensureWalletOnCurrentChain()
 
-    const claimChecks = await fetchClaimChecks()
-    if (claimChecks.length === 0) {
-      throw new Error('No claimable rewards found')
-    }
-
-    // Read fee per unique project and aggregate
-    const uniqueProjects = [...new Set(claimChecks.map(c => c.project_address))]
-    const fees = await Promise.all(uniqueProjects.map(addr => readClaimFee(addr)))
-    const feeMap = new Map(uniqueProjects.map((addr, i) => [addr, fees[i]]))
-    const totalFee = claimChecks.reduce((sum, c) => sum + (feeMap.get(c.project_address) ?? 0n), 0n)
-
-    const contractChecks = claimChecks.map(check => ({
-      projectAddress: check.project_address as Address,
-      to: check.to as Address,
-      currency: check.currency as Address,
-      currencyType: check.currency_type,
-      amount: BigInt(check.amount),
-      reason: check.reason,
-      tokenId: BigInt(check.token_id),
-      deadline: BigInt(check.deadline),
-      proof: check.proof as `0x${string}`,
-      signatures: check.signatures as `0x${string}`[],
-    }))
+    const contractCheck = mapRewardToContractCheck(reward)
+    const fee = await readClaimFee(reward.project_address)
 
     const hash = await writeContractAsync({
       address: FUUL_MANAGER_ADDRESS as Address,
       abi: fuulManagerABI,
       functionName: 'claim',
-      args: [contractChecks],
-      value: totalFee,
+      args: [[contractCheck]],
+      value: fee,
     })
 
     return hash
   }
 
-  const buildClaimRewardsPlan = async (): Promise<TxPlan> => {
+  const buildClaimRewardPlan = async (reward: FuulClaimableReward): Promise<TxPlan> => {
     if (!wagmiAddress.value) {
       throw new Error('Wallet not connected')
     }
 
-    const claimChecks = await fetchClaimChecks()
-    if (claimChecks.length === 0) {
-      throw new Error('No claimable rewards found')
-    }
-
-    const uniqueProjects = [...new Set(claimChecks.map(c => c.project_address))]
-    const fees = await Promise.all(uniqueProjects.map(addr => readClaimFee(addr)))
-    const feeMap = new Map(uniqueProjects.map((addr, i) => [addr, fees[i]]))
-    const totalFee = claimChecks.reduce((sum, c) => sum + (feeMap.get(c.project_address) ?? 0n), 0n)
-
-    const contractChecks = claimChecks.map(check => ({
-      projectAddress: check.project_address as Address,
-      to: check.to as Address,
-      currency: check.currency as Address,
-      currencyType: check.currency_type,
-      amount: BigInt(check.amount),
-      reason: check.reason,
-      tokenId: BigInt(check.token_id),
-      deadline: BigInt(check.deadline),
-      proof: check.proof as `0x${string}`,
-      signatures: check.signatures as `0x${string}`[],
-    }))
+    const contractCheck = mapRewardToContractCheck(reward)
+    const fee = await readClaimFee(reward.project_address)
 
     return {
       kind: 'fuul-reward',
       steps: [
         {
           type: 'other',
-          label: 'Claim Fuul rewards',
+          label: 'Claim Fuul reward',
           to: FUUL_MANAGER_ADDRESS as Address,
           abi: fuulManagerABI,
           functionName: 'claim',
-          args: [contractChecks],
-          value: totalFee,
+          args: [[contractCheck]],
+          value: fee,
         },
       ],
     }
@@ -260,13 +230,13 @@ export const useFuul = () => {
     }
     else {
       address.value = ''
-      latestTotalsRequestId++
-      fuulTotals.value = { claimed: [], unclaimed: [] }
-      isTotalsLoading.value = false
-      cacheState.totals = { timestamp: 0, address: '' }
+      latestClaimableRequestId++
+      fuulClaimableEntries.value = []
+      isClaimableLoading.value = false
+      cacheState.claimable = { timestamp: 0, address: '', chainId: 0 }
     }
     if (oldVal && val && val !== oldVal) {
-      loadTotals(true, true)
+      loadClaimableRewards(true, true)
     }
   }, { immediate: true })
 
@@ -277,14 +247,14 @@ export const useFuul = () => {
 
     if (!isLoaded.value && val) {
       loadIncentives()
-      loadTotals()
+      loadClaimableRewards()
       isLoaded.value = true
     }
 
     if (!interval) {
       interval = setInterval(() => {
         loadIncentives(false)
-        loadTotals(false)
+        loadClaimableRewards(false)
       }, POLL_INTERVAL_10S_MS)
     }
   }, { immediate: true })
@@ -301,13 +271,13 @@ export const useFuul = () => {
 
   return {
     fuulCampaigns,
-    fuulTotals,
+    unclaimedFuulRewards,
     isCampaignsLoading,
-    isTotalsLoading,
+    isClaimableLoading,
     loadIncentives,
-    loadTotals,
-    claimRewards,
-    buildClaimRewardsPlan,
+    loadClaimableRewards,
+    claimReward,
+    buildClaimRewardPlan,
     getFuulCampaignsForVault,
   }
 }

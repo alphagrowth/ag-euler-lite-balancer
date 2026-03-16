@@ -21,7 +21,7 @@ interface REULUnlockInfo {
 }
 
 const { type, asset, assetIconUrl, campaignInfo: _campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount, transferAmounts } = defineProps<{
-  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'transfer' | 'reward' | 'brevis-reward' | 'reul-unlock' | 'disableCollateral' | 'swap-supply' | 'swap-withdraw' | 'swap-borrow'
+  type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'transfer' | 'reward' | 'brevis-reward' | 'fuul-reward' | 'reul-unlock' | 'disableCollateral' | 'swap-supply' | 'swap-withdraw' | 'swap-borrow'
   asset: VaultAsset
   assetIconUrl?: string
   amount: number | string
@@ -198,6 +198,7 @@ const btnLabel = computed(() => {
       return 'Unlock'
     case 'reward':
     case 'brevis-reward':
+    case 'fuul-reward':
       return 'Claim'
     case 'disableCollateral':
       return 'Disable collateral'
