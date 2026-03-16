@@ -144,6 +144,7 @@ export const useBrevis = () => {
             symbol: campaign.reward_info.token_symbol,
             icon: '',
           },
+          sourceUrl: 'https://incentra.brevis.network/',
         }
 
         const existing = campaignMap.get(vaultKey)

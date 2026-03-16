@@ -22,16 +22,23 @@ const intrinsicApyValue = computed(() => intrinsicAPY ?? 0)
 const hasIntrinsicApy = computed(() => intrinsicApyValue.value > 0)
 const totalBorrowApy = computed(() => borrowingAPY + intrinsicApyValue.value - (rewardsTotalAPY.value || 0))
 
+const PROVIDER_LABELS: Record<string, string> = {
+  merkl: 'Merkl',
+  brevis: 'Brevis',
+  fuul: 'Fuul',
+}
+
 const rewardsInfo = computed(() => {
   if (!campaigns) return []
   return campaigns
-    .filter(c => c.endTimestamp > Math.floor(Date.now() / 1000))
+    .filter(c => c.endTimestamp > Math.floor(Date.now() / 1000) || c.endTimestamp === 0)
     .map(c => ({
       id: `${c.vault}-${c.provider}-${c.type}-${c.endTimestamp}`,
       apr: c.apr,
-      endDate: DateTime.fromSeconds(c.endTimestamp),
+      endDate: c.endTimestamp > 0 ? DateTime.fromSeconds(c.endTimestamp) : null,
       rewardToken: c.rewardToken || { symbol: 'Unknown', icon: '' },
       source: c.provider,
+      sourceUrl: c.sourceUrl,
       isCollateralSpecific: c.type === 'euler_borrow_collateral',
     }))
     .sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
@@ -126,7 +133,16 @@ const handleClose = () => {
             {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
           </p>
           <p class="ml-4 text-euler-dark-900">
-            ({{ reward.source === 'brevis' ? 'Brevis, ' : '' }}{{ reward.isCollateralSpecific ? 'collateral bonus, ' : '' }}ends {{ reward.endDate.toFormat('MMMM dd, yyyy') }})
+            (<a
+              v-if="reward.sourceUrl"
+              :href="reward.sourceUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="underline"
+              @click.stop
+            >{{ PROVIDER_LABELS[reward.source] || reward.source }}</a><template v-else>
+              {{ PROVIDER_LABELS[reward.source] || reward.source }}
+            </template>{{ reward.isCollateralSpecific ? ', collateral bonus' : '' }}{{ reward.endDate ? `, ends ${reward.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
           </p>
         </div>
         <div class="text-p2">

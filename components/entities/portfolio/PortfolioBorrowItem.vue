@@ -26,6 +26,8 @@ import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { useModal } from '~/components/ui/composables/useModal'
+import { VaultNetApyModal, PortfolioRoeModal } from '#components'
 
 const { position } = defineProps<{ position: AccountBorrowPosition }>()
 
@@ -37,8 +39,9 @@ const subAccountIndex = computed(() => {
   return getSubAccountIndex(ownerAddress.value, position.subAccount)
 })
 
-const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
+const modal = useModal()
+const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns } = useRewardsApy()
 
 const { name: collateralProductName } = useEulerProductOfVault(position.collateral.address)
 const { name: borrowProductName } = useEulerProductOfVault(position.borrow.address)
@@ -197,6 +200,54 @@ const roe = computed(() => {
   )
 })
 
+const intrinsicSupplyApy = computed(() => getIntrinsicApy(collateralVault.value.asset.address))
+const intrinsicBorrowApy = computed(() => getIntrinsicApy(borrowVault.value.asset.address))
+const baseSupplyApy = computed(() => nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25))
+const baseBorrowApy = computed(() => nanoToValue(borrowVault.value.interestRateInfo.borrowAPY || 0n, 25))
+const supplyCampaignsForModal = computed(() => getSupplyRewardCampaigns(collateralVault.value.address))
+const borrowCampaignsForModal = computed(() => getBorrowRewardCampaigns(borrowVault.value.address, collateralVault.value.address))
+
+const userLTV = computed(() => nanoToValue(position.userLTV, 18))
+const actualMultiplier = computed(() => {
+  const equity = collateralValue.value.usd - borrowedValue.value.usd
+  if (equity <= 0) return 0
+  return collateralValue.value.usd / equity
+})
+
+const onNetApyClick = () => {
+  modal.open(VaultNetApyModal, {
+    props: {
+      supplyUSD: collateralValue.value.usd,
+      borrowUSD: borrowedValue.value.usd,
+      baseSupplyAPY: baseSupplyApy.value,
+      baseBorrowAPY: baseBorrowApy.value,
+      intrinsicSupplyAPY: intrinsicSupplyApy.value,
+      intrinsicBorrowAPY: intrinsicBorrowApy.value,
+      supplyRewardAPY: supplyRewardAPY.value || null,
+      borrowRewardAPY: borrowRewardAPY.value || null,
+      netAPY: netAPY.value,
+      supplyCampaigns: supplyCampaignsForModal.value,
+      borrowCampaigns: borrowCampaignsForModal.value,
+    },
+  })
+}
+
+const onRoeClick = () => {
+  modal.open(PortfolioRoeModal, {
+    props: {
+      roe: roe.value,
+      multiplier: Number.isFinite(actualMultiplier.value) ? actualMultiplier.value : 0,
+      supplyAPY: collateralSupplyApy.value,
+      borrowAPY: borrowApy.value,
+      supplyRewardAPY: supplyRewardAPY.value || null,
+      borrowRewardAPY: borrowRewardAPY.value || null,
+      userLTV: userLTV.value,
+      supplyCampaigns: supplyCampaignsForModal.value,
+      borrowCampaigns: borrowCampaignsForModal.value,
+    },
+  })
+}
+
 const loadCollaterals = async () => {
   // Only load additional collaterals if position has multiple,
   // unless oracle failed — then always fetch actual assets from lens
@@ -246,8 +297,8 @@ const loadCollaterals = async () => {
               abi: eulerAccountLensABI as Abi,
               functionName: 'getVaultAccountInfo',
               args: [position.subAccount, address],
-            }) as Record<string, any>
-            assets = res.assets
+            }) as Record<string, unknown>
+            assets = res.assets as bigint
           }
           catch {
             if (address === primaryAddress) {
@@ -336,8 +387,13 @@ onMounted(() => {
           </div>
           <div class="flex gap-16 items-start shrink-0">
             <div class="flex flex-col items-end">
-              <div class="text-content-tertiary text-p3 mb-4">
+              <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
                 Net APY
+                <SvgIcon
+                  class="!w-16 !h-16 text-content-muted cursor-pointer hover:text-content-secondary"
+                  name="info-circle"
+                  @click.prevent="onNetApyClick"
+                />
               </div>
               <div
                 class="text-p2"
@@ -347,8 +403,13 @@ onMounted(() => {
               </div>
             </div>
             <div class="flex flex-col items-end">
-              <div class="text-content-tertiary text-p3 mb-4">
+              <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
                 ROE
+                <SvgIcon
+                  class="!w-16 !h-16 text-content-muted cursor-pointer hover:text-content-secondary"
+                  name="info-circle"
+                  @click.prevent="onRoeClick"
+                />
               </div>
               <div
                 class="text-p2"

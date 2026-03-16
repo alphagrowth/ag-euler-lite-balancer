@@ -83,6 +83,7 @@ export const useFuul = () => {
             symbol: item.project,
             icon: '',
           },
+          sourceUrl: 'https://www.fuul.xyz/',
         }
 
         const existing = campaignMap.get(vaultKey)

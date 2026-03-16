@@ -118,6 +118,7 @@ const processOpportunitiesToCampaigns = (
         provider: 'merkl',
         endTimestamp: campaign.endTimestamp,
         rewardToken: { symbol: campaign.rewardToken.symbol, icon: campaign.rewardToken.icon },
+        sourceUrl: 'https://app.merkl.xyz/?protocol=euler',
       }
 
       const existing = campaignMap.get(vaultAddress)

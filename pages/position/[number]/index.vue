@@ -24,7 +24,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl, nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { formatNumber, formatHealthScore, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
-import { VaultOverviewModal, OperationReviewModal, VaultSupplyApyModal, VaultBorrowApyModal } from '#components'
+import { VaultOverviewModal, OperationReviewModal, VaultSupplyApyModal, VaultBorrowApyModal, VaultNetApyModal, PortfolioRoeModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
@@ -356,6 +356,49 @@ const roe = computed(() => {
   )
 })
 
+const supplyCampaignsForModal = computed(() => getSupplyRewardCampaigns(collateralVault.value?.address || ''))
+const borrowCampaignsForModal = computed(() => getBorrowRewardCampaigns(borrowVault.value?.address || '', collateralVault.value?.address || ''))
+
+const positionMultiplier = computed(() => {
+  const equity = collateralValue.value.usd - borrowMarketValue.value.usd
+  if (equity <= 0) return 0
+  return collateralValue.value.usd / equity
+})
+
+const onNetApyInfoClick = () => {
+  modal.open(VaultNetApyModal, {
+    props: {
+      supplyUSD: collateralValue.value.usd,
+      borrowUSD: borrowMarketValue.value.usd,
+      baseSupplyAPY: baseSupplyAPY.value,
+      baseBorrowAPY: baseBorrowAPY.value,
+      intrinsicSupplyAPY: _intrinsicSupplyAPY.value,
+      intrinsicBorrowAPY: intrinsicBorrowAPY.value,
+      supplyRewardAPY: supplyRewardAPY.value || null,
+      borrowRewardAPY: borrowRewardAPY.value || null,
+      netAPY: netAPY.value,
+      supplyCampaigns: supplyCampaignsForModal.value,
+      borrowCampaigns: borrowCampaignsForModal.value,
+    },
+  })
+}
+
+const onRoeInfoClick = () => {
+  modal.open(PortfolioRoeModal, {
+    props: {
+      roe: roe.value,
+      multiplier: Number.isFinite(positionMultiplier.value) ? positionMultiplier.value : 0,
+      supplyAPY: collateralSupplyApy.value,
+      borrowAPY: borrowApy.value,
+      supplyRewardAPY: supplyRewardAPY.value || null,
+      borrowRewardAPY: borrowRewardAPY.value || null,
+      userLTV: position.value ? nanoToValue(position.value.userLTV, 18) : 0,
+      supplyCampaigns: supplyCampaignsForModal.value,
+      borrowCampaigns: borrowCampaignsForModal.value,
+    },
+  })
+}
+
 const isPrimaryCollateral = (vault: Vault | SecuritizeVault) => {
   if (!primaryCollateralAddress.value) {
     return false
@@ -466,8 +509,8 @@ const loadCollaterals = async () => {
               abi: eulerAccountLensABI as Abi,
               functionName: 'getAccountInfo',
               args: [position.value!.subAccount, address],
-            }) as Record<string, any>
-            assets = res.vaultAccountInfo.assets
+            }) as Record<string, Record<string, unknown>>
+            assets = res.vaultAccountInfo.assets as bigint
           }
           catch {
             if (address === primaryAddress) {
@@ -673,34 +716,44 @@ watch(isConnected, () => {
         <div class="flex justify-between items-center">
           <div class="flex items-center gap-4 text-p2 text-content-secondary">
             Net APY
-            <UiFootnote
-              title="Net APY"
-              text="Net annual percentage yield for this position. Calculated as supply income minus borrow costs, divided by total supplied value."
-              tooltip-placement="bottom-start"
-              class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
+            <SvgIcon
+              class="!w-16 !h-16 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click="onNetApyInfoClick"
             />
           </div>
           <div
-            class="text-h5"
+            class="text-h5 flex items-center gap-4"
             :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
+            <SvgIcon
+              v-if="hasSupplyRewards(collateralVault?.address || '') || hasBorrowRewards(borrowVault?.address || '', collateralVault?.address || '')"
+              class="!w-20 !h-20 text-accent-500 cursor-pointer"
+              name="sparks"
+              @click="onNetApyInfoClick"
+            />
             {{ Number.isFinite(netAPY) ? `${formatNumber(netAPY)}%` : '-' }}
           </div>
         </div>
         <div class="flex justify-between items-center">
           <div class="flex items-center gap-4 text-p2 text-content-secondary">
             ROE
-            <UiFootnote
-              title="ROE"
-              text="Return on equity for this position. Calculated as net yield (supply income minus borrow costs) divided by equity (collateral value minus debt)."
-              tooltip-placement="bottom-start"
-              class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
+            <SvgIcon
+              class="!w-16 !h-16 text-content-muted cursor-pointer hover:text-content-secondary"
+              name="info-circle"
+              @click="onRoeInfoClick"
             />
           </div>
           <div
-            class="text-h5"
+            class="text-h5 flex items-center gap-4"
             :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
           >
+            <SvgIcon
+              v-if="hasSupplyRewards(collateralVault?.address || '') || hasBorrowRewards(borrowVault?.address || '', collateralVault?.address || '')"
+              class="!w-20 !h-20 text-accent-500 cursor-pointer"
+              name="sparks"
+              @click="onRoeInfoClick"
+            />
             {{ Number.isFinite(roe) ? `${formatNumber(roe)}%` : '-' }}
           </div>
         </div>

@@ -23,7 +23,7 @@ const isRamping = computed(() =>
 
 const modal = useModal()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
 const { borrowList } = useVaults()
 
 const borrowCount = computed(() => {
@@ -56,6 +56,9 @@ const baseBorrowApy = computed(() => nanoToValue(pair.borrow.interestRateInfo.bo
 const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.address))
 const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.address))
 
+const supplyCampaignsForModal = computed(() => getSupplyRewardCampaigns(pair.collateral.address))
+const borrowCampaignsForModal = computed(() => getBorrowRewardCampaigns(pair.borrow.address, pair.collateral.address))
+
 const priceInvert = usePriceInvert(
   () => pair.collateral.asset.symbol,
   () => pair.borrow.asset.symbol,
@@ -82,6 +85,8 @@ const onNetApyInfoIconClick = () => {
       intrinsicBorrowAPY: intrinsicBorrowApy.value,
       supplyRewardAPY: collateralRewardAPY.value || null,
       borrowRewardAPY: borrowRewardAPY.value || null,
+      supplyCampaigns: supplyCampaignsForModal.value,
+      borrowCampaigns: borrowCampaignsForModal.value,
     },
   })
 }
