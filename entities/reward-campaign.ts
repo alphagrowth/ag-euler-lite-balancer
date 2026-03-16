@@ -5,12 +5,13 @@ export interface RewardCampaign {
   collateral?: string
   type: RewardCampaignType
   apr: number
-  provider: 'merkl' | 'brevis'
+  provider: 'merkl' | 'brevis' | 'fuul'
   endTimestamp: number
   rewardToken?: {
     symbol: string
     icon: string
   }
+  sourceUrl?: string
 }
 
 // Merkl subType is a positional index: 0 = euler_lend, 1 = euler_borrow, 2 = euler_borrow_collateral

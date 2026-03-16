@@ -45,6 +45,9 @@ export const useDeployConfig = () => {
     enablePoweredByEuler: isEnabled(rc.configEnablePoweredByEuler),
     enableAppTitle: isEnabled(rc.configEnableAppTitle),
     enableSwapDeposit: isExplicitlyEnabled(rc.configEnableSwapDeposit),
+    enableMerkl: isEnabled(rc.configEnableMerkl),
+    enableIncentra: isEnabled(rc.configEnableIncentra),
+    enableFuul: isEnabled(rc.configEnableFuul),
 
     // Chains (derived from env vars at runtime via useChainConfig)
     ...useChainConfig(),

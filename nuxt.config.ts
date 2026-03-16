@@ -114,6 +114,10 @@ export default defineNuxtConfig({
       configEnableAppTitle: '',
       // Feature flags: disabled by default. Set to 'true' to enable.
       configEnableSwapDeposit: '',
+      // Incentives provider flags: enabled by default. Set to 'false' to disable.
+      configEnableMerkl: '',
+      configEnableIncentra: '',
+      configEnableFuul: '',
       // Env config fallbacks (Doppler: NUXT_PUBLIC_*)
       // Prefer window.__APP_CONFIG__ at runtime; these are build-time fallbacks.
       appKitProjectId: '',

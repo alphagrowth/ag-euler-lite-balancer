@@ -13,6 +13,7 @@ import type { SwapApiQuote } from '~/entities/swap'
 import { SwapperMode } from '~/entities/swap'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
 
 const { address } = useAccount()
@@ -231,13 +232,24 @@ watch(selectedOutputAsset, () => {
                   ~{{ formatSmartAmount(form.swapEstimatedOutput.value) }} {{ selectedOutputAsset.symbol }}
                 </p>
               </SummaryRow>
+              <SummaryRow
+                v-if="form.swapPriceImpact.value !== null"
+                label="Price impact"
+              >
+                <span
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(form.swapPriceImpact.value) }"
+                >
+                  {{ formatNumber(form.swapPriceImpact.value, 2) }}%
+                </span>
+              </SummaryRow>
               <SummaryRow label="Slippage tolerance">
                 <button
                   type="button"
                   class="flex items-center gap-6 text-p2"
                   @click="form.openSlippageSettings"
                 >
-                  <span>{{ formatNumber(form.swapSlippage.value, 2, 0) }}%</span>
+                  <span :class="{ 'text-error-500': isSlippageWarning(form.swapSlippage.value) }">{{ formatNumber(form.swapSlippage.value, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"

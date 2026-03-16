@@ -116,7 +116,8 @@ composables/
 ├── useAccountValues.ts             # Position USD value calculations
 ├── useAddressScreen.ts             # Address screening (compliance)
 ├── useBestMaxROE.ts                # Best max ROE calculations for sorting/filtering
-├── useBrevis.ts                    # Brevis ZK proof rewards integration
+├── useBrevis.ts                    # Incentra (Brevis) rewards integration
+├── useFuul.ts                     # Fuul incentive campaign integration
 ├── useChainConfig.ts               # Dynamic chain derivation from RPC_URL_HTTP_* env vars
 ├── useCustomFilters.ts             # Generic custom metric filter system (gt/lt)
 ├── useCustomTokenResolver.ts       # Custom token metadata resolution
@@ -140,7 +141,7 @@ composables/
 ├── useReactiveMap.ts               # Race-guarded async watchEffect pattern
 ├── useREULLocks.ts                 # REUL token lock management
 ├── useRepaySavingsOptions.ts       # Savings position selection for repay-from-savings
-├── useRewardsApy.ts                # Unified reward APY aggregation (Merkl + Brevis)
+├── useRewardsApy.ts                # Unified reward APY aggregation (Merkl + Incentra + Fuul)
 ├── useSlippage.ts                  # Swap slippage settings (with save button)
 ├── useSwapApi.ts                   # Swap API integration
 ├── useSwapCollateralOptions.ts     # Swap collateral selection
@@ -176,8 +177,9 @@ composables/
 ```
 entities/
 ├── account.ts               # Account-related data models
-├── brevis.ts                # Brevis ZK proof types
+├── brevis.ts                # Incentra (Brevis) types
 ├── chainRegistry.ts         # Chain registry and multi-chain config
+├── fuul.ts                  # Fuul incentive API types
 ├── constants.ts             # Shared constants
 ├── country-constants.ts     # Country codes and group aliases (EU, EEA, EFTA)
 ├── custom.ts                # Theme hue and intrinsic APY source config (DefiLlama pools + Pendle PTs)
@@ -193,7 +195,7 @@ entities/
 ├── oracle-providers.ts      # Oracle provider type definitions
 ├── permit2.ts               # Permit2 approval types
 ├── reul.ts                  # REUL token types
-├── reward-campaign.ts       # Unified RewardCampaign type (Merkl + Brevis)
+├── reward-campaign.ts       # Unified RewardCampaign type (Merkl + Incentra + Fuul)
 ├── saHooksSDK.ts            # Smart account hooks builder
 ├── swap.ts                  # Swap types and utilities
 ├── token.ts                 # Token data models
@@ -366,6 +368,7 @@ abis/
 ├── brevis.ts                # Brevis contract ABI
 ├── erc20.ts                 # ERC-20 token ABI
 ├── evc.ts                   # EVC (Ethereum Vault Connector) ABI
+├── fuul.ts                  # Fuul Manager + Factory ABIs
 ├── merkl.ts                 # Merkl distributor ABI
 ├── pyth.ts                  # Pyth oracle contract ABI
 ├── reul.ts                  # REUL token ABI

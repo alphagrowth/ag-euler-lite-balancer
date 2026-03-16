@@ -21,8 +21,9 @@ import {
 } from '~/services/pricing/priceProvider'
 import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
-import { formatNumber, formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
+import { formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { computeMultipliedPriceImpact } from '~/utils/priceImpact'
 import type { TxPlan } from '~/entities/txPlan'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -469,6 +470,10 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     multiplyPriceImpact.value = impact
   })
 
+  const multipliedPriceImpact = computed(() =>
+    computeMultipliedPriceImpact(multiplyPriceImpact.value, multiplier.value),
+  )
+
   const multiplyRoutedVia = computed(() => {
     if (isMultiplyQuoteLoading.value) return null
     if (!multiplyEffectiveQuote.value?.route?.length) return null
@@ -482,7 +487,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
       getQuoteDiffPct,
       decimals: Number(multiplyLongVault.value.asset.decimals),
       symbol: multiplyLongVault.value.asset.symbol,
-      formatAmount: formatNumber,
+      formatAmount: formatSmartAmount,
     })
   })
 
@@ -955,6 +960,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     // Display
     multiplySwapSummary,
     multiplyPriceImpact,
+    multipliedPriceImpact,
     multiplyRoutedVia,
     multiplyRouteItems,
     multiplyRouteEmptyMessage,

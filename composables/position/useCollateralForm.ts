@@ -26,6 +26,8 @@ import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import type { SwapApiQuote } from '~/entities/swap'
 import type { SwapApiRequestInput } from '~/composables/useSwapApi'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
+import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
+import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
@@ -278,6 +280,16 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     return formatUnits(amountOut, Number(outputAsset.decimals))
   })
 
+  const { priceImpact: swapPriceImpact } = useSwapPriceImpact({
+    quote: swapEffectiveQuote,
+    fromVault: computed(() => options.mode === 'withdraw' ? collateralVault.value : null),
+    toVault: computed(() => options.mode === 'supply' ? collateralVault.value : null),
+  })
+
+  const { guardWithPriceImpact } = usePriceImpactGate({
+    directPriceImpact: swapPriceImpact,
+  })
+
   const swapRouteItems = computed(() => {
     const outputAsset = options.getSwapOutputAsset()
     if (!outputAsset) return []
@@ -474,55 +486,57 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     isPreparing.value = true
     try {
       await guardWithTerms(async () => {
-        if (!collateralVault.value?.address || !asset.value?.address) return
+        await guardWithPriceImpact(async () => {
+          if (!collateralVault.value?.address || !asset.value?.address) return
 
-        try {
-          if (options.needsSwap.value && swapEffectiveQuote.value) {
-            plan.value = await options.buildSwapPlan(swapEffectiveQuote.value, {
-              vaultAddress: collateralVault.value.address,
-              amountNano: valueToNano(amount.value || '0', asset.value.decimals),
-              subAccount: position.value?.subAccount,
-              includePermit2Call: false,
-            })
+          try {
+            if (options.needsSwap.value && swapEffectiveQuote.value) {
+              plan.value = await options.buildSwapPlan(swapEffectiveQuote.value, {
+                vaultAddress: collateralVault.value.address,
+                amountNano: valueToNano(amount.value || '0', asset.value.decimals),
+                subAccount: position.value?.subAccount,
+                includePermit2Call: false,
+              })
+            }
+            else {
+              plan.value = await options.buildDirectPlan({
+                vaultAddress: collateralVault.value.address,
+                assetAddress: asset.value.address,
+                amountNano: valueToNano(amount.value || '0', asset.value.decimals),
+                subAccount: position.value?.subAccount,
+                includePermit2Call: false,
+              })
+            }
           }
-          else {
-            plan.value = await options.buildDirectPlan({
-              vaultAddress: collateralVault.value.address,
-              assetAddress: asset.value.address,
-              amountNano: valueToNano(amount.value || '0', asset.value.decimals),
-              subAccount: position.value?.subAccount,
-              includePermit2Call: false,
-            })
+          catch (e) {
+            logWarn(`collateral/${options.mode}/buildPlan`, e)
+            plan.value = null
           }
-        }
-        catch (e) {
-          logWarn(`collateral/${options.mode}/buildPlan`, e)
-          plan.value = null
-        }
 
-        if (plan.value) {
-          const ok = await runSimulation(plan.value)
-          if (!ok) return
-        }
+          if (plan.value) {
+            const ok = await runSimulation(plan.value)
+            if (!ok) return
+          }
 
-        const reviewAsset = options.getReviewAsset(options.needsSwap.value)
-        const reviewType = options.needsSwap.value ? options.swapReviewType : options.reviewType
-        modal.open(OperationReviewModal, {
-          props: {
-            type: reviewType,
-            asset: reviewAsset,
-            amount: amount.value,
-            plan: plan.value || undefined,
-            subAccount: position.value?.subAccount,
-            hasBorrows: (position.value?.borrowed || 0n) > 0n,
-            swapToAsset: options.needsSwap.value ? options.getSwapToAsset() : undefined,
-            swapToAmount: options.needsSwap.value ? swapEstimatedOutput.value : undefined,
-            onConfirm: () => {
-              setTimeout(() => {
-                send()
-              }, 400)
+          const reviewAsset = options.getReviewAsset(options.needsSwap.value)
+          const reviewType = options.needsSwap.value ? options.swapReviewType : options.reviewType
+          modal.open(OperationReviewModal, {
+            props: {
+              type: reviewType,
+              asset: reviewAsset,
+              amount: amount.value,
+              plan: plan.value || undefined,
+              subAccount: position.value?.subAccount,
+              hasBorrows: (position.value?.borrowed || 0n) > 0n,
+              swapToAsset: options.needsSwap.value ? options.getSwapToAsset() : undefined,
+              swapToAmount: options.needsSwap.value ? swapEstimatedOutput.value : undefined,
+              onConfirm: () => {
+                setTimeout(() => {
+                  send()
+                }, 400)
+              },
             },
-          },
+          })
         })
       })
     }
@@ -661,6 +675,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     swapQuoteError,
     swapQuotesStatusLabel,
     swapEstimatedOutput,
+    swapPriceImpact,
     swapRouteItems,
     selectSwapQuote,
     resetSwapQuoteState,

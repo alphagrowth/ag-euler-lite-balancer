@@ -9,6 +9,7 @@ import type {
   SecuritizeVault,
   VaultAsset,
 } from '~/entities/vault'
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import {
   getAssetUsdValue,
   getAssetOraclePrice,
@@ -646,22 +647,21 @@ const nextLiquidationPrice = computed(() => {
               />
             </SummaryRow>
             <template v-if="!isSameAsset">
-              <SummaryRow
-                label="Swap"
-                align-top
-              >
-                <p class="text-p2 text-right flex flex-col items-end">
-                  <span>{{ swapSummary ? swapSummary.from : '-' }}</span>
-                  <span
-                    v-if="swapSummary"
-                    class="text-content-tertiary text-p3"
-                  >
-                    {{ swapSummary.to }}
-                  </span>
+              <SummaryRow label="Swap in">
+                <p class="text-p2 text-right">
+                  {{ swapSummary ? swapSummary.from : '-' }}
+                </p>
+              </SummaryRow>
+              <SummaryRow label="Swap out">
+                <p class="text-p2 text-right">
+                  {{ swapSummary ? swapSummary.to : '-' }}
                 </p>
               </SummaryRow>
               <SummaryRow label="Price impact">
-                <p class="text-p2">
+                <p
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(priceImpact) }"
+                >
                   {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
                 </p>
               </SummaryRow>
@@ -671,7 +671,7 @@ const nextLiquidationPrice = computed(() => {
                   class="flex items-center gap-6 text-p2"
                   @click="openSlippageSettings"
                 >
-                  <span>{{ formatNumber(slippage, 2, 0) }}%</span>
+                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"

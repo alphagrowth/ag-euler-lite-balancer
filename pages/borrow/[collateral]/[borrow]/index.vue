@@ -11,6 +11,8 @@ import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
+import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useBorrowForm } from '~/composables/borrow/useBorrowForm'
 import { useMultiplyForm } from '~/composables/borrow/useMultiplyForm'
@@ -145,6 +147,15 @@ const multiply = useMultiplyForm({
   isMultiplyRestricted,
 })
 
+const { guardWithPriceImpact: guardWithMultiplyPriceImpact } = usePriceImpactGate({
+  directPriceImpact: multiply.multiplyPriceImpact,
+  multipliedPriceImpact: multiply.multipliedPriceImpact,
+})
+
+const { guardWithPriceImpact: guardWithBorrowSwapPriceImpact } = usePriceImpactGate({
+  directPriceImpact: borrow.borrowSwapPriceImpact,
+})
+
 // --- Submit disabled ---
 const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isBorrowRestricted.value || borrow.isBorrowSwapRestricted.value || borrow.isSubmitDisabled.value))
 const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplyRestricted.value || multiply.isMultiplySubmitDisabled.value))
@@ -230,12 +241,12 @@ const updateBalance = async () => {
 }
 
 // --- Submit dispatcher ---
-const onSubmit = () => {
+const onSubmit = async () => {
   if (formTab.value === 'borrow') {
-    borrow.submit()
+    await guardWithBorrowSwapPriceImpact(() => borrow.submit())
   }
   else if (formTab.value === 'multiply') {
-    multiply.submitMultiply()
+    await guardWithMultiplyPriceImpact(() => multiply.submitMultiply())
   }
 }
 
@@ -497,13 +508,24 @@ watch(formTab, () => {
                       ~{{ formatSmartAmount(borrow.borrowSwapEstimatedCollateral.value) }} {{ collateralVault.asset.symbol }}
                     </p>
                   </SummaryRow>
+                  <SummaryRow
+                    v-if="borrow.borrowSwapPriceImpact.value !== null"
+                    label="Price impact"
+                  >
+                    <span
+                      class="text-p2"
+                      :class="{ 'text-error-500': isPriceImpactWarning(borrow.borrowSwapPriceImpact.value) }"
+                    >
+                      {{ formatNumber(borrow.borrowSwapPriceImpact.value, 2) }}%
+                    </span>
+                  </SummaryRow>
                   <SummaryRow label="Slippage tolerance">
                     <button
                       type="button"
                       class="flex items-center gap-6 text-p2"
                       @click="openSlippageSettings"
                     >
-                      <span>{{ formatNumber(borrow.borrowSwapSlippage.value, 2, 0) }}%</span>
+                      <span :class="{ 'text-error-500': isSlippageWarning(borrow.borrowSwapSlippage.value) }">{{ formatNumber(borrow.borrowSwapSlippage.value, 2, 0) }}%</span>
                       <SvgIcon
                         name="edit"
                         class="!w-16 !h-16 text-accent-600"
@@ -776,23 +798,33 @@ watch(formTab, () => {
                         estimate-only
                       />
                     </SummaryRow>
-                    <SummaryRow
-                      label="Swap"
-                      align-top
-                    >
-                      <p class="text-p2 text-right flex flex-col items-end">
-                        <span>{{ multiply.multiplySwapSummary.value ? multiply.multiplySwapSummary.value.from : '-' }}</span>
-                        <span
-                          v-if="multiply.multiplySwapSummary.value"
-                          class="text-content-tertiary text-p3"
-                        >
-                          {{ multiply.multiplySwapSummary.value.to }}
-                        </span>
+                    <SummaryRow label="Swap in">
+                      <p class="text-p2 text-right">
+                        {{ multiply.multiplySwapSummary.value ? multiply.multiplySwapSummary.value.from : '-' }}
+                      </p>
+                    </SummaryRow>
+                    <SummaryRow label="Swap out">
+                      <p class="text-p2 text-right">
+                        {{ multiply.multiplySwapSummary.value ? multiply.multiplySwapSummary.value.to : '-' }}
                       </p>
                     </SummaryRow>
                     <SummaryRow label="Price impact">
-                      <p class="text-p2">
+                      <p
+                        class="text-p2"
+                        :class="{ 'text-error-500': isPriceImpactWarning(multiply.multiplyPriceImpact.value) }"
+                      >
                         {{ multiply.multiplyPriceImpact.value !== null ? `${formatNumber(multiply.multiplyPriceImpact.value, 2, 2)}%` : '-' }}
+                      </p>
+                    </SummaryRow>
+                    <SummaryRow
+                      v-if="multiply.multipliedPriceImpact.value !== null"
+                      label="Multiplied price impact"
+                    >
+                      <p
+                        class="text-p2"
+                        :class="{ 'text-error-500': isPriceImpactWarning(multiply.multipliedPriceImpact.value) }"
+                      >
+                        {{ formatNumber(multiply.multipliedPriceImpact.value, 2, 2) }}%
                       </p>
                     </SummaryRow>
                     <SummaryRow label="Slippage tolerance">
@@ -801,7 +833,7 @@ watch(formTab, () => {
                         class="flex items-center gap-6 text-p2"
                         @click="openSlippageSettings"
                       >
-                        <span>{{ formatNumber(multiply.multiplySlippage.value, 2, 0) }}%</span>
+                        <span :class="{ 'text-error-500': isSlippageWarning(multiply.multiplySlippage.value) }">{{ formatNumber(multiply.multiplySlippage.value, 2, 0) }}%</span>
                         <SvgIcon
                           name="edit"
                           class="!w-16 !h-16 text-accent-600"

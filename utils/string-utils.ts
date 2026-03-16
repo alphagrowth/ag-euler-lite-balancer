@@ -120,7 +120,7 @@ export const formatSmartAmount = (value: string | number = 0, maxDecimals = 6): 
   const abs = Math.abs(num)
 
   if (abs >= 1000) {
-    return formatNumber(num, 0, 0)
+    return formatNumber(num, 2, 2)
   }
   if (abs >= 1) {
     return formatNumber(num, 4, 0)

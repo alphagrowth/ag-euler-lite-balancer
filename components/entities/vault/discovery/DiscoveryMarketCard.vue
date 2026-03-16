@@ -108,7 +108,7 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
     class="w-full text-left cursor-pointer p-16"
     @click="$emit('toggle')"
   >
-    <div class="flex items-start pb-12 border-b border-line-subtle mobile:flex-wrap">
+    <div class="flex items-start pb-12 border-b border-line-subtle">
       <template
         v-for="(marketEntities, entitiesIdx) in [getMarketEntities(market)]"
         :key="'entities-' + entitiesIdx"
@@ -160,12 +160,12 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
         v-for="(diagram, diagramIdx) in [getMiniDiagram(market)]"
         :key="'counts-' + diagramIdx"
       >
-        <div class="flex flex-col items-end shrink-0 ml-12 text-content-tertiary text-p3 mobile:flex-row mobile:w-full mobile:items-center mobile:gap-8 mobile:mt-8 mobile:ml-0">
+        <div class="flex flex-col items-end shrink-0 ml-12 text-content-tertiary text-p3">
           <span>{{ diagram.assetCount }} assets</span>
           <span class="text-content-muted">{{ diagram.pairCount }} pairs</span>
           <span
             v-if="getDeprecatedVaultCount(market) > 0"
-            class="text-warning-500 text-p5 mt-4 mobile:mt-0"
+            class="text-warning-500 text-p5 mt-4"
           >
             {{ getDeprecatedVaultCount(market) }} deprecated
           </span>
@@ -173,8 +173,8 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
       </template>
     </div>
 
-    <div class="flex pt-12 items-center mobile:flex-wrap mobile:gap-y-12">
-      <div class="flex-1 flex gap-12 mobile:grid mobile:grid-cols-2 mobile:gap-y-12 mobile:gap-x-12">
+    <div class="flex pt-12 items-center mobile:justify-between mobile:border-b mobile:border-line-subtle mobile:pb-12">
+      <div class="flex-1 flex gap-12 mobile:hidden">
         <div class="flex-1 min-w-0">
           <div class="text-content-tertiary text-p3 mb-4">
             Total supply
@@ -208,26 +208,47 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
               <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">
                 Best max ROE
                 <SvgIcon
-                  class="!w-14 !h-14 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+                  class="!w-16 !h-16 shrink-0 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
                   name="info-circle"
                   @click="onMaxRoeInfoIconClick($event, bestRoe)"
                 />
               </div>
-              <div class="text-p2 text-content-primary flex items-center gap-4 min-w-0 mobile:overflow-hidden">
+              <div class="text-p2 text-content-primary flex items-center gap-4 min-w-0">
                 <SvgIcon
                   v-if="bestRoe.hasRewards"
                   name="sparks"
-                  class="!w-12 !h-12 text-accent-500 shrink-0"
+                  class="!w-20 !h-20 text-accent-500 shrink-0"
                 />
                 <span class="shrink-0">{{ formatNumber(bestRoe.value, 2, 2) }}%</span>
                 <span
                   v-if="bestRoe.pair"
-                  class="text-p4 text-content-muted min-w-0 truncate"
+                  class="text-p4 text-content-muted min-w-0"
+                  :class="isExpanded ? '' : 'truncate'"
                 >{{ bestRoe.pair }}</span>
               </div>
             </template>
           </div>
         </template>
+      </div>
+
+      <!-- Mobile: 2-column row matching lend card style -->
+      <div class="hidden mobile:flex mobile:flex-1 mobile:justify-between">
+        <div>
+          <div class="text-content-tertiary text-p3 mb-4">
+            Total supply
+          </div>
+          <div class="text-p2 text-content-primary">
+            {{ formatCompactUsdValue(market.metrics.totalTVL) }}
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-content-tertiary text-p3 mb-4">
+            Available liquidity
+          </div>
+          <div class="text-p2 text-content-primary">
+            {{ formatCompactUsdValue(market.metrics.totalAvailableLiquidity) }}
+          </div>
+        </div>
       </div>
 
       <!-- Mini topology graph (non-clickable preview) -->
@@ -296,6 +317,51 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
               >{{ node.assetSymbol.slice(0, 2) }}</text>
             </g>
           </svg>
+        </div>
+      </template>
+    </div>
+
+    <!-- Mobile: additional rows matching lend card style -->
+    <div class="hidden mobile:flex mobile:flex-col gap-12 py-12 px-0">
+      <div class="flex w-full justify-between">
+        <div class="text-content-tertiary text-p3">
+          Total borrowed
+        </div>
+        <div class="text-p2 text-content-primary">
+          {{ formatCompactUsdValue(market.metrics.totalBorrowed) }}
+        </div>
+      </div>
+      <template
+        v-for="(bestRoe, bestRoeIdx) in [getBestMaxRoe(market)]"
+        :key="'max-roe-mobile-' + bestRoeIdx"
+      >
+        <div
+          v-if="bestRoe.value > 0"
+          class="flex w-full justify-between"
+        >
+          <div class="text-content-tertiary text-p3 flex items-center gap-4 whitespace-nowrap">
+            Best max ROE
+            <SvgIcon
+              class="!w-16 !h-16 shrink-0 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
+              name="info-circle"
+              @click="onMaxRoeInfoIconClick($event, bestRoe)"
+            />
+          </div>
+          <div class="text-p2 text-content-primary flex flex-wrap items-center justify-end gap-x-4">
+            <span class="flex items-center gap-4 shrink-0">
+              <SvgIcon
+                v-if="bestRoe.hasRewards"
+                name="sparks"
+                class="!w-20 !h-20 text-accent-500 shrink-0"
+              />
+              {{ formatNumber(bestRoe.value, 2, 2) }}%
+            </span>
+            <span
+              v-if="bestRoe.pair"
+              class="text-p4 text-content-muted"
+              :class="isExpanded ? '' : 'truncate max-w-[100px]'"
+            >{{ bestRoe.pair }}</span>
+          </div>
         </div>
       </template>
     </div>

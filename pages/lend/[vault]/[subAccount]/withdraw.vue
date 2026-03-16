@@ -22,6 +22,9 @@ import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { SwapperMode } from '~/entities/swap'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
+import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
+import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
@@ -140,6 +143,15 @@ const swapEstimatedOutput = computed(() => {
   const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
   if (amountOut <= 0n) return ''
   return formatUnits(amountOut, Number(selectedOutputAsset.value.decimals))
+})
+
+const { priceImpact: swapPriceImpact } = useSwapPriceImpact({
+  quote: swapEffectiveQuote,
+  fromVault: vault,
+})
+
+const { guardWithPriceImpact } = usePriceImpactGate({
+  directPriceImpact: swapPriceImpact,
 })
 
 const swapRouteItems = computed(() => {
@@ -274,64 +286,66 @@ const submit = async () => {
   isPreparing.value = true
   try {
     await guardWithTerms(async () => {
-      if (!asset.value?.address) {
-        return
-      }
-
-      const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
-
-      try {
-        if (needsSwap.value && swapEffectiveQuote.value) {
-          if (isMax) {
-            plan.value = await buildRedeemAndSwapPlan({
-              vaultAddress: vaultAddress as Address,
-              sharesAmount: sharesBalance.value,
-              quote: swapEffectiveQuote.value,
-              subAccount: subAccount.value,
-            })
-          }
-          else {
-            plan.value = await buildWithdrawAndSwapPlan({
-              vaultAddress: vaultAddress as Address,
-              assetsAmount: amountFixed.value.value,
-              quote: swapEffectiveQuote.value,
-              subAccount: subAccount.value,
-            })
-          }
-        }
-        else {
-          plan.value = isMax
-            ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
-            : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
-        }
-      }
-      catch (e) {
-        console.warn('[lend/withdraw] failed to build plan', e)
-        plan.value = null
-      }
-
-      if (plan.value) {
-        const ok = await runSimulation(plan.value)
-        if (!ok) {
+      await guardWithPriceImpact(async () => {
+        if (!asset.value?.address) {
           return
         }
-      }
 
-      const reviewType = needsSwap.value ? 'swap-withdraw' as const : 'withdraw' as const
-      modal.open(OperationReviewModal, {
-        props: {
-          type: reviewType,
-          asset: asset.value,
-          amount: amount.value,
-          plan: plan.value || undefined,
-          swapToAsset: needsSwap.value ? selectedOutputAsset.value : undefined,
-          swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
-          onConfirm: () => {
-            setTimeout(() => {
-              send()
-            }, 400)
+        const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+
+        try {
+          if (needsSwap.value && swapEffectiveQuote.value) {
+            if (isMax) {
+              plan.value = await buildRedeemAndSwapPlan({
+                vaultAddress: vaultAddress as Address,
+                sharesAmount: sharesBalance.value,
+                quote: swapEffectiveQuote.value,
+                subAccount: subAccount.value,
+              })
+            }
+            else {
+              plan.value = await buildWithdrawAndSwapPlan({
+                vaultAddress: vaultAddress as Address,
+                assetsAmount: amountFixed.value.value,
+                quote: swapEffectiveQuote.value,
+                subAccount: subAccount.value,
+              })
+            }
+          }
+          else {
+            plan.value = isMax
+              ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
+              : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
+          }
+        }
+        catch (e) {
+          console.warn('[lend/withdraw] failed to build plan', e)
+          plan.value = null
+        }
+
+        if (plan.value) {
+          const ok = await runSimulation(plan.value)
+          if (!ok) {
+            return
+          }
+        }
+
+        const reviewType = needsSwap.value ? 'swap-withdraw' as const : 'withdraw' as const
+        modal.open(OperationReviewModal, {
+          props: {
+            type: reviewType,
+            asset: asset.value,
+            amount: amount.value,
+            plan: plan.value || undefined,
+            swapToAsset: needsSwap.value ? selectedOutputAsset.value : undefined,
+            swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
+            onConfirm: () => {
+              setTimeout(() => {
+                send()
+              }, 400)
+            },
           },
-        },
+        })
       })
     })
   }
@@ -545,13 +559,24 @@ watch(swapSelectedQuote, () => {
                   ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ selectedOutputAsset.symbol }}
                 </p>
               </SummaryRow>
+              <SummaryRow
+                v-if="swapPriceImpact !== null"
+                label="Price impact"
+              >
+                <span
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(swapPriceImpact) }"
+                >
+                  {{ formatNumber(swapPriceImpact, 2) }}%
+                </span>
+              </SummaryRow>
               <SummaryRow label="Slippage tolerance">
                 <button
                   type="button"
                   class="flex items-center gap-6 text-p2"
                   @click="openSlippageSettings"
                 >
-                  <span>{{ formatNumber(swapSlippage, 2, 0) }}%</span>
+                  <span :class="{ 'text-error-500': isSlippageWarning(swapSlippage) }">{{ formatNumber(swapSlippage, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"

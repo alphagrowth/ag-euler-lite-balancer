@@ -85,14 +85,14 @@ onClickOutside(reference, () => {
 <style lang="scss">
 .ui-footnote {
   position: relative;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   cursor: pointer;
   transition: opacity 0.3s ease-in-out;
 
   &__icon {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     color: var(--ui-footnote-icon-color);
     transition: color 0.2s ease-in-out;
   }

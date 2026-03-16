@@ -21,6 +21,9 @@ import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBl
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
 import SecuritizeVaultOverview from '~/components/entities/vault/overview/SecuritizeVaultOverview.vue'
 import { formatNumber, compactNumber, formatSmartAmount } from '~/utils/string-utils'
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
+import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
+import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 
 // Type definitions for vault display
 type VaultType = 'evk' | 'securitize'
@@ -219,7 +222,9 @@ const needsRefresh = (v: Vault | undefined): boolean => {
 // Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
 if (evkVault.value && needsRefresh(evkVault.value)) {
   const refreshedVault = await updateVault(vaultAddress)
-  evkVault.value = refreshedVault
+  if (!('type' in refreshedVault && refreshedVault.type === 'securitize')) {
+    evkVault.value = refreshedVault as Vault
+  }
 }
 
 const features = computed(() => VAULT_FEATURES[vaultType.value])
@@ -356,52 +361,54 @@ const submit = async () => {
   isPreparing.value = true
   try {
     await guardWithTerms(async () => {
-      if (!asset.value?.address) {
-        return
-      }
-
-      try {
-        if (needsSwap.value && swapEffectiveQuote.value) {
-          plan.value = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value, { includePermit2Call: false })
-        }
-        else {
-          plan.value = await buildSupplyPlan(
-            vaultAddress,
-            asset.value.address,
-            valueToNano(amount.value || '0', asset.value.decimals),
-            undefined,
-            { includePermit2Call: false },
-          )
-        }
-      }
-      catch (e) {
-        console.warn('[OperationReviewModal] failed to build plan', e)
-        plan.value = null
-      }
-
-      if (plan.value) {
-        const ok = await runSimulation(plan.value)
-        if (!ok) {
+      await guardWithPriceImpact(async () => {
+        if (!asset.value?.address) {
           return
         }
-      }
 
-      const reviewAsset = needsSwap.value && selectedAsset.value ? selectedAsset.value : asset.value
-      const reviewType = needsSwap.value ? 'swap-supply' as const : 'supply' as const
-      modal.open(OperationReviewModal, {
-        props: {
-          type: reviewType,
-          asset: reviewAsset,
-          amount: amount.value,
-          plan: plan.value || undefined,
-          swapToAsset: needsSwap.value ? asset.value : undefined,
-          swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
-          onConfirm: () => {
-            setTimeout(() => {
-              send()
-            }, 400)
+        try {
+          if (needsSwap.value && swapEffectiveQuote.value) {
+            plan.value = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value, { includePermit2Call: false })
+          }
+          else {
+            plan.value = await buildSupplyPlan(
+              vaultAddress,
+              asset.value.address,
+              valueToNano(amount.value || '0', asset.value.decimals),
+              undefined,
+              { includePermit2Call: false },
+            )
+          }
+        }
+        catch (e) {
+          console.warn('[OperationReviewModal] failed to build plan', e)
+          plan.value = null
+        }
+
+        if (plan.value) {
+          const ok = await runSimulation(plan.value)
+          if (!ok) {
+            return
+          }
+        }
+
+        const reviewAsset = needsSwap.value && selectedAsset.value ? selectedAsset.value : asset.value
+        const reviewType = needsSwap.value ? 'swap-supply' as const : 'supply' as const
+        modal.open(OperationReviewModal, {
+          props: {
+            type: reviewType,
+            asset: reviewAsset,
+            amount: amount.value,
+            plan: plan.value || undefined,
+            swapToAsset: needsSwap.value ? asset.value : undefined,
+            swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
+            onConfirm: () => {
+              setTimeout(() => {
+                send()
+              }, 400)
+            },
           },
-        },
+        })
       })
     })
   }
@@ -500,6 +507,15 @@ const swapEstimatedOutput = computed(() => {
   const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
   if (amountOut <= 0n) return ''
   return formatUnits(amountOut, Number(asset.value.decimals))
+})
+
+const { priceImpact: swapPriceImpact } = useSwapPriceImpact({
+  quote: swapEffectiveQuote,
+  toVault: evkVault,
+})
+
+const { guardWithPriceImpact } = usePriceImpactGate({
+  directPriceImpact: swapPriceImpact,
 })
 
 const swapRouteItems = computed(() => {
@@ -653,7 +669,7 @@ watch(address, () => {
           v-if="features.hasOverview && vault && vaultType === 'evk'"
           :vault="vault"
           desktop-overview
-          @vault-click="(address: string) => router.push({ path: `/lend/${address}`, query: { network: route.query.network } })"
+          @vault-click="(address: string) => router.push({ path: `/borrow/${address}/${vault!.address}`, query: { network: route.query.network } })"
         />
         <!-- Securitize Vault Overview -->
         <SecuritizeVaultOverview
@@ -768,13 +784,24 @@ watch(address, () => {
                   ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ asset.symbol }}
                 </p>
               </SummaryRow>
+              <SummaryRow
+                v-if="swapPriceImpact !== null"
+                label="Price impact"
+              >
+                <span
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(swapPriceImpact) }"
+                >
+                  {{ formatNumber(swapPriceImpact, 2) }}%
+                </span>
+              </SummaryRow>
               <SummaryRow label="Slippage tolerance">
                 <button
                   type="button"
                   class="flex items-center gap-6 text-p2"
                   @click="openSlippageSettings"
                 >
-                  <span>{{ formatNumber(swapSlippage, 2, 0) }}%</span>
+                  <span :class="{ 'text-error-500': isSlippageWarning(swapSlippage) }">{{ formatNumber(swapSlippage, 2, 0) }}%</span>
                   <SvgIcon
                     name="edit"
                     class="!w-16 !h-16 text-accent-600"

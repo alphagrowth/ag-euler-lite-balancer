@@ -106,6 +106,23 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
     catch { return null }
   })
 
+  const isRepayExceedsDebt = computed(() => {
+    if (isSameAsset.value) return false
+    if (!position.value || position.value.borrowed <= 0n) return false
+    if (direction.value === SwapperMode.EXACT_IN) {
+      if (debtRepaid.value === null) return false
+      return debtRepaid.value > position.value.borrowed
+    }
+    if (direction.value === SwapperMode.TARGET_DEBT && debtAmount.value && borrowVault.value) {
+      try {
+        const inputNano = valueToNano(debtAmount.value, borrowVault.value.asset.decimals)
+        return inputNano > position.value.borrowed
+      }
+      catch { return false }
+    }
+    return false
+  })
+
   // --- Async USD values ---
   const sourceUsdGuard = createRaceGuard()
   const sourceValueUsd = ref<number | null>(null)
@@ -371,6 +388,7 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
     isSameAsset,
     spent,
     debtRepaid,
+    isRepayExceedsDebt,
     sourceValueUsd,
     borrowValueUsd,
     nextBorrowValueUsd,

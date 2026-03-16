@@ -30,7 +30,7 @@ defineProps<{ title?: string, loading?: boolean }>()
     </div>
 
     <div
-      class="flex flex-col gap-8 pt-16 mobile:mt-auto laptop:-mx-16 laptop:px-16"
+      class="flex flex-col gap-8 pt-16 laptop:-mx-16 laptop:px-16"
     >
       <slot name="buttons" />
     </div>

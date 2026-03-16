@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { DateTime } from 'luxon'
 import { formatNumber } from '~/utils/string-utils'
+import type { RewardCampaign } from '~/entities/reward-campaign'
 
 const emits = defineEmits(['close'])
 const {
@@ -9,6 +11,8 @@ const {
   intrinsicBorrowAPY,
   supplyRewardAPY,
   borrowRewardAPY,
+  supplyCampaigns,
+  borrowCampaigns,
 } = defineProps<{
   supplyAPY: number
   borrowAPY: number
@@ -16,6 +20,8 @@ const {
   intrinsicBorrowAPY?: number
   supplyRewardAPY?: number | null
   borrowRewardAPY?: number | null
+  supplyCampaigns?: RewardCampaign[]
+  borrowCampaigns?: RewardCampaign[]
 }>()
 
 const totalSupplyApy = computed(() =>
@@ -28,6 +34,31 @@ const netApy = computed(() => totalSupplyApy.value - totalBorrowApy.value)
 
 const hasIntrinsic = computed(() => (intrinsicSupplyAPY ?? 0) !== 0 || (intrinsicBorrowAPY ?? 0) !== 0)
 const hasRewards = computed(() => (supplyRewardAPY || 0) > 0 || (borrowRewardAPY || 0) > 0)
+
+const PROVIDER_LABELS: Record<string, string> = {
+  merkl: 'Merkl',
+  brevis: 'Brevis',
+  fuul: 'Fuul',
+}
+
+const mapCampaigns = (campaigns: RewardCampaign[] | undefined, side: string) => {
+  if (!campaigns) return []
+  const now = Math.floor(Date.now() / 1000)
+  return campaigns
+    .filter(c => c.endTimestamp > now || c.endTimestamp === 0)
+    .map(c => ({
+      id: `${side}-${c.vault}-${c.provider}-${c.type}-${c.endTimestamp}`,
+      apr: c.apr,
+      endDate: c.endTimestamp > 0 ? DateTime.fromSeconds(c.endTimestamp) : null,
+      rewardToken: c.rewardToken || { symbol: 'Unknown', icon: '' },
+      source: c.provider,
+      sourceUrl: c.sourceUrl,
+    }))
+    .sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
+}
+
+const supplyRewardsInfo = computed(() => mapCampaigns(supplyCampaigns, 'supply'))
+const borrowRewardsInfo = computed(() => mapCampaigns(borrowCampaigns, 'borrow'))
 
 const handleClose = () => {
   emits('close')
@@ -87,6 +118,38 @@ const handleClose = () => {
             + {{ formatNumber(supplyRewardAPY ?? 0) }}%
           </div>
         </div>
+        <div
+          v-for="reward in supplyRewardsInfo"
+          :key="reward.id"
+          class="flex justify-between items-center mt-12"
+        >
+          <div class="flex">
+            <img
+              v-if="reward.rewardToken.icon"
+              class="w-20 h-20 rounded-full"
+              :src="reward.rewardToken.icon"
+              alt="Reward token logo"
+            >
+            <p class="ml-12">
+              {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
+            </p>
+            <p class="ml-4 text-euler-dark-900">
+              (<a
+                v-if="reward.sourceUrl"
+                :href="reward.sourceUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="underline"
+                @click.stop
+              >{{ PROVIDER_LABELS[reward.source] || reward.source }}</a><template v-else>
+                {{ PROVIDER_LABELS[reward.source] || reward.source }}
+              </template>{{ reward.endDate ? `, ends ${reward.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
+            </p>
+          </div>
+          <div class="text-p2">
+            {{ formatNumber(reward.apr) }}%
+          </div>
+        </div>
       </div>
       <div class="pb-16 mb-16 border-b border-euler-dark-600">
         <div class="flex justify-between items-center">
@@ -133,6 +196,38 @@ const handleClose = () => {
           </div>
           <div class="text-h5">
             - {{ formatNumber(borrowRewardAPY ?? 0) }}%
+          </div>
+        </div>
+        <div
+          v-for="reward in borrowRewardsInfo"
+          :key="reward.id"
+          class="flex justify-between items-center mt-12"
+        >
+          <div class="flex">
+            <img
+              v-if="reward.rewardToken.icon"
+              class="w-20 h-20 rounded-full"
+              :src="reward.rewardToken.icon"
+              alt="Reward token logo"
+            >
+            <p class="ml-12">
+              {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
+            </p>
+            <p class="ml-4 text-euler-dark-900">
+              (<a
+                v-if="reward.sourceUrl"
+                :href="reward.sourceUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="underline"
+                @click.stop
+              >{{ PROVIDER_LABELS[reward.source] || reward.source }}</a><template v-else>
+                {{ PROVIDER_LABELS[reward.source] || reward.source }}
+              </template>{{ reward.endDate ? `, ends ${reward.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
+            </p>
+          </div>
+          <div class="text-p2">
+            {{ formatNumber(reward.apr) }}%
           </div>
         </div>
       </div>

@@ -31,7 +31,7 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 
 ### 🔌 [Data Flow and Integrations](./data-flow-and-integrations.md)
 
-- Unified rewards system (Merkl + Brevis)
+- Unified rewards system (Merkl + Incentra + Fuul)
 - Intrinsic APY (multi-provider yield data)
 - Chain switching and stale data prevention
 - Euler Finance protocol integration
@@ -92,7 +92,7 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 - **Repay from Savings**: Repay debt using savings positions (same or cross-asset)
 - **Explore Markets**: Discover and compare markets grouped by curator/product
 - **Manage Portfolio**: Track positions, rewards, and performance
-- **Access Rewards**: Participate in Merkl and Brevis reward programs
+- **Access Rewards**: Participate in Merkl, Incentra, and Fuul reward programs
 
 ## 🏛️ Key Technologies
 
