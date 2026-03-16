@@ -213,6 +213,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
       if (isHealthInsufficient.value) return true
       return false
     }
+    if (core.isRepayExceedsDebt.value) return true
     if (core.quotes.quoteError.value) return true
     if (!core.quotes.selectedQuote.value) return true
     if (isHealthInsufficient.value) return true
@@ -220,6 +221,9 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
   })
 
   const disabledReason = computed(() => {
+    if (core.isRepayExceedsDebt.value) {
+      return 'You repaying more than required'
+    }
     if (isHealthInsufficient.value) {
       return 'This swap will not restore account health. Repay the full debt from your wallet instead.'
     }
@@ -446,6 +450,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
     // Submit
     isSubmitDisabled,
     disabledReason,
+    isRepayExceedsDebt: core.isRepayExceedsDebt,
     // Handlers
     onAmountInput: core.onAmountInput,
     onDebtInput: core.onDebtInput,

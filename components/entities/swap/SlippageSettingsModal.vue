@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SlippageSettings from '~/components/entities/swap/SlippageSettings.vue'
+
 const emit = defineEmits(['close'])
 const slippageRef = ref<InstanceType<typeof SlippageSettings> | null>(null)
 

@@ -471,7 +471,14 @@ onUnmounted(() => {
               size="compact"
             />
             <UiToast
-              v-if="collateral.disabledReason.value"
+              v-if="collateral.isRepayExceedsDebt.value"
+              title="Error"
+              variant="error"
+              :description="collateral.disabledReason.value"
+              size="compact"
+            />
+            <UiToast
+              v-if="!collateral.isRepayExceedsDebt.value && collateral.disabledReason.value"
               title="Cannot submit"
               variant="warning"
               :description="collateral.disabledReason.value"
@@ -658,7 +665,14 @@ onUnmounted(() => {
               size="compact"
             />
             <UiToast
-              v-if="savings.disabledReason.value"
+              v-if="savings.isRepayExceedsDebt.value"
+              title="Error"
+              variant="error"
+              :description="savings.disabledReason.value"
+              size="compact"
+            />
+            <UiToast
+              v-if="!savings.isRepayExceedsDebt.value && savings.disabledReason.value"
               title="Cannot submit"
               variant="warning"
               :description="savings.disabledReason.value"
