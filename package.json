@@ -54,5 +54,9 @@
     "typescript": "5.9.3",
     "vue-tsc": "2.2.12"
   },
+  "overrides": {
+    "serialize-javascript": ">=7.0.3",
+    "unhead": ">=2.1.11"
+  },
   "license": "MIT"
 }
