@@ -278,7 +278,7 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
     </div>
 
     <p
-      class="text-p3 text-content-primary text-center leading-relaxed px-16 pb-12"
+      class="text-h5 text-content-primary text-center leading-relaxed px-16 pb-12"
     >
       Tap a node to highlight connections and see lending/borrowing options
       below.
