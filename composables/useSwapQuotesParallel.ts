@@ -156,7 +156,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
             if (providersFetchedCount.value >= providersCount.value) {
               isLoading.value = false
               if (!quoteCards.value.length) {
-                quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote. Multiply feature is not available for this asset.'
+                quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote. Swapping is not available for this asset.'
               }
             }
           }
@@ -171,7 +171,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
       if (isAbortError(err)) {
         return
       }
-      quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote. Multiply feature is not available for this asse.'
+      quoteError.value = requestOptions.errorMessage || 'Unable to fetch swap quote. Swapping is not available for this asset.'
       quoteCards.value = []
     }
     finally {
