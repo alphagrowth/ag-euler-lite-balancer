@@ -179,7 +179,7 @@ const metricRange = computed((): { min: number, max: number } => {
             :key="row.address"
           >
             <td
-              class="text-p4 py-6 pr-10 pl-6 whitespace-nowrap sticky left-0 z-10 bg-surface border-b border-r border-white/[0.04] cursor-pointer transition-colors"
+              class="text-p4 font-medium py-6 pr-10 pl-6 whitespace-nowrap sticky left-0 z-10 bg-surface border-b border-r border-white/[0.04] cursor-pointer transition-colors"
               :class="
                 selectedHeader?.address === row.address
                   && selectedHeader?.axis === 'row'
@@ -304,7 +304,8 @@ const metricRange = computed((): { min: number, max: number } => {
   </div>
 
   <p
-    class="text-h5 text-content-primary text-center leading-relaxed px-16 pb-12"
+    v-if="!selectedCell && !selectedHeader"
+    class="text-h6 text-content-primary text-center leading-relaxed px-16 pb-12"
   >
     Tap a cell, row, or column header to see lending/borrowing options below.
   </p>
