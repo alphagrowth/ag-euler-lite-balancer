@@ -11,6 +11,8 @@ export const useDeployConfig = () => {
     return s === 'true' || s === '1'
   }
 
+  const labelsBaseUrl = (rc.configLabelsBaseUrl || '').trim().replace(/\/+$/, '')
+
   return {
     // URLs (empty string = not configured, hide UI element)
     docsUrl: rc.configDocsUrl,
@@ -29,11 +31,11 @@ export const useDeployConfig = () => {
     labelsRepo: rc.configLabelsRepo || 'euler-xyz/euler-labels',
     labelsRepoBranch: rc.configLabelsRepoBranch || 'master',
     oracleChecksRepo: rc.configOracleChecksRepo || 'euler-xyz/oracle-checks',
-    labelsBaseUrl: (rc.configLabelsBaseUrl || '').trim().replace(/\/+$/, ''),
+    labelsBaseUrl,
     oracleChecksBaseUrl: (rc.configOracleChecksBaseUrl || '').trim().replace(/\/+$/, ''),
     isCustomLabelsRepo: computed(() => {
-      if (rc.configLabelsBaseUrl) {
-        return !String(rc.configLabelsBaseUrl).includes('master')
+      if (labelsBaseUrl) {
+        return !labelsBaseUrl.includes('master')
       }
       const repo = rc.configLabelsRepo || 'euler-xyz/euler-labels'
       const branch = rc.configLabelsRepoBranch || 'master'
