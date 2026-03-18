@@ -34,7 +34,7 @@ jobs:
           if [ ${#OUTPUT} -gt $MAX_CHARS ]; then
             OUTPUT="${OUTPUT:0:$MAX_CHARS}
 
-...[truncated — full output exceeds GitHub API limit]"
+[truncated — full output exceeds GitHub API limit]"
           fi
 
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
