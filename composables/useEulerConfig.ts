@@ -27,8 +27,10 @@ export const useEulerConfig = () => {
   const { chainId } = useEulerAddresses()
   const requestUrl = useRequestURL()
 
-  const resolvedLabelsBaseUrl = configLabelsBaseUrl
+  const resolvedLabelsBaseUrl = (
+    configLabelsBaseUrl
     || `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/${labelsRepoBranch}`
+  ).replace(/\/+$/, '')
 
   return {
     // APIs (from constants)
