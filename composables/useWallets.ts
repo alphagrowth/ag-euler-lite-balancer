@@ -103,23 +103,29 @@ export const useWallets = () => {
         }) as bigint[]
       }
       catch {
-        // Fallback: fetch balances individually
-        result = await Promise.all(
-          tokenAddresses.map(async (tokenAddr) => {
-            try {
-              const balance = await client.readContract({
-                address: tokenAddr,
-                abi: erc20BalanceOfAbi,
-                functionName: 'balanceOf',
-                args: [address.value as Address],
-              }) as bigint
-              return balance
-            }
-            catch {
-              return 0n
-            }
-          }),
-        )
+        // Fallback: fetch balances in bounded batches to avoid RPC bursts
+        const BATCH_SIZE = 200
+        result = []
+        for (let i = 0; i < tokenAddresses.length; i += BATCH_SIZE) {
+          const batch = tokenAddresses.slice(i, i + BATCH_SIZE)
+          const batchResult = await Promise.all(
+            batch.map(async (tokenAddr) => {
+              try {
+                const balance = await client.readContract({
+                  address: tokenAddr,
+                  abi: erc20BalanceOfAbi,
+                  functionName: 'balanceOf',
+                  args: [address.value as Address],
+                }) as bigint
+                return balance
+              }
+              catch {
+                return 0n
+              }
+            }),
+          )
+          result.push(...batchResult)
+        }
       }
 
       // Only update if still on same chain
