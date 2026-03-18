@@ -6,6 +6,7 @@ import type {
 import { useEulerConfig } from '~/composables/useEulerConfig'
 import { safeAssign } from '~/utils/safe-assign'
 import { logWarn } from '~/utils/errorHandling'
+import { getTokenListLogoUrl } from '~/composables/useTokenList'
 
 const isLoading = ref(false)
 const tokensByAddress: Record<string, TokenData> = shallowReactive({})
@@ -57,5 +58,6 @@ const tokenIconOverrides = new Map(
 export const getAssetLogoUrl = (address: string, symbol: string) => {
   return tokenIconOverrides.get(symbol.toLowerCase())
     ?? tokensByAddress[address.toLowerCase()]?.logoURI
+    ?? getTokenListLogoUrl(address)
     ?? ''
 }

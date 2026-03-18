@@ -6,6 +6,7 @@ import { FixedPoint } from '~/utils/fixed-point'
 import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { Vault, VaultAsset } from '~/entities/vault'
+import type { SwapTokenSelectMeta } from '~/components/entities/asset/SwapTokenSelector.vue'
 import { fetchBackendPrice } from '~/services/pricing/backendClient'
 import type { SwapApiQuote } from '~/entities/swap'
 import { SwapperMode } from '~/entities/swap'
@@ -23,6 +24,7 @@ const balance = ref(0n)
 const selectedAsset = ref<VaultAsset | undefined>()
 const selectedAssetBalance = ref(0n)
 const swapAssetUsdPrice = ref<number | undefined>()
+const isUnknownSwapToken = ref(false)
 
 const needsSwap = computed(() => {
   if (!selectedAsset.value || !form.asset.value) return false
@@ -125,8 +127,9 @@ const fetchSelectedAssetBalance = async () => {
   selectedAssetBalance.value = await fetchSingleBalance(selectedAsset.value.address)
 }
 
-const onSelectSwapAsset = (newAsset: VaultAsset) => {
+const onSelectSwapAsset = (newAsset: VaultAsset, meta?: SwapTokenSelectMeta) => {
   selectedAsset.value = newAsset
+  isUnknownSwapToken.value = meta?.isUnknownToken ?? false
   form.amount.value = ''
   form.clearSimulationError()
   form.resetSwapQuoteState()
@@ -283,6 +286,14 @@ onUnmounted(() => {
               size="compact"
             />
           </template>
+
+          <UiToast
+            v-if="isUnknownSwapToken && needsSwap"
+            title="Unknown token"
+            description="This token is not on any recognized token list. It could be fraudulent or malicious. Verify the contract address before proceeding."
+            variant="warning"
+            size="compact"
+          />
 
           <UiToast
             v-if="form.isGeoBlocked.value"

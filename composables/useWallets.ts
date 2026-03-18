@@ -44,6 +44,7 @@ export const useWallets = () => {
     }
 
     // Collect unique underlying asset addresses from ALL vaults (evk, earn, securitize)
+    // plus external token list tokens for the swap selector
     // Note: We only fetch underlying token balances, NOT vault share balances
     // Share balances are fetched separately on individual pages via account lens
     const addresses = new Set<string>()
@@ -59,6 +60,17 @@ export const useWallets = () => {
         }
       }
     })
+
+    // Include token list addresses (for swap selector zero-balance filtering)
+    const { getAllTokens } = useTokenList()
+    for (const token of getAllTokens()) {
+      try {
+        addresses.add(getAddress(token.address))
+      }
+      catch {
+        // Skip invalid addresses
+      }
+    }
 
     const tokenAddresses = [...addresses] as Address[]
     if (!tokenAddresses.length) {

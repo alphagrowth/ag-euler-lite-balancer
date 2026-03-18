@@ -367,8 +367,11 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   }, 500)
 
   // --- Actions: swap token selection ---
-  const onSelectBorrowSwapAsset = (newAsset: VaultAsset) => {
+  const isUnknownBorrowSwapToken = ref(false)
+
+  const onSelectBorrowSwapAsset = (newAsset: VaultAsset, meta?: { isUnknownToken?: boolean }) => {
     borrowSelectedAsset.value = newAsset
+    isUnknownBorrowSwapToken.value = meta?.isUnknownToken ?? false
     collateralAmount.value = ''
     clearBorrowSimulationError()
     resetBorrowSwapQuoteState()
@@ -794,6 +797,9 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     borrowSwapQuotesStatusLabel,
     borrowSwapEffectiveQuote,
     selectBorrowSwapQuote,
+
+    // Unknown token warning
+    isUnknownBorrowSwapToken,
 
     // Display
     collateralUnitPrice,

@@ -71,7 +71,9 @@ export const useFuul = () => {
       const campaignMap = new Map<string, RewardCampaign[]>()
 
       for (const item of data) {
-        const vaultKey = item.trigger.context.token_address.toLowerCase()
+        const tokenAddress = item.trigger?.context?.token_address
+        if (!tokenAddress) continue
+        const vaultKey = tokenAddress.toLowerCase()
 
         const rewardCampaign: RewardCampaign = {
           vault: vaultKey,
