@@ -129,7 +129,6 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const lastCollateralAddress = ref('')
 
   // --- Swap infrastructure ---
-  const { enableSwapDeposit } = useDeployConfig()
   const { slippage: swapSlippage } = useSlippage()
   const {
     sortedQuoteCards: swapQuoteCardsSorted,
@@ -664,7 +663,6 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     liquidationPrice,
 
     // Swap
-    enableSwapDeposit,
     swapSlippage,
     swapQuoteCardsSorted,
     swapSelectedProvider,
