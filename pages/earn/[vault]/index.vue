@@ -197,6 +197,7 @@ const onSupplyInfoIconClick = () => {
       intrinsicAPY: intrinsicApy.value,
       intrinsicApyInfo: getIntrinsicApyInfo(vault.value?.asset.address),
       campaigns: getSupplyRewardCampaigns(vaultAddress),
+      baseApyAverageLabel: '1h',
     },
   })
 }
@@ -262,6 +263,9 @@ watch(address, () => {
             <div class="flex flex-col items-end justify-end">
               <p class="mb-4 text-content-tertiary flex items-center gap-4">
                 Supply APY
+                <span class="inline-flex h-20 items-center rounded-full border border-accent-200 bg-accent-100 px-7 text-[10px] font-semibold tracking-[0.08em] text-accent-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+                  1h
+                </span>
                 <SvgIcon
                   class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
                   name="info-circle"

@@ -48,6 +48,7 @@ const onSupplyInfoIconClick = () => {
       intrinsicAPY: getIntrinsicApy(vault.asset.address),
       intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
       campaigns: getSupplyRewardCampaigns(vault.address),
+      baseApyAverageLabel: '1h',
     },
   })
 }
@@ -73,7 +74,12 @@ const onSupplyInfoIconClick = () => {
         orientation="horizontal"
       >
         <template #label>
-          Supply APY
+          <span class="flex items-center gap-6">
+            Supply APY
+            <span class="inline-flex h-20 items-center rounded-full border border-accent-200 bg-accent-100 px-7 text-[10px] font-semibold tracking-[0.08em] text-accent-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+              1h
+            </span>
+          </span>
         </template>
         <span class="flex items-center gap-4">
           <SvgIcon
