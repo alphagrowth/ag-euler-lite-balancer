@@ -105,7 +105,6 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   )
 
   // --- Swap & borrow composable instances ---
-  const { enableSwapDeposit } = useDeployConfig()
   const { slippage: borrowSwapSlippage } = useSlippage()
   const {
     sortedQuoteCards: borrowSwapQuoteCards,
@@ -787,7 +786,6 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     borrowSelectedAsset,
     borrowSelectedAssetBalance,
     borrowSwapAssetUsdPrice,
-    enableSwapDeposit,
     borrowSwapSlippage,
     borrowSwapSelectedProvider,
     borrowSwapQuoteCards,

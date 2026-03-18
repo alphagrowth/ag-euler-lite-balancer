@@ -70,7 +70,6 @@ const estimateSupplyAPY = ref(0n)
 const estimatesError = ref('')
 
 // Withdraw & swap state
-const { enableSwapDeposit } = useDeployConfig()
 const selectedOutputAsset = ref<VaultAsset | undefined>()
 const needsSwap = computed(() => {
   if (!selectedOutputAsset.value || !asset.value) return false
@@ -513,10 +512,7 @@ watch(swapSelectedQuote, () => {
           />
 
           <!-- Receive as token selector -->
-          <div
-            v-if="enableSwapDeposit"
-            class="flex items-center gap-8"
-          >
+          <div class="flex items-center gap-8">
             <span class="text-p3 text-content-tertiary">Receive as</span>
             <button
               type="button"
