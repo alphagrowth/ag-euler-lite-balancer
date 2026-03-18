@@ -84,6 +84,7 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
       intrinsicAPY: getIntrinsicApy(vault.asset.address),
       intrinsicApyInfo: getIntrinsicApyInfo(vault.asset.address),
       campaigns: getSupplyRewardCampaigns(vault.address),
+      baseApyAverageLabel: '1h',
     },
   })
 }
@@ -142,6 +143,9 @@ const onSupplyInfoIconClick = (event: MouseEvent) => {
       <div class="flex flex-col items-end">
         <div class="text-content-tertiary text-p3 mb-4 text-right flex items-center gap-4">
           Supply APY
+          <span class="inline-flex h-20 items-center rounded-full border border-accent-200 bg-accent-100 px-7 text-[10px] font-semibold tracking-[0.08em] text-accent-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+            1h
+          </span>
           <SvgIcon
             class="!w-16 !h-16 shrink-0 text-content-muted hover:text-content-secondary transition-colors cursor-pointer"
             name="info-circle"
