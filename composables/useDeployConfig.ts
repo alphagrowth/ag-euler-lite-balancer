@@ -32,7 +32,9 @@ export const useDeployConfig = () => {
     labelsBaseUrl: (rc.configLabelsBaseUrl || '').trim().replace(/\/+$/, ''),
     oracleChecksBaseUrl: (rc.configOracleChecksBaseUrl || '').trim().replace(/\/+$/, ''),
     isCustomLabelsRepo: computed(() => {
-      if (rc.configLabelsBaseUrl) return true
+      if (rc.configLabelsBaseUrl) {
+        return !String(rc.configLabelsBaseUrl).includes('master')
+      }
       const repo = rc.configLabelsRepo || 'euler-xyz/euler-labels'
       const branch = rc.configLabelsRepoBranch || 'master'
       return repo !== 'euler-xyz/euler-labels' || branch !== 'master'
