@@ -24,7 +24,23 @@ const {
   isBestInMarket?: boolean
 }>()
 
-const { getLoopingRewardApy, getLoopingRewardCampaigns } = useRewardsApy()
+const { getLoopingRewardApy, getLoopingRewardCampaigns, getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns } = useRewardsApy()
+
+const mapCampaigns = (campaigns: RewardCampaign[]) => {
+  const now = Math.floor(Date.now() / 1000)
+  return campaigns
+    .filter(c => c.endTimestamp > now || c.endTimestamp === 0)
+    .map(c => ({
+      apr: c.apr,
+      endDate: c.endTimestamp > 0 ? DateTime.fromSeconds(c.endTimestamp) : null,
+      rewardToken: c.rewardToken || { symbol: 'Unknown', icon: '' },
+      source: c.provider,
+      sourceUrl: c.sourceUrl,
+      minMultiplier: c.minMultiplier,
+      maxMultiplier: c.maxMultiplier,
+    }))
+    .sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
+}
 
 const loopingRewardAPR = computed(() =>
   borrowVaultAddress && collateralAddress
@@ -34,21 +50,34 @@ const loopingRewardAPR = computed(() =>
 
 const loopingCampaigns = computed(() => {
   if (!borrowVaultAddress || !collateralAddress) return []
-  const campaigns = getLoopingRewardCampaigns(borrowVaultAddress, collateralAddress)
-  const now = Math.floor(Date.now() / 1000)
-  return campaigns
-    .filter((c: RewardCampaign) => c.endTimestamp > now || c.endTimestamp === 0)
-    .map((c: RewardCampaign) => ({
-      apr: c.apr,
-      endDate: c.endTimestamp > 0 ? DateTime.fromSeconds(c.endTimestamp) : null,
-      rewardToken: c.rewardToken || { symbol: 'Unknown', icon: '' },
-      source: c.provider,
-      sourceUrl: c.sourceUrl,
-      minMultiplier: c.minMultiplier,
-      maxMultiplier: c.maxMultiplier,
-    }))
+  return mapCampaigns(getLoopingRewardCampaigns(borrowVaultAddress, collateralAddress))
 })
 
+const supplyCampaigns = computed(() => {
+  if (!collateralAddress) return []
+  return mapCampaigns(getSupplyRewardCampaigns(collateralAddress))
+})
+
+const borrowCampaigns = computed(() => {
+  if (!borrowVaultAddress || !collateralAddress) return []
+  return mapCampaigns(getBorrowRewardCampaigns(borrowVaultAddress, collateralAddress))
+})
+
+const supplyRewardAPY = computed(() =>
+  collateralAddress ? getSupplyRewardApy(collateralAddress) : 0,
+)
+
+const borrowRewardAPY = computed(() =>
+  borrowVaultAddress && collateralAddress
+    ? getBorrowRewardApy(borrowVaultAddress, collateralAddress)
+    : 0,
+)
+
+const baseSupplyAPY = computed(() => supplyAPY - supplyRewardAPY.value)
+const baseBorrowAPY = computed(() => borrowAPY + borrowRewardAPY.value)
+
+const hasSupplyRewards = computed(() => supplyRewardAPY.value > 0)
+const hasBorrowRewards = computed(() => borrowRewardAPY.value > 0)
 const hasLooping = computed(() => loopingRewardAPR.value > 0)
 
 const handleClose = () => {
@@ -105,10 +134,69 @@ const handleClose = () => {
             </p>
           </div>
           <div class="text-h5">
-            {{ formatNumber(supplyAPY) }}%
+            {{ formatNumber(baseSupplyAPY) }}%
           </div>
         </div>
-        <div class="flex justify-between items-center">
+        <div
+          v-if="hasSupplyRewards"
+          class="flex justify-between items-center mt-16"
+        >
+          <div>
+            <p class="mb-4 flex gap-4">
+              <SvgIcon
+                class="!w-20 !h-20 text-accent-500"
+                name="sparks"
+              />
+              <span>Supply rewards APY</span>
+            </p>
+          </div>
+          <div class="text-h5">
+            + {{ formatNumber(supplyRewardAPY) }}%
+          </div>
+        </div>
+        <div
+          v-for="campaign in supplyCampaigns"
+          :key="`supply-${campaign.rewardToken.symbol}-${campaign.source}`"
+          class="flex justify-between items-center mt-12"
+        >
+          <div class="flex">
+            <img
+              v-if="campaign.rewardToken.icon"
+              class="w-20 h-20 rounded-full"
+              :src="campaign.rewardToken.icon"
+              alt="Reward token logo"
+            >
+            <p class="ml-12">
+              {{ campaign.rewardToken.symbol }}
+            </p>
+            <p class="ml-4 text-euler-dark-900">
+              (<a
+                v-if="campaign.sourceUrl"
+                :href="campaign.sourceUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="underline"
+                @click.stop
+              ><img
+                v-if="PROVIDER_LOGOS[campaign.source]"
+                :src="PROVIDER_LOGOS[campaign.source]"
+                class="w-14 h-14 inline-block align-middle mr-2"
+                :alt="PROVIDER_LABELS[campaign.source]"
+              >{{ PROVIDER_LABELS[campaign.source] || campaign.source }}</a><template v-else>
+                <img
+                  v-if="PROVIDER_LOGOS[campaign.source]"
+                  :src="PROVIDER_LOGOS[campaign.source]"
+                  class="w-14 h-14 inline-block align-middle mr-2"
+                  :alt="PROVIDER_LABELS[campaign.source]"
+                >{{ PROVIDER_LABELS[campaign.source] || campaign.source }}
+              </template>{{ campaign.endDate ? `, ends ${campaign.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
+            </p>
+          </div>
+          <div class="text-p2">
+            {{ formatNumber(campaign.apr) }}%
+          </div>
+        </div>
+        <div class="flex justify-between items-center mt-16">
           <div>
             <p class="mb-4">
               Borrow APY
@@ -118,7 +206,66 @@ const handleClose = () => {
             </p>
           </div>
           <div class="text-h5">
-            {{ formatNumber(borrowAPY) }}%
+            {{ formatNumber(baseBorrowAPY) }}%
+          </div>
+        </div>
+        <div
+          v-if="hasBorrowRewards"
+          class="flex justify-between items-center mt-16"
+        >
+          <div>
+            <p class="mb-4 flex gap-4">
+              <SvgIcon
+                class="!w-20 !h-20 text-accent-500"
+                name="sparks"
+              />
+              <span>Borrow rewards APY</span>
+            </p>
+          </div>
+          <div class="text-h5">
+            - {{ formatNumber(borrowRewardAPY) }}%
+          </div>
+        </div>
+        <div
+          v-for="campaign in borrowCampaigns"
+          :key="`borrow-${campaign.rewardToken.symbol}-${campaign.source}`"
+          class="flex justify-between items-center mt-12"
+        >
+          <div class="flex">
+            <img
+              v-if="campaign.rewardToken.icon"
+              class="w-20 h-20 rounded-full"
+              :src="campaign.rewardToken.icon"
+              alt="Reward token logo"
+            >
+            <p class="ml-12">
+              {{ campaign.rewardToken.symbol }}
+            </p>
+            <p class="ml-4 text-euler-dark-900">
+              (<a
+                v-if="campaign.sourceUrl"
+                :href="campaign.sourceUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="underline"
+                @click.stop
+              ><img
+                v-if="PROVIDER_LOGOS[campaign.source]"
+                :src="PROVIDER_LOGOS[campaign.source]"
+                class="w-14 h-14 inline-block align-middle mr-2"
+                :alt="PROVIDER_LABELS[campaign.source]"
+              >{{ PROVIDER_LABELS[campaign.source] || campaign.source }}</a><template v-else>
+                <img
+                  v-if="PROVIDER_LOGOS[campaign.source]"
+                  :src="PROVIDER_LOGOS[campaign.source]"
+                  class="w-14 h-14 inline-block align-middle mr-2"
+                  :alt="PROVIDER_LABELS[campaign.source]"
+                >{{ PROVIDER_LABELS[campaign.source] || campaign.source }}
+              </template>{{ campaign.endDate ? `, ends ${campaign.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
+            </p>
+          </div>
+          <div class="text-p2">
+            {{ formatNumber(campaign.apr) }}%
           </div>
         </div>
         <template v-if="hasLooping">

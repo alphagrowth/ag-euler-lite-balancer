@@ -33,8 +33,8 @@ const {
   loopingCampaigns?: RewardCampaign[]
 }>()
 
-const totalSupplyApy = computed(() => supplyAPY + (supplyRewardAPY || 0))
-const totalBorrowApy = computed(() => borrowAPY - (borrowRewardAPY || 0))
+const hasSupplyRewards = computed(() => (supplyRewardAPY || 0) > 0)
+const hasBorrowRewards = computed(() => (borrowRewardAPY || 0) > 0)
 const hasLoopingCampaigns = computed(() => loopingRewardsInfo.value.length > 0)
 const hasLoopingAPY = computed(() => (loopingRewardAPY || 0) > 0)
 
@@ -111,13 +111,30 @@ const handleClose = () => {
             </p>
           </div>
           <div class="text-h5">
-            {{ formatNumber(totalSupplyApy) }}%
+            {{ formatNumber(supplyAPY) }}%
+          </div>
+        </div>
+        <div
+          v-if="hasSupplyRewards"
+          class="flex justify-between items-center mt-16"
+        >
+          <div>
+            <p class="mb-4 flex gap-4">
+              <SvgIcon
+                class="!w-20 !h-20 text-accent-500"
+                name="sparks"
+              />
+              <span>Supply rewards APY</span>
+            </p>
+          </div>
+          <div class="text-h5">
+            + {{ formatNumber(supplyRewardAPY ?? 0) }}%
           </div>
         </div>
         <div
           v-for="reward in supplyRewardsInfo"
           :key="reward.id"
-          class="flex justify-between items-center mb-12"
+          class="flex justify-between items-center mt-12"
         >
           <div class="flex">
             <img
@@ -156,7 +173,7 @@ const handleClose = () => {
             {{ formatNumber(reward.apr) }}%
           </div>
         </div>
-        <div class="flex justify-between items-center">
+        <div class="flex justify-between items-center mt-16">
           <div>
             <p class="mb-4">
               Borrow APY
@@ -166,7 +183,24 @@ const handleClose = () => {
             </p>
           </div>
           <div class="text-h5">
-            {{ formatNumber(totalBorrowApy) }}%
+            {{ formatNumber(borrowAPY) }}%
+          </div>
+        </div>
+        <div
+          v-if="hasBorrowRewards"
+          class="flex justify-between items-center mt-16"
+        >
+          <div>
+            <p class="mb-4 flex gap-4">
+              <SvgIcon
+                class="!w-20 !h-20 text-accent-500"
+                name="sparks"
+              />
+              <span>Borrow rewards APY</span>
+            </p>
+          </div>
+          <div class="text-h5">
+            - {{ formatNumber(borrowRewardAPY ?? 0) }}%
           </div>
         </div>
         <div
