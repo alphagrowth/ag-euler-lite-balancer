@@ -24,6 +24,7 @@ import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/compos
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import type { SwapApiQuote } from '~/entities/swap'
+import type { SwapTokenSelectMeta } from '~/components/entities/asset/SwapTokenSelector.vue'
 import type { SwapApiRequestInput } from '~/composables/useSwapApi'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
@@ -342,11 +343,12 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     })
   }, 500)
 
-  const openSwapTokenSelector = (currentAddress?: string, onSelect?: (a: VaultAsset) => void) => {
+  const openSwapTokenSelector = (currentAddress?: string, onSelect?: (a: VaultAsset, meta?: SwapTokenSelectMeta) => void) => {
     modal.open(SwapTokenSelector, {
       props: {
         currentAssetAddress: currentAddress || asset.value?.address,
         onSelect: onSelect || (() => {}),
+        mode: options.mode === 'withdraw' ? 'output' : 'input',
       },
     })
   }
