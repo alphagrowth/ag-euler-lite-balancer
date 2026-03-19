@@ -5,7 +5,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated, isVaultNotExplorableBorrow } from '~/utils/eulerLabelsUtils'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useVaultSearch } from '~/composables/useVaultSearch'
@@ -46,7 +46,12 @@ const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value || !
 const { enableEntityBranding } = useDeployConfig()
 const { entities } = useEulerLabels()
 
-const activeBorrowList = computed(() => borrowList.value)
+const activeBorrowList = computed(() =>
+  borrowList.value.filter(pair =>
+    !isVaultNotExplorableBorrow(pair.borrow.address)
+    && !isVaultNotExplorableBorrow(pair.collateral.address),
+  ),
+)
 
 const { searchQuery, matchesSearch, clearSearch } = useVaultSearch<AnyBorrowVaultPair>(pair => [
   pair.collateral.asset.symbol,
