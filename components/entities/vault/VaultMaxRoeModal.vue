@@ -158,7 +158,7 @@ const handleClose = () => {
                   alt="Reward token logo"
                 >
                 <p :class="campaign.rewardToken.icon ? 'ml-12' : ''">
-                  {{ campaign.rewardToken.symbol }} reward
+                  {{ campaign.rewardToken.symbol }}
                 </p>
                 <p class="ml-4 text-euler-dark-900">
                   (<a
