@@ -6,11 +6,6 @@ export const useDeployConfig = () => {
     const s = String(val)
     return s !== 'false' && s !== '0'
   }
-  const isExplicitlyEnabled = (val: unknown) => {
-    const s = String(val)
-    return s === 'true' || s === '1'
-  }
-
   return {
     // URLs (empty string = not configured, hide UI element)
     docsUrl: rc.configDocsUrl,
@@ -44,7 +39,6 @@ export const useDeployConfig = () => {
     enableExplorePage: isEnabled(rc.configEnableExplorePage),
     enablePoweredByEuler: isEnabled(rc.configEnablePoweredByEuler),
     enableAppTitle: isEnabled(rc.configEnableAppTitle),
-    enableSwapDeposit: isExplicitlyEnabled(rc.configEnableSwapDeposit),
     enableMerkl: isEnabled(rc.configEnableMerkl),
     enableIncentra: isEnabled(rc.configEnableIncentra),
     enableFuul: isEnabled(rc.configEnableFuul),

@@ -25,6 +25,7 @@ export default defineNuxtConfig({
   },
 
   app: {
+    pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: 'Euler Lite',
       htmlAttrs: {
@@ -112,8 +113,6 @@ export default defineNuxtConfig({
       configEnableExplorePage: '',
       configEnablePoweredByEuler: '',
       configEnableAppTitle: '',
-      // Feature flags: disabled by default. Set to 'true' to enable.
-      configEnableSwapDeposit: '',
       // Incentives provider flags: enabled by default. Set to 'false' to disable.
       configEnableMerkl: '',
       configEnableIncentra: '',

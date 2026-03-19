@@ -85,7 +85,6 @@ const monthlyEarnings = ref(0)
 const monthlyEarningsUsd = ref(0)
 
 // Swap & deposit state
-const { enableSwapDeposit } = useDeployConfig()
 const selectedAsset = ref<VaultAsset | undefined>()
 const selectedAssetBalance = ref(0n)
 const swapAssetUsdPrice = ref<number | undefined>()
@@ -738,10 +737,7 @@ watch(address, () => {
           />
 
           <!-- Pay with token selector -->
-          <div
-            v-if="enableSwapDeposit"
-            class="flex items-center gap-8"
-          >
+          <div class="flex items-center gap-8">
             <span class="text-p3 text-content-tertiary">Pay with</span>
             <button
               type="button"

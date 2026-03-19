@@ -463,7 +463,7 @@ watch(formTab, () => {
 
               <!-- Pay with token selector -->
               <div
-                v-if="borrow.enableSwapDeposit && collateralVault"
+                v-if="collateralVault"
                 class="flex items-center gap-8"
               >
                 <span class="text-p3 text-content-tertiary">Pay with</span>
