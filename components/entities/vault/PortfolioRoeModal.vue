@@ -12,6 +12,7 @@ const {
   supplyRewardAPY,
   borrowRewardAPY,
   loopingRewardAPY,
+  loopingEligible,
   userLTV,
   supplyCampaigns,
   borrowCampaigns,
@@ -24,6 +25,7 @@ const {
   supplyRewardAPY?: number | null
   borrowRewardAPY?: number | null
   loopingRewardAPY?: number | null
+  loopingEligible?: boolean
   userLTV: number
   supplyCampaigns?: RewardCampaign[]
   borrowCampaigns?: RewardCampaign[]
@@ -32,7 +34,8 @@ const {
 
 const totalSupplyApy = computed(() => supplyAPY + (supplyRewardAPY || 0))
 const totalBorrowApy = computed(() => borrowAPY - (borrowRewardAPY || 0))
-const hasLooping = computed(() => (loopingRewardAPY || 0) > 0)
+const hasLoopingCampaigns = computed(() => (loopingCampaigns?.length ?? 0) > 0)
+const hasLoopingAPY = computed(() => (loopingRewardAPY || 0) > 0)
 
 const PROVIDER_LABELS: Record<string, string> = {
   merkl: 'Merkl',
@@ -193,7 +196,7 @@ const handleClose = () => {
             {{ formatNumber(reward.apr) }}%
           </div>
         </div>
-        <template v-if="hasLooping">
+        <template v-if="hasLoopingCampaigns">
           <div class="flex justify-between items-center mt-16">
             <div>
               <p class="mb-4 flex gap-4">
@@ -260,6 +263,12 @@ const handleClose = () => {
               </template>
             </p>
           </div>
+          <p
+            v-if="loopingEligible === false"
+            class="text-warning-500 text-p4 mt-8"
+          >
+            Your current multiplier does not meet the requirements for this reward. Adjust your position to qualify.
+          </p>
           <p class="text-euler-dark-900 text-p4 mt-8">
             Looping reward is based on net liquidity and does not scale with multiplier.
           </p>
@@ -271,7 +280,7 @@ const handleClose = () => {
             Formula
           </p>
           <p class="text-euler-dark-900">
-            <template v-if="hasLooping">
+            <template v-if="hasLoopingAPY">
               M &times; S - (M - 1) &times; B + R = ROE
             </template>
             <template v-else>

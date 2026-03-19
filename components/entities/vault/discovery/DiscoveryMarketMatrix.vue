@@ -72,7 +72,7 @@ const computeEnhancedApys = (
 
   const supplyFinal = supplyApy + supplyRewards
   const borrowFinal = borrowApy - borrowRewards
-  const netApy = supplyFinal - borrowFinal
+  const netApy = supplyFinal - borrowFinal + loopingRewards
   const multiplier = getMaxMultiplier(cell.ltv.borrowLTV)
   const roe = getMaxRoe(multiplier, supplyFinal, borrowFinal, loopingRewards)
 

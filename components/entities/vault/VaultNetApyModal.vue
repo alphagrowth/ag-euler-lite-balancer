@@ -12,6 +12,7 @@ const {
   supplyRewardAPY,
   borrowRewardAPY,
   loopingRewardAPY,
+  loopingEligible,
   netAPY,
   supplyCampaigns,
   borrowCampaigns,
@@ -26,6 +27,7 @@ const {
   supplyRewardAPY?: number | null
   borrowRewardAPY?: number | null
   loopingRewardAPY?: number | null
+  loopingEligible?: boolean
   netAPY: number
   supplyCampaigns?: RewardCampaign[]
   borrowCampaigns?: RewardCampaign[]
@@ -36,7 +38,7 @@ const hasIntrinsicSupply = computed(() => (intrinsicSupplyAPY ?? 0) !== 0)
 const hasIntrinsicBorrow = computed(() => (intrinsicBorrowAPY ?? 0) !== 0)
 const hasSupplyRewards = computed(() => (supplyRewardAPY || 0) > 0)
 const hasBorrowRewards = computed(() => (borrowRewardAPY || 0) > 0)
-const hasLoopingRewards = computed(() => (loopingRewardAPY || 0) > 0)
+const hasLoopingCampaigns = computed(() => (loopingCampaigns?.length ?? 0) > 0)
 
 const PROVIDER_LABELS: Record<string, string> = {
   merkl: 'Merkl',
@@ -241,7 +243,7 @@ const handleClose = () => {
         </div>
       </div>
       <div
-        v-if="hasLoopingRewards"
+        v-if="hasLoopingCampaigns"
         class="pb-16 mb-16 border-b border-euler-dark-600"
       >
         <div class="flex justify-between items-center">
@@ -310,6 +312,12 @@ const handleClose = () => {
             </template>
           </p>
         </div>
+        <p
+          v-if="loopingEligible === false"
+          class="text-warning-500 text-p4 mt-8"
+        >
+          Your current multiplier does not meet the requirements for this reward. Adjust your position to qualify.
+        </p>
         <p class="text-euler-dark-900 text-p4 mt-8">
           Looping reward is based on net liquidity and does not scale with multiplier.
         </p>

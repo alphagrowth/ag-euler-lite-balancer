@@ -120,10 +120,10 @@ const loopingRewardsAPY = computed(() =>
   getLoopingRewardApy(pair.borrow.address, pair.collateral.address),
 )
 const hasBorrowApyRewards = computed(() =>
-  hasSupplyRewards(pair.collateral.address) || hasBorrowRewards(pair.borrow.address, pair.collateral.address),
+  hasBorrowRewards(pair.borrow.address, pair.collateral.address),
 )
 const hasAnyRewards = computed(() =>
-  hasBorrowApyRewards.value || hasLoopingRewards(pair.borrow.address, pair.collateral.address),
+  hasSupplyRewards(pair.collateral.address) || hasBorrowApyRewards.value || hasLoopingRewards(pair.borrow.address, pair.collateral.address),
 )
 const supplyApy = computed(() => {
   const interestRateInfo
