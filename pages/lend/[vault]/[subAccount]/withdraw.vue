@@ -70,8 +70,8 @@ const estimateSupplyAPY = ref(0n)
 const estimatesError = ref('')
 
 // Withdraw & swap state
-const { enableSwapDeposit } = useDeployConfig()
 const selectedOutputAsset = ref<VaultAsset | undefined>()
+const isUnknownSwapToken = ref(false)
 const needsSwap = computed(() => {
   if (!selectedOutputAsset.value || !asset.value) return false
   try {
@@ -207,8 +207,9 @@ const requestSwapQuote = useDebounceFn(async () => {
   })
 }, 500)
 
-const onSelectOutputAsset = (newAsset: VaultAsset) => {
+const onSelectOutputAsset = (newAsset: VaultAsset, meta?: { isUnknownToken?: boolean }) => {
   selectedOutputAsset.value = newAsset
+  isUnknownSwapToken.value = meta?.isUnknownToken ?? false
   amount.value = ''
   clearSimulationError()
   resetSwapQuoteState()
@@ -219,6 +220,7 @@ const openSwapTokenSelector = () => {
     props: {
       currentAssetAddress: selectedOutputAsset.value?.address || asset.value?.address,
       onSelect: onSelectOutputAsset,
+      mode: 'output' as const,
     },
   })
 }
@@ -513,10 +515,7 @@ watch(swapSelectedQuote, () => {
           />
 
           <!-- Receive as token selector -->
-          <div
-            v-if="enableSwapDeposit"
-            class="flex items-center gap-8"
-          >
+          <div class="flex items-center gap-8">
             <span class="text-p3 text-content-tertiary">Receive as</span>
             <button
               type="button"
@@ -593,6 +592,14 @@ watch(swapSelectedQuote, () => {
               size="compact"
             />
           </template>
+
+          <UiToast
+            v-if="isUnknownSwapToken && needsSwap"
+            title="Unknown token"
+            description="This token is not on any recognized token list. It could be fraudulent or malicious. Verify the contract address before proceeding."
+            variant="warning"
+            size="compact"
+          />
 
           <UiToast
             v-show="estimatesError"

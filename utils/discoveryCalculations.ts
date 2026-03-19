@@ -31,6 +31,8 @@ export interface BestMaxRoeResult {
   supplyAPY: number
   borrowAPY: number
   borrowLTV: number
+  borrowVaultAddress: string
+  collateralAddress: string
 }
 
 export interface EnhancedCellApys {

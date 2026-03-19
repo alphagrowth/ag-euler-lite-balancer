@@ -463,7 +463,7 @@ watch(formTab, () => {
 
               <!-- Pay with token selector -->
               <div
-                v-if="borrow.enableSwapDeposit && collateralVault"
+                v-if="collateralVault"
                 class="flex items-center gap-8"
               >
                 <span class="text-p3 text-content-tertiary">Pay with</span>
@@ -542,6 +542,14 @@ watch(formTab, () => {
                   size="compact"
                 />
               </template>
+
+              <UiToast
+                v-if="borrow.isUnknownBorrowSwapToken.value && borrow.borrowNeedsSwap.value"
+                title="Unknown token"
+                description="This token is not on any recognized token list. It could be fraudulent or malicious. Verify the contract address before proceeding."
+                variant="warning"
+                size="compact"
+              />
 
               <UiRange
                 v-model="borrow.ltv.value"

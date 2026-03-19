@@ -5,11 +5,12 @@ import type { RewardCampaign } from '~/entities/reward-campaign'
 import type { IntrinsicApyInfo } from '~/entities/intrinsic-apy'
 
 const emits = defineEmits(['close'])
-const { lendingAPY, intrinsicAPY, intrinsicApyInfo, campaigns } = defineProps<{
+const { lendingAPY, intrinsicAPY, intrinsicApyInfo, campaigns, baseApyAverageLabel } = defineProps<{
   lendingAPY: number
   intrinsicAPY?: number
   intrinsicApyInfo?: IntrinsicApyInfo
   campaigns?: RewardCampaign[]
+  baseApyAverageLabel?: string
 }>()
 
 const rewardsTotalAPY = computed(() => {
@@ -59,8 +60,14 @@ const handleClose = () => {
       >
         <div class="flex justify-between items-center">
           <div>
-            <p class="mb-4">
+            <p class="mb-4 flex items-center gap-6">
               Lending APY
+              <span
+                v-if="baseApyAverageLabel"
+                class="inline-flex h-20 items-center rounded-full border border-accent-200 bg-accent-100 px-7 text-[10px] font-semibold tracking-[0.08em] text-accent-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]"
+              >
+                {{ baseApyAverageLabel }}
+              </span>
             </p>
             <p class="text-euler-dark-900">
               Yield from lending on Euler
@@ -129,7 +136,7 @@ const handleClose = () => {
             alt="Reward token logo"
           >
           <p class="ml-12">
-            {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
+            {{ reward.rewardToken.symbol }}
           </p>
           <p class="ml-4 text-euler-dark-900">
             (<a

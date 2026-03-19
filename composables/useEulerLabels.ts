@@ -134,10 +134,9 @@ export const useEulerLabels = () => {
       earnVaults.value = []
       verifiedVaultAddresses.value = []
 
-      const [productRes, entitiesRes, pointsRes] = await Promise.all([
+      const [productRes, entitiesRes] = await Promise.all([
         axios.get(getLabelsUrl(chainId, 'products.json')),
         axios.get(getLabelsUrl(chainId, 'entities.json')),
-        axios.get(getLabelsUrl(chainId, 'points.json')),
       ])
 
       try {
@@ -176,23 +175,29 @@ export const useEulerLabels = () => {
 
       safeAssign(entities, normalizeEntities(entitiesRes.data))
 
-      const pointsData = pointsRes.data as EulerLabelPoint[]
-      pointsData.forEach((point) => {
-        if (!point.collateralVaults) {
-          return
-        }
-
-        point.collateralVaults.forEach((vaultAddress) => {
-          const normalized = normalizeAddress(vaultAddress)
-          if (!points[normalized]) {
-            points[normalized] = []
+      try {
+        const pointsRes = await axios.get(getLabelsUrl(chainId, 'points.json'))
+        const pointsData = pointsRes.data as EulerLabelPoint[]
+        pointsData.forEach((point) => {
+          if (!point.collateralVaults) {
+            return
           }
-          points[normalized].push({
-            name: point.name,
-            logo: point.logo,
+
+          point.collateralVaults.forEach((vaultAddress) => {
+            const normalized = normalizeAddress(vaultAddress)
+            if (!points[normalized]) {
+              points[normalized] = []
+            }
+            points[normalized].push({
+              name: point.name,
+              logo: point.logo,
+            })
           })
         })
-      })
+      }
+      catch {
+        // points.json is optional — app functions without it
+      }
 
       loadState.chainId = chainId
       loadState.timestamp = Date.now()

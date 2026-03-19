@@ -78,7 +78,7 @@ These use Nuxt's `runtimeConfig` and are set via `NUXT_PUBLIC_CONFIG_*` env vars
 | `NUXT_PUBLIC_CONFIG_ENABLE_ENTITY_BRANDING` | `true`                                     | Show entity branding                                  |
 | `NUXT_PUBLIC_CONFIG_ENABLE_VAULT_TYPE`      | `true`                                     | Show vault type labels                                |
 | `NUXT_PUBLIC_CONFIG_ENABLE_APP_TITLE`       | `true`                                     | Show app title in the navbar                          |
-| `NUXT_PUBLIC_CONFIG_ENABLE_SWAP_DEPOSIT`    | `false`                                    | Enable swap token selector on deposit/withdraw/borrow |
+| `NUXT_PUBLIC_CONFIG_TOKEN_LIST_URL`         | `https://tokens.uniswap.org`               | External token list for swap selector                 |
 
 #### Chain Configuration
 

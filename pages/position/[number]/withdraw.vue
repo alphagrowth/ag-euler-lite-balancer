@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { getAddress, type Address, zeroAddress } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
 import type { Vault, VaultAsset } from '~/entities/vault'
+import type { SwapTokenSelectMeta } from '~/components/entities/asset/SwapTokenSelector.vue'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import {
   getAssetOraclePrice,
@@ -23,6 +24,7 @@ const { eulerLensAddresses } = useEulerAddresses()
 
 // Withdraw-specific state
 const selectedOutputAsset = ref<VaultAsset | undefined>()
+const isUnknownSwapToken = ref(false)
 
 const needsSwap = computed(() => {
   if (!selectedOutputAsset.value || !form.asset.value) return false
@@ -130,8 +132,9 @@ const withdrawWarnings = computed(() => {
   return [getUtilisationWarning(form.borrowVault.value, 'borrow')]
 })
 
-const onSelectOutputAsset = (newAsset: VaultAsset) => {
+const onSelectOutputAsset = (newAsset: VaultAsset, meta?: SwapTokenSelectMeta) => {
   selectedOutputAsset.value = newAsset
+  isUnknownSwapToken.value = meta?.isUnknownToken ?? false
   form.amount.value = ''
   form.clearSimulationError()
   form.resetSwapQuoteState()
@@ -186,10 +189,7 @@ watch(selectedOutputAsset, () => {
           />
 
           <!-- Receive as token selector -->
-          <div
-            v-if="form.enableSwapDeposit"
-            class="flex items-center gap-8"
-          >
+          <div class="flex items-center gap-8">
             <span class="text-p3 text-content-tertiary">Receive as</span>
             <button
               type="button"
@@ -266,6 +266,14 @@ watch(selectedOutputAsset, () => {
               size="compact"
             />
           </template>
+
+          <UiToast
+            v-if="isUnknownSwapToken && needsSwap"
+            title="Unknown token"
+            description="This token is not on any recognized token list. It could be fraudulent or malicious. Verify the contract address before proceeding."
+            variant="warning"
+            size="compact"
+          />
 
           <UiToast
             v-if="form.isGeoBlocked.value"

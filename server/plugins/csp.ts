@@ -134,7 +134,7 @@ function buildCsp(nonce: string, extraConnectSrc: string[], envOrigins: { connec
     'font-src \'self\' https://fonts.reown.com',
     'frame-src \'self\' https://verify.walletconnect.org https://verify.walletconnect.com',
     'frame-ancestors \'none\'',
-    `img-src 'self' data: blob: https://raw.githubusercontent.com https://storage.googleapis.com https://token-images.euler.finance${imgSuffix}`,
+    `img-src 'self' data: blob: https://raw.githubusercontent.com https://storage.googleapis.com https://token-images.euler.finance https://assets.coingecko.com${imgSuffix}`,
     'manifest-src \'self\'',
     'media-src \'self\'',
     'worker-src \'self\' blob:',

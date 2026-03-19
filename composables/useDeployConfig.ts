@@ -6,11 +6,6 @@ export const useDeployConfig = () => {
     const s = String(val)
     return s !== 'false' && s !== '0'
   }
-  const isExplicitlyEnabled = (val: unknown) => {
-    const s = String(val)
-    return s === 'true' || s === '1'
-  }
-
   const labelsBaseUrl = (rc.configLabelsBaseUrl || '').trim().replace(/\/+$/, '')
 
   return {
@@ -51,10 +46,12 @@ export const useDeployConfig = () => {
     enableExplorePage: isEnabled(rc.configEnableExplorePage),
     enablePoweredByEuler: isEnabled(rc.configEnablePoweredByEuler),
     enableAppTitle: isEnabled(rc.configEnableAppTitle),
-    enableSwapDeposit: isExplicitlyEnabled(rc.configEnableSwapDeposit),
     enableMerkl: isEnabled(rc.configEnableMerkl),
     enableIncentra: isEnabled(rc.configEnableIncentra),
     enableFuul: isEnabled(rc.configEnableFuul),
+
+    // External token list
+    tokenListUrl: rc.configTokenListUrl || 'https://tokens.uniswap.org',
 
     // Chains (derived from env vars at runtime via useChainConfig)
     ...useChainConfig(),

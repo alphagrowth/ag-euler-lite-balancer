@@ -28,13 +28,16 @@ export const getNetAPY = (
   borrowAPY: number,
   supplyRewardAPY?: number | null,
   borrowRewardAPY?: number | null,
+  loopingRewardAPY?: number | null,
 ) => {
   if (supplyUSD === 0) {
     return 0
   }
+  const equity = supplyUSD - borrowUSD
   const sum
     = supplyUSD * (supplyAPY + (supplyRewardAPY || 0))
       - borrowUSD * (borrowAPY - (borrowRewardAPY || 0))
+      + equity * (loopingRewardAPY || 0)
   return sum / supplyUSD
 }
 export const getRoe = (
@@ -44,12 +47,14 @@ export const getRoe = (
   borrowAPY: number,
   supplyRewardAPY?: number | null,
   borrowRewardAPY?: number | null,
+  loopingRewardAPY?: number | null,
 ) => {
   const equity = supplyUSD - borrowUSD
   if (equity <= 0) return 0
   const netYield
     = supplyUSD * (supplyAPY + (supplyRewardAPY || 0))
       - borrowUSD * (borrowAPY - (borrowRewardAPY || 0))
+      + equity * (loopingRewardAPY || 0)
   return netYield / equity
 }
 

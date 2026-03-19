@@ -115,12 +115,12 @@ export default defineNuxtConfig({
       configEnableExplorePage: '',
       configEnablePoweredByEuler: '',
       configEnableAppTitle: '',
-      // Feature flags: disabled by default. Set to 'true' to enable.
-      configEnableSwapDeposit: '',
       // Incentives provider flags: enabled by default. Set to 'false' to disable.
       configEnableMerkl: '',
       configEnableIncentra: '',
       configEnableFuul: '',
+      // External token list URL for swap token selector (default: Uniswap)
+      configTokenListUrl: '',
       // Env config fallbacks (Doppler: NUXT_PUBLIC_*)
       // Prefer window.__APP_CONFIG__ at runtime; these are build-time fallbacks.
       appKitProjectId: '',

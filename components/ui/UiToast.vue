@@ -1,6 +1,7 @@
 <script setup lang="ts">
-export type ToastVariant = 'info' | 'success' | 'warning' | 'error' | 'neutral'
-export type ToastSize = 'normal' | 'compact'
+import type { ToastVariant, ToastSize } from './toast.types'
+
+export type { ToastVariant, ToastSize }
 
 const props = withDefaults(defineProps<{
   variant?: ToastVariant

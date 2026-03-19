@@ -17,6 +17,8 @@ export type EulerLabelVaultOverride = {
   deprecationReason?: string
   block?: string[]
   restricted?: string[]
+  notExplorableLend?: boolean
+  notExplorableBorrow?: boolean
 }
 
 export type EulerLabelProduct = {

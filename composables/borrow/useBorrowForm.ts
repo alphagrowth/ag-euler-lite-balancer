@@ -105,7 +105,6 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   )
 
   // --- Swap & borrow composable instances ---
-  const { enableSwapDeposit } = useDeployConfig()
   const { slippage: borrowSwapSlippage } = useSlippage()
   const {
     sortedQuoteCards: borrowSwapQuoteCards,
@@ -233,6 +232,16 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     const amountOut = BigInt(borrowSwapEffectiveQuote.value.amountOut || 0)
     if (amountOut <= 0n) return ''
     return formatUnits(amountOut, Number(collateralVault.value.asset.decimals))
+  })
+
+  const effectiveCollateralFixed = computed(() => {
+    if (borrowNeedsSwap.value && borrowSwapEffectiveQuote.value && collateralVault.value) {
+      const amountOut = BigInt(borrowSwapEffectiveQuote.value.amountOut || 0)
+      if (amountOut > 0n) {
+        return FixedPoint.fromValue(amountOut, Number(collateralVault.value.asset.decimals))
+      }
+    }
+    return collateralAmountFixed.value
   })
 
   const { priceImpact: borrowSwapPriceImpact } = useSwapPriceImpact({
@@ -368,8 +377,11 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   }, 500)
 
   // --- Actions: swap token selection ---
-  const onSelectBorrowSwapAsset = (newAsset: VaultAsset) => {
+  const isUnknownBorrowSwapToken = ref(false)
+
+  const onSelectBorrowSwapAsset = (newAsset: VaultAsset, meta?: { isUnknownToken?: boolean }) => {
     borrowSelectedAsset.value = newAsset
+    isUnknownBorrowSwapToken.value = meta?.isUnknownToken ?? false
     collateralAmount.value = ''
     clearBorrowSimulationError()
     resetBorrowSwapQuoteState()
@@ -392,7 +404,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   // --- Actions: form input handlers ---
   const onCollateralInput = async () => {
     await nextTick()
-    borrowAmount.value = trimTrailingZeros(collateralAmountFixed.value
+    borrowAmount.value = trimTrailingZeros(effectiveCollateralFixed.value
       .mul(priceFixed.value)
       .mul(ltvFixed.value)
       .div(FixedPoint.fromValue(100n, 0)).round(Number(borrowVault.value?.decimals || 18))
@@ -404,8 +416,10 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     if (!collateralAmount.value) {
       return
     }
+    const collateral = effectiveCollateralFixed.value
+    if (collateral.isZero()) return
     ltv.value = +borrowAmountFixed.value
-      .div(collateralAmountFixed.value.mul(priceFixed.value))
+      .div(collateral.mul(priceFixed.value))
       .mul(FixedPoint.fromValue(100n, 0))
       .toUnsafeFloat().toFixed(2)
   }
@@ -440,7 +454,9 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
         ? Infinity
         : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
       liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
-      const collateralUsdValue = await getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')
+      const collateralUsdValue = borrowNeedsSwap.value && borrowSwapAssetUsdPrice.value
+        ? (+collateralAmount.value || 0) * borrowSwapAssetUsdPrice.value
+        : await getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')
       const borrowUsdValue = await getAssetUsdValueOrZero(+borrowAmount.value || 0, borrowVault.value!, 'off-chain')
       netAPY.value = getNetAPY(
         collateralUsdValue,
@@ -730,6 +746,12 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     }
   })
 
+  watch(borrowSwapEffectiveQuote, () => {
+    if (borrowNeedsSwap.value && collateralAmount.value && +ltv.value > 0) {
+      onCollateralInput()
+    }
+  })
+
   watch(borrowSwapSelectedQuote, () => {
     clearBorrowSimulationError()
   })
@@ -787,7 +809,6 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     borrowSelectedAsset,
     borrowSelectedAssetBalance,
     borrowSwapAssetUsdPrice,
-    enableSwapDeposit,
     borrowSwapSlippage,
     borrowSwapSelectedProvider,
     borrowSwapQuoteCards,
@@ -796,6 +817,9 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     borrowSwapQuotesStatusLabel,
     borrowSwapEffectiveQuote,
     selectBorrowSwapQuote,
+
+    // Unknown token warning
+    isUnknownBorrowSwapToken,
 
     // Display
     collateralUnitPrice,

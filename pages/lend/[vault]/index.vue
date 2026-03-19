@@ -85,10 +85,10 @@ const monthlyEarnings = ref(0)
 const monthlyEarningsUsd = ref(0)
 
 // Swap & deposit state
-const { enableSwapDeposit } = useDeployConfig()
 const selectedAsset = ref<VaultAsset | undefined>()
 const selectedAssetBalance = ref(0n)
 const swapAssetUsdPrice = ref<number | undefined>()
+const isUnknownSwapToken = ref(false)
 const needsSwap = computed(() => {
   if (!selectedAsset.value || !asset.value) return false
   try {
@@ -568,8 +568,9 @@ const requestSwapQuote = useDebounceFn(async () => {
   })
 }, 500)
 
-const onSelectSwapAsset = (newAsset: VaultAsset) => {
+const onSelectSwapAsset = (newAsset: VaultAsset, meta?: { isUnknownToken?: boolean }) => {
   selectedAsset.value = newAsset
+  isUnknownSwapToken.value = meta?.isUnknownToken ?? false
   amount.value = ''
   clearSimulationError()
   resetSwapQuoteState()
@@ -738,10 +739,7 @@ watch(address, () => {
           />
 
           <!-- Pay with token selector -->
-          <div
-            v-if="enableSwapDeposit"
-            class="flex items-center gap-8"
-          >
+          <div class="flex items-center gap-8">
             <span class="text-p3 text-content-tertiary">Pay with</span>
             <button
               type="button"
@@ -845,6 +843,14 @@ watch(address, () => {
             title="Error"
             variant="error"
             :description="simulationError"
+            size="compact"
+          />
+
+          <UiToast
+            v-if="isUnknownSwapToken && needsSwap"
+            title="Unknown token"
+            description="This token is not on any recognized token list. It could be fraudulent or malicious. Verify the contract address before proceeding."
+            variant="warning"
             size="compact"
           />
 
