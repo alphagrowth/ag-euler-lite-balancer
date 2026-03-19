@@ -23,7 +23,7 @@ const isRamping = computed(() =>
 
 const modal = useModal()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getLoopingRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, getLoopingRewardCampaigns, hasSupplyRewards, hasBorrowRewards, hasLoopingRewards } = useRewardsApy()
 const { borrowList } = useVaults()
 
 const borrowCount = computed(() => {
@@ -45,10 +45,11 @@ const borrowApyWithRewards = computed(() => withIntrinsicBorrowApy(
   pair.borrow.asset.address,
 ) - borrowRewardAPY.value)
 
+const loopingRewardAPY = computed(() => getLoopingRewardApy(pair.borrow.address, pair.collateral.address))
 const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV))
-const netApy = computed(() => supplyApyWithRewards.value - borrowApyWithRewards.value)
+const netApy = computed(() => supplyApyWithRewards.value - borrowApyWithRewards.value + loopingRewardAPY.value)
 const maxRoe = computed(() =>
-  getMaxRoe(maxMultiplier.value, supplyApyWithRewards.value, borrowApyWithRewards.value),
+  getMaxRoe(maxMultiplier.value, supplyApyWithRewards.value, borrowApyWithRewards.value, loopingRewardAPY.value),
 )
 
 const baseSupplyApy = computed(() => nanoToValue(pair.collateral.interestRateInfo.supplyAPY, 25))
@@ -58,6 +59,7 @@ const intrinsicBorrowApy = computed(() => getIntrinsicApy(pair.borrow.asset.addr
 
 const supplyCampaignsForModal = computed(() => getSupplyRewardCampaigns(pair.collateral.address))
 const borrowCampaignsForModal = computed(() => getBorrowRewardCampaigns(pair.borrow.address, pair.collateral.address))
+const loopingCampaignsForModal = computed(() => getLoopingRewardCampaigns(pair.borrow.address, pair.collateral.address))
 
 const priceInvert = usePriceInvert(
   () => pair.collateral.asset.symbol,
@@ -85,8 +87,10 @@ const onNetApyInfoIconClick = () => {
       intrinsicBorrowAPY: intrinsicBorrowApy.value,
       supplyRewardAPY: collateralRewardAPY.value || null,
       borrowRewardAPY: borrowRewardAPY.value || null,
+      loopingRewardAPY: loopingRewardAPY.value || null,
       supplyCampaigns: supplyCampaignsForModal.value,
       borrowCampaigns: borrowCampaignsForModal.value,
+      loopingCampaigns: loopingCampaignsForModal.value,
     },
   })
 }
@@ -99,6 +103,8 @@ const onMaxRoeInfoIconClick = () => {
       supplyAPY: supplyApyWithRewards.value,
       borrowAPY: borrowApyWithRewards.value,
       borrowLTV: nanoToValue(pair.borrowLTV, 2),
+      borrowVaultAddress: pair.borrow.address,
+      collateralAddress: pair.collateral.address,
     },
   })
 }
@@ -184,7 +190,7 @@ const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
         </template>
         <span class="flex items-center gap-4">
           <SvgIcon
-            v-if="hasSupplyRewards(pair.collateral.address) || hasBorrowRewards(pair.borrow.address, pair.collateral.address)"
+            v-if="hasSupplyRewards(pair.collateral.address) || hasBorrowRewards(pair.borrow.address, pair.collateral.address) || hasLoopingRewards(pair.borrow.address, pair.collateral.address)"
             class="!w-20 !h-20 text-accent-500 cursor-pointer"
             name="sparks"
             @click="onNetApyInfoIconClick"
@@ -207,7 +213,7 @@ const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
         </template>
         <span class="flex items-center gap-4">
           <SvgIcon
-            v-if="hasSupplyRewards(pair.collateral.address) || hasBorrowRewards(pair.borrow.address, pair.collateral.address)"
+            v-if="hasSupplyRewards(pair.collateral.address) || hasBorrowRewards(pair.borrow.address, pair.collateral.address) || hasLoopingRewards(pair.borrow.address, pair.collateral.address)"
             class="!w-20 !h-20 text-accent-500 cursor-pointer"
             name="sparks"
             @click="onMaxRoeInfoIconClick"

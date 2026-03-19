@@ -1,4 +1,4 @@
-export type RewardCampaignType = 'euler_lend' | 'euler_borrow' | 'euler_borrow_collateral'
+export type RewardCampaignType = 'euler_lend' | 'euler_borrow' | 'euler_borrow_collateral' | 'euler_looping'
 
 export interface RewardCampaign {
   vault: string
@@ -12,6 +12,8 @@ export interface RewardCampaign {
     icon: string
   }
   sourceUrl?: string
+  minMultiplier?: number
+  maxMultiplier?: number
 }
 
 // Merkl subType is a positional index: 0 = euler_lend, 1 = euler_borrow, 2 = euler_borrow_collateral

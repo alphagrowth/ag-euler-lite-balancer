@@ -25,7 +25,7 @@ defineEmits<{
 }>()
 
 const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
-const { getBorrowRewardApy, getSupplyRewardApy } = useRewardsApy()
+const { getBorrowRewardApy, getSupplyRewardApy, getLoopingRewardApy } = useRewardsApy()
 const { products } = useEulerLabels()
 const modal = useModal()
 
@@ -43,6 +43,8 @@ const getBestMaxRoe = (market: MarketGroup): BestMaxRoeResult => {
   let bestSupplyAPY = 0
   let bestBorrowAPY = 0
   let bestBorrowLTV = 0
+  let bestBorrowVaultAddress = ''
+  let bestCollateralAddress = ''
 
   for (const liability of borrowable) {
     const borrowBase = nanoToValue(liability.interestRateInfo.borrowAPY, 25)
@@ -57,20 +59,23 @@ const getBestMaxRoe = (market: MarketGroup): BestMaxRoeResult => {
       const supplyApy = withIntrinsicSupplyApy(supplyBase, collateral.asset.address)
       const supplyRewards = getSupplyRewardApy(collateral.address)
       const borrowRewards = getBorrowRewardApy(liability.address, collateral.address)
+      const loopingRewards = getLoopingRewardApy(liability.address, collateral.address)
 
       const supplyFinal = supplyApy + supplyRewards
       const borrowFinal = borrowApy - borrowRewards
       const multiplier = getMaxMultiplier(ltv.borrowLTV)
-      const roe = getMaxRoe(multiplier, supplyFinal, borrowFinal)
+      const roe = getMaxRoe(multiplier, supplyFinal, borrowFinal, loopingRewards)
 
       if (roe > best) {
         best = roe
-        bestHasRewards = supplyRewards > 0 || borrowRewards > 0
+        bestHasRewards = supplyRewards > 0 || borrowRewards > 0 || loopingRewards > 0
         bestPair = `${collateral.asset.symbol}/${liability.asset.symbol}`
         bestMultiplier = multiplier
         bestSupplyAPY = supplyFinal
         bestBorrowAPY = borrowFinal
         bestBorrowLTV = nanoToValue(ltv.borrowLTV, 2)
+        bestBorrowVaultAddress = liability.address
+        bestCollateralAddress = collateral.address
       }
     }
   }
@@ -84,6 +89,8 @@ const getBestMaxRoe = (market: MarketGroup): BestMaxRoeResult => {
     supplyAPY: bestSupplyAPY,
     borrowAPY: bestBorrowAPY,
     borrowLTV: bestBorrowLTV,
+    borrowVaultAddress: bestBorrowVaultAddress,
+    collateralAddress: bestCollateralAddress,
   }
 }
 
@@ -97,6 +104,8 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
       supplyAPY: result.supplyAPY,
       borrowAPY: result.borrowAPY,
       borrowLTV: result.borrowLTV,
+      borrowVaultAddress: result.borrowVaultAddress,
+      collateralAddress: result.collateralAddress,
       isBestInMarket: true,
     },
   })
