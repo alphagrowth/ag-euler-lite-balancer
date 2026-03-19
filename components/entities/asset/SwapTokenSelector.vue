@@ -12,9 +12,10 @@ const emits = defineEmits<{
   close: []
 }>()
 
-const { onSelect, currentAssetAddress } = defineProps<{
+const { onSelect, currentAssetAddress, mode = 'input' } = defineProps<{
   onSelect: (asset: VaultAsset, meta?: SwapTokenSelectMeta) => void
   currentAssetAddress?: string
+  mode?: 'input' | 'output'
 }>()
 
 const { getByType } = useVaultRegistry()
@@ -123,9 +124,9 @@ const filteredOptions = computed(() => {
       })
     : tokenOptions.value
 
-  // When not searching, only show tokens with balance
-  // When searching, show all matches so users can find tokens they don't hold yet
-  if (!searchQuery.value) {
+  // For input mode (pay with): filter zero-balance tokens when not searching
+  // For output mode (receive as): always show all tokens
+  if (mode === 'input' && !searchQuery.value) {
     return base.filter(opt => opt.balance > 0n)
   }
   return base

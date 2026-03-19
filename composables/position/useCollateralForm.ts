@@ -348,6 +348,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
       props: {
         currentAssetAddress: currentAddress || asset.value?.address,
         onSelect: onSelect || (() => {}),
+        mode: options.mode === 'withdraw' ? 'output' : 'input',
       },
     })
   }

@@ -220,6 +220,7 @@ const openSwapTokenSelector = () => {
     props: {
       currentAssetAddress: selectedOutputAsset.value?.address || asset.value?.address,
       onSelect: onSelectOutputAsset,
+      mode: 'output' as const,
     },
   })
 }
