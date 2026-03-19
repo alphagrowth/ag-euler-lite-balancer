@@ -213,7 +213,7 @@ interface RewardCampaign {
 - **useMerkl** — Fetches campaigns from the Merkl API, maps `subType` indices (0 = lend, 1 = borrow, 2 = borrow-collateral) to `RewardCampaignType`. Also handles user reward balances and claiming.
 - **useREULLocks** — Reads locked rEUL positions directly from the rEUL contract on-chain (`getLockedAmounts`, `getWithdrawAmountsByLockTimestamp`) and handles unlocking via `withdrawToByLockTimestamp()`. This is independent from Merkl.
 - **useBrevis** — Fetches ZK-proof reward campaigns from the Brevis/Incentra backend, normalizes them to `RewardCampaign`.
-- **useFuul** — Fetches incentive campaigns from the Fuul API, normalizes them to `RewardCampaign`. Supports campaign APY aggregation and reward claiming via FuulManager contract. User reward totals and claim checks are fetched through server-side proxy routes (`/api/fuul/totals`, `/api/fuul/claim-checks`) to keep the `FUUL_API_KEY` secret.
+- **useFuul** — Fetches incentive campaigns from the Fuul API, normalizes them to `RewardCampaign`. Supports campaign APY aggregation and per-reward claiming via FuulManager contract. Claimable rewards are fetched directly from the public `api.fuul.xyz/api/v1/claimable-rewards` endpoint (no server proxy needed).
 
 #### Consuming Rewards in UI
 

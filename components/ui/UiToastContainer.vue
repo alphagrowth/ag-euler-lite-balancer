@@ -1,18 +1,8 @@
 <script setup lang="ts">
-import type { ToastVariant, ToastSize } from './UiToast.vue'
+import type { Toast } from './toast.types'
 import { registerToastContainer, unregisterToastContainer } from '~/components/ui/composables/useToast'
 
-export interface Toast {
-  id: string
-  variant?: ToastVariant
-  size?: ToastSize
-  title: string
-  description?: string
-  actionText?: string
-  persistent?: boolean
-  duration?: number
-  onAction?: () => void
-}
+export type { Toast }
 
 const toasts = ref<Toast[]>([])
 

@@ -32,6 +32,7 @@ const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
 const {
   getBorrowRewardApy,
   getSupplyRewardApy,
+  getLoopingRewardApy,
   hasSupplyRewards,
   hasBorrowRewards,
 } = useRewardsApy()
@@ -67,11 +68,13 @@ const computeEnhancedApys = (
     utilization = getVaultUtilization(liability)
   }
 
+  const loopingRewards = liability ? getLoopingRewardApy(liability.address, collateral?.address) : 0
+
   const supplyFinal = supplyApy + supplyRewards
   const borrowFinal = borrowApy - borrowRewards
-  const netApy = supplyFinal - borrowFinal
+  const netApy = supplyFinal - borrowFinal + loopingRewards
   const multiplier = getMaxMultiplier(cell.ltv.borrowLTV)
-  const roe = getMaxRoe(multiplier, supplyFinal, borrowFinal)
+  const roe = getMaxRoe(multiplier, supplyFinal, borrowFinal, loopingRewards)
 
   return {
     supplyApy: supplyFinal,

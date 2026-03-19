@@ -60,8 +60,44 @@ export const useRewardsApy = () => {
     return getSupplyRewardApy(vaultAddress) > 0
   }
 
+  const getLoopingRewardApy = (borrowVaultAddress: string, collateralAddress?: string): number => {
+    if (!isEnabled.value) return 0
+    const campaigns = getCampaignsForVault(borrowVaultAddress)
+    let total = 0
+    for (const c of campaigns) {
+      if (
+        c.type === 'euler_looping'
+        && collateralAddress
+        && c.collateral === collateralAddress.toLowerCase()
+      ) {
+        total += c.apr
+      }
+    }
+    return total
+  }
+
   const hasBorrowRewards = (borrowVaultAddress: string, collateralAddress?: string): boolean => {
     return getBorrowRewardApy(borrowVaultAddress, collateralAddress) > 0
+  }
+
+  const hasLoopingRewards = (borrowVaultAddress: string, collateralAddress?: string): boolean => {
+    return getLoopingRewardApy(borrowVaultAddress, collateralAddress) > 0
+  }
+
+  const isLoopingEligible = (borrowVaultAddress: string, collateralAddress: string, multiplier: number): boolean => {
+    const campaigns = getLoopingRewardCampaigns(borrowVaultAddress, collateralAddress)
+    if (campaigns.length === 0) return false
+    return campaigns.every((c) => {
+      if (c.minMultiplier && multiplier < c.minMultiplier) return false
+      if (c.maxMultiplier && multiplier > c.maxMultiplier) return false
+      return true
+    })
+  }
+
+  const getEligibleLoopingRewardApy = (borrowVaultAddress: string, collateralAddress: string, multiplier: number): number => {
+    if (!isEnabled.value) return 0
+    if (!isLoopingEligible(borrowVaultAddress, collateralAddress, multiplier)) return 0
+    return getLoopingRewardApy(borrowVaultAddress, collateralAddress)
   }
 
   const getSupplyRewardCampaigns = (vaultAddress: string): RewardCampaign[] => {
@@ -82,14 +118,28 @@ export const useRewardsApy = () => {
     })
   }
 
+  const getLoopingRewardCampaigns = (borrowVaultAddress: string, collateralAddress?: string): RewardCampaign[] => {
+    if (!isEnabled.value) return []
+    return getCampaignsForVault(borrowVaultAddress).filter(c =>
+      c.type === 'euler_looping'
+      && collateralAddress
+      && c.collateral === collateralAddress.toLowerCase(),
+    )
+  }
+
   return {
     isEnabled,
     version,
     getSupplyRewardApy,
     getBorrowRewardApy,
+    getLoopingRewardApy,
+    getEligibleLoopingRewardApy,
     hasSupplyRewards,
     hasBorrowRewards,
+    hasLoopingRewards,
+    isLoopingEligible,
     getSupplyRewardCampaigns,
     getBorrowRewardCampaigns,
+    getLoopingRewardCampaigns,
   }
 }

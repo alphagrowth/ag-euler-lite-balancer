@@ -12,7 +12,7 @@ import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
  */
 export const useBestMaxROE = (marketGroups: Ref<MarketGroup[]>) => {
   const { withIntrinsicSupplyApy, withIntrinsicBorrowApy, version: intrinsicVersion } = useIntrinsicApy()
-  const { getSupplyRewardApy, getBorrowRewardApy, version: rewardsVersion } = useRewardsApy()
+  const { getSupplyRewardApy, getBorrowRewardApy, getLoopingRewardApy, version: rewardsVersion } = useRewardsApy()
 
   const computeForGroup = (group: MarketGroup): BestMaxRoeResult => {
     const borrowableVaults = getBorrowableVaults(group)
@@ -29,6 +29,8 @@ export const useBestMaxROE = (marketGroups: Ref<MarketGroup[]>) => {
     let bestSupplyAPY = 0
     let bestBorrowAPY = 0
     let bestBorrowLTV = 0
+    let bestBorrowVaultAddress = ''
+    let bestCollateralAddress = ''
 
     for (const liability of borrowableVaults) {
       const borrowBase = nanoToValue(liability.interestRateInfo.borrowAPY, 25)
@@ -48,20 +50,23 @@ export const useBestMaxROE = (marketGroups: Ref<MarketGroup[]>) => {
         const supplyApy = withIntrinsicSupplyApy(supplyBase, collateral.asset.address)
         const supplyRewards = getSupplyRewardApy(collateral.address)
         const borrowRewards = getBorrowRewardApy(liability.address, collateral.address)
+        const loopingRewards = getLoopingRewardApy(liability.address, collateral.address)
 
         const supplyFinal = supplyApy + supplyRewards
         const borrowFinal = borrowApy - borrowRewards
         const maxMultiplier = getMaxMultiplier(ltv.borrowLTV)
-        const roe = getMaxRoe(maxMultiplier, supplyFinal, borrowFinal)
+        const roe = getMaxRoe(maxMultiplier, supplyFinal, borrowFinal, loopingRewards)
 
         if (roe > best) {
           best = roe
-          bestHasRewards = supplyRewards > 0 || borrowRewards > 0
+          bestHasRewards = supplyRewards > 0 || borrowRewards > 0 || loopingRewards > 0
           bestPair = `${collateral.asset.symbol}/${liability.asset.symbol}`
           bestMultiplier = maxMultiplier
           bestSupplyAPY = supplyFinal
           bestBorrowAPY = borrowFinal
           bestBorrowLTV = nanoToValue(ltv.borrowLTV, 2)
+          bestBorrowVaultAddress = liability.address
+          bestCollateralAddress = collateral.address
         }
       }
     }
@@ -75,6 +80,8 @@ export const useBestMaxROE = (marketGroups: Ref<MarketGroup[]>) => {
       supplyAPY: bestSupplyAPY,
       borrowAPY: bestBorrowAPY,
       borrowLTV: bestBorrowLTV,
+      borrowVaultAddress: bestBorrowVaultAddress,
+      collateralAddress: bestCollateralAddress,
     }
   }
 
@@ -97,6 +104,8 @@ export const useBestMaxROE = (marketGroups: Ref<MarketGroup[]>) => {
     supplyAPY: 0,
     borrowAPY: 0,
     borrowLTV: 0,
+    borrowVaultAddress: '',
+    collateralAddress: '',
   }
 
   const getBestMaxROE = (groupId: string): BestMaxRoeResult => {

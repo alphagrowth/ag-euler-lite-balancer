@@ -136,7 +136,7 @@ const handleClose = () => {
             alt="Reward token logo"
           >
           <p class="ml-12">
-            {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
+            {{ reward.rewardToken.symbol }}
           </p>
           <p class="ml-4 text-euler-dark-900">
             (<a

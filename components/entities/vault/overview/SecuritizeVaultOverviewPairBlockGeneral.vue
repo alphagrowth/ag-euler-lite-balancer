@@ -15,7 +15,7 @@ const isRamping = computed(() => isLiquidationLTVRamping(pair))
 
 const modal = useModal()
 const { withIntrinsicBorrowApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getLoopingRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
 
 // Borrow APY (from EVK borrow vault)
 const totalBorrowRewardsAPY = computed(() => getBorrowRewardApy(pair.borrow.address, pair.collateral.address))
@@ -35,9 +35,10 @@ const intrinsicSupplyApy = computed(() => getIntrinsicApy(pair.collateral.asset.
 const supplyApyWithRewards = computed(() => intrinsicSupplyApy.value + collateralRewardAPY.value)
 const supplyRewardInfo = computed(() => getSupplyRewardCampaigns(pair.collateral.address))
 
+const loopingRewardAPY = computed(() => getLoopingRewardApy(pair.borrow.address, pair.collateral.address))
 const maxMultiplier = computed(() => getMaxMultiplier(pair.borrowLTV))
 const maxRoe = computed(() =>
-  getMaxRoe(maxMultiplier.value, supplyApyWithRewards.value, borrowApyWithRewards.value),
+  getMaxRoe(maxMultiplier.value, supplyApyWithRewards.value, borrowApyWithRewards.value, loopingRewardAPY.value),
 )
 
 const priceInvert = usePriceInvert(
