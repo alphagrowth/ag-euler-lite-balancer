@@ -34,7 +34,7 @@ const {
 
 const totalSupplyApy = computed(() => supplyAPY + (supplyRewardAPY || 0))
 const totalBorrowApy = computed(() => borrowAPY - (borrowRewardAPY || 0))
-const hasLoopingCampaigns = computed(() => (loopingCampaigns?.length ?? 0) > 0)
+const hasLoopingCampaigns = computed(() => loopingRewardsInfo.value.length > 0)
 const hasLoopingAPY = computed(() => (loopingRewardAPY || 0) > 0)
 
 const PROVIDER_LABELS: Record<string, string> = {

@@ -47,6 +47,7 @@ export const getMaxRoe = (
     !Number.isFinite(maxMultiplier)
     || !Number.isFinite(supplyApy)
     || !Number.isFinite(netApy)
+    || !Number.isFinite(loopingRewardApr)
   ) {
     return 0
   }

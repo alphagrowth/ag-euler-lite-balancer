@@ -38,7 +38,7 @@ const hasIntrinsicSupply = computed(() => (intrinsicSupplyAPY ?? 0) !== 0)
 const hasIntrinsicBorrow = computed(() => (intrinsicBorrowAPY ?? 0) !== 0)
 const hasSupplyRewards = computed(() => (supplyRewardAPY || 0) > 0)
 const hasBorrowRewards = computed(() => (borrowRewardAPY || 0) > 0)
-const hasLoopingCampaigns = computed(() => (loopingCampaigns?.length ?? 0) > 0)
+const hasLoopingCampaigns = computed(() => loopingRewardsInfo.value.length > 0)
 
 const PROVIDER_LABELS: Record<string, string> = {
   merkl: 'Merkl',
