@@ -297,7 +297,7 @@ server/
 These Nitro plugins run at server startup and hook into `render:html`:
 
 - **app-config / chain-config** inject configuration into the rendered HTML so the client can read it synchronously. This enables runtime-injected env vars (e.g., Doppler on Railway) without rebuilding.
-- **csp** generates a cryptographic nonce per request, injects it into every `<script>` tag, and sets the `Content-Security-Policy` HTTP response header. Extra connect-src origins can be added per deployment via `CSP_EXTRA_CONNECT_SRC` (comma-separated).
+- **csp** generates a cryptographic nonce per request, injects it into every `<script>` tag, and sets the `Content-Security-Policy` HTTP response header. `connect-src` and `img-src` origins are auto-derived from URL env vars (API URLs, Pyth, labels/oracle-checks base URLs). `CSP_EXTRA_CONNECT_SRC` (comma-separated) remains available for ad-hoc additions not covered by env vars.
 
 ## 📝 Types Directory
 

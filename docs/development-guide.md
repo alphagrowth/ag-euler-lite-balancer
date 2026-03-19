@@ -66,7 +66,7 @@ Configuration is split into two mechanisms:
 
 1. **`useEnvConfig()`** (`composables/useEnvConfig.ts`) — API URLs, Pyth, Reown, wallet screening. Injected at runtime via `server/plugins/app-config.ts` into `window.__APP_CONFIG__`. Accepts both plain names (`EULER_API_URL`) and Doppler-prefixed names (`NUXT_PUBLIC_EULER_API_URL`).
 
-2. **Nuxt `runtimeConfig`** (`useDeployConfig()`) — branding, social links, feature flags. Set via `NUXT_PUBLIC_CONFIG_*` env vars.
+2. **Nuxt `runtimeConfig`** (`useDeployConfig()`) — branding, social links, feature flags. Set via `NUXT_PUBLIC_CONFIG_*` env vars. Includes `NUXT_PUBLIC_CONFIG_LABELS_BASE_URL` and `NUXT_PUBLIC_CONFIG_ORACLE_CHECKS_BASE_URL` for serving labels/oracle-checks from S3 or CDN instead of GitHub.
 
 3. **Chain config** (`useChainConfig()`) — derived dynamically from `RPC_URL_HTTP_<chainId>` env vars at server startup, injected via `window.__CHAIN_CONFIG__`.
 

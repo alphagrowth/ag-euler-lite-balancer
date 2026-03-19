@@ -8,7 +8,7 @@ Not all vaults on-chain are equal. Some are curated by the Euler UI listing proc
 
 ## Label Data Sources
 
-Labels are fetched from the [euler-labels](https://github.com/euler-xyz/euler-labels) GitHub repository by default. Each supported chain has a directory (`/{chainId}/`) containing JSON files:
+Labels are fetched from the [euler-labels](https://github.com/euler-xyz/euler-labels) GitHub repository by default. Alternatively, set `NUXT_PUBLIC_CONFIG_LABELS_BASE_URL` to serve labels from S3 or any CDN — the bucket must mirror the same directory structure as the GitHub repo. Each supported chain has a directory containing JSON files:
 
 | File | Required | Contents |
 |------|----------|----------|

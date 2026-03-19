@@ -37,21 +37,31 @@ import {
 let _labelsRepo = 'euler-xyz/euler-labels'
 let _labelsRepoBranch = 'master'
 let _oracleChecksRepo = 'euler-xyz/oracle-checks'
+let _labelsBaseUrl = ''
+let _oracleChecksBaseUrl = ''
 let _isCustomLabelsRepo = false
+let _enableEarnPage = true
 
 const initRepos = () => {
-  const { labelsRepo, labelsRepoBranch, oracleChecksRepo, isCustomLabelsRepo } = useDeployConfig()
+  const { labelsRepo, labelsRepoBranch, oracleChecksRepo, labelsBaseUrl, oracleChecksBaseUrl, isCustomLabelsRepo, enableEarnPage } = useDeployConfig()
   _labelsRepo = labelsRepo
   _labelsRepoBranch = labelsRepoBranch
   _oracleChecksRepo = oracleChecksRepo
+  _labelsBaseUrl = labelsBaseUrl
+  _oracleChecksBaseUrl = oracleChecksBaseUrl
   _isCustomLabelsRepo = isCustomLabelsRepo.value
+  _enableEarnPage = enableEarnPage
 }
 
 const getLabelsUrl = (chainId: number, file: string) =>
-  `https://raw.githubusercontent.com/${_labelsRepo}/refs/heads/${_labelsRepoBranch}/${chainId}/${file}`
+  _labelsBaseUrl
+    ? `${_labelsBaseUrl}/${chainId}/${file}`
+    : `https://raw.githubusercontent.com/${_labelsRepo}/refs/heads/${_labelsRepoBranch}/${chainId}/${file}`
 
 const getOracleChecksUrl = (chainId: number, file: string) =>
-  `https://raw.githubusercontent.com/${_oracleChecksRepo}/refs/heads/master/data/${chainId}/${file}`
+  _oracleChecksBaseUrl
+    ? `${_oracleChecksBaseUrl}/${chainId}/${file}`
+    : `https://raw.githubusercontent.com/${_oracleChecksRepo}/refs/heads/master/data/${chainId}/${file}`
 
 const loadOracleAdapter = async (chainId: number, oracleAddress: string) => {
   const checksummed = getAddress(oracleAddress)
@@ -154,7 +164,9 @@ export const useEulerLabels = () => {
         })
       }
       catch {
-        // earn-vaults.json is optional — app functions without it
+        if (_enableEarnPage) {
+          logWarn('labels/earn-vaults', `earn-vaults.json not found on ${_labelsBaseUrl || `${_labelsRepo}@${_labelsRepoBranch}`}`)
+        }
       }
 
       const normalizedProducts = normalizeProducts(productRes.data)

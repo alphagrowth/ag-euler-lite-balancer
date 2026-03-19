@@ -277,7 +277,7 @@ App Startup
   ├─ loadCountry() ─► HEAD request ─► x-country-code header ─► country ref ("DE")
   │                                                              (5-min cache)
   │
-  └─ loadLabels() ──► euler-labels GitHub repo ─► products.json ─► product.block
+  └─ loadLabels() ──► euler-labels data source (GitHub or S3/CDN) ─► products.json ─► product.block
                                                                     product.vaultOverrides[addr].block
                                                                     product.vaultOverrides[addr].restricted
                                                  ► earn-vaults.json ─► earnVaultBlocks map
@@ -325,7 +325,7 @@ All blocking and restriction configuration lives outside the app codebase:
 | Earn vault blocks | `euler-labels` repo — `earn-vaults.json` `block` field | Hard-blocks specific earn vaults |
 | Earn vault restrictions | `euler-labels` repo — `earn-vaults.json` `restricted` field | Soft-restricts specific earn vaults |
 
-Changes to `products.json` or `earn-vaults.json` in the euler-labels repo take effect within 5 minutes (the label cache TTL) without any app deployment.
+Changes to `products.json` or `earn-vaults.json` in the euler-labels data source (GitHub repo or S3/CDN) take effect within 5 minutes (the label cache TTL) without any app deployment.
 
 ## Key Files
 

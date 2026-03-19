@@ -22,12 +22,15 @@ const getRpcUrlByChainId = (chainId?: number, origin?: string): string => {
 
 export const useEulerConfig = () => {
   const envConfig = useEnvConfig()
-  const { labelsRepo, labelsRepoBranch } = useDeployConfig()
+  const { labelsRepo, labelsRepoBranch, labelsBaseUrl: configLabelsBaseUrl } = useDeployConfig()
   const { subgraphUris } = useChainConfig()
   const { chainId } = useEulerAddresses()
   const requestUrl = useRequestURL()
 
-  const labelsBaseUrl = `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/${labelsRepoBranch}`
+  const resolvedLabelsBaseUrl = (
+    configLabelsBaseUrl
+    || `https://raw.githubusercontent.com/${labelsRepo}/refs/heads/${labelsRepoBranch}`
+  ).replace(/\/+$/, '')
 
   return {
     // APIs (from constants)
@@ -38,12 +41,8 @@ export const useEulerConfig = () => {
     FUUL_API_BASE_URL,
     MERKL_API_BASE_URL,
 
-    // Labels (built from CONFIG_LABELS_REPO)
-    getEulerLabelsEntitiesUrl: (id: number) => `${labelsBaseUrl}/${id}/entities.json`,
-    getEulerLabelsProductsUrl: (id: number) => `${labelsBaseUrl}/${id}/products.json`,
-    getEulerLabelsEarnVaultsUrl: (id: number) => `${labelsBaseUrl}/${id}/earn-vaults.json`,
-    getEulerLabelsPointsUrl: (id: number) => `${labelsBaseUrl}/${id}/points.json`,
-    EULER_LABELS_ENTITY_LOGO_URL: `${labelsBaseUrl}/logo`,
+    // Labels
+    EULER_LABELS_ENTITY_LOGO_URL: `${resolvedLabelsBaseUrl}/logo`,
 
     // Runtime app config APIs
     EULER_API_URL: envConfig.eulerApiUrl,
