@@ -2,6 +2,7 @@
 import { DateTime } from 'luxon'
 import { formatNumber } from '~/utils/string-utils'
 import type { RewardCampaign } from '~/entities/reward-campaign'
+import { PROVIDER_LABELS, PROVIDER_LOGOS } from '~/entities/reward-campaign'
 
 const emits = defineEmits(['close'])
 const {
@@ -39,12 +40,6 @@ const netApy = computed(() => totalSupplyApy.value - totalBorrowApy.value + (loo
 const hasIntrinsic = computed(() => (intrinsicSupplyAPY ?? 0) !== 0 || (intrinsicBorrowAPY ?? 0) !== 0)
 const hasRewards = computed(() => (supplyRewardAPY || 0) > 0 || (borrowRewardAPY || 0) > 0)
 const hasLoopingRewards = computed(() => (loopingRewardAPY || 0) > 0)
-
-const PROVIDER_LABELS: Record<string, string> = {
-  merkl: 'Merkl',
-  brevis: 'Brevis',
-  fuul: 'Fuul',
-}
 
 const mapCampaigns = (campaigns: RewardCampaign[] | undefined, side: string) => {
   if (!campaigns) return []
@@ -152,8 +147,18 @@ const handleClose = () => {
                 rel="noopener noreferrer"
                 class="underline"
                 @click.stop
+              ><img
+                v-if="PROVIDER_LOGOS[reward.source]"
+                :src="PROVIDER_LOGOS[reward.source]"
+                class="w-14 h-14 inline-block align-middle mr-2"
+                :alt="PROVIDER_LABELS[reward.source]"
               >{{ PROVIDER_LABELS[reward.source] || reward.source }}</a><template v-else>
-                {{ PROVIDER_LABELS[reward.source] || reward.source }}
+                <img
+                  v-if="PROVIDER_LOGOS[reward.source]"
+                  :src="PROVIDER_LOGOS[reward.source]"
+                  class="w-14 h-14 inline-block align-middle mr-2"
+                  :alt="PROVIDER_LABELS[reward.source]"
+                >{{ PROVIDER_LABELS[reward.source] || reward.source }}
               </template>{{ reward.endDate ? `, ends ${reward.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
             </p>
           </div>
@@ -232,8 +237,18 @@ const handleClose = () => {
                 rel="noopener noreferrer"
                 class="underline"
                 @click.stop
+              ><img
+                v-if="PROVIDER_LOGOS[reward.source]"
+                :src="PROVIDER_LOGOS[reward.source]"
+                class="w-14 h-14 inline-block align-middle mr-2"
+                :alt="PROVIDER_LABELS[reward.source]"
               >{{ PROVIDER_LABELS[reward.source] || reward.source }}</a><template v-else>
-                {{ PROVIDER_LABELS[reward.source] || reward.source }}
+                <img
+                  v-if="PROVIDER_LOGOS[reward.source]"
+                  :src="PROVIDER_LOGOS[reward.source]"
+                  class="w-14 h-14 inline-block align-middle mr-2"
+                  :alt="PROVIDER_LABELS[reward.source]"
+                >{{ PROVIDER_LABELS[reward.source] || reward.source }}
               </template>{{ reward.endDate ? `, ends ${reward.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
             </p>
           </div>
@@ -287,8 +302,18 @@ const handleClose = () => {
                   rel="noopener noreferrer"
                   class="underline"
                   @click.stop
+                ><img
+                  v-if="PROVIDER_LOGOS[reward.source]"
+                  :src="PROVIDER_LOGOS[reward.source]"
+                  class="w-14 h-14 inline-block align-middle mr-2"
+                  :alt="PROVIDER_LABELS[reward.source]"
                 >{{ PROVIDER_LABELS[reward.source] || reward.source }}</a><template v-else>
-                  {{ PROVIDER_LABELS[reward.source] || reward.source }}
+                  <img
+                    v-if="PROVIDER_LOGOS[reward.source]"
+                    :src="PROVIDER_LOGOS[reward.source]"
+                    class="w-14 h-14 inline-block align-middle mr-2"
+                    :alt="PROVIDER_LABELS[reward.source]"
+                  >{{ PROVIDER_LABELS[reward.source] || reward.source }}
                 </template>{{ reward.endDate ? `, ends ${reward.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
               </p>
             </div>

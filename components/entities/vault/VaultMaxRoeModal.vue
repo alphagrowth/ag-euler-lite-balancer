@@ -2,6 +2,7 @@
 import { DateTime } from 'luxon'
 import { formatNumber } from '~/utils/string-utils'
 import type { RewardCampaign } from '~/entities/reward-campaign'
+import { PROVIDER_LABELS, PROVIDER_LOGOS } from '~/entities/reward-campaign'
 
 const emits = defineEmits(['close'])
 const {
@@ -24,12 +25,6 @@ const {
 }>()
 
 const { getLoopingRewardApy, getLoopingRewardCampaigns } = useRewardsApy()
-
-const PROVIDER_LABELS: Record<string, string> = {
-  merkl: 'Merkl',
-  brevis: 'Brevis',
-  fuul: 'Fuul',
-}
 
 const loopingRewardAPR = computed(() =>
   borrowVaultAddress && collateralAddress
@@ -168,8 +163,18 @@ const handleClose = () => {
                     rel="noopener noreferrer"
                     class="underline"
                     @click.stop
+                  ><img
+                    v-if="PROVIDER_LOGOS[campaign.source]"
+                    :src="PROVIDER_LOGOS[campaign.source]"
+                    class="w-14 h-14 inline-block align-middle mr-2"
+                    :alt="PROVIDER_LABELS[campaign.source]"
                   >{{ PROVIDER_LABELS[campaign.source] || campaign.source }}</a><template v-else>
-                    {{ PROVIDER_LABELS[campaign.source] || campaign.source }}
+                    <img
+                      v-if="PROVIDER_LOGOS[campaign.source]"
+                      :src="PROVIDER_LOGOS[campaign.source]"
+                      class="w-14 h-14 inline-block align-middle mr-2"
+                      :alt="PROVIDER_LABELS[campaign.source]"
+                    >{{ PROVIDER_LABELS[campaign.source] || campaign.source }}
                   </template>{{ campaign.endDate ? `, ends ${campaign.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
                 </p>
               </div>

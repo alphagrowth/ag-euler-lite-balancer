@@ -21,3 +21,15 @@ const EULER_SUBTYPES: RewardCampaignType[] = ['euler_lend', 'euler_borrow', 'eul
 
 export const mapMerklSubType = (subType: number): RewardCampaignType | null =>
   EULER_SUBTYPES[subType] ?? null
+
+export const PROVIDER_LABELS: Record<string, string> = {
+  merkl: 'Merkl',
+  brevis: 'Brevis',
+  fuul: 'Fuul',
+}
+
+export const PROVIDER_LOGOS: Record<string, string> = {
+  merkl: '/entities/merkl.png',
+  brevis: '/entities/brevis.png',
+  fuul: '/entities/fuul.png',
+}
