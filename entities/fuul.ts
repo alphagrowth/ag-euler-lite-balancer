@@ -8,7 +8,13 @@ export interface FuulTrigger {
   type: string
   context: {
     chain_id: number
-    token_address: string
+    token_address?: string
+    depositVault?: string
+    borrowVault?: string
+    min_leverage?: number
+    max_leverage?: number
+    min_leverage_operator?: string
+    max_leverage_operator?: string
   }
 }
 

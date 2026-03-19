@@ -67,32 +67,57 @@ export const useFuul = () => {
         isCampaignsLoading.value = true
       }
 
-      const res = await axios.get(`${FUUL_API_BASE_URL}/incentives`, {
-        params: { protocol: 'euler', chain_id: currentChainId },
-      })
+      const [eulerRes, loopingRes] = await Promise.all([
+        axios.get(`${FUUL_API_BASE_URL}/incentives`, {
+          params: { protocol: 'euler', chain_id: currentChainId },
+        }),
+        axios.get(`${FUUL_API_BASE_URL}/incentives`, {
+          params: { protocol: 'euler-looping', chain_id: currentChainId },
+        }),
+      ])
 
-      const data: FuulIncentive[] = Array.isArray(res.data) ? res.data : []
       const campaignMap = new Map<string, RewardCampaign[]>()
 
-      for (const item of data) {
-        const vaultKey = item.trigger.context.token_address.toLowerCase()
+      const addCampaign = (vaultKey: string, campaign: RewardCampaign) => {
+        const existing = campaignMap.get(vaultKey)
+        if (existing) existing.push(campaign)
+        else campaignMap.set(vaultKey, [campaign])
+      }
 
-        const rewardCampaign: RewardCampaign = {
+      const eulerData: FuulIncentive[] = Array.isArray(eulerRes.data) ? eulerRes.data : []
+      for (const item of eulerData) {
+        const vaultKey = item.trigger.context.token_address?.toLowerCase()
+        if (!vaultKey) continue
+
+        addCampaign(vaultKey, {
           vault: vaultKey,
           type: 'euler_lend',
           apr: item.apr * 100,
           provider: 'fuul',
           endTimestamp: 0,
-          rewardToken: {
-            symbol: item.project,
-            icon: '',
-          },
+          rewardToken: { symbol: item.project, icon: '' },
           sourceUrl: 'https://www.fuul.xyz/',
-        }
+        })
+      }
 
-        const existing = campaignMap.get(vaultKey)
-        if (existing) existing.push(rewardCampaign)
-        else campaignMap.set(vaultKey, [rewardCampaign])
+      const loopingData: FuulIncentive[] = Array.isArray(loopingRes.data) ? loopingRes.data : []
+      for (const item of loopingData) {
+        const borrowVault = item.trigger.context.borrowVault?.toLowerCase()
+        const depositVault = item.trigger.context.depositVault?.toLowerCase()
+        if (!borrowVault || !depositVault) continue
+
+        addCampaign(borrowVault, {
+          vault: borrowVault,
+          collateral: depositVault,
+          type: 'euler_looping',
+          apr: item.apr * 100,
+          provider: 'fuul',
+          endTimestamp: 0,
+          rewardToken: { symbol: item.pool.token0_symbol || item.project, icon: '' },
+          sourceUrl: 'https://www.fuul.xyz/',
+          minMultiplier: item.trigger.context.min_leverage,
+          maxMultiplier: item.trigger.context.max_leverage,
+        })
       }
 
       fuulCampaigns.value = campaignMap
@@ -130,17 +155,21 @@ export const useFuul = () => {
         isClaimableLoading.value = true
       }
 
-      const res = await axios.get(`${FUUL_API_BASE_URL}/claimable-rewards`, {
-        params: {
-          protocol: 'euler',
-          user_address: capturedAddress,
-          chain_id: currentChainId,
-        },
-      })
+      const [eulerRes, loopingRes] = await Promise.all([
+        axios.get(`${FUUL_API_BASE_URL}/claimable-rewards`, {
+          params: { protocol: 'euler', user_address: capturedAddress, chain_id: currentChainId },
+        }),
+        axios.get(`${FUUL_API_BASE_URL}/claimable-rewards`, {
+          params: { protocol: 'euler-looping', user_address: capturedAddress, chain_id: currentChainId },
+        }),
+      ])
 
       if (requestId !== latestClaimableRequestId) return
 
-      fuulClaimableEntries.value = Array.isArray(res.data) ? res.data : []
+      fuulClaimableEntries.value = [
+        ...(Array.isArray(eulerRes.data) ? eulerRes.data : []),
+        ...(Array.isArray(loopingRes.data) ? loopingRes.data : []),
+      ]
       cacheState.claimable = { timestamp: Date.now(), address: capturedAddress, chainId: currentChainId }
     }
     catch (e) {

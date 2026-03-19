@@ -134,7 +134,7 @@ const onClaimClick = async () => {
           {{ reward.token.symbol[0].toUpperCase() }}
         </div>
         <h4 class="text-h5 ml-12 text-content-primary">
-          {{ reward.token.symbol === 'WTAC' ? 'TAC' : reward.token.symbol }}
+          {{ reward.token.symbol }}
         </h4>
         <div class="flex flex-col gap-8 ml-auto text-right">
           <p class="text-p2 text-content-primary">

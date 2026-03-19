@@ -41,7 +41,7 @@ const subAccountIndex = computed(() => {
 
 const modal = useModal()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy } = useIntrinsicApy()
-const { getSupplyRewardApy, getBorrowRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns } = useRewardsApy()
+const { getSupplyRewardApy, getBorrowRewardApy, getEligibleLoopingRewardApy, getSupplyRewardCampaigns, getBorrowRewardCampaigns, getLoopingRewardCampaigns, hasSupplyRewards, hasBorrowRewards, isLoopingEligible } = useRewardsApy()
 
 const { name: collateralProductName } = useEulerProductOfVault(position.collateral.address)
 const { name: borrowProductName } = useEulerProductOfVault(position.borrow.address)
@@ -96,6 +96,17 @@ const pairName = computed(() => {
 })
 const supplyRewardAPY = computed(() => getSupplyRewardApy(collateralVault.value.address || ''))
 const borrowRewardAPY = computed(() => getBorrowRewardApy(borrowVault.value.address || '', collateralVault.value.address || ''))
+const loopingRewardAPY = computed(() =>
+  getEligibleLoopingRewardApy(borrowVault.value.address || '', collateralVault.value.address || '', actualMultiplier.value),
+)
+const loopingEligible = computed(() =>
+  isLoopingEligible(borrowVault.value.address || '', collateralVault.value.address || '', actualMultiplier.value),
+)
+const hasRewards = computed(() =>
+  hasSupplyRewards(collateralVault.value.address || '')
+  || hasBorrowRewards(borrowVault.value.address || '', collateralVault.value.address || '')
+  || loopingEligible.value,
+)
 const collateralSupplyApy = computed(() => {
   return withIntrinsicSupplyApy(
     nanoToValue(collateralVault.value.interestRateInfo.supplyAPY || 0n, 25),
@@ -186,6 +197,7 @@ const netAPY = computed(() => {
     borrowApy.value,
     supplyRewardAPY.value || null,
     borrowRewardAPY.value || null,
+    loopingRewardAPY.value || null,
   )
 })
 
@@ -197,6 +209,7 @@ const roe = computed(() => {
     borrowApy.value,
     supplyRewardAPY.value || null,
     borrowRewardAPY.value || null,
+    loopingRewardAPY.value || null,
   )
 })
 
@@ -206,6 +219,7 @@ const baseSupplyApy = computed(() => nanoToValue(collateralVault.value.interestR
 const baseBorrowApy = computed(() => nanoToValue(borrowVault.value.interestRateInfo.borrowAPY || 0n, 25))
 const supplyCampaignsForModal = computed(() => getSupplyRewardCampaigns(collateralVault.value.address))
 const borrowCampaignsForModal = computed(() => getBorrowRewardCampaigns(borrowVault.value.address, collateralVault.value.address))
+const loopingCampaignsForModal = computed(() => getLoopingRewardCampaigns(borrowVault.value.address, collateralVault.value.address))
 
 const userLTV = computed(() => nanoToValue(position.userLTV, 18))
 const actualMultiplier = computed(() => {
@@ -225,9 +239,11 @@ const onNetApyClick = () => {
       intrinsicBorrowAPY: intrinsicBorrowApy.value,
       supplyRewardAPY: supplyRewardAPY.value || null,
       borrowRewardAPY: borrowRewardAPY.value || null,
+      loopingRewardAPY: loopingRewardAPY.value || null,
       netAPY: netAPY.value,
       supplyCampaigns: supplyCampaignsForModal.value,
       borrowCampaigns: borrowCampaignsForModal.value,
+      loopingCampaigns: loopingCampaignsForModal.value,
     },
   })
 }
@@ -241,9 +257,11 @@ const onRoeClick = () => {
       borrowAPY: borrowApy.value,
       supplyRewardAPY: supplyRewardAPY.value || null,
       borrowRewardAPY: borrowRewardAPY.value || null,
+      loopingRewardAPY: loopingRewardAPY.value || null,
       userLTV: userLTV.value,
       supplyCampaigns: supplyCampaignsForModal.value,
       borrowCampaigns: borrowCampaignsForModal.value,
+      loopingCampaigns: loopingCampaignsForModal.value,
     },
   })
 }
@@ -396,9 +414,15 @@ onMounted(() => {
                 />
               </div>
               <div
-                class="text-p2"
+                class="text-p2 flex items-center"
                 :class="[netAPY >= 0 ? 'text-accent-600' : 'text-error-500']"
               >
+                <SvgIcon
+                  v-if="hasRewards"
+                  class="!w-20 !h-20 text-accent-500 mr-4 cursor-pointer"
+                  name="sparks"
+                  @click.prevent="onNetApyClick"
+                />
                 {{ Number.isFinite(netAPY) ? `${formatNumber(netAPY)}%` : '-' }}
               </div>
             </div>
@@ -412,9 +436,15 @@ onMounted(() => {
                 />
               </div>
               <div
-                class="text-p2"
+                class="text-p2 flex items-center"
                 :class="[roe >= 0 ? 'text-accent-600' : 'text-error-500']"
               >
+                <SvgIcon
+                  v-if="hasRewards"
+                  class="!w-20 !h-20 text-accent-500 mr-4 cursor-pointer"
+                  name="sparks"
+                  @click.prevent="onRoeClick"
+                />
                 {{ Number.isFinite(roe) ? `${formatNumber(roe)}%` : '-' }}
               </div>
             </div>

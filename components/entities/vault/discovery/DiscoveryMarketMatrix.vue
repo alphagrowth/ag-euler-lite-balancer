@@ -29,7 +29,7 @@ defineEmits<{
 }>()
 
 const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
-const { getBorrowRewardApy, getSupplyRewardApy, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
+const { getBorrowRewardApy, getSupplyRewardApy, getLoopingRewardApy, hasSupplyRewards, hasBorrowRewards } = useRewardsApy()
 
 const hoveredCell = ref<{
   collateralAddr: string
@@ -58,11 +58,13 @@ const computeEnhancedApys = (cell: MatrixCell, collateralAddr: string, liability
     utilization = getVaultUtilization(liability)
   }
 
+  const loopingRewards = liability ? getLoopingRewardApy(liability.address, collateral?.address) : 0
+
   const supplyFinal = supplyApy + supplyRewards
   const borrowFinal = borrowApy - borrowRewards
   const netApy = supplyFinal - borrowFinal
   const multiplier = getMaxMultiplier(cell.ltv.borrowLTV)
-  const roe = getMaxRoe(multiplier, supplyFinal, borrowFinal)
+  const roe = getMaxRoe(multiplier, supplyFinal, borrowFinal, loopingRewards)
 
   return { supplyApy: supplyFinal, borrowApy: borrowFinal, netApy, roe, utilization }
 }
