@@ -11,7 +11,7 @@ const vaultAddresesInfo = computed(() => ([
     address: vault.asset.address,
   },
   {
-    title: `Earn vault`,
+    title: `${vault.asset.symbol} vault`,
     address: vault.address,
   },
   {
