@@ -39,6 +39,7 @@ Structure: `Record<string, Product>` — keys are product identifiers (e.g. `"eu
     // Required fields
     "name": "Euler Flagship",                    // Display name shown in UI
     "description": "The flagship Euler market.",  // Shown on vault overview pages
+    "notice": "Strategy rebalancing in progress", // Operational notice on portfolio cards (optional)
     "entity": ["euler-foundation"],              // Entity key(s) from entities.json (string or string[])
     "url": "https://euler.finance",              // External link (shown on vault overview)
     "vaults": [                                  // Active vault addresses
@@ -56,6 +57,7 @@ Structure: `Record<string, Product>` — keys are product identifiers (e.g. `"eu
     "vaultOverrides": {                          // Per-vault customizations (see below)
       "0x5678...ef01": {
         "description": "Custom description for this vault",
+        "notice": "Vault-specific operational notice",
         "deprecationReason": "This specific vault is being phased out",
         "block": ["US", "EU", "CH"],
         "restricted": ["JP"],
@@ -73,6 +75,7 @@ Structure: `Record<string, Product>` — keys are product identifiers (e.g. `"eu
 |-------|------|----------|-------------|
 | `name` | `string` | Yes | Display name in UI (discovery tables, vault overview, search) |
 | `description` | `string` | Yes | Product description shown on vault overview pages. Supports auto-linked URLs. |
+| `notice` | `string` | No | Operational notice shown on portfolio position cards. Supports auto-linked URLs and **bold** formatting. |
 | `entity` | `string \| string[]` | Yes | Key(s) referencing entries in `entities.json`. Used for entity logo display, governor verification, and risk manager identification. |
 | `url` | `string` | Yes | External URL linked from entity logos on vault overview pages |
 | `vaults` | `string[]` | Yes | Active vault addresses (checksummed). These become "verified" vaults in the app. |
@@ -91,6 +94,7 @@ Per-vault overrides allow customizing behavior for individual vaults within a pr
 | Field | Type | Description |
 |-------|------|-------------|
 | `description` | `string` | Overrides the product `description` for this specific vault on the overview page |
+| `notice` | `string` | Overrides the product `notice` for this specific vault on portfolio cards |
 | `deprecationReason` | `string` | Overrides the product `deprecationReason` for this specific vault |
 | `block` | `string[]` | **Replaces** (not merges with) the product-level `block` list for this vault |
 | `restricted` | `string[]` | Soft geo-restriction for this vault only. No product-level fallback. See [geo-blocking.md](./geo-blocking.md). |
@@ -101,7 +105,7 @@ Per-vault overrides allow customizing behavior for individual vaults within a pr
 - `block`: vault override replaces product-level (not additive)
 - `restricted`: vault-level only (no product-level equivalent)
 - `notExplorable` (product) > `notExplorableLend` / `notExplorableBorrow` (vault override)
-- `description` / `deprecationReason`: vault override replaces product-level
+- `description` / `notice` / `deprecationReason`: vault override replaces product-level
 
 ---
 
@@ -189,7 +193,8 @@ Structure: `Array<string | EarnVaultEntry>` — each entry is either a plain add
     "featured": true,                             // Sort to top in earn discovery table
     "deprecated": true,                           // Mark as deprecated
     "deprecationReason": "Migrated to new vault", // Deprecation explanation
-    "description": "Custom description"           // Vault description
+    "description": "Custom description",          // Vault description
+    "notice": "Strategy rebalancing in progress"  // Operational notice on portfolio cards
   }
 ]
 ```
@@ -205,6 +210,7 @@ Structure: `Array<string | EarnVaultEntry>` — each entry is either a plain add
 | `deprecated` | `boolean` | No | If `true`, marks vault as deprecated (hidden from discovery, warning banner shown) |
 | `deprecationReason` | `string` | No | Explanation shown in deprecation warning banner |
 | `description` | `string` | No | Custom description displayed on earn vault items and overview pages |
+| `notice` | `string` | No | Operational notice shown on portfolio position cards. Supports auto-linked URLs and **bold** formatting. |
 
 **Note**: This file is optional. If missing, earn vaults are loaded from the `eulerEarnGovernedPerspective` on-chain contract instead.
 

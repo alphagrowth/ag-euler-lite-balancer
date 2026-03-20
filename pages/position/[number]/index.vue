@@ -24,6 +24,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl, nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { formatNumber, formatHealthScore, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
+import { getVaultNotice } from '~/utils/eulerLabelsUtils'
 import { VaultOverviewModal, OperationReviewModal, VaultSupplyApyModal, VaultBorrowApyModal, VaultNetApyModal, PortfolioRoeModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -119,6 +120,13 @@ const isPairFullyRestricted = computed(() => {
   return isVaultRestrictedByCountry(position.value.borrow.address)
     && isVaultRestrictedByCountry(position.value.collateral.address)
 })
+
+const borrowVaultNotice = computed(() => {
+  if (!position.value) return ''
+  return getVaultNotice(position.value.borrow.address)
+})
+
+const getCollateralNotice = (vaultAddress: string): string => getVaultNotice(vaultAddress)
 
 const supplyRewardAPY = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
 const borrowRewardAPY = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
@@ -862,6 +870,11 @@ watch(isConnected, () => {
             </div>
           </div>
           <div class="pt-12 px-16 pb-16">
+            <PortfolioNotice
+              v-if="borrowVaultNotice"
+              :notice="borrowVaultNotice"
+              class="mb-16"
+            />
             <div class="flex justify-between gap-8 flex-wrap mb-16">
               <div class="text-content-secondary text-p3">
                 Market value
@@ -1022,6 +1035,11 @@ watch(isConnected, () => {
               </div>
             </div>
             <div class="pt-12 px-16 pb-16">
+              <PortfolioNotice
+                v-if="getCollateralNotice(collateral.vault.address)"
+                :notice="getCollateralNotice(collateral.vault.address)"
+                class="mb-16"
+              />
               <div class="flex justify-between gap-8 flex-wrap mb-16">
                 <div class="text-content-secondary text-p3">
                   {{ !hasNoBorrow ? 'Market value' : 'Supply value' }}

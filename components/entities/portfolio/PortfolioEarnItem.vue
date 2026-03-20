@@ -2,7 +2,7 @@
 import { useAccount } from '@wagmi/vue'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
-import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { isVaultDeprecated, getVaultNotice } from '~/utils/eulerLabelsUtils'
 import { type AccountDepositPosition, getSubAccountIndex } from '~/entities/account'
 import type { EarnVault } from '~/entities/vault'
 import { VaultOverviewModal, VaultSupplyApyModal } from '#components'
@@ -31,6 +31,7 @@ const product = useEulerProductOfVault(computed(() => vault.value.address))
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.value.address))
 const isDeprecated = computed(() => isVaultDeprecated(vault.value.address))
 const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
+const vaultNotice = computed(() => getVaultNotice(vault.value.address))
 const displayName = computed(() => product.name || vault.value.name)
 
 const supplyValueDisplay = ref('-')
@@ -173,6 +174,7 @@ const onClick = () => {
       <div
         class="flex flex-col gap-12 w-full"
       >
+        <PortfolioNotice :notice="vaultNotice" />
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Supply value

@@ -25,7 +25,8 @@ import {
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
-import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { isVaultDeprecated, getVaultNotice, isVaultNoticeSpecific } from '~/utils/eulerLabelsUtils'
+import { normalizeAddress } from '~/utils/normalizeAddress'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultNetApyModal, PortfolioRoeModal } from '#components'
 
@@ -70,6 +71,41 @@ const collateralSymbolLabel = computed(() => {
 const pairSymbols = computed(() => `${collateralSymbolLabel.value}/${position.borrow.asset.symbol}`)
 
 const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(position.collateral.address, position.borrow.address))
+const getSymbolForAddress = (addr: string): string => {
+  if (normalizeAddress(addr) === normalizeAddress(position.borrow.address)) {
+    return position.borrow.asset.symbol
+  }
+  const item = collateralItems.value.find(c =>
+    normalizeAddress(c.vault.address) === normalizeAddress(addr))
+  return item?.vault.asset.symbol ?? position.collateral.asset.symbol
+}
+const prefixNotice = (notice: string, addr: string): string => {
+  if (!isVaultNoticeSpecific(addr)) return notice
+  return `${getSymbolForAddress(addr)} vault: ${notice}`
+}
+const collateralNotices = computed(() => {
+  const addresses = position.collaterals?.length
+    ? position.collaterals
+    : [position.collateral.address]
+  const seenRaw = new Set<string>()
+  return addresses.reduce<string[]>((acc, addr) => {
+    const raw = getVaultNotice(addr)
+    if (!raw || seenRaw.has(raw)) return acc
+    seenRaw.add(raw)
+    acc.push(prefixNotice(raw, addr))
+    return acc
+  }, [])
+})
+const borrowNotice = computed(() => {
+  const raw = getVaultNotice(position.borrow.address)
+  if (!raw) return ''
+  // Dedup against raw collateral notices
+  const addresses = position.collaterals?.length
+    ? position.collaterals
+    : [position.collateral.address]
+  if (addresses.some(addr => getVaultNotice(addr) === raw)) return ''
+  return prefixNotice(raw, position.borrow.address)
+})
 const isAnyDeprecated = computed(() =>
   isVaultDeprecated(position.collateral.address) || isVaultDeprecated(position.borrow.address),
 )
@@ -459,6 +495,12 @@ onMounted(() => {
       <div
         class="flex flex-col gap-12 w-full"
       >
+        <PortfolioNotice
+          v-for="(notice, i) in collateralNotices"
+          :key="'c' + i"
+          :notice="notice"
+        />
+        <PortfolioNotice :notice="borrowNotice" />
         <div
           v-if="hasQueryFailure"
           class="flex items-center gap-6 text-warning-500 text-p4"

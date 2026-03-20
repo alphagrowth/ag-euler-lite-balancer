@@ -13,6 +13,8 @@ Every on-chain deposit a user holds falls into one of three categories:
 
 Savings positions are stored in a single `depositPositions` array. The UI splits them into "Managed lending" (earn vaults) and "Direct lending" (EVK/securitize vaults) using `isEarnVault()` from the vault registry.
 
+Portfolio cards can display operational **notices** from the labels system (e.g. migration announcements, temporary pauses). Notices are resolved via `getVaultNotice()` which checks earn vault notices, vault overrides, and product-level notices in priority order. On borrow cards, collateral and borrow notices are shown separately with deduplication when both vaults share the same product-level notice.
+
 ### How Categorization Works
 
 Categorization depends on a strict loading order: **borrows first, then savings**.
