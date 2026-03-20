@@ -49,7 +49,7 @@ defineEmits(['close'])
 
     <div
       class="flex flex-col"
-      :class="[full ? 'flex-grow min-h-0 overflow-hidden' : '']"
+      :class="[full ? 'flex-grow min-h-0 overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : '']"
     >
       <slot />
     </div>
