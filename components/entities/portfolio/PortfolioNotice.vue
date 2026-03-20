@@ -13,9 +13,11 @@ defineProps<{ notice: string }>()
       name="info-circle"
       class="!w-16 !h-16 text-accent-600 shrink-0 mt-2"
     />
+    <!-- eslint-disable vue/no-v-html -- trusted label content -->
     <span
       class="text-accent-700 text-p4 auto-link"
       v-html="autoLink(notice)"
     />
+    <!-- eslint-enable vue/no-v-html -->
   </div>
 </template>

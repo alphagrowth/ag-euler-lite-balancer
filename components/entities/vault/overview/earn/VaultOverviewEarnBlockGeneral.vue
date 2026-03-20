@@ -64,10 +64,12 @@ const vaultTypeDescription = computed(() =>
             name="warning"
             class="!w-20 !h-20 flex-shrink-0 mt-2"
           />
+          <!-- eslint-disable vue/no-v-html -- trusted label content -->
           <p
             class="text-p3 text-warning-500 auto-link"
             v-html="autoLink(deprecationReason)"
           />
+          <!-- eslint-enable vue/no-v-html -->
         </div>
       </div>
       <div
@@ -88,19 +90,23 @@ const vaultTypeDescription = computed(() =>
         v-if="earnDescription"
         class="w-full rounded-12 p-16 bg-surface-tertiary"
       >
+        <!-- eslint-disable vue/no-v-html -- trusted label content -->
         <p
           class="text-p3 text-content-secondary auto-link"
           v-html="autoLink(earnDescription)"
         />
+        <!-- eslint-enable vue/no-v-html -->
       </div>
       <div
         v-if="product.description"
         class="w-full rounded-12 p-16 bg-surface-tertiary"
       >
+        <!-- eslint-disable vue/no-v-html -- trusted label content -->
         <p
           class="text-p3 text-content-secondary auto-link"
           v-html="autoLink(product.description)"
         />
+        <!-- eslint-enable vue/no-v-html -->
       </div>
       <VaultOverviewLabelValue
         label="Price"

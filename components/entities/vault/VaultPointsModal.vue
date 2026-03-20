@@ -74,11 +74,12 @@ const formattedPointName = computed(() => convertMarkdownLinks(pointName))
         class="w-20 h-20 rounded-full"
         @error="onLogoError"
       >
-      <!-- eslint-disable-next-line vue/no-v-html -->
+      <!-- eslint-disable vue/no-v-html -- trusted label content -->
       <span
         class="text-p2"
         v-html="formattedPointName"
       />
+      <!-- eslint-enable vue/no-v-html -->
     </div>
   </BaseModalWrapper>
 </template>

@@ -44,11 +44,13 @@ export const useEstimatePlanFees = () => {
     }[] = []
 
     for (const step of plan.steps) {
+      /* eslint-disable @typescript-eslint/no-explicit-any -- viem encodeFunctionData requires ABI-specific generics */
       const data = encodeFunctionData({
         abi: step.abi,
         functionName: step.functionName as any,
         args: step.args as any,
       })
+      /* eslint-enable @typescript-eslint/no-explicit-any */
 
       const gasLimit = await catchToFallback(
         () => estimateGas(config, {

@@ -34,6 +34,7 @@ interface ProcessVaultOptions {
  */
 
 export const processRawVaultData = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw lens data with dynamic shape
   raw: any,
   vaultAddress: string,
   verifiedVaultAddresses?: string[],
