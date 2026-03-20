@@ -2,6 +2,7 @@
 import { DateTime } from 'luxon'
 import { formatNumber } from '~/utils/string-utils'
 import type { RewardCampaign } from '~/entities/reward-campaign'
+import { PROVIDER_LABELS, PROVIDER_LOGOS } from '~/entities/reward-campaign'
 
 const emits = defineEmits(['close'])
 const {
@@ -11,8 +12,10 @@ const {
   intrinsicBorrowAPY,
   supplyRewardAPY,
   borrowRewardAPY,
+  loopingRewardAPY,
   supplyCampaigns,
   borrowCampaigns,
+  loopingCampaigns,
 } = defineProps<{
   supplyAPY: number
   borrowAPY: number
@@ -20,8 +23,10 @@ const {
   intrinsicBorrowAPY?: number
   supplyRewardAPY?: number | null
   borrowRewardAPY?: number | null
+  loopingRewardAPY?: number | null
   supplyCampaigns?: RewardCampaign[]
   borrowCampaigns?: RewardCampaign[]
+  loopingCampaigns?: RewardCampaign[]
 }>()
 
 const totalSupplyApy = computed(() =>
@@ -30,16 +35,11 @@ const totalSupplyApy = computed(() =>
 const totalBorrowApy = computed(() =>
   borrowAPY + (intrinsicBorrowAPY ?? 0) - (borrowRewardAPY || 0),
 )
-const netApy = computed(() => totalSupplyApy.value - totalBorrowApy.value)
+const netApy = computed(() => totalSupplyApy.value - totalBorrowApy.value + (loopingRewardAPY || 0))
 
 const hasIntrinsic = computed(() => (intrinsicSupplyAPY ?? 0) !== 0 || (intrinsicBorrowAPY ?? 0) !== 0)
 const hasRewards = computed(() => (supplyRewardAPY || 0) > 0 || (borrowRewardAPY || 0) > 0)
-
-const PROVIDER_LABELS: Record<string, string> = {
-  merkl: 'Merkl',
-  brevis: 'Brevis',
-  fuul: 'Fuul',
-}
+const hasLoopingRewards = computed(() => (loopingRewardAPY || 0) > 0)
 
 const mapCampaigns = (campaigns: RewardCampaign[] | undefined, side: string) => {
   if (!campaigns) return []
@@ -53,12 +53,15 @@ const mapCampaigns = (campaigns: RewardCampaign[] | undefined, side: string) => 
       rewardToken: c.rewardToken || { symbol: 'Unknown', icon: '' },
       source: c.provider,
       sourceUrl: c.sourceUrl,
+      minMultiplier: c.minMultiplier,
+      maxMultiplier: c.maxMultiplier,
     }))
     .sort((a, b) => a.rewardToken.symbol.localeCompare(b.rewardToken.symbol))
 }
 
 const supplyRewardsInfo = computed(() => mapCampaigns(supplyCampaigns, 'supply'))
 const borrowRewardsInfo = computed(() => mapCampaigns(borrowCampaigns, 'borrow'))
+const loopingRewardsInfo = computed(() => mapCampaigns(loopingCampaigns, 'looping'))
 
 const handleClose = () => {
   emits('close')
@@ -70,6 +73,9 @@ const handleClose = () => {
     title="Net APY"
     @close="handleClose"
   >
+    <p class="text-euler-dark-900 text-p3 mb-16">
+      Net APY estimates the annualized return on your supplied collateral after accounting for borrowing costs and any reward incentives. A positive net APY means the combined yield exceeds the cost of borrowing. A negative net APY means borrowing costs outweigh the yield.
+    </p>
     <div class="mb-24">
       <div class="pb-16 mb-16 border-b border-euler-dark-600">
         <div class="flex justify-between items-center">
@@ -131,7 +137,7 @@ const handleClose = () => {
               alt="Reward token logo"
             >
             <p class="ml-12">
-              {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
+              {{ reward.rewardToken.symbol }}
             </p>
             <p class="ml-4 text-euler-dark-900">
               (<a
@@ -141,8 +147,18 @@ const handleClose = () => {
                 rel="noopener noreferrer"
                 class="underline"
                 @click.stop
+              ><img
+                v-if="PROVIDER_LOGOS[reward.source]"
+                :src="PROVIDER_LOGOS[reward.source]"
+                class="w-14 h-14 inline-block align-middle mr-2"
+                :alt="PROVIDER_LABELS[reward.source]"
               >{{ PROVIDER_LABELS[reward.source] || reward.source }}</a><template v-else>
-                {{ PROVIDER_LABELS[reward.source] || reward.source }}
+                <img
+                  v-if="PROVIDER_LOGOS[reward.source]"
+                  :src="PROVIDER_LOGOS[reward.source]"
+                  class="w-14 h-14 inline-block align-middle mr-2"
+                  :alt="PROVIDER_LABELS[reward.source]"
+                >{{ PROVIDER_LABELS[reward.source] || reward.source }}
               </template>{{ reward.endDate ? `, ends ${reward.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
             </p>
           </div>
@@ -211,7 +227,7 @@ const handleClose = () => {
               alt="Reward token logo"
             >
             <p class="ml-12">
-              {{ reward.rewardToken.symbol === 'WTAC' ? 'TAC' : reward.rewardToken.symbol }}
+              {{ reward.rewardToken.symbol }}
             </p>
             <p class="ml-4 text-euler-dark-900">
               (<a
@@ -221,8 +237,18 @@ const handleClose = () => {
                 rel="noopener noreferrer"
                 class="underline"
                 @click.stop
+              ><img
+                v-if="PROVIDER_LOGOS[reward.source]"
+                :src="PROVIDER_LOGOS[reward.source]"
+                class="w-14 h-14 inline-block align-middle mr-2"
+                :alt="PROVIDER_LABELS[reward.source]"
               >{{ PROVIDER_LABELS[reward.source] || reward.source }}</a><template v-else>
-                {{ PROVIDER_LABELS[reward.source] || reward.source }}
+                <img
+                  v-if="PROVIDER_LOGOS[reward.source]"
+                  :src="PROVIDER_LOGOS[reward.source]"
+                  class="w-14 h-14 inline-block align-middle mr-2"
+                  :alt="PROVIDER_LABELS[reward.source]"
+                >{{ PROVIDER_LABELS[reward.source] || reward.source }}
               </template>{{ reward.endDate ? `, ends ${reward.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
             </p>
           </div>
@@ -230,6 +256,90 @@ const handleClose = () => {
             {{ formatNumber(reward.apr) }}%
           </div>
         </div>
+      </div>
+      <div
+        v-if="hasLoopingRewards"
+        class="pb-16 mb-16 border-b border-euler-dark-600"
+      >
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="mb-4 flex gap-4">
+              <SvgIcon
+                class="!w-20 !h-20 text-accent-500"
+                name="sparks"
+              />
+              <span>Looping reward APY</span>
+            </p>
+            <p class="text-euler-dark-900">
+              Incentive on net liquidity
+            </p>
+          </div>
+          <div class="text-h5">
+            + {{ formatNumber(loopingRewardAPY ?? 0) }}%
+          </div>
+        </div>
+        <div
+          v-for="reward in loopingRewardsInfo"
+          :key="reward.id"
+          class="mt-12"
+        >
+          <div class="flex justify-between items-center">
+            <div class="flex ml-32">
+              <img
+                v-if="reward.rewardToken.icon"
+                class="w-20 h-20 rounded-full"
+                :src="reward.rewardToken.icon"
+                alt="Reward token logo"
+              >
+              <p :class="reward.rewardToken.icon ? 'ml-12' : ''">
+                {{ reward.rewardToken.symbol }}
+              </p>
+              <p class="ml-4 text-euler-dark-900">
+                (<a
+                  v-if="reward.sourceUrl"
+                  :href="reward.sourceUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="underline"
+                  @click.stop
+                ><img
+                  v-if="PROVIDER_LOGOS[reward.source]"
+                  :src="PROVIDER_LOGOS[reward.source]"
+                  class="w-14 h-14 inline-block align-middle mr-2"
+                  :alt="PROVIDER_LABELS[reward.source]"
+                >{{ PROVIDER_LABELS[reward.source] || reward.source }}</a><template v-else>
+                  <img
+                    v-if="PROVIDER_LOGOS[reward.source]"
+                    :src="PROVIDER_LOGOS[reward.source]"
+                    class="w-14 h-14 inline-block align-middle mr-2"
+                    :alt="PROVIDER_LABELS[reward.source]"
+                  >{{ PROVIDER_LABELS[reward.source] || reward.source }}
+                </template>{{ reward.endDate ? `, ends ${reward.endDate.toFormat('MMMM dd, yyyy')}` : '' }})
+              </p>
+            </div>
+            <div class="text-p2">
+              {{ formatNumber(reward.apr) }}%
+            </div>
+          </div>
+          <p
+            v-if="reward.minMultiplier || reward.maxMultiplier"
+            class="text-euler-dark-900 text-p4 mt-4 ml-32"
+          >
+            Requires multiplier
+            <template v-if="reward.minMultiplier && reward.maxMultiplier">
+              between {{ reward.minMultiplier }}x and {{ reward.maxMultiplier }}x
+            </template>
+            <template v-else-if="reward.minMultiplier">
+              of at least {{ reward.minMultiplier }}x
+            </template>
+            <template v-else-if="reward.maxMultiplier">
+              of at most {{ reward.maxMultiplier }}x
+            </template>
+          </p>
+        </div>
+        <p class="text-euler-dark-900 text-p4 mt-8">
+          Looping reward is based on net liquidity and does not scale with multiplier.
+        </p>
       </div>
     </div>
     <div class="bg-euler-dark-600 rounded-12 p-16 flex justify-between items-center">

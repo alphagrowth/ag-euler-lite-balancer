@@ -8,7 +8,13 @@ export interface FuulTrigger {
   type: string
   context: {
     chain_id: number
-    token_address: string
+    token_address?: string
+    depositVault?: string
+    borrowVault?: string
+    min_leverage?: number
+    max_leverage?: number
+    min_leverage_operator?: string
+    max_leverage_operator?: string
   }
 }
 
@@ -24,27 +30,28 @@ export interface FuulIncentive {
   refreshed_at: string
 }
 
-export interface FuulClaimCheck {
-  project_address: string
-  to: string
-  currency: string
-  currency_type: number
+export interface FuulClaimableReward {
+  currency_address: string
+  currency_chain_id: string
+  currency_name: string
+  currency_decimals: number
   amount: string
+  project_address: string
   reason: number
   token_id: string
-  deadline: string
+  deadline: number
   proof: string
   signatures: string[]
 }
 
-export interface FuulTotalEntry {
-  currency: string
-  currency_type: number
-  amount: string
+export interface FuulClaimableEntry {
+  protocol: string
   chain_id: number
-}
-
-export interface FuulTotals {
-  claimed: FuulTotalEntry[]
-  unclaimed: FuulTotalEntry[]
+  user_address: string
+  pool: FuulPool
+  trigger: FuulTrigger
+  conversion: string
+  project: string
+  claimable_rewards: FuulClaimableReward[]
+  refreshed_at: string
 }

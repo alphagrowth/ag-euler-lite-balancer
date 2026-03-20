@@ -543,6 +543,14 @@ watch(formTab, () => {
                 />
               </template>
 
+              <UiToast
+                v-if="borrow.isUnknownBorrowSwapToken.value && borrow.borrowNeedsSwap.value"
+                title="Unknown token"
+                description="This token is not on any recognized token list. It could be fraudulent or malicious. Verify the contract address before proceeding."
+                variant="warning"
+                size="compact"
+              />
+
               <UiRange
                 v-model="borrow.ltv.value"
                 label="LTV"

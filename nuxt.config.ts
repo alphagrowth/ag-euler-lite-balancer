@@ -105,6 +105,8 @@ export default defineNuxtConfig({
       configLabelsRepo: 'euler-xyz/euler-labels',
       configLabelsRepoBranch: 'master',
       configOracleChecksRepo: 'euler-xyz/oracle-checks',
+      configLabelsBaseUrl: '',
+      configOracleChecksBaseUrl: '',
       // Feature flags: enabled by default. Set to 'false' to disable.
       configEnableEntityBranding: '',
       configEnableVaultType: '',
@@ -117,6 +119,8 @@ export default defineNuxtConfig({
       configEnableMerkl: '',
       configEnableIncentra: '',
       configEnableFuul: '',
+      // External token list URL for swap token selector (default: Uniswap)
+      configTokenListUrl: '',
       // Env config fallbacks (Doppler: NUXT_PUBLIC_*)
       // Prefer window.__APP_CONFIG__ at runtime; these are build-time fallbacks.
       appKitProjectId: '',

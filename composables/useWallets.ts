@@ -44,6 +44,7 @@ export const useWallets = () => {
     }
 
     // Collect unique underlying asset addresses from ALL vaults (evk, earn, securitize)
+    // plus external token list tokens for the swap selector
     // Note: We only fetch underlying token balances, NOT vault share balances
     // Share balances are fetched separately on individual pages via account lens
     const addresses = new Set<string>()
@@ -59,6 +60,17 @@ export const useWallets = () => {
         }
       }
     })
+
+    // Include token list addresses (for swap selector zero-balance filtering)
+    const { getAllTokens } = useTokenList()
+    for (const token of getAllTokens()) {
+      try {
+        addresses.add(getAddress(token.address))
+      }
+      catch {
+        // Skip invalid addresses
+      }
+    }
 
     const tokenAddresses = [...addresses] as Address[]
     if (!tokenAddresses.length) {
@@ -91,23 +103,29 @@ export const useWallets = () => {
         }) as bigint[]
       }
       catch {
-        // Fallback: fetch balances individually
-        result = await Promise.all(
-          tokenAddresses.map(async (tokenAddr) => {
-            try {
-              const balance = await client.readContract({
-                address: tokenAddr,
-                abi: erc20BalanceOfAbi,
-                functionName: 'balanceOf',
-                args: [address.value as Address],
-              }) as bigint
-              return balance
-            }
-            catch {
-              return 0n
-            }
-          }),
-        )
+        // Fallback: fetch balances in bounded batches to avoid RPC bursts
+        const BATCH_SIZE = 200
+        result = []
+        for (let i = 0; i < tokenAddresses.length; i += BATCH_SIZE) {
+          const batch = tokenAddresses.slice(i, i + BATCH_SIZE)
+          const batchResult = await Promise.all(
+            batch.map(async (tokenAddr) => {
+              try {
+                const balance = await client.readContract({
+                  address: tokenAddr,
+                  abi: erc20BalanceOfAbi,
+                  functionName: 'balanceOf',
+                  args: [address.value as Address],
+                }) as bigint
+                return balance
+              }
+              catch {
+                return 0n
+              }
+            }),
+          )
+          result.push(...batchResult)
+        }
       }
 
       // Only update if still on same chain

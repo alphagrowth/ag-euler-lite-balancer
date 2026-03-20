@@ -6,10 +6,10 @@ const { isConnected } = useAccount()
 const { enableMerkl, enableIncentra, enableFuul } = useDeployConfig()
 const { rewards, isRewardsLoading } = useMerkl()
 const { userRewards: brevisRewards, isRewardsLoading: isBrevisRewardsLoading } = useBrevis()
-const { fuulTotals, isTotalsLoading: isFuulTotalsLoading } = useFuul()
+const { unclaimedFuulRewards, isClaimableLoading: isFuulClaimableLoading } = useFuul()
 const { locks, isLocksLoading } = useREULLocks()
 
-const hasUnclaimedFuul = computed(() => fuulTotals.value.unclaimed.length > 0)
+const hasUnclaimedFuul = computed(() => unclaimedFuulRewards.value.length > 0)
 
 const sortedRewards = computed(() => {
   return [...rewards.value].sort((a, b) => {
@@ -124,7 +124,7 @@ const sortedBrevisRewards = computed(() => {
         </div>
         <div class="flex flex-1 rounded-12 p-8 mb-16 border border-line-default bg-card">
           <div
-            v-if="isFuulTotalsLoading"
+            v-if="isFuulClaimableLoading"
             class="flex flex-1 min-h-[100px] justify-center items-center"
           >
             <UiLoader class="text-neutral-500" />
@@ -149,18 +149,10 @@ const sortedBrevisRewards = computed(() => {
             v-else
             class="flex-1 min-h-[100px]"
           >
-            <div
-              v-for="entry in fuulTotals.unclaimed"
-              :key="entry.currency"
-              class="flex items-center justify-between p-12 rounded-8"
-            >
-              <span class="text-p2 text-neutral-800 font-mono">
-                {{ entry.currency }}
-              </span>
-              <span class="text-p2 text-neutral-800 font-mono">
-                {{ entry.amount }}
-              </span>
-            </div>
+            <PortfolioList
+              :items="unclaimedFuulRewards"
+              type="fuul-rewards"
+            />
           </div>
         </div>
       </template>

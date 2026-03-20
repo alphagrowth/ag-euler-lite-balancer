@@ -6,6 +6,8 @@ export const useDeployConfig = () => {
     const s = String(val)
     return s !== 'false' && s !== '0'
   }
+  const labelsBaseUrl = (rc.configLabelsBaseUrl || '').trim().replace(/\/+$/, '')
+
   return {
     // URLs (empty string = not configured, hide UI element)
     docsUrl: rc.configDocsUrl,
@@ -24,7 +26,12 @@ export const useDeployConfig = () => {
     labelsRepo: rc.configLabelsRepo || 'euler-xyz/euler-labels',
     labelsRepoBranch: rc.configLabelsRepoBranch || 'master',
     oracleChecksRepo: rc.configOracleChecksRepo || 'euler-xyz/oracle-checks',
+    labelsBaseUrl,
+    oracleChecksBaseUrl: (rc.configOracleChecksBaseUrl || '').trim().replace(/\/+$/, ''),
     isCustomLabelsRepo: computed(() => {
+      if (labelsBaseUrl) {
+        return !labelsBaseUrl.includes('master')
+      }
       const repo = rc.configLabelsRepo || 'euler-xyz/euler-labels'
       const branch = rc.configLabelsRepoBranch || 'master'
       return repo !== 'euler-xyz/euler-labels' || branch !== 'master'
@@ -42,6 +49,9 @@ export const useDeployConfig = () => {
     enableMerkl: isEnabled(rc.configEnableMerkl),
     enableIncentra: isEnabled(rc.configEnableIncentra),
     enableFuul: isEnabled(rc.configEnableFuul),
+
+    // External token list
+    tokenListUrl: rc.configTokenListUrl || 'https://tokens.uniswap.org',
 
     // Chains (derived from env vars at runtime via useChainConfig)
     ...useChainConfig(),

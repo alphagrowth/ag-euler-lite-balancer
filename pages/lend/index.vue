@@ -6,7 +6,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { getProductByVault, getEntitiesByVault, isVaultFeatured, isVaultDeprecated, isVaultNotExplorableLend } from '~/utils/eulerLabelsUtils'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useVaultSearch } from '~/composables/useVaultSearch'
@@ -102,7 +102,8 @@ watch(chainId, (newChainId, oldChainId) => {
 
 const borrowableVaults = computed(() => {
   return list.value.filter(vault =>
-    borrowList.value.some(pair => pair.borrow.address === vault.address),
+    !isVaultNotExplorableLend(vault.address)
+    && borrowList.value.some(pair => pair.borrow.address === vault.address),
   )
 })
 
