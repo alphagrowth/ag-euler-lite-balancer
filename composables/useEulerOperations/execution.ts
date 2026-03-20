@@ -6,6 +6,8 @@ import { catchToFallback } from '~/utils/errorHandling'
 import { isNonBlockingSimulationError } from '~/utils/tx-errors'
 
 export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers: AllowanceHelpers) => {
+  const { triggerPortfolioRefresh } = usePortfolioRefresh()
+
   const waitForTxReceipt = async (txHash?: Hash) => {
     if (!txHash) {
       return
@@ -37,6 +39,7 @@ export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers:
       await waitForTxReceipt(txHash)
     }
 
+    triggerPortfolioRefresh()
     return lastHash
   }
 

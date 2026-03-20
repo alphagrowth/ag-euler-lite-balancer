@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { POLL_INTERVAL_10S_MS } from '~/entities/tuning-constants'
+import { POLL_INTERVAL_30S_MS } from '~/entities/tuning-constants'
 
 const route = useRoute()
 const router = useRouter()
@@ -100,7 +100,7 @@ watch([isConnected, isVaultsReady], ([val]) => {
     updateBalances()
     interval = setInterval(async () => {
       updateBalances()
-    }, POLL_INTERVAL_10S_MS)
+    }, POLL_INTERVAL_30S_MS)
   }
 }, { immediate: true })
 
@@ -109,6 +109,11 @@ watch(address, () => {
   if (isConnected.value && isVaultsReady.value) {
     updateBalances()
   }
+})
+
+const { portfolioRefreshCounter } = usePortfolioRefresh()
+watch(portfolioRefreshCounter, () => {
+  updateBalances()
 })
 
 onUnmounted(() => {

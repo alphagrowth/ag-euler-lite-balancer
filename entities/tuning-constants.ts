@@ -6,6 +6,7 @@ export const CACHE_TTL_5MIN_MS = 300_000
 // ── Polling Intervals ─────────────────────────────────────
 export const POLL_INTERVAL_5S_MS = 5_000
 export const POLL_INTERVAL_10S_MS = 10_000
+export const POLL_INTERVAL_30S_MS = 30_000
 export const POLL_INTERVAL_60S_MS = 60_000
 
 // ── RPC Batch Sizes ───────────────────────────────────────

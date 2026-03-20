@@ -12,9 +12,9 @@ import { nanoToValue } from '~/utils/crypto-utils'
 const modal = useModal()
 const { error } = useToast()
 const { rewardTokens, isTokensLoading } = useMerkl()
-const { unlockREUL, buildUnlockREULPlan, reulTokenContractAddress } = useREULLocks()
+const { unlockREUL, buildUnlockREULPlan, reulTokenContractAddress, loadREULLocksInfo } = useREULLocks()
 const { chainId: siteChainId } = useEulerAddresses()
-const { chainId: walletChainId, switchChain } = useWagmi()
+const { chainId: walletChainId, switchChain, address: wagmiAddress } = useWagmi()
 const { runSimulation, simulationError } = useTxPlanSimulation()
 const { item } = defineProps<{ item: REULLock }>()
 
@@ -69,6 +69,9 @@ const unlock = async () => {
 
     await unlockREUL([item.timestamp])
     modal.close()
+    if (wagmiAddress.value) {
+      loadREULLocksInfo(wagmiAddress.value, false)
+    }
   }
   catch (e) {
     error('Transaction failed')

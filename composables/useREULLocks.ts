@@ -137,6 +137,13 @@ export const useREULLocks = () => {
       args: [wagmiAddress.value, lockTimestamps[0] as bigint, true],
     })
 
+    const { EVM_PROVIDER_URL } = useEulerConfig()
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    const receipt = await client.waitForTransactionReceipt({ hash })
+    if (receipt.status === 'reverted') {
+      throw new Error('Transaction reverted')
+    }
+
     return hash
   }
 

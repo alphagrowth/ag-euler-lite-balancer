@@ -57,7 +57,7 @@ const claim = async () => {
 
     await claimReward(reward)
     modal.close()
-    loadRewards(siteChainId.value)
+    loadRewards(siteChainId.value, false, true)
   }
   catch (e) {
     error('Transaction failed')

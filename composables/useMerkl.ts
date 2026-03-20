@@ -3,11 +3,12 @@ import type { Address } from 'viem'
 import axios from 'axios'
 
 import { merklDistributorABI } from '~/abis/merkl'
+import { getPublicClient } from '~/utils/public-client'
 import type { Opportunity, Reward, RewardsResponseItem, RewardToken } from '~/entities/merkl'
 import type { RewardCampaign } from '~/entities/reward-campaign'
 import { mapMerklSubType } from '~/entities/reward-campaign'
 import type { TxPlan } from '~/entities/txPlan'
-import { CACHE_TTL_1MIN_MS, POLL_INTERVAL_10S_MS } from '~/entities/tuning-constants'
+import { CACHE_TTL_1MIN_MS, POLL_INTERVAL_30S_MS } from '~/entities/tuning-constants'
 import { logWarn } from '~/utils/errorHandling'
 
 const {
@@ -250,7 +251,7 @@ const getMerklCampaignsForVault = (vaultAddress: string): RewardCampaign[] => {
 export const useMerkl = () => {
   const { isConnected, address: wagmiAddress, chain: wagmiChain } = useAccount()
   const { switchChain } = useSwitchChain()
-  const { MERKL_ADDRESS } = useEulerConfig()
+  const { MERKL_ADDRESS, EVM_PROVIDER_URL } = useEulerConfig()
   const { writeContractAsync } = useWriteContract()
   const { chainId } = useEulerAddresses()
 
@@ -286,6 +287,12 @@ export const useMerkl = () => {
         [reward.proofs as Address[]],
       ],
     })
+
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    const receipt = await client.waitForTransactionReceipt({ hash })
+    if (receipt.status === 'reverted') {
+      throw new Error('Transaction reverted')
+    }
 
     return hash
   }
@@ -360,7 +367,7 @@ export const useMerkl = () => {
         loadRewards(chainId.value, false)
         loadOpportunities(chainId.value, false)
         loadTokens(chainId.value, false)
-      }, POLL_INTERVAL_10S_MS)
+      }, POLL_INTERVAL_30S_MS)
     }
     else if (!connected && interval) {
       clearInterval(interval)

@@ -3,11 +3,12 @@ import type { Address } from 'viem'
 import axios from 'axios'
 
 import { brevisClaimABI } from '~/abis/brevis'
+import { getPublicClient } from '~/utils/public-client'
 import type { Campaign, CampaignsRequest, MerkleProofRequest, RewardInfo } from '~/entities/brevis'
 import type { RewardCampaign } from '~/entities/reward-campaign'
 import type { TxPlan } from '~/entities/txPlan'
 import { CampaignAction } from '~/entities/brevis'
-import { CACHE_TTL_1MIN_MS, POLL_INTERVAL_10S_MS } from '~/entities/tuning-constants'
+import { CACHE_TTL_1MIN_MS, POLL_INTERVAL_30S_MS } from '~/entities/tuning-constants'
 import { logWarn } from '~/utils/errorHandling'
 
 const ACTION_MAP: Record<string, CampaignAction> = {
@@ -78,7 +79,7 @@ export const useBrevis = () => {
   const { isConnected, address: wagmiAddress, chain: wagmiChain } = useAccount()
   const { switchChain } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
-  const { BREVIS_API_URL, BREVIS_MERKLE_PROOF_URL } = useEulerConfig()
+  const { BREVIS_API_URL, BREVIS_MERKLE_PROOF_URL, EVM_PROVIDER_URL } = useEulerConfig()
   const { chainId } = useEulerAddresses()
 
   const ensureWalletOnCurrentChain = async () => {
@@ -258,6 +259,12 @@ export const useBrevis = () => {
       ],
     })
 
+    const client = getPublicClient(EVM_PROVIDER_URL)
+    const receipt = await client.waitForTransactionReceipt({ hash })
+    if (receipt.status === 'reverted') {
+      throw new Error('Transaction reverted')
+    }
+
     return hash
   }
 
@@ -342,7 +349,7 @@ export const useBrevis = () => {
         interval = setInterval(() => {
           loadRewards(false)
           loadCampaigns(false)
-        }, POLL_INTERVAL_10S_MS)
+        }, POLL_INTERVAL_30S_MS)
       }
     }
     else {
