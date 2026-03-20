@@ -254,7 +254,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
         abi: eulerAccountLensABI as Abi,
         functionName: 'getVaultAccountInfo',
         args: [position.value.subAccount, sourceVault.value.address],
-      }) as Record<string, any>
+      }) as { assets: bigint }
       sourceAssets.value = res.assets
     }
     catch (e) {

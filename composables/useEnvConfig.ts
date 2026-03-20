@@ -76,8 +76,10 @@ export const useEnvConfig = (): EnvConfig => {
   if (import.meta.server) {
     cached = scanEnv()
   }
+  /* eslint-disable @typescript-eslint/no-explicit-any -- server-injected window global */
   else if (typeof window !== 'undefined' && (window as any).__APP_CONFIG__) {
     cached = (window as any).__APP_CONFIG__
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   }
   else {
     cached = fromRuntimeConfig()

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
-import { POLL_INTERVAL_10S_MS } from '~/entities/tuning-constants'
+import { POLL_INTERVAL_30S_MS } from '~/entities/tuning-constants'
 
 defineOptions({
   name: 'PortfolioPage',
@@ -25,6 +25,7 @@ const { locks } = useREULLocks()
 const { isConnected, address } = useAccount()
 const { isLoaded: isBalancesLoaded, updateBalances } = useWallets()
 const { eulerLensAddresses } = useEulerAddresses()
+const { portfolioRefreshCounter } = usePortfolioRefresh()
 
 const interval: Ref<NodeJS.Timeout | null> = ref(null)
 
@@ -59,16 +60,26 @@ const updatePositions = async () => {
 }
 
 watch(tabsModel, checkTab, { immediate: true })
+const isActive = ref(false)
+
 onActivated(async () => {
+  isActive.value = true
   checkTab()
   await updateBalances()
   updatePositions()
-  interval.value = setInterval(updatePositions, POLL_INTERVAL_10S_MS)
+  interval.value = setInterval(updatePositions, POLL_INTERVAL_30S_MS)
 })
 onDeactivated(() => {
+  isActive.value = false
   if (interval.value) {
     clearInterval(interval.value)
     interval.value = null
+  }
+})
+
+watch(portfolioRefreshCounter, () => {
+  if (isActive.value) {
+    updatePositions()
   }
 })
 </script>

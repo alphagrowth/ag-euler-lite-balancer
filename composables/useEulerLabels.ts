@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete */
 import axios from 'axios'
 import { getAddress } from 'viem'
-import type { EulerLabelPoint } from '~/entities/euler/labels'
+import type { EulerLabelPoint, EulerLabelEarnVaultEntry } from '~/entities/euler/labels'
 import type { EarnVault, Vault } from '~/entities/vault'
 import { safeAssign } from '~/utils/safe-assign'
 import { logWarn } from '~/utils/errorHandling'
@@ -19,6 +19,7 @@ import {
   featuredEarnVaults,
   deprecatedEarnVaults,
   earnVaultDescriptions,
+  earnVaultNotices,
   verifiedVaultAddresses,
   oracleAdapters,
   loadingAdapters,
@@ -130,6 +131,7 @@ export const useEulerLabels = () => {
       Object.keys(earnVaultRestrictions).forEach(key => delete earnVaultRestrictions[key])
       Object.keys(deprecatedEarnVaults).forEach(key => delete deprecatedEarnVaults[key])
       Object.keys(earnVaultDescriptions).forEach(key => delete earnVaultDescriptions[key])
+      Object.keys(earnVaultNotices).forEach(key => delete earnVaultNotices[key])
       featuredEarnVaults.clear()
       earnVaults.value = []
       verifiedVaultAddresses.value = []
@@ -141,7 +143,7 @@ export const useEulerLabels = () => {
 
       try {
         const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
-        const earnEntries = earnRes.data as Array<string | { address: string, block?: string[], restricted?: string[], featured?: boolean, deprecated?: boolean, deprecationReason?: string, description?: string }>
+        const earnEntries = earnRes.data as Array<string | EulerLabelEarnVaultEntry>
         earnVaults.value = earnEntries.map((entry) => {
           if (typeof entry === 'string') return normalizeAddress(entry)
           const addr = normalizeAddress(entry.address)
@@ -159,6 +161,9 @@ export const useEulerLabels = () => {
           }
           if (entry.description) {
             earnVaultDescriptions[addr.toLowerCase()] = entry.description
+          }
+          if (entry.notice) {
+            earnVaultNotices[addr.toLowerCase()] = entry.notice
           }
           return addr
         })

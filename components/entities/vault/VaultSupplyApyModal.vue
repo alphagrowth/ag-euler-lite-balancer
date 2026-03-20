@@ -59,7 +59,7 @@ const handleClose = () => {
               Lending APY
               <span
                 v-if="baseApyAverageLabel"
-                class="inline-flex h-20 items-center rounded-full border border-accent-200 bg-accent-100 px-7 text-[10px] font-semibold tracking-[0.08em] text-accent-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]"
+                class="inline-flex items-center rounded-8 px-8 py-2 bg-accent-100 text-accent-600 text-p5"
               >
                 {{ baseApyAverageLabel }}
               </span>

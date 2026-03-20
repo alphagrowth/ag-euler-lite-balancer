@@ -4,7 +4,7 @@ import type { Vault } from '~/entities/vault'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValue, formatAssetValue } from '~/services/pricing/priceProvider'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
-import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { isVaultDeprecated, getVaultNotice } from '~/utils/eulerLabelsUtils'
 import { formatNumber, compactNumber, formatCompactUsdValue, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { type AccountDepositPosition, getSubAccountIndex } from '~/entities/account'
@@ -48,6 +48,7 @@ const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.value.address)
 const isDeprecated = computed(() => isVaultDeprecated(vault.value.address))
 const isEscrow = computed(() => 'vaultCategory' in vault.value && vault.value.vaultCategory === 'escrow')
 const isUnverified = computed(() => 'verified' in vault.value && !vault.value.verified)
+const vaultNotice = computed(() => getVaultNotice(vault.value.address))
 const displayName = computed(() => {
   if (isEscrow.value) return 'Escrowed collateral'
   return product.name || vault.value.name
@@ -187,6 +188,7 @@ const onClick = () => {
     </div>
     <div class="flex py-12 px-16 pb-16">
       <div class="flex flex-col gap-12 w-full">
+        <PortfolioNotice :notice="vaultNotice" />
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Supply value
@@ -300,6 +302,7 @@ const onClick = () => {
     </div>
     <div class="flex py-12 px-16 pb-16">
       <div class="flex flex-col gap-12 w-full">
+        <PortfolioNotice :notice="vaultNotice" />
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Supply value

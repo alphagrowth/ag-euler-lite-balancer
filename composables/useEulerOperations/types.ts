@@ -19,7 +19,9 @@ export interface OperationsContext {
   PYTH_HERMES_URL: string
   SUBGRAPH_URL: string
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- registry returns polymorphic vault types
   registryGet: (addr: string) => any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- registry returns polymorphic vault types
   registryGetVault: (addr: Address) => any
   permit2Enabled: Ref<boolean>
   rpcProvider: ReturnType<typeof getPublicClient>

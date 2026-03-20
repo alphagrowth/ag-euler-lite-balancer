@@ -134,9 +134,11 @@ const fetchIRMData = async () => {
       abi: eulerVaultLensABI as Abi,
       functionName: 'getVaultInterestRateModelInfo',
       args: [vault.address, cashData, borrowsData],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic lens contract return
     }) as Record<string, any>
 
-    let kinkData = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic lens contract return
+    let kinkData: Record<string, any> | null = null
     const modelType = Number(irmData.interestRateModelInfo?.interestRateModelType)
 
     // Fetch kink-specific data if applicable
@@ -147,6 +149,7 @@ const fetchIRMData = async () => {
           abi: eulerVaultLensABI as Abi,
           functionName: 'getVaultKinkInterestRateModelInfo',
           args: [vault.address],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic lens contract return
         }) as Record<string, any>
       }
       catch (e) {
@@ -160,7 +163,7 @@ const fetchIRMData = async () => {
     }
   }
   catch (error) {
-    console.error('Failed to fetch IRM data:', error)
+    logWarn('VaultOverviewBlockIRM/fetchIRMData', error)
     return null
   }
 }
@@ -241,6 +244,7 @@ const renderChart = async () => {
     }
 
     // Prepare annotations (vertical lines)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- chart.js annotation plugin config
     const annotations: any = {
       currentLine: {
         type: 'line',

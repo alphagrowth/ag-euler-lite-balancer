@@ -14,6 +14,7 @@ export type EulerLabelEntity = {
 }
 export type EulerLabelVaultOverride = {
   description?: string
+  notice?: string
   deprecationReason?: string
   block?: string[]
   restricted?: string[]
@@ -24,6 +25,7 @@ export type EulerLabelVaultOverride = {
 export type EulerLabelProduct = {
   name: string
   description: string
+  notice?: string
   entity: string[] | string
   url: string
   vaults: string[]
@@ -34,6 +36,17 @@ export type EulerLabelProduct = {
   block?: string[]
   featuredVaults?: string[]
   vaultOverrides?: Record<string, EulerLabelVaultOverride>
+}
+
+export type EulerLabelEarnVaultEntry = {
+  address: string
+  block?: string[]
+  restricted?: string[]
+  featured?: boolean
+  deprecated?: boolean
+  deprecationReason?: string
+  description?: string
+  notice?: string
 }
 export type EulerLabelPoint = {
   name: string

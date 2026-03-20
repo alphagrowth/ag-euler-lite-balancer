@@ -6,6 +6,8 @@ import { catchToFallback } from '~/utils/errorHandling'
 import { isNonBlockingSimulationError } from '~/utils/tx-errors'
 
 export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers: AllowanceHelpers) => {
+  const { triggerPortfolioRefresh } = usePortfolioRefresh()
+
   const waitForTxReceipt = async (txHash?: Hash) => {
     if (!txHash) {
       return
@@ -25,6 +27,7 @@ export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers:
     let lastHash: Hex | undefined
 
     for (const step of plan.steps) {
+      /* eslint-disable @typescript-eslint/no-explicit-any -- wagmi writeContractAsync requires ABI-specific generics */
       const txHash = await ctx.writeContractAsync({
         address: step.to,
         abi: step.abi,
@@ -32,11 +35,13 @@ export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers:
         args: step.args as any,
         value: step.value ?? 0n,
       })
+      /* eslint-enable @typescript-eslint/no-explicit-any */
 
       lastHash = txHash
       await waitForTxReceipt(txHash)
     }
 
+    triggerPortfolioRefresh()
     return lastHash
   }
 
@@ -60,6 +65,7 @@ export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers:
 
     for (const step of stepsToSimulate) {
       try {
+        /* eslint-disable @typescript-eslint/no-explicit-any -- wagmi simulateContract requires ABI-specific generics */
         await simulateContract(ctx.config, {
           account: ctx.address.value as Address,
           address: step.to,
@@ -69,6 +75,7 @@ export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers:
           value: step.value ?? 0n,
           stateOverride,
         })
+        /* eslint-enable @typescript-eslint/no-explicit-any */
       }
       catch (err) {
         const isNonBlocking = (hasApprovalSteps || usesPermit2) && isNonBlockingSimulationError(err)

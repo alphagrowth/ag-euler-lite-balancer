@@ -45,7 +45,7 @@ const claim = async () => {
 
     await claimReward(campaign)
     modal.close()
-    loadRewards()
+    loadRewards(false, true)
   }
   catch (e) {
     error('Transaction failed')

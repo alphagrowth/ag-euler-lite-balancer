@@ -81,6 +81,7 @@ const updateBorrowPositions = async (
 
   let borrows: AccountBorrowPosition[] = []
   const batchSize = BATCH_SIZE_RPC_CALLS
+  const pythRefreshCache = new Map<string, Promise<Vault | undefined>>()
 
   for (let i = 0; i < borrowEntries.length; i += batchSize) {
     if (positionGuard.isStale(gen)) return
@@ -153,7 +154,16 @@ const updateBorrowPositions = async (
         // If borrow vault uses Pyth oracles, always fetch fresh prices
         // (Pyth prices are only valid for ~2 minutes and require continuous updates)
         if (hasPythOracles(borrow)) {
-          const freshBorrow = await fetchVault(borrowAddress)
+          const key = getAddress(borrowAddress)
+          let freshPromise = pythRefreshCache.get(key)
+          if (!freshPromise) {
+            freshPromise = fetchVault(key).catch(() => {
+              pythRefreshCache.delete(key)
+              return undefined
+            })
+            pythRefreshCache.set(key, freshPromise)
+          }
+          const freshBorrow = await freshPromise
           if (freshBorrow) {
             borrow = freshBorrow
           }
