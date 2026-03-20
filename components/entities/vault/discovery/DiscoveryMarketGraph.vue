@@ -153,15 +153,13 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
             :y1="edge.from.y"
             :x2="edge.to.x"
             :y2="edge.to.y"
-            :stroke="edge.mutual ? '#9ca3af' : '#6b7280'"
+            :style="{
+              stroke: edge.mutual ? 'var(--graph-edge-mutual)' : 'var(--graph-edge)',
+              transition: 'opacity 0.2s, stroke 0.2s',
+            }"
             :stroke-width="edge.mutual ? 1.0 : 0.5"
             stroke-linecap="round"
             :opacity="selectedNodeAddress ? 0.15 : edge.mutual ? 0.9 : 0.5"
-            style="
-              transition:
-                opacity 0.2s,
-                stroke 0.2s;
-            "
           />
         </template>
 
@@ -185,12 +183,7 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
             :cx="node.x"
             :cy="node.y"
             r="12"
-            :fill="
-              getAssetLogoUrl(node.assetAddress, node.assetSymbol)
-                ? '#1f2937'
-                : stringToColor(node.assetSymbol)
-            "
-            stroke="#4b5563"
+            :style="{ fill: getAssetLogoUrl(node.assetAddress, node.assetSymbol) ? 'var(--graph-node-bg)' : stringToColor(node.assetSymbol), stroke: 'var(--graph-node-border)' }"
             stroke-width="1"
           />
           <image
@@ -207,7 +200,7 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
             :x="node.x"
             :y="node.y + 4"
             text-anchor="middle"
-            fill="white"
+            style="fill: var(--graph-node-text)"
             font-size="10"
             font-weight="600"
           >

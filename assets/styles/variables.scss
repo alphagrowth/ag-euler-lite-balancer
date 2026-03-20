@@ -3,11 +3,45 @@
   --brand-hue: 211deg;
   --brand-accent-hue: calc(var(--brand-hue) - 45deg);
 
-  // ============================================
-  // EULER BRAND COLOR PALETTE
-  // ============================================
+  // ════════════════════════════════════════════════════════════════
+  //
+  //   THEME CONFIGURATION
+  //
+  //   To restyle this app, change the values in this section.
+  //   Every color in the UI derives from them automatically.
+  //
+  //   When you change a hex color, update its matching --*-rgb
+  //   variable too (used for alpha/opacity effects).
+  //
+  //   Dark-theme overrides are at the bottom of this file
+  //   under [data-theme="dark"].
+  //
+  // ════════════════════════════════════════════════════════════════
 
-  // Primary - Professional Navy
+  // — Brand Accent (buttons, links, focus rings, highlights) ——————
+  --accent-100: #e6faf5;
+  --accent-300: #0e4e3f;
+  --accent-400: #167a62;
+  --accent-500: #1c997c;
+  --accent-600: #23c09b;
+  --accent-700: #2ae5b9;
+  --accent-rgb: 28, 153, 124;          // ← RGB of --accent-500
+
+  // — Status Colors ———————————————————————————————————————————————
+  --success-rgb: 98, 173, 79;
+  --success-100: rgba(var(--success-rgb), 0.2);
+  --success-500: #62ad4f;
+  --success-600: #4e8a3f;
+
+  --warning-rgb: 236, 192, 51;
+  --warning-100: rgba(var(--warning-rgb), 0.2);
+  --warning-500: #ecc033;
+
+  --error-rgb: 192, 39, 35;
+  --error-100: rgba(var(--error-rgb), 0.2);
+  --error-500: #c02723;
+
+  // — Primary Palette (Navy) —————————————————————————————————————
   --primary-50: #f0f4f8;
   --primary-100: #d9e2ec;
   --primary-200: #bcccdc;
@@ -19,15 +53,7 @@
   --primary-800: #243b53;
   --primary-900: #102a43;
 
-  // Accent - Euler Aquamarine (brand color #2AE5B9)
-  --accent-100: #e6faf5;
-  --accent-300: #0e4e3f;
-  --accent-400: #167a62;
-  --accent-500: #1c997c;
-  --accent-600: #23c09b;
-  --accent-700: #2ae5b9;
-
-  // Neutral - Warm Grays
+  // — Neutral Palette —————————————————————————————————————————————
   --neutral-50: #fafafa;
   --neutral-100: #f5f5f5;
   --neutral-200: #e5e5e5;
@@ -39,17 +65,8 @@
   --neutral-800: #262626;
   --neutral-900: #171717;
 
-  // Semantic Colors
-  --success-100: #62ad4f33;
-  --success-500: #62ad4f;
-  --success-600: #4e8a3f;
-  --warning-100: #ecc03333;
-  --warning-500: #ecc033;
-  --error-100: #c0272333;
-  --error-500: #c02723;
-
   // ============================================
-  // SHADOW SYSTEM (Apple-like depth)
+  // SHADOW SYSTEM
   // ============================================
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -64,8 +81,17 @@
   --shadow-card: var(--shadow-sm);
   --shadow-card-hover: var(--shadow-md);
 
+  // Accent-colored shadows (auto-derived from --accent-rgb)
+  --accent-glow: 0 0 0 3px rgba(var(--accent-rgb), 0.15), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --accent-shadow-sm: 0 1px 2px rgba(var(--accent-rgb), 0.3);
+  --accent-shadow-md: 0 1px 3px rgba(var(--accent-rgb), 0.3);
+  --accent-shadow-lg: 0 2px 6px rgba(var(--accent-rgb), 0.4);
+
+  // Focus ring — accent-derived for visual consistency
+  --focus-ring: var(--accent-500);
+
   // ============================================
-  // ANIMATION TIMING (Apple-style)
+  // ANIMATION TIMING
   // ============================================
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
@@ -77,7 +103,7 @@
   --duration-slow: 350ms;
 
   // ============================================
-  // BORDER RADIUS (Refined, Apple-like)
+  // BORDER RADIUS
   // ============================================
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -85,6 +111,35 @@
   --radius-xl: 12px;
   --radius-2xl: 16px;
   --radius-full: 9999px;
+
+  // ============================================
+  // CHART COLORS (for Chart.js canvas rendering)
+  // Read these via getComputedStyle in JavaScript.
+  // ============================================
+  --chart-line-a: #62ad4f;
+  --chart-fill-a: rgba(98, 173, 79, 0.15);
+  --chart-line-b: #1c997c;
+  --chart-fill-b: rgba(28, 153, 124, 0.15);
+  --chart-text: #737373;
+  --chart-text-muted: #525252;
+  --chart-grid: #f5f5f5;
+  --chart-axis: #e5e5e5;
+  --chart-tooltip-bg: rgba(255, 255, 255, 0.95);
+  --chart-tooltip-border: #e5e5e5;
+  --chart-tooltip-text: #262626;
+  --chart-tooltip-text-muted: #525252;
+  --chart-annotation-line: #262626;
+  --chart-annotation-bg: rgba(82, 82, 82, 0.85);
+  --chart-annotation-text: #ffffff;
+
+  // ============================================
+  // GRAPH COLORS (for SVG topology visualizations)
+  // ============================================
+  --graph-edge: #4b5563;
+  --graph-edge-mutual: #6b7280;
+  --graph-node-bg: #1f2937;
+  --graph-node-border: #4b5563;
+  --graph-node-text: #ffffff;
 
   // ============================================
   // LEGACY COLORS (kept for compatibility)
@@ -216,7 +271,7 @@
   --bg-surface-elevated: #ffffff;
   --bg-card: #ffffff;
   --bg-card-hover: var(--neutral-50);
-  --bg-header: rgba(255, 255, 255, 0.85);
+  --bg-header: rgba(250, 250, 250, 0.85);
 
   // Text
   --c-text: var(--neutral-800);
@@ -256,48 +311,49 @@
 // DARK THEME
 // ============================================
 [data-theme="dark"] {
-  // Override neutral palette for dark mode - navy-tinted
-  --neutral-50: #020508;
-  --neutral-100: #08131f;
-  --neutral-200: #10263e;
-  --neutral-300: #14304e;
-  --neutral-400: #435971;
-  --neutral-500: #728395;
-  --neutral-600: #a1acb8;
-  --neutral-700: #a1acb8;
-  --neutral-800: #f7f7f8;
-  --neutral-900: #f7f7f8;
-
-  // Accent - Brighter aquamarine for dark bg
+  // — Brand Accent (brighter for dark backgrounds) ————————————————
   --accent-100: #0a3d30;
   --accent-300: #a1f4e0;
   --accent-400: #66eccd;
   --accent-500: #2ae5b9;
   --accent-600: #23c09b;
   --accent-700: #1c997c;
+  --accent-rgb: 42, 229, 185;          // ← RGB of dark --accent-500
 
-  // Semantic backgrounds
-  --bg-body: #020508;
-  --bg-surface: #040a10;
-  --bg-surface-secondary: #08131f;
-  --bg-surface-elevated: #0c1d2f;
-  --bg-card: #08131f;
-  --bg-card-hover: #0c1d2f;
-  --bg-header: rgba(8, 19, 31, 0.9);
+  // Override neutral palette — brand-aligned
+  --neutral-50: #08131f;
+  --neutral-100: #0c1d2f;
+  --neutral-200: #10263e;
+  --neutral-300: #14304e;
+  --neutral-400: #435971;
+  --neutral-500: #728395;
+  --neutral-600: #a1acb8;
+  --neutral-700: #ddfbf4;
+  --neutral-800: #f7f7f8;
+  --neutral-900: #f7f7f8;
 
-  // Text
+  // Semantic backgrounds — matches brand palette
+  --bg-body: #08131f;
+  --bg-surface: #08131f;
+  --bg-surface-secondary: #0c1d2f;
+  --bg-surface-elevated: #10263e;
+  --bg-card: #0c1d2f;
+  --bg-card-hover: #10263e;
+  --bg-header: rgba(8, 19, 31, 0.85);
+
+  // Text — brand hierarchy
   --c-text: #f7f7f8;
   --text-primary: #f7f7f8;
-  --text-secondary: #a1acb8;
-  --text-tertiary: #728395;
-  --text-muted: #435971;
-  --text-inverse: #020508;
+  --text-secondary: #ddfbf4;
+  --text-tertiary: #a1acb8;
+  --text-muted: #728395;
+  --text-inverse: #08131f;
   --text-accent: var(--accent-500);
 
   // Borders
   --border-default: #14304e;
   --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-emphasis: #10263e;
+  --border-emphasis: #435971;
 
   // Shadows - deeper for dark mode
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -308,17 +364,50 @@
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.5);
 
+  // Accent-colored shadows
+  --accent-glow: 0 0 0 3px rgba(var(--accent-rgb), 0.2), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --accent-shadow-sm: 0 1px 2px rgba(var(--accent-rgb), 0.35);
+  --accent-shadow-md: 0 1px 3px rgba(var(--accent-rgb), 0.35);
+  --accent-shadow-lg: 0 2px 6px rgba(var(--accent-rgb), 0.45);
+
+  // Focus ring — brand yellow for high visibility
+  --focus-ring: #ecc033;
+
   // Skeleton for dark mode
   --skeleton-background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0) 50%);
   --skeleton-background-gray: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0) 50%);
 
+  // Chart colors (dark theme)
+  --chart-line-a: #62ad4f;
+  --chart-fill-a: rgba(98, 173, 79, 0.15);
+  --chart-line-b: #2ae5b9;
+  --chart-fill-b: rgba(42, 229, 185, 0.15);
+  --chart-text: #a1acb8;
+  --chart-text-muted: #728395;
+  --chart-grid: rgba(255, 255, 255, 0.04);
+  --chart-axis: rgba(255, 255, 255, 0.08);
+  --chart-tooltip-bg: rgba(12, 29, 47, 0.95);
+  --chart-tooltip-border: #14304e;
+  --chart-tooltip-text: #f7f7f8;
+  --chart-tooltip-text-muted: #a1acb8;
+  --chart-annotation-line: #a1acb8;
+  --chart-annotation-bg: rgba(20, 48, 78, 0.85);
+  --chart-annotation-text: #ffffff;
+
+  // Graph colors (dark theme)
+  --graph-edge: #435971;
+  --graph-edge-mutual: #728395;
+  --graph-node-bg: #0c1d2f;
+  --graph-node-border: #435971;
+  --graph-node-text: #f7f7f8;
+
   // Legacy colors remapped for dark theme - navy scale
-  --euler-dark-100: 211 59% 2%;
-  --euler-dark-200: 211 59% 4%;
-  --euler-dark-300: 211 59% 8%;
-  --euler-dark-400: 211 59% 12%;
-  --euler-dark-500: 211 59% 15%;
-  --euler-dark-600: 211 59% 19%;
+  --euler-dark-100: 211 50% 8%;
+  --euler-dark-200: 211 50% 12%;
+  --euler-dark-300: 211 50% 8%;
+  --euler-dark-400: 211 50% 16%;
+  --euler-dark-500: 211 50% 12%;
+  --euler-dark-600: 211 50% 19%;
   --euler-dark-700: 211 26% 35%;
   --euler-dark-800: 211 14% 52%;
   --euler-dark-900: 211 14% 68%;

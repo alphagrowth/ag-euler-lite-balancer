@@ -61,6 +61,7 @@ function parseEnvOrigins(): { connect: string[], img: string[] } {
   ]
   const imgVars = [
     process.env.NUXT_PUBLIC_CONFIG_LABELS_BASE_URL,
+    env('LOGO_URL', 'NUXT_PUBLIC_CONFIG_LOGO_URL'),
   ]
 
   const connect = [...new Set(connectVars.map(safeOrigin).filter(Boolean))] as string[]

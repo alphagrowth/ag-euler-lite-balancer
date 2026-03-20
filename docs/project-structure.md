@@ -41,14 +41,20 @@ assets/
 │   ├── reset.scss          # CSS reset and base styles
 │   ├── transitions.scss    # Animation and transition styles
 │   ├── typography.scss     # Typography system
-│   └── variables.scss      # CSS custom properties
+│   └── variables.scss      # CSS custom properties (THEME CONFIG section at top)
 ```
 
 ### Style System Architecture
 
 The styling system follows a modular approach:
 
-- **Variables**: Centralized design tokens and configuration
+- **Variables**: Centralized design tokens and configuration. The file has a **THEME CONFIGURATION** banner at the top — edit only those values to restyle the entire app
+  - **RGB companion variables** (`--accent-rgb`, `--success-rgb`, etc.) let every `rgba()` in the app auto-derive from base colors
+  - **Chart variables** (`--chart-*`) control Chart.js canvas rendering (read by `useThemeColors` composable via `getComputedStyle`)
+  - **Graph variables** (`--graph-*`) control SVG topology visualizations
+  - **Accent shadows** (`--accent-glow`, `--accent-shadow-*`) auto-derive from `--accent-rgb`
+  - Dark theme overrides are at the bottom under `[data-theme="dark"]`
+- **UI main.scss** (`components/ui/styles/main.scss`): UI component variables, all referencing base CSS variables via `rgba(var(--accent-rgb), ...)`
 - **Mixins**: Reusable style patterns and functions
 - **Grid**: Responsive grid system for layout
 - **Typography**: Consistent text styling and hierarchy
@@ -64,7 +70,8 @@ components/
 │   ├── BaseLoadableContent.vue                      # Loading state wrapper
 │   ├── BaseLoadingBar.vue                           # Loading progress bar
 │   ├── BaseModalWrapper.vue                         # Modal container
-│   └── BasePageHeader.vue                           # Page header layout
+│   ├── BasePageHeader.vue                           # Page header layout
+│   └── LogoBrand.vue                                # App logo (inline SVG default, env var override, error fallback)
 ├── entities/                                        # Domain-specific components
 │   ├── portfolio/                                   # Portfolio display items
 │   └── vault/                                       # Vault-related components
@@ -151,6 +158,7 @@ composables/
 ├── useTenderlySimulation.ts        # Tenderly simulation integration
 ├── useTermsOfUseGate.ts            # Terms of use enforcement
 ├── useTheme.ts                     # Theme management
+├── useThemeColors.ts               # CSS variable → Chart.js color bridge (reads document.body, reactive via useTheme)
 ├── useTokens.ts                    # Token metadata and resolution
 ├── useTokenSymbolResolver.ts       # Token symbol resolution
 ├── useTosData.ts                   # Terms of service data

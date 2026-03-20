@@ -43,38 +43,8 @@ const chartOptions = ref<ChartOptions<'line'> | null>(null)
 const isLoading = ref(true)
 const hasError = ref(false)
 
-// Theme detection
-const theme = useLocalStorage('theme', 'light')
-const isDark = computed(() => theme.value === 'dark')
-
-// Theme-aware colors
-const chartColors = computed(() => isDark.value
-  ? {
-      text: '#a3a3a3',
-      textMuted: '#737373',
-      gridLine: 'rgba(255, 255, 255, 0.06)',
-      axisLine: 'rgba(255, 255, 255, 0.1)',
-      tooltip: {
-        bg: 'rgba(26, 26, 26, 0.95)',
-        border: '#404040',
-        text: '#fafafa',
-        textMuted: '#a3a3a3',
-      },
-      currentLine: '#a3a3a3',
-    }
-  : {
-      text: '#737373',
-      textMuted: '#525252',
-      gridLine: '#f5f5f5',
-      axisLine: '#e5e5e5',
-      tooltip: {
-        bg: 'rgba(255, 255, 255, 0.95)',
-        border: '#e5e5e5',
-        text: '#262626',
-        textMuted: '#525252',
-      },
-      currentLine: '#262626',
-    })
+// Theme-aware chart colors (reads from CSS variables)
+const { getChartColors, isDark } = useThemeColors()
 
 const { EVM_PROVIDER_URL } = useEulerConfig()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -186,6 +156,9 @@ const renderChart = async () => {
 
     const { irmData, kinkData } = data
 
+    // Read chart colors from CSS variables (theme-aware)
+    const colors = getChartColors()
+
     // Prepare chart data
     const labels: string[] = []
     const borrowAPYValues: number[] = []
@@ -219,8 +192,8 @@ const renderChart = async () => {
         {
           label: 'Borrow APY',
           data: borrowAPYValues,
-          borderColor: '#059669',
-          backgroundColor: 'rgba(5, 150, 105, 0.15)',
+          borderColor: colors.lineA,
+          backgroundColor: colors.fillA,
           borderWidth: 2.5,
           pointRadius: 0,
           pointHoverRadius: 6,
@@ -231,8 +204,8 @@ const renderChart = async () => {
         {
           label: 'Supply APY',
           data: supplyAPYValues,
-          borderColor: '#c49b64',
-          backgroundColor: 'rgba(196, 155, 100, 0.15)',
+          borderColor: colors.lineB,
+          backgroundColor: colors.fillB,
           borderWidth: 2.5,
           pointRadius: 0,
           pointHoverRadius: 6,
@@ -250,15 +223,15 @@ const renderChart = async () => {
         type: 'line',
         xMin: currentUtilization.toFixed(0),
         xMax: currentUtilization.toFixed(0),
-        borderColor: chartColors.value.currentLine,
+        borderColor: colors.annotationLine,
         borderWidth: 1,
         borderDash: [5, 5],
         label: {
           display: true,
           content: `Current (${currentUtilization.toFixed(2)}%)`,
           position: 'end',
-          backgroundColor: isDark.value ? 'rgba(64, 64, 64, 0.85)' : 'rgba(82, 82, 82, 0.85)',
-          color: '#FFFFFF',
+          backgroundColor: colors.annotationBg,
+          color: colors.annotationText,
           font: {
             size: 11,
           },
@@ -280,7 +253,7 @@ const renderChart = async () => {
         type: 'line',
         xMin: kinkUtilization.toFixed(0),
         xMax: kinkUtilization.toFixed(0),
-        borderColor: '#059669',
+        borderColor: colors.lineA,
         borderWidth: 1,
         borderDash: [5, 5],
         label: {
@@ -288,8 +261,8 @@ const renderChart = async () => {
           content: `Kink (${kinkUtilization.toFixed(2)}%)`,
           position: 'end',
           yAdjust: labelsAreClose && !currentIsLower ? yOffset : 0,
-          backgroundColor: 'rgba(5, 150, 105, 0.8)',
-          color: '#FFFFFF',
+          backgroundColor: colors.lineA,
+          color: colors.annotationText,
           font: {
             size: 11,
           },
@@ -316,10 +289,10 @@ const renderChart = async () => {
           mode: 'index',
           intersect: false,
           position: 'nearest',
-          backgroundColor: chartColors.value.tooltip.bg,
-          titleColor: chartColors.value.tooltip.text,
-          bodyColor: chartColors.value.tooltip.text,
-          borderColor: chartColors.value.tooltip.border,
+          backgroundColor: colors.tooltip.bg,
+          titleColor: colors.tooltip.text,
+          bodyColor: colors.tooltip.text,
+          borderColor: colors.tooltip.border,
           borderWidth: 1,
           padding: 12,
           displayColors: true,
@@ -356,13 +329,13 @@ const renderChart = async () => {
           title: {
             display: true,
             text: 'Utilization %',
-            color: chartColors.value.text,
+            color: colors.text,
             font: {
               size: 12,
             },
           },
           ticks: {
-            color: chartColors.value.text,
+            color: colors.text,
             callback: function (value, _index) {
               // Show every 10th label
               const label = this.getLabelForValue(Number(value))
@@ -370,37 +343,37 @@ const renderChart = async () => {
             },
           },
           grid: {
-            color: chartColors.value.gridLine,
+            color: colors.gridLine,
           },
           border: {
-            color: chartColors.value.axisLine,
+            color: colors.axisLine,
           },
         },
         y: {
           title: {
             display: true,
             text: 'APY %',
-            color: chartColors.value.text,
+            color: colors.text,
             font: {
               size: 12,
             },
           },
           ticks: {
-            color: chartColors.value.text,
+            color: colors.text,
             callback: value => `${value}%`,
           },
           grid: {
-            color: chartColors.value.gridLine,
+            color: colors.gridLine,
           },
           border: {
-            color: chartColors.value.axisLine,
+            color: colors.axisLine,
           },
         },
       },
     }
   }
   catch (error) {
-    console.error('Failed to render chart:', error)
+    logWarn('VaultOverviewBlockIRM/renderChart', error)
     hasError.value = true
   }
   finally {
@@ -415,8 +388,9 @@ onMounted(async () => {
   }
 })
 
-// Re-render chart when theme changes
-watch(theme, async () => {
+// Re-render chart when theme changes (isDark comes from useTheme via useThemeColors,
+// so it fires AFTER app.vue's watcher updates data-theme on the DOM)
+watch(isDark, async () => {
   if (chartData.value && hasValidIRM.value) {
     await nextTick()
     await renderChart()

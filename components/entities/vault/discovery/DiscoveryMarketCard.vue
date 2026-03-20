@@ -282,7 +282,7 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
               :y1="edge.from.y"
               :x2="edge.to.x"
               :y2="edge.to.y"
-              :stroke="edge.mutual ? '#6b7280' : '#4b5563'"
+              :style="{ stroke: edge.mutual ? 'var(--graph-edge-mutual)' : 'var(--graph-edge)' }"
               :stroke-width="edge.mutual ? 1.2 : 1"
               stroke-linecap="round"
               :opacity="edge.mutual ? 0.8 : 0.5"
@@ -302,8 +302,7 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
                 :cx="node.x"
                 :cy="node.y"
                 r="6"
-                :fill="getAssetLogoUrl(node.assetAddress, node.assetSymbol) ? '#1f2937' : stringToColor(node.assetSymbol)"
-                stroke="#4b5563"
+                :style="{ fill: getAssetLogoUrl(node.assetAddress, node.assetSymbol) ? 'var(--graph-node-bg)' : stringToColor(node.assetSymbol), stroke: 'var(--graph-node-border)' }"
                 stroke-width="0.5"
               />
               <image
@@ -320,7 +319,7 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
                 :x="node.x"
                 :y="node.y + 2"
                 text-anchor="middle"
-                fill="white"
+                style="fill: var(--graph-node-text)"
                 font-size="5"
                 font-weight="600"
               >{{ node.assetSymbol.slice(0, 2) }}</text>

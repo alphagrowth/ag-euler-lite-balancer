@@ -9,7 +9,7 @@ defineProps<{ loading: boolean }>()
   >
     <div
       v-if="loading"
-      class="w-80 h-20 rounded-12 bg-[rgba(200,200,200,0.1)]"
+      class="w-80 h-20 rounded-12 bg-neutral-300/10"
     />
     <slot v-else />
   </Transition>

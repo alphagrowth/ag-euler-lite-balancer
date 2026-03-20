@@ -102,11 +102,7 @@ onClickOutside(reference, () => {
       class="flex items-center gap-8 relative cursor-pointer outline-none flex-shrink-0"
       @click="onLogoClick"
     >
-      <img
-        class="!w-24 !h-24"
-        src="/logo.svg"
-        alt="Euler"
-      >
+      <LogoBrand class="text-accent-600" />
       <div
         v-if="enableAppTitle || enablePoweredByEuler"
         class="flex flex-col items-start mr-4 mobile:hidden"

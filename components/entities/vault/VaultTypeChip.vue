@@ -83,11 +83,11 @@ const label = computed(() => {
 
 <style scoped lang="scss">
 .vault-type-chip {
-  background-color: rgba(196, 155, 100, 0.15);
+  background-color: rgba(var(--accent-rgb), 0.15);
   color: var(--accent-600);
 
   [data-theme="dark"] & {
-    background-color: rgba(212, 169, 90, 0.2);
+    background-color: rgba(var(--accent-rgb), 0.2);
     color: var(--accent-500);
   }
 
