@@ -73,17 +73,17 @@ const handleClose = () => {
     title="Net APY"
     @close="handleClose"
   >
-    <p class="text-euler-dark-900 text-p3 mb-16">
+    <p class="text-content-primary text-p3 mb-16">
       Net APY estimates the annualized return on your supplied collateral after accounting for borrowing costs and any reward incentives. A positive net APY means the combined yield exceeds the cost of borrowing. A negative net APY means borrowing costs outweigh the yield.
     </p>
     <div class="mb-24">
-      <div class="pb-16 mb-16 border-b border-euler-dark-600">
+      <div class="pb-16 mb-16 border-b border-line-default">
         <div class="flex justify-between items-center">
           <div>
             <p class="mb-4">
               Supply APY
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Yield from lending collateral on Euler
             </p>
           </div>
@@ -99,7 +99,7 @@ const handleClose = () => {
             <p class="mb-4">
               Intrinsic supply APY
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Yield intrinsic to the collateral asset
             </p>
           </div>
@@ -139,7 +139,7 @@ const handleClose = () => {
             <p class="ml-12">
               {{ reward.rewardToken.symbol }}
             </p>
-            <p class="ml-4 text-euler-dark-900">
+            <p class="ml-4 text-content-primary">
               (<a
                 v-if="reward.sourceUrl"
                 :href="reward.sourceUrl"
@@ -167,13 +167,13 @@ const handleClose = () => {
           </div>
         </div>
       </div>
-      <div class="pb-16 mb-16 border-b border-euler-dark-600">
+      <div class="pb-16 mb-16 border-b border-line-default">
         <div class="flex justify-between items-center">
           <div>
             <p class="mb-4">
               Borrow APY
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Cost of borrowing on Euler
             </p>
           </div>
@@ -189,7 +189,7 @@ const handleClose = () => {
             <p class="mb-4">
               Intrinsic borrow APY
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Yield intrinsic to the borrowed asset
             </p>
           </div>
@@ -229,7 +229,7 @@ const handleClose = () => {
             <p class="ml-12">
               {{ reward.rewardToken.symbol }}
             </p>
-            <p class="ml-4 text-euler-dark-900">
+            <p class="ml-4 text-content-primary">
               (<a
                 v-if="reward.sourceUrl"
                 :href="reward.sourceUrl"
@@ -259,7 +259,7 @@ const handleClose = () => {
       </div>
       <div
         v-if="hasLoopingCampaigns"
-        class="pb-16 mb-16 border-b border-euler-dark-600"
+        class="pb-16 mb-16 border-b border-line-default"
       >
         <div class="flex justify-between items-center">
           <div>
@@ -270,7 +270,7 @@ const handleClose = () => {
               />
               <span>Looping reward APY</span>
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Incentive on net liquidity
             </p>
           </div>
@@ -294,7 +294,7 @@ const handleClose = () => {
               <p :class="reward.rewardToken.icon ? 'ml-12' : ''">
                 {{ reward.rewardToken.symbol }}
               </p>
-              <p class="ml-4 text-euler-dark-900">
+              <p class="ml-4 text-content-primary">
                 (<a
                   v-if="reward.sourceUrl"
                   :href="reward.sourceUrl"
@@ -323,7 +323,7 @@ const handleClose = () => {
           </div>
           <p
             v-if="reward.minMultiplier || reward.maxMultiplier"
-            class="text-euler-dark-900 text-p4 mt-4 ml-32"
+            class="text-content-primary text-p4 mt-4 ml-32"
           >
             Requires multiplier
             <template v-if="reward.minMultiplier && reward.maxMultiplier">
@@ -343,15 +343,15 @@ const handleClose = () => {
         >
           Your current multiplier does not meet the requirements for this reward. Adjust your position to qualify.
         </p>
-        <p class="text-euler-dark-900 text-p4 mt-8">
+        <p class="text-content-primary text-p4 mt-8">
           Looping reward is based on net liquidity and does not scale with multiplier.
         </p>
       </div>
     </div>
-    <div class="bg-euler-dark-600 rounded-12 p-16 flex justify-between items-center">
+    <div class="bg-surface-secondary rounded-12 p-16 flex justify-between items-center">
       <div>
         <p>Net APY</p>
-        <p class="text-euler-dark-900 text-p3">
+        <p class="text-content-primary text-p3">
           Return on supplied collateral after borrow costs
         </p>
       </div>

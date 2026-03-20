@@ -92,12 +92,12 @@ const label = computed(() => {
   }
 
   &--warning {
-    background-color: var(--c-red-opaque-200);
-    color: var(--c-red-700);
+    background-color: rgba(var(--error-rgb), 0.1);
+    color: var(--error-500);
 
     [data-theme="dark"] & {
-      background-color: var(--c-red-opaque-200);
-      color: var(--c-red-700);
+      background-color: rgba(var(--error-rgb), 0.1);
+      color: var(--error-500);
     }
   }
 }

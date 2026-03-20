@@ -252,16 +252,16 @@ const feeDisplay = computed(() => {
         v-if="displaySteps.length"
         class="flex flex-col gap-8"
       >
-        <p class="text-p3 text-euler-dark-900">
+        <p class="text-p3 text-content-primary">
           Transaction steps
         </p>
-        <div class="bg-euler-dark-600 rounded-12 p-12 flex flex-col gap-8">
+        <div class="bg-surface-secondary rounded-12 p-12 flex flex-col gap-8">
           <OperationStepsList :steps="displaySteps" />
         </div>
       </div>
 
       <!-- Fee -->
-      <div class="flex-wrap gap-8 bg-euler-dark-600 p-16 rounded-12 flex justify-between">
+      <div class="flex-wrap gap-8 bg-surface-secondary p-16 rounded-12 flex justify-between">
         <div class="flex gap-8 items-center">
           <UiIcon
             name="gas"
@@ -281,7 +281,7 @@ const feeDisplay = computed(() => {
       >
         <button
           type="button"
-          class="flex items-center gap-6 text-p3 text-euler-dark-900 hover:text-euler-dark-1000 transition-colors"
+          class="flex items-center gap-6 text-p3 text-content-primary hover:text-content-primary transition-colors"
           @click="copyCalldata"
         >
           <SvgIcon
@@ -306,7 +306,7 @@ const feeDisplay = computed(() => {
         <button
           v-else-if="tenderlyEnabled"
           type="button"
-          class="flex items-center gap-6 text-p3 text-euler-dark-900 hover:text-euler-dark-1000 transition-colors"
+          class="flex items-center gap-6 text-p3 text-content-primary hover:text-content-primary transition-colors"
           :disabled="isTenderlySimulating"
           @click="handleTenderlySimulate"
         >
@@ -320,7 +320,7 @@ const feeDisplay = computed(() => {
       </div>
       <p
         v-if="usesPermit2"
-        class="text-p4 text-euler-dark-900 text-center"
+        class="text-p4 text-content-primary text-center"
       >
         Copied calldata does not contain the permit() call. It is only known after the permit2 message is signed.
       </p>

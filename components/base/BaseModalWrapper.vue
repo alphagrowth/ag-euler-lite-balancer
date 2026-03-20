@@ -15,7 +15,7 @@ defineEmits(['close'])
 
 <template>
   <div
-    class="flex flex-col absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-16 min-w-[min(375px,100vw)] max-w-[600px] overflow-auto [scrollbar-width:none] max-h-[85dvh] rounded-16 mobile:top-auto mobile:left-0 mobile:bottom-0 mobile:w-full mobile:min-w-full mobile:max-h-[95dvh] mobile:translate-x-0 mobile:translate-y-0 mobile:rounded-t-16 mobile:rounded-b-0 bg-euler-dark-500 [&::-webkit-scrollbar]:hidden"
+    class="flex flex-col absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-16 min-w-[min(375px,100vw)] max-w-[600px] overflow-auto [scrollbar-width:none] max-h-[85dvh] rounded-16 mobile:top-auto mobile:left-0 mobile:bottom-0 mobile:w-full mobile:min-w-full mobile:max-h-[95dvh] mobile:translate-x-0 mobile:translate-y-0 mobile:rounded-t-16 mobile:rounded-b-0 bg-card [&::-webkit-scrollbar]:hidden"
     :class="[full ? 'min-h-[85dvh] mobile:min-h-[95dvh] min-w-[min(600px,100vw)]' : '']"
   >
     <div

@@ -100,48 +100,6 @@ module.exports = {
           100: 'var(--error-100)',
           500: 'var(--error-500)',
         },
-        // Legacy colors (mapped to institutional)
-        'euler-dark': {
-          100: 'hsl(var(--euler-dark-100))',
-          200: 'hsl(var(--euler-dark-200))',
-          300: 'hsl(var(--euler-dark-300))',
-          400: 'hsl(var(--euler-dark-400))',
-          500: 'hsl(var(--euler-dark-500))',
-          600: 'hsl(var(--euler-dark-600))',
-          700: 'hsl(var(--euler-dark-700))',
-          800: 'hsl(var(--euler-dark-800))',
-          900: 'hsl(var(--euler-dark-900))',
-          1000: 'hsl(var(--euler-dark-1000))',
-        },
-        'red': {
-          600: 'rgb(var(--red-600))',
-          700: 'rgb(var(--red-700))',
-          800: 'rgb(var(--red-800))',
-          1000: 'rgb(var(--red-1000))',
-        },
-        'green': {
-          600: 'rgb(var(--green-600))',
-          1000: 'rgb(var(--green-1000))',
-        },
-        'yellow': {
-          600: 'rgb(var(--yellow-600))',
-          700: 'rgb(var(--yellow-700))',
-          1000: 'rgb(var(--yellow-1000))',
-        },
-        'orange': {
-          1000: 'rgb(var(--orange-1000))',
-        },
-        'yellow-warning': {
-          700: 'rgb(var(--yellow-warning-700))',
-        },
-        'slice-of-heaven': {
-          300: 'rgb(var(--slice-of-heaven-300))',
-        },
-        'teal-light': {
-          100: 'rgb(var(--teal-light-100))',
-          300: 'rgb(var(--teal-light-300))',
-        },
-        'border-primary': 'hsl(var(--border-primary))',
       },
 
       screens: {

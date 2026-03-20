@@ -165,7 +165,7 @@ const openChooseCollateralModal = () => {
   >
     <div
       v-if="label || desc"
-      class="flex justify-between text-euler-dark-800"
+      class="flex justify-between text-content-tertiary"
     >
       <p>
         {{ label }}
@@ -182,7 +182,7 @@ const openChooseCollateralModal = () => {
         ref="inputEl"
         v-text-fit
         :value="model"
-        class="text-h1 text-euler-dark-1000 w-full h-40 outline-none placeholder:text-euler-dark-800"
+        class="text-h1 text-content-primary w-full h-40 outline-none placeholder:text-content-tertiary"
         type="text"
         placeholder="0.00"
         maxlength="24"
@@ -196,7 +196,7 @@ const openChooseCollateralModal = () => {
       >
 
       <div
-        class="bg-euler-dark-500 text-p3 font-semibold gap-8 flex items-center justify-center px-12 min-h-36 py-6 rounded-[40px] whitespace-nowrap cursor-pointer"
+        class="bg-card text-p3 font-semibold gap-8 flex items-center justify-center px-12 min-h-36 py-6 rounded-[40px] whitespace-nowrap cursor-pointer"
         @click="swappable ? emits('click-asset') : openChooseCollateralModal()"
       >
         <AssetAvatar
@@ -208,7 +208,7 @@ const openChooseCollateralModal = () => {
             {{ asset.symbol }}
             <SvgIcon
               v-if="swappable || (collateralOptions?.length ?? 0) > 1"
-              class="text-euler-dark-800 !w-16 !h-16"
+              class="text-content-tertiary !w-16 !h-16"
               name="arrow-down"
             />
           </span>
@@ -233,7 +233,7 @@ const openChooseCollateralModal = () => {
     >
       <p
         v-if="hasPrice && price !== null"
-        class="text-euler-dark-800"
+        class="text-content-tertiary"
       >
         <template v-if="price > 10 ** 18">
           A lot
@@ -248,7 +248,7 @@ const openChooseCollateralModal = () => {
         :loading="balanceLoading ?? false"
       >
         <p @click="setMax">
-          <span class="text-euler-dark-800">{{ formatSmartAmount(friendlyBalance) }} {{ asset.symbol }}</span> <span
+          <span class="text-content-tertiary">{{ formatSmartAmount(friendlyBalance) }} {{ asset.symbol }}</span> <span
             class="text-accent-500 font-semibold px-4 cursor-pointer select-none text-[12px] leading-[16px]"
           >Max</span> <!-- TODO: button -->
         </p>

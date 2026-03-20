@@ -70,17 +70,17 @@ const handleClose = () => {
     title="ROE"
     @close="handleClose"
   >
-    <p class="text-euler-dark-900 text-p3 mb-16">
+    <p class="text-content-primary text-p3 mb-16">
       ROE (Return on Equity) estimates the annualized return on your own capital in this leveraged position based on your actual LTV and multiplier.
     </p>
     <div class="mb-24">
-      <div class="pb-16 mb-16 border-b border-euler-dark-600">
+      <div class="pb-16 mb-16 border-b border-line-default">
         <div class="flex justify-between items-center mb-16">
           <div>
             <p class="mb-4">
               Your LTV
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Current loan-to-value ratio
             </p>
           </div>
@@ -93,7 +93,7 @@ const handleClose = () => {
             <p class="mb-4">
               Multiplier
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Effective multiplier at your LTV
             </p>
           </div>
@@ -106,7 +106,7 @@ const handleClose = () => {
             <p class="mb-4">
               Supply APY
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Collateral yield (S)
             </p>
           </div>
@@ -146,7 +146,7 @@ const handleClose = () => {
             <p class="ml-12">
               {{ reward.rewardToken.symbol }}
             </p>
-            <p class="ml-4 text-euler-dark-900">
+            <p class="ml-4 text-content-primary">
               (<a
                 v-if="reward.sourceUrl"
                 :href="reward.sourceUrl"
@@ -178,7 +178,7 @@ const handleClose = () => {
             <p class="mb-4">
               Borrow APY
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Borrowing cost (B)
             </p>
           </div>
@@ -218,7 +218,7 @@ const handleClose = () => {
             <p class="ml-12">
               {{ reward.rewardToken.symbol }}
             </p>
-            <p class="ml-4 text-euler-dark-900">
+            <p class="ml-4 text-content-primary">
               (<a
                 v-if="reward.sourceUrl"
                 :href="reward.sourceUrl"
@@ -255,7 +255,7 @@ const handleClose = () => {
                 />
                 <span>Looping reward (R)</span>
               </p>
-              <p class="text-euler-dark-900">
+              <p class="text-content-primary">
                 Incentive on net liquidity
               </p>
             </div>
@@ -279,7 +279,7 @@ const handleClose = () => {
                 <p :class="reward.rewardToken.icon ? 'ml-12' : 'ml-32'">
                   {{ reward.rewardToken.symbol }}
                 </p>
-                <p class="ml-4 text-euler-dark-900">
+                <p class="ml-4 text-content-primary">
                   (<a
                     v-if="reward.sourceUrl"
                     :href="reward.sourceUrl"
@@ -308,7 +308,7 @@ const handleClose = () => {
             </div>
             <p
               v-if="reward.minMultiplier || reward.maxMultiplier"
-              class="text-euler-dark-900 text-p4 mt-4 ml-32"
+              class="text-content-primary text-p4 mt-4 ml-32"
             >
               Requires multiplier
               <template v-if="reward.minMultiplier && reward.maxMultiplier">
@@ -328,7 +328,7 @@ const handleClose = () => {
           >
             Your current multiplier does not meet the requirements for this reward. Adjust your position to qualify.
           </p>
-          <p class="text-euler-dark-900 text-p4 mt-8">
+          <p class="text-content-primary text-p4 mt-8">
             Looping reward is based on net liquidity and does not scale with multiplier.
           </p>
         </template>
@@ -338,7 +338,7 @@ const handleClose = () => {
           <p class="mb-4">
             Formula
           </p>
-          <p class="text-euler-dark-900">
+          <p class="text-content-primary">
             <template v-if="hasLoopingAPY">
               M &times; S - (M - 1) &times; B + R = ROE
             </template>
@@ -349,10 +349,10 @@ const handleClose = () => {
         </div>
       </div>
     </div>
-    <div class="bg-euler-dark-600 rounded-12 p-16 flex justify-between items-center">
+    <div class="bg-surface-secondary rounded-12 p-16 flex justify-between items-center">
       <div>
         <p>ROE</p>
-        <p class="text-euler-dark-900 text-p3">
+        <p class="text-content-primary text-p3">
           Return on equity at your current multiplier
         </p>
       </div>

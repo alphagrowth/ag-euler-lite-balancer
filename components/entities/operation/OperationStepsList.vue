@@ -44,7 +44,7 @@ defineProps<{
       <template v-if="step.toAssetInfo">
         <p
           v-if="!step.iconOnly"
-          class="text-p3 text-euler-dark-900"
+          class="text-p3 text-content-primary"
         >
           &rarr;
         </p>
@@ -64,7 +64,7 @@ defineProps<{
     </div>
     <span
       v-if="step.isSeparateTx"
-      class="text-p4 text-euler-dark-900"
+      class="text-p4 text-content-primary"
     >
       Separate tx
     </span>

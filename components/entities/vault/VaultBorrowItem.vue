@@ -375,7 +375,7 @@ const linkPath = computed(() => ({
         <div class="text-content-tertiary text-p3 mb-4">Risk manager</div>
         <div
           v-if="isAnyGovernorUnverified"
-          class="flex gap-8 items-center py-4 px-8 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p2 w-fit"
+          class="flex gap-8 items-center py-4 px-8 rounded-8 bg-error-100 text-error-500 text-p2 w-fit"
         >
           <SvgIcon
             name="warning"
@@ -474,7 +474,7 @@ const linkPath = computed(() => ({
         <div class="flex gap-8 justify-end items-center text-right flex-1">
           <div
             v-if="isAnyGovernorUnverified"
-            class="flex gap-8 items-center py-4 px-8 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700 text-p2 w-fit"
+            class="flex gap-8 items-center py-4 px-8 rounded-8 bg-error-100 text-error-500 text-p2 w-fit"
           >
             <SvgIcon
               name="warning"

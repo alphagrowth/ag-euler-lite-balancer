@@ -184,7 +184,7 @@ const handleSelectCustomToken = () => {
           v-for="opt in filteredOptions"
           :key="opt.asset.address"
           class="flex items-center py-12 px-16 rounded-16 cursor-pointer"
-          :class="isSelected(opt.asset.address) ? 'bg-euler-dark-600' : ''"
+          :class="isSelected(opt.asset.address) ? 'bg-card-hover' : ''"
           @click="handleSelect(opt)"
         >
           <AssetAvatar
@@ -193,7 +193,7 @@ const handleSelectCustomToken = () => {
             class="mr-10"
           />
           <div class="flex-grow">
-            <div class="text-euler-dark-900 mb-2">
+            <div class="text-content-primary mb-2">
               {{ opt.asset.name }}
             </div>
             <div class="text-h5">
@@ -201,7 +201,7 @@ const handleSelectCustomToken = () => {
             </div>
           </div>
           <div class="text-right">
-            <div class="text-euler-dark-900 mb-2">
+            <div class="text-content-primary mb-2">
               Balance
             </div>
             <div class="text-h5">
@@ -221,7 +221,7 @@ const handleSelectCustomToken = () => {
         <!-- Custom token: resolved -->
         <div
           v-else-if="isUnknownAddress && customToken"
-          class="flex items-center py-12 px-16 rounded-16 cursor-pointer hover:bg-euler-dark-600"
+          class="flex items-center py-12 px-16 rounded-16 cursor-pointer hover:bg-surface-secondary"
           @click="handleSelectCustomToken"
         >
           <AssetAvatar
@@ -231,7 +231,7 @@ const handleSelectCustomToken = () => {
           />
           <div class="flex-grow">
             <div class="flex items-center gap-6 mb-2">
-              <span class="text-euler-dark-900">{{ customToken.name }}</span>
+              <span class="text-content-primary">{{ customToken.name }}</span>
               <span class="inline-flex items-center rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5">
                 Import
               </span>
@@ -241,7 +241,7 @@ const handleSelectCustomToken = () => {
             </div>
           </div>
           <div class="text-right">
-            <div class="text-euler-dark-900 mb-2">
+            <div class="text-content-primary mb-2">
               Balance
             </div>
             <div class="text-h5">

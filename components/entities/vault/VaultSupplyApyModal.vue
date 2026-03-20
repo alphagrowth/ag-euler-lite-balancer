@@ -51,7 +51,7 @@ const handleClose = () => {
   >
     <div class="mb-24">
       <div
-        class="pb-16 mb-16 border-b border-euler-dark-600"
+        class="pb-16 mb-16 border-b border-line-default"
       >
         <div class="flex justify-between items-center">
           <div>
@@ -64,7 +64,7 @@ const handleClose = () => {
                 {{ baseApyAverageLabel }}
               </span>
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Yield from lending on Euler
             </p>
           </div>
@@ -80,7 +80,7 @@ const handleClose = () => {
             <p class="mb-4">
               Intrinsic APY{{ intrinsicApyInfo?.provider ? ` (${intrinsicApyInfo.provider})` : '' }}
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Yield intrinsic to the supplied asset, such as staking yield or external rewards, might be compounded with lending yield
             </p>
             <a
@@ -88,7 +88,7 @@ const handleClose = () => {
               :href="intrinsicApyInfo.source"
               target="_blank"
               rel="noopener noreferrer"
-              class="text-sm text-euler-dark-900 underline mt-4 inline-block"
+              class="text-sm text-content-primary underline mt-4 inline-block"
             >
               Source
             </a>
@@ -110,7 +110,7 @@ const handleClose = () => {
             />
             <span>Rewards APY</span>
           </p>
-          <p class="text-euler-dark-900">
+          <p class="text-content-primary">
             Yield from token rewards
           </p>
         </div>
@@ -133,7 +133,7 @@ const handleClose = () => {
           <p class="ml-12">
             {{ reward.rewardToken.symbol }}
           </p>
-          <p class="ml-4 text-euler-dark-900">
+          <p class="ml-4 text-content-primary">
             (<a
               v-if="reward.sourceUrl"
               :href="reward.sourceUrl"
@@ -161,7 +161,7 @@ const handleClose = () => {
         </div>
       </div>
     </div>
-    <div class="bg-euler-dark-600 rounded-12 p-16 flex justify-between items-center">
+    <div class="bg-surface-secondary rounded-12 p-16 flex justify-between items-center">
       <p>Total supply APY</p>
       <p class="text-h4">
         {{ formatNumber(totalSupplyApy) }}%

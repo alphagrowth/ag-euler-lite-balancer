@@ -213,7 +213,7 @@ onUnmounted(() => {
             <span class="text-p3 text-content-tertiary">Pay with</span>
             <button
               type="button"
-              class="flex items-center gap-6 bg-euler-dark-500 text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
+              class="flex items-center gap-6 bg-card text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
               @click="openSwapTokenSelector"
             >
               <AssetAvatar
@@ -222,7 +222,7 @@ onUnmounted(() => {
               />
               {{ selectedAsset?.symbol || form.asset.value?.symbol }}
               <SvgIcon
-                class="text-euler-dark-800 !w-16 !h-16"
+                class="text-content-tertiary !w-16 !h-16"
                 name="arrow-down"
               />
             </button>

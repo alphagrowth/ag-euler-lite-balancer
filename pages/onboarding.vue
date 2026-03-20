@@ -66,15 +66,11 @@ watch(
         </svg>
       </div>
       <div class="flex flex-col items-center gap-24 w-full px-16">
-        <img
-          src="/logo.svg"
-          alt="Euler Logo"
-          class="w-[75px] h-[75px]"
-        >
+        <LogoBrand class="!w-[75px] !h-[75px] text-accent-600" />
         <div class="text-h1 text-center w-[240px]">
           {{ appTitle }}
         </div>
-        <div class="text-euler-dark-900 text-center">
+        <div class="text-content-primary text-center">
           {{ appDescription }}
         </div>
         <div class="flex flex-col gap-8 w-full">

@@ -391,11 +391,11 @@ const onToVaultChange = (selectedIndex: number) => {
               v-else
               class="flex flex-col gap-12 p-16 rounded-16 border bg-[var(--ui-form-field-background)] border-[var(--ui-form-field-border-color)] shadow-[var(--ui-form-field-shadow)] opacity-60"
             >
-              <div class="flex justify-between text-euler-dark-800">
+              <div class="flex justify-between text-content-tertiary">
                 <p>To</p>
               </div>
               <div class="flex items-center gap-12">
-                <span class="text-h1 text-euler-dark-800 w-full h-40 flex items-center">0.00</span>
+                <span class="text-h1 text-content-tertiary w-full h-40 flex items-center">0.00</span>
               </div>
             </div>
 

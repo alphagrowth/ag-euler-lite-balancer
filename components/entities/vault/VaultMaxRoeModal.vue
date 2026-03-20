@@ -90,20 +90,20 @@ const handleClose = () => {
     :title="isBestInMarket ? 'Best Max ROE' : 'Max ROE'"
     @close="handleClose"
   >
-    <p class="text-euler-dark-900 text-p3 mb-16">
+    <p class="text-content-primary text-p3 mb-16">
       ROE (Return on Equity) estimates the annualized return on your own capital in a multiplied position. A positive ROE means the supply yield exceeds borrowing costs at the given multiplier. A negative ROE means the position is gradually losing value to interest costs.
       <template v-if="isBestInMarket">
         The value shown is the best max ROE out of all possible collateral/borrow pairs in this market.
       </template>
     </p>
     <div class="mb-24">
-      <div class="pb-16 mb-16 border-b border-euler-dark-600">
+      <div class="pb-16 mb-16 border-b border-line-default">
         <div class="flex justify-between items-center mb-16">
           <div>
             <p class="mb-4">
               Max LTV
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Maximum loan-to-value ratio
             </p>
           </div>
@@ -116,7 +116,7 @@ const handleClose = () => {
             <p class="mb-4">
               Max multiplier
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Max multiplier at max LTV
             </p>
           </div>
@@ -129,7 +129,7 @@ const handleClose = () => {
             <p class="mb-4">
               Supply APY
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Collateral yield (S)
             </p>
           </div>
@@ -169,7 +169,7 @@ const handleClose = () => {
             <p class="ml-12">
               {{ campaign.rewardToken.symbol }}
             </p>
-            <p class="ml-4 text-euler-dark-900">
+            <p class="ml-4 text-content-primary">
               (<a
                 v-if="campaign.sourceUrl"
                 :href="campaign.sourceUrl"
@@ -201,7 +201,7 @@ const handleClose = () => {
             <p class="mb-4">
               Borrow APY
             </p>
-            <p class="text-euler-dark-900">
+            <p class="text-content-primary">
               Borrowing cost (B)
             </p>
           </div>
@@ -241,7 +241,7 @@ const handleClose = () => {
             <p class="ml-12">
               {{ campaign.rewardToken.symbol }}
             </p>
-            <p class="ml-4 text-euler-dark-900">
+            <p class="ml-4 text-content-primary">
               (<a
                 v-if="campaign.sourceUrl"
                 :href="campaign.sourceUrl"
@@ -278,7 +278,7 @@ const handleClose = () => {
                 />
                 <span>Looping reward (R)</span>
               </p>
-              <p class="text-euler-dark-900">
+              <p class="text-content-primary">
                 Incentive on net liquidity
               </p>
             </div>
@@ -302,7 +302,7 @@ const handleClose = () => {
                 <p :class="campaign.rewardToken.icon ? 'ml-12' : ''">
                   {{ campaign.rewardToken.symbol }}
                 </p>
-                <p class="ml-4 text-euler-dark-900">
+                <p class="ml-4 text-content-primary">
                   (<a
                     v-if="campaign.sourceUrl"
                     :href="campaign.sourceUrl"
@@ -331,7 +331,7 @@ const handleClose = () => {
             </div>
             <p
               v-if="campaign.minMultiplier || campaign.maxMultiplier"
-              class="text-euler-dark-900 text-p4 mt-4 ml-32"
+              class="text-content-primary text-p4 mt-4 ml-32"
             >
               Requires multiplier
               <template v-if="campaign.minMultiplier && campaign.maxMultiplier">
@@ -345,7 +345,7 @@ const handleClose = () => {
               </template>
             </p>
           </div>
-          <p class="text-euler-dark-900 text-p4 mt-8">
+          <p class="text-content-primary text-p4 mt-8">
             Looping reward is based on net liquidity and does not scale with multiplier.
           </p>
         </template>
@@ -355,7 +355,7 @@ const handleClose = () => {
           <p class="mb-4">
             Formula
           </p>
-          <p class="text-euler-dark-900">
+          <p class="text-content-primary">
             <template v-if="hasLooping">
               M &times; S - (M - 1) &times; B + R = ROE
             </template>
@@ -367,10 +367,10 @@ const handleClose = () => {
       </div>
     </div>
 
-    <div class="bg-euler-dark-600 rounded-12 p-16 flex justify-between items-center mb-16">
+    <div class="bg-surface-secondary rounded-12 p-16 flex justify-between items-center mb-16">
       <div>
         <p>Max ROE</p>
-        <p class="text-euler-dark-900 text-p3">
+        <p class="text-content-primary text-p3">
           Maximum return on equity at max multiplier
         </p>
       </div>

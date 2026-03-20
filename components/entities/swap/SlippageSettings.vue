@@ -98,15 +98,15 @@ defineExpose({ savePending })
 </script>
 
 <template>
-  <div class="mb-20 rounded-16 border border-euler-dark-600 bg-euler-dark-500 p-16">
+  <div class="mb-20 rounded-16 border border-line-default bg-card p-16">
     <div class="flex flex-col gap-8">
       <div class="text-p2">
         Slippage settings
       </div>
-      <div class="text-p3 text-euler-dark-700">
+      <div class="text-p3 text-content-muted">
         Default slippage for swaps
       </div>
-      <div class="flex flex-wrap gap-8 rounded-[32px] bg-euler-dark-600 p-6">
+      <div class="flex flex-wrap gap-8 rounded-[32px] bg-surface-secondary p-6">
         <button
           v-for="option in slippagePresets"
           :key="option.value"
@@ -123,7 +123,7 @@ defineExpose({ savePending })
         >
           <span v-if="isCustomSelected && !isCustomInputVisible">
             Custom
-            <span class="text-euler-dark-500 font-semibold">{{ customChipValue }}</span>
+            <span class="text-content-primary font-semibold">{{ customChipValue }}</span>
           </span>
           <span v-else>
             Set custom
