@@ -37,10 +37,8 @@ export const useEulerAccount = () => {
   const { isLoaded: isBalancesLoaded } = useWallets()
   const { eulerLensAddresses, isReady: isEulerLensAddressesReady, chainId } = useEulerAddresses()
   const { address } = useAccount()
-  const { public: { debugPortfolioAddress } } = useRuntimeConfig()
-  const normalizedDebugAddress = computed(() => normalizeAddressOrEmpty(debugPortfolioAddress as string | undefined))
-  const portfolioAddress = computed(() => normalizedDebugAddress.value || normalizeAddressOrEmpty(address.value))
-  const isDebugPortfolio = computed(() => Boolean(normalizedDebugAddress.value))
+  const { spyAddress, isSpyMode } = useSpyMode()
+  const portfolioAddress = computed(() => normalizeAddressOrEmpty(spyAddress.value) || normalizeAddressOrEmpty(address.value))
 
   const updatePositions = async () => {
     if (fetchInProgress) return
@@ -48,7 +46,7 @@ export const useEulerAccount = () => {
     try {
       const gen = positionGuard.current()
       const targetAddress = portfolioAddress.value
-      const shouldShowAll = isShowAllPositions.value || isDebugPortfolio.value
+      const shouldShowAll = isShowAllPositions.value || isSpyMode.value
       const { SUBGRAPH_URL } = useEulerConfig()
 
       // Fetch both borrow and deposit entries in a single subgraph query
@@ -176,7 +174,6 @@ export const useEulerAccount = () => {
     isDepositsLoaded,
     isShowAllPositions,
     portfolioAddress,
-    isDebugPortfolio,
     refreshAllPositions,
     getPositionBySubAccountIndex,
     totalSuppliedValue,

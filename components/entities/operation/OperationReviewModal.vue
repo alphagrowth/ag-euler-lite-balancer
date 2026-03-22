@@ -41,6 +41,7 @@ const { type, asset, assetIconUrl, campaignInfo: _campaignInfo, reulUnlockInfo, 
 }>()
 
 const { chain, address: walletAddress, chainId: currentChainId } = useWagmi()
+const { isSpyMode } = useSpyMode()
 const { estimatePlanFees } = useEstimatePlanFees()
 const { getVault } = useVaultRegistry()
 const { buildSimulationStateOverride } = useEulerOperations()
@@ -362,9 +363,10 @@ const feeDisplay = computed(() => {
         variant="primary"
         size="xlarge"
         rounded
+        :disabled="isSpyMode"
         @click="handleConfirm"
       >
-        {{ btnLabel }}
+        {{ isSpyMode ? 'Spy mode (read-only)' : btnLabel }}
       </UiButton>
     </div>
   </BaseModalWrapper>

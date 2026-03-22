@@ -20,6 +20,11 @@ export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers:
   }
 
   const executeTxPlan = async (plan: TxPlan) => {
+    const { isSpyMode } = useSpyMode()
+    if (isSpyMode.value) {
+      throw new Error('Transactions are disabled in spy mode')
+    }
+
     if (!ctx.address.value) {
       throw new Error('Wallet not connected')
     }
