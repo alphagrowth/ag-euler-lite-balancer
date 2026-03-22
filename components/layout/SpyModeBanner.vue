@@ -13,7 +13,7 @@ const { isSpyMode, spyShortAddress, spyAddress, clearSpyMode } = useSpyMode()
         class="!w-16 !h-16"
       />
       <span class="text-p3">
-        Viewing <span :title="spyAddress">{{ spyShortAddress }}</span>
+        Viewing as <span :title="spyAddress">{{ spyShortAddress }}</span>
       </span>
     </div>
     <button

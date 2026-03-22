@@ -26,7 +26,7 @@ const { isConnected, address } = useAccount()
 const { isLoaded: isBalancesLoaded, updateBalances } = useWallets()
 const { eulerLensAddresses } = useEulerAddresses()
 const { portfolioRefreshCounter } = usePortfolioRefresh()
-const { isSpyMode, spyShortAddress, spyAddress } = useSpyMode()
+const { isSpyMode, spyAddress } = useSpyMode()
 
 const interval: Ref<NodeJS.Timeout | null> = ref(null)
 
@@ -91,7 +91,7 @@ watch(portfolioRefreshCounter, () => {
   <section class="flex flex-col gap-16 min-h-[calc(100dvh-178px)] mobile:-mx-16">
     <div class="flex items-center justify-between px-16">
       <h2 class="text-h2 text-content-primary">
-        {{ isSpyMode ? `Portfolio of ${spyShortAddress}` : 'Your Portfolio' }}
+        Your Portfolio
       </h2>
       <div class="flex items-center gap-8">
         <span class="text-h6 text-content-secondary">Show all</span>

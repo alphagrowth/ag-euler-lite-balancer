@@ -2,16 +2,7 @@ import { isAddress, getAddress } from 'viem'
 import { getPublicClient } from '~/utils/public-client'
 import { truncate } from '~/utils/string-utils'
 import { logWarn } from '~/utils/errorHandling'
-
-const EVC_GET_ACCOUNT_OWNER_ABI = [
-  {
-    type: 'function',
-    name: 'getAccountOwner',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'address' }],
-    stateMutability: 'view',
-  },
-] as const
+import { evcGetAccountOwnerAbi } from '~/abis/evc'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -59,7 +50,7 @@ export const useSpyMode = () => {
 
         const owner = await client.readContract({
           address: evcAddress as `0x${string}`,
-          abi: EVC_GET_ACCOUNT_OWNER_ABI,
+          abi: evcGetAccountOwnerAbi,
           functionName: 'getAccountOwner',
           args: [address as `0x${string}`],
         })
