@@ -70,7 +70,7 @@ const handleClose = () => {
         class="flex items-center py-12 px-16 rounded-16"
         :class="[
           option.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-          selectedIdx === idx && !option.disabled ? 'bg-euler-dark-600' : '',
+          selectedIdx === idx && !option.disabled ? 'bg-card-hover' : '',
         ]"
         @click="
           if (!option.disabled) { selectedIdx = idx;onSave(idx) }
@@ -82,7 +82,7 @@ const handleClose = () => {
           class="mr-10"
         />
         <div class="flex-grow">
-          <div class="text-euler-dark-900 mb-2">
+          <div class="text-content-primary mb-2">
             {{ getOptionLabel(option) }}
           </div>
           <div class="text-h5 flex items-center">
@@ -116,7 +116,7 @@ const handleClose = () => {
           v-if="getOptionType(option) !== 'wallet'"
           class="text-right grow-1"
         >
-          <div class="text-euler-dark-900 mb-2">
+          <div class="text-content-primary mb-2">
             APY
           </div>
           <div class="text-h5">

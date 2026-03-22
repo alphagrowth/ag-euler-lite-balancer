@@ -236,7 +236,7 @@ watch([() => route.params.vault, () => route.query.to], () => {
             />
             <div
               v-else
-              class="bg-euler-dark-400 rounded-16 p-16 text-euler-dark-900"
+              class="bg-card rounded-16 p-16 text-content-primary"
             >
               No asset swap options available
             </div>

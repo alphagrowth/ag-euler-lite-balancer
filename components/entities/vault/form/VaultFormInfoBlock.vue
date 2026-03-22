@@ -11,7 +11,7 @@ defineProps<{
     :class="[
       variant === 'card'
         ? 'bg-surface-secondary shadow-card'
-        : 'bg-euler-dark-400 border border-border-subtle shadow-[var(--ui-form-field-shadow)]',
+        : 'bg-card border border-border-subtle shadow-[var(--ui-form-field-shadow)]',
     ]"
     style="overflow: hidden"
   >

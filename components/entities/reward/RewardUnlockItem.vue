@@ -140,10 +140,10 @@ const onUnlockClick = async () => {
 
 <template>
   <div
-    class="flex flex-col gap-12 bg-euler-dark-500 rounded-16"
+    class="flex flex-col gap-12 bg-card rounded-16"
   >
     <div
-      class="flex justify-between items-center p-16 pb-12 border-b border-border-primary"
+      class="flex justify-between items-center p-16 pb-12 border-b border-line-default"
     >
       <AssetAvatar
         :asset="{ address: '', symbol: 'EUL' }"
@@ -156,21 +156,21 @@ const onUnlockClick = async () => {
         <p class="text-p2">
           {{ reulToken ? `${formatNumber(unlockableAmount, 6)} rEUL` : '...' }}
         </p>
-        <p class="text-p3 text-euler-dark-900">
+        <p class="text-p3 text-content-primary">
           {{ reulToken ? `of ${formatNumber(amount, 6)} rEUL` : '...' }}
         </p>
       </div>
     </div>
     <div class="pb-16 pl-16 pr-16">
       <div class="flex justify-between items-center mb-16">
-        <div class="text-euler-dark-900">
+        <div class="text-content-primary">
           Maturity date
         </div>
         <div class="text-right flex flex-col gap-4 text-p2">
           <div>
             in {{ daysUntilMaturity }} days
           </div>
-          <div class="text-euler-dark-900">
+          <div class="text-content-primary">
             {{ formattedDate }}
           </div>
         </div>

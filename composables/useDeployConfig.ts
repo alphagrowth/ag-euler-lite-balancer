@@ -21,6 +21,7 @@ export const useDeployConfig = () => {
     // Branding (from useEnvConfig, not runtimeConfig)
     appTitle: envConfig.appTitle,
     appDescription: envConfig.appDescription,
+    logoUrl: envConfig.logoUrl,
 
     // Repos
     labelsRepo: rc.configLabelsRepo || 'euler-xyz/euler-labels',

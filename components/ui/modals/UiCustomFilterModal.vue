@@ -190,12 +190,12 @@ const close = () => {
     }
 
     &--active {
-      background: rgba(196, 155, 100, 0.15);
+      background: rgba(var(--accent-rgb), 0.15);
       color: var(--accent-700);
       font-weight: 600;
 
       &:hover {
-        background: rgba(196, 155, 100, 0.2);
+        background: rgba(var(--accent-rgb), 0.2);
       }
     }
   }

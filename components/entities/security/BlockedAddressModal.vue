@@ -15,10 +15,10 @@ const handleClose = () => {
     @close="handleClose"
   >
     <div class="flex flex-col gap-16">
-      <p class="text-euler-dark-900">
+      <p class="text-content-primary">
         This address is not eligible to use this interface.
       </p>
-      <div class="bg-euler-dark-200 rounded-8 p-12 text-center font-mono text-14 break-all">
+      <div class="bg-surface-secondary rounded-8 p-12 text-center font-mono text-14 break-all">
         {{ address }}
       </div>
     </div>

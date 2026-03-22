@@ -143,7 +143,7 @@ const vaultTypeDescription = computed(() =>
       >
         <div
           v-if="!isGovernorVerified"
-          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-[var(--c-red-opaque-200)] text-red-700"
+          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-error-100 text-error-500"
         >
           <UiIcon
             class="mr-2 !w-20 !h-20"

@@ -62,6 +62,7 @@ These use Nuxt's `runtimeConfig` and are set via `NUXT_PUBLIC_CONFIG_*` env vars
 | ------------------------------------------- | ------------------------------------------ | ----------------------------------------------------- |
 | `NUXT_PUBLIC_CONFIG_APP_TITLE`              | `Euler Lite`                               | App title (SEO, meta tags)                            |
 | `NUXT_PUBLIC_CONFIG_APP_DESCRIPTION`        | `Lightweight interface for Euler Finance.` | App description                                       |
+| `NUXT_PUBLIC_CONFIG_LOGO_URL`               | —                                          | Custom logo URL (falls back to built-in Euler logo)   |
 | `NUXT_PUBLIC_CONFIG_LABELS_REPO`            | `euler-xyz/euler-labels`                   | GitHub labels repo                                    |
 | `NUXT_PUBLIC_CONFIG_LABELS_REPO_BRANCH`     | `master`                                   | Branch to fetch labels from                           |
 | `NUXT_PUBLIC_CONFIG_LABELS_BASE_URL`        | —                                          | S3/CDN base URL for labels (overrides repo/branch)    |
@@ -98,9 +99,39 @@ The app scans for `RPC_URL_HTTP_<chainId>` env vars at server startup and automa
 
 ### 3. Customize Your Instance
 
-#### Theme (`entities/custom.ts`)
+#### Theme Colors (`assets/styles/variables.scss`)
 
-The `themeHue` value (0-360) shifts the entire color palette:
+All colors are defined as CSS custom properties in `variables.scss`. The file has a clearly marked **THEME CONFIGURATION** section at the top — change these values to restyle the entire app:
+
+```scss
+// — Brand Accent (buttons, links, focus rings, highlights) —
+--accent-500: #1c997c;          // Main accent color
+--accent-rgb: 28, 153, 124;    // RGB components (for alpha variants)
+
+// — Status Colors —
+--success-500: #62ad4f;
+--warning-500: #ecc033;
+--error-500: #c02723;
+```
+
+Key design principles:
+- **RGB companion variables** (`--accent-rgb`, `--success-rgb`, etc.) — all `rgba()` values throughout the app derive from these automatically
+- **Chart colors** (`--chart-*`) — 15 variables controlling Chart.js canvas rendering, with light/dark overrides
+- **Graph colors** (`--graph-*`) — 5 variables controlling SVG topology visualizations
+- **Accent shadows** (`--accent-glow`, `--accent-shadow-*`) — auto-derived from `--accent-rgb`
+- **Dark theme** — all variables are overridden in the `[data-theme="dark"]` section at the bottom of the file
+
+The `useThemeColors` composable bridges CSS variables into JavaScript for Chart.js by reading computed styles from `document.body`. It uses `useTheme()` for reactivity so chart re-renders happen after the DOM `data-theme` attribute updates.
+
+#### Logo
+
+The app logo is rendered by `components/base/LogoBrand.vue`. By default it displays the Euler logo as an inline SVG using `currentColor`, so it automatically follows the theme's accent color.
+
+To use a custom logo, set the `LOGO_URL` environment variable (or `NUXT_PUBLIC_CONFIG_LOGO_URL`). If the custom logo fails to load, the app falls back to the default Euler logo.
+
+#### Theme Hue (`entities/custom.ts`)
+
+The `themeHue` value (0-360) provides an additional runtime hue shift:
 
 ```typescript
 export const themeHue = 150; // Change to shift brand palette
@@ -219,12 +250,15 @@ docker run -p 3000:3000 \
 
 ```
 assets/
-  styles/variables.scss    # Theme colors and CSS variables
+  styles/variables.scss    # Theme config + CSS variables (edit top section to restyle)
   tokens/                  # Token icon overrides
-components/                # Vue components organized by feature
+components/
+  base/LogoBrand.vue       # App logo (inline SVG default, env var override, error fallback)
+  ...                      # Vue components organized by feature
 composables/
-  useEnvConfig.ts          # Runtime env config (API URLs, Pyth, Reown)
+  useEnvConfig.ts          # Runtime env config (API URLs, Pyth, Reown, logo)
   useDeployConfig.ts       # Branding, social links, feature flags
+  useThemeColors.ts        # Bridges CSS color variables into Chart.js
   useChainConfig.ts        # Dynamic chain derivation from env vars
   useEulerConfig.ts        # Aggregated config for Euler services
   useTokens.ts             # Token data fetching and icon resolution
@@ -238,8 +272,9 @@ plugins/
   00.wagmi.ts              # Wagmi/Reown wallet configuration
 public/
   favicons/                # Favicon files
+  logo.svg                 # Default logo (uses currentColor for theme-awareness)
 server/
-  plugins/app-config.ts    # Injects env config into HTML
+  plugins/app-config.ts    # Injects env config into HTML (incl. logo URL)
   plugins/chain-config.ts  # Injects chain config into HTML
 ```
 
@@ -261,8 +296,8 @@ Before deploying:
 - [ ] Set `APPKIT_PROJECT_ID` and `NUXT_PUBLIC_APP_URL`
 - [ ] Set `EULER_API_URL`, `SWAP_API_URL`, `PRICE_API_URL`
 - [ ] Added at least one `RPC_URL_HTTP_<chainId>` with matching `NUXT_PUBLIC_SUBGRAPH_URI_<chainId>`
-- [ ] Configured branding via `NUXT_PUBLIC_CONFIG_*` env vars (title, description, social links)
-- [ ] Set `themeHue` in `entities/custom.ts`
+- [ ] Configured branding via `NUXT_PUBLIC_CONFIG_*` env vars (title, description, logo, social links)
+- [ ] Customized theme colors in `assets/styles/variables.scss` (THEME CONFIGURATION section)
 - [ ] Replaced favicon files in `public/favicons/`
 - [ ] Added token icon overrides in `assets/tokens/` (if needed)
 

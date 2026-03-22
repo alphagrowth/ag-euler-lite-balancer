@@ -90,7 +90,7 @@ const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
 </script>
 
 <template>
-  <div class="bg-euler-dark-300 rounded-16 flex flex-col gap-24 p-24">
+  <div class="bg-body rounded-16 flex flex-col gap-24 p-24">
     <p class="text-h3 text-white">
       Overview
     </p>
@@ -100,10 +100,10 @@ const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
       >
         <template v-if="price !== null">
           {{ formatSignificant(priceInvert.invertValue(price), 4) }}
-          <span class="text-euler-dark-900">{{ priceInvert.displaySymbol }}</span>
+          <span class="text-content-primary">{{ priceInvert.displaySymbol }}</span>
           <button
             type="button"
-            class="ml-4 text-euler-dark-900 hover:text-white transition-colors inline-flex"
+            class="ml-4 text-content-primary hover:text-white transition-colors inline-flex"
             @click.stop="priceInvert.toggle"
           >
             <SvgIcon
@@ -113,7 +113,7 @@ const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
           </button>
         </template>
         <template v-else>
-          <span class="text-euler-dark-900">-</span>
+          <span class="text-content-primary">-</span>
         </template>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue>

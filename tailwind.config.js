@@ -54,7 +54,7 @@ module.exports = {
         // RAW PALETTE COLORS (for specific use cases)
         // ============================================
 
-        // Institutional palette
+        // Brand palette
         'primary': {
           50: 'var(--primary-50)',
           100: 'var(--primary-100)',
@@ -100,48 +100,6 @@ module.exports = {
           100: 'var(--error-100)',
           500: 'var(--error-500)',
         },
-        // Legacy colors (mapped to institutional)
-        'euler-dark': {
-          100: 'hsl(var(--euler-dark-100))',
-          200: 'hsl(var(--euler-dark-200))',
-          300: 'hsl(var(--euler-dark-300))',
-          400: 'hsl(var(--euler-dark-400))',
-          500: 'hsl(var(--euler-dark-500))',
-          600: 'hsl(var(--euler-dark-600))',
-          700: 'hsl(var(--euler-dark-700))',
-          800: 'hsl(var(--euler-dark-800))',
-          900: 'hsl(var(--euler-dark-900))',
-          1000: 'hsl(var(--euler-dark-1000))',
-        },
-        'red': {
-          600: 'rgb(var(--red-600))',
-          700: 'rgb(var(--red-700))',
-          800: 'rgb(var(--red-800))',
-          1000: 'rgb(var(--red-1000))',
-        },
-        'green': {
-          600: 'rgb(var(--green-600))',
-          1000: 'rgb(var(--green-1000))',
-        },
-        'yellow': {
-          600: 'rgb(var(--yellow-600))',
-          700: 'rgb(var(--yellow-700))',
-          1000: 'rgb(var(--yellow-1000))',
-        },
-        'orange': {
-          1000: 'rgb(var(--orange-1000))',
-        },
-        'yellow-warning': {
-          700: 'rgb(var(--yellow-warning-700))',
-        },
-        'slice-of-heaven': {
-          300: 'rgb(var(--slice-of-heaven-300))',
-        },
-        'teal-light': {
-          100: 'rgb(var(--teal-light-100))',
-          300: 'rgb(var(--teal-light-300))',
-        },
-        'border-primary': 'hsl(var(--border-primary))',
       },
 
       screens: {
@@ -197,6 +155,10 @@ module.exports = {
         'input-focus': 'var(--ui-input-focus-shadow)',
         'form-field': 'var(--ui-form-field-shadow)',
         'form-field-focus': 'var(--ui-form-field-focus-shadow)',
+        'accent-glow': 'var(--accent-glow)',
+        'accent-sm': 'var(--accent-shadow-sm)',
+        'accent-md': 'var(--accent-shadow-md)',
+        'accent-lg': 'var(--accent-shadow-lg)',
       },
 
       backdropBlur: {

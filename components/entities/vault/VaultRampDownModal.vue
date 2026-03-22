@@ -20,7 +20,7 @@ const handleClose = () => {
     @close="handleClose"
   >
     <div class="mb-24">
-      <div class="flex justify-between items-center pb-16 border-b border-euler-dark-600">
+      <div class="flex justify-between items-center pb-16 border-b border-line-default">
         <div>
           <p class="mb-4">
             Liquidation LTV after ramp
