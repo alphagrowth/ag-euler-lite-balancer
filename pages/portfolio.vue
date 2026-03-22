@@ -26,6 +26,7 @@ const { isConnected, address } = useAccount()
 const { isLoaded: isBalancesLoaded, updateBalances } = useWallets()
 const { eulerLensAddresses } = useEulerAddresses()
 const { portfolioRefreshCounter } = usePortfolioRefresh()
+const { isSpyMode, spyAddress } = useSpyMode()
 
 const interval: Ref<NodeJS.Timeout | null> = ref(null)
 
@@ -56,7 +57,9 @@ const checkTab = () => {
 }
 
 const updatePositions = async () => {
-  await refreshAllPositions(eulerLensAddresses.value, address.value as string)
+  const targetAddress = isSpyMode.value ? spyAddress.value : address.value
+  if (!targetAddress) return
+  await refreshAllPositions(eulerLensAddresses.value, targetAddress)
 }
 
 watch(tabsModel, checkTab, { immediate: true })

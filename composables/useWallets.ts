@@ -26,9 +26,14 @@ export const useWallets = () => {
     return `${requestUrl.origin}/api/rpc/${chainId.value}`
   })
 
+  const { spyAddress, isSpyMode } = useSpyMode()
+  const balanceAddress = computed(() =>
+    isSpyMode.value ? spyAddress.value : address.value,
+  )
+
   const updateBalances = async () => {
-    // Guard: must be connected
-    if (!isConnected.value || !address.value || !chain.value) {
+    // Guard: must be connected or in spy mode
+    if (!balanceAddress.value || (!isConnected.value && !isSpyMode.value)) {
       return
     }
 
@@ -87,8 +92,9 @@ export const useWallets = () => {
     isFetching.value = true
 
     try {
+      const targetAddress = balanceAddress.value as Address
       const client = createPublicClient({
-        chain: chain.value,
+        chain: chain.value ?? undefined,
         transport: http(rpcUrl.value),
       })
 
@@ -99,7 +105,7 @@ export const useWallets = () => {
           address: utilsLensAddress,
           abi: eulerUtilsLensABI,
           functionName: 'tokenBalances',
-          args: [address.value as Address, tokenAddresses],
+          args: [targetAddress, tokenAddresses],
         }) as bigint[]
       }
       catch {
@@ -115,7 +121,7 @@ export const useWallets = () => {
                   address: tokenAddr,
                   abi: erc20BalanceOfAbi,
                   functionName: 'balanceOf',
-                  args: [address.value as Address],
+                  args: [targetAddress],
                 }) as bigint
                 return balance
               }
@@ -155,9 +161,9 @@ export const useWallets = () => {
 
   // Check if we need to fetch on each call
   const needsFetch = () => {
-    return isConnected.value
+    return (isConnected.value || isSpyMode.value)
       && isReady.value
-      && !!address.value
+      && !!balanceAddress.value
       && !!eulerLensAddresses.value?.utilsLens
       && (lastFetchChainId.value !== chainId.value || !isLoaded.value)
       && !isFetching.value
@@ -191,19 +197,19 @@ export const useWallets = () => {
    * Use this for supply/deposit pages to avoid triggering the full batch query.
    */
   const fetchSingleBalance = async (tokenAddress: string): Promise<bigint> => {
-    if (!isConnected.value || !address.value || !chain.value || !tokenAddress) {
+    if ((!isConnected.value && !isSpyMode.value) || !balanceAddress.value || !tokenAddress) {
       return 0n
     }
     try {
       const client = createPublicClient({
-        chain: chain.value,
+        chain: chain.value ?? undefined,
         transport: http(rpcUrl.value),
       })
       const result = await client.readContract({
         address: getAddress(tokenAddress) as Address,
         abi: erc20BalanceOfAbi,
         functionName: 'balanceOf',
-        args: [address.value as Address],
+        args: [balanceAddress.value as Address],
       }) as bigint
       return result
     }
@@ -217,11 +223,11 @@ export const useWallets = () => {
    * Use this for savings/deposit positions where user holds vault shares.
    */
   const fetchVaultShareBalance = async (vaultAddress: string, subAccount?: string): Promise<bigint> => {
-    if (!isConnected.value || !address.value || !chain.value || !vaultAddress) {
+    if ((!isConnected.value && !isSpyMode.value) || !balanceAddress.value || !vaultAddress) {
       return 0n
     }
     try {
-      const balanceOfAddress = subAccount || address.value
+      const balanceOfAddress = subAccount || balanceAddress.value
       const client = createPublicClient({
         chain: chain.value,
         transport: http(rpcUrl.value),
