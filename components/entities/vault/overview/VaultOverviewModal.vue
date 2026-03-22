@@ -158,7 +158,7 @@ const navigateToBorrow = (collateralAddress: string, borrowVaultAddress: string)
       <template v-else-if="earnVault">
         <VaultOverviewEarn
           :vault="earnVault"
-          @vault-click="(address: string) => navigateToBorrow(address, earnVault!.address)"
+          @vault-click="(address: string) => { emits('close'); router.push({ path: `/lend/${address}`, query: { network: route.query.network } }) }"
         />
       </template>
     </div>
