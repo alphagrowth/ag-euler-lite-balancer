@@ -11,8 +11,8 @@ import {
   fetchEarnVault,
   fetchEscrowVault,
   fetchSecuritizeVault,
-  fetchVaultFactory,
 } from '~/entities/vault'
+import { fetchVaultFactory } from '~/entities/vault/factory'
 
 // Vault type enum - 3 types (escrow is a category of evk, not a separate type)
 export type VaultType = 'evk' | 'earn' | 'securitize'

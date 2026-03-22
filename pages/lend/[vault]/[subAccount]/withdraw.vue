@@ -8,12 +8,12 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
-  isSecuritizeVault,
   fetchSecuritizeVault,
   type Vault,
   type SecuritizeVault,
   type VaultAsset,
 } from '~/entities/vault'
+import { isSecuritizeVault } from '~/entities/vault/factory'
 import { getSubAccountAddress } from '~/entities/account'
 import { getUtilisationWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'

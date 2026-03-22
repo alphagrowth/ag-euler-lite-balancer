@@ -19,14 +19,8 @@ export type {
 } from './types'
 export { isSecuritizeBorrowPair } from './types'
 
-// Factory detection
-export {
-  fetchVaultFactory,
-  isSecuritizeVault,
-  isSecuritizeVaultSync,
-  fetchVaultFactories,
-  filterSecuritizeVaults,
-} from './factory'
+// Factory detection — imported directly from ~/entities/vault/factory to avoid circular dependency
+// (factory.ts → useVaultRegistry → index.ts → factory.ts)
 
 // Fetchers
 export {
