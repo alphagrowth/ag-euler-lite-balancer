@@ -57,7 +57,7 @@ const checkTab = () => {
 }
 
 const updatePositions = async () => {
-  const targetAddress = isSpyMode ? spyAddress.value : address.value
+  const targetAddress = isSpyMode.value ? spyAddress.value : address.value
   if (!targetAddress) return
   await refreshAllPositions(eulerLensAddresses.value, targetAddress)
 }
