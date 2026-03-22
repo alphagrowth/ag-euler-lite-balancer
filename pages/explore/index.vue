@@ -264,7 +264,8 @@ const sortedMarkets = computed(() => {
 
 const isLoading = computed(() =>
   isUpdating.value || isEarnUpdating.value || isEscrowUpdating.value
-  || isResolvingTVL.value || marketGroups.value.length === 0,
+  || (isResolvingTVL.value && marketGroups.value.length === 0)
+  || marketGroups.value.length === 0,
 )
 </script>
 
