@@ -8,7 +8,6 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useModal } from '~/components/ui/composables/useModal'
 import { SlippageSettingsModal } from '#components'
-import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { createRaceGuard } from '~/utils/race-guard'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
@@ -221,7 +220,6 @@ const load = async () => {
   try {
     position.value = getPositionBySubAccountIndex(+positionIndex)
     await fetchWalletBalance()
-    await wallet.updateBalance()
     wallet.initEstimates()
     collateral.initVault(position.value?.collateral as Vault | undefined)
     savings.initVault()
@@ -241,12 +239,11 @@ watch(isPositionsLoaded, (val) => {
 }, { immediate: true })
 
 watch(isConnected, () => {
-  wallet.updateBalance()
+  fetchWalletBalance()
 })
 
 watch(address, () => {
   fetchWalletBalance()
-  wallet.updateBalance()
 })
 
 watch(formTab, () => {
@@ -254,15 +251,6 @@ watch(formTab, () => {
   wallet.resetOnTabSwitch()
   collateral.resetOnTabSwitch()
   savings.resetOnTabSwitch()
-})
-
-// --- Polling ---
-const interval = setInterval(() => {
-  wallet.updateBalance()
-}, POLL_INTERVAL_5S_MS)
-
-onUnmounted(() => {
-  clearInterval(interval)
 })
 </script>
 

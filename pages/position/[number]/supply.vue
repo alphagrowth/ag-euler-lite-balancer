@@ -3,7 +3,6 @@ import { useAccount } from '@wagmi/vue'
 import { getAddress, type Address } from 'viem'
 import { zeroAddress } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
-import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { Vault, VaultAsset } from '~/entities/vault'
 import type { SwapTokenSelectMeta } from '~/components/entities/asset/SwapTokenSelector.vue'
@@ -166,15 +165,6 @@ watch(selectedAsset, async () => {
   else {
     swapAssetUsdPrice.value = undefined
   }
-})
-
-// Balance polling
-const interval = setInterval(() => {
-  updateBalance()
-}, POLL_INTERVAL_5S_MS)
-
-onUnmounted(() => {
-  clearInterval(interval)
 })
 </script>
 

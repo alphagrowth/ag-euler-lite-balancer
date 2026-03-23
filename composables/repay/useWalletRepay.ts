@@ -7,7 +7,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
 import { getNetAPY } from '~/entities/vault'
-import { getAssetUsdValue, getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
+import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { valueToNano } from '~/utils/crypto-utils'
@@ -61,7 +61,6 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
 
   const amount = ref('')
   const walletRepayPercent = ref(0)
-  const balance = ref(0n)
   const hasEstimate = ref(false)
   const _estimateNetAPY = ref(0)
   const _estimateUserLTV = ref(0n)
@@ -79,25 +78,10 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
   const borrowedFixed = computed(() => FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
   const suppliedFixed = computed(() => FixedPoint.fromValue(position.value?.supplied || 0n, position.value?.collateral.decimals || 18))
   const priceFixed = computed(() => FixedPoint.fromValue(position.value?.price || 0n, 18))
-  const balanceFixed = computed(() => FixedPoint.fromValue(balance.value, borrowVault.value?.decimals || 18))
-
   const isSubmitDisabled = computed(() => {
     if (!isConnected.value) return false
     return !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
   })
-
-  const updateBalance = async () => {
-    if (!isConnected.value || !position.value || !borrowVault.value) {
-      balance.value = 0n
-      return
-    }
-    const borrowedUsd = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? 0.01
-    const factor = Math.pow(10, 2)
-    const borrowedRounded = Math.ceil(borrowedUsd * factor) / factor
-    balance.value = FixedPoint.fromValue(valueToNano(borrowedRounded, 4), 4)
-      .div(FixedPoint.fromValue(borrowVault.value.liabilityPriceInfo.amountOutMid, Number(borrowVault.value.decimals)))
-      .value
-  }
 
   const submit = async () => {
     if (isPreparing.value || isSubmitting.value || !position.value || !borrowVault.value || !collateralVault.value) {
@@ -107,7 +91,8 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
     isPreparing.value = true
     try {
       const amountNano = valueToNano(amount.value || '0', borrowVault.value.asset.decimals)
-      const shouldFullRepay = balance.value <= amountNano
+      const currentDebt = position.value.borrowed || 0n
+      const shouldFullRepay = amountNano >= currentDebt
 
       try {
         plan.value = shouldFullRepay
@@ -164,7 +149,8 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
       if (!position.value || !borrowVault.value || !collateralVault.value) return
 
       const amountNano = valueToNano(amount.value, borrowVault.value.asset.decimals)
-      const isFullRepay = balance.value <= amountNano
+      const currentDebt = position.value.borrowed || 0n
+      const isFullRepay = amountNano >= currentDebt
       const txPlan = isFullRepay
         ? await buildFullRepayPlan(
           borrowVault.value.address,
@@ -304,7 +290,6 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
   return {
     amount,
     walletRepayPercent,
-    balance,
     estimateNetAPY,
     estimateUserLTV,
     estimateHealth,
@@ -315,8 +300,6 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
     borrowedFixed,
     suppliedFixed,
     priceFixed,
-    balanceFixed,
-    updateBalance,
     submit,
     send,
     onWalletRepayPercentInput,
