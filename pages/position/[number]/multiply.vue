@@ -20,6 +20,8 @@ import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { calculateRoe, computeNextHealth, computeLiquidationPrice } from '~/utils/repayUtils'
+import { computeMaxMultiplier } from '~/utils/multiply-math'
 
 const route = useRoute()
 const router = useRouter()
@@ -174,18 +176,7 @@ const multiplyBorrowLtv = computed(() => {
   )
   return match ? nanoToValue(match.borrowLTV, 2) : 0
 })
-const multiplyMaxMultiplier = computed(() => {
-  const ltvPercent = multiplyBorrowLtv.value
-  if (!ltvPercent || !Number.isFinite(ltvPercent)) {
-    return 1
-  }
-  const ltv = ltvPercent / 100
-  if (ltv <= 0 || ltv >= 0.99) {
-    return 1
-  }
-  const max = 1 / (1 - ltv)
-  return Math.max(1, Math.floor(max * 100) / 100)
-})
+const multiplyMaxMultiplier = computed(() => computeMaxMultiplier(multiplyBorrowLtv.value))
 const multiplyCurrentMultiple = computed(() => {
   if (!position.value) {
     return 1
@@ -303,25 +294,6 @@ const multiplyWeightedSupplyApy = computed(() => {
   const supplyApy = multiplySupplyApy.value ?? multiplyLongApy.value
   return (currentSupplyValueUsd.value * supplyApy + longUsd * multiplyLongApy.value) / total
 })
-const calculateRoe = (
-  supplyUsd: number | null,
-  borrowUsd: number | null,
-  supplyApyValue: number | null,
-  borrowApyValue: number | null,
-) => {
-  if (supplyUsd === null || borrowUsd === null || supplyApyValue === null || borrowApyValue === null) {
-    return null
-  }
-  const equity = supplyUsd - borrowUsd
-  if (!Number.isFinite(equity) || equity <= 0) {
-    return null
-  }
-  const net = supplyUsd * supplyApyValue - borrowUsd * borrowApyValue
-  if (!Number.isFinite(net)) {
-    return null
-  }
-  return net / equity
-}
 const multiplyRoeBefore = computed(() => {
   return calculateRoe(
     currentSupplyValueUsd.value,
@@ -381,10 +353,7 @@ const multiplyNextHealth = computed(() => {
   if (!multiplyNextLiquidationLtv.value || !multiplyNextLtv.value) {
     return null
   }
-  if (multiplyNextLtv.value <= 0) {
-    return null
-  }
-  return multiplyNextLiquidationLtv.value / multiplyNextLtv.value
+  return computeNextHealth(multiplyNextLiquidationLtv.value, multiplyNextLtv.value)
 })
 const multiplyPriceRatio = computed(() => {
   if (!multiplyLongVault.value || !multiplyShortVault.value) {
@@ -399,19 +368,13 @@ const multiplyCurrentLiquidationPrice = computed(() => {
   if (!multiplyPriceRatio.value || !multiplyCurrentHealth.value) {
     return null
   }
-  if (multiplyCurrentHealth.value <= 0) {
-    return null
-  }
-  return multiplyPriceRatio.value / multiplyCurrentHealth.value
+  return computeLiquidationPrice(multiplyPriceRatio.value, multiplyCurrentHealth.value)
 })
 const multiplyNextLiquidationPrice = computed(() => {
   if (!multiplyPriceRatio.value || !multiplyNextHealth.value) {
     return null
   }
-  if (multiplyNextHealth.value <= 0) {
-    return null
-  }
-  return multiplyPriceRatio.value / multiplyNextHealth.value
+  return computeLiquidationPrice(multiplyPriceRatio.value, multiplyNextHealth.value)
 })
 const multiplyCurrentPrice = computed(() => {
   if (isMultiplyQuoteLoading.value) {

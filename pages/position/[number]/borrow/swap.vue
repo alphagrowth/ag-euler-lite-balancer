@@ -11,6 +11,7 @@ import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { calculateRoe } from '~/utils/repayUtils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
 
 const route = useRoute()
@@ -102,20 +103,6 @@ watchEffect(async () => {
   currentBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, fromVault.value, 'off-chain')) ?? null
 })
 const nextBorrowValueUsd = ref<number | null>(null)
-
-const calculateRoe = (
-  supplyUsd: number | null,
-  borrowUsd: number | null,
-  supplyApy: number | null,
-  borrowApy: number | null,
-) => {
-  if (supplyUsd === null || borrowUsd === null || supplyApy === null || borrowApy === null) return null
-  const equity = supplyUsd - borrowUsd
-  if (!Number.isFinite(equity) || equity <= 0) return null
-  const net = supplyUsd * supplyApy - borrowUsd * borrowApy
-  if (!Number.isFinite(net)) return null
-  return net / equity
-}
 
 const roeBefore = computed(() => calculateRoe(supplyValueUsd.value, currentBorrowValueUsd.value, collateralSupplyApy.value, fromBorrowApy.value))
 const roeAfter = computed(() => calculateRoe(supplyValueUsd.value, nextBorrowValueUsd.value, collateralSupplyApy.value, toBorrowApy.value))
