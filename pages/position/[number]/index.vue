@@ -35,6 +35,7 @@ const router = useRouter()
 const modal = useModal()
 const { error } = useToast()
 const { isConnected } = useAccount()
+const { isSpyMode } = useSpyMode()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy, getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, getBorrowRewardApy, hasSupplyRewards, hasBorrowRewards, getSupplyRewardCampaigns, getBorrowRewardCampaigns } = useRewardsApy()
@@ -617,8 +618,8 @@ const send = async (collateralAddress: string) => {
   }
 }
 const load = async () => {
-  // Redirect to portfolio if not connected
-  if (!isConnected.value) {
+  // Redirect to portfolio if not connected and not in spy mode
+  if (!isConnected.value && !isSpyMode.value) {
     router.replace('/portfolio')
     return
   }

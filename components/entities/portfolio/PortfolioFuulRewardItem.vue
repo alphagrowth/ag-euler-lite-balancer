@@ -11,6 +11,7 @@ import { nanoToValue } from '~/utils/crypto-utils'
 const { reward } = defineProps<{ reward: FuulClaimableReward }>()
 
 const { claimReward, loadClaimableRewards, buildClaimRewardPlan } = useFuul()
+const { isSpyMode } = useSpyMode()
 const modal = useModal()
 const { error } = useToast()
 const { chainId: siteChainId } = useEulerAddresses()
@@ -122,6 +123,7 @@ const onClaimClick = async () => {
       <UiButton
         rounded
         :loading="isClaiming || isPreparing"
+        :disabled="isSpyMode"
         @click="onClaimClick"
       >
         Claim

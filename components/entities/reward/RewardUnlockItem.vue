@@ -11,6 +11,7 @@ import { nanoToValue } from '~/utils/crypto-utils'
 
 const modal = useModal()
 const { error } = useToast()
+const { isSpyMode } = useSpyMode()
 const { rewardTokens, isTokensLoading } = useMerkl()
 const { unlockREUL, buildUnlockREULPlan, reulTokenContractAddress, loadREULLocksInfo } = useREULLocks()
 const { chainId: siteChainId } = useEulerAddresses()
@@ -179,6 +180,7 @@ const onUnlockClick = async () => {
         variant="primary-stroke"
         rounded
         :loading="isUnlocking || isPreparing"
+        :disabled="isSpyMode"
         @click="onUnlockClick"
       >
         Unlock
