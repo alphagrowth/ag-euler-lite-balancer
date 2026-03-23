@@ -1,7 +1,8 @@
-import { type Address, createPublicClient, http, getAddress } from 'viem'
+import { type Address, type Chain, createPublicClient, http, getAddress } from 'viem'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import { erc20BalanceOfAbi } from '~/abis/erc20'
+import { getChainById } from '~/entities/chainRegistry'
 import { logWarn } from '~/utils/errorHandling'
 
 // Singleton state
@@ -14,7 +15,7 @@ let fetchPromise: Promise<void> | null = null
 export const useWallets = () => {
   const { isReady } = useVaults()
   const { getByType } = useVaultRegistry()
-  const { address, isConnected, chain } = useWagmi()
+  const { address, isConnected } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
   const { chainId } = useEulerAddresses()
   const requestUrl = useRequestURL()
@@ -25,6 +26,10 @@ export const useWallets = () => {
     if (!chainId.value) return ''
     return `${requestUrl.origin}/api/rpc/${chainId.value}`
   })
+
+  // Use the app's selected chain for RPC clients, not the wallet's chain.
+  // This ensures reads work correctly even when the wallet is on a different chain.
+  const appChain = computed(() => getChainById(chainId.value) as Chain | undefined)
 
   const { spyAddress, isSpyMode } = useSpyMode()
   const balanceAddress = computed(() =>
@@ -94,7 +99,7 @@ export const useWallets = () => {
     try {
       const targetAddress = balanceAddress.value as Address
       const client = createPublicClient({
-        chain: chain.value ?? undefined,
+        chain: appChain.value,
         transport: http(rpcUrl.value),
       })
 
@@ -209,7 +214,7 @@ export const useWallets = () => {
     }
     try {
       const client = createPublicClient({
-        chain: chain.value ?? undefined,
+        chain: appChain.value,
         transport: http(rpcUrl.value),
       })
       const result = await client.readContract({
@@ -236,7 +241,7 @@ export const useWallets = () => {
     try {
       const balanceOfAddress = subAccount || balanceAddress.value
       const client = createPublicClient({
-        chain: chain.value,
+        chain: appChain.value,
         transport: http(rpcUrl.value),
       })
       const result = await client.readContract({
