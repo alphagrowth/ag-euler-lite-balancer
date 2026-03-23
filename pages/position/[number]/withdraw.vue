@@ -50,10 +50,14 @@ const form = useCollateralForm({
     return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
   },
 
-  computeLiquidationPrice: (pos) => {
-    const price = pos.price || 0n
-    if (price <= 0n) return undefined
-    return nanoToValue(price, 18)
+  computeLiquidationPrice: (pos, borrowVault, collateralVault) => {
+    const health = nanoToValue(pos.health || 0n, 18)
+    if (health < 0.1) return Infinity
+    const cp = borrowVault && collateralVault ? getCollateralOraclePrice(borrowVault, collateralVault) : undefined
+    const bp = borrowVault ? getAssetOraclePrice(borrowVault) : undefined
+    const ratio = nanoToValue(conservativePriceRatio(cp, bp), 18)
+    if (!ratio) return undefined
+    return ratio / health
   },
 
   validateEstimate: ({ suppliedFixed, amountFixed, userLtvFixed }) => {
@@ -331,7 +335,8 @@ watch(selectedOutputAsset, () => {
           </SummaryRow>
           <SummaryRow label="Liq. price">
             <SummaryPriceValue
-              :value="form.liquidationPrice.value != null ? formatSmartAmount(form.priceInvert.invertValue(form.liquidationPrice.value)!) : undefined"
+              :before="form.liquidationPrice.value != null ? formatSmartAmount(form.priceInvert.invertValue(form.liquidationPrice.value)!) : undefined"
+              :after="form.estimateLiquidationPrice.value != null ? formatSmartAmount(form.priceInvert.invertValue(form.estimateLiquidationPrice.value)!) : undefined"
               :symbol="form.priceInvert.displaySymbol"
               invertible
               @invert="form.priceInvert.toggle"
@@ -340,6 +345,7 @@ watch(selectedOutputAsset, () => {
           <SummaryRow label="Liq. buffer">
             <SummaryValue
               :before="formatLiqBuffer(form.priceInvert.invertValue(form.priceFixed.value.toUnsafeFloat()), form.priceInvert.invertValue(form.liquidationPrice.value))"
+              :after="formatLiqBuffer(form.priceInvert.invertValue(form.priceFixed.value.toUnsafeFloat()), form.priceInvert.invertValue(form.estimateLiquidationPrice.value))"
               suffix="%"
             />
           </SummaryRow>

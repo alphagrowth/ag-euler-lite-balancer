@@ -6,6 +6,7 @@ import { FixedPoint } from '~/utils/fixed-point'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { Vault, VaultAsset } from '~/entities/vault'
 import type { SwapTokenSelectMeta } from '~/components/entities/asset/SwapTokenSelector.vue'
+import { getCollateralOraclePrice, getAssetOraclePrice, conservativePriceRatio } from '~/services/pricing/priceProvider'
 import { fetchBackendPrice } from '~/services/pricing/backendClient'
 import type { SwapApiQuote } from '~/entities/swap'
 import { SwapperMode } from '~/entities/swap'
@@ -45,12 +46,22 @@ const form = useCollateralForm({
   needsSwap,
   effectiveBalance: activeBalance,
 
-  computePriceFixed: pos =>
-    FixedPoint.fromValue(pos.price || 0n, 18),
+  computePriceFixed: (_pos, borrowVault, collateralVault) => {
+    const collateralPrice = borrowVault && collateralVault
+      ? getCollateralOraclePrice(borrowVault, collateralVault)
+      : undefined
+    const borrowPrice = borrowVault ? getAssetOraclePrice(borrowVault) : undefined
+    return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
+  },
 
-  computeLiquidationPrice: (pos) => {
-    if (nanoToValue(pos.health || 0n, 18) < 0.1) return Infinity
-    return nanoToValue(pos.price || 0n, 18) / nanoToValue(pos.health || 1n, 18)
+  computeLiquidationPrice: (pos, borrowVault, collateralVault) => {
+    const health = nanoToValue(pos.health || 0n, 18)
+    if (health < 0.1) return Infinity
+    const cp = borrowVault && collateralVault ? getCollateralOraclePrice(borrowVault, collateralVault) : undefined
+    const bp = borrowVault ? getAssetOraclePrice(borrowVault) : undefined
+    const ratio = nanoToValue(conservativePriceRatio(cp, bp), 18)
+    if (!ratio) return undefined
+    return ratio / health
   },
 
   validateEstimate: ({ amountFixed, needsSwap: isSwap }) => {
@@ -340,7 +351,8 @@ watch(selectedAsset, async () => {
           </SummaryRow>
           <SummaryRow label="Liq. price">
             <SummaryPriceValue
-              :value="form.liquidationPrice.value != null && form.liquidationPrice.value !== Infinity ? formatSmartAmount(form.priceInvert.invertValue(form.liquidationPrice.value)!) : undefined"
+              :before="form.liquidationPrice.value != null && form.liquidationPrice.value !== Infinity ? formatSmartAmount(form.priceInvert.invertValue(form.liquidationPrice.value)!) : undefined"
+              :after="form.estimateLiquidationPrice.value != null ? formatSmartAmount(form.priceInvert.invertValue(form.estimateLiquidationPrice.value)!) : undefined"
               :symbol="form.priceInvert.displaySymbol"
               invertible
               @invert="form.priceInvert.toggle"
@@ -349,6 +361,7 @@ watch(selectedAsset, async () => {
           <SummaryRow label="Liq. buffer">
             <SummaryValue
               :before="formatLiqBuffer(form.priceInvert.invertValue(form.priceFixed.value.toUnsafeFloat()), form.priceInvert.invertValue(form.liquidationPrice.value))"
+              :after="formatLiqBuffer(form.priceInvert.invertValue(form.priceFixed.value.toUnsafeFloat()), form.priceInvert.invertValue(form.estimateLiquidationPrice.value))"
               suffix="%"
             />
           </SummaryRow>
