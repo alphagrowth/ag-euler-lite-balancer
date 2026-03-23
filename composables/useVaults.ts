@@ -71,7 +71,10 @@ const resetVaultsState = () => {
   loadGeneration.value++
   isReady.value = false
   isLoading.value = true
+  isUpdating.value = true
   isEarnLoading.value = true
+  isEarnUpdating.value = true
+  isEscrowUpdating.value = true
   isEscrowLoadedOnce.value = false
   loadedChainId.value = null
   clear()
