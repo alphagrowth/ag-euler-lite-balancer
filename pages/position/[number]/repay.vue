@@ -11,6 +11,7 @@ import { SlippageSettingsModal } from '#components'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { createRaceGuard } from '~/utils/race-guard'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { useWalletRepay } from '~/composables/repay/useWalletRepay'
@@ -61,12 +62,16 @@ const oraclePriceRatio = computed(() => {
   const borrowPrice = getAssetOraclePrice(borrowVault.value)
   return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
-
+walletPriceInvert.autoInvert(oraclePriceRatio)
 const liquidationPrice = computed(() => {
   const health = nanoToValue(position.value?.health || 0n, 18)
   if (!oraclePriceRatio.value || health < 0.1) return null
   return oraclePriceRatio.value / health
 })
+const liqPriceFromHealth = (health: number | null | undefined): number | null => {
+  if (!oraclePriceRatio.value || !health || health < 0.1 || health > 1e15) return null
+  return oraclePriceRatio.value / health
+}
 
 // --- APYs ---
 const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
@@ -120,6 +125,7 @@ const wallet = useWalletRepay({
   borrowApy,
   collateralSupplyRewardApy,
   borrowRewardApy,
+  oraclePriceRatio,
 })
 
 const collateral = useCollateralSwapRepay({
@@ -355,12 +361,25 @@ watch(formTab, () => {
                 @invert="walletPriceInvert.toggle"
               />
             </SummaryRow>
-            <SummaryRow label="Liquidation price">
+            <SummaryRow label="Liq. price">
               <SummaryPriceValue
-                :value="walletPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(walletPriceInvert.invertValue(liquidationPrice)!) : undefined"
+                :before="walletPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(walletPriceInvert.invertValue(liquidationPrice)!) : undefined"
+                :after="walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue(wallet.estimateHealth.value, 18))) != null
+                  ? formatSmartAmount(walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue(wallet.estimateHealth.value, 18)))!)
+                  : undefined"
                 :symbol="walletPriceInvert.displaySymbol"
                 invertible
                 @invert="walletPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(walletPriceInvert.invertValue(oraclePriceRatio), walletPriceInvert.invertValue(liquidationPrice))"
+                :after="formatLiqBuffer(
+                  walletPriceInvert.invertValue(oraclePriceRatio),
+                  walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue(wallet.estimateHealth.value, 18))),
+                )"
+                suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="LTV">
@@ -514,13 +533,22 @@ watch(formTab, () => {
                 </p>
               </SummaryRow>
             </template>
-            <SummaryRow label="Liquidation price">
+            <SummaryRow label="Liq. price">
               <SummaryPriceValue
                 :before="collateral.currentLiquidationPrice.value !== null ? formatSmartAmount(collateral.priceInvert.invertValue(collateral.currentLiquidationPrice.value)) : undefined"
                 :after="collateral.nextLiquidationPrice.value !== null && (collateral.quotes.quote.value || collateral.isSameAsset.value) ? formatSmartAmount(collateral.priceInvert.invertValue(collateral.nextLiquidationPrice.value)) : undefined"
                 :symbol="collateral.priceInvert.displaySymbol"
                 invertible
                 @invert="collateral.priceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(collateral.priceInvert.invertValue(collateral.priceRatio.value), collateral.priceInvert.invertValue(collateral.currentLiquidationPrice.value))"
+                :after="collateral.nextLiquidationPrice.value !== null && (collateral.quotes.quote.value || collateral.isSameAsset.value)
+                  ? formatLiqBuffer(collateral.priceInvert.invertValue(collateral.priceRatio.value), collateral.priceInvert.invertValue(collateral.nextLiquidationPrice.value))
+                  : undefined"
+                suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="LTV">
@@ -704,13 +732,22 @@ watch(formTab, () => {
                 </p>
               </SummaryRow>
             </template>
-            <SummaryRow label="Liquidation price">
+            <SummaryRow label="Liq. price">
               <SummaryPriceValue
                 :before="savings.currentLiquidationPrice.value !== null ? formatSmartAmount(walletPriceInvert.invertValue(savings.currentLiquidationPrice.value)) : undefined"
                 :after="savings.nextLiquidationPrice.value !== null && (savings.quotes.quote.value || savings.isSameAsset.value) ? formatSmartAmount(walletPriceInvert.invertValue(savings.nextLiquidationPrice.value)) : undefined"
                 :symbol="walletPriceInvert.displaySymbol"
                 invertible
                 @invert="walletPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(walletPriceInvert.invertValue(oraclePriceRatio), walletPriceInvert.invertValue(savings.currentLiquidationPrice.value))"
+                :after="savings.nextLiquidationPrice.value !== null && (savings.quotes.quote.value || savings.isSameAsset.value)
+                  ? formatLiqBuffer(walletPriceInvert.invertValue(oraclePriceRatio), walletPriceInvert.invertValue(savings.nextLiquidationPrice.value))
+                  : undefined"
+                suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="LTV">

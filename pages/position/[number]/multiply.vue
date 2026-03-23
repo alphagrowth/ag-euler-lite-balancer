@@ -19,6 +19,7 @@ import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const route = useRoute()
@@ -396,6 +397,7 @@ const multiplyPriceRatio = computed(() => {
   const borrowPrice = getAssetOraclePrice(multiplyShortVault.value)
   return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
+priceInvert.autoInvert(() => multiplyPriceRatio.value)
 const multiplyCurrentLiquidationPrice = computed(() => {
   if (!multiplyPriceRatio.value || !multiplyCurrentHealth.value) {
     return null
@@ -935,13 +937,22 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
               @invert="priceInvert.toggle"
             />
           </SummaryRow>
-          <SummaryRow label="Liquidation price">
+          <SummaryRow label="Liq. price">
             <SummaryPriceValue
               :before="multiplyCurrentLiquidationPrice !== null ? formatSmartAmount(priceInvert.invertValue(multiplyCurrentLiquidationPrice)) : undefined"
               :after="multiplyNextLiquidationPrice !== null && multiplySwapReady ? formatSmartAmount(priceInvert.invertValue(multiplyNextLiquidationPrice)) : undefined"
               :symbol="priceInvert.displaySymbol"
               invertible
               @invert="priceInvert.toggle"
+            />
+          </SummaryRow>
+          <SummaryRow label="Liq. buffer">
+            <SummaryValue
+              :before="formatLiqBuffer(priceInvert.invertValue(multiplyPriceRatio), priceInvert.invertValue(multiplyCurrentLiquidationPrice))"
+              :after="multiplyNextLiquidationPrice !== null && multiplySwapReady
+                ? formatLiqBuffer(priceInvert.invertValue(multiplyPriceRatio), priceInvert.invertValue(multiplyNextLiquidationPrice))
+                : undefined"
+              suffix="%"
             />
           </SummaryRow>
           <SummaryRow label="LTV">

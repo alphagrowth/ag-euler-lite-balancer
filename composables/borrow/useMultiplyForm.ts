@@ -401,6 +401,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     const borrowPrice = getAssetOraclePrice(multiplyShortVault.value)
     return conservativePriceRatioNumber(collateralPrice, borrowPrice)
   })
+  multiplyPriceInvert.autoInvert(() => multiplyPriceRatio.value)
 
   const multiplyCurrentLiquidationPrice = computed(() => {
     if (isMultiplyQuoteLoading.value) return null

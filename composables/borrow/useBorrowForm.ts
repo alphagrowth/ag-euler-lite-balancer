@@ -148,6 +148,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
     return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
   })
+  borrowPriceInvert.autoInvert(() => priceFixed.value.toUnsafeFloat())
 
   const collateralUnitPrice = ref<number | undefined>(undefined)
 

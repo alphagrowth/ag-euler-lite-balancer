@@ -9,6 +9,7 @@ import { SwapperMode } from '~/entities/swap'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
@@ -492,7 +493,7 @@ const onToVaultChange = (selectedIndex: number) => {
               />
             </SummaryRow>
             <SummaryRow
-              label="Liquidation price"
+              label="Liq. price"
               align-top
             >
               <!-- Borrow swap changes the borrow vault, so before/after symbols may differ -->
@@ -519,6 +520,15 @@ const onToVaultChange = (selectedIndex: number) => {
                   />
                 </button>
               </p>
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(liqPriceInvert.invertValue(priceRatio), liqPriceInvert.invertValue(currentLiquidationPrice))"
+                :after="nextLiquidationPrice !== null && quote
+                  ? formatLiqBuffer(liqPriceInvert.invertValue(priceRatio), liqPriceInvert.invertValue(nextLiquidationPrice))
+                  : undefined"
+                suffix="%"
+              />
             </SummaryRow>
             <SummaryRow label="LTV">
               <SummaryValue

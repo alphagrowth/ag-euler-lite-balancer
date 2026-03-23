@@ -917,7 +917,7 @@ watch(isConnected, () => {
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
               <div class="text-neutral-500 text-p3">
-                Liquidation price
+                Liq. price
               </div>
               <div class="text-neutral-800 text-p3">
                 {{ borrowLiquidationPrice ? `$${formatNumber(borrowLiquidationPrice)}` : '-' }}
@@ -1084,7 +1084,7 @@ watch(isConnected, () => {
                 class="flex justify-between gap-8 flex-wrap mb-16"
               >
                 <div class="text-neutral-500 text-p3">
-                  Liquidation price
+                  Liq. price
                 </div>
                 <div class="text-neutral-800 text-p3">
                   {{ liquidationPrice ? `$${formatNumber(liquidationPrice)}` : '-' }}

@@ -30,6 +30,7 @@ interface UseWalletRepayOptions {
   borrowApy: ComputedRef<number>
   collateralSupplyRewardApy: ComputedRef<number>
   borrowRewardApy: ComputedRef<number>
+  oraclePriceRatio: ComputedRef<number | null>
 }
 
 export const useWalletRepay = (options: UseWalletRepayOptions) => {
@@ -49,6 +50,7 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
     borrowApy,
     collateralSupplyRewardApy,
     borrowRewardApy,
+    oraclePriceRatio,
   } = options
 
   const router = useRouter()
@@ -77,7 +79,12 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
   ))
   const borrowedFixed = computed(() => FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
   const suppliedFixed = computed(() => FixedPoint.fromValue(position.value?.supplied || 0n, position.value?.collateral.decimals || 18))
-  const priceFixed = computed(() => FixedPoint.fromValue(position.value?.price || 0n, 18))
+  const priceFixed = computed(() => {
+    if (oraclePriceRatio.value != null) {
+      return FixedPoint.fromValue(BigInt(Math.round(oraclePriceRatio.value * 1e18)), 18)
+    }
+    return FixedPoint.fromValue(0n, 18)
+  })
   const isSubmitDisabled = computed(() => {
     if (!isConnected.value) return false
     return !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value
@@ -213,10 +220,11 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
         : (borrowedFixed.value.sub(amountFixed.value))
             .div(collateralValue)
             .mul(FixedPoint.fromValue(100n, 0))
-      _estimateUserLTV.value = userLtvFixed.value
-      _estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
-        ? 0n
-        : FixedPoint.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
+      const healthFixed = (userLtvFixed.isZero() || userLtvFixed.isNegative())
+        ? null
+        : FixedPoint.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed)
+      _estimateUserLTV.value = userLtvFixed.toScaledBigint(18)
+      _estimateHealth.value = healthFixed ? healthFixed.toScaledBigint(18) : 10n ** 36n
       hasEstimate.value = true
 
       if (userLtvFixed.gte(FixedPoint.fromValue(position.value!.liquidationLTV, 2))) {
