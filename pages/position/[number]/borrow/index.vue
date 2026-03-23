@@ -25,6 +25,7 @@ const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const { buildBorrowPlan, executeTxPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected, address } = useAccount()
+const { isSpyMode } = useSpyMode()
 const { isPositionsLoading, isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
 const positionIndex = usePositionIndex()
 const { fetchSingleBalance } = useWallets()
@@ -146,7 +147,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 ))
 
 const load = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value && !isSpyMode.value) {
     position.value = undefined
     return
   }

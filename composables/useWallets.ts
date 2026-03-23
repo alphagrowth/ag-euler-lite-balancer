@@ -174,6 +174,13 @@ export const useWallets = () => {
     fetchPromise = updateBalances()
   }
 
+  // Retry when dependencies become ready (e.g. vaults load after cold start)
+  watch([isReady, () => balanceAddress.value, () => eulerLensAddresses.value?.utilsLens], () => {
+    if (needsFetch() && !fetchPromise) {
+      fetchPromise = updateBalances()
+    }
+  })
+
   const resetBalances = () => {
     balances.value = new Map()
     isLoaded.value = false

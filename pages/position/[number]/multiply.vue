@@ -28,6 +28,7 @@ const { error } = useToast()
 const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
 const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
 const { address, isConnected } = useAccount()
+const { isSpyMode } = useSpyMode()
 const { isPositionsLoading, isPositionsLoaded, refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { buildMultiplyPlan, executeTxPlan } = useEulerOperations()
 const { eulerLensAddresses } = useEulerAddresses()
@@ -748,7 +749,7 @@ const isMultiplyRestricted = computed(() => {
 const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplyRestricted.value || isMultiplySubmitDisabled.value))
 
 const loadPosition = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value && !isSpyMode.value) {
     position.value = null
     return
   }

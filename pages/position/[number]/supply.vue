@@ -16,6 +16,7 @@ import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
 
 const { isConnected, address } = useAccount()
+const { isSpyMode } = useSpyMode()
 const { fetchSingleBalance } = useWallets()
 const { buildSupplyPlan, buildSwapAndSupplyPlan } = useEulerOperations()
 
@@ -112,7 +113,7 @@ const { name } = useEulerProductOfVault(computed(() => form.collateralVault.valu
 
 // Supply-specific: balance management
 const updateBalance = async () => {
-  if (!isConnected.value || !form.collateralVault.value?.asset.address) {
+  if ((!isConnected.value && !isSpyMode.value) || !form.collateralVault.value?.asset.address) {
     balance.value = 0n
     return
   }
@@ -183,7 +184,7 @@ onUnmounted(() => {
     :loading="form.isLoading.value"
     @submit.prevent="form.submit"
   >
-    <div v-if="!isConnected">
+    <div v-if="!isConnected && !isSpyMode">
       Connect your wallet to see your positions
     </div>
 
