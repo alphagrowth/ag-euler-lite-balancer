@@ -993,7 +993,7 @@ watch(isConnected, () => {
                 :disabled="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure"
                 :to="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow/swap`"
               >
-                Debt swap
+                Refinance debt
               </UiButton>
             </div>
           </div>
@@ -1139,7 +1139,7 @@ watch(isConnected, () => {
                   :disabled="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure"
                   :to="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
                 >
-                  Collateral swap
+                  Swap collateral
                 </UiButton>
               </div>
               <div

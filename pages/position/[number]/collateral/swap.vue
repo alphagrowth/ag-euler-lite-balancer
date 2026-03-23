@@ -485,7 +485,7 @@ const nextLiquidationPrice = computed(() => {
 <template>
   <div class="flex gap-32">
     <VaultForm
-      title="Collateral swap"
+      title="Swap collateral"
       class="flex flex-col gap-16 w-full"
       :loading="isLoading || isPositionsLoading"
       @submit.prevent="submit"

@@ -334,7 +334,7 @@ const onToVaultChange = (selectedIndex: number) => {
 <template>
   <div class="flex gap-32">
     <VaultForm
-      title="Debt swap"
+      title="Refinance debt"
       class="flex flex-col gap-16 w-full"
       :loading="isLoading || isPositionsLoading"
       @submit.prevent="submit"
@@ -403,7 +403,7 @@ const onToVaultChange = (selectedIndex: number) => {
 
             <UiToast
               v-if="!toVault && !isLoading && !isPositionsLoading"
-              title="No debt swap options"
+              title="No refinance options"
               description="There are no other vaults that accept this collateral to swap your debt to."
               variant="warning"
               size="compact"
