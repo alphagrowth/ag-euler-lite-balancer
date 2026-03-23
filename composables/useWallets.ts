@@ -1,9 +1,9 @@
-import { type Address, type Chain, createPublicClient, http, getAddress } from 'viem'
+import { type Address, getAddress } from 'viem'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import { erc20BalanceOfAbi } from '~/abis/erc20'
-import { getChainById } from '~/entities/chainRegistry'
 import { logWarn } from '~/utils/errorHandling'
+import { getPublicClient } from '~/utils/public-client'
 
 // Singleton state
 const balances = shallowRef(new Map<string, bigint>())
@@ -26,10 +26,6 @@ export const useWallets = () => {
     if (!chainId.value) return ''
     return `${requestUrl.origin}/api/rpc/${chainId.value}`
   })
-
-  // Use the app's selected chain for RPC clients, not the wallet's chain.
-  // This ensures reads work correctly even when the wallet is on a different chain.
-  const appChain = computed(() => getChainById(chainId.value) as Chain | undefined)
 
   const { spyAddress, isSpyMode } = useSpyMode()
   const balanceAddress = computed(() =>
@@ -98,44 +94,40 @@ export const useWallets = () => {
 
     try {
       const targetAddress = balanceAddress.value as Address
-      const client = createPublicClient({
-        chain: appChain.value,
-        transport: http(rpcUrl.value),
-      })
+      const client = getPublicClient(rpcUrl.value)
 
-      // Try batch call first, fall back to individual calls if it fails
-      let result: bigint[]
-      try {
-        result = await client.readContract({
-          address: utilsLensAddress,
-          abi: eulerUtilsLensABI,
-          functionName: 'tokenBalances',
-          args: [targetAddress, tokenAddresses],
-        }) as bigint[]
-      }
-      catch {
-        // Fallback: fetch balances in bounded batches to avoid RPC bursts
-        const BATCH_SIZE = 200
-        result = []
-        for (let i = 0; i < tokenAddresses.length; i += BATCH_SIZE) {
-          const batch = tokenAddresses.slice(i, i + BATCH_SIZE)
-          const batchResult = await Promise.all(
+      // Fetch balances via lens in chunks to stay within gas limits
+      const LENS_BATCH_SIZE = 200
+      const result: bigint[] = []
+      for (let i = 0; i < tokenAddresses.length; i += LENS_BATCH_SIZE) {
+        const batch = tokenAddresses.slice(i, i + LENS_BATCH_SIZE)
+        try {
+          const batchResult = await client.readContract({
+            address: utilsLensAddress,
+            abi: eulerUtilsLensABI,
+            functionName: 'tokenBalances',
+            args: [targetAddress, batch],
+          }) as bigint[]
+          result.push(...batchResult)
+        }
+        catch {
+          // Fallback: individual balanceOf calls for this chunk
+          const fallbackResult = await Promise.all(
             batch.map(async (tokenAddr) => {
               try {
-                const balance = await client.readContract({
+                return await client.readContract({
                   address: tokenAddr,
                   abi: erc20BalanceOfAbi,
                   functionName: 'balanceOf',
                   args: [targetAddress],
                 }) as bigint
-                return balance
               }
               catch {
                 return 0n
               }
             }),
           )
-          result.push(...batchResult)
+          result.push(...fallbackResult)
         }
       }
 
@@ -213,10 +205,7 @@ export const useWallets = () => {
       return 0n
     }
     try {
-      const client = createPublicClient({
-        chain: appChain.value,
-        transport: http(rpcUrl.value),
-      })
+      const client = getPublicClient(rpcUrl.value)
       const result = await client.readContract({
         address: getAddress(tokenAddress) as Address,
         abi: erc20BalanceOfAbi,
@@ -240,10 +229,7 @@ export const useWallets = () => {
     }
     try {
       const balanceOfAddress = subAccount || balanceAddress.value
-      const client = createPublicClient({
-        chain: appChain.value,
-        transport: http(rpcUrl.value),
-      })
+      const client = getPublicClient(rpcUrl.value)
       const result = await client.readContract({
         address: getAddress(vaultAddress) as Address,
         abi: erc20BalanceOfAbi,
