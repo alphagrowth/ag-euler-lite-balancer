@@ -17,6 +17,7 @@ const { open } = useAppKit()
 // Wagmi account info
 const { address, isConnected } = useAccount()
 const { chainId } = useEulerAddresses()
+const { isSpyMode, spyShortAddress } = useSpyMode()
 const modal = useModal()
 const route = useRoute()
 const {
@@ -223,16 +224,18 @@ onClickOutside(reference, () => {
       </UiButton>
       <UiButton
         class="min-w-0 [&>span]:truncate"
-        :icon="isConnected ? 'arrow-down' : 'plus'"
-        :variant="isConnected ? 'secondary' : 'primary'"
+        :icon="(isConnected || isSpyMode) ? 'arrow-down' : 'plus'"
+        :variant="(isConnected || isSpyMode) ? 'secondary' : 'primary'"
         size="medium"
-        :icon-right="isConnected"
+        :icon-right="isConnected || isSpyMode"
         @click="onWalletButtonClick"
       >
         {{
-          isConnected
-            ? `${address?.slice(0, 6)}...${address?.slice(-4)}`
-            : "Connect wallet"
+          isSpyMode
+            ? spyShortAddress
+            : isConnected
+              ? `${address?.slice(0, 6)}...${address?.slice(-4)}`
+              : "Connect wallet"
         }}
       </UiButton>
       <UiButton

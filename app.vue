@@ -124,7 +124,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <TheHeader v-if="isHeaderVisible" />
+  <div
+    class="sticky top-0 z-[101]"
+  >
+    <SpyModeBanner />
+    <TheHeader v-if="isHeaderVisible" />
+  </div>
   <main>
     <section
       class="flex justify-center pt-32 mobile:pt-16"

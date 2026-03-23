@@ -12,11 +12,10 @@ import {
   fetchEscrowAddresses,
   fetchSecuritizeVault,
   fetchVaults,
-  fetchVaultFactories,
   clearPriceCaches,
-  isSecuritizeVault,
   type Vault,
 } from '~/entities/vault'
+import { fetchVaultFactories, isSecuritizeVault } from '~/entities/vault/factory'
 import { getProductByVault, isVaultNotExplorable } from '~/utils/eulerLabelsUtils'
 import { getEulerRouterGovernor } from '~/entities/oracle'
 
