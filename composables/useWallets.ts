@@ -156,6 +156,10 @@ export const useWallets = () => {
     finally {
       isFetching.value = false
       fetchPromise = null
+      // If dependencies changed while we were fetching, schedule a follow-up run
+      if (needsFetch()) {
+        fetchPromise = updateBalances()
+      }
     }
   }
 
