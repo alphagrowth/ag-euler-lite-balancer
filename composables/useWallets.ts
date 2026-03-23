@@ -10,6 +10,7 @@ const balances = shallowRef(new Map<string, bigint>())
 const isLoaded = ref(false)
 const isFetching = ref(false)
 const lastFetchChainId = ref<number | null>(null)
+const lastFetchAddress = ref<string | null>(null)
 let fetchPromise: Promise<void> | null = null
 
 export const useWallets = () => {
@@ -139,6 +140,7 @@ export const useWallets = () => {
         })
         balances.value = newBalances
         lastFetchChainId.value = currentChainId
+        lastFetchAddress.value = targetAddress
         isLoaded.value = true
       }
     }
@@ -162,7 +164,7 @@ export const useWallets = () => {
       && isReady.value
       && !!balanceAddress.value
       && !!eulerLensAddresses.value?.utilsLens
-      && (lastFetchChainId.value !== chainId.value || !isLoaded.value)
+      && (lastFetchChainId.value !== chainId.value || !isLoaded.value || lastFetchAddress.value !== balanceAddress.value)
       && !isFetching.value
   }
 
@@ -183,6 +185,7 @@ export const useWallets = () => {
     isLoaded.value = false
     isFetching.value = false
     lastFetchChainId.value = null
+    lastFetchAddress.value = null
     fetchPromise = null
   }
 
