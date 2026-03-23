@@ -71,6 +71,7 @@ const formattedPointName = computed(() => convertMarkdownLinks(pointName))
       <img
         :src="`/entities/${pointLogo}`"
         alt="Point logo"
+        referrerpolicy="no-referrer"
         class="w-20 h-20 rounded-full"
         @error="onLogoError"
       >
