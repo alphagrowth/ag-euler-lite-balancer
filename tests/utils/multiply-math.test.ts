@@ -53,8 +53,8 @@ describe('computeMaxMultiplier', () => {
   })
 
   it('handles LTV just below 99%', () => {
-    // LTV 98% → 1/(1-0.98) = 50, floor(50 * 100) / 100 = 49.99 (float precision)
-    expect(computeMaxMultiplier(98)).toBe(49.99)
+    // LTV 98% → 1/(1-0.98) = 50, round(50 * 100) / 100 = 50
+    expect(computeMaxMultiplier(98)).toBe(50)
   })
 })
 

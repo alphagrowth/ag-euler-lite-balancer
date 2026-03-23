@@ -52,13 +52,12 @@ describe('getCurrentLiquidationLTV', () => {
     expect(getCurrentLiquidationLTV(ltv, 1250n)).toBe(8750n)
   })
 
-  it('exceeds initialLiquidationLTV before ramp period starts', () => {
+  it('caps at initialLiquidationLTV before ramp period starts', () => {
     const ltv = makeLtv()
-    // now=500, ramp starts at t=1000
-    // timeRemaining = 2000 - 500 = 1500
-    // currentLTV = 8000 + (1000 * 1500) / 1000 = 9500 > initial 9000
-    // NOTE: This is a potential source issue — no cap at initialLiquidationLTV
-    expect(getCurrentLiquidationLTV(ltv, 500n)).toBe(9500n)
+    // now=500, before ramp starts at t=1000
+    // Uncapped formula would give 9500 > initial 9000
+    // Capped to initialLiquidationLTV
+    expect(getCurrentLiquidationLTV(ltv, 500n)).toBe(9000n)
   })
 
   it('handles equal liquidation and initial LTV (no ramp)', () => {

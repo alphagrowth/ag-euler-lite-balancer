@@ -23,7 +23,8 @@ export const getCurrentLiquidationLTV = (ltv: LTVRampConfig, nowSeconds?: bigint
   const currentLTV = ltv.liquidationLTV
     + ((ltv.initialLiquidationLTV - ltv.liquidationLTV) * timeRemaining) / ltv.rampDuration
 
-  return currentLTV
+  // Cap at initialLiquidationLTV to prevent overshoot before ramp period starts
+  return currentLTV > ltv.initialLiquidationLTV ? ltv.initialLiquidationLTV : currentLTV
 }
 
 /**

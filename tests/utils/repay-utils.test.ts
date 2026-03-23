@@ -100,8 +100,16 @@ describe('computeNextLtv', () => {
     expect(computeNextLtv(75, 100, 2)).toBe(37.5)
   })
 
-  it('propagates NaN for NaN price', () => {
-    expect(computeNextLtv(75, 100, NaN)).toBeNaN()
+  it('returns null for NaN price', () => {
+    expect(computeNextLtv(75, 100, NaN)).toBeNull()
+  })
+
+  it('returns null for NaN collateral', () => {
+    expect(computeNextLtv(75, NaN, 1)).toBeNull()
+  })
+
+  it('returns null for Infinity price', () => {
+    expect(computeNextLtv(75, 100, Infinity)).toBeNull()
   })
 
   it('returns null when collateral is negative', () => {

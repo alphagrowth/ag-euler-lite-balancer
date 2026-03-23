@@ -61,7 +61,7 @@ export const computeMaxMultiplier = (ltvPercent: number): number => {
   const ltv = ltvPercent / 100
   if (ltv <= 0 || ltv >= 0.99) return 1
   const max = 1 / (1 - ltv)
-  return Math.max(1, Math.floor(max * 100) / 100)
+  return Math.max(1, Math.round(max * 100) / 100)
 }
 
 /**

@@ -234,8 +234,7 @@ describe('stringToColor', () => {
     const color1 = stringToColor('test')
     const color2 = stringToColor('test')
     expect(color1).toBe(color2)
-    // Hash can produce negative modulo, so hue may be negative
-    expect(color1).toMatch(/^hsl\(-?\d+, 40%, 45%\)$/)
+    expect(color1).toMatch(/^hsl\(\d+, 40%, 45%\)$/)
   })
 
   it('returns different colors for different inputs', () => {
