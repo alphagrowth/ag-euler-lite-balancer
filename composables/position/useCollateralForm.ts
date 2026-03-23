@@ -104,6 +104,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const submitLabel = getSubmitLabel(options.reviewLabel)
   const { executeTxPlan } = useEulerOperations()
   const { isConnected, address } = useAccount()
+  const { isSpyMode } = useSpyMode()
   const positionIndex = usePositionIndex()
   const { isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
   const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
@@ -462,7 +463,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
 
   // --- Load ---
   const load = async () => {
-    if (!isConnected.value) return
+    if (!isConnected.value && !isSpyMode.value) return
     isLoading.value = true
     await until(isPositionLoaded).toBe(true)
     try {
