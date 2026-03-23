@@ -39,6 +39,11 @@ describe('getNetAPY', () => {
     expect(getNetAPY(200, 0.05, 100, 0.08, null, null, null))
       .toBe(getNetAPY(200, 0.05, 100, 0.08))
   })
+
+  it('handles supply-only position (no borrow)', () => {
+    // supply=100 at 5%, borrow=0 → netAPY = 5%
+    expect(getNetAPY(100, 0.05, 0, 0)).toBeCloseTo(0.05, 6)
+  })
 })
 
 describe('getRoe', () => {
@@ -64,5 +69,10 @@ describe('getRoe', () => {
     // netYield = 200*(0.05+0.02) - 100*(0.08-0.01) + 100*0.005 = 14 - 7 + 0.5 = 7.5
     // roe = 7.5 / 100 = 0.075
     expect(getRoe(200, 0.05, 100, 0.08, 0.02, 0.01, 0.005)).toBeCloseTo(0.075, 6)
+  })
+
+  it('handles supply-only position', () => {
+    // supply=100 at 5%, borrow=0 → equity=100, roe = 100*0.05/100 = 0.05
+    expect(getRoe(100, 0.05, 0, 0)).toBeCloseTo(0.05, 6)
   })
 })

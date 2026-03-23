@@ -24,6 +24,16 @@ describe('getQuoteAmount', () => {
     expect(getQuoteAmount(quote, 'amountIn')).toBe(1000n)
     expect(getQuoteAmount(quote, 'amountOut')).toBe(2000n)
   })
+
+  it('returns 0n for non-numeric quote field', () => {
+    const quote = { amountIn: 'invalid', amountOut: '200' } as SwapApiQuote
+    expect(getQuoteAmount(quote, 'amountIn')).toBe(0n)
+  })
+
+  it('returns 0n for null field value', () => {
+    const quote = { amountIn: null, amountOut: '200' } as unknown as SwapApiQuote
+    expect(getQuoteAmount(quote, 'amountIn')).toBe(0n)
+  })
 })
 
 describe('sortQuoteCards', () => {
@@ -53,18 +63,27 @@ describe('sortQuoteCards', () => {
 
   it('does not mutate original array', () => {
     const cards = [
-      { provider: 'A', quote: makeQuote('100', '200') },
-      { provider: 'B', quote: makeQuote('100', '100') },
+      { provider: 'A', quote: makeQuote('100', '100') },
+      { provider: 'B', quote: makeQuote('100', '200') },
     ]
     const sorted = sortQuoteCards(cards, 'amountOut', 'max')
-    expect(cards[0].provider).toBe('A')
-    expect(sorted[0].provider).toBe('A')
+    expect(cards[0].provider).toBe('A') // original unchanged
+    expect(sorted[0].provider).toBe('B') // sorted has B first (higher amountOut)
+  })
+
+  it('handles empty array', () => {
+    expect(sortQuoteCards([], 'amountOut', 'max')).toEqual([])
   })
 })
 
 describe('pickBestQuote', () => {
   it('returns null for empty array', () => {
     expect(pickBestQuote([], 'amountOut', 'max')).toBeNull()
+  })
+
+  it('returns single quote when array has one element', () => {
+    const quotes = [makeQuote('100', '200')]
+    expect(pickBestQuote(quotes, 'amountOut', 'max')).toBe(quotes[0])
   })
 
   it('picks max amountOut', () => {
@@ -103,5 +122,15 @@ describe('getQuoteDiffPct', () => {
     // best=100, quote=200, diff=200-100=100, diffBps=100*10000/100=10000 → 100%
     const result = getQuoteDiffPct(200n, 100n, 'min')
     expect(result).toBe(100)
+  })
+
+  it('returns null when quote is better than best in min mode', () => {
+    // quoteAmount=50 < bestAmount=100 => diff = 50-100 = -50 <= 0 => null
+    expect(getQuoteDiffPct(50n, 100n, 'min')).toBeNull()
+  })
+
+  it('returns null when quote is better than best in max mode', () => {
+    // quoteAmount=200 > bestAmount=100 => diff = 100-200 = -100 <= 0 => null
+    expect(getQuoteDiffPct(200n, 100n, 'max')).toBeNull()
   })
 })

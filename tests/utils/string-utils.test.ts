@@ -25,6 +25,10 @@ describe('truncate', () => {
     const result = truncate('0x1234567890abcdef', 4)
     expect(result).toBe('0x12...cdef')
   })
+
+  it('handles short strings', () => {
+    expect(truncate('abcd')).toBe('abcd...abcd')
+  })
 })
 
 describe('truncateAddressForSubgraph', () => {
@@ -33,6 +37,10 @@ describe('truncateAddressForSubgraph', () => {
     const result = truncateAddressForSubgraph(addr)
     expect(result).toBe(addr.toLowerCase().slice(0, 40))
     expect(result.length).toBe(40)
+  })
+
+  it('returns full string if shorter than 40 chars', () => {
+    expect(truncateAddressForSubgraph('0xABCD')).toBe('0xabcd')
   })
 })
 
@@ -48,6 +56,14 @@ describe('formatNumber', () => {
 
   it('respects fraction digits', () => {
     expect(formatNumber(1.5, 4, 4)).toBe('1.5000')
+  })
+
+  it('handles string input', () => {
+    expect(formatNumber('1234.567')).toBe('1,234.57')
+  })
+
+  it('handles zero', () => {
+    expect(formatNumber(0)).toBe('0.00')
   })
 })
 
@@ -175,6 +191,14 @@ describe('formatSmartAmount', () => {
     // first sig digit at index 2, so precision = min(4, 6) = 4
     expect(result).toBe('0.0012')
   })
+
+  it('formats negative values', () => {
+    expect(formatSmartAmount(-1234.5678)).toBe('-1,234.57')
+  })
+
+  it('formats negative small values', () => {
+    expect(formatSmartAmount(-0.001234)).toBe('-0.0012')
+  })
 })
 
 describe('formatHealthScore', () => {
@@ -210,7 +234,8 @@ describe('stringToColor', () => {
     const color1 = stringToColor('test')
     const color2 = stringToColor('test')
     expect(color1).toBe(color2)
-    expect(color1).toMatch(/^hsl\(\d+, 40%, 45%\)$/)
+    // Hash can produce negative modulo, so hue may be negative
+    expect(color1).toMatch(/^hsl\(-?\d+, 40%, 45%\)$/)
   })
 
   it('returns different colors for different inputs', () => {

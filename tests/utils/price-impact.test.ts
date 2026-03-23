@@ -25,6 +25,10 @@ describe('isPriceImpactWarning', () => {
   it('returns true below threshold', () => {
     expect(isPriceImpactWarning(-10)).toBe(true)
   })
+
+  it('returns false for zero impact', () => {
+    expect(isPriceImpactWarning(0)).toBe(false)
+  })
 })
 
 describe('isPriceImpactDanger', () => {
@@ -56,6 +60,10 @@ describe('isSlippageWarning', () => {
 
   it('returns false below threshold', () => {
     expect(isSlippageWarning(0.5)).toBe(false)
+  })
+
+  it('returns false for zero slippage', () => {
+    expect(isSlippageWarning(0)).toBe(false)
   })
 })
 

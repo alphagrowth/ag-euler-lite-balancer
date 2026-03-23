@@ -51,6 +51,20 @@ describe('getCurrentLiquidationLTV', () => {
     // currentLTV = 8000 + (1000 * 750) / 1000 = 8750
     expect(getCurrentLiquidationLTV(ltv, 1250n)).toBe(8750n)
   })
+
+  it('exceeds initialLiquidationLTV before ramp period starts', () => {
+    const ltv = makeLtv()
+    // now=500, ramp starts at t=1000
+    // timeRemaining = 2000 - 500 = 1500
+    // currentLTV = 8000 + (1000 * 1500) / 1000 = 9500 > initial 9000
+    // NOTE: This is a potential source issue — no cap at initialLiquidationLTV
+    expect(getCurrentLiquidationLTV(ltv, 500n)).toBe(9500n)
+  })
+
+  it('handles equal liquidation and initial LTV (no ramp)', () => {
+    const ltv = makeLtv({ liquidationLTV: 9000n, initialLiquidationLTV: 9000n })
+    expect(getCurrentLiquidationLTV(ltv, 1500n)).toBe(9000n)
+  })
 })
 
 describe('isLiquidationLTVRamping', () => {
@@ -71,6 +85,11 @@ describe('isLiquidationLTVRamping', () => {
 
   it('returns false when ramping UP', () => {
     const ltv = makeLtv({ liquidationLTV: 9500n, initialLiquidationLTV: 9000n })
+    expect(isLiquidationLTVRamping(ltv, 1500n)).toBe(false)
+  })
+
+  it('returns false when LTV equals initial (no change)', () => {
+    const ltv = makeLtv({ liquidationLTV: 9000n, initialLiquidationLTV: 9000n })
     expect(isLiquidationLTVRamping(ltv, 1500n)).toBe(false)
   })
 })

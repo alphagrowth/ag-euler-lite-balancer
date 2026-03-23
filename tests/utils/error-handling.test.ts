@@ -26,6 +26,15 @@ describe('isAbortError', () => {
   it('returns false for string', () => {
     expect(isAbortError('AbortError')).toBe(false)
   })
+
+  it('returns false for undefined', () => {
+    expect(isAbortError(undefined)).toBe(false)
+  })
+
+  it('returns false for non-object types', () => {
+    expect(isAbortError(42)).toBe(false)
+    expect(isAbortError(true)).toBe(false)
+  })
 })
 
 describe('logWarn', () => {

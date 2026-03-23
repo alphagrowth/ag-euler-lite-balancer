@@ -46,6 +46,16 @@ describe('computeMaxMultiplier', () => {
     // LTV 60% → 1/(1-0.6) = 2.5
     expect(computeMaxMultiplier(60)).toBe(2.5)
   })
+
+  it('handles very small LTV', () => {
+    // LTV 0.01% → 1/(1-0.0001) ≈ 1.0001, floor to 2dp = 1
+    expect(computeMaxMultiplier(0.01)).toBe(1)
+  })
+
+  it('handles LTV just below 99%', () => {
+    // LTV 98% → 1/(1-0.98) = 50, floor(50 * 100) / 100 = 49.99 (float precision)
+    expect(computeMaxMultiplier(98)).toBe(49.99)
+  })
 })
 
 describe('computeMinMultiplier', () => {
@@ -58,6 +68,10 @@ describe('computeMinMultiplier', () => {
   it('returns 1 when max is greater than 1', () => {
     expect(computeMinMultiplier(2)).toBe(1)
     expect(computeMinMultiplier(10)).toBe(1)
+  })
+
+  it('returns 0 for negative max', () => {
+    expect(computeMinMultiplier(-5)).toBe(0)
   })
 })
 
@@ -84,9 +98,17 @@ describe('computeWeightedSupplyApy', () => {
   })
 
   it('weights by USD value', () => {
-    // supply=300 at 10%, long=100 at 2% → (3000*0.1 + 100*0.02) / 400 = 302/400 = 0.755... wait
     // (300*0.1 + 100*0.02) / 400 = (30 + 2) / 400 = 0.08
     expect(computeWeightedSupplyApy(300, 0.1, 100, 0.02)).toBeCloseTo(0.08, 6)
+  })
+
+  it('returns null when total is zero or negative', () => {
+    // supplyUsd=-100, longUsd=50 (longUsd>0 so passes first check), total=-50 <= 0
+    expect(computeWeightedSupplyApy(-100, 0.05, 50, 0.03)).toBeNull()
+  })
+
+  it('returns null when total is non-finite', () => {
+    expect(computeWeightedSupplyApy(Infinity, 0.05, 100, 0.03)).toBeNull()
   })
 })
 
@@ -177,5 +199,20 @@ describe('computeLeverageDebt', () => {
       liabilityIn: 1000n,
       liabilityOutAsk: 1000n,
     })).toBe(0n)
+  })
+
+  it('calculates debt for 1.5x leverage (fractional multiplier)', () => {
+    // scaledMultiple = floor(1.5 * 1000) = 1500
+    // suppliedValue = (1000 * 1000) / 1000 = 1000
+    // multiplied = (1000 * 1500) / 1000 = 1500
+    // debt = 1500 - 1000 = 500
+    expect(computeLeverageDebt({
+      suppliedCollateral: 1000n,
+      collateralOutBid: 1000n,
+      collateralAmountIn: 1000n,
+      multiplier: 1.5,
+      liabilityIn: 1000n,
+      liabilityOutAsk: 1000n,
+    })).toBe(500n)
   })
 })

@@ -47,6 +47,16 @@ describe('FixedPoint.mul', () => {
     const b = FixedPoint.fromValue(0n, 3)
     expect(a.mul(b).value).toBe(0n)
   })
+
+  it('multiplies values with different decimals', () => {
+    // a = 2.00 (decimals=2, value=200), b = 3.000 (decimals=3, value=3000)
+    // result = (200 * 3000) / 10^3 = 600, decimals = 2 (this.decimals) = 6.00
+    const a = FixedPoint.fromValue(200n, 2)
+    const b = FixedPoint.fromValue(3000n, 3)
+    const result = a.mul(b)
+    expect(result.value).toBe(600n)
+    expect(result.decimals).toBe(2)
+  })
 })
 
 describe('FixedPoint.div', () => {
@@ -108,6 +118,14 @@ describe('FixedPoint.subUnsafe', () => {
     const a = FixedPoint.fromValue(100n, 2)
     const b = FixedPoint.fromValue(200n, 2)
     expect(a.subUnsafe(b).value).toBe(-100n)
+  })
+
+  it('aligns decimals before subtracting', () => {
+    const a = FixedPoint.fromValue(500n, 3) // 0.500
+    const b = FixedPoint.fromValue(1n, 0) // 1
+    const result = a.subUnsafe(b)
+    expect(result.value).toBe(-500n) // 0.500 - 1.000 = -0.500
+    expect(result.decimals).toBe(3)
   })
 })
 
@@ -190,6 +208,15 @@ describe('FixedPoint.round', () => {
     const fp = FixedPoint.fromValue(123n, 3)
     const rounded = fp.round(3)
     expect(rounded.value).toBe(123n)
+  })
+})
+
+describe('FixedPoint.toFormat', () => {
+  it('delegates to round with decimals param', () => {
+    const fp = FixedPoint.fromValue(1500n, 3)
+    const result = fp.toFormat({ decimals: 1 })
+    expect(result.value).toBe(15n)
+    expect(result.decimals).toBe(1)
   })
 })
 

@@ -67,6 +67,10 @@ describe('percentToAmountNano', () => {
   it('handles fractional percent', () => {
     expect(percentToAmountNano(33.33, 10000n)).toBe(3333n)
   })
+
+  it('handles NaN as zero', () => {
+    expect(percentToAmountNano(NaN, 1000n)).toBe(0n)
+  })
 })
 
 describe('computeNextLtv', () => {
@@ -94,6 +98,14 @@ describe('computeNextLtv', () => {
   it('calculates with price ratio', () => {
     // borrow=75, collateral=100, price=2 → 75 / (100*2) * 100 = 37.5%
     expect(computeNextLtv(75, 100, 2)).toBe(37.5)
+  })
+
+  it('propagates NaN for NaN price', () => {
+    expect(computeNextLtv(75, 100, NaN)).toBeNaN()
+  })
+
+  it('returns null when collateral is negative', () => {
+    expect(computeNextLtv(75, -1, 1)).toBeNull()
   })
 })
 
@@ -146,6 +158,14 @@ describe('computeLiquidationPrice', () => {
     // price=2000, health=2 → liquidation at 1000
     expect(computeLiquidationPrice(2000, 2)).toBe(1000)
   })
+
+  it('returns null when health is NaN', () => {
+    expect(computeLiquidationPrice(1.5, NaN)).toBeNull()
+  })
+
+  it('returns null when priceRatio is NaN', () => {
+    expect(computeLiquidationPrice(NaN, 2)).toBeNull()
+  })
 })
 
 describe('calculateRoe', () => {
@@ -174,5 +194,9 @@ describe('calculateRoe', () => {
 
   it('returns null for non-finite equity', () => {
     expect(calculateRoe(Infinity, 100, 0.05, 0.08)).toBeNull()
+  })
+
+  it('returns null for non-finite net', () => {
+    expect(calculateRoe(200, 100, Infinity, 0.08)).toBeNull()
   })
 })

@@ -27,6 +27,14 @@ describe('nanoToValue', () => {
   it('handles string input', () => {
     expect(nanoToValue('1000000', 6)).toBe(1)
   })
+
+  it('handles negative bigint', () => {
+    expect(nanoToValue(-1_000_000_000n, 9)).toBe(-1)
+  })
+
+  it('handles bigint decimal parameter', () => {
+    expect(nanoToValue(1_000_000n, 6n)).toBe(1)
+  })
 })
 
 describe('valueToNano', () => {
@@ -53,6 +61,14 @@ describe('valueToNano', () => {
 
   it('handles string input', () => {
     expect(valueToNano('1.5', 6)).toBe(1_500_000n)
+  })
+
+  it('handles integer string input (no decimal point)', () => {
+    expect(valueToNano('100', 6)).toBe(100_000_000n)
+  })
+
+  it('handles negative number input', () => {
+    expect(valueToNano(-1.5, 6)).toBe(-1_500_000n)
   })
 })
 
@@ -101,6 +117,22 @@ describe('formatTtl', () => {
   it('returns success for 30 days', () => {
     expect(formatTtl(30n)).toEqual({ display: '30 days', type: 'success', days: 30 })
   })
+
+  it('returns success for 365 days', () => {
+    expect(formatTtl(365n)).toEqual({ display: '365 days', type: 'success', days: 365 })
+  })
+
+  it('returns error type at boundary (2 days)', () => {
+    expect(formatTtl(2n)).toEqual({ display: '2 days', type: 'warning', days: 2 })
+  })
+
+  it('returns warning type at boundary (7 days)', () => {
+    expect(formatTtl(7n)).toEqual({ display: '7 days', type: 'info', days: 7 })
+  })
+
+  it('returns info type at boundary (14 days)', () => {
+    expect(formatTtl(14n)).toEqual({ display: '14 days', type: 'success', days: 14 })
+  })
 })
 
 describe('formatTtlRelative', () => {
@@ -115,6 +147,10 @@ describe('formatTtlRelative', () => {
   it('does not prefix special messages', () => {
     expect(formatTtlRelative(0n)).toBe('<1 day')
   })
+
+  it('prefixes singular day', () => {
+    expect(formatTtlRelative(1n)).toBe('in 1 day')
+  })
 })
 
 describe('roundAndCompactTokens', () => {
@@ -122,7 +158,30 @@ describe('roundAndCompactTokens', () => {
     expect(roundAndCompactTokens(0n, 18n)).toBe('0')
   })
 
-  // Note: roundAndCompactTokens internally calls compactNumber which is a Nuxt auto-import.
-  // Tests that exercise the compactNumber path require @nuxt/test-utils for auto-import resolution.
-  // The zero-amount path is testable without it.
+  it('formats values >= 1 compactly', () => {
+    // 1000 tokens with 18 decimals
+    const amount = 1000n * 10n ** 18n
+    const result = roundAndCompactTokens(amount, 18n)
+    expect(result).toBe('1K')
+  })
+
+  it('formats values with first significant digit at index 0 or 1', () => {
+    // 0.5 tokens with 18 decimals → firstSignificantIndex = 0
+    const amount = 5n * 10n ** 17n
+    const result = roundAndCompactTokens(amount, 18n)
+    expect(result).toBe('0.5')
+  })
+
+  it('formats very small values with precision', () => {
+    // 0.001 tokens with 18 decimals → firstSignificantIndex = 2
+    const amount = 10n ** 15n
+    const result = roundAndCompactTokens(amount, 18n)
+    expect(result).toBe('0.001')
+  })
+
+  it('formats 1 token with 6 decimals', () => {
+    const amount = 1_000_000n
+    const result = roundAndCompactTokens(amount, 6n)
+    expect(result).toBe('1')
+  })
 })
