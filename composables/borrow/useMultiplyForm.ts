@@ -376,6 +376,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   const multiplyNextLiquidationPrice = computed(() => {
     if (isMultiplyQuoteLoading.value) return null
     if (!multiplyPriceRatio.value || !multiplyNextHealth.value) return null
+    if (!Number.isFinite(multiplyNextHealth.value)) return null
     return computeLiquidationPrice(multiplyPriceRatio.value, multiplyNextHealth.value)
   })
 
