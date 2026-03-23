@@ -385,6 +385,7 @@ const onToVaultChange = (selectedIndex: number) => {
               :vault="toVault"
               :collateral-options="borrowOptions"
               collateral-modal-title="Select debt"
+              collateral-modal-apy-label="Borrow APY"
               :readonly="true"
               @change-collateral="onToVaultChange"
             />
