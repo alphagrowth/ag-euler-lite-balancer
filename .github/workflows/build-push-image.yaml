@@ -2,8 +2,7 @@ name: Build, Push & Deploy
 on:
   push:
     branches:
-      - master
-      - feature/init_ecs_deployment
+      - institutional-theme
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
