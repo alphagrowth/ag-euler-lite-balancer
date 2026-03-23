@@ -18,6 +18,12 @@ let watchersInitialized = false
 let ownerResolved = false
 let explicitlyCleared = false
 
+/** Lightweight accessor for middleware — avoids useRoute() */
+export const getSpyModeState = () => ({
+  spyAddress: computed(() => spyAddress.value),
+  isSpyMode: computed(() => Boolean(spyAddress.value)),
+})
+
 export const useSpyMode = () => {
   const route = useRoute()
   const router = useRouter()

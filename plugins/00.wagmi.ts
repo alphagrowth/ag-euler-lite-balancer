@@ -52,6 +52,9 @@ export default defineNuxtPlugin((nuxtApp) => {
     networks,
     projectId: projectId || '',
     metadata,
+    themeVariables: {
+      '--w3m-font-family': 'inherit',
+    },
   })
 
   nuxtApp.vueApp.use(WagmiPlugin, { config: wagmiAdapter.wagmiConfig })
