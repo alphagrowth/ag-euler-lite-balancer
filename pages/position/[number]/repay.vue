@@ -222,7 +222,7 @@ const load = async () => {
     position.value = getPositionBySubAccountIndex(+positionIndex)
     await fetchWalletBalance()
     await wallet.updateBalance()
-    wallet.initEstimates(netAPY.value, position.value?.userLTV || 0n, position.value?.health || 0n)
+    wallet.initEstimates()
     collateral.initVault(position.value?.collateral as Vault | undefined)
     savings.initVault()
   }

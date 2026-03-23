@@ -62,9 +62,13 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
   const amount = ref('')
   const walletRepayPercent = ref(0)
   const balance = ref(0n)
-  const estimateNetAPY = ref(0)
-  const estimateUserLTV = ref(0n)
-  const estimateHealth = ref(0n)
+  const hasEstimate = ref(false)
+  const _estimateNetAPY = ref(0)
+  const _estimateUserLTV = ref(0n)
+  const _estimateHealth = ref(0n)
+  const estimateNetAPY = computed(() => hasEstimate.value ? _estimateNetAPY.value : netAPY.value)
+  const estimateUserLTV = computed(() => hasEstimate.value ? _estimateUserLTV.value : (position.value?.userLTV ?? 0n))
+  const estimateHealth = computed(() => hasEstimate.value ? _estimateHealth.value : (position.value?.health ?? 0n))
   const estimatesError = ref('')
   const isEstimatesLoading = ref(false)
 
@@ -209,7 +213,7 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
         getAssetUsdValueOrZero((position.value.supplied || 0n), collateralVault.value, 'off-chain'),
         getAssetUsdValueOrZero((position.value.borrowed || 0n) - valueToNano(amount.value, borrowVault.value.decimals), borrowVault.value, 'off-chain'),
       ])
-      estimateNetAPY.value = getNetAPY(
+      _estimateNetAPY.value = getNetAPY(
         supplyUsd,
         collateralSupplyApy.value,
         borrowUsd,
@@ -223,10 +227,11 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
         : (borrowedFixed.value.sub(amountFixed.value))
             .div(collateralValue)
             .mul(FixedPoint.fromValue(100n, 0))
-      estimateUserLTV.value = userLtvFixed.value
-      estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
+      _estimateUserLTV.value = userLtvFixed.value
+      _estimateHealth.value = (userLtvFixed.isZero() || userLtvFixed.isNegative())
         ? 0n
         : FixedPoint.fromValue(position.value!.liquidationLTV, 2).div(userLtvFixed).value
+      hasEstimate.value = true
 
       if (userLtvFixed.gte(FixedPoint.fromValue(position.value!.liquidationLTV, 2))) {
         throw new Error('Not enough liquidity for the vault, LTV is too large')
@@ -234,9 +239,7 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
     }
     catch (e: unknown) {
       logWarn('walletRepay/estimates', e)
-      estimateNetAPY.value = netAPY.value
-      estimateUserLTV.value = position.value!.userLTV
-      estimateHealth.value = position.value!.health
+      hasEstimate.value = false
       estimatesError.value = (e as { message: string }).message
     }
     finally {
@@ -288,15 +291,14 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
     updateEstimates()
   })
 
-  const initEstimates = (currentNetAPY: number, currentUserLTV: bigint, currentHealth: bigint) => {
-    estimateNetAPY.value = currentNetAPY
-    estimateUserLTV.value = currentUserLTV
-    estimateHealth.value = currentHealth
+  const initEstimates = () => {
+    hasEstimate.value = false
   }
 
   const resetOnTabSwitch = () => {
     amount.value = ''
     walletRepayPercent.value = 0
+    hasEstimate.value = false
   }
 
   return {
