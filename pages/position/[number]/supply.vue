@@ -182,7 +182,8 @@ watch(selectedAsset, async () => {
 
 <template>
   <VaultForm
-    title="Supply"
+    title="Supply collateral"
+    description="Add collateral to improve your health score and reduce liquidation risk."
     :loading="form.isLoading.value"
     @submit.prevent="form.submit"
   >
@@ -202,7 +203,7 @@ watch(selectedAsset, async () => {
           <AssetInput
             v-if="form.asset.value"
             v-model="form.amount.value"
-            label="Deposit amount"
+            label="Supply amount"
             :desc="name"
             :asset="needsSwap && selectedAsset ? selectedAsset : form.asset.value"
             :vault="needsSwap ? undefined : (form.collateralVault.value as Vault)"

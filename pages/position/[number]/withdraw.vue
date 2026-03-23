@@ -170,7 +170,8 @@ watch(selectedOutputAsset, () => {
 
 <template>
   <VaultForm
-    title="Withdraw"
+    title="Withdraw collateral"
+    description="Remove collateral from your position. Your health score will decrease."
     :loading="form.isLoading.value"
     @submit.prevent="form.submit"
   >

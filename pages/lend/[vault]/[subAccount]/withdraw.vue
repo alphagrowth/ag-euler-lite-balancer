@@ -487,7 +487,8 @@ watch(swapSelectedQuote, () => {
 
 <template>
   <VaultForm
-    title="Withdraw"
+    title="Withdraw savings"
+    description="Withdraw your supplied assets back to your wallet."
     class="flex flex-col gap-16"
     :loading="isLoading"
     @submit.prevent="submit"
@@ -630,7 +631,7 @@ watch(swapSelectedQuote, () => {
           </SummaryRow>
           <SummaryRow
             v-if="!isSecuritizeVaultType"
-            label="Deposit"
+            label="Supplied"
           >
             <SummaryValue
               :before="`$${formatNumber(assetsBalanceUsd)}`"

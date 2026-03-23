@@ -381,7 +381,8 @@ watch([collateralAmount, borrowAmount], async () => {
 
 <template>
   <VaultForm
-    title="Borrow"
+    title="Borrow more"
+    description="Borrow additional assets against your existing collateral."
     :loading="isLoading || isPositionsLoading"
     class="flex flex-col gap-16"
     @submit.prevent="submit"

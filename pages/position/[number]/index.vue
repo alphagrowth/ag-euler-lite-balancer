@@ -1001,7 +1001,7 @@ watch(isConnected, () => {
       </div>
       <div>
         <div class="mb-12 text-h4 text-neutral-800">
-          {{ !hasNoBorrow ? 'Collateral' : 'Deposit' }}
+          {{ !hasNoBorrow ? 'Collateral' : 'Supply' }}
         </div>
         <div class="flex flex-col gap-12">
           <div

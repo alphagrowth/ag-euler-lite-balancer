@@ -367,9 +367,6 @@ watch(formTab, () => {
 <template>
   <div>
     <BaseBackButton class="laptop:!hidden mb-16" />
-    <h1 class="text-p1 mb-16">
-      Open borrow position
-    </h1>
     <div class="flex gap-32">
       <div
         v-if="pair"

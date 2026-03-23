@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ title?: string, loading?: boolean }>()
+defineProps<{ title?: string, description?: string, loading?: boolean }>()
 </script>
 
 <template>
@@ -13,6 +13,12 @@ defineProps<{ title?: string, loading?: boolean }>()
     >
       {{ title }}
     </h1>
+    <p
+      v-if="description"
+      class="text-p3 text-content-secondary pb-8"
+    >
+      {{ description }}
+    </p>
 
     <div
       v-if="loading"

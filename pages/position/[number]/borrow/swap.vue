@@ -336,6 +336,7 @@ const onToVaultChange = (selectedIndex: number) => {
   <div class="flex gap-32">
     <VaultForm
       title="Refinance debt"
+      description="Move your debt to a different vault, potentially for a better rate."
       class="flex flex-col gap-16 w-full"
       :loading="isLoading || isPositionsLoading"
       @submit.prevent="submit"

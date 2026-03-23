@@ -264,6 +264,7 @@ watch(formTab, () => {
   <VaultForm
     :loading="isLoading || isPositionsLoading"
     title="Repay position"
+    description="Reduce your debt using tokens from your wallet, collateral, or savings."
     @submit.prevent="onSubmitForm"
   >
     <div v-if="!isConnected && !isSpyMode">

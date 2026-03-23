@@ -67,7 +67,7 @@ const formattedPointName = computed(() => convertMarkdownLinks(pointName))
     @close="$emit('close')"
   >
     <div class="flex items-center gap-12">
-      <span class="text-p2">Deposit earns</span>
+      <span class="text-p2">Supply earns</span>
       <img
         :src="`/entities/${pointLogo}`"
         alt="Point logo"

@@ -818,6 +818,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
 <template>
   <VaultForm
     title="Multiply"
+    description="Increase your exposure by looping collateral through borrowing."
     :loading="isLoading || isPositionsLoading"
     class="flex flex-col gap-16 w-full"
     @submit.prevent="submitMultiply"
