@@ -637,7 +637,7 @@ const nextLiquidationPrice = computed(() => {
             </SummaryRow>
             <SummaryRow label="Liq. buffer">
               <SummaryValue
-                :before="formatLiqBuffer(liqPriceInvert.invertValue(priceRatio), liqPriceInvert.invertValue(currentLiquidationPrice))"
+                :before="formatLiqBuffer(liqPriceInvert.invertValue(currentPriceRatio), liqPriceInvert.invertValue(currentLiquidationPrice))"
                 :after="nextLiquidationPrice !== null && (quote || isSameAsset)
                   ? formatLiqBuffer(liqPriceInvert.invertValue(priceRatio), liqPriceInvert.invertValue(nextLiquidationPrice))
                   : undefined"
