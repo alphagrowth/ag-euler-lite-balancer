@@ -6,7 +6,7 @@ const router = useRouter()
 const { loadEulerConfig, chainId } = useEulerAddresses()
 const { loadVaults, isReady: isVaultsReady, resetVaultsState } = useVaults()
 const { loadTokens } = useTokens()
-const { loadTokenList } = useTokenList()
+const { loadTokenList, isLoaded: isTokenListLoaded } = useTokenList()
 const { loadLabels } = useEulerLabels()
 const { loadCountry } = useGeoBlock()
 const { updateBalances, resetBalances } = useWallets()
@@ -88,6 +88,13 @@ watch(chainId, () => {
     void loadVaults()
   })
 }, { immediate: true })
+
+// Refresh balances when token list finishes loading (includes new DefiLlama tokens)
+watch(isTokenListLoaded, (loaded) => {
+  if (loaded && (isConnected.value || isVaultsReady.value)) {
+    updateBalances()
+  }
+})
 
 watch([isConnected, isVaultsReady], ([val]) => {
   // Clear existing interval before setting a new one
