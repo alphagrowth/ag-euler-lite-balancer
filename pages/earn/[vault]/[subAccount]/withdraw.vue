@@ -25,14 +25,17 @@ const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { buildWithdrawPlan, buildRedeemPlan, executeTxPlan } = useEulerOperations()
 const { getEarnVault } = useVaults()
 const { isConnected, address } = useAccount()
+const { isSpyMode, spyAddress } = useSpyMode()
+const effectiveAddress = computed(() => isSpyMode.value ? spyAddress.value : address.value)
 const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getSupplyRewardApy } = useRewardsApy()
 const vaultAddress = route.params.vault as string
 const subAccountIndex = Number(route.params.subAccount)
 const subAccount = computed(() => {
-  if (!address.value || isNaN(subAccountIndex)) return undefined
-  return getSubAccountAddress(address.value, subAccountIndex)
+  const addr = effectiveAddress.value
+  if (!addr || isNaN(subAccountIndex)) return undefined
+  return getSubAccountAddress(addr, subAccountIndex)
 })
 
 const isLoading = ref(false)
@@ -105,7 +108,7 @@ const fetchShareBalance = async () => {
 }
 
 const updateBalance = async () => {
-  if (!isConnected.value || sharesBalance.value === 0n) {
+  if ((!isConnected.value && !isSpyMode.value) || sharesBalance.value === 0n) {
     assetsBalance.value = 0n
     delta.value = 0n
     return
@@ -229,13 +232,7 @@ watchEffect(async () => {
   deltaUsd.value = await getAssetUsdValueOrZero(delta.value, vault.value, 'off-chain')
 })
 
-watch(isConnected, async () => {
-  if (vault.value) {
-    await fetchShareBalance()
-    await updateBalance()
-  }
-})
-watch(address, async () => {
+watch([isConnected, effectiveAddress], async () => {
   if (vault.value) {
     await fetchShareBalance()
     await updateBalance()

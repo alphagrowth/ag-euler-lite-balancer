@@ -156,6 +156,10 @@ export const useWallets = () => {
     finally {
       isFetching.value = false
       fetchPromise = null
+      // If dependencies changed while we were fetching, schedule a follow-up run
+      if (needsFetch()) {
+        fetchPromise = updateBalances()
+      }
     }
   }
 
@@ -173,6 +177,13 @@ export const useWallets = () => {
   if (needsFetch() && !fetchPromise) {
     fetchPromise = updateBalances()
   }
+
+  // Retry when dependencies become ready (e.g. vaults load after cold start)
+  watch([isReady, () => balanceAddress.value, () => eulerLensAddresses.value?.utilsLens], () => {
+    if (needsFetch() && !fetchPromise) {
+      fetchPromise = updateBalances()
+    }
+  })
 
   const resetBalances = () => {
     balances.value = new Map()

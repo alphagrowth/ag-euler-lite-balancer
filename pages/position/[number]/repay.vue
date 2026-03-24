@@ -22,6 +22,7 @@ const _route = useRoute()
 const _router = useRouter()
 const modal = useModal()
 const { isConnected, address } = useAccount()
+const { isSpyMode } = useSpyMode()
 const positionIndex = usePositionIndex()
 const { isPositionsLoading, isPositionsLoaded, isDepositsLoaded, refreshAllPositions: _refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
@@ -209,7 +210,7 @@ const fetchWalletBalance = async () => {
 }
 
 const load = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value && !isSpyMode.value) {
     position.value = undefined
     return
   }
@@ -221,7 +222,7 @@ const load = async () => {
     position.value = getPositionBySubAccountIndex(+positionIndex)
     await fetchWalletBalance()
     await wallet.updateBalance()
-    wallet.initEstimates(netAPY.value, position.value?.userLTV || 0n, position.value?.health || 0n)
+    wallet.initEstimates()
     collateral.initVault(position.value?.collateral as Vault | undefined)
     savings.initVault()
   }
@@ -271,7 +272,7 @@ onUnmounted(() => {
     title="Repay position"
     @submit.prevent="onSubmitForm"
   >
-    <div v-if="!isConnected">
+    <div v-if="!isConnected && !isSpyMode">
       Connect your wallet to see your positions
     </div>
 

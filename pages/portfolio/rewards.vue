@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const { isConnected } = useAccount()
+const { isSpyMode } = useSpyMode()
 const { enableMerkl, enableIncentra, enableFuul } = useDeployConfig()
 const { rewards, isRewardsLoading } = useMerkl()
 const { userRewards: brevisRewards, isRewardsLoading: isBrevisRewardsLoading } = useBrevis()
@@ -55,7 +56,7 @@ const sortedBrevisRewards = computed(() => {
               <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-neutral-100">
                 <SvgIcon name="search" />
               </div>
-              <template v-if="isConnected">
+              <template v-if="isConnected || isSpyMode">
                 You don't have rewards yet
               </template>
               <template v-else>
@@ -96,7 +97,7 @@ const sortedBrevisRewards = computed(() => {
               <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-neutral-100">
                 <SvgIcon name="search" />
               </div>
-              <template v-if="isConnected">
+              <template v-if="isConnected || isSpyMode">
                 You don't have rewards yet
               </template>
               <template v-else>
@@ -137,7 +138,7 @@ const sortedBrevisRewards = computed(() => {
               <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-neutral-100">
                 <SvgIcon name="search" />
               </div>
-              <template v-if="isConnected">
+              <template v-if="isConnected || isSpyMode">
                 You don't have rewards yet
               </template>
               <template v-else>
@@ -178,7 +179,7 @@ const sortedBrevisRewards = computed(() => {
           <div class="flex w-48 h-48 justify-center items-center rounded-12 bg-neutral-100">
             <SvgIcon name="search" />
           </div>
-          <template v-if="isConnected">
+          <template v-if="isConnected || isSpyMode">
             You don't have locks yet
           </template>
           <template v-else>

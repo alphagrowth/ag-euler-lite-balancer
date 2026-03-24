@@ -25,6 +25,7 @@ const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const { buildBorrowPlan, executeTxPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected, address } = useAccount()
+const { isSpyMode } = useSpyMode()
 const { isPositionsLoading, isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
 const positionIndex = usePositionIndex()
 const { fetchSingleBalance } = useWallets()
@@ -146,7 +147,7 @@ const borrowApy = computed(() => withIntrinsicBorrowApy(
 ))
 
 const load = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value && !isSpyMode.value) {
     position.value = undefined
     return
   }
@@ -327,9 +328,12 @@ const updateEstimates = useDebounceFn(async () => {
       ? Infinity
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
     liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
+    // borrowAmount is the ADDITIONAL borrow; estimate Net APY using total borrow
+    const existingBorrow = nanoToValue(position.value?.borrowed || 0n, borrowVault.value!.decimals)
+    const totalBorrow = existingBorrow + (+borrowAmount.value || 0)
     const [collateralUsd, borrowUsd] = await Promise.all([
       getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain'),
-      getAssetUsdValueOrZero(+borrowAmount.value || 0, borrowVault.value!, 'off-chain'),
+      getAssetUsdValueOrZero(totalBorrow, borrowVault.value!, 'off-chain'),
     ])
     netAPY.value = getNetAPY(
       collateralUsd,

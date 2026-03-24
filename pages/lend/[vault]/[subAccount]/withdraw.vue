@@ -36,6 +36,8 @@ const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { buildWithdrawPlan, buildRedeemPlan, buildWithdrawAndSwapPlan, buildRedeemAndSwapPlan, executeTxPlan } = useEulerOperations()
 const { getVault, getSecuritizeVault: _getSecuritizeVault, getEscrowVault: _getEscrowVault } = useVaults()
 const { isConnected, address } = useAccount()
+const { isSpyMode, spyAddress } = useSpyMode()
+const effectiveAddress = computed(() => isSpyMode.value ? spyAddress.value : address.value)
 const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getSupplyRewardApy } = useRewardsApy()
@@ -43,8 +45,9 @@ const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const vaultAddress = route.params.vault as string
 const subAccountIndex = Number(route.params.subAccount)
 const subAccount = computed(() => {
-  if (!address.value || isNaN(subAccountIndex)) return undefined
-  return getSubAccountAddress(address.value, subAccountIndex)
+  const addr = effectiveAddress.value
+  if (!addr || isNaN(subAccountIndex)) return undefined
+  return getSubAccountAddress(addr, subAccountIndex)
 })
 
 const isLoading = ref(false)
@@ -270,7 +273,7 @@ const fetchShareBalance = async () => {
   sharesBalance.value = await fetchVaultShareBalance(vault.value.address, subAccount.value)
 }
 const updateBalance = async () => {
-  if (!isConnected.value || sharesBalance.value === 0n) {
+  if ((!isConnected.value && !isSpyMode.value) || sharesBalance.value === 0n) {
     assetsBalance.value = 0n
     delta.value = 0n
     return
@@ -438,13 +441,7 @@ const updateEstimates = useDebounceFn(async () => {
 
 load()
 
-watch(isConnected, async () => {
-  if (vault.value) {
-    await fetchShareBalance()
-    await updateBalance()
-  }
-})
-watch(address, async () => {
+watch([isConnected, effectiveAddress], async () => {
   if (vault.value) {
     await fetchShareBalance()
     await updateBalance()
