@@ -20,6 +20,7 @@ export const computeNextLtv = (
   priceRatio: number,
 ): number | null => {
   if (borrowAfter === 0) return 0
+  if (!Number.isFinite(priceRatio) || !Number.isFinite(collateralAfter)) return null
   if (priceRatio <= 0 || collateralAfter <= 0) return null
   return (borrowAfter / (collateralAfter * priceRatio)) * 100
 }

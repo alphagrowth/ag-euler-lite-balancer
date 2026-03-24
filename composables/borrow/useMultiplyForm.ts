@@ -24,6 +24,8 @@ import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { computeMultipliedPriceImpact } from '~/utils/priceImpact'
+import { calculateRoe, computeNextHealth, computeLiquidationPrice } from '~/utils/repayUtils'
+import { computeMaxMultiplier, computeMinMultiplier, computeWeightedSupplyApy, computeLeverageDebt } from '~/utils/multiply-math'
 import type { TxPlan } from '~/entities/txPlan'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
@@ -59,26 +61,6 @@ export interface UseMultiplyFormOptions {
 }
 
 const normalizeAddress = normalizeAddressOrEmpty
-
-const calculateRoe = (
-  supplyUsd: number | null,
-  borrowUsd: number | null,
-  supplyApyValue: number | null,
-  borrowApyValue: number | null,
-) => {
-  if (supplyUsd === null || borrowUsd === null || supplyApyValue === null || borrowApyValue === null) {
-    return null
-  }
-  const equity = supplyUsd - borrowUsd
-  if (!Number.isFinite(equity) || equity <= 0) {
-    return null
-  }
-  const net = supplyUsd * supplyApyValue - borrowUsd * borrowApyValue
-  if (!Number.isFinite(net)) {
-    return null
-  }
-  return net / equity
-}
 
 export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   const {
@@ -196,21 +178,14 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     if (!collateralPriceInfo || collateralPriceInfo.amountOutMid <= 0n) return 0n
     if (!liabilityPrice || liabilityPrice.queryFailure || !liabilityPrice.amountOutAsk || liabilityPrice.amountOutAsk <= 0n || !liabilityPrice.amountIn || liabilityPrice.amountIn <= 0n) return 0n
 
-    const collateralOutBid = collateralPriceInfo.amountOutBid || collateralPriceInfo.amountOutMid
-    const collateralAmountIn = rawSharePrice.amountIn
-    const suppliedCollateralValue = (suppliedCollateral * collateralOutBid) / collateralAmountIn
-    if (!suppliedCollateralValue) return 0n
-
-    const scaledMultiple = BigInt(Math.floor(multiplier.value * 1000))
-    if (scaledMultiple <= 1000n) return 0n
-
-    const multipliedCollateral = (suppliedCollateralValue * scaledMultiple) / 1000n
-    if (multipliedCollateral <= suppliedCollateralValue) return 0n
-
-    const totalDebtValue = multipliedCollateral - suppliedCollateralValue
-    const liabilityOutAsk = liabilityPrice.amountOutAsk || liabilityPrice.amountOutMid
-    const liabilityIn = liabilityPrice.amountIn
-    return (totalDebtValue * liabilityIn) / liabilityOutAsk
+    return computeLeverageDebt({
+      suppliedCollateral,
+      collateralOutBid: collateralPriceInfo.amountOutBid || collateralPriceInfo.amountOutMid,
+      collateralAmountIn: rawSharePrice.amountIn,
+      multiplier: multiplier.value,
+      liabilityIn: liabilityPrice.amountIn,
+      liabilityOutAsk: liabilityPrice.amountOutAsk || liabilityPrice.amountOutMid,
+    })
   })
 
   // --- LTV / multiplier bounds ---
@@ -222,18 +197,9 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     return match ? nanoToValue(match.borrowLTV, 2) : 0
   })
 
-  const multiplyMaxMultiplier = computed(() => {
-    const ltvPercent = multiplyBorrowLtv.value
-    if (!ltvPercent || !Number.isFinite(ltvPercent)) return 1
-    const ltv = ltvPercent / 100
-    if (ltv <= 0 || ltv >= 0.99) return 1
-    const max = 1 / (1 - ltv)
-    return Math.max(1, Math.floor(max * 100) / 100)
-  })
+  const multiplyMaxMultiplier = computed(() => computeMaxMultiplier(multiplyBorrowLtv.value))
 
-  const multiplyMinMultiplier = computed(() => {
-    return multiplyMaxMultiplier.value <= 1 ? 0 : 1
-  })
+  const multiplyMinMultiplier = computed(() => computeMinMultiplier(multiplyMaxMultiplier.value))
 
   const multiplySupplyAmountNano = computed(() => {
     if (!multiplySupplyVault.value || !multiplyInputAmount.value) return 0n
@@ -324,12 +290,12 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
 
   const multiplyWeightedSupplyApy = computed(() => {
     if (multiplySupplyValueUsd.value === null || multiplySupplyApy.value === null) return null
-    const longUsd = multiplyLongValueUsd.value
-    const longApy = multiplyLongApy.value
-    if (!longUsd || longUsd <= 0 || longApy === null) return multiplySupplyApy.value
-    const total = multiplySupplyValueUsd.value + longUsd
-    if (!Number.isFinite(total) || total <= 0) return null
-    return (multiplySupplyValueUsd.value * multiplySupplyApy.value + longUsd * longApy) / total
+    return computeWeightedSupplyApy(
+      multiplySupplyValueUsd.value,
+      multiplySupplyApy.value,
+      multiplyLongValueUsd.value,
+      multiplyLongApy.value,
+    )
   })
 
   // --- ROE ---
@@ -383,15 +349,13 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   const multiplyNextHealth = computed(() => {
     if (isMultiplyQuoteLoading.value) return null
     if (multiplyNextLtv.value === null || multiplyLiquidationLtv.value === null) return null
-    if (multiplyNextLtv.value <= 0) return null
-    return multiplyLiquidationLtv.value / multiplyNextLtv.value
+    return computeNextHealth(multiplyLiquidationLtv.value, multiplyNextLtv.value)
   })
 
   const multiplyCurrentHealth = computed(() => {
     if (isMultiplyQuoteLoading.value) return null
     if (multiplyLiquidationLtv.value === null || multiplyCurrentLtv.value === null) return null
-    if (multiplyCurrentLtv.value <= 0) return Number.POSITIVE_INFINITY
-    return multiplyLiquidationLtv.value / multiplyCurrentLtv.value
+    return computeNextHealth(multiplyLiquidationLtv.value, multiplyCurrentLtv.value)
   })
 
   // --- Price ratio ---
@@ -406,15 +370,14 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     if (isMultiplyQuoteLoading.value) return null
     if (!multiplyPriceRatio.value || !multiplyCurrentHealth.value) return null
     if (!Number.isFinite(multiplyCurrentHealth.value)) return null
-    if (multiplyCurrentHealth.value <= 0) return null
-    return multiplyPriceRatio.value / multiplyCurrentHealth.value
+    return computeLiquidationPrice(multiplyPriceRatio.value, multiplyCurrentHealth.value)
   })
 
   const multiplyNextLiquidationPrice = computed(() => {
     if (isMultiplyQuoteLoading.value) return null
     if (!multiplyPriceRatio.value || !multiplyNextHealth.value) return null
-    if (multiplyNextHealth.value <= 0) return null
-    return multiplyPriceRatio.value / multiplyNextHealth.value
+    if (!Number.isFinite(multiplyNextHealth.value)) return null
+    return computeLiquidationPrice(multiplyPriceRatio.value, multiplyNextHealth.value)
   })
 
   // --- Display ---

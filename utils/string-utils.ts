@@ -168,5 +168,5 @@ export const stringToColor = (value: string, saturation = 40, lightness = 45) =>
     hash = value.charCodeAt(i) + ((hash << 5) - hash)
     hash = hash & hash
   }
-  return `hsl(${(hash % 360)}, ${saturation}%, ${lightness}%)`
+  return `hsl(${((hash % 360) + 360) % 360}, ${saturation}%, ${lightness}%)`
 }
