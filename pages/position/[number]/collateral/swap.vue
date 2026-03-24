@@ -24,6 +24,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { calculateRoe } from '~/utils/repayUtils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
@@ -472,7 +473,8 @@ const nextLiquidationPrice = computed(() => {
 <template>
   <div class="flex gap-32">
     <VaultForm
-      title="Collateral swap"
+      title="Swap collateral"
+      description="Exchange your collateral for a different asset while keeping your position open."
       class="flex flex-col gap-16 w-full"
       :loading="isLoading || isPositionsLoading"
       @submit.prevent="submit"
@@ -610,7 +612,7 @@ const nextLiquidationPrice = computed(() => {
               </SummaryRow>
             </template>
             <SummaryRow
-              label="Liquidation price"
+              label="Liq. price"
               align-top
             >
               <SummaryPriceValue
@@ -619,6 +621,15 @@ const nextLiquidationPrice = computed(() => {
                 :symbol="liqPriceInvert.displaySymbol"
                 invertible
                 @invert="liqPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(liqPriceInvert.invertValue(currentPriceRatio), liqPriceInvert.invertValue(currentLiquidationPrice))"
+                :after="nextLiquidationPrice !== null && (quote || isSameAsset)
+                  ? formatLiqBuffer(liqPriceInvert.invertValue(priceRatio), liqPriceInvert.invertValue(nextLiquidationPrice))
+                  : undefined"
+                suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="LTV">

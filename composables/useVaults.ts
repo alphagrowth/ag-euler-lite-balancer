@@ -71,7 +71,10 @@ const resetVaultsState = () => {
   loadGeneration.value++
   isReady.value = false
   isLoading.value = true
+  isUpdating.value = true
   isEarnLoading.value = true
+  isEarnUpdating.value = true
+  isEscrowUpdating.value = true
   isEscrowLoadedOnce.value = false
   loadedChainId.value = null
   clear()
@@ -300,6 +303,17 @@ const loadVaults = async () => {
     isEscrowUpdating.value = false
     isEscrowLoading.value = false
     isEscrowLoadedOnce.value = true
+  }
+  catch (e) {
+    if (loadGeneration.value === generation) {
+      isLoading.value = false
+      isUpdating.value = false
+      isEarnLoading.value = false
+      isEarnUpdating.value = false
+      isEscrowLoading.value = false
+      isEscrowUpdating.value = false
+    }
+    throw e
   }
   finally {
     if (loadGeneration.value === generation && chainId.value === startChainId) {

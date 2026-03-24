@@ -23,6 +23,7 @@ const list = computed(() => getVerifiedEvkVaults())
 
 const isPricesReady = ref(false)
 const isLoading = computed(() => isUpdating.value || !isPricesReady.value)
+const { isSlow } = useSlowLoading(isLoading)
 const { entities } = useEulerLabels()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const { getSupplyRewardApy, version: rewardsVersion } = useRewardsApy()
@@ -316,10 +317,16 @@ const sortedList = computed(() => {
     </div>
 
     <div class="flex flex-col flex-1">
-      <UiLoader
+      <div
         v-if="isLoading"
-        class="flex-1 self-center justify-self-center"
-      />
+        class="flex flex-col flex-1 items-center justify-center gap-12"
+      >
+        <UiLoader />
+        <span
+          v-if="isSlow"
+          class="text-p2 text-content-tertiary text-center max-w-[240px]"
+        >Loading is taking longer than usual. Please check your connection.</span>
+      </div>
 
       <VaultsList
         v-else-if="sortedList.length"

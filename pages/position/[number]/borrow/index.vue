@@ -5,7 +5,6 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
-import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { type BorrowVaultPair, getNetAPY, type VaultAsset } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
 import { getAssetUsdValueOrZero, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatio } from '~/services/pricing/priceProvider'
@@ -14,6 +13,7 @@ import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/compos
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 
 const router = useRouter()
@@ -117,6 +117,7 @@ const priceFixed = computed(() => {
   const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
   return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
 })
+priceInvert.autoInvert(() => priceFixed.value.toUnsafeFloat())
 const collateralAmountFixed = computed(() => FixedPoint.fromValue(
   valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals),
   Number(collateralVault.value?.decimals),
@@ -376,19 +377,12 @@ watch([collateralAmount, borrowAmount], async () => {
   }
   updateEstimates()
 })
-
-const interval = setInterval(() => {
-  updateBalance()
-}, POLL_INTERVAL_5S_MS)
-
-onUnmounted(() => {
-  clearInterval(interval)
-})
 </script>
 
 <template>
   <VaultForm
-    title="Borrow"
+    title="Borrow more"
+    description="Borrow additional assets against your existing collateral."
     :loading="isLoading || isPositionsLoading"
     class="flex flex-col gap-16"
     @submit.prevent="submit"
@@ -477,13 +471,20 @@ onUnmounted(() => {
               @invert="priceInvert.toggle"
             />
           </SummaryRow>
-          <SummaryRow label="Liquidation price">
+          <SummaryRow label="Liq. price">
             <SummaryPriceValue
               :before="priceInvert.invertValue(currentLiquidationPrice) != null ? formatSmartAmount(priceInvert.invertValue(currentLiquidationPrice)!) : undefined"
               :after="priceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(priceInvert.invertValue(liquidationPrice)!) : undefined"
               :symbol="priceInvert.displaySymbol"
               invertible
               @invert="priceInvert.toggle"
+            />
+          </SummaryRow>
+          <SummaryRow label="Liq. buffer">
+            <SummaryValue
+              :before="formatLiqBuffer(priceInvert.invertValue(priceFixed.toUnsafeFloat()), priceInvert.invertValue(currentLiquidationPrice))"
+              :after="formatLiqBuffer(priceInvert.invertValue(priceFixed.toUnsafeFloat()), priceInvert.invertValue(liquidationPrice))"
+              suffix="%"
             />
           </SummaryRow>
           <SummaryRow label="LTV">

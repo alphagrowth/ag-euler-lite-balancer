@@ -13,6 +13,7 @@ import {
 import type { SwapApiQuote } from '~/entities/swap'
 import { SwapperMode } from '~/entities/swap'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
@@ -49,10 +50,14 @@ const form = useCollateralForm({
     return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
   },
 
-  computeLiquidationPrice: (pos) => {
-    const price = pos.price || 0n
-    if (price <= 0n) return undefined
-    return nanoToValue(price, 18)
+  computeLiquidationPrice: (pos, borrowVault, collateralVault) => {
+    const health = nanoToValue(pos.health || 0n, 18)
+    if (health < 0.1) return Infinity
+    const cp = borrowVault && collateralVault ? getCollateralOraclePrice(borrowVault, collateralVault) : undefined
+    const bp = borrowVault ? getAssetOraclePrice(borrowVault) : undefined
+    const ratio = nanoToValue(conservativePriceRatio(cp, bp), 18)
+    if (!ratio) return undefined
+    return ratio / health
   },
 
   validateEstimate: ({ suppliedFixed, amountFixed, userLtvFixed }) => {
@@ -165,7 +170,8 @@ watch(selectedOutputAsset, () => {
 
 <template>
   <VaultForm
-    title="Withdraw"
+    title="Withdraw collateral"
+    description="Remove collateral from your position. Your health score will decrease."
     :loading="form.isLoading.value"
     @submit.prevent="form.submit"
   >
@@ -328,12 +334,20 @@ watch(selectedOutputAsset, () => {
               @invert="form.priceInvert.toggle"
             />
           </SummaryRow>
-          <SummaryRow label="Liquidation price">
+          <SummaryRow label="Liq. price">
             <SummaryPriceValue
-              :value="form.liquidationPrice.value != null ? formatSmartAmount(form.priceInvert.invertValue(form.liquidationPrice.value)!) : undefined"
+              :before="form.liquidationPrice.value != null ? formatSmartAmount(form.priceInvert.invertValue(form.liquidationPrice.value)!) : undefined"
+              :after="form.estimateLiquidationPrice.value != null ? formatSmartAmount(form.priceInvert.invertValue(form.estimateLiquidationPrice.value)!) : undefined"
               :symbol="form.priceInvert.displaySymbol"
               invertible
               @invert="form.priceInvert.toggle"
+            />
+          </SummaryRow>
+          <SummaryRow label="Liq. buffer">
+            <SummaryValue
+              :before="formatLiqBuffer(form.priceInvert.invertValue(form.priceFixed.value.toUnsafeFloat()), form.priceInvert.invertValue(form.liquidationPrice.value))"
+              :after="formatLiqBuffer(form.priceInvert.invertValue(form.priceFixed.value.toUnsafeFloat()), form.priceInvert.invertValue(form.estimateLiquidationPrice.value))"
+              suffix="%"
             />
           </SummaryRow>
           <SummaryRow label="LTV">

@@ -46,6 +46,7 @@ const { chainId } = useEulerAddresses()
 
 const isPricesReady = ref(false)
 const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value || !isPricesReady.value)
+const { isSlow } = useSlowLoading(isLoading)
 const { enableEntityBranding } = useDeployConfig()
 const { entities } = useEulerLabels()
 
@@ -439,10 +440,16 @@ const sortedBorrowList = computed(() => {
     </div>
 
     <div class="flex flex-col flex-1">
-      <UiLoader
+      <div
         v-if="isLoading"
-        class="flex-1 self-center justify-self-center"
-      />
+        class="flex flex-col flex-1 items-center justify-center gap-12"
+      >
+        <UiLoader />
+        <span
+          v-if="isSlow"
+          class="text-p2 text-content-tertiary text-center max-w-[240px]"
+        >Loading is taking longer than usual. Please check your connection.</span>
+      </div>
 
       <VaultsBorrowList
         v-else-if="sortedBorrowList.length"

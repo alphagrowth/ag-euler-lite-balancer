@@ -691,7 +691,7 @@ const openPairInfoModal = () => {
     },
   })
 }
-watch(isConnected, () => {
+watch([isConnected, isSpyMode], () => {
   load()
 }, { immediate: true })
 </script>
@@ -917,7 +917,7 @@ watch(isConnected, () => {
             </div>
             <div class="flex justify-between gap-8 flex-wrap mb-12">
               <div class="text-neutral-500 text-p3">
-                Liquidation price
+                Liq. price
               </div>
               <div class="text-neutral-800 text-p3">
                 {{ borrowLiquidationPrice ? `$${formatNumber(borrowLiquidationPrice)}` : '-' }}
@@ -993,7 +993,7 @@ watch(isConnected, () => {
                 :disabled="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure"
                 :to="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/borrow/swap`"
               >
-                Debt swap
+                Refinance debt
               </UiButton>
             </div>
           </div>
@@ -1001,7 +1001,7 @@ watch(isConnected, () => {
       </div>
       <div>
         <div class="mb-12 text-h4 text-neutral-800">
-          {{ !hasNoBorrow ? 'Collateral' : 'Deposit' }}
+          {{ !hasNoBorrow ? 'Collateral' : 'Supply' }}
         </div>
         <div class="flex flex-col gap-12">
           <div
@@ -1084,7 +1084,7 @@ watch(isConnected, () => {
                 class="flex justify-between gap-8 flex-wrap mb-16"
               >
                 <div class="text-neutral-500 text-p3">
-                  Liquidation price
+                  Liq. price
                 </div>
                 <div class="text-neutral-800 text-p3">
                   {{ liquidationPrice ? `$${formatNumber(liquidationPrice)}` : '-' }}
@@ -1139,7 +1139,7 @@ watch(isConnected, () => {
                   :disabled="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure"
                   :to="isPositionGeoBlocked || isPairFullyRestricted || hasQueryFailure ? undefined : `/position/${positionIndex}/collateral/swap?collateral=${collateral.vault.address}`"
                 >
-                  Collateral swap
+                  Swap collateral
                 </UiButton>
               </div>
               <div

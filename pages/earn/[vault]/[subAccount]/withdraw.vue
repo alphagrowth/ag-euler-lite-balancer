@@ -252,7 +252,8 @@ watch(amount, async () => {
 
 <template>
   <VaultForm
-    title="Withdraw"
+    title="Withdraw savings"
+    description="Withdraw your supplied assets back to your wallet."
     class="flex flex-col gap-16"
     :loading="isLoading"
     @submit.prevent="submit"
@@ -304,7 +305,7 @@ watch(amount, async () => {
               suffix="%"
             />
           </SummaryRow>
-          <SummaryRow label="Deposit">
+          <SummaryRow label="Supplied">
             <SummaryValue
               :before="`$${formatNumber(assetsBalanceUsd)}`"
               :after="amount && delta !== assetsBalance && delta >= 0n ? `$${formatNumber(deltaUsd)}` : undefined"

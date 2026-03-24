@@ -17,7 +17,7 @@ defineEmits(['close'])
             Theme
           </div>
           <div class="text-p3 text-content-muted">
-            Follows system setting by default
+            Dark mode by default
           </div>
         </div>
         <UiSwitch

@@ -74,6 +74,7 @@ export const useSavingsRepay = (options: UseSavingsRepayOptions) => {
     () => sourceVault.value?.asset.symbol,
     () => borrowVault.value?.asset.symbol,
   )
+  priceInvert.autoInvert(oraclePriceRatio)
   const sourceProduct = useEulerProductOfVault(computed(() => sourceVault.value?.address || ''))
 
   // --- Core swap logic ---

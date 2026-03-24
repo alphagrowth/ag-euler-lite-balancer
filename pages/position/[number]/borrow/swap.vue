@@ -9,6 +9,7 @@ import { SwapperMode } from '~/entities/swap'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { calculateRoe } from '~/utils/repayUtils'
@@ -321,7 +322,8 @@ const onToVaultChange = (selectedIndex: number) => {
 <template>
   <div class="flex gap-32">
     <VaultForm
-      title="Debt swap"
+      title="Refinance debt"
+      description="Move your debt to a different vault, potentially for a better rate."
       class="flex flex-col gap-16 w-full"
       :loading="isLoading || isPositionsLoading"
       @submit.prevent="submit"
@@ -372,6 +374,7 @@ const onToVaultChange = (selectedIndex: number) => {
               :vault="toVault"
               :collateral-options="borrowOptions"
               collateral-modal-title="Select debt"
+              collateral-modal-apy-label="Borrow APY"
               :readonly="true"
               @change-collateral="onToVaultChange"
             />
@@ -389,7 +392,7 @@ const onToVaultChange = (selectedIndex: number) => {
 
             <UiToast
               v-if="!toVault && !isLoading && !isPositionsLoading"
-              title="No debt swap options"
+              title="No refinance options"
               description="There are no other vaults that accept this collateral to swap your debt to."
               variant="warning"
               size="compact"
@@ -478,7 +481,7 @@ const onToVaultChange = (selectedIndex: number) => {
               />
             </SummaryRow>
             <SummaryRow
-              label="Liquidation price"
+              label="Liq. price"
               align-top
             >
               <!-- Borrow swap changes the borrow vault, so before/after symbols may differ -->
@@ -505,6 +508,15 @@ const onToVaultChange = (selectedIndex: number) => {
                   />
                 </button>
               </p>
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(liqPriceInvert.invertValue(currentPriceRatio), liqPriceInvert.invertValue(currentLiquidationPrice))"
+                :after="nextLiquidationPrice !== null && quote
+                  ? formatLiqBuffer(liqPriceInvert.invertValue(priceRatio), liqPriceInvert.invertValue(nextLiquidationPrice))
+                  : undefined"
+                suffix="%"
+              />
             </SummaryRow>
             <SummaryRow label="LTV">
               <SummaryValue
