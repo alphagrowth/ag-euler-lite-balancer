@@ -103,6 +103,11 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     return BigInt(quotes.effectiveQuote.value.amountOut || 0)
   })
 
+  const guaranteedDebtRepaid = computed(() => {
+    if (!quotes.effectiveQuote.value) return 0n
+    return BigInt(quotes.effectiveQuote.value.amountOutMin || 0)
+  })
+
   const computedTargetDebt = computed(() => {
     if (direction.value !== SwapperMode.TARGET_DEBT || !borrowVault.value || !debtAmount.value) return 0n
     try {
@@ -119,7 +124,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
       return computedTargetDebt.value === 0n && !!debtAmount.value
     }
     const currentDebt = getCurrentDebt()
-    return currentDebt > 0n && estimatedDebtRepaid.value >= currentDebt
+    return currentDebt > 0n && guaranteedDebtRepaid.value >= currentDebt
   })
 
   const { priceImpact: swapPriceImpact } = useSwapPriceImpact({
@@ -366,6 +371,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     clearSimulationError()
     debtAmount.value = ''
     direction.value = SwapperMode.EXACT_IN
+    quotes.reset()
     requestQuote()
   }
 
@@ -373,6 +379,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     clearSimulationError()
     amount.value = ''
     direction.value = SwapperMode.TARGET_DEBT
+    quotes.reset()
     const currentDebt = getCurrentDebt()
     let amountNano = 0n
     try {
@@ -389,6 +396,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     clearSimulationError()
     amount.value = ''
     direction.value = SwapperMode.TARGET_DEBT
+    quotes.reset()
     const currentDebt = getCurrentDebt()
     if (!borrowVault.value || currentDebt <= 0n) {
       debtAmount.value = ''

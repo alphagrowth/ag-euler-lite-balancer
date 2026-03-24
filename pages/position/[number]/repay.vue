@@ -14,6 +14,7 @@ import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/stri
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
+import { isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { useWalletRepay } from '~/composables/repay/useWalletRepay'
 import { useWalletSwapRepay } from '~/composables/repay/useWalletSwapRepay'
 import { useCollateralSwapRepay } from '~/composables/repay/useCollateralSwapRepay'
@@ -151,6 +152,10 @@ const { guardWithPriceImpact: guardWithWalletSwapPriceImpact } = usePriceImpactG
   directPriceImpact: walletSwap.swapPriceImpact,
 })
 
+const isWalletSwapRestricted = computed(() =>
+  walletSwap.needsSwap.value && isVaultRestrictedByCountry(borrowVault.value?.address || ''),
+)
+
 const collateral = useCollateralSwapRepay({
   position,
   borrowVault,
@@ -207,7 +212,7 @@ const reviewRepayLabel = getSubmitLabel('Review Repay')
 const reviewRepayDisabled = getSubmitDisabled(computed(() => {
   if (formTab.value === 'wallet') {
     return walletSwap.needsSwap.value
-      ? walletSwap.isSubmitDisabled.value
+      ? (isWalletSwapRestricted.value || walletSwap.isSubmitDisabled.value)
       : wallet.isSubmitDisabled.value
   }
   if (formTab.value === 'savings') return savings.isSubmitDisabled.value
@@ -218,6 +223,7 @@ const onSubmitForm = async () => {
   await guardWithTerms(async () => {
     if (formTab.value === 'wallet') {
       if (walletSwap.needsSwap.value) {
+        if (isWalletSwapRestricted.value) return
         await guardWithWalletSwapPriceImpact(() => walletSwap.submit())
       }
       else {
@@ -436,7 +442,14 @@ watch(formTab, () => {
             </div>
 
             <UiToast
-              v-if="walletSwap.needsSwap.value && walletSwap.disabledReason.value"
+              v-if="isWalletSwapRestricted"
+              title="Swap restricted"
+              description="Swapping into this vault is not available in your region. You can repay with the vault's underlying asset directly."
+              variant="warning"
+              size="compact"
+            />
+            <UiToast
+              v-if="walletSwap.needsSwap.value && !isWalletSwapRestricted && walletSwap.disabledReason.value"
               title="Error"
               variant="error"
               :description="walletSwap.disabledReason.value"
