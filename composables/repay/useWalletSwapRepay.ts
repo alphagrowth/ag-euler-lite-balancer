@@ -374,12 +374,21 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     }
   }, 500)
 
+  // --- Helpers ---
+  const resetDerivedState = () => {
+    hasEstimate.value = false
+    estimatesError.value = ''
+    isEstimatesLoading.value = false
+  }
+
   // --- Input handlers ---
   const onAmountInput = () => {
     clearSimulationError()
     debtAmount.value = ''
+    debtPercent.value = 0
     direction.value = SwapperMode.EXACT_IN
     quotes.reset()
+    resetDerivedState()
     requestQuote()
   }
 
@@ -388,6 +397,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     amount.value = ''
     direction.value = SwapperMode.TARGET_DEBT
     quotes.reset()
+    resetDerivedState()
     const currentDebt = getCurrentDebt()
     let amountNano = 0n
     try {
@@ -405,11 +415,11 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     amount.value = ''
     direction.value = SwapperMode.TARGET_DEBT
     quotes.reset()
+    resetDerivedState()
     const currentDebt = getCurrentDebt()
     if (!borrowVault.value || currentDebt <= 0n) {
       debtAmount.value = ''
       debtPercent.value = 0
-      quotes.reset()
       return
     }
     const amountNano = percentToAmountNano(debtPercent.value, currentDebt)
@@ -426,8 +436,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     direction.value = SwapperMode.EXACT_IN
     clearSimulationError()
     quotes.reset()
-    hasEstimate.value = false
-    estimatesError.value = ''
+    resetDerivedState()
 
     if (newAsset.address) {
       selectedAssetBalance.value = await fetchSingleBalance(newAsset.address)
@@ -436,13 +445,17 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
 
   const onRefreshSwapQuotes = () => {
     quotes.reset()
+    resetDerivedState()
     requestQuote()
   }
 
-  // Refresh selected asset balance when wallet address changes
+  // Refresh selected asset balance and re-validate when wallet address changes
   watch(address, async () => {
-    if (selectedAsset.value?.address && needsSwap.value) {
+    if (selectedAsset.value?.address) {
       selectedAssetBalance.value = await fetchSingleBalance(selectedAsset.value.address)
+      if (needsSwap.value) {
+        updateEstimates()
+      }
     }
   })
 
