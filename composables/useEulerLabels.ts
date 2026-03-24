@@ -162,8 +162,8 @@ export const useEulerLabels = () => {
           if (entry.description) {
             earnVaultDescriptions[addr.toLowerCase()] = entry.description
           }
-          if (entry.notice) {
-            earnVaultNotices[addr.toLowerCase()] = entry.notice
+          if (entry.portfolioNotice) {
+            earnVaultNotices[addr.toLowerCase()] = entry.portfolioNotice
           }
           return addr
         })
