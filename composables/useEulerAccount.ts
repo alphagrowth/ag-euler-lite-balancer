@@ -93,9 +93,24 @@ export const useEulerAccount = () => {
     debouncedUpdatePositions()
   })
 
-  // Refresh positions when wallet address changes
+  // Refresh positions when wallet address changes (e.g. spy mode exit)
   watch(portfolioAddress, (newAddress, oldAddress) => {
     if (newAddress !== oldAddress) {
+      // Invalidate in-flight fetches so they discard stale results
+      positionGuard.next()
+      fetchInProgress = false
+
+      // Clear stale data and reset loading state so UI shows loader
+      borrowPositions.value = []
+      depositPositions.value = []
+      collateralUsageSet.value = new Set()
+      isPositionsLoaded.value = false
+      isPositionsLoading.value = true
+      isDepositsLoaded.value = false
+      isDepositsLoading.value = true
+      totalSuppliedValue.value = 0
+      totalBorrowedValue.value = 0
+
       debouncedUpdatePositions()
     }
   })

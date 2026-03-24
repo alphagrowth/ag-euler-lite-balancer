@@ -112,7 +112,7 @@ watch(portfolioRefreshCounter, () => {
           Portfolio Net APY
           <UiFootnote
             title="Portfolio Net APY"
-            text="Net annual percentage yield across all borrow positions. Calculated as total net yield (supply income minus borrow costs) divided by total supplied value."
+            text="Net annual percentage yield across all positions. Calculated as total net yield (supply income minus borrow costs) divided by total supplied value."
             tooltip-placement="bottom-start"
             class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
           />
@@ -131,7 +131,7 @@ watch(portfolioRefreshCounter, () => {
           Portfolio ROE
           <UiFootnote
             title="Portfolio ROE"
-            text="Return on equity across all borrow positions. Calculated as total net yield divided by total equity (supplied value minus borrowed value)."
+            text="Return on equity across all positions. Calculated as total net yield divided by total equity (supplied value minus borrowed value)."
             tooltip-placement="bottom-start"
             class="[--ui-footnote-icon-color:var(--c-content-tertiary)]"
           />

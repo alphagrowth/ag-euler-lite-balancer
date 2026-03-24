@@ -24,11 +24,14 @@ import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { calculateRoe } from '~/utils/repayUtils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
 
 const route = useRoute()
 const { isConnected, address } = useAccount()
+const { isSpyMode } = useSpyMode()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
 const { buildSwapPlan, buildSameAssetSwapPlan } = useEulerOperations()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -249,7 +252,7 @@ const loadSelectedCollateral = async () => {
 }
 
 const loadPosition = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value && !isSpyMode.value) {
     position.value = null
     return
   }
@@ -369,20 +372,6 @@ watchEffect(async () => {
   borrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, borrowVault.value, 'off-chain')) ?? null
 })
 
-const calculateRoe = (
-  supplyUsd: number | null,
-  borrowUsd: number | null,
-  supplyApy: number | null,
-  borrowApyValue: number | null,
-) => {
-  if (supplyUsd === null || borrowUsd === null || supplyApy === null || borrowApyValue === null) return null
-  const equity = supplyUsd - borrowUsd
-  if (!Number.isFinite(equity) || equity <= 0) return null
-  const net = supplyUsd * supplyApy - borrowUsd * borrowApyValue
-  if (!Number.isFinite(net)) return null
-  return net / equity
-}
-
 const roeBefore = computed(() => calculateRoe(supplyValueUsd.value, borrowValueUsd.value, fromSupplyApy.value, borrowApy.value))
 const roeAfter = computed(() => calculateRoe(nextSupplyValueUsd.value, borrowValueUsd.value, toSupplyApy.value, borrowApy.value))
 
@@ -484,7 +473,8 @@ const nextLiquidationPrice = computed(() => {
 <template>
   <div class="flex gap-32">
     <VaultForm
-      title="Collateral swap"
+      title="Swap collateral"
+      description="Exchange your collateral for a different asset while keeping your position open."
       class="flex flex-col gap-16 w-full"
       :loading="isLoading || isPositionsLoading"
       @submit.prevent="submit"
@@ -622,7 +612,7 @@ const nextLiquidationPrice = computed(() => {
               </SummaryRow>
             </template>
             <SummaryRow
-              label="Liquidation price"
+              label="Liq. price"
               align-top
             >
               <SummaryPriceValue
@@ -631,6 +621,15 @@ const nextLiquidationPrice = computed(() => {
                 :symbol="liqPriceInvert.displaySymbol"
                 invertible
                 @invert="liqPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(liqPriceInvert.invertValue(currentPriceRatio), liqPriceInvert.invertValue(currentLiquidationPrice))"
+                :after="nextLiquidationPrice !== null && (quote || isSameAsset)
+                  ? formatLiqBuffer(liqPriceInvert.invertValue(priceRatio), liqPriceInvert.invertValue(nextLiquidationPrice))
+                  : undefined"
+                suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="LTV">

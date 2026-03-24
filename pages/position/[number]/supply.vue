@@ -3,19 +3,21 @@ import { useAccount } from '@wagmi/vue'
 import { getAddress, type Address } from 'viem'
 import { zeroAddress } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
-import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { Vault, VaultAsset } from '~/entities/vault'
 import type { SwapTokenSelectMeta } from '~/components/entities/asset/SwapTokenSelector.vue'
+import { getCollateralOraclePrice, getAssetOraclePrice, conservativePriceRatio } from '~/services/pricing/priceProvider'
 import { fetchBackendPrice } from '~/services/pricing/backendClient'
 import type { SwapApiQuote } from '~/entities/swap'
 import { SwapperMode } from '~/entities/swap'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
 
 const { isConnected, address } = useAccount()
+const { isSpyMode } = useSpyMode()
 const { fetchSingleBalance } = useWallets()
 const { buildSupplyPlan, buildSwapAndSupplyPlan } = useEulerOperations()
 
@@ -44,12 +46,22 @@ const form = useCollateralForm({
   needsSwap,
   effectiveBalance: activeBalance,
 
-  computePriceFixed: pos =>
-    FixedPoint.fromValue(pos.price || 0n, 18),
+  computePriceFixed: (_pos, borrowVault, collateralVault) => {
+    const collateralPrice = borrowVault && collateralVault
+      ? getCollateralOraclePrice(borrowVault, collateralVault)
+      : undefined
+    const borrowPrice = borrowVault ? getAssetOraclePrice(borrowVault) : undefined
+    return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
+  },
 
-  computeLiquidationPrice: (pos) => {
-    if (nanoToValue(pos.health || 0n, 18) < 0.1) return Infinity
-    return nanoToValue(pos.price || 0n, 18) / nanoToValue(pos.health || 1n, 18)
+  computeLiquidationPrice: (pos, borrowVault, collateralVault) => {
+    const health = nanoToValue(pos.health || 0n, 18)
+    if (health < 0.1) return Infinity
+    const cp = borrowVault && collateralVault ? getCollateralOraclePrice(borrowVault, collateralVault) : undefined
+    const bp = borrowVault ? getAssetOraclePrice(borrowVault) : undefined
+    const ratio = nanoToValue(conservativePriceRatio(cp, bp), 18)
+    if (!ratio) return undefined
+    return ratio / health
   },
 
   validateEstimate: ({ amountFixed, needsSwap: isSwap }) => {
@@ -112,7 +124,7 @@ const { name } = useEulerProductOfVault(computed(() => form.collateralVault.valu
 
 // Supply-specific: balance management
 const updateBalance = async () => {
-  if (!isConnected.value || !form.collateralVault.value?.asset.address) {
+  if ((!isConnected.value && !isSpyMode.value) || !form.collateralVault.value?.asset.address) {
     balance.value = 0n
     return
   }
@@ -166,24 +178,16 @@ watch(selectedAsset, async () => {
     swapAssetUsdPrice.value = undefined
   }
 })
-
-// Balance polling
-const interval = setInterval(() => {
-  updateBalance()
-}, POLL_INTERVAL_5S_MS)
-
-onUnmounted(() => {
-  clearInterval(interval)
-})
 </script>
 
 <template>
   <VaultForm
-    title="Supply"
+    title="Supply collateral"
+    description="Add collateral to improve your health score and reduce liquidation risk."
     :loading="form.isLoading.value"
     @submit.prevent="form.submit"
   >
-    <div v-if="!isConnected">
+    <div v-if="!isConnected && !isSpyMode">
       Connect your wallet to see your positions
     </div>
 
@@ -199,7 +203,7 @@ onUnmounted(() => {
           <AssetInput
             v-if="form.asset.value"
             v-model="form.amount.value"
-            label="Deposit amount"
+            label="Supply amount"
             :desc="name"
             :asset="needsSwap && selectedAsset ? selectedAsset : form.asset.value"
             :vault="needsSwap ? undefined : (form.collateralVault.value as Vault)"
@@ -346,12 +350,20 @@ onUnmounted(() => {
               @invert="form.priceInvert.toggle"
             />
           </SummaryRow>
-          <SummaryRow label="Liquidation price">
+          <SummaryRow label="Liq. price">
             <SummaryPriceValue
-              :value="form.liquidationPrice.value != null && form.liquidationPrice.value !== Infinity ? formatSmartAmount(form.priceInvert.invertValue(form.liquidationPrice.value)!) : undefined"
+              :before="form.liquidationPrice.value != null && form.liquidationPrice.value !== Infinity ? formatSmartAmount(form.priceInvert.invertValue(form.liquidationPrice.value)!) : undefined"
+              :after="form.estimateLiquidationPrice.value != null ? formatSmartAmount(form.priceInvert.invertValue(form.estimateLiquidationPrice.value)!) : undefined"
               :symbol="form.priceInvert.displaySymbol"
               invertible
               @invert="form.priceInvert.toggle"
+            />
+          </SummaryRow>
+          <SummaryRow label="Liq. buffer">
+            <SummaryValue
+              :before="formatLiqBuffer(form.priceInvert.invertValue(form.priceFixed.value.toUnsafeFloat()), form.priceInvert.invertValue(form.liquidationPrice.value))"
+              :after="formatLiqBuffer(form.priceInvert.invertValue(form.priceFixed.value.toUnsafeFloat()), form.priceInvert.invertValue(form.estimateLiquidationPrice.value))"
+              suffix="%"
             />
           </SummaryRow>
           <SummaryRow label="LTV">

@@ -267,6 +267,7 @@ const isLoading = computed(() =>
   || (isResolvingTVL.value && marketGroups.value.length === 0)
   || marketGroups.value.length === 0,
 )
+const { isSlow } = useSlowLoading(isLoading)
 </script>
 
 <template>
@@ -337,10 +338,16 @@ const isLoading = computed(() =>
     </div>
 
     <div class="flex flex-col flex-1">
-      <UiLoader
+      <div
         v-if="isLoading"
-        class="flex-1 self-center justify-self-center"
-      />
+        class="flex flex-col flex-1 items-center justify-center gap-12"
+      >
+        <UiLoader />
+        <span
+          v-if="isSlow"
+          class="text-p2 text-content-tertiary text-center max-w-[240px]"
+        >Loading is taking longer than usual. Please check your connection.</span>
+      </div>
 
       <DiscoveryMarketAccordion
         v-else-if="sortedMarkets.length"

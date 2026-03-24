@@ -70,6 +70,13 @@ const SELECTOR_LABELS: Record<string, string> = {
 
 const MAX_UINT256 = 2n ** 256n - 1n
 
+// Selectors where the first uint256 param is shares, not assets.
+// Decoding these as assets would show a wrong amount in the UI.
+const SHARES_AMOUNT_SELECTORS = new Set([
+  toFunctionSelector('function redeem(uint256,address,address)'),
+  toFunctionSelector('function repayWithShares(uint256,address)'),
+])
+
 // ---------------------------------------------------------------------------
 // Exported helpers
 // ---------------------------------------------------------------------------
@@ -129,6 +136,17 @@ export const resolveAmountFromCalldata = (
   targetContract: string,
   getVault: VaultLookup,
 ): { decoded: boolean, amount?: string, isMax?: boolean } => {
+  const selector = data.slice(0, 10).toLowerCase() as `0x${string}`
+
+  // For functions where the first param is shares (not assets),
+  // we can only reliably detect max (uint256.max). The raw share count
+  // cannot be formatted as assets without a conversion rate.
+  if (SHARES_AMOUNT_SELECTORS.has(selector)) {
+    const raw = decodeFirstUint256(data)
+    if (raw === MAX_UINT256) return { decoded: true, isMax: true }
+    return { decoded: false }
+  }
+
   const raw = decodeFirstUint256(data)
   if (raw === undefined) return { decoded: false }
   if (raw === MAX_UINT256) return { decoded: true, isMax: true }

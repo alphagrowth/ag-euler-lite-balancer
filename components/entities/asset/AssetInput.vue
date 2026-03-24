@@ -17,6 +17,7 @@ const props = defineProps<{
   balanceLoading?: boolean
   collateralOptions?: CollateralOption[]
   collateralModalTitle?: string
+  collateralModalApyLabel?: string
   readonly?: boolean
   priceOverride?: number // USD unit price for assets without a vault (e.g., swap-to-deposit)
   swappable?: boolean // When true, asset pill shows dropdown arrow and emits click-asset
@@ -144,6 +145,7 @@ const openChooseCollateralModal = () => {
       collateralOptions: props.collateralOptions,
       selected: selectedIdx.value,
       title: props.collateralModalTitle,
+      apyLabel: props.collateralModalApyLabel,
       onSave: (selectedIndex: number) => {
         selectedIdx.value = selectedIndex
         emits('change-collateral', selectedIndex)

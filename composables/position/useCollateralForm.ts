@@ -47,6 +47,8 @@ export interface UseCollateralFormOptions {
 
   computeLiquidationPrice: (
     position: NonNullable<ReturnType<ReturnType<typeof useEulerAccount>['getPositionBySubAccountIndex']>>,
+    borrowVault?: Vault | undefined,
+    collateralVault?: Vault | SecuritizeVault,
   ) => number | undefined
 
   validateEstimate: (ctx: {
@@ -104,6 +106,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const submitLabel = getSubmitLabel(options.reviewLabel)
   const { executeTxPlan } = useEulerOperations()
   const { isConnected, address } = useAccount()
+  const { isSpyMode } = useSpyMode()
   const positionIndex = usePositionIndex()
   const { isPositionsLoaded, getPositionBySubAccountIndex } = useEulerAccount()
   const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
@@ -215,7 +218,14 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   })
   const liquidationPrice = computed(() => {
     if (!position.value) return undefined
-    return options.computeLiquidationPrice(position.value)
+    return options.computeLiquidationPrice(position.value, borrowVault.value, collateralVault.value)
+  })
+  const estimateLiquidationPrice = computed(() => {
+    const health = nanoToValue(estimateHealth.value, 18)
+    if (!health || health < 0.1 || health > 1e15) return undefined
+    const price = priceFixed.value.toUnsafeFloat()
+    if (!price) return undefined
+    return price / health
   })
 
   // --- Collateral loading ---
@@ -462,7 +472,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
 
   // --- Load ---
   const load = async () => {
-    if (!isConnected.value) return
+    if (!isConnected.value && !isSpyMode.value) return
     isLoading.value = true
     await until(isPositionLoaded).toBe(true)
     try {
@@ -637,6 +647,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     estimateNetAPY,
     estimateUserLTV,
     estimateHealth,
+    estimateLiquidationPrice,
     estimatesError,
     selectedCollateral,
     selectedCollateralAssets,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { HIGH_SLIPPAGE_THRESHOLD } from '~/entities/constants'
 import { formatNumber } from '~/utils/string-utils'
 
 const _props = withDefaults(defineProps<{
@@ -26,6 +27,8 @@ const isCustomValue = computed(() => !presetValues.includes(slippage.value))
 const customChipActive = computed(() => isCustomInputVisible.value || isCustomSelected.value || isCustomValue.value)
 const customChipValue = computed(() => `${formatNumber(slippage.value, 2, 0)}%`)
 
+const isHighSlippage = computed(() => slippage.value > HIGH_SLIPPAGE_THRESHOLD)
+
 const onPresetSelect = (value: number) => {
   isCustomInputVisible.value = false
   slippageSelection.value = 'preset'
@@ -44,15 +47,33 @@ const parseCustomSlippage = (value: string | number | null | undefined) => {
   if (!Number.isFinite(parsed)) {
     return null
   }
-  return Math.min(maxSlippage, Math.max(minSlippage, parsed))
+  if (parsed > maxSlippage) {
+    return null
+  }
+  return Math.max(minSlippage, parsed)
 }
 
 const parsedCustomSlippage = computed(() => parseCustomSlippage(customInput.value))
 
+const rawCustomValue = computed(() => {
+  const normalized = String(customInput.value ?? '').replace(/%/g, '').replace(',', '.').trim()
+  const parsed = Number.parseFloat(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+})
+
+const isInputOverMax = computed(() => {
+  return rawCustomValue.value !== null && rawCustomValue.value > maxSlippage
+})
+
+const isInputHighSlippage = computed(() => {
+  const parsed = parsedCustomSlippage.value
+  return parsed !== null && parsed > HIGH_SLIPPAGE_THRESHOLD
+})
+
 const onSaveCustom = () => {
   const parsed = parsedCustomSlippage.value
   if (parsed === null) {
-    customInputError.value = `Enter a value between ${minSlippage} and ${maxSlippage}`
+    customInputError.value = `Enter a value between ${minSlippage}% and ${maxSlippage}%`
     return
   }
   customInputError.value = ''
@@ -84,7 +105,7 @@ const savePending = (): boolean => {
   if (!isCustomInputVisible.value) return true
   const parsed = parsedCustomSlippage.value
   if (parsed === null) {
-    customInputError.value = `Enter a value between ${minSlippage} and ${maxSlippage}`
+    customInputError.value = `Enter a value between ${minSlippage}% and ${maxSlippage}%`
     return false
   }
   customInputError.value = ''
@@ -156,6 +177,24 @@ defineExpose({ savePending })
         class="text-p4 text-red-500"
       >
         {{ customInputError }}
+      </div>
+      <div
+        v-else-if="isCustomInputVisible && isInputOverMax"
+        class="text-p4 text-red-500"
+      >
+        Maximum slippage is {{ maxSlippage }}%
+      </div>
+      <div
+        v-else-if="isCustomInputVisible && isInputHighSlippage"
+        class="text-p4 text-warning-500"
+      >
+        High slippage may result in significant losses
+      </div>
+      <div
+        v-else-if="!isCustomInputVisible && isHighSlippage"
+        class="text-p4 text-warning-500"
+      >
+        Slippage is set to {{ formatNumber(slippage, 2, 0) }}%. This may result in significant losses.
       </div>
     </div>
   </div>

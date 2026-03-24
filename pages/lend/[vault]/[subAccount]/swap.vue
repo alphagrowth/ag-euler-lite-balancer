@@ -188,7 +188,8 @@ watch([() => route.params.vault, () => route.query.to], () => {
 <template>
   <div class="flex gap-32">
     <VaultForm
-      title="Asset swap"
+      title="Rebalance savings"
+      description="Move your supplied assets from one vault to another."
       class="flex flex-col gap-16 w-full"
       :loading="isLoading"
       @submit.prevent="submit"

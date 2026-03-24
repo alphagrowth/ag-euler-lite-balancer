@@ -11,6 +11,7 @@ import { getNewSubAccount } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -366,9 +367,6 @@ watch(formTab, () => {
 <template>
   <div>
     <BaseBackButton class="laptop:!hidden mb-16" />
-    <h1 class="text-p1 mb-16">
-      Open borrow position
-    </h1>
     <div class="flex gap-32">
       <div
         v-if="pair"
@@ -635,12 +633,22 @@ watch(formTab, () => {
                     @invert="borrow.borrowPriceInvert.toggle"
                   />
                 </SummaryRow>
-                <SummaryRow label="Liquidation price">
+                <SummaryRow label="Liq. price">
                   <SummaryPriceValue
                     :value="borrow.borrowPriceInvert.invertValue(borrow.liquidationPrice.value) != null ? formatSmartAmount(borrow.borrowPriceInvert.invertValue(borrow.liquidationPrice.value)!) : undefined"
                     :symbol="borrow.borrowPriceInvert.displaySymbol"
                     invertible
                     @invert="borrow.borrowPriceInvert.toggle"
+                  />
+                </SummaryRow>
+                <SummaryRow label="Liq. buffer">
+                  <SummaryValue
+                    :after="formatLiqBuffer(
+                      borrow.borrowPriceInvert.invertValue(borrow.priceFixed.value.toUnsafeFloat()),
+                      borrow.borrowPriceInvert.invertValue(borrow.liquidationPrice.value),
+                    )"
+                    suffix="%"
+                    estimate-only
                   />
                 </SummaryRow>
                 <SummaryRow label="LTV">
@@ -784,13 +792,25 @@ watch(formTab, () => {
                         @invert="multiply.multiplyPriceInvert.toggle"
                       />
                     </SummaryRow>
-                    <SummaryRow label="Liquidation price">
+                    <SummaryRow label="Liq. price">
                       <SummaryPriceValue
                         :value="multiply.multiplyNextLiquidationPrice.value !== null && multiply.multiplySwapReady.value ? formatSmartAmount(multiply.multiplyPriceInvert.invertValue(multiply.multiplyNextLiquidationPrice.value)) : (multiply.multiplyPriceInvert.invertValue(multiply.multiplyCurrentLiquidationPrice.value) != null ? formatSmartAmount(multiply.multiplyPriceInvert.invertValue(multiply.multiplyCurrentLiquidationPrice.value)!) : undefined)"
                         :symbol="multiply.multiplyPriceInvert.displaySymbol"
                         estimate-only
                         invertible
                         @invert="multiply.multiplyPriceInvert.toggle"
+                      />
+                    </SummaryRow>
+                    <SummaryRow label="Liq. buffer">
+                      <SummaryValue
+                        :after="formatLiqBuffer(
+                          multiply.multiplyPriceInvert.invertValue(multiply.multiplyCurrentPrice.value?.value ?? null),
+                          multiply.multiplyNextLiquidationPrice.value !== null && multiply.multiplySwapReady.value
+                            ? multiply.multiplyPriceInvert.invertValue(multiply.multiplyNextLiquidationPrice.value)
+                            : multiply.multiplyPriceInvert.invertValue(multiply.multiplyCurrentLiquidationPrice.value),
+                        )"
+                        suffix="%"
+                        estimate-only
                       />
                     </SummaryRow>
                     <SummaryRow label="LTV">

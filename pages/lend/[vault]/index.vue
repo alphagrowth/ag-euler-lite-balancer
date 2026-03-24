@@ -661,9 +661,6 @@ watch(address, () => {
 <template>
   <div>
     <BaseBackButton class="laptop:!hidden mb-16" />
-    <h1 class="text-p1 mb-16">
-      Supply to the vault
-    </h1>
     <div class="flex gap-32">
       <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
         <!-- EVK Vault Overview -->
@@ -730,7 +727,7 @@ watch(address, () => {
           <AssetInput
             v-if="asset"
             v-model="amount"
-            label="Deposit amount"
+            label="Supply amount"
             :desc="name"
             :asset="needsSwap && selectedAsset ? selectedAsset : asset"
             :vault="needsSwap ? undefined : (vault || securitizeVault)"

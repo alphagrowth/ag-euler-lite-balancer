@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ title?: string, loading?: boolean }>()
+defineProps<{ title?: string, description?: string, loading?: boolean }>()
 </script>
 
 <template>
@@ -7,12 +7,20 @@ defineProps<{ title?: string, loading?: boolean }>()
     v-bind="$attrs"
     class="flex flex-col mobile:min-h-[calc(100dvh-100px)] laptop:max-h-[calc(100dvh-88px)] laptop:overflow-clip laptop:px-16"
   >
-    <h1
-      v-if="title"
-      class="text-p1 pb-4"
-    >
-      {{ title }}
-    </h1>
+    <div v-if="title || description">
+      <h1
+        v-if="title"
+        class="text-p1 pb-4"
+      >
+        {{ title }}
+      </h1>
+      <p
+        v-if="description"
+        class="text-p3 text-content-secondary pb-8"
+      >
+        {{ description }}
+      </p>
+    </div>
 
     <div
       v-if="loading"

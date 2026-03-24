@@ -9,12 +9,15 @@ import { SwapperMode } from '~/entities/swap'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { calculateRoe } from '~/utils/repayUtils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
 
 const route = useRoute()
 const { isConnected, address } = useAccount()
+const { isSpyMode } = useSpyMode()
 const { isPositionsLoaded, isPositionsLoading, getPositionBySubAccountIndex } = useEulerAccount()
 const { buildSwapPlan, buildSameAssetDebtSwapPlan } = useEulerOperations()
 const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
@@ -102,20 +105,6 @@ watchEffect(async () => {
   currentBorrowValueUsd.value = (await getAssetUsdValue(position.value.borrowed, fromVault.value, 'off-chain')) ?? null
 })
 const nextBorrowValueUsd = ref<number | null>(null)
-
-const calculateRoe = (
-  supplyUsd: number | null,
-  borrowUsd: number | null,
-  supplyApy: number | null,
-  borrowApy: number | null,
-) => {
-  if (supplyUsd === null || borrowUsd === null || supplyApy === null || borrowApy === null) return null
-  const equity = supplyUsd - borrowUsd
-  if (!Number.isFinite(equity) || equity <= 0) return null
-  const net = supplyUsd * supplyApy - borrowUsd * borrowApy
-  if (!Number.isFinite(net)) return null
-  return net / equity
-}
 
 const roeBefore = computed(() => calculateRoe(supplyValueUsd.value, currentBorrowValueUsd.value, collateralSupplyApy.value, fromBorrowApy.value))
 const roeAfter = computed(() => calculateRoe(supplyValueUsd.value, nextBorrowValueUsd.value, collateralSupplyApy.value, toBorrowApy.value))
@@ -285,7 +274,7 @@ watchEffect(async () => {
 
 // ── Position loading ─────────────────────────────────────────────────────
 const loadPosition = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value && !isSpyMode.value) {
     position.value = null
     return
   }
@@ -333,7 +322,8 @@ const onToVaultChange = (selectedIndex: number) => {
 <template>
   <div class="flex gap-32">
     <VaultForm
-      title="Debt swap"
+      title="Refinance debt"
+      description="Move your debt to a different vault, potentially for a better rate."
       class="flex flex-col gap-16 w-full"
       :loading="isLoading || isPositionsLoading"
       @submit.prevent="submit"
@@ -384,6 +374,7 @@ const onToVaultChange = (selectedIndex: number) => {
               :vault="toVault"
               :collateral-options="borrowOptions"
               collateral-modal-title="Select debt"
+              collateral-modal-apy-label="Borrow APY"
               :readonly="true"
               @change-collateral="onToVaultChange"
             />
@@ -401,7 +392,7 @@ const onToVaultChange = (selectedIndex: number) => {
 
             <UiToast
               v-if="!toVault && !isLoading && !isPositionsLoading"
-              title="No debt swap options"
+              title="No refinance options"
               description="There are no other vaults that accept this collateral to swap your debt to."
               variant="warning"
               size="compact"
@@ -490,7 +481,7 @@ const onToVaultChange = (selectedIndex: number) => {
               />
             </SummaryRow>
             <SummaryRow
-              label="Liquidation price"
+              label="Liq. price"
               align-top
             >
               <!-- Borrow swap changes the borrow vault, so before/after symbols may differ -->
@@ -517,6 +508,15 @@ const onToVaultChange = (selectedIndex: number) => {
                   />
                 </button>
               </p>
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(liqPriceInvert.invertValue(currentPriceRatio), liqPriceInvert.invertValue(currentLiquidationPrice))"
+                :after="nextLiquidationPrice !== null && quote
+                  ? formatLiqBuffer(liqPriceInvert.invertValue(priceRatio), liqPriceInvert.invertValue(nextLiquidationPrice))
+                  : undefined"
+                suffix="%"
+              />
             </SummaryRow>
             <SummaryRow label="LTV">
               <SummaryValue

@@ -8,10 +8,10 @@ import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useModal } from '~/components/ui/composables/useModal'
 import { SlippageSettingsModal } from '#components'
-import { POLL_INTERVAL_5S_MS } from '~/entities/tuning-constants'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { createRaceGuard } from '~/utils/race-guard'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
+import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { useWalletRepay } from '~/composables/repay/useWalletRepay'
@@ -22,6 +22,7 @@ const _route = useRoute()
 const _router = useRouter()
 const modal = useModal()
 const { isConnected, address } = useAccount()
+const { isSpyMode } = useSpyMode()
 const positionIndex = usePositionIndex()
 const { isPositionsLoading, isPositionsLoaded, isDepositsLoaded, refreshAllPositions: _refreshAllPositions, getPositionBySubAccountIndex } = useEulerAccount()
 const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
@@ -61,12 +62,16 @@ const oraclePriceRatio = computed(() => {
   const borrowPrice = getAssetOraclePrice(borrowVault.value)
   return conservativePriceRatioNumber(collateralPrice, borrowPrice)
 })
-
+walletPriceInvert.autoInvert(oraclePriceRatio)
 const liquidationPrice = computed(() => {
   const health = nanoToValue(position.value?.health || 0n, 18)
   if (!oraclePriceRatio.value || health < 0.1) return null
   return oraclePriceRatio.value / health
 })
+const liqPriceFromHealth = (health: number | null | undefined): number | null => {
+  if (!oraclePriceRatio.value || !health || health < 0.1 || health > 1e15) return null
+  return oraclePriceRatio.value / health
+}
 
 // --- APYs ---
 const collateralSupplyRewardApy = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
@@ -120,6 +125,7 @@ const wallet = useWalletRepay({
   borrowApy,
   collateralSupplyRewardApy,
   borrowRewardApy,
+  oraclePriceRatio,
 })
 
 const collateral = useCollateralSwapRepay({
@@ -209,7 +215,7 @@ const fetchWalletBalance = async () => {
 }
 
 const load = async () => {
-  if (!isConnected.value) {
+  if (!isConnected.value && !isSpyMode.value) {
     position.value = undefined
     return
   }
@@ -220,8 +226,7 @@ const load = async () => {
   try {
     position.value = getPositionBySubAccountIndex(+positionIndex)
     await fetchWalletBalance()
-    await wallet.updateBalance()
-    wallet.initEstimates(netAPY.value, position.value?.userLTV || 0n, position.value?.health || 0n)
+    wallet.initEstimates()
     collateral.initVault(position.value?.collateral as Vault | undefined)
     savings.initVault()
   }
@@ -240,12 +245,11 @@ watch(isPositionsLoaded, (val) => {
 }, { immediate: true })
 
 watch(isConnected, () => {
-  wallet.updateBalance()
+  fetchWalletBalance()
 })
 
 watch(address, () => {
   fetchWalletBalance()
-  wallet.updateBalance()
 })
 
 watch(formTab, () => {
@@ -254,24 +258,16 @@ watch(formTab, () => {
   collateral.resetOnTabSwitch()
   savings.resetOnTabSwitch()
 })
-
-// --- Polling ---
-const interval = setInterval(() => {
-  wallet.updateBalance()
-}, POLL_INTERVAL_5S_MS)
-
-onUnmounted(() => {
-  clearInterval(interval)
-})
 </script>
 
 <template>
   <VaultForm
     :loading="isLoading || isPositionsLoading"
     title="Repay position"
+    description="Reduce your debt using tokens from your wallet, collateral, or savings."
     @submit.prevent="onSubmitForm"
   >
-    <div v-if="!isConnected">
+    <div v-if="!isConnected && !isSpyMode">
       Connect your wallet to see your positions
     </div>
 
@@ -366,12 +362,25 @@ onUnmounted(() => {
                 @invert="walletPriceInvert.toggle"
               />
             </SummaryRow>
-            <SummaryRow label="Liquidation price">
+            <SummaryRow label="Liq. price">
               <SummaryPriceValue
-                :value="walletPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(walletPriceInvert.invertValue(liquidationPrice)!) : undefined"
+                :before="walletPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(walletPriceInvert.invertValue(liquidationPrice)!) : undefined"
+                :after="walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue(wallet.estimateHealth.value, 18))) != null
+                  ? formatSmartAmount(walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue(wallet.estimateHealth.value, 18)))!)
+                  : undefined"
                 :symbol="walletPriceInvert.displaySymbol"
                 invertible
                 @invert="walletPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(walletPriceInvert.invertValue(oraclePriceRatio), walletPriceInvert.invertValue(liquidationPrice))"
+                :after="formatLiqBuffer(
+                  walletPriceInvert.invertValue(oraclePriceRatio),
+                  walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue(wallet.estimateHealth.value, 18))),
+                )"
+                suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="LTV">
@@ -525,13 +534,22 @@ onUnmounted(() => {
                 </p>
               </SummaryRow>
             </template>
-            <SummaryRow label="Liquidation price">
+            <SummaryRow label="Liq. price">
               <SummaryPriceValue
                 :before="collateral.currentLiquidationPrice.value !== null ? formatSmartAmount(collateral.priceInvert.invertValue(collateral.currentLiquidationPrice.value)) : undefined"
                 :after="collateral.nextLiquidationPrice.value !== null && (collateral.quotes.quote.value || collateral.isSameAsset.value) ? formatSmartAmount(collateral.priceInvert.invertValue(collateral.nextLiquidationPrice.value)) : undefined"
                 :symbol="collateral.priceInvert.displaySymbol"
                 invertible
                 @invert="collateral.priceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(collateral.priceInvert.invertValue(collateral.priceRatio.value), collateral.priceInvert.invertValue(collateral.currentLiquidationPrice.value))"
+                :after="collateral.nextLiquidationPrice.value !== null && (collateral.quotes.quote.value || collateral.isSameAsset.value)
+                  ? formatLiqBuffer(collateral.priceInvert.invertValue(collateral.priceRatio.value), collateral.priceInvert.invertValue(collateral.nextLiquidationPrice.value))
+                  : undefined"
+                suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="LTV">
@@ -715,13 +733,22 @@ onUnmounted(() => {
                 </p>
               </SummaryRow>
             </template>
-            <SummaryRow label="Liquidation price">
+            <SummaryRow label="Liq. price">
               <SummaryPriceValue
                 :before="savings.currentLiquidationPrice.value !== null ? formatSmartAmount(walletPriceInvert.invertValue(savings.currentLiquidationPrice.value)) : undefined"
                 :after="savings.nextLiquidationPrice.value !== null && (savings.quotes.quote.value || savings.isSameAsset.value) ? formatSmartAmount(walletPriceInvert.invertValue(savings.nextLiquidationPrice.value)) : undefined"
                 :symbol="walletPriceInvert.displaySymbol"
                 invertible
                 @invert="walletPriceInvert.toggle"
+              />
+            </SummaryRow>
+            <SummaryRow label="Liq. buffer">
+              <SummaryValue
+                :before="formatLiqBuffer(walletPriceInvert.invertValue(oraclePriceRatio), walletPriceInvert.invertValue(savings.currentLiquidationPrice.value))"
+                :after="savings.nextLiquidationPrice.value !== null && (savings.quotes.quote.value || savings.isSameAsset.value)
+                  ? formatLiqBuffer(walletPriceInvert.invertValue(oraclePriceRatio), walletPriceInvert.invertValue(savings.nextLiquidationPrice.value))
+                  : undefined"
+                suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="LTV">

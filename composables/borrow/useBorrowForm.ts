@@ -2,6 +2,7 @@ import type { Ref, ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { getAddress, formatUnits, zeroAddress, type Address } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
+import { computeNextHealth, computeLiquidationPrice } from '~/utils/repayUtils'
 import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SwapTokenSelector } from '#components'
@@ -148,6 +149,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     const borrowPrice = borrowVault.value ? getAssetOraclePrice(borrowVault.value) : undefined
     return FixedPoint.fromValue(conservativePriceRatio(collateralPrice, borrowPrice), 18)
   })
+  borrowPriceInvert.autoInvert(() => priceFixed.value.toUnsafeFloat())
 
   const collateralUnitPrice = ref<number | undefined>(undefined)
 
@@ -450,10 +452,14 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       logWarn('borrow/updateEstimates', e, { severity: 'error' })
     }
     try {
-      health.value = ltvFixed.value.toUnsafeFloat() <= 0
-        ? Infinity
-        : (Number(pair.value?.liquidationLTV || 0n) / 100) / ltvFixed.value.toUnsafeFloat()
-      liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
+      health.value = computeNextHealth(
+        Number(pair.value?.liquidationLTV || 0n) / 100,
+        ltvFixed.value.toUnsafeFloat(),
+      ) ?? Infinity
+      liquidationPrice.value = computeLiquidationPrice(
+        priceFixed.value.toUnsafeFloat(),
+        health.value,
+      ) ?? Infinity
       const collateralUsdValue = borrowNeedsSwap.value && borrowSwapAssetUsdPrice.value
         ? (+collateralAmount.value || 0) * borrowSwapAssetUsdPrice.value
         : await getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')

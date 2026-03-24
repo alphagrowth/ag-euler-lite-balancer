@@ -1,20 +1,22 @@
-import { type Address, createPublicClient, http, getAddress } from 'viem'
+import { type Address, getAddress } from 'viem'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import { erc20BalanceOfAbi } from '~/abis/erc20'
 import { logWarn } from '~/utils/errorHandling'
+import { getPublicClient } from '~/utils/public-client'
 
 // Singleton state
 const balances = shallowRef(new Map<string, bigint>())
 const isLoaded = ref(false)
 const isFetching = ref(false)
 const lastFetchChainId = ref<number | null>(null)
+const lastFetchAddress = ref<string | null>(null)
 let fetchPromise: Promise<void> | null = null
 
 export const useWallets = () => {
   const { isReady } = useVaults()
   const { getByType } = useVaultRegistry()
-  const { address, isConnected, chain } = useWagmi()
+  const { address, isConnected } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
   const { chainId } = useEulerAddresses()
   const requestUrl = useRequestURL()
@@ -93,44 +95,40 @@ export const useWallets = () => {
 
     try {
       const targetAddress = balanceAddress.value as Address
-      const client = createPublicClient({
-        chain: chain.value ?? undefined,
-        transport: http(rpcUrl.value),
-      })
+      const client = getPublicClient(rpcUrl.value)
 
-      // Try batch call first, fall back to individual calls if it fails
-      let result: bigint[]
-      try {
-        result = await client.readContract({
-          address: utilsLensAddress,
-          abi: eulerUtilsLensABI,
-          functionName: 'tokenBalances',
-          args: [targetAddress, tokenAddresses],
-        }) as bigint[]
-      }
-      catch {
-        // Fallback: fetch balances in bounded batches to avoid RPC bursts
-        const BATCH_SIZE = 200
-        result = []
-        for (let i = 0; i < tokenAddresses.length; i += BATCH_SIZE) {
-          const batch = tokenAddresses.slice(i, i + BATCH_SIZE)
-          const batchResult = await Promise.all(
+      // Fetch balances via lens in chunks to stay within gas limits
+      const LENS_BATCH_SIZE = 200
+      const result: bigint[] = []
+      for (let i = 0; i < tokenAddresses.length; i += LENS_BATCH_SIZE) {
+        const batch = tokenAddresses.slice(i, i + LENS_BATCH_SIZE)
+        try {
+          const batchResult = await client.readContract({
+            address: utilsLensAddress,
+            abi: eulerUtilsLensABI,
+            functionName: 'tokenBalances',
+            args: [targetAddress, batch],
+          }) as bigint[]
+          result.push(...batchResult)
+        }
+        catch {
+          // Fallback: individual balanceOf calls for this chunk
+          const fallbackResult = await Promise.all(
             batch.map(async (tokenAddr) => {
               try {
-                const balance = await client.readContract({
+                return await client.readContract({
                   address: tokenAddr,
                   abi: erc20BalanceOfAbi,
                   functionName: 'balanceOf',
                   args: [targetAddress],
                 }) as bigint
-                return balance
               }
               catch {
                 return 0n
               }
             }),
           )
-          result.push(...batchResult)
+          result.push(...fallbackResult)
         }
       }
 
@@ -142,6 +140,7 @@ export const useWallets = () => {
         })
         balances.value = newBalances
         lastFetchChainId.value = currentChainId
+        lastFetchAddress.value = targetAddress
         isLoaded.value = true
       }
     }
@@ -156,6 +155,10 @@ export const useWallets = () => {
     finally {
       isFetching.value = false
       fetchPromise = null
+      // If dependencies changed while we were fetching, schedule a follow-up run
+      if (needsFetch()) {
+        fetchPromise = updateBalances()
+      }
     }
   }
 
@@ -165,7 +168,7 @@ export const useWallets = () => {
       && isReady.value
       && !!balanceAddress.value
       && !!eulerLensAddresses.value?.utilsLens
-      && (lastFetchChainId.value !== chainId.value || !isLoaded.value)
+      && (lastFetchChainId.value !== chainId.value || !isLoaded.value || lastFetchAddress.value !== balanceAddress.value)
       && !isFetching.value
   }
 
@@ -174,11 +177,19 @@ export const useWallets = () => {
     fetchPromise = updateBalances()
   }
 
+  // Retry when dependencies become ready (e.g. vaults load after cold start)
+  watch([isReady, () => balanceAddress.value, () => eulerLensAddresses.value?.utilsLens], () => {
+    if (needsFetch() && !fetchPromise) {
+      fetchPromise = updateBalances()
+    }
+  })
+
   const resetBalances = () => {
     balances.value = new Map()
     isLoaded.value = false
     isFetching.value = false
     lastFetchChainId.value = null
+    lastFetchAddress.value = null
     fetchPromise = null
   }
 
@@ -201,10 +212,7 @@ export const useWallets = () => {
       return 0n
     }
     try {
-      const client = createPublicClient({
-        chain: chain.value ?? undefined,
-        transport: http(rpcUrl.value),
-      })
+      const client = getPublicClient(rpcUrl.value)
       const result = await client.readContract({
         address: getAddress(tokenAddress) as Address,
         abi: erc20BalanceOfAbi,
@@ -228,10 +236,7 @@ export const useWallets = () => {
     }
     try {
       const balanceOfAddress = subAccount || balanceAddress.value
-      const client = createPublicClient({
-        chain: chain.value,
-        transport: http(rpcUrl.value),
-      })
+      const client = getPublicClient(rpcUrl.value)
       const result = await client.readContract({
         address: getAddress(vaultAddress) as Address,
         abi: erc20BalanceOfAbi,

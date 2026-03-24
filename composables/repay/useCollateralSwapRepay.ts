@@ -147,6 +147,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
     const borrowPrice = getAssetOraclePrice(borrowVault.value)
     return conservativePriceRatioNumber(collateralPrice, borrowPrice)
   })
+  priceInvert.autoInvert(priceRatio)
 
   // --- Collateral-specific computeds ---
   const collateralAmountAfter = computed(() => {
