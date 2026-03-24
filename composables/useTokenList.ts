@@ -41,18 +41,26 @@ const filterByChain = (chainId: number) => {
       // skip invalid addresses
     }
   }
-  // Ensure the native currency is always present at address zero
-  if (!filtered.has(zeroAddress)) {
-    const chain = getChainById(chainId)
-    if (chain?.nativeCurrency) {
+  // Include native currency at address zero only when the wrapped native token is in the list
+  const chain = getChainById(chainId)
+  const nativeSymbol = chain?.nativeCurrency?.symbol
+  const wrappedSymbol = nativeSymbol ? `W${nativeSymbol}`.toUpperCase() : null
+  const hasWrappedNative = wrappedSymbol
+    && [...filtered.values()].some(t => t.symbol.toUpperCase() === wrappedSymbol)
+
+  if (hasWrappedNative) {
+    if (!filtered.has(zeroAddress)) {
       filtered.set(zeroAddress, {
         chainId,
         address: zeroAddress,
-        name: chain.nativeCurrency.name,
-        symbol: chain.nativeCurrency.symbol,
-        decimals: chain.nativeCurrency.decimals,
+        name: chain!.nativeCurrency.name,
+        symbol: chain!.nativeCurrency.symbol,
+        decimals: chain!.nativeCurrency.decimals,
       })
     }
+  }
+  else {
+    filtered.delete(zeroAddress)
   }
 
   tokenMap.value = filtered
