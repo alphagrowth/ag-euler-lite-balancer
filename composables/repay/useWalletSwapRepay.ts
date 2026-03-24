@@ -14,6 +14,7 @@ import { valueToNano } from '~/utils/crypto-utils'
 import { formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { amountToPercent, percentToAmountNano } from '~/utils/repayUtils'
 import { SwapperMode } from '~/entities/swap'
+import { createRaceGuard } from '~/utils/race-guard'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { useSwapRepayQuotes } from '~/composables/repay/useSwapRepayQuotes'
@@ -284,10 +285,13 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
   }, 500)
 
   // --- Estimates ---
+  const estimatesGuard = createRaceGuard()
+
   const updateEstimates = useDebounceFn(async () => {
     clearSimulationError()
     estimatesError.value = ''
     if (!position.value || !collateralVault.value || !borrowVault.value) return
+    const gen = estimatesGuard.next()
 
     try {
       // Balance check only for EXACT_IN (for TARGET_DEBT, the needed amount comes from the quote)
@@ -327,6 +331,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
         getAssetUsdValueOrZero(position.value.supplied || 0n, collateralVault.value, 'off-chain'),
         getAssetUsdValueOrZero(nextBorrowed > 0n ? nextBorrowed : 0n, borrowVault.value, 'off-chain'),
       ])
+      if (estimatesGuard.isStale(gen)) return
 
       _estimateNetAPY.value = getNetAPY(
         supplyUsd,
@@ -357,12 +362,15 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
       }
     }
     catch (e: unknown) {
+      if (estimatesGuard.isStale(gen)) return
       logWarn('walletSwapRepay/estimates', e)
       hasEstimate.value = false
       estimatesError.value = (e as { message: string }).message
     }
     finally {
-      isEstimatesLoading.value = false
+      if (!estimatesGuard.isStale(gen)) {
+        isEstimatesLoading.value = false
+      }
     }
   }, 500)
 
@@ -430,6 +438,13 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     quotes.reset()
     requestQuote()
   }
+
+  // Refresh selected asset balance when wallet address changes
+  watch(address, async () => {
+    if (selectedAsset.value?.address && needsSwap.value) {
+      selectedAssetBalance.value = await fetchSingleBalance(selectedAsset.value.address)
+    }
+  })
 
   // --- Watch quote changes → sync opposite field + estimates ---
   watch([quotes.effectiveQuote, direction], () => {
@@ -506,12 +521,14 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
       catch (e) {
         logWarn('walletSwapRepay/buildPlan', e)
         plan.value = null
+        error('Unable to prepare transaction')
+        return
       }
 
-      if (plan.value) {
-        const ok = await runSimulation(plan.value)
-        if (!ok) return
-      }
+      if (!plan.value) return
+
+      const ok = await runSimulation(plan.value)
+      if (!ok) return
 
       // For review modal: show input token as primary asset, borrow asset as swap target
       const inputDisplay = direction.value === SwapperMode.TARGET_DEBT && amount.value
