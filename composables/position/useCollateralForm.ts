@@ -388,7 +388,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     if (!isConnected.value) return false
     if (options.effectiveBalance.value < valueToNano(amount.value, asset.value?.decimals)) return true
     if (isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value) return true
-    if (options.needsSwap.value && !swapEffectiveQuote.value && !isSwapQuoteLoading.value) return true
+    if (options.needsSwap.value && !swapSelectedQuote.value) return true
     return false
   })
 

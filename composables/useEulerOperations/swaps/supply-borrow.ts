@@ -2,8 +2,8 @@ import type { Address, Hash } from 'viem'
 import { encodeFunctionData } from 'viem'
 import type { OperationsContext, OperationHelpers } from '../types'
 import { buildSwapVerifierData } from './verify'
-import { evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
-import { vaultBorrowAbi, vaultRedeemAbi, vaultWithdrawAbi } from '~/abis/vault'
+import { evcDisableCollateralAbi, evcDisableControllerAbi, evcEnableCollateralAbi, evcEnableControllerAbi } from '~/abis/evc'
+import { vaultBorrowAbi, vaultRedeemAbi, vaultTransferFromMaxAbi, vaultWithdrawAbi } from '~/abis/vault'
 import { SaHooksBuilder } from '~/entities/saHooksSDK'
 import { swapperAbi, swapVerifierAbi, transferFromSenderAbi } from '~/entities/euler/abis'
 import { convertSaHooksToEVCCalls, type EVCCall } from '~/utils/evc-converter'
@@ -447,9 +447,172 @@ export const createSupplyBorrowSwapBuilders = (
     }
   }
 
+  /**
+   * Swap an arbitrary token from the user's wallet and repay debt via verifyDebtMax.
+   * Supports both EXACT_IN and TARGET_DEBT modes. Optionally cleans up the position on full repay.
+   */
+  const buildSwapAndRepayPlan = async ({
+    inputTokenAddress,
+    inputAmount,
+    quote,
+    borrowVaultAddress,
+    subAccount,
+    enabledCollaterals,
+    isFullRepay = false,
+    swapperMode = SwapperMode.EXACT_IN,
+    targetDebt = 0n,
+    currentDebt = 0n,
+    includePermit2Call = true,
+  }: {
+    inputTokenAddress: Address
+    inputAmount: bigint
+    quote: SwapApiQuote
+    borrowVaultAddress: Address
+    subAccount: Address
+    enabledCollaterals?: string[]
+    isFullRepay?: boolean
+    swapperMode?: SwapperMode
+    targetDebt?: bigint
+    currentDebt?: bigint
+    includePermit2Call?: boolean
+  }): Promise<TxPlan> => {
+    if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
+      throw new Error('Wallet not connected or addresses not available')
+    }
+
+    const userAddr = ctx.address.value as Address
+    const evcAddress = ctx.eulerCoreAddresses.value.evc as Address
+    const swapVerifierAddress = ctx.eulerPeripheryAddresses.value.swapVerifier as Address
+    const borrowVaultAddr = borrowVaultAddress
+
+    assertSwapperVerifierAllowed(quote.verify.verifierAddress, ctx.eulerPeripheryAddresses.value.swapVerifier)
+
+    if (quote.verify.type !== SwapVerificationType.DebtMax) {
+      throw new Error('Swap verifier type mismatch')
+    }
+
+    const verifierData = buildSwapVerifierData({ quote, swapperMode, isRepay: true, targetDebt, currentDebt })
+    if (verifierData.toLowerCase() !== quote.verify.verifierData.toLowerCase()) {
+      logWarn('swap-repay', 'SwapVerifier data mismatch')
+      throw new Error('SwapVerifier data mismatch')
+    }
+
+    const { steps, permitCall, usesPermit2 } = await helpers.prepareTokenApproval({
+      assetAddr: inputTokenAddress,
+      spenderAddr: swapVerifierAddress,
+      userAddr,
+      amount: inputAmount,
+      includePermit2Call,
+    })
+
+    const tos = await helpers.prepareTos(userAddr)
+
+    const hooks = new SaHooksBuilder()
+    hooks.addContractInterface(swapVerifierAddress, [...transferFromSenderAbi, ...swapVerifierAbi])
+    hooks.addContractInterface(quote.swap.swapperAddress, swapperAbi)
+
+    if (isFullRepay) {
+      hooks.addContractInterface(borrowVaultAddr, evcDisableControllerAbi)
+      hooks.addContractInterface(evcAddress, evcDisableCollateralAbi)
+      const collateralAddresses = enabledCollaterals || []
+      for (const collateralAddr of collateralAddresses) {
+        hooks.addContractInterface(collateralAddr as Address, vaultTransferFromMaxAbi)
+      }
+    }
+
+    tos.addTosInterface(hooks)
+
+    const evcCalls: EVCCall[] = []
+
+    if (permitCall) {
+      evcCalls.push(permitCall)
+    }
+
+    tos.injectTosCall(evcCalls, hooks)
+
+    // transferFromSender: pull tokens from wallet to swapper
+    evcCalls.push({
+      targetContract: swapVerifierAddress,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: hooks.getDataForCall(swapVerifierAddress, 'transferFromSender', [inputTokenAddress, inputAmount, quote.swap.swapperAddress]) as Hash,
+    })
+
+    // Swapper multicall
+    evcCalls.push({
+      targetContract: quote.swap.swapperAddress,
+      onBehalfOfAccount: userAddr,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: swapperAbi,
+        functionName: 'multicall',
+        args: [quote.swap.multicallItems.map(item => item.data)],
+      }),
+    })
+
+    // Verify debt max — handles skim + repay internally
+    evcCalls.push({
+      targetContract: quote.verify.verifierAddress,
+      onBehalfOfAccount: quote.verify.account,
+      value: 0n,
+      data: verifierData,
+    })
+
+    if (isFullRepay) {
+      // Disable controller
+      evcCalls.push({
+        targetContract: borrowVaultAddr,
+        onBehalfOfAccount: subAccount,
+        value: 0n,
+        data: hooks.getDataForCall(borrowVaultAddr, 'disableController', []) as Hash,
+      })
+
+      // Disable collateral
+      const collateralAddresses = enabledCollaterals || []
+      for (const collateralAddr of collateralAddresses) {
+        evcCalls.push({
+          targetContract: evcAddress,
+          onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,
+          value: 0n,
+          data: hooks.getDataForCall(evcAddress, 'disableCollateral', [subAccount, collateralAddr as Address]) as Hash,
+        })
+      }
+
+      // Transfer collateral shares back to main account
+      const isMainAccount = subAccount.toLowerCase() === userAddr.toLowerCase()
+      if (!isMainAccount) {
+        for (const collateralAddr of collateralAddresses) {
+          evcCalls.push({
+            targetContract: collateralAddr as Address,
+            onBehalfOfAccount: subAccount,
+            value: 0n,
+            data: hooks.getDataForCall(collateralAddr as Address, 'transferFromMax', [subAccount, userAddr]) as Hash,
+          })
+        }
+      }
+    }
+    else {
+      // Partial repay: prepend Pyth updates for health check
+      await helpers.injectPythHealthCheckUpdates({
+        evcCalls,
+        liabilityVaultAddr: borrowVaultAddr,
+        enabledCollaterals,
+        userAddr,
+      })
+    }
+
+    const kind = isFullRepay ? 'swap-wallet-full-repay' : 'swap-wallet-repay'
+    const label = usesPermit2 ? 'Permit2 swap & repay via EVC' : 'Swap & repay via EVC'
+
+    steps.push(helpers.buildEvcBatchStep({ evcCalls, label }))
+
+    return { kind, steps }
+  }
+
   return {
     buildSwapAndSupplyPlan,
     buildSwapAndBorrowPlan,
+    buildSwapAndRepayPlan,
     buildWithdrawAndSwapPlan,
     buildRedeemAndSwapPlan,
   }
