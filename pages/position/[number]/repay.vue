@@ -409,16 +409,6 @@ watch(formTab, () => {
                 :number-filter="(n: number) => `${n}%`"
                 @update:model-value="walletSwap.onPercentInput"
               />
-
-              <SwapRouteSelector
-                :items="walletSwap.swapRouteItems.value"
-                :selected-provider="walletSwap.quotes.selectedProvider.value"
-                :status-label="walletSwap.quotes.statusLabel.value"
-                :is-loading="walletSwap.quotes.isLoading.value"
-                empty-message="Enter amount to fetch quotes"
-                @select="walletSwap.quotes.selectProvider"
-                @refresh="walletSwap.onRefreshSwapQuotes"
-              />
             </template>
 
             <!-- Pay with token selector -->
@@ -440,6 +430,18 @@ watch(formTab, () => {
                 />
               </button>
             </div>
+
+            <!-- Swap route selector (only when swapping) -->
+            <SwapRouteSelector
+              v-if="walletSwap.needsSwap.value"
+              :items="walletSwap.swapRouteItems.value"
+              :selected-provider="walletSwap.quotes.selectedProvider.value"
+              :status-label="walletSwap.quotes.statusLabel.value"
+              :is-loading="walletSwap.quotes.isLoading.value"
+              empty-message="Enter amount to fetch quotes"
+              @select="walletSwap.quotes.selectProvider"
+              @refresh="walletSwap.onRefreshSwapQuotes"
+            />
 
             <UiToast
               v-if="isWalletSwapRestricted"
