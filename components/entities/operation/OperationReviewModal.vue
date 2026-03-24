@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { encodeFunctionData } from 'viem'
+import { encodeFunctionData, formatGwei } from 'viem'
 import type { Address, Hex } from 'viem'
 import type { Campaign } from '~/entities/brevis'
 import type { VaultAsset } from '~/entities/vault'
@@ -56,7 +56,7 @@ const {
 } = useTenderlySimulation()
 
 const isEstimatingFee = ref(false)
-const feeEstimate = ref<string | null>(null)
+const feeEstimate = ref<{ totalNative: string, gasPriceWei: bigint } | null>(null)
 const copied = ref(false)
 const tenderlyEnabled = ref(false)
 
@@ -121,7 +121,7 @@ const loadFeeEstimate = async () => {
   try {
     isEstimatingFee.value = true
     const res = await estimatePlanFees(plan)
-    feeEstimate.value = res.totalNative
+    feeEstimate.value = { totalNative: res.totalNative, gasPriceWei: res.gasPriceWei }
   }
   catch (err) {
     logWarn('OperationReviewModal/feeEstimate', err)
@@ -228,17 +228,23 @@ const usesPermit2 = computed(() => {
 
 const permit2DisclaimerText = 'You are granting the permit2 contract unlimited access to your tokens. This is a safe, one-time setup — permit2 (by Uniswap) is a widely trusted and audited contract that replaces repeated approval transactions with gasless signatures. Each future transaction still requires your explicit signature, limited in both amount and duration.'
 
-const feeDisplay = computed(() => {
+const feeNativeDisplay = computed(() => {
   if (isEstimatingFee.value) {
     return '...'
   }
 
-  const value = feeEstimate.value ?? fee
+  const value = feeEstimate.value?.totalNative ?? fee
   if (value === undefined || value === null || value === '') {
     return '-'
   }
 
   return `${formatNumber(value, 8, 0)} ${nativeSymbol.value}`
+})
+
+const feeGasPriceDisplay = computed(() => {
+  if (!feeEstimate.value?.gasPriceWei) return null
+  const gweiValue = formatGwei(feeEstimate.value.gasPriceWei)
+  return `@ ${formatNumber(gweiValue, 2, 0)} gwei`
 })
 </script>
 
@@ -270,8 +276,14 @@ const feeDisplay = computed(() => {
           />
           Transaction fee
         </div>
-        <div class="flex gap-8 items-center">
-          <span class="text-p2">&asymp; {{ feeDisplay }}</span>
+        <div class="flex flex-col items-end gap-2">
+          <span class="text-p2">{{ feeNativeDisplay }}</span>
+          <span
+            v-if="feeGasPriceDisplay"
+            class="text-p4 text-content-secondary"
+          >
+            {{ feeGasPriceDisplay }}
+          </span>
         </div>
       </div>
 
