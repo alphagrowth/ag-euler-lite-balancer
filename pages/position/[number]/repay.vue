@@ -7,7 +7,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useModal } from '~/components/ui/composables/useModal'
-import { SlippageSettingsModal } from '#components'
+import { SlippageSettingsModal, SwapTokenSelector } from '#components'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { createRaceGuard } from '~/utils/race-guard'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
@@ -15,6 +15,7 @@ import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { useWalletRepay } from '~/composables/repay/useWalletRepay'
+import { useWalletSwapRepay } from '~/composables/repay/useWalletSwapRepay'
 import { useCollateralSwapRepay } from '~/composables/repay/useCollateralSwapRepay'
 import { useSavingsRepay } from '~/composables/repay/useSavingsRepay'
 
@@ -128,6 +129,28 @@ const wallet = useWalletRepay({
   oraclePriceRatio,
 })
 
+const walletSwap = useWalletSwapRepay({
+  position,
+  borrowVault,
+  collateralVault,
+  formTab,
+  plan,
+  isSubmitting,
+  isPreparing,
+  clearSimulationError,
+  runSimulation,
+  netAPY,
+  collateralSupplyApy,
+  borrowApy,
+  collateralSupplyRewardApy,
+  borrowRewardApy,
+  oraclePriceRatio,
+})
+
+const { guardWithPriceImpact: guardWithWalletSwapPriceImpact } = usePriceImpactGate({
+  directPriceImpact: walletSwap.swapPriceImpact,
+})
+
 const collateral = useCollateralSwapRepay({
   position,
   borrowVault,
@@ -182,7 +205,11 @@ const formTabs = computed(() => {
 // --- Submit ---
 const reviewRepayLabel = getSubmitLabel('Review Repay')
 const reviewRepayDisabled = getSubmitDisabled(computed(() => {
-  if (formTab.value === 'wallet') return wallet.isSubmitDisabled.value
+  if (formTab.value === 'wallet') {
+    return walletSwap.needsSwap.value
+      ? walletSwap.isSubmitDisabled.value
+      : wallet.isSubmitDisabled.value
+  }
   if (formTab.value === 'savings') return savings.isSubmitDisabled.value
   return collateral.isSubmitDisabled.value
 }))
@@ -190,7 +217,12 @@ const reviewRepayDisabled = getSubmitDisabled(computed(() => {
 const onSubmitForm = async () => {
   await guardWithTerms(async () => {
     if (formTab.value === 'wallet') {
-      await wallet.submit()
+      if (walletSwap.needsSwap.value) {
+        await guardWithWalletSwapPriceImpact(() => walletSwap.submit())
+      }
+      else {
+        await wallet.submit()
+      }
     }
     else if (formTab.value === 'savings') {
       await guardWithSavingsPriceImpact(() => savings.submit())
@@ -203,6 +235,15 @@ const onSubmitForm = async () => {
 
 const openSlippageSettings = () => {
   modal.open(SlippageSettingsModal)
+}
+
+const openWalletSwapTokenSelector = () => {
+  modal.open(SwapTokenSelector, {
+    props: {
+      currentAssetAddress: walletSwap.selectedAsset.value?.address || borrowVault.value?.asset.address,
+      onSelect: walletSwap.onSelectSwapAsset,
+    },
+  })
 }
 
 // --- Load / Fetch ---
@@ -255,6 +296,7 @@ watch(address, () => {
 watch(formTab, () => {
   clearSimulationError()
   wallet.resetOnTabSwitch()
+  walletSwap.resetOnTabSwitch()
   collateral.resetOnTabSwitch()
   savings.resetOnTabSwitch()
 })
@@ -293,43 +335,125 @@ watch(formTab, () => {
       <template v-if="formTab === 'wallet'">
         <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">
           <div class="flex flex-col gap-16 w-full">
-            <AssetInput
-              v-if="position.borrow.asset"
-              v-model="wallet.amount.value"
-              label="Pay from wallet"
-              :desc="name"
-              :asset="position.borrow.asset"
-              :vault="position.borrow"
-              :balance="walletBalance"
-              maxable
-            />
+            <!-- Direct repay (no swap) -->
+            <template v-if="!walletSwap.needsSwap.value">
+              <AssetInput
+                v-if="position.borrow.asset"
+                v-model="wallet.amount.value"
+                label="Pay from wallet"
+                :desc="name"
+                :asset="position.borrow.asset"
+                :vault="position.borrow"
+                :balance="walletBalance"
+                maxable
+              />
 
-            <AssetInput
-              v-if="position.borrow.asset"
-              v-model="wallet.amount.value"
-              label="Debt to repay"
-              :asset="position.borrow.asset"
-              :vault="position.borrow"
-              :balance="position.borrowed"
-              maxable
-            />
+              <AssetInput
+                v-if="position.borrow.asset"
+                v-model="wallet.amount.value"
+                label="Debt to repay"
+                :asset="position.borrow.asset"
+                :vault="position.borrow"
+                :balance="position.borrowed"
+                maxable
+              />
 
-            <UiRange
-              v-if="borrowVault"
-              v-model="wallet.walletRepayPercent.value"
-              label="Percent of debt to repay"
-              :min="0"
-              :max="100"
-              :step="1"
-              :number-filter="(n: number) => `${n}%`"
-              @update:model-value="wallet.onWalletRepayPercentInput"
-            />
+              <UiRange
+                v-if="borrowVault"
+                v-model="wallet.walletRepayPercent.value"
+                label="Percent of debt to repay"
+                :min="0"
+                :max="100"
+                :step="1"
+                :number-filter="(n: number) => `${n}%`"
+                @update:model-value="wallet.onWalletRepayPercentInput"
+              />
+            </template>
+
+            <!-- Swap + repay -->
+            <template v-else>
+              <AssetInput
+                v-if="walletSwap.selectedAsset.value"
+                v-model="walletSwap.amount.value"
+                label="Pay from wallet"
+                :asset="walletSwap.selectedAsset.value"
+                :balance="walletSwap.selectedAssetBalance.value"
+                maxable
+                @update:model-value="walletSwap.onAmountInput"
+              />
+
+              <AssetInput
+                v-if="position.borrow.asset"
+                v-model="walletSwap.debtAmount.value"
+                label="Debt to repay"
+                :asset="position.borrow.asset"
+                :vault="position.borrow"
+                :balance="position.borrowed"
+                maxable
+                @update:model-value="walletSwap.onDebtInput"
+              />
+
+              <UiRange
+                v-if="borrowVault"
+                v-model="walletSwap.debtPercent.value"
+                label="Percent of debt to repay"
+                :min="0"
+                :max="100"
+                :step="1"
+                :number-filter="(n: number) => `${n}%`"
+                @update:model-value="walletSwap.onPercentInput"
+              />
+
+              <SwapRouteSelector
+                :items="walletSwap.swapRouteItems.value"
+                :selected-provider="walletSwap.quotes.selectedProvider.value"
+                :status-label="walletSwap.quotes.statusLabel.value"
+                :is-loading="walletSwap.quotes.isLoading.value"
+                empty-message="Enter amount to fetch quotes"
+                @select="walletSwap.quotes.selectProvider"
+                @refresh="walletSwap.onRefreshSwapQuotes"
+              />
+            </template>
+
+            <!-- Pay with token selector -->
+            <div class="flex items-center gap-8">
+              <span class="text-p3 text-content-tertiary">Pay with</span>
+              <button
+                type="button"
+                class="flex items-center gap-6 bg-card text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
+                @click="openWalletSwapTokenSelector"
+              >
+                <AssetAvatar
+                  :asset="{ address: walletSwap.selectedAsset.value?.address || position.borrow.asset?.address || '', symbol: walletSwap.selectedAsset.value?.symbol || position.borrow.asset?.symbol || '' }"
+                  size="20"
+                />
+                {{ walletSwap.selectedAsset.value?.symbol || position.borrow.asset?.symbol }}
+                <SvgIcon
+                  class="text-content-tertiary !w-16 !h-16"
+                  name="arrow-down"
+                />
+              </button>
+            </div>
 
             <UiToast
-              v-show="wallet.estimatesError.value"
+              v-if="walletSwap.needsSwap.value && walletSwap.disabledReason.value"
               title="Error"
               variant="error"
-              :description="wallet.estimatesError.value"
+              :description="walletSwap.disabledReason.value"
+              size="compact"
+            />
+            <UiToast
+              v-show="walletSwap.needsSwap.value ? walletSwap.estimatesError.value : wallet.estimatesError.value"
+              title="Error"
+              variant="error"
+              :description="walletSwap.needsSwap.value ? walletSwap.estimatesError.value : wallet.estimatesError.value"
+              size="compact"
+            />
+            <UiToast
+              v-if="walletSwap.needsSwap.value && walletSwap.quotes.quoteError.value"
+              title="Swap quote"
+              variant="warning"
+              :description="walletSwap.quotes.quoteError.value"
               size="compact"
             />
             <UiToast
@@ -343,14 +467,42 @@ watch(formTab, () => {
 
           <VaultFormInfoBlock
             v-if="collateralVault && borrowVault"
-            :loading="wallet.isEstimatesLoading.value"
+            :loading="walletSwap.needsSwap.value ? walletSwap.isEstimatesLoading.value : wallet.isEstimatesLoading.value"
             variant="card"
             class="w-full laptop:max-w-[360px]"
           >
+            <!-- Swap details (when swapping) -->
+            <template v-if="walletSwap.needsSwap.value && walletSwap.swapEstimatedOutput.value">
+              <SummaryRow
+                v-if="walletSwap.swapPriceImpact.value !== null"
+                label="Price impact"
+              >
+                <span
+                  class="text-p2"
+                  :class="{ 'text-error-500': isPriceImpactWarning(walletSwap.swapPriceImpact.value) }"
+                >
+                  {{ formatNumber(walletSwap.swapPriceImpact.value, 2) }}%
+                </span>
+              </SummaryRow>
+              <SummaryRow label="Slippage tolerance">
+                <button
+                  type="button"
+                  class="flex items-center gap-6 text-p2"
+                  @click="openSlippageSettings"
+                >
+                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
+                  <SvgIcon
+                    name="edit"
+                    class="!w-16 !h-16 text-accent-600"
+                  />
+                </button>
+              </SummaryRow>
+            </template>
+
             <SummaryRow label="Net APY">
               <SummaryValue
                 :before="formatNumber(netAPY)"
-                :after="formatNumber(wallet.estimateNetAPY.value)"
+                :after="formatNumber(walletSwap.needsSwap.value ? walletSwap.estimateNetAPY.value : wallet.estimateNetAPY.value)"
                 suffix="%"
               />
             </SummaryRow>
@@ -365,8 +517,8 @@ watch(formTab, () => {
             <SummaryRow label="Liq. price">
               <SummaryPriceValue
                 :before="walletPriceInvert.invertValue(liquidationPrice) != null ? formatSmartAmount(walletPriceInvert.invertValue(liquidationPrice)!) : undefined"
-                :after="walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue(wallet.estimateHealth.value, 18))) != null
-                  ? formatSmartAmount(walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue(wallet.estimateHealth.value, 18)))!)
+                :after="walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue((walletSwap.needsSwap.value ? walletSwap.estimateHealth.value : wallet.estimateHealth.value), 18))) != null
+                  ? formatSmartAmount(walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue((walletSwap.needsSwap.value ? walletSwap.estimateHealth.value : wallet.estimateHealth.value), 18)))!)
                   : undefined"
                 :symbol="walletPriceInvert.displaySymbol"
                 invertible
@@ -378,7 +530,7 @@ watch(formTab, () => {
                 :before="formatLiqBuffer(walletPriceInvert.invertValue(oraclePriceRatio), walletPriceInvert.invertValue(liquidationPrice))"
                 :after="formatLiqBuffer(
                   walletPriceInvert.invertValue(oraclePriceRatio),
-                  walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue(wallet.estimateHealth.value, 18))),
+                  walletPriceInvert.invertValue(liqPriceFromHealth(nanoToValue((walletSwap.needsSwap.value ? walletSwap.estimateHealth.value : wallet.estimateHealth.value), 18))),
                 )"
                 suffix="%"
               />
@@ -386,14 +538,14 @@ watch(formTab, () => {
             <SummaryRow label="LTV">
               <SummaryValue
                 :before="formatNumber(nanoToValue(position.userLTV, 18))"
-                :after="formatNumber(nanoToValue(wallet.estimateUserLTV.value, 18))"
+                :after="formatNumber(nanoToValue(walletSwap.needsSwap.value ? walletSwap.estimateUserLTV.value : wallet.estimateUserLTV.value, 18))"
                 suffix="%"
               />
             </SummaryRow>
             <SummaryRow label="Health score">
               <SummaryValue
                 :before="formatHealthScore(nanoToValue(position.health, 18))"
-                :after="formatHealthScore(nanoToValue(wallet.estimateHealth.value, 18))"
+                :after="formatHealthScore(nanoToValue(walletSwap.needsSwap.value ? walletSwap.estimateHealth.value : wallet.estimateHealth.value, 18))"
               />
             </SummaryRow>
           </VaultFormInfoBlock>

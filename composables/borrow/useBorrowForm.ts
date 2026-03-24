@@ -305,8 +305,8 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     else if ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals)) {
       return 'Not enough liquidity in the vault'
     }
-    if (borrowNeedsSwap.value && !borrowSwapEffectiveQuote.value && !isBorrowSwapQuoteLoading.value && +collateralAmount.value > 0) {
-      return 'No swap quote available'
+    if (borrowNeedsSwap.value && !borrowSwapSelectedQuote.value && +collateralAmount.value > 0) {
+      return isBorrowSwapQuoteLoading.value ? null : 'No swap quote available'
     }
     return null
   })
@@ -320,7 +320,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     if (!(+collateralAmount.value)) return true
     if ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals)) return true
     if (!valueToNano(borrowAmount.value, borrowVault.value?.decimals)) return true
-    if (borrowNeedsSwap.value && !borrowSwapEffectiveQuote.value && !isBorrowSwapQuoteLoading.value) return true
+    if (borrowNeedsSwap.value && !borrowSwapSelectedQuote.value) return true
     if (isSupplyCapReached.value || isBorrowCapReached.value) return true
     return false
   })
