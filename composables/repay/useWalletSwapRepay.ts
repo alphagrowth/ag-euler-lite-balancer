@@ -294,6 +294,10 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     const gen = estimatesGuard.next()
 
     try {
+      if (!oraclePriceRatio.value || !Number.isFinite(oraclePriceRatio.value) || oraclePriceRatio.value <= 0) {
+        throw new Error('Price data unavailable')
+      }
+
       // Balance check only for EXACT_IN (for TARGET_DEBT, the needed amount comes from the quote)
       if (direction.value === SwapperMode.EXACT_IN) {
         if (selectedAssetBalance.value < valueToNano(amount.value, selectedAsset.value?.decimals)) {
@@ -376,6 +380,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
 
   // --- Helpers ---
   const resetDerivedState = () => {
+    estimatesGuard.next()
     hasEstimate.value = false
     estimatesError.value = ''
     isEstimatesLoading.value = false
@@ -599,10 +604,8 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     debtAmount.value = ''
     debtPercent.value = 0
     direction.value = SwapperMode.EXACT_IN
-    hasEstimate.value = false
-    estimatesError.value = ''
-    isEstimatesLoading.value = false
     quotes.reset()
+    resetDerivedState()
   }
 
   const initEstimates = () => {
