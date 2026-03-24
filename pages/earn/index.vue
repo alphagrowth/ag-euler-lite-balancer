@@ -5,7 +5,7 @@ import { useEulerAddresses } from '~/composables/useEulerAddresses'
 import { getAssetLogoUrl } from '~/composables/useTokens'
 import type { EarnVault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { getProductByVault, getEntitiesByEarnVault, isVaultFeatured, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { getProductByVault, getEntitiesByEarnVault, isVaultFeatured, isVaultDeprecated, isEarnVaultNotExplorable } from '~/utils/eulerLabelsUtils'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { useCustomFilters } from '~/composables/useCustomFilters'
 import { useVaultSearch } from '~/composables/useVaultSearch'
@@ -20,7 +20,7 @@ const isLoading = computed(() => isEarnUpdating.value || !isPricesReady.value)
 const { isSlow } = useSlowLoading(isLoading)
 const { getEarnVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
-const list = computed(() => getEarnVaults().filter(v => v.verified))
+const list = computed(() => getEarnVaults().filter(v => v.verified && !isEarnVaultNotExplorable(v.address)))
 
 const { enableEntityBranding } = useDeployConfig()
 

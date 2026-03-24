@@ -16,6 +16,7 @@ export const featuredEarnVaults: Set<string> = shallowReactive(new Set())
 export const deprecatedEarnVaults: Record<string, string> = shallowReactive({}) // address (lowercase) -> deprecation reason
 export const earnVaultDescriptions: Record<string, string> = shallowReactive({}) // address (lowercase) -> description
 export const earnVaultNotices: Record<string, string> = shallowReactive({}) // address (lowercase) -> notice
+export const notExplorableEarnVaults: Set<string> = shallowReactive(new Set())
 // Derived from products - all unique vault addresses across all products
 export const verifiedVaultAddresses: Ref<string[]> = ref([])
 export const oracleAdapters: Record<string, OracleAdapterMeta> = shallowReactive({})

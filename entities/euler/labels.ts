@@ -47,6 +47,7 @@ export type EulerLabelEarnVaultEntry = {
   deprecationReason?: string
   description?: string
   portfolioNotice?: string
+  notExplorable?: boolean
 }
 export type EulerLabelPoint = {
   name: string
