@@ -171,7 +171,7 @@ const { guardWithPriceImpact: guardWithSavingsPriceImpact } = usePriceImpactGate
 const formTabs = computed(() => {
   const tabs = [
     { label: 'From wallet', value: 'wallet' },
-    { label: 'Swap collateral', value: 'collateral' },
+    { label: 'From collateral', value: 'collateral' },
   ]
   if (savings.savingsPositions.value.length > 0) {
     tabs.push({ label: 'From savings', value: 'savings' })
