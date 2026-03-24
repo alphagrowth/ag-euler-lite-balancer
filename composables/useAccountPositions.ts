@@ -277,9 +277,26 @@ const updateBorrowPositions = async (
         // Get collateral price in USD for liquidation price calculation
         const collateralPriceUsd = await getCollateralUsdPrice(borrow, collateral, 'off-chain')
 
-        // Guard against missing price
+        // Missing price — return position with degraded state (same pattern as oracle query failure)
         if (!collateralPriceUsd) {
-          return undefined
+          return {
+            borrow,
+            collateral,
+            collaterals,
+            subAccount,
+            borrowed: res.vaultAccountInfo.borrowed,
+            supplied: suppliedAssets,
+            borrowLTV: effectiveBorrowLTV,
+            liquidationLTV,
+            health: healthFixed.value,
+            userLTV,
+            price: 0n,
+            liabilityValueBorrowing,
+            liabilityValueLiquidation: liquidityInfo.liabilityValueLiquidation,
+            timeToLiquidation: liquidityInfo.timeToLiquidation,
+            collateralValueLiquidation,
+            liquidityQueryFailure: true,
+          } as AccountBorrowPosition
         }
 
         const supplyLiquidationPriceRatio = collateralValueLiquidation === 0n

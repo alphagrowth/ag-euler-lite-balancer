@@ -158,7 +158,7 @@ watch(portfolioRefreshCounter, () => {
               return formatCompactUsdValue(netValue)
             })() }}
             <UiFootnote
-              v-if="(totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices) && (totalSuppliedValueInfo.total - totalBorrowedValueInfo.total) !== 0"
+              v-if="totalSuppliedValueInfo.hasMissingPrices || totalBorrowedValueInfo.hasMissingPrices"
               title="Incomplete pricing"
               text="Some assets in your portfolio don't have price data available. The displayed value may be higher than shown."
               tooltip-placement="top-end"
@@ -178,7 +178,7 @@ watch(portfolioRefreshCounter, () => {
               return formatCompactUsdValue(total)
             })() }}
             <UiFootnote
-              v-if="totalSuppliedValueInfo.hasMissingPrices && totalSuppliedValueInfo.total !== 0"
+              v-if="totalSuppliedValueInfo.hasMissingPrices"
               title="Incomplete pricing"
               text="Some supplied assets don't have price data available. The displayed value may be higher than shown."
               tooltip-placement="top-end"
@@ -198,7 +198,7 @@ watch(portfolioRefreshCounter, () => {
               return formatCompactUsdValue(total)
             })() }}
             <UiFootnote
-              v-if="totalBorrowedValueInfo.hasMissingPrices && totalBorrowedValueInfo.total !== 0"
+              v-if="totalBorrowedValueInfo.hasMissingPrices"
               title="Incomplete pricing"
               text="Some borrowed assets don't have price data available. The displayed value may be higher than shown."
               tooltip-placement="top-end"

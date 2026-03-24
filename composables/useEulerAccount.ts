@@ -9,6 +9,7 @@ import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { fetchAccountPositions, type SubgraphPositionEntry } from '~/utils/subgraph'
+import { logWarn } from '~/utils/errorHandling'
 
 const {
   depositPositions,
@@ -73,6 +74,13 @@ export const useEulerAccount = () => {
         { forceAllPositions: shouldShowAll },
         gen,
       )
+    }
+    catch (error) {
+      logWarn('useEulerAccount/updatePositions', error)
+      isPositionsLoading.value = false
+      isPositionsLoaded.value = true
+      isDepositsLoading.value = false
+      isDepositsLoaded.value = true
     }
     finally {
       fetchInProgress = false
@@ -174,6 +182,13 @@ export const useEulerAccount = () => {
 
       await updateBorrowPositions(lensAddresses, walletAddress, borrowEntries)
       await updateSavingsPositions(lensAddresses, walletAddress, depositEntries, false, {}, gen)
+    }
+    catch (error) {
+      logWarn('useEulerAccount/refreshAllPositions', error)
+      isPositionsLoading.value = false
+      isPositionsLoaded.value = true
+      isDepositsLoading.value = false
+      isDepositsLoaded.value = true
     }
     finally {
       fetchInProgress = false

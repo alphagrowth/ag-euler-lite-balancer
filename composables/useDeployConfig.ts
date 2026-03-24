@@ -51,8 +51,9 @@ export const useDeployConfig = () => {
     enableIncentra: isEnabled(rc.configEnableIncentra),
     enableFuul: isEnabled(rc.configEnableFuul),
 
-    // External token list
-    tokenListUrl: rc.configTokenListUrl || 'https://tokens.uniswap.org',
+    // External token lists (defaults in server/api/token-list.get.ts)
+    uniswapTokenListUrl: rc.configUniswapTokenListUrl || '',
+    defillamaTokenListUrl: rc.configDefillamaTokenListUrl || '',
 
     // Chains (derived from env vars at runtime via useChainConfig)
     ...useChainConfig(),

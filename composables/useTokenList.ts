@@ -51,21 +51,18 @@ const loadTokenList = async (forceRefresh = false) => {
 
     const now = Date.now()
 
-    // If we have raw tokens cached and only chain changed, re-filter without fetching
+    // DefiLlama data is per-chain, so re-fetch when chain changes
     if (!forceRefresh
       && loadState.rawTokens.length > 0
+      && loadState.chainId === chainId
       && (now - loadState.timestamp) < CACHE_TTL_5MIN_MS) {
-      if (loadState.chainId !== chainId) {
-        loadState.chainId = chainId
-        filterByChain(chainId)
-      }
       return
     }
 
     const gen = guard.next()
     isLoading.value = true
 
-    const res = await axios.get('/api/token-list')
+    const res = await axios.get('/api/token-list', { params: { chainId } })
     if (guard.isStale(gen)) return
 
     const tokens: TokenListEntry[] = res.data?.tokens || []

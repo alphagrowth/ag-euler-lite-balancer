@@ -20,12 +20,11 @@ interface REULUnlockInfo {
   daysUntilMaturity: number
 }
 
-const { type, asset, assetIconUrl, campaignInfo: _campaignInfo, reulUnlockInfo, amount, onConfirm, fee, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount, transferAmounts } = defineProps<{
+const { type, asset, assetIconUrl, campaignInfo: _campaignInfo, reulUnlockInfo, amount, onConfirm, plan, swapToAsset, swapToAmount, supplyingAssetForBorrow, supplyingAmount, transferAmounts } = defineProps<{
   type?: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'transfer' | 'reward' | 'brevis-reward' | 'fuul-reward' | 'reul-unlock' | 'disableCollateral' | 'swap-supply' | 'swap-withdraw' | 'swap-borrow'
   asset: VaultAsset
   assetIconUrl?: string
   amount: number | string
-  fee?: number | string
   plan?: TxPlan
   supplyingAssetForBorrow?: VaultAsset
   supplyingAmount?: number | string
@@ -40,9 +39,8 @@ const { type, asset, assetIconUrl, campaignInfo: _campaignInfo, reulUnlockInfo, 
   transferAmounts?: Record<string, string>
 }>()
 
-const { chain, address: walletAddress, chainId: currentChainId } = useWagmi()
+const { address: walletAddress, chainId: currentChainId } = useWagmi()
 const { isSpyMode } = useSpyMode()
-const { estimatePlanFees } = useEstimatePlanFees()
 const { getVault } = useVaultRegistry()
 const { buildSimulationStateOverride } = useEulerOperations()
 const { eulerCoreAddresses } = useEulerAddresses()
@@ -55,8 +53,6 @@ const {
   fetchEnabled: fetchTenderlyEnabled,
 } = useTenderlySimulation()
 
-const isEstimatingFee = ref(false)
-const feeEstimate = ref<string | null>(null)
 const copied = ref(false)
 const tenderlyEnabled = ref(false)
 
@@ -109,32 +105,6 @@ const handleTenderlySimulate = async () => {
     // Error is captured in tenderlyError ref by the composable
   }
 }
-
-const nativeSymbol = computed(() => chain.value?.nativeCurrency?.symbol || 'ETH')
-
-const loadFeeEstimate = async () => {
-  if (!plan) {
-    feeEstimate.value = null
-    return
-  }
-
-  try {
-    isEstimatingFee.value = true
-    const res = await estimatePlanFees(plan)
-    feeEstimate.value = res.totalNative
-  }
-  catch (err) {
-    logWarn('OperationReviewModal/feeEstimate', err)
-    feeEstimate.value = null
-  }
-  finally {
-    isEstimatingFee.value = false
-  }
-}
-
-watch(() => plan, () => {
-  loadFeeEstimate()
-}, { immediate: true })
 
 const handleConfirm = () => {
   emits('close')
@@ -227,19 +197,6 @@ const usesPermit2 = computed(() => {
 })
 
 const permit2DisclaimerText = 'You are granting the permit2 contract unlimited access to your tokens. This is a safe, one-time setup — permit2 (by Uniswap) is a widely trusted and audited contract that replaces repeated approval transactions with gasless signatures. Each future transaction still requires your explicit signature, limited in both amount and duration.'
-
-const feeDisplay = computed(() => {
-  if (isEstimatingFee.value) {
-    return '...'
-  }
-
-  const value = feeEstimate.value ?? fee
-  if (value === undefined || value === null || value === '') {
-    return '-'
-  }
-
-  return `${formatNumber(value, 8, 0)} ${nativeSymbol.value}`
-})
 </script>
 
 <template>
@@ -258,20 +215,6 @@ const feeDisplay = computed(() => {
         </p>
         <div class="bg-surface-secondary rounded-12 p-12 flex flex-col gap-8">
           <OperationStepsList :steps="displaySteps" />
-        </div>
-      </div>
-
-      <!-- Fee -->
-      <div class="flex-wrap gap-8 bg-surface-secondary p-16 rounded-12 flex justify-between">
-        <div class="flex gap-8 items-center">
-          <UiIcon
-            name="gas"
-            class="!w-20 !h-20"
-          />
-          Transaction fee
-        </div>
-        <div class="flex gap-8 items-center">
-          <span class="text-p2">&asymp; {{ feeDisplay }}</span>
         </div>
       </div>
 

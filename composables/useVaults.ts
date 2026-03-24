@@ -132,10 +132,10 @@ const updateEarnVaults = async (generation?: number) => {
     }
   }
   catch (e) {
+    logWarn('useVaults/updateEarnVaults', e)
     if (loadGeneration.value === gen) {
       isEarnUpdating.value = false
     }
-    throw e
   }
   // Note: isEarnUpdating is set to false in loadVaults() after all vaults are loaded
 }
@@ -305,6 +305,7 @@ const loadVaults = async () => {
     isEscrowLoadedOnce.value = true
   }
   catch (e) {
+    logWarn('useVaults/loadVaults', e)
     if (loadGeneration.value === generation) {
       isLoading.value = false
       isUpdating.value = false
@@ -313,7 +314,6 @@ const loadVaults = async () => {
       isEscrowLoading.value = false
       isEscrowUpdating.value = false
     }
-    throw e
   }
   finally {
     if (loadGeneration.value === generation && chainId.value === startChainId) {

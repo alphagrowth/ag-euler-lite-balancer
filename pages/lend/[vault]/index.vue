@@ -268,7 +268,7 @@ const isSubmitDisabled = computed(() => {
   if (!isConnected.value) return false
   if (activeBalance.value < valueToNano(amount.value, activeAsset.value?.decimals)) return true
   if (isLoading.value || !(+amount.value)) return true
-  if (needsSwap.value && !swapEffectiveQuote.value && !isSwapQuoteLoading.value) return true
+  if (needsSwap.value && !swapSelectedQuote.value) return true
   if (isSupplyCapReached.value) return true
   return false
 })
