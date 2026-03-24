@@ -80,8 +80,9 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
   const borrowedFixed = computed(() => FixedPoint.fromValue(position.value?.borrowed || 0n, position.value?.borrow.decimals || 18))
   const suppliedFixed = computed(() => FixedPoint.fromValue(position.value?.supplied || 0n, position.value?.collateral.decimals || 18))
   const priceFixed = computed(() => {
-    if (oraclePriceRatio.value != null) {
-      return FixedPoint.fromValue(BigInt(Math.round(oraclePriceRatio.value * 1e18)), 18)
+    const ratio = oraclePriceRatio.value
+    if (ratio && Number.isFinite(ratio) && ratio > 0) {
+      return FixedPoint.fromValue(BigInt(Math.round(ratio * 1e18)), 18)
     }
     return FixedPoint.fromValue(0n, 18)
   })
@@ -287,12 +288,16 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
 
   const initEstimates = () => {
     hasEstimate.value = false
+    estimatesError.value = ''
+    isEstimatesLoading.value = false
   }
 
   const resetOnTabSwitch = () => {
     amount.value = ''
     walletRepayPercent.value = 0
     hasEstimate.value = false
+    estimatesError.value = ''
+    isEstimatesLoading.value = false
   }
 
   return {

@@ -691,7 +691,7 @@ const openPairInfoModal = () => {
     },
   })
 }
-watch(isConnected, () => {
+watch([isConnected, isSpyMode], () => {
   load()
 }, { immediate: true })
 </script>
