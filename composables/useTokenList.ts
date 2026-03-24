@@ -1,8 +1,9 @@
 import axios from 'axios'
-import { getAddress } from 'viem'
+import { getAddress, zeroAddress } from 'viem'
 import type { VaultAsset } from '~/entities/vault'
 import { logWarn } from '~/utils/errorHandling'
 import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
+import { getChainById } from '~/entities/chainRegistry'
 import { createRaceGuard } from '~/utils/race-guard'
 
 interface TokenListEntry {
@@ -40,6 +41,20 @@ const filterByChain = (chainId: number) => {
       // skip invalid addresses
     }
   }
+  // Ensure the native currency is always present at address zero
+  if (!filtered.has(zeroAddress)) {
+    const chain = getChainById(chainId)
+    if (chain?.nativeCurrency) {
+      filtered.set(zeroAddress, {
+        chainId,
+        address: zeroAddress,
+        name: chain.nativeCurrency.name,
+        symbol: chain.nativeCurrency.symbol,
+        decimals: chain.nativeCurrency.decimals,
+      })
+    }
+  }
+
   tokenMap.value = filtered
 }
 
