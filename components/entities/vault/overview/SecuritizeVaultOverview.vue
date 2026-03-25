@@ -9,7 +9,6 @@ import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { autoLink } from '~/utils/autoLink'
-import { getVaultTypeDescription, getVaultTypeLabel } from '~/entities/vault/descriptions'
 import { getExplorerLink } from '~/utils/block-explorer'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { formatNumber, compactNumber, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
@@ -41,13 +40,6 @@ const isDeprecated = computed(() => {
 })
 const deprecationReason = computed(() => isDeprecated.value ? product.deprecationReason : '')
 const isRestricted = computed(() => isVaultBlockedByCountry(vault.address))
-
-const vaultTypeLabel = computed(() =>
-  getVaultTypeLabel('securitize', isGovernorVerified.value),
-)
-const vaultTypeDescription = computed(() =>
-  getVaultTypeDescription('securitize', isGovernorVerified.value),
-)
 
 const shortenAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -255,37 +247,20 @@ const supplyCapPercentageDisplay = computed(() => {
               >{{ entity.name }}</a>
             </div>
           </div>
-          <div
+          <VaultTypeChip
             v-else-if="!isGovernorVerified"
-            class="flex gap-8 items-center py-8 px-12 rounded-8 bg-error-100 text-error-500"
-          >
-            <UiIcon
-              class="mr-2 !w-20 !h-20"
-              name="warning"
-            />
-            Unknown
-          </div>
+            :vault="vault"
+            type="unknown"
+          />
           <div v-else>
             -
           </div>
         </VaultOverviewLabelValue>
         <VaultOverviewLabelValue
           v-if="enableVaultTypeDisplay"
+          label="Vault type"
         >
-          <template #label>
-            <span class="flex items-center gap-4">
-              Vault type
-              <UiFootnote
-                :title="vaultTypeLabel"
-                :text="vaultTypeDescription"
-                class="[--ui-footnote-icon-color:var(--text-muted)] hover:[--ui-footnote-icon-color:var(--text-secondary)]"
-              />
-            </span>
-          </template>
-          <VaultTypeChip
-            :vault="vault"
-            type="securitize"
-          />
+          <VaultTypeBadges :vault-address="vault.address" />
         </VaultOverviewLabelValue>
         <VaultOverviewLabelValue label="Can be borrowed">
           <div class="flex items-center gap-8">

@@ -5,6 +5,7 @@ import type { Campaign } from '~/entities/brevis'
 import type { VaultAsset } from '~/entities/vault'
 import type { TxPlan } from '~/entities/txPlan'
 import type { EVCCall } from '~/utils/evc-converter'
+import { applyOperationGuards } from '~/utils/operationGuardRegistry'
 import { buildDisplaySteps, type DisplayStep, type StepDecodingContext } from '~/utils/stepDecoding'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { logWarn } from '~/utils/errorHandling'
@@ -66,9 +67,10 @@ const handleTenderlySimulate = async () => {
 
   try {
     const owner = walletAddress.value as Address
-    const stateOverrides = await buildSimulationStateOverride(plan, owner)
+    const guardedPlan = applyOperationGuards(plan)
+    const stateOverrides = await buildSimulationStateOverride(guardedPlan, owner)
 
-    const mainStep = plan.steps.find(s => s.type === 'evc-batch')
+    const mainStep = guardedPlan.steps.find(s => s.type === 'evc-batch')
     if (!mainStep) return
 
     const batchItems = mainStep.args?.[0] as EVCCall[] | undefined

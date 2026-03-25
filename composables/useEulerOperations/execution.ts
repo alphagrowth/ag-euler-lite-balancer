@@ -4,6 +4,7 @@ import type { OperationsContext, AllowanceHelpers } from './types'
 import type { TxPlan } from '~/entities/txPlan'
 import { catchToFallback } from '~/utils/errorHandling'
 import { isNonBlockingSimulationError } from '~/utils/tx-errors'
+import { applyOperationGuards } from '~/utils/operationGuardRegistry'
 
 export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers: AllowanceHelpers) => {
   const { triggerPortfolioRefresh } = usePortfolioRefresh()
@@ -29,9 +30,10 @@ export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers:
       throw new Error('Wallet not connected')
     }
 
+    const guardedPlan = applyOperationGuards(plan)
     let lastHash: Hex | undefined
 
-    for (const step of plan.steps) {
+    for (const step of guardedPlan.steps) {
       /* eslint-disable @typescript-eslint/no-explicit-any -- wagmi writeContractAsync requires ABI-specific generics */
       const txHash = await ctx.writeContractAsync({
         address: step.to,
@@ -55,13 +57,15 @@ export const createExecutionHelpers = (ctx: OperationsContext, allowanceHelpers:
       throw new Error('Wallet not connected')
     }
 
-    const hasApprovalSteps = plan.steps.some(step => step.type === 'approve' || step.type === 'permit2-approve')
-    const usesPermit2 = plan.steps.some(step => step.type === 'permit2-approve' || (step.label && step.label.includes('Permit2')))
-    const stepsToSimulate = plan.steps.filter(step => step.type !== 'approve' && step.type !== 'permit2-approve')
+    const guardedPlan = applyOperationGuards(plan)
+
+    const hasApprovalSteps = guardedPlan.steps.some(step => step.type === 'approve' || step.type === 'permit2-approve')
+    const usesPermit2 = guardedPlan.steps.some(step => step.type === 'permit2-approve' || (step.label && step.label.includes('Permit2')))
+    const stepsToSimulate = guardedPlan.steps.filter(step => step.type !== 'approve' && step.type !== 'permit2-approve')
 
     const stateOverride = await catchToFallback(
       async () => {
-        const overrides = await allowanceHelpers.buildSimulationStateOverride(plan, ctx.address.value as Address)
+        const overrides = await allowanceHelpers.buildSimulationStateOverride(guardedPlan, ctx.address.value as Address)
         return overrides.length ? overrides as StateOverride : undefined
       },
       undefined,

@@ -74,6 +74,13 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 - Source attribution in APY modals
 - Adding new providers and tokens
 
+### 🔐 [Keyring Hooks (Private Vaults)](./keyring-hooks.md)
+
+- Keyring identity verification for private vaults
+- On-chain credential checking and extension flow
+- Operation guard registry for automatic TxPlan injection
+- UI components (badges, alerts, verification flow)
+
 ### 🌍 [Geo-Blocking](./geo-blocking.md)
 
 - Country detection and sanctioned country lists

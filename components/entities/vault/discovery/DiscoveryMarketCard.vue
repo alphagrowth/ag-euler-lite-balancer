@@ -11,11 +11,12 @@ import {
   findVault,
   type BestMaxRoeResult,
 } from '~/utils/discoveryCalculations'
+import { isVaultKeyring } from '~/utils/eulerLabelsUtils'
 import { getMaxMultiplier, getMaxRoe } from '~/utils/leverage'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultMaxRoeModal } from '#components'
 
-defineProps<{
+const props = defineProps<{
   market: MarketGroup
   isExpanded: boolean
 }>()
@@ -28,6 +29,14 @@ const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
 const { getBorrowRewardApy, getSupplyRewardApy, getLoopingRewardApy } = useRewardsApy()
 const { products } = useEulerLabels()
 const modal = useModal()
+
+const isKeyring = computed(() => {
+  if (props.market.source === 'product' && products[props.market.id]?.keyring) return true
+  return props.market.vaults.some((v) => {
+    const addr = 'address' in v ? v.address : ''
+    return addr && isVaultKeyring(addr)
+  })
+})
 
 const getProductDescription = (market: MarketGroup): string => {
   if (market.source !== 'product') return ''
@@ -152,6 +161,7 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
               />
               Featured
             </span>
+            <KeyringBadge v-if="isKeyring" />
           </div>
           <div class="text-h5 text-content-primary">
             {{ market.name }}

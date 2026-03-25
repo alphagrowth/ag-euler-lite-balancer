@@ -7,7 +7,6 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { isEarnVaultDeprecated, getEarnVaultDeprecationReason, getEarnVaultDescription } from '~/utils/eulerLabelsUtils'
 import { autoLink } from '~/utils/autoLink'
-import { getVaultTypeDescription, getVaultTypeLabel } from '~/entities/vault/descriptions'
 
 const { vault } = defineProps<{ vault: EarnVault }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
@@ -39,14 +38,6 @@ watchEffect(async () => {
 const feeDisplay = computed(() => {
   return `${compactNumber(nanoToValue(vault.performanceFee, 18) * 100, 2, 2)}%`
 })
-
-const earnVaultType = computed(() => entities.length ? 'managed' : 'unknown')
-const vaultTypeLabel = computed(() =>
-  getVaultTypeLabel(earnVaultType.value, isOwnerVerified.value),
-)
-const vaultTypeDescription = computed(() =>
-  getVaultTypeDescription(earnVaultType.value, isOwnerVerified.value),
-)
 </script>
 
 <template>
@@ -140,34 +131,17 @@ const vaultTypeDescription = computed(() =>
             >{{ entity.name }}</a>
           </div>
         </div>
-        <div
+        <VaultTypeChip
           v-else
-          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-error-100 text-error-500"
-        >
-          <UiIcon
-            class="mr-2 !w-20 !h-20"
-            name="warning"
-          />
-          Unknown
-        </div>
+          :vault="vault"
+          type="unknown"
+        />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="enableVaultTypeDisplay"
+        label="Vault type"
       >
-        <template #label>
-          <span class="flex items-center gap-4">
-            Vault type
-            <UiFootnote
-              :title="vaultTypeLabel"
-              :text="vaultTypeDescription"
-              class="[--ui-footnote-icon-color:var(--text-muted)] hover:[--ui-footnote-icon-color:var(--text-secondary)]"
-            />
-          </span>
-        </template>
-        <VaultTypeChip
-          :vault="vault"
-          :type="earnVaultType"
-        />
+        <VaultTypeBadges :vault-address="vault.address" />
       </VaultOverviewLabelValue>
     </div>
   </div>

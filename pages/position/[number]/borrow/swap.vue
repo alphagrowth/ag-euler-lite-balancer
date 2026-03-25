@@ -9,10 +9,9 @@ import { SwapperMode } from '~/entities/swap'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
-import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
+import { formatLiquidationBuffer as formatLiqBuffer, calculateRoe } from '~/utils/repayUtils'
 import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { calculateRoe } from '~/utils/repayUtils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
 
 const route = useRoute()
@@ -31,6 +30,7 @@ const position: Ref<AccountBorrowPosition | null> = ref(null)
 const fromVault = computed(() => position.value?.borrow)
 const collateralVault = computed(() => position.value?.collateral)
 const toVault: Ref<Vault | undefined> = ref()
+useOperationGuard(computed(() => [fromVault.value?.address, toVault.value?.address, collateralVault.value?.address].filter(Boolean)))
 
 const { borrowOptions, borrowVaults } = useSwapDebtOptions({
   collateralVault: computed(() => collateralVault.value as Vault | undefined),
