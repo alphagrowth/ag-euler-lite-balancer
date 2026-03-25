@@ -27,6 +27,8 @@ export default defineNitroPlugin((nitroApp) => {
     }
   }
 
+  enabledChainIds.sort((a, b) => a - b)
+
   const scriptTag = `<script>window.__CHAIN_CONFIG__=${JSON.stringify({ enabledChainIds, subgraphUris, rpcUrls })}</script>`
 
   nitroApp.hooks.hook('render:html', (html) => {
