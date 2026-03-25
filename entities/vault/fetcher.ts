@@ -14,7 +14,6 @@ import type { PythFeed } from '~/entities/oracle'
 import { collectPythFeedIds } from '~/entities/oracle'
 import {
   eulerEarnVaultLensABI,
-  eulerPerspectiveABI,
   eulerUtilsLensABI,
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
@@ -294,22 +293,16 @@ export const fetchSecuritizeVault = async (vaultAddress: string): Promise<Securi
 export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> => {
   const { EVM_PROVIDER_URL } = useEulerConfig()
   const { earnVaults } = useEulerLabels()
-  const { loadEulerConfig, isReady, eulerPeripheryAddresses } = useEulerAddresses()
+  const { loadEulerConfig, isReady } = useEulerAddresses()
 
   if (!isReady.value) {
     loadEulerConfig()
-    await until(computed(() => isReady.value && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective)).toBeTruthy()
+    await until(computed(() => isReady.value)).toBeTruthy()
   }
 
   const { eulerLensAddresses } = useEulerAddresses()
 
   const client = getPublicClient(EVM_PROVIDER_URL)
-
-  const verifiedEarnVaults = await client.readContract({
-    address: eulerPeripheryAddresses.value!.eulerEarnGovernedPerspective as Address,
-    abi: eulerPerspectiveABI,
-    functionName: 'verifiedArray',
-  }) as string[]
 
   const data = await client.readContract({
     address: eulerLensAddresses.value!.eulerEarnVaultLens as Address,
@@ -343,8 +336,7 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     data.asset as string,
   )
 
-  const { isCustomLabelsRepo } = useDeployConfig()
-  const verified = isCustomLabelsRepo.value ? earnVaults.value.includes(vaultAddress) : verifiedEarnVaults.includes(vaultAddress)
+  const verified = earnVaults.value.includes(vaultAddress)
 
   return {
     verified,
@@ -595,7 +587,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
   unknown
 > {
   const { EVM_PROVIDER_URL: _EVM_PROVIDER_URL } = useEulerConfig()
-  const { eulerLensAddresses, eulerPeripheryAddresses, chainId } = useEulerAddresses()
+  const { eulerLensAddresses, chainId } = useEulerAddresses()
   const { earnVaults, isLoading } = useEulerLabels()
 
   const startChainId = chainId.value
@@ -605,7 +597,6 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
       return (
         eulerLensAddresses.value?.eulerEarnVaultLens
         && eulerLensAddresses.value?.utilsLens
-        && eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective
         && !isLoading.value
       )
     }),
@@ -614,21 +605,13 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
   if (
     !eulerLensAddresses.value?.eulerEarnVaultLens
     || !eulerLensAddresses.value?.utilsLens
-    || !eulerPeripheryAddresses.value?.eulerEarnGovernedPerspective
   ) {
     throw new Error('Euler Earn addresses not loaded yet')
   }
 
   const client = getPublicClient(_EVM_PROVIDER_URL)
 
-  const { isCustomLabelsRepo: _isCustomLabelsRepo } = useDeployConfig()
-  const verifiedVaults = _isCustomLabelsRepo.value
-    ? earnVaults.value
-    : await client.readContract({
-      address: eulerPeripheryAddresses.value.eulerEarnGovernedPerspective as Address,
-      abi: eulerPerspectiveABI,
-      functionName: 'verifiedArray',
-    }) as string[]
+  const verifiedVaults = earnVaults.value
 
   // Start block prefetch in parallel - will be awaited when needed for APY calculation
   const blockCachePromise = fetchBlockDataForAPY(_EVM_PROVIDER_URL)

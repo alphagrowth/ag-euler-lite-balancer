@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getAddress, isAddress, type Address } from 'viem'
+import { getAddress, isAddress, zeroAddress, type Address } from 'viem'
 import type { VaultAsset } from '~/entities/vault'
 import { formatNumber } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -12,10 +12,12 @@ const emits = defineEmits<{
   close: []
 }>()
 
-const { onSelect, currentAssetAddress, mode = 'input' } = defineProps<{
+const { onSelect, currentAssetAddress, mode = 'input', allowNativeCurrency = false } = defineProps<{
   onSelect: (asset: VaultAsset, meta?: SwapTokenSelectMeta) => void
   currentAssetAddress?: string
   mode?: 'input' | 'output'
+  /** Show address-zero native currency entry. Only enable for flows that support wrapping. */
+  allowNativeCurrency?: boolean
 }>()
 
 const { getByType } = useVaultRegistry()
@@ -76,6 +78,7 @@ const tokenOptions = computed((): TokenOption[] => {
       continue
     }
     if (seen.has(normalized)) continue
+    if (normalized === zeroAddress && !allowNativeCurrency) continue
     seen.add(normalized)
 
     const asset = toVaultAsset(entry)

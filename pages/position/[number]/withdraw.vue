@@ -231,11 +231,19 @@ watch(selectedOutputAsset, () => {
               :loading="form.isSwapQuoteLoading.value"
             >
               <SummaryRow
-                label="Estimated output"
-                align-top
+                v-if="form.swapInputDisplay.value"
+                label="Swap in"
               >
-                <p class="text-p2">
-                  ~{{ formatSmartAmount(form.swapEstimatedOutput.value) }} {{ selectedOutputAsset.symbol }}
+                <p class="text-p2 text-right">
+                  {{ form.swapInputDisplay.value }}
+                </p>
+              </SummaryRow>
+              <SummaryRow
+                v-if="form.swapOutputDisplay.value"
+                label="Swap out"
+              >
+                <p class="text-p2 text-right">
+                  {{ form.swapOutputDisplay.value }}
                 </p>
               </SummaryRow>
               <SummaryRow
@@ -261,6 +269,14 @@ watch(selectedOutputAsset, () => {
                     class="!w-16 !h-16 text-accent-600"
                   />
                 </button>
+              </SummaryRow>
+              <SummaryRow
+                v-if="form.swapRoutedVia.value"
+                label="Routed via"
+              >
+                <p class="text-p2 text-right">
+                  {{ form.swapRoutedVia.value }}
+                </p>
               </SummaryRow>
             </VaultFormInfoBlock>
 

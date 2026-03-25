@@ -75,6 +75,12 @@ export interface OperationHelpers {
     label: string
   }) => import('~/entities/txPlan').TxStep
 
+  buildNativeWrapCalls: (params: {
+    wrappedTokenAddress: Address
+    amount: bigint
+    userAddr: Address
+  }) => import('~/utils/evc-converter').EVCCall[]
+
   resolveEffectiveCollaterals: (enabledCollaterals?: string[], adding?: string[], removing?: string[]) => string[]
 
   adjustForInterest: (amount: bigint) => bigint

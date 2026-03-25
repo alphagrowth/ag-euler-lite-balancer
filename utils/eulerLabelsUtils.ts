@@ -17,6 +17,7 @@ import {
   deprecatedEarnVaults,
   earnVaultDescriptions,
   earnVaultNotices,
+  notExplorableEarnVaults,
 } from '~/utils/eulerLabelsState'
 
 // ── Normalization helpers ────────────────────────────────────
@@ -28,7 +29,7 @@ export const extractVaultOverrides = (raw: Record<string, unknown>): Record<stri
     const entry = value as Record<string, unknown>
     const override: EulerLabelVaultOverride = {}
     if (typeof entry.description === 'string') override.description = entry.description
-    if (typeof entry.notice === 'string') override.notice = entry.notice
+    if (typeof entry.portfolioNotice === 'string') override.portfolioNotice = entry.portfolioNotice
     const reason = entry.deprecationReason ?? entry.deprecateReason
     if (typeof reason === 'string') override.deprecationReason = reason
     if (Array.isArray(entry.block)) override.block = entry.block.filter((v): v is string => typeof v === 'string')
@@ -165,6 +166,11 @@ export const isEarnVaultDeprecated = (vaultAddress: string): boolean => {
   return normalized.toLowerCase() in deprecatedEarnVaults
 }
 
+export const isEarnVaultNotExplorable = (vaultAddress: string): boolean => {
+  const normalized = normalizeAddress(vaultAddress)
+  return notExplorableEarnVaults.has(normalized.toLowerCase())
+}
+
 export const getEarnVaultDeprecationReason = (vaultAddress: string): string => {
   const normalized = normalizeAddress(vaultAddress)
   return deprecatedEarnVaults[normalized.toLowerCase()] ?? ''
@@ -187,9 +193,9 @@ export const getVaultNotice = (vaultAddress: string): string => {
   const normalized = normalizeAddress(vaultAddress)
   const product = getProductByVault(normalized)
   const override = product.vaultOverrides?.[normalized]
-  if (override?.notice !== undefined) return override.notice
+  if (override?.portfolioNotice !== undefined) return override.portfolioNotice
 
-  return product.notice ?? ''
+  return product.portfolioNotice ?? ''
 }
 
 /** Returns true when the notice is vault-specific (earn entry or vault override), false when product-level */
@@ -197,7 +203,7 @@ export const isVaultNoticeSpecific = (vaultAddress: string): boolean => {
   if (getEarnVaultNotice(vaultAddress)) return true
   const normalized = normalizeAddress(vaultAddress)
   const product = getProductByVault(normalized)
-  return product.vaultOverrides?.[normalized]?.notice !== undefined
+  return product.vaultOverrides?.[normalized]?.portfolioNotice !== undefined
 }
 
 export const isVaultDeprecated = (vaultAddress: string): boolean => {
@@ -260,7 +266,7 @@ export const applyVaultOverrides = (product: EulerLabelProduct, vaultAddress: st
   return {
     ...product,
     ...(override.description !== undefined && { description: override.description }),
-    ...(override.notice !== undefined && { notice: override.notice }),
+    ...(override.portfolioNotice !== undefined && { portfolioNotice: override.portfolioNotice }),
     ...(override.deprecationReason !== undefined && { deprecationReason: override.deprecationReason }),
   }
 }

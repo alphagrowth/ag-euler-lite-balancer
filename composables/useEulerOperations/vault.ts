@@ -26,7 +26,7 @@ export const createVaultBuilders = (
     assetAddress: string,
     amount: bigint,
     subAccount?: string,
-    options: { includePermit2Call?: boolean } = {},
+    options: { includePermit2Call?: boolean, wrappedNativeInfo?: { wrappedTokenAddress: Address, nativeAmount: bigint } } = {},
   ): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -58,6 +58,15 @@ export const createVaultBuilders = (
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, depositToAddr)
 
     tos.injectTosCall(evcCalls, hooks)
+
+    // Wrap native currency to ERC-20 (e.g. ETH → WETH) before deposit
+    if (options.wrappedNativeInfo) {
+      evcCalls.unshift(...helpers.buildNativeWrapCalls({
+        wrappedTokenAddress: options.wrappedNativeInfo.wrappedTokenAddress,
+        amount: options.wrappedNativeInfo.nativeAmount,
+        userAddr,
+      }))
+    }
 
     if (permitCall) {
       evcCalls.unshift(permitCall)
@@ -178,7 +187,7 @@ export const createVaultBuilders = (
     borrowVaultAddress: string,
     borrowAmount: bigint,
     subAccount?: string,
-    options: { includePermit2Call?: boolean, enabledCollaterals?: string[] } = {},
+    options: { includePermit2Call?: boolean, enabledCollaterals?: string[], wrappedNativeInfo?: { wrappedTokenAddress: Address, nativeAmount: bigint } } = {},
   ): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -235,6 +244,15 @@ export const createVaultBuilders = (
     })
     if (cleanupCalls.length) {
       evcCalls.push(...cleanupCalls)
+    }
+
+    // Wrap native currency to ERC-20 (e.g. ETH → WETH) before deposit
+    if (options.wrappedNativeInfo) {
+      evcCalls.push(...helpers.buildNativeWrapCalls({
+        wrappedTokenAddress: options.wrappedNativeInfo.wrappedTokenAddress,
+        amount: options.wrappedNativeInfo.nativeAmount,
+        userAddr,
+      }))
     }
 
     const depositCall: EVCCall = {

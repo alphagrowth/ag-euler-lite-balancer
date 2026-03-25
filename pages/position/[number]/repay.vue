@@ -248,6 +248,7 @@ const openWalletSwapTokenSelector = () => {
     props: {
       currentAssetAddress: walletSwap.selectedAsset.value?.address || borrowVault.value?.asset.address,
       onSelect: walletSwap.onSelectSwapAsset,
+      allowNativeCurrency: true,
     },
   })
 }
@@ -489,6 +490,22 @@ watch(formTab, () => {
             <!-- Swap details (when swapping) -->
             <template v-if="walletSwap.needsSwap.value && walletSwap.swapEstimatedOutput.value">
               <SummaryRow
+                v-if="walletSwap.swapInputDisplay.value"
+                label="Swap in"
+              >
+                <p class="text-p2 text-right">
+                  {{ walletSwap.swapInputDisplay.value }}
+                </p>
+              </SummaryRow>
+              <SummaryRow
+                v-if="walletSwap.swapOutputDisplay.value"
+                label="Swap out"
+              >
+                <p class="text-p2 text-right">
+                  {{ walletSwap.swapOutputDisplay.value }}
+                </p>
+              </SummaryRow>
+              <SummaryRow
                 v-if="walletSwap.swapPriceImpact.value !== null"
                 label="Price impact"
               >
@@ -511,6 +528,14 @@ watch(formTab, () => {
                     class="!w-16 !h-16 text-accent-600"
                   />
                 </button>
+              </SummaryRow>
+              <SummaryRow
+                v-if="walletSwap.swapRoutedVia.value"
+                label="Routed via"
+              >
+                <p class="text-p2 text-right">
+                  {{ walletSwap.swapRoutedVia.value }}
+                </p>
               </SummaryRow>
             </template>
 

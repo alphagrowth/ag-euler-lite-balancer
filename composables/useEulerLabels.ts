@@ -20,6 +20,7 @@ import {
   deprecatedEarnVaults,
   earnVaultDescriptions,
   earnVaultNotices,
+  notExplorableEarnVaults,
   verifiedVaultAddresses,
   oracleAdapters,
   loadingAdapters,
@@ -133,6 +134,7 @@ export const useEulerLabels = () => {
       Object.keys(earnVaultDescriptions).forEach(key => delete earnVaultDescriptions[key])
       Object.keys(earnVaultNotices).forEach(key => delete earnVaultNotices[key])
       featuredEarnVaults.clear()
+      notExplorableEarnVaults.clear()
       earnVaults.value = []
       verifiedVaultAddresses.value = []
 
@@ -162,8 +164,11 @@ export const useEulerLabels = () => {
           if (entry.description) {
             earnVaultDescriptions[addr.toLowerCase()] = entry.description
           }
-          if (entry.notice) {
-            earnVaultNotices[addr.toLowerCase()] = entry.notice
+          if (entry.portfolioNotice) {
+            earnVaultNotices[addr.toLowerCase()] = entry.portfolioNotice
+          }
+          if (entry.notExplorable) {
+            notExplorableEarnVaults.add(addr.toLowerCase())
           }
           return addr
         })

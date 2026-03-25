@@ -1,7 +1,9 @@
-import type { Address, Hex, Abi } from 'viem'
-import { getAddress, maxUint256 } from 'viem'
+import type { Address, Hex, Abi, Hash } from 'viem'
+import { encodeFunctionData, getAddress, maxUint256 } from 'viem'
 import type { OperationsContext, Permit2Helpers, AllowanceHelpers, OperationHelpers } from './types'
 import { erc20ABI } from '~/entities/euler/abis'
+import { erc20TransferAbi } from '~/abis/erc20'
+import { wethDepositAbi } from '~/abis/weth'
 import { EVC_ABI } from '~/abis/evc'
 import { tosSignerReadAbi, tosSignerWriteAbi } from '~/abis/tos'
 import { getTosData } from '~/composables/useTosData'
@@ -211,11 +213,35 @@ export const createOperationHelpers = (ctx: OperationsContext, permit2: Permit2H
     }
   }
 
+  const buildNativeWrapCalls = (params: {
+    wrappedTokenAddress: Address
+    amount: bigint
+    userAddr: Address
+  }): EVCCall[] => [
+    {
+      targetContract: params.wrappedTokenAddress,
+      onBehalfOfAccount: params.userAddr,
+      value: params.amount,
+      data: encodeFunctionData({ abi: wethDepositAbi, functionName: 'deposit' }) as Hash,
+    },
+    {
+      targetContract: params.wrappedTokenAddress,
+      onBehalfOfAccount: params.userAddr,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: erc20TransferAbi,
+        functionName: 'transfer',
+        args: [params.userAddr, params.amount],
+      }) as Hash,
+    },
+  ]
+
   return {
     prepareTokenApproval,
     prepareTos,
     injectPythHealthCheckUpdates,
     buildEvcBatchStep,
+    buildNativeWrapCalls,
     resolveEffectiveCollaterals,
     adjustForInterest,
     hasSignature,

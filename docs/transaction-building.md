@@ -116,7 +116,18 @@ Deposits assets into a vault.
 EVC batch calls:
 1. *(Optional)* Permit2 signature call
 2. *(Optional)* Terms of Use signing
-3. `vault.deposit(amount, receiver)`
+3. *(Optional)* Native currency wrapping (see below)
+4. `vault.deposit(amount, receiver)`
+
+#### Native Currency Wrapping
+
+When the user pays with the native currency (e.g. ETH) and the vault's underlying is the wrapped version (e.g. WETH), the system detects this as a direct deposit (no swap needed). Two batch items are prepended:
+1. `WETH.deposit{value: amount}()` — wraps ETH, WETH minted to EVC
+2. `WETH.transfer(userAddr, amount)` — moves WETH from EVC to user wallet
+
+The top-level `EVC.batch{value}` call carries the ETH amount (aggregated by `sumCallValues()`). Approvals work normally because `ERC20.approve` does not require a token balance.
+
+When the native currency is selected but the vault underlying is a *different* token, the swap flow is used instead (`buildSwapAndSupplyPlan`) with the same wrapping mechanism injected before `transferFromSender`.
 
 ### Withdraw
 
@@ -149,10 +160,11 @@ Creates a new borrow position: deposits collateral, enables controller/collatera
 EVC batch calls:
 1. *(Optional)* Pyth price updates for both collateral and borrow vaults
 2. *(Optional)* Permit2 / Terms of Use
-3. `collateralVault.deposit(amount, subAccount)`
-4. `evc.enableController(subAccount, borrowVault)`
-5. `evc.enableCollateral(subAccount, collateralVault)`
-6. `borrowVault.borrow(borrowAmount, receiver)`
+3. *(Optional)* Native currency wrapping (same mechanism as Supply)
+4. `collateralVault.deposit(amount, subAccount)`
+5. `evc.enableController(subAccount, borrowVault)`
+6. `evc.enableCollateral(subAccount, collateralVault)`
+7. `borrowVault.borrow(borrowAmount, receiver)`
 
 ### BorrowBySaving
 
