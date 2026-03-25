@@ -23,12 +23,10 @@ export const useDeployConfig = () => {
     appDescription: envConfig.appDescription,
     logoUrl: envConfig.logoUrl,
 
-    // Repos
+    // Repos (labelsRepo/branch/baseUrl still needed for logo URL construction)
     labelsRepo: rc.configLabelsRepo || 'euler-xyz/euler-labels',
     labelsRepoBranch: rc.configLabelsRepoBranch || 'master',
-    oracleChecksRepo: rc.configOracleChecksRepo || 'euler-xyz/oracle-checks',
     labelsBaseUrl,
-    oracleChecksBaseUrl: (rc.configOracleChecksBaseUrl || '').trim().replace(/\/+$/, ''),
     isCustomLabelsRepo: computed(() => {
       if (labelsBaseUrl) {
         return !labelsBaseUrl.includes('master')

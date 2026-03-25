@@ -51,13 +51,13 @@ function env(...keys: string[]): string | undefined {
 
 /** Derive CSP origins from URL env vars so deployers don't need to duplicate them. */
 function parseEnvOrigins(): { connect: string[], img: string[] } {
+  // Labels, oracle checks, and euler-chains are proxied through server endpoints,
+  // so their origins are not needed in connect-src.
   const connectVars = [
     env('EULER_API_URL', 'NUXT_PUBLIC_EULER_API_URL'),
     env('SWAP_API_URL', 'NUXT_PUBLIC_SWAP_API_URL'),
     env('PRICE_API_URL', 'NUXT_PUBLIC_PRICE_API_URL'),
     env('PYTH_HERMES_URL', 'NUXT_PUBLIC_PYTH_HERMES_URL'),
-    process.env.NUXT_PUBLIC_CONFIG_LABELS_BASE_URL,
-    process.env.NUXT_PUBLIC_CONFIG_ORACLE_CHECKS_BASE_URL,
   ]
   const imgVars = [
     process.env.NUXT_PUBLIC_CONFIG_LABELS_BASE_URL,
@@ -73,7 +73,6 @@ const CONNECT_SRC_BASE = [
   '\'self\'',
   'https://api.merkl.xyz',
   'https://incentra-prd.brevis.network',
-  'https://raw.githubusercontent.com',
   // WalletConnect / Reown
   'https://rpc.walletconnect.com',
   'https://rpc.walletconnect.org',

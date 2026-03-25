@@ -36,34 +36,12 @@ import {
   applyVaultOverrides,
 } from '~/utils/eulerLabelsUtils'
 
-let _labelsRepo = 'euler-xyz/euler-labels'
-let _labelsRepoBranch = 'master'
-let _oracleChecksRepo = 'euler-xyz/oracle-checks'
-let _labelsBaseUrl = ''
-let _oracleChecksBaseUrl = ''
-let _isCustomLabelsRepo = false
 let _enableEarnPage = true
 
-const initRepos = () => {
-  const { labelsRepo, labelsRepoBranch, oracleChecksRepo, labelsBaseUrl, oracleChecksBaseUrl, isCustomLabelsRepo, enableEarnPage } = useDeployConfig()
-  _labelsRepo = labelsRepo
-  _labelsRepoBranch = labelsRepoBranch
-  _oracleChecksRepo = oracleChecksRepo
-  _labelsBaseUrl = labelsBaseUrl
-  _oracleChecksBaseUrl = oracleChecksBaseUrl
-  _isCustomLabelsRepo = isCustomLabelsRepo.value
+const initConfig = () => {
+  const { enableEarnPage } = useDeployConfig()
   _enableEarnPage = enableEarnPage
 }
-
-const getLabelsUrl = (chainId: number, file: string) =>
-  _labelsBaseUrl
-    ? `${_labelsBaseUrl}/${chainId}/${file}`
-    : `https://raw.githubusercontent.com/${_labelsRepo}/refs/heads/${_labelsRepoBranch}/${chainId}/${file}`
-
-const getOracleChecksUrl = (chainId: number, file: string) =>
-  _oracleChecksBaseUrl
-    ? `${_oracleChecksBaseUrl}/${chainId}/${file}`
-    : `https://raw.githubusercontent.com/${_oracleChecksRepo}/refs/heads/master/data/${chainId}/${file}`
 
 const loadOracleAdapter = async (chainId: number, oracleAddress: string) => {
   const checksummed = getAddress(oracleAddress)
@@ -79,8 +57,7 @@ const loadOracleAdapter = async (chainId: number, oracleAddress: string) => {
 
   loadingAdapters.add(key)
   try {
-    const url = getOracleChecksUrl(chainId, `adapters/${checksummed}.json`)
-    const res = await axios.get(url)
+    const res = await axios.get('/api/oracle-adapter', { params: { chainId, address: checksummed } })
     const meta = normalizeOracleAdapters([res.data])
     safeAssign(oracleAdapters, meta)
     return oracleAdapters[key]
@@ -101,7 +78,7 @@ const loadOracleAdapters = async (chainId: number, addresses?: string[]) => {
 }
 
 export const useEulerLabels = () => {
-  initRepos()
+  initConfig()
 
   const loadLabels = async (forceRefresh = false) => {
     try {
@@ -139,12 +116,12 @@ export const useEulerLabels = () => {
       verifiedVaultAddresses.value = []
 
       const [productRes, entitiesRes] = await Promise.all([
-        axios.get(getLabelsUrl(chainId, 'products.json')),
-        axios.get(getLabelsUrl(chainId, 'entities.json')),
+        axios.get('/api/labels/products.json', { params: { chainId } }),
+        axios.get('/api/labels/entities.json', { params: { chainId } }),
       ])
 
       try {
-        const earnRes = await axios.get(getLabelsUrl(chainId, 'earn-vaults.json'))
+        const earnRes = await axios.get('/api/labels/earn-vaults.json', { params: { chainId } })
         const earnEntries = earnRes.data as Array<string | EulerLabelEarnVaultEntry>
         earnVaults.value = earnEntries.map((entry) => {
           if (typeof entry === 'string') return normalizeAddress(entry)
@@ -175,7 +152,7 @@ export const useEulerLabels = () => {
       }
       catch {
         if (_enableEarnPage) {
-          logWarn('labels/earn-vaults', `earn-vaults.json not found on ${_labelsBaseUrl || `${_labelsRepo}@${_labelsRepoBranch}`}`)
+          logWarn('labels/earn-vaults', `earn-vaults.json not found for chain ${chainId}`)
         }
       }
 
@@ -186,7 +163,7 @@ export const useEulerLabels = () => {
       safeAssign(entities, normalizeEntities(entitiesRes.data))
 
       try {
-        const pointsRes = await axios.get(getLabelsUrl(chainId, 'points.json'))
+        const pointsRes = await axios.get('/api/labels/points.json', { params: { chainId } })
         const pointsData = pointsRes.data as EulerLabelPoint[]
         pointsData.forEach((point) => {
           if (!point.collateralVaults) {
