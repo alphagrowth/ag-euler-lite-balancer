@@ -23,7 +23,6 @@ import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBl
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
 import SecuritizeVaultOverview from '~/components/entities/vault/overview/SecuritizeVaultOverview.vue'
 import { formatNumber, compactNumber, formatSmartAmount } from '~/utils/string-utils'
-import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 
@@ -831,54 +830,14 @@ watch(address, () => {
               v-if="swapEstimatedOutput"
               :loading="isSwapQuoteLoading"
             >
-              <SummaryRow
-                v-if="swapInputDisplay"
-                label="Swap in"
-              >
-                <p class="text-p2 text-right">
-                  {{ swapInputDisplay }}
-                </p>
-              </SummaryRow>
-              <SummaryRow
-                v-if="swapOutputDisplay"
-                label="Swap out"
-              >
-                <p class="text-p2 text-right">
-                  {{ swapOutputDisplay }}
-                </p>
-              </SummaryRow>
-              <SummaryRow
-                v-if="swapPriceImpact !== null"
-                label="Price impact"
-              >
-                <span
-                  class="text-p2"
-                  :class="{ 'text-error-500': isPriceImpactWarning(swapPriceImpact) }"
-                >
-                  {{ formatNumber(swapPriceImpact, 2) }}%
-                </span>
-              </SummaryRow>
-              <SummaryRow label="Slippage tolerance">
-                <button
-                  type="button"
-                  class="flex items-center gap-6 text-p2"
-                  @click="openSlippageSettings"
-                >
-                  <span :class="{ 'text-error-500': isSlippageWarning(swapSlippage) }">{{ formatNumber(swapSlippage, 2, 0) }}%</span>
-                  <SvgIcon
-                    name="edit"
-                    class="!w-16 !h-16 text-accent-600"
-                  />
-                </button>
-              </SummaryRow>
-              <SummaryRow
-                v-if="swapRoutedVia"
-                label="Routed via"
-              >
-                <p class="text-p2 text-right">
-                  {{ swapRoutedVia }}
-                </p>
-              </SummaryRow>
+              <SwapDetailsSummary
+                :input-display="swapInputDisplay"
+                :output-display="swapOutputDisplay"
+                :price-impact="swapPriceImpact"
+                :slippage="swapSlippage"
+                :routed-via="swapRoutedVia"
+                @open-slippage-settings="openSlippageSettings"
+              />
             </VaultFormInfoBlock>
 
             <UiToast

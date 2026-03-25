@@ -12,7 +12,6 @@ import { nanoToValue } from '~/utils/crypto-utils'
 import { createRaceGuard } from '~/utils/race-guard'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
-import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { useWalletRepay } from '~/composables/repay/useWalletRepay'
@@ -487,57 +486,15 @@ watch(formTab, () => {
             variant="card"
             class="w-full laptop:max-w-[360px]"
           >
-            <!-- Swap details (when swapping) -->
-            <template v-if="walletSwap.needsSwap.value && walletSwap.swapEstimatedOutput.value">
-              <SummaryRow
-                v-if="walletSwap.swapInputDisplay.value"
-                label="Swap in"
-              >
-                <p class="text-p2 text-right">
-                  {{ walletSwap.swapInputDisplay.value }}
-                </p>
-              </SummaryRow>
-              <SummaryRow
-                v-if="walletSwap.swapOutputDisplay.value"
-                label="Swap out"
-              >
-                <p class="text-p2 text-right">
-                  {{ walletSwap.swapOutputDisplay.value }}
-                </p>
-              </SummaryRow>
-              <SummaryRow
-                v-if="walletSwap.swapPriceImpact.value !== null"
-                label="Price impact"
-              >
-                <span
-                  class="text-p2"
-                  :class="{ 'text-error-500': isPriceImpactWarning(walletSwap.swapPriceImpact.value) }"
-                >
-                  {{ formatNumber(walletSwap.swapPriceImpact.value, 2) }}%
-                </span>
-              </SummaryRow>
-              <SummaryRow label="Slippage tolerance">
-                <button
-                  type="button"
-                  class="flex items-center gap-6 text-p2"
-                  @click="openSlippageSettings"
-                >
-                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
-                  <SvgIcon
-                    name="edit"
-                    class="!w-16 !h-16 text-accent-600"
-                  />
-                </button>
-              </SummaryRow>
-              <SummaryRow
-                v-if="walletSwap.swapRoutedVia.value"
-                label="Routed via"
-              >
-                <p class="text-p2 text-right">
-                  {{ walletSwap.swapRoutedVia.value }}
-                </p>
-              </SummaryRow>
-            </template>
+            <SwapDetailsSummary
+              v-if="walletSwap.needsSwap.value && walletSwap.swapEstimatedOutput.value"
+              :input-display="walletSwap.swapInputDisplay.value"
+              :output-display="walletSwap.swapOutputDisplay.value"
+              :price-impact="walletSwap.swapPriceImpact.value"
+              :slippage="slippage"
+              :routed-via="walletSwap.swapRoutedVia.value"
+              @open-slippage-settings="openSlippageSettings"
+            />
 
             <SummaryRow label="Net APY">
               <SummaryValue
@@ -757,44 +714,15 @@ watch(formTab, () => {
                 :after="collateral.nextHealth.value !== null && (collateral.quotes.quote.value || collateral.isSameAsset.value) ? formatHealthScore(collateral.nextHealth.value) : undefined"
               />
             </SummaryRow>
-            <template v-if="!collateral.isSameAsset.value">
-              <SummaryRow label="Swap in">
-                <p class="text-p2 text-right">
-                  {{ collateral.summary.value ? collateral.summary.value.from : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Swap out">
-                <p class="text-p2 text-right">
-                  {{ collateral.summary.value ? collateral.summary.value.to : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Price impact">
-                <p
-                  class="text-p2"
-                  :class="{ 'text-error-500': isPriceImpactWarning(collateral.priceImpact.value) }"
-                >
-                  {{ collateral.priceImpact.value !== null ? `${formatNumber(collateral.priceImpact.value, 2, 2)}%` : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Slippage tolerance">
-                <button
-                  type="button"
-                  class="flex items-center gap-6 text-p2"
-                  @click="openSlippageSettings"
-                >
-                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
-                  <SvgIcon
-                    name="edit"
-                    class="!w-16 !h-16 text-accent-600"
-                  />
-                </button>
-              </SummaryRow>
-              <SummaryRow label="Routed via">
-                <p class="text-p2 text-right">
-                  {{ collateral.routedVia.value || '-' }}
-                </p>
-              </SummaryRow>
-            </template>
+            <SwapDetailsSummary
+              v-if="!collateral.isSameAsset.value"
+              :input-display="collateral.summary.value?.from ?? null"
+              :output-display="collateral.summary.value?.to ?? null"
+              :price-impact="collateral.priceImpact.value"
+              :slippage="slippage"
+              :routed-via="collateral.routedVia.value"
+              @open-slippage-settings="openSlippageSettings"
+            />
           </VaultFormInfoBlock>
 
           <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
@@ -956,44 +884,15 @@ watch(formTab, () => {
                 :after="savings.nextHealth.value !== null && (savings.quotes.quote.value || savings.isSameAsset.value) ? formatHealthScore(savings.nextHealth.value) : undefined"
               />
             </SummaryRow>
-            <template v-if="!savings.isSameAsset.value">
-              <SummaryRow label="Swap in">
-                <p class="text-p2 text-right">
-                  {{ savings.summary.value ? savings.summary.value.from : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Swap out">
-                <p class="text-p2 text-right">
-                  {{ savings.summary.value ? savings.summary.value.to : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Price impact">
-                <p
-                  class="text-p2"
-                  :class="{ 'text-error-500': isPriceImpactWarning(savings.priceImpact.value) }"
-                >
-                  {{ savings.priceImpact.value !== null ? `${formatNumber(savings.priceImpact.value, 2, 2)}%` : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Slippage tolerance">
-                <button
-                  type="button"
-                  class="flex items-center gap-6 text-p2"
-                  @click="openSlippageSettings"
-                >
-                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
-                  <SvgIcon
-                    name="edit"
-                    class="!w-16 !h-16 text-accent-600"
-                  />
-                </button>
-              </SummaryRow>
-              <SummaryRow label="Routed via">
-                <p class="text-p2 text-right">
-                  {{ savings.routedVia.value || '-' }}
-                </p>
-              </SummaryRow>
-            </template>
+            <SwapDetailsSummary
+              v-if="!savings.isSameAsset.value"
+              :input-display="savings.summary.value?.from ?? null"
+              :output-display="savings.summary.value?.to ?? null"
+              :price-impact="savings.priceImpact.value"
+              :slippage="slippage"
+              :routed-via="savings.routedVia.value"
+              @open-slippage-settings="openSlippageSettings"
+            />
           </VaultFormInfoBlock>
 
           <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">

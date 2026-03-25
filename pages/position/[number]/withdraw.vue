@@ -15,7 +15,6 @@ import { SwapperMode } from '~/entities/swap'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
 
 const { address } = useAccount()
@@ -230,54 +229,14 @@ watch(selectedOutputAsset, () => {
               v-if="form.swapEstimatedOutput.value"
               :loading="form.isSwapQuoteLoading.value"
             >
-              <SummaryRow
-                v-if="form.swapInputDisplay.value"
-                label="Swap in"
-              >
-                <p class="text-p2 text-right">
-                  {{ form.swapInputDisplay.value }}
-                </p>
-              </SummaryRow>
-              <SummaryRow
-                v-if="form.swapOutputDisplay.value"
-                label="Swap out"
-              >
-                <p class="text-p2 text-right">
-                  {{ form.swapOutputDisplay.value }}
-                </p>
-              </SummaryRow>
-              <SummaryRow
-                v-if="form.swapPriceImpact.value !== null"
-                label="Price impact"
-              >
-                <span
-                  class="text-p2"
-                  :class="{ 'text-error-500': isPriceImpactWarning(form.swapPriceImpact.value) }"
-                >
-                  {{ formatNumber(form.swapPriceImpact.value, 2) }}%
-                </span>
-              </SummaryRow>
-              <SummaryRow label="Slippage tolerance">
-                <button
-                  type="button"
-                  class="flex items-center gap-6 text-p2"
-                  @click="form.openSlippageSettings"
-                >
-                  <span :class="{ 'text-error-500': isSlippageWarning(form.swapSlippage.value) }">{{ formatNumber(form.swapSlippage.value, 2, 0) }}%</span>
-                  <SvgIcon
-                    name="edit"
-                    class="!w-16 !h-16 text-accent-600"
-                  />
-                </button>
-              </SummaryRow>
-              <SummaryRow
-                v-if="form.swapRoutedVia.value"
-                label="Routed via"
-              >
-                <p class="text-p2 text-right">
-                  {{ form.swapRoutedVia.value }}
-                </p>
-              </SummaryRow>
+              <SwapDetailsSummary
+                :input-display="form.swapInputDisplay.value"
+                :output-display="form.swapOutputDisplay.value"
+                :price-impact="form.swapPriceImpact.value"
+                :slippage="form.swapSlippage.value"
+                :routed-via="form.swapRoutedVia.value"
+                @open-slippage-settings="form.openSlippageSettings"
+              />
             </VaultFormInfoBlock>
 
             <UiToast

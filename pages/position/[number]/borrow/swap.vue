@@ -9,10 +9,8 @@ import { SwapperMode } from '~/entities/swap'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
-import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
-import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
+import { formatLiquidationBuffer as formatLiqBuffer, calculateRoe } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { calculateRoe } from '~/utils/repayUtils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
 
 const route = useRoute()
@@ -531,44 +529,15 @@ const onToVaultChange = (selectedIndex: number) => {
                 :after="nextHealth !== null && quote ? formatHealthScore(nextHealth) : undefined"
               />
             </SummaryRow>
-            <template v-if="!isSameAsset">
-              <SummaryRow label="Swap in">
-                <p class="text-p2 text-right">
-                  {{ swapSummary ? swapSummary.from : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Swap out">
-                <p class="text-p2 text-right">
-                  {{ swapSummary ? swapSummary.to : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Price impact">
-                <p
-                  class="text-p2"
-                  :class="{ 'text-error-500': isPriceImpactWarning(priceImpact) }"
-                >
-                  {{ priceImpact !== null ? `${formatNumber(priceImpact, 2, 2)}%` : '-' }}
-                </p>
-              </SummaryRow>
-              <SummaryRow label="Slippage tolerance">
-                <button
-                  type="button"
-                  class="flex items-center gap-6 text-p2"
-                  @click="openSlippageSettings"
-                >
-                  <span :class="{ 'text-error-500': isSlippageWarning(slippage) }">{{ formatNumber(slippage, 2, 0) }}%</span>
-                  <SvgIcon
-                    name="edit"
-                    class="!w-16 !h-16 text-accent-600"
-                  />
-                </button>
-              </SummaryRow>
-              <SummaryRow label="Routed via">
-                <p class="text-p2 text-right">
-                  {{ routedVia || '-' }}
-                </p>
-              </SummaryRow>
-            </template>
+            <SwapDetailsSummary
+              v-if="!isSameAsset"
+              :input-display="swapSummary?.from ?? null"
+              :output-display="swapSummary?.to ?? null"
+              :price-impact="priceImpact"
+              :slippage="slippage"
+              :routed-via="routedVia"
+              @open-slippage-settings="openSlippageSettings"
+            />
           </VaultFormInfoBlock>
         </div>
       </template>
