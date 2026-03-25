@@ -115,6 +115,7 @@ export const useKeyring = (vaultAddress: string | Ref<string>) => {
 
       if (hasValidCredential.value) {
         flowState.value = KeyringFlowState.Idle
+        credentialData.value = null
       }
       else {
         // Check if there's an expired credential
@@ -176,7 +177,7 @@ export const useKeyring = (vaultAddress: string | Ref<string>) => {
   }
 
   const launchExtension = async () => {
-    if (!userAddress.value || !chainId.value || !policyId.value) return
+    if (!userAddress.value || !chainId.value || policyId.value === undefined) return
 
     const config: ExtensionSDKConfig = {
       app_url: window.location.origin,
