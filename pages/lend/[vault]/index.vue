@@ -781,9 +781,9 @@ watch(address, () => {
             v-model="amount"
             label="Supply amount"
             :desc="name"
-            :asset="needsSwap && selectedAsset ? selectedAsset : asset"
-            :vault="needsSwap ? undefined : (vault || securitizeVault)"
-            :price-override="needsSwap ? swapAssetUsdPrice : undefined"
+            :asset="(needsSwap || isNativeWrap) && selectedAsset ? selectedAsset : asset"
+            :vault="(needsSwap || isNativeWrap) ? undefined : (vault || securitizeVault)"
+            :price-override="(needsSwap || isNativeWrap) ? swapAssetUsdPrice : undefined"
             :balance="activeBalance"
             maxable
           />

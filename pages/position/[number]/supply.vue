@@ -71,10 +71,10 @@ const form = useCollateralForm({
   },
 
   validateEstimate: ({ amountFixed, needsSwap: isSwap }) => {
-    if (!isSwap && balanceFixed.value.lt(amountFixed)) {
+    if (!isSwap && !isNativeWrap.value && balanceFixed.value.lt(amountFixed)) {
       throw new Error('Not enough balance')
     }
-    if (isSwap && selectedAssetBalance.value < valueToNano(form.amount.value, selectedAsset.value?.decimals)) {
+    if ((isSwap || isNativeWrap.value) && selectedAssetBalance.value < valueToNano(form.amount.value, selectedAsset.value?.decimals)) {
       throw new Error('Not enough balance')
     }
   },
@@ -246,9 +246,9 @@ watch(selectedAsset, async () => {
             v-model="form.amount.value"
             label="Supply amount"
             :desc="name"
-            :asset="needsSwap && selectedAsset ? selectedAsset : form.asset.value"
-            :vault="needsSwap ? undefined : (form.collateralVault.value as Vault)"
-            :price-override="needsSwap ? swapAssetUsdPrice : undefined"
+            :asset="(needsSwap || isNativeWrap) && selectedAsset ? selectedAsset : form.asset.value"
+            :vault="(needsSwap || isNativeWrap) ? undefined : (form.collateralVault.value as Vault)"
+            :price-override="(needsSwap || isNativeWrap) ? swapAssetUsdPrice : undefined"
             :balance="activeBalance"
             maxable
           />
