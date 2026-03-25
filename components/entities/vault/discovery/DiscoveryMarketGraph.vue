@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MarketGroup, MiniDiagramData } from '~/entities/lend-discovery'
 import { getAssetLogoUrl } from '~/composables/useTokens'
-import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { isVaultDeprecated, isVaultKeyring } from '~/utils/eulerLabelsUtils'
 import { stringToColor } from '~/utils/string-utils'
 import {
   getEnlargedDiagram,
@@ -240,6 +240,20 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
               stroke-width="1.2"
               stroke-linecap="round"
               stroke-linejoin="round"
+            />
+          </g>
+          <!-- Keyring (private vault) badge -->
+          <g v-else-if="isVaultKeyring(node.address)">
+            <circle
+              :cx="node.x + 9"
+              :cy="node.y - 9"
+              r="6"
+              style="fill: var(--accent-600)"
+            />
+            <!-- Shield icon -->
+            <path
+              :d="`M${node.x + 9} ${node.y - 12.5} l-2.5 1 v2.2 c0 1.5 1 2.5 2.5 3 c1.5 -0.5 2.5 -1.5 2.5 -3 v-2.2 z`"
+              fill="white"
             />
           </g>
           <!-- Asset label -->

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getAddress, zeroAddress } from 'viem'
+import { getAddress } from 'viem'
 import type { Vault } from '~/entities/vault'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerEntitiesOfVault, useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -7,7 +7,6 @@ import { getProductKeyByVault } from '~/utils/eulerLabelsUtils'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { autoLink } from '~/utils/autoLink'
-import { getVaultTypeDescription, getVaultTypeLabel } from '~/entities/vault/descriptions'
 
 const { vault } = defineProps<{ vault: Vault }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
@@ -46,31 +45,6 @@ watchEffect(async () => {
   const price = await formatAssetValue(1, vault, 'off-chain')
   priceDisplay.value = price.hasPrice ? formatUsdValue(price.usdValue) : '-'
 })
-
-const vaultGovernanceType = computed(() => {
-  // Escrow vault
-  if (vault.vaultCategory === 'escrow') {
-    return 'escrow'
-  }
-  // Zero governorAdmin → ungoverned (check before entity match,
-  // since ungoverned vaults may have a label entity for display purposes)
-  if (!vault.governorAdmin || vault.governorAdmin === zeroAddress) {
-    return 'ungoverned'
-  }
-  // Has matching entity → governed (or governance-limited)
-  if (entities.length) {
-    return isGovernanceLimited.value ? 'governanceLimited' : 'governed'
-  }
-  // Non-zero but no matching entity → unknown
-  return 'unknown'
-})
-
-const vaultTypeLabel = computed(() =>
-  getVaultTypeLabel(vaultGovernanceType.value, isGovernorVerified.value),
-)
-const vaultTypeDescription = computed(() =>
-  getVaultTypeDescription(vaultGovernanceType.value, isGovernorVerified.value),
-)
 </script>
 
 <template>
@@ -141,16 +115,11 @@ const vaultTypeDescription = computed(() =>
         v-if="enableEntityBrandingDisplay"
         label="Risk manager"
       >
-        <div
+        <VaultTypeChip
           v-if="!isGovernorVerified"
-          class="flex gap-8 items-center py-8 px-12 rounded-8 bg-error-100 text-error-500"
-        >
-          <UiIcon
-            class="mr-2 !w-20 !h-20"
-            name="warning"
-          />
-          Unknown
-        </div>
+          :vault="vault"
+          type="unknown"
+        />
         <div
           v-else-if="entities.length"
           class="flex flex-col gap-16"
@@ -181,21 +150,9 @@ const vaultTypeDescription = computed(() =>
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue
         v-if="enableVaultTypeDisplay"
+        label="Vault type"
       >
-        <template #label>
-          <span class="flex items-center gap-4">
-            Vault type
-            <UiFootnote
-              :title="vaultTypeLabel"
-              :text="vaultTypeDescription"
-              class="[--ui-footnote-icon-color:var(--text-muted)] hover:[--ui-footnote-icon-color:var(--text-secondary)]"
-            />
-          </span>
-        </template>
-        <VaultTypeChip
-          :vault="vault"
-          :type="vaultGovernanceType"
-        />
+        <VaultTypeBadges :vault-address="vault.address" />
       </VaultOverviewLabelValue>
       <VaultOverviewLabelValue label="Can be borrowed">
         <div class="flex items-center gap-8">

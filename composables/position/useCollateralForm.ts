@@ -3,7 +3,6 @@ import { useAccount } from '@wagmi/vue'
 import { formatUnits, type Address, type Abi, zeroAddress } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
-import { getPublicClient } from '~/utils/public-client'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -115,7 +114,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const { isReady: isVaultsReady } = useVaults()
   const { getOrFetch } = useVaultRegistry()
   const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { client: rpcClient } = useRpcClient()
 
   // --- Shared reactive state ---
   const isLoading = ref(false)
@@ -264,8 +263,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
         throw new Error('Account lens address is not available')
       }
 
-      const client = getPublicClient(EVM_PROVIDER_URL)
-      const res = await client.readContract({
+      const res = await rpcClient.value!.readContract({
         address: lensAddress as Address,
         abi: eulerAccountLensABI as Abi,
         functionName: 'getVaultAccountInfo',

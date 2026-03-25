@@ -129,6 +129,7 @@ const form = useCollateralForm({
     refreshAllPositions(eulerLensAddresses.value, address.value as string)
   },
 })
+useOperationGuard(computed(() => [form.collateralVault.value?.address, form.borrowVault.value?.address].filter(Boolean)))
 
 // Withdraw-specific computeds
 const withdrawWarnings = computed(() => {

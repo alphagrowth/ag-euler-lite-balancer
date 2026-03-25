@@ -3,7 +3,6 @@ import type { Address } from 'viem'
 import axios from 'axios'
 
 import { fuulManagerABI, fuulFactoryABI } from '~/abis/fuul'
-import { getPublicClient } from '~/utils/public-client'
 import type { FuulClaimableEntry, FuulClaimableReward, FuulIncentive } from '~/entities/fuul'
 import type { RewardCampaign } from '~/entities/reward-campaign'
 import type { TxPlan } from '~/entities/txPlan'
@@ -35,7 +34,8 @@ export const useFuul = () => {
   const { address: wagmiAddress, chain: wagmiChain } = useAccount()
   const { switchChain } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
-  const { FUUL_API_BASE_URL, FUUL_MANAGER_ADDRESS, FUUL_FACTORY_ADDRESS, EVM_PROVIDER_URL } = useEulerConfig()
+  const { FUUL_API_BASE_URL, FUUL_MANAGER_ADDRESS, FUUL_FACTORY_ADDRESS } = useEulerConfig()
+  const { client: rpcClient } = useRpcClient()
   const { chainId } = useEulerAddresses()
 
   const unclaimedFuulRewards = computed(() =>
@@ -183,9 +183,7 @@ export const useFuul = () => {
   }
 
   const readClaimFee = async (projectAddress: string): Promise<bigint> => {
-    const client = getPublicClient(EVM_PROVIDER_URL)
-
-    const feesInfo = await client.readContract({
+    const feesInfo = await rpcClient.value!.readContract({
       address: FUUL_FACTORY_ADDRESS as Address,
       abi: fuulFactoryABI,
       functionName: 'getFeesInformation',
@@ -226,8 +224,7 @@ export const useFuul = () => {
       value: fee,
     })
 
-    const client = getPublicClient(EVM_PROVIDER_URL)
-    const receipt = await client.waitForTransactionReceipt({ hash })
+    const receipt = await rpcClient.value!.waitForTransactionReceipt({ hash })
     if (receipt.status === 'reverted') {
       throw new Error('Transaction reverted')
     }

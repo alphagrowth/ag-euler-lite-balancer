@@ -36,6 +36,7 @@ const openSlippageSettings = () => {
 
 const collateralAddress = route.params.collateral as string
 const borrowAddress = route.params.borrow as string
+useOperationGuard([collateralAddress, borrowAddress])
 
 // --- Shared state ---
 const balance = ref(0n)

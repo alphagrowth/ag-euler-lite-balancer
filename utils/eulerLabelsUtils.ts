@@ -36,6 +36,7 @@ export const extractVaultOverrides = (raw: Record<string, unknown>): Record<stri
     if (Array.isArray(entry.restricted)) override.restricted = entry.restricted.filter((v): v is string => typeof v === 'string')
     if (typeof entry.notExplorableLend === 'boolean') override.notExplorableLend = entry.notExplorableLend
     if (typeof entry.notExplorableBorrow === 'boolean') override.notExplorableBorrow = entry.notExplorableBorrow
+    if (typeof entry.keyring === 'boolean') override.keyring = entry.keyring
     if (Object.keys(override).length > 0) {
       overrides[normalizeAddress(key)] = override
     }
@@ -231,6 +232,17 @@ export const isVaultNotExplorableBorrow = (vaultAddress: string): boolean => {
   if (product.notExplorable === true) return true
   const override = product.vaultOverrides?.[normalizeAddress(vaultAddress)]
   return override?.notExplorableBorrow === true
+}
+
+export const isVaultKeyring = (vaultAddress: string): boolean => {
+  const product = getProductByVault(vaultAddress)
+  if (product.keyring === true) return true
+  const override = product.vaultOverrides?.[normalizeAddress(vaultAddress)]
+  return override?.keyring === true
+}
+
+export const isProductKeyring = (productKey: string): boolean => {
+  return products[productKey]?.keyring === true
 }
 
 export const getEntitiesByVault = (vault: Vault) => {

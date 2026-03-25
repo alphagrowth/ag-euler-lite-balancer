@@ -31,6 +31,7 @@ const subAccount = computed(() => {
 // ── Vaults ───────────────────────────────────────────────────────────────
 const fromVault: Ref<Vault | SecuritizeVault | undefined> = ref()
 const toVault: Ref<Vault | undefined> = ref()
+useOperationGuard(computed(() => [fromVault.value?.address, toVault.value?.address].filter(Boolean)))
 
 const fromVaultAsRegular = computed(() => fromVault.value as Vault | undefined)
 const { collateralOptions, collateralVaults } = useSwapCollateralOptions({ currentVault: fromVaultAsRegular })

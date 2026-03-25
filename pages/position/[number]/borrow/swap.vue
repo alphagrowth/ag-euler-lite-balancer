@@ -29,6 +29,7 @@ const position: Ref<AccountBorrowPosition | null> = ref(null)
 const fromVault = computed(() => position.value?.borrow)
 const collateralVault = computed(() => position.value?.collateral)
 const toVault: Ref<Vault | undefined> = ref()
+useOperationGuard(computed(() => [fromVault.value?.address, toVault.value?.address, collateralVault.value?.address].filter(Boolean)))
 
 const { borrowOptions, borrowVaults } = useSwapDebtOptions({
   collateralVault: computed(() => collateralVault.value as Vault | undefined),

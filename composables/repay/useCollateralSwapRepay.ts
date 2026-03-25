@@ -16,7 +16,6 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useRepaySwapCore } from '~/composables/repay/useRepaySwapCore'
 import { useRepaySwapDetails } from '~/composables/repay/useRepaySwapDetails'
 import { useRepayHealthMetrics } from '~/composables/repay/useRepayHealthMetrics'
-import { getPublicClient } from '~/utils/public-client'
 import { nanoToValue, valueToNano } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { createRaceGuard } from '~/utils/race-guard'
@@ -59,7 +58,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
   const { buildSwapPlan, buildSameAssetRepayPlan, buildSameAssetFullRepayPlan, buildSwapFullRepayPlan, executeTxPlan } = useEulerOperations()
   const { refreshAllPositions } = useEulerAccount()
   const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { client: rpcClient } = useRpcClient()
   const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
   const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 
@@ -249,8 +248,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
       if (!lensAddress) {
         throw new Error('Account lens address is not available')
       }
-      const client = getPublicClient(EVM_PROVIDER_URL)
-      const res = await client.readContract({
+      const res = await rpcClient.value!.readContract({
         address: lensAddress as Address,
         abi: eulerAccountLensABI as Abi,
         functionName: 'getVaultAccountInfo',

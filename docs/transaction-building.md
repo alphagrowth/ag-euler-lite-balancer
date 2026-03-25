@@ -368,12 +368,21 @@ The EVC supports 256 sub-accounts per user address. Sub-accounts enable **positi
 
 ## Execution & Simulation
 
+### Operation Guard Registry
+
+Before execution or simulation, plans are transformed by the **operation guard registry** (`utils/operationGuardRegistry.ts`). Guards are reactive plan transformers registered by composables like `useOperationGuard`. Currently used for:
+
+- **Keyring credential injection**: Automatically prepends a `createCredential` call to the EVC batch when interacting with keyring-protected vaults. See [keyring-hooks.md](./keyring-hooks.md).
+
+The registry also supports **blockers** (disable the submit button with a reason) and **metadata** (contextual info like credential fees for error messages).
+
 ### `executeTxPlan(plan)`
 
 Executes each step of a `TxPlan` sequentially:
-1. For each `TxStep`, calls `writeContractAsync()` with the step's parameters
-2. Waits for transaction receipt before proceeding to the next step
-3. Returns the final transaction hash
+1. Applies operation guards to transform the plan (`applyOperationGuards`)
+2. For each `TxStep`, calls `writeContractAsync()` with the step's parameters
+3. Waits for transaction receipt before proceeding to the next step
+4. Returns the final transaction hash
 
 ### `simulateTxPlan(plan)`
 

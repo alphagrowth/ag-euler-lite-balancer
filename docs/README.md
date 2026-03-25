@@ -29,13 +29,6 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 
 - Development workflow
 
-### 🔌 [Data Flow and Integrations](./data-flow-and-integrations.md)
-
-- Unified rewards system (Merkl + Incentra + Fuul)
-- Intrinsic APY (multi-provider yield data)
-- Chain switching and stale data prevention
-- Euler Finance protocol integration
-
 ### 💰 [Pricing System](./pricing-system.md)
 
 - 3-layer pricing architecture (oracle → USD → values)
@@ -73,6 +66,13 @@ Welcome to the documentation for the Euler Lite project. This documentation is d
 - Address-based lookup with TTL caching
 - Source attribution in APY modals
 - Adding new providers and tokens
+
+### 🔐 [Keyring Hooks (Private Vaults)](./keyring-hooks.md)
+
+- Keyring identity verification for private vaults
+- On-chain credential checking and extension flow
+- Operation guard registry for automatic TxPlan injection
+- UI components (badges, alerts, verification flow)
 
 ### 🌍 [Geo-Blocking](./geo-blocking.md)
 

@@ -67,7 +67,7 @@ export const createOperationHelpers = (ctx: OperationsContext, permit2: Permit2H
       const vaults = vaultAddresses.map((addr) => {
         return ctx.registryGetVault(getAddress(addr)) as Vault | undefined
       })
-      return await buildPythUpdateCalls(vaults, ctx.EVM_PROVIDER_URL, ctx.PYTH_HERMES_URL, sender)
+      return await buildPythUpdateCalls(vaults, ctx.rpcUrl, ctx.PYTH_HERMES_URL, sender)
     }
     catch (err) {
       logWarn('preparePythUpdates', err)
@@ -88,7 +88,7 @@ export const createOperationHelpers = (ctx: OperationsContext, permit2: Permit2H
       }
 
       const feeds = collectPythFeedsForHealthCheck(liabilityVault, collateralVaultAddresses)
-      return await buildPythUpdateCallsFromFeeds(feeds, ctx.EVM_PROVIDER_URL, ctx.PYTH_HERMES_URL, sender)
+      return await buildPythUpdateCallsFromFeeds(feeds, ctx.rpcUrl, ctx.PYTH_HERMES_URL, sender)
     }
     catch (err) {
       logWarn('preparePythUpdatesForHealthCheck', err)
