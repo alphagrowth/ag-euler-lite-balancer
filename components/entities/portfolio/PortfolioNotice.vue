@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { autoLink } from '~/utils/autoLink'
+import { stopLinkPropagation } from '~/utils/stopLinkPropagation'
 
 defineProps<{ notice: string }>()
 </script>
@@ -16,6 +17,7 @@ defineProps<{ notice: string }>()
     <!-- eslint-disable vue/no-v-html -- trusted label content -->
     <span
       class="text-accent-700 text-p4 auto-link"
+      @click="stopLinkPropagation"
       v-html="autoLink(notice)"
     />
     <!-- eslint-enable vue/no-v-html -->
