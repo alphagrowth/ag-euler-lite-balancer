@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
-import { getAddress, type Address } from 'viem'
-import { zeroAddress } from 'viem'
+import { getAddress, type Address, zeroAddress } from 'viem'
+import { isNativeCurrencyAddress, isNativeOfWrapped, resolveWrappedNativeAddress, resolveWrappedNativeAsset } from '~/utils/native-currency'
 import { FixedPoint } from '~/utils/fixed-point'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import type { Vault, VaultAsset } from '~/entities/vault'
@@ -20,6 +20,7 @@ const { isConnected, address } = useAccount()
 const { isSpyMode } = useSpyMode()
 const { fetchSingleBalance } = useWallets()
 const { buildSupplyPlan, buildSwapAndSupplyPlan } = useEulerOperations()
+const { chainId } = useEulerAddresses()
 
 // Supply-specific state
 const balance = ref(0n)
@@ -31,14 +32,19 @@ const isUnknownSwapToken = ref(false)
 const needsSwap = computed(() => {
   if (!selectedAsset.value || !form.asset.value) return false
   try {
+    if (isNativeOfWrapped(selectedAsset.value.address, form.asset.value.address, chainId.value!)) return false
     return getAddress(selectedAsset.value.address) !== getAddress(form.asset.value.address)
   }
   catch {
     return false
   }
 })
+const isNativeWrap = computed(() => {
+  if (!selectedAsset.value || !form.asset.value) return false
+  return isNativeOfWrapped(selectedAsset.value.address, form.asset.value.address, chainId.value!)
+})
 
-const activeBalance = computed(() => needsSwap.value ? selectedAssetBalance.value : balance.value)
+const activeBalance = computed(() => (needsSwap.value || isNativeWrap.value) ? selectedAssetBalance.value : balance.value)
 const _activeAsset = computed(() => needsSwap.value ? selectedAsset.value : form.asset.value)
 
 const form = useCollateralForm({
@@ -73,25 +79,44 @@ const form = useCollateralForm({
     }
   },
 
-  buildDirectPlan: async ({ vaultAddress, assetAddress, amountNano, subAccount, includePermit2Call }) =>
-    buildSupplyPlan(vaultAddress, assetAddress, amountNano, subAccount, { includePermit2Call }),
+  buildDirectPlan: async ({ vaultAddress, assetAddress, amountNano, subAccount, includePermit2Call }) => {
+    const wrappedAddr = isNativeWrap.value ? resolveWrappedNativeAddress(chainId.value!) : null
+    return buildSupplyPlan(vaultAddress, assetAddress, amountNano, subAccount, {
+      includePermit2Call,
+      wrappedNativeInfo: isNativeWrap.value && wrappedAddr
+        ? { wrappedTokenAddress: wrappedAddr, nativeAmount: amountNano }
+        : undefined,
+    })
+  },
 
   buildSwapPlan: async (quote: SwapApiQuote, { includePermit2Call }) => {
     if (!selectedAsset.value || !form.collateralVault.value) {
       throw new Error('No selected asset or vault')
     }
+    const isNative = isNativeCurrencyAddress(selectedAsset.value.address)
+    const inputAmount = valueToNano(form.amount.value || '0', selectedAsset.value.decimals)
+    const wrappedAddress = isNative ? resolveWrappedNativeAddress(chainId.value!) : null
+    if (isNative && !wrappedAddress) {
+      throw new Error('Wrapped native token not found')
+    }
     return buildSwapAndSupplyPlan({
-      inputTokenAddress: selectedAsset.value.address as Address,
-      inputAmount: valueToNano(form.amount.value || '0', selectedAsset.value.decimals),
+      inputTokenAddress: (wrappedAddress || selectedAsset.value.address) as Address,
+      inputAmount,
       quote,
       includePermit2Call,
+      wrappedNativeInfo: isNative && wrappedAddress
+        ? { wrappedTokenAddress: wrappedAddress, nativeAmount: inputAmount }
+        : undefined,
     })
   },
 
   requestSwapQuoteParams: ({ userAddr, subAccountAddr, amountNano: _amountNano, slippage }) => {
     if (!selectedAsset.value || !form.asset.value || !form.collateralVault.value) return null
+    const swapTokenIn = isNativeCurrencyAddress(selectedAsset.value.address)
+      ? resolveWrappedNativeAddress(chainId.value!) || selectedAsset.value.address
+      : selectedAsset.value.address
     return {
-      tokenIn: selectedAsset.value.address as Address,
+      tokenIn: swapTokenIn as Address,
       tokenOut: form.asset.value.address as Address,
       accountIn: zeroAddress as Address,
       accountOut: subAccountAddr,
@@ -112,7 +137,15 @@ const form = useCollateralForm({
   reviewLabel: 'Review Supply',
   reviewType: 'supply',
   swapReviewType: 'swap-supply',
-  getReviewAsset: isSwap => isSwap && selectedAsset.value ? selectedAsset.value : form.asset.value,
+  getReviewAsset: (isSwap) => {
+    if (isSwap && selectedAsset.value) {
+      if (isNativeCurrencyAddress(selectedAsset.value.address)) {
+        return resolveWrappedNativeAsset(chainId.value!) || selectedAsset.value
+      }
+      return selectedAsset.value
+    }
+    return form.asset.value
+  },
   getSwapToAsset: () => form.asset.value,
 
   onAfterLoad: () => updateBalance(),
@@ -170,8 +203,11 @@ watch(selectedAsset, async () => {
     form.resetSwapQuoteState()
     form.requestSwapQuote()
   }
-  if (selectedAsset.value?.address && needsSwap.value) {
-    const priceData = await fetchBackendPrice(selectedAsset.value.address as Address)
+  if (selectedAsset.value?.address && (needsSwap.value || isNativeWrap.value)) {
+    const priceAddr = isNativeCurrencyAddress(selectedAsset.value.address)
+      ? resolveWrappedNativeAddress(chainId.value!) || selectedAsset.value.address
+      : selectedAsset.value.address
+    const priceData = await fetchBackendPrice(priceAddr as Address)
     swapAssetUsdPrice.value = priceData?.price
   }
   else {
@@ -249,11 +285,19 @@ watch(selectedAsset, async () => {
               :loading="form.isSwapQuoteLoading.value"
             >
               <SummaryRow
-                label="Estimated deposit"
-                align-top
+                v-if="form.swapInputDisplay.value"
+                label="Swap in"
               >
-                <p class="text-p2">
-                  ~{{ formatSmartAmount(form.swapEstimatedOutput.value) }} {{ form.asset.value.symbol }}
+                <p class="text-p2 text-right">
+                  {{ form.swapInputDisplay.value }}
+                </p>
+              </SummaryRow>
+              <SummaryRow
+                v-if="form.swapOutputDisplay.value"
+                label="Swap out"
+              >
+                <p class="text-p2 text-right">
+                  {{ form.swapOutputDisplay.value }}
                 </p>
               </SummaryRow>
               <SummaryRow
@@ -279,6 +323,14 @@ watch(selectedAsset, async () => {
                     class="!w-16 !h-16 text-accent-600"
                   />
                 </button>
+              </SummaryRow>
+              <SummaryRow
+                v-if="form.swapRoutedVia.value"
+                label="Routed via"
+              >
+                <p class="text-p2 text-right">
+                  {{ form.swapRoutedVia.value }}
+                </p>
               </SummaryRow>
             </VaultFormInfoBlock>
 

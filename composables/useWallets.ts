@@ -1,4 +1,4 @@
-import { type Address, getAddress } from 'viem'
+import { type Address, getAddress, zeroAddress } from 'viem'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import { erc20BalanceOfAbi } from '~/abis/erc20'
@@ -213,8 +213,12 @@ export const useWallets = () => {
     }
     try {
       const client = getPublicClient(rpcUrl.value)
+      const normalized = getAddress(tokenAddress)
+      if (normalized === zeroAddress) {
+        return await client.getBalance({ address: balanceAddress.value as Address })
+      }
       const result = await client.readContract({
-        address: getAddress(tokenAddress) as Address,
+        address: normalized as Address,
         abi: erc20BalanceOfAbi,
         functionName: 'balanceOf',
         args: [balanceAddress.value as Address],

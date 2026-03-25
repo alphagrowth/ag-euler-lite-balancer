@@ -1,6 +1,7 @@
 import type { Ref, ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { getAddress, formatUnits, zeroAddress, type Address } from 'viem'
+import { isNativeCurrencyAddress, isNativeOfWrapped, resolveWrappedNativeAddress, resolveWrappedNativeAsset } from '~/utils/native-currency'
 import { logWarn } from '~/utils/errorHandling'
 import { computeNextHealth, computeLiquidationPrice } from '~/utils/repayUtils'
 import { FixedPoint } from '~/utils/fixed-point'
@@ -89,7 +90,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   const { buildBorrowPlan, buildBorrowBySavingPlan, buildSwapAndBorrowPlan, executeTxPlan } = useEulerOperations()
   const { address, isConnected } = useAccount()
   const { refreshAllPositions } = useEulerAccount()
-  const { eulerLensAddresses } = useEulerAddresses()
+  const { eulerLensAddresses, chainId } = useEulerAddresses()
   const { updateVault } = useVaults()
   const { fetchSingleBalance } = useWallets()
   const { guardWithTerms } = useTermsOfUseGate()
@@ -211,6 +212,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   const borrowNeedsSwap = computed(() => {
     if (!borrowSelectedAsset.value || !collateralVault.value) return false
     try {
+      if (isNativeOfWrapped(borrowSelectedAsset.value.address, collateralVault.value.asset.address, chainId.value!)) return false
       return getAddress(borrowSelectedAsset.value.address) !== getAddress(collateralVault.value.asset.address)
     }
     catch {
@@ -218,13 +220,18 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     }
   })
 
+  const isBorrowNativeWrap = computed(() => {
+    if (!borrowSelectedAsset.value || !collateralVault.value) return false
+    return isNativeOfWrapped(borrowSelectedAsset.value.address, collateralVault.value.asset.address, chainId.value!)
+  })
+
   const borrowActiveBalance = computed(() => {
-    if (borrowNeedsSwap.value) return borrowSelectedAssetBalance.value
+    if (borrowNeedsSwap.value || isBorrowNativeWrap.value) return borrowSelectedAssetBalance.value
     return computedBalance.value
   })
 
   const borrowActiveAssetDecimals = computed(() => {
-    if (borrowNeedsSwap.value && borrowSelectedAsset.value) return borrowSelectedAsset.value.decimals
+    if ((borrowNeedsSwap.value || isBorrowNativeWrap.value) && borrowSelectedAsset.value) return borrowSelectedAsset.value.decimals
     return collateralVault.value?.asset?.decimals
   })
 
@@ -244,6 +251,25 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       }
     }
     return collateralAmountFixed.value
+  })
+
+  const borrowSwapInputDisplay = computed(() => {
+    if (!borrowSwapEffectiveQuote.value || !borrowSelectedAsset.value) return ''
+    const amountIn = BigInt(borrowSwapEffectiveQuote.value.amountIn || 0)
+    if (amountIn <= 0n) return ''
+    return `${formatSmartAmount(formatUnits(amountIn, Number(borrowSelectedAsset.value.decimals)))} ${borrowSelectedAsset.value.symbol}`
+  })
+
+  const borrowSwapOutputDisplay = computed(() => {
+    if (!borrowSwapEffectiveQuote.value || !collateralVault.value) return ''
+    const amountOut = BigInt(borrowSwapEffectiveQuote.value.amountOut || 0)
+    if (amountOut <= 0n) return ''
+    return `${formatSmartAmount(formatUnits(amountOut, Number(collateralVault.value.asset.decimals)))} ${collateralVault.value.asset.symbol}`
+  })
+
+  const borrowSwapRoutedVia = computed(() => {
+    if (!borrowSwapEffectiveQuote.value?.route?.length) return null
+    return borrowSwapEffectiveQuote.value.route.map((r: { providerName: string }) => r.providerName).join(', ')
   })
 
   const { priceImpact: borrowSwapPriceImpact } = useSwapPriceImpact({
@@ -354,8 +380,11 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     const subAccountAddr = address.value
       ? (await resolvePendingSubAccount()) as Address
       : userAddr
+    const swapTokenIn = isNativeCurrencyAddress(borrowSelectedAsset.value.address)
+      ? resolveWrappedNativeAddress(chainId.value!) || borrowSelectedAsset.value.address
+      : borrowSelectedAsset.value.address
     await requestBorrowSwapQuotes({
-      tokenIn: borrowSelectedAsset.value.address as Address,
+      tokenIn: swapTokenIn as Address,
       tokenOut: collateralVault.value.asset.address as Address,
       accountIn: zeroAddress as Address,
       accountOut: subAccountAddr,
@@ -394,6 +423,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       props: {
         currentAssetAddress: borrowSelectedAsset.value?.address || collateralVault.value?.asset.address,
         onSelect: onSelectBorrowSwapAsset,
+        allowNativeCurrency: true,
       },
     })
   }
@@ -489,17 +519,26 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     if (!borrowSelectedAsset.value || !collateralVault.value || !borrowVault.value) {
       throw new Error('Missing vault or asset data')
     }
+    const isNative = isNativeCurrencyAddress(borrowSelectedAsset.value.address)
+    const inputAmount = valueToNano(collateralAmount.value || '0', borrowSelectedAsset.value.decimals)
+    const wrappedAddress = isNative ? resolveWrappedNativeAddress(chainId.value!) : null
+    if (isNative && !wrappedAddress) {
+      throw new Error('Wrapped native token not found')
+    }
     const borrowAmountNano = valueToNano(borrowAmount.value || '0', borrowVault.value.decimals)
     const subAccount = await resolvePendingSubAccount()
     return buildSwapAndBorrowPlan({
-      inputTokenAddress: borrowSelectedAsset.value.address as Address,
-      inputAmount: valueToNano(collateralAmount.value || '0', borrowSelectedAsset.value.decimals),
+      inputTokenAddress: (wrappedAddress || borrowSelectedAsset.value.address) as Address,
+      inputAmount,
       collateralVaultAddress: collateralVault.value.address as Address,
       borrowVaultAddress: borrowVault.value.address as Address,
       borrowAmount: borrowAmountNano,
       swapQuote: quote,
       subAccount,
       includePermit2Call: planOptions.includePermit2Call,
+      wrappedNativeInfo: isNative && wrappedAddress
+        ? { wrappedTokenAddress: wrappedAddress, nativeAmount: inputAmount }
+        : undefined,
     })
   }
 
@@ -534,7 +573,10 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
             }
           }
 
-          const reviewAsset = borrowSelectedAsset.value || collateralVault.value.asset
+          const isNativeSwap = borrowSelectedAsset.value && isNativeCurrencyAddress(borrowSelectedAsset.value.address)
+          const reviewAsset = isNativeSwap
+            ? (resolveWrappedNativeAsset(chainId.value!) || borrowSelectedAsset.value!)
+            : (borrowSelectedAsset.value || collateralVault.value.asset)
           modal.open(OperationReviewModal, {
             props: {
               type: 'swap-borrow' as const,
@@ -585,7 +627,12 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
               borrowVault.value.address,
               borrowAmountNano,
               undefined,
-              { includePermit2Call: false },
+              {
+                includePermit2Call: false,
+                wrappedNativeInfo: isBorrowNativeWrap.value
+                  ? { wrappedTokenAddress: resolveWrappedNativeAddress(chainId.value!)!, nativeAmount: collateralAmountForPlan }
+                  : undefined,
+              },
             )
         }
         catch (e) {
@@ -669,7 +716,12 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
             borrowVault.value.address,
             borrowAmountNano,
             undefined,
-            { includePermit2Call: true },
+            {
+              includePermit2Call: true,
+              wrappedNativeInfo: isBorrowNativeWrap.value
+                ? { wrappedTokenAddress: resolveWrappedNativeAddress(chainId.value!)!, nativeAmount: collateralAmountForPlan }
+                : undefined,
+            },
           )
       }
       await executeTxPlan(txPlan)
@@ -729,7 +781,10 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       requestBorrowSwapQuote()
     }
     if (borrowSelectedAsset.value?.address && borrowNeedsSwap.value) {
-      const priceData = await fetchBackendPrice(borrowSelectedAsset.value.address as Address)
+      const priceAddr = isNativeCurrencyAddress(borrowSelectedAsset.value.address)
+        ? resolveWrappedNativeAddress(chainId.value!) || borrowSelectedAsset.value.address
+        : borrowSelectedAsset.value.address
+      const priceData = await fetchBackendPrice(priceAddr as Address)
       borrowSwapAssetUsdPrice.value = priceData?.price
     }
     else {
@@ -808,6 +863,9 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
 
     // Computed: swap
     borrowSwapEstimatedCollateral,
+    borrowSwapInputDisplay,
+    borrowSwapOutputDisplay,
+    borrowSwapRoutedVia,
     borrowSwapPriceImpact,
     borrowSwapRouteItems,
 

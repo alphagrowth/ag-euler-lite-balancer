@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getAddress, formatUnits, type Address, zeroAddress } from 'viem'
+import { isNativeCurrencyAddress, isNativeOfWrapped, resolveWrappedNativeAddress, resolveWrappedNativeAsset } from '~/utils/native-currency'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
@@ -67,6 +68,7 @@ const { buildSupplyPlan, buildSwapAndSupplyPlan, executeTxPlan } = useEulerOpera
 const { getVault, getSecuritizeVault, getEscrowVault, updateVault, isEscrowLoadedOnce } = useVaults()
 const { get: registryGet, getVault: _registryGetVault, isKnownEscrowAddress } = useVaultRegistry()
 const { isConnected, address } = useAccount()
+const { chainId } = useEulerAddresses()
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
@@ -93,11 +95,16 @@ const isUnknownSwapToken = ref(false)
 const needsSwap = computed(() => {
   if (!selectedAsset.value || !asset.value) return false
   try {
+    if (isNativeOfWrapped(selectedAsset.value.address, asset.value.address, chainId.value!)) return false
     return getAddress(selectedAsset.value.address) !== getAddress(asset.value.address)
   }
   catch {
     return false
   }
+})
+const isNativeWrap = computed(() => {
+  if (!selectedAsset.value || !asset.value) return false
+  return isNativeOfWrapped(selectedAsset.value.address, asset.value.address, chainId.value!)
 })
 const { slippage: swapSlippage } = useSlippage()
 const {
@@ -254,8 +261,8 @@ const fetchSelectedAssetBalance = async () => {
   }
   selectedAssetBalance.value = await fetchSingleBalance(selectedAsset.value.address)
 }
-const activeBalance = computed(() => needsSwap.value ? selectedAssetBalance.value : balance.value)
-const activeAsset = computed(() => needsSwap.value ? selectedAsset.value : asset.value)
+const activeBalance = computed(() => (needsSwap.value || isNativeWrap.value) ? selectedAssetBalance.value : balance.value)
+const activeAsset = computed(() => (needsSwap.value || isNativeWrap.value) ? selectedAsset.value : asset.value)
 const errorText = computed(() => {
   if (activeBalance.value < valueToNano(amount.value, activeAsset.value?.decimals)) {
     return 'Not enough balance'
@@ -349,11 +356,20 @@ const buildSwapSupplyPlanFromQuote = async (quote: SwapApiQuote, options: { incl
   if (!selectedAsset.value) {
     throw new Error('No selected asset')
   }
+  const isNative = isNativeCurrencyAddress(selectedAsset.value.address)
+  const inputAmount = valueToNano(amount.value || '0', selectedAsset.value.decimals)
+  const wrappedAddress = isNative ? resolveWrappedNativeAddress(chainId.value!) : null
+  if (isNative && !wrappedAddress) {
+    throw new Error('Wrapped native token not found')
+  }
   return buildSwapAndSupplyPlan({
-    inputTokenAddress: selectedAsset.value.address as Address,
-    inputAmount: valueToNano(amount.value || '0', selectedAsset.value.decimals),
+    inputTokenAddress: (wrappedAddress || selectedAsset.value.address) as Address,
+    inputAmount,
     quote,
     includePermit2Call: options.includePermit2Call,
+    wrappedNativeInfo: isNative && wrappedAddress
+      ? { wrappedTokenAddress: wrappedAddress, nativeAmount: inputAmount }
+      : undefined,
   })
 }
 
@@ -372,12 +388,19 @@ const submit = async () => {
             plan.value = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value, { includePermit2Call: false })
           }
           else {
+            const supplyAmount = valueToNano(amount.value || '0', asset.value.decimals)
+            const wrappedAddr = isNativeWrap.value ? resolveWrappedNativeAddress(chainId.value!) : null
             plan.value = await buildSupplyPlan(
               vaultAddress,
               asset.value.address,
-              valueToNano(amount.value || '0', asset.value.decimals),
+              supplyAmount,
               undefined,
-              { includePermit2Call: false },
+              {
+                includePermit2Call: false,
+                wrappedNativeInfo: isNativeWrap.value && wrappedAddr
+                  ? { wrappedTokenAddress: wrappedAddr, nativeAmount: supplyAmount }
+                  : undefined,
+              },
             )
           }
         }
@@ -393,7 +416,10 @@ const submit = async () => {
           }
         }
 
-        const reviewAsset = needsSwap.value && selectedAsset.value ? selectedAsset.value : asset.value
+        const isNativeSwap = needsSwap.value && selectedAsset.value && isNativeCurrencyAddress(selectedAsset.value.address)
+        const reviewAsset = isNativeSwap
+          ? (resolveWrappedNativeAsset(chainId.value!) || selectedAsset.value!)
+          : needsSwap.value && selectedAsset.value ? selectedAsset.value : asset.value
         const reviewType = needsSwap.value ? 'swap-supply' as const : 'supply' as const
         modal.open(OperationReviewModal, {
           props: {
@@ -510,6 +536,25 @@ const swapEstimatedOutput = computed(() => {
   return formatUnits(amountOut, Number(asset.value.decimals))
 })
 
+const swapInputDisplay = computed(() => {
+  if (!swapEffectiveQuote.value || !selectedAsset.value) return ''
+  const amountIn = BigInt(swapEffectiveQuote.value.amountIn || 0)
+  if (amountIn <= 0n) return ''
+  return `${formatSmartAmount(formatUnits(amountIn, Number(selectedAsset.value.decimals)))} ${selectedAsset.value.symbol}`
+})
+
+const swapOutputDisplay = computed(() => {
+  if (!swapEffectiveQuote.value || !asset.value) return ''
+  const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
+  if (amountOut <= 0n) return ''
+  return `${formatSmartAmount(formatUnits(amountOut, Number(asset.value.decimals)))} ${asset.value.symbol}`
+})
+
+const swapRoutedVia = computed(() => {
+  if (!swapEffectiveQuote.value?.route?.length) return null
+  return swapEffectiveQuote.value.route.map((r: { providerName: string }) => r.providerName).join(', ')
+})
+
 const { priceImpact: swapPriceImpact } = useSwapPriceImpact({
   quote: swapEffectiveQuote,
   toVault: evkVault,
@@ -545,8 +590,11 @@ const requestSwapQuote = useDebounceFn(async () => {
   }
 
   const userAddr = (address.value || zeroAddress) as Address
+  const swapTokenIn = isNativeCurrencyAddress(selectedAsset.value.address)
+    ? resolveWrappedNativeAddress(chainId.value!) || selectedAsset.value.address
+    : selectedAsset.value.address
   await requestSwapQuotes({
-    tokenIn: selectedAsset.value.address as Address,
+    tokenIn: swapTokenIn as Address,
     tokenOut: asset.value.address as Address,
     accountIn: zeroAddress as Address,
     accountOut: userAddr,
@@ -582,6 +630,7 @@ const openSwapTokenSelector = () => {
     props: {
       currentAssetAddress: selectedAsset.value?.address || asset.value?.address,
       onSelect: onSelectSwapAsset,
+      allowNativeCurrency: true,
     },
   })
 }
@@ -602,8 +651,11 @@ watch(selectedAsset, async () => {
     resetSwapQuoteState()
     requestSwapQuote()
   }
-  if (selectedAsset.value?.address && needsSwap.value) {
-    const priceData = await fetchBackendPrice(selectedAsset.value.address as Address)
+  if (selectedAsset.value?.address && (needsSwap.value || isNativeWrap.value)) {
+    const priceAddr = isNativeCurrencyAddress(selectedAsset.value.address)
+      ? resolveWrappedNativeAddress(chainId.value!) || selectedAsset.value.address
+      : selectedAsset.value.address
+    const priceData = await fetchBackendPrice(priceAddr as Address)
     swapAssetUsdPrice.value = priceData?.price
   }
   else {
@@ -773,11 +825,19 @@ watch(address, () => {
               :loading="isSwapQuoteLoading"
             >
               <SummaryRow
-                label="Estimated deposit"
-                align-top
+                v-if="swapInputDisplay"
+                label="Swap in"
               >
-                <p class="text-p2">
-                  ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ asset.symbol }}
+                <p class="text-p2 text-right">
+                  {{ swapInputDisplay }}
+                </p>
+              </SummaryRow>
+              <SummaryRow
+                v-if="swapOutputDisplay"
+                label="Swap out"
+              >
+                <p class="text-p2 text-right">
+                  {{ swapOutputDisplay }}
                 </p>
               </SummaryRow>
               <SummaryRow
@@ -803,6 +863,14 @@ watch(address, () => {
                     class="!w-16 !h-16 text-accent-600"
                   />
                 </button>
+              </SummaryRow>
+              <SummaryRow
+                v-if="swapRoutedVia"
+                label="Routed via"
+              >
+                <p class="text-p2 text-right">
+                  {{ swapRoutedVia }}
+                </p>
               </SummaryRow>
             </VaultFormInfoBlock>
 

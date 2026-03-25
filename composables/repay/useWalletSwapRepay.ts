@@ -1,12 +1,13 @@
 import type { Ref, ComputedRef } from 'vue'
 import { useAccount } from '@wagmi/vue'
 import { formatUnits, getAddress, zeroAddress, type Address } from 'viem'
+import { isNativeCurrencyAddress, resolveWrappedNativeAddress, resolveWrappedNativeAsset } from '~/utils/native-currency'
 import { FixedPoint } from '~/utils/fixed-point'
 import { logWarn } from '~/utils/errorHandling'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
-import { getNetAPY, type VaultAsset } from '~/entities/vault'
+import { getNetAPY, type Vault, type VaultAsset } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
@@ -62,7 +63,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
   const { error } = useToast()
   const { buildSwapAndRepayPlan, executeTxPlan } = useEulerOperations()
   const { refreshAllPositions } = useEulerAccount()
-  const { eulerLensAddresses } = useEulerAddresses()
+  const { eulerLensAddresses, chainId } = useEulerAddresses()
   const { isConnected, address } = useAccount()
   const { fetchSingleBalance } = useWallets()
   const { slippage } = useSlippage()
@@ -128,12 +129,28 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     return currentDebt > 0n && guaranteedDebtRepaid.value >= currentDebt
   })
 
+  const swapInputDisplay = computed(() => {
+    if (!quotes.effectiveQuote.value || !selectedAsset.value) return ''
+    const amountIn = BigInt(quotes.effectiveQuote.value.amountIn || 0)
+    if (amountIn <= 0n) return ''
+    return `${formatSmartAmount(formatUnits(amountIn, Number(selectedAsset.value.decimals)))} ${selectedAsset.value.symbol}`
+  })
+
+  const swapOutputDisplay = computed(() => {
+    if (!quotes.effectiveQuote.value || !borrowVault.value) return ''
+    const amountOut = BigInt(quotes.effectiveQuote.value.amountOut || 0)
+    if (amountOut <= 0n) return ''
+    return `${formatSmartAmount(formatUnits(amountOut, Number(borrowVault.value.asset.decimals)))} ${borrowVault.value.asset.symbol}`
+  })
+
+  const swapRoutedVia = computed(() => {
+    if (!quotes.effectiveQuote.value?.route?.length) return null
+    return quotes.effectiveQuote.value.route.map((r: { providerName: string }) => r.providerName).join(', ')
+  })
+
   const { priceImpact: swapPriceImpact } = useSwapPriceImpact({
     quote: quotes.effectiveQuote,
-    toVault: computed(() => {
-      if (!borrowVault.value) return undefined
-      return borrowVault.value as Parameters<typeof useSwapPriceImpact>[0]['toVault']['value']
-    }),
+    toVault: borrowVault as Ref<Vault | undefined>,
   })
 
   const swapRouteItems = computed(() => {
@@ -213,6 +230,9 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     const currentDebt = getCurrentDebt()
     const userAddr = (address.value || zeroAddress) as Address
     const subAccount = (position.value.subAccount || address.value || zeroAddress) as Address
+    const swapTokenIn = isNativeCurrencyAddress(selectedAsset.value.address)
+      ? resolveWrappedNativeAddress(chainId.value!) || selectedAsset.value.address
+      : selectedAsset.value.address
 
     if (direction.value === SwapperMode.EXACT_IN) {
       if (!amount.value) {
@@ -232,7 +252,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
         return
       }
       await quotes.exactInQuotes.requestQuotes({
-        tokenIn: selectedAsset.value.address as Address,
+        tokenIn: swapTokenIn as Address,
         tokenOut: borrowVault.value.asset.address as Address,
         accountIn: zeroAddress as Address,
         accountOut: subAccount,
@@ -268,7 +288,7 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     }
     const targetDebt = parsedAmount >= currentDebt ? 0n : currentDebt - parsedAmount
     await quotes.targetDebtQuotes.requestQuotes({
-      tokenIn: selectedAsset.value.address as Address,
+      tokenIn: swapTokenIn as Address,
       tokenOut: borrowVault.value.asset.address as Address,
       accountIn: zeroAddress as Address,
       accountOut: subAccount,
@@ -509,8 +529,14 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
 
     const inputAmount = getSwapInputAmount(quotes.selectedQuote.value, swapMode)
 
+    const isNative = isNativeCurrencyAddress(selectedAsset.value.address)
+    const wrappedAddress = isNative ? resolveWrappedNativeAddress(chainId.value!) : null
+    if (isNative && !wrappedAddress) {
+      throw new Error('Wrapped native token not found')
+    }
+
     return buildSwapAndRepayPlan({
-      inputTokenAddress: selectedAsset.value.address as Address,
+      inputTokenAddress: (wrappedAddress || selectedAsset.value.address) as Address,
       inputAmount,
       quote: quotes.selectedQuote.value,
       borrowVaultAddress: borrowVault.value.address as Address,
@@ -521,6 +547,9 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
       targetDebt,
       currentDebt,
       includePermit2Call,
+      wrappedNativeInfo: isNative && wrappedAddress
+        ? { wrappedTokenAddress: wrappedAddress, nativeAmount: inputAmount }
+        : undefined,
     })
   }
 
@@ -553,10 +582,14 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
         ? amount.value
         : (amount.value || '0')
 
+      const isNativeRepay = isNativeCurrencyAddress(selectedAsset.value.address)
+      const reviewAsset = isNativeRepay
+        ? (resolveWrappedNativeAsset(chainId.value!) || selectedAsset.value)
+        : selectedAsset.value
       modal.open(OperationReviewModal, {
         props: {
           type: 'repay',
-          asset: selectedAsset.value,
+          asset: reviewAsset,
           amount: inputDisplay,
           swapToAsset: borrowVault.value.asset,
           swapToAmount: swapEstimatedOutput.value,
@@ -628,6 +661,9 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     // Swap quotes
     quotes,
     swapEstimatedOutput,
+    swapInputDisplay,
+    swapOutputDisplay,
+    swapRoutedVia,
     swapPriceImpact,
     swapRouteItems,
     isFullRepay,

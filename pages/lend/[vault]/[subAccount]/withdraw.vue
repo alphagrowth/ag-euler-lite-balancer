@@ -148,6 +148,25 @@ const swapEstimatedOutput = computed(() => {
   return formatUnits(amountOut, Number(selectedOutputAsset.value.decimals))
 })
 
+const swapInputDisplay = computed(() => {
+  if (!swapEffectiveQuote.value || !asset.value) return ''
+  const amountIn = BigInt(swapEffectiveQuote.value.amountIn || 0)
+  if (amountIn <= 0n) return ''
+  return `${formatSmartAmount(formatUnits(amountIn, Number(asset.value.decimals)))} ${asset.value.symbol}`
+})
+
+const swapOutputDisplay = computed(() => {
+  if (!swapEffectiveQuote.value || !selectedOutputAsset.value) return ''
+  const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
+  if (amountOut <= 0n) return ''
+  return `${formatSmartAmount(formatUnits(amountOut, Number(selectedOutputAsset.value.decimals)))} ${selectedOutputAsset.value.symbol}`
+})
+
+const swapRoutedVia = computed(() => {
+  if (!swapEffectiveQuote.value?.route?.length) return null
+  return swapEffectiveQuote.value.route.map((r: { providerName: string }) => r.providerName).join(', ')
+})
+
 const { priceImpact: swapPriceImpact } = useSwapPriceImpact({
   quote: swapEffectiveQuote,
   fromVault: vault,
@@ -549,11 +568,19 @@ watch(swapSelectedQuote, () => {
               :loading="isSwapQuoteLoading"
             >
               <SummaryRow
-                label="Estimated output"
-                align-top
+                v-if="swapInputDisplay"
+                label="Swap in"
               >
-                <p class="text-p2">
-                  ~{{ formatSmartAmount(swapEstimatedOutput) }} {{ selectedOutputAsset.symbol }}
+                <p class="text-p2 text-right">
+                  {{ swapInputDisplay }}
+                </p>
+              </SummaryRow>
+              <SummaryRow
+                v-if="swapOutputDisplay"
+                label="Swap out"
+              >
+                <p class="text-p2 text-right">
+                  {{ swapOutputDisplay }}
                 </p>
               </SummaryRow>
               <SummaryRow
@@ -579,6 +606,14 @@ watch(swapSelectedQuote, () => {
                     class="!w-16 !h-16 text-accent-600"
                   />
                 </button>
+              </SummaryRow>
+              <SummaryRow
+                v-if="swapRoutedVia"
+                label="Routed via"
+              >
+                <p class="text-p2 text-right">
+                  {{ swapRoutedVia }}
+                </p>
               </SummaryRow>
             </VaultFormInfoBlock>
 

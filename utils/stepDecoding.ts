@@ -1,4 +1,4 @@
-import { formatUnits, getAddress, toFunctionSelector } from 'viem'
+import { formatUnits, getAddress, toFunctionSelector, zeroAddress } from 'viem'
 import type { TxPlan } from '~/entities/txPlan'
 import type { EVCCall } from '~/utils/evc-converter'
 
@@ -66,6 +66,7 @@ const SELECTOR_LABELS: Record<string, string> = {
   [toFunctionSelector('function verifyDebtMax(address,address,uint256,uint256)')]: 'Verify max debt',
   [toFunctionSelector('function updatePriceFeeds(bytes[])')]: 'Update price feeds',
   [toFunctionSelector('function transferFromSender(address,uint256,address)')]: 'Transfer from wallet',
+  [toFunctionSelector('function deposit()')]: 'Wrap native currency',
 }
 
 const MAX_UINT256 = 2n ** 256n - 1n
@@ -97,6 +98,16 @@ export const decodeVaultAddressFromData = (data: string): string | undefined => 
   if (data.length < 138) return undefined
   try {
     return getAddress(`0x${data.slice(98, 138)}`)
+  }
+  catch {
+    return undefined
+  }
+}
+
+export const decodeSecondUint256 = (data: string): bigint | undefined => {
+  if (data.length < 138) return undefined
+  try {
+    return BigInt(`0x${data.slice(74, 138)}`)
   }
   catch {
     return undefined
@@ -169,6 +180,7 @@ const getAssetInfoForStep = (
   label: string,
   data: string,
   targetContract: string,
+  evcCall: EVCCall,
   ctx: StepDecodingContext,
   getVault: VaultLookup,
   usedSupply: { value: boolean },
@@ -211,16 +223,32 @@ const getAssetInfoForStep = (
     return { symbol: ctx.asset.symbol, address: ctx.asset.address, amount: 'remaining' }
   }
 
+  if (label === 'Wrap native currency') {
+    // Derive native currency symbol by stripping the "W" prefix (e.g. WETH → ETH)
+    const nativeSymbol = ctx.asset.symbol.startsWith('W') ? ctx.asset.symbol.slice(1) : ctx.asset.symbol
+    const wrapAmount = evcCall.value > 0n && ctx.asset.decimals
+      ? formatUnits(evcCall.value, Number(ctx.asset.decimals))
+      : undefined
+    return { symbol: nativeSymbol, address: zeroAddress, amount: wrapAmount }
+  }
+
   if (label === 'Transfer' || label === 'Transfer to account') {
     const knownAmount = label === 'Transfer to account' && ctx.transferAmounts
       ? ctx.transferAmounts[targetContract.toLowerCase()]
       : undefined
-    const transferAmount = knownAmount || (label === 'Transfer to account' ? 'remaining' : undefined)
+    let transferAmount: string | undefined = knownAmount || (label === 'Transfer to account' ? 'remaining' : undefined)
     try {
       const targetVault = getVault(getAddress(targetContract))
       if (targetVault?.asset) return { symbol: targetVault.asset.symbol, address: targetVault.asset.address, amount: transferAmount }
     }
     catch { /* ignore */ }
+    // For non-vault targets (e.g. WETH.transfer), decode amount from calldata
+    if (!transferAmount && ctx.asset.decimals) {
+      const raw = decodeSecondUint256(data)
+      if (raw !== undefined && raw > 0n) {
+        transferAmount = formatUnits(raw, Number(ctx.asset.decimals))
+      }
+    }
     return { symbol: ctx.asset.symbol, address: ctx.asset.address, amount: transferAmount }
   }
 
@@ -328,20 +356,33 @@ export function buildDisplaySteps(
           })
         }
 
+        let prevLabel = ''
         for (const item of batchItems) {
           index++
           const label = decodeBatchItemLabel(item.data)
-          const stepAssetInfo = getAssetInfoForStep(label, item.data, item.targetContract, ctx, getVault, usedSupply, usedBorrow, usedSwapTo, lastWithdrawAmount)
+          const stepAssetInfo = getAssetInfoForStep(label, item.data, item.targetContract, item, ctx, getVault, usedSupply, usedBorrow, usedSwapTo, lastWithdrawAmount)
           const secondAsset = ctx.supplyingAssetForBorrow || ctx.swapToAsset
           let toAssetInfo: StepAssetInfo | undefined
-          if (label === 'Swap' && ctx.swapToAsset && ctx.swapToAmount) {
+          if (label === 'Wrap native currency') {
+            toAssetInfo = { symbol: ctx.asset.symbol, address: ctx.asset.address }
+          }
+          else if (label === 'Swap' && ctx.swapToAsset && ctx.swapToAmount) {
             toAssetInfo = { symbol: ctx.swapToAsset.symbol, address: ctx.swapToAsset.address, amount: ctx.swapToAmount }
           }
           else if (label === 'Update price feeds' && stepAssetInfo && secondAsset && secondAsset.symbol !== ctx.asset.symbol) {
             toAssetInfo = { symbol: secondAsset.symbol, address: secondAsset.address }
           }
-          const displayLabel = label === 'Transfer to account' ? 'Transfer' : label
-          const batchLabelSuffix = label === 'Transfer to account' ? 'to savings' : undefined
+          const displayLabel = label === 'Transfer to account'
+            ? 'Transfer'
+            : label === 'Wrap native currency'
+              ? 'Wrap'
+              : label
+          const isWrapTransfer = label === 'Transfer' && prevLabel === 'Wrap native currency'
+          const batchLabelSuffix = label === 'Transfer to account'
+            ? 'to savings'
+            : isWrapTransfer
+              ? 'to wallet'
+              : undefined
           steps.push({
             index,
             label: displayLabel,
@@ -352,6 +393,7 @@ export function buildDisplaySteps(
             iconOnly: label === 'Update price feeds',
           })
 
+          prevLabel = label
           if (hasTermsOfUse && label === 'Sign terms of use') {
             index++
             const permitAsset = ctx.type === 'borrow' && ctx.supplyingAssetForBorrow

@@ -26,11 +26,13 @@ export const createSupplyBorrowSwapBuilders = (
     inputAmount,
     quote,
     includePermit2Call = true,
+    wrappedNativeInfo,
   }: {
     inputTokenAddress: Address
     inputAmount: bigint
     quote: SwapApiQuote
     includePermit2Call?: boolean
+    wrappedNativeInfo?: { wrappedTokenAddress: Address, nativeAmount: bigint }
   }): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -63,6 +65,15 @@ export const createSupplyBorrowSwapBuilders = (
     }
 
     tos.injectTosCall(evcCalls, hooks)
+
+    // Wrap native currency to ERC-20 (e.g. ETH → WETH) before transferFromSender
+    if (wrappedNativeInfo) {
+      evcCalls.push(...helpers.buildNativeWrapCalls({
+        wrappedTokenAddress: wrappedNativeInfo.wrappedTokenAddress,
+        amount: wrappedNativeInfo.nativeAmount,
+        userAddr,
+      }))
+    }
 
     // transferFromSender: pull tokens from wallet to swapper
     evcCalls.push({
@@ -124,6 +135,7 @@ export const createSupplyBorrowSwapBuilders = (
     subAccount,
     enabledCollaterals,
     includePermit2Call = true,
+    wrappedNativeInfo,
   }: {
     inputTokenAddress: Address
     inputAmount: bigint
@@ -134,6 +146,7 @@ export const createSupplyBorrowSwapBuilders = (
     subAccount?: string
     enabledCollaterals?: string[]
     includePermit2Call?: boolean
+    wrappedNativeInfo?: { wrappedTokenAddress: Address, nativeAmount: bigint }
   }): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -171,6 +184,15 @@ export const createSupplyBorrowSwapBuilders = (
     }
 
     tos.injectTosCall(evcCalls, hooks)
+
+    // Wrap native currency to ERC-20 (e.g. ETH → WETH) before transferFromSender
+    if (wrappedNativeInfo) {
+      evcCalls.push(...helpers.buildNativeWrapCalls({
+        wrappedTokenAddress: wrappedNativeInfo.wrappedTokenAddress,
+        amount: wrappedNativeInfo.nativeAmount,
+        userAddr,
+      }))
+    }
 
     // transferFromSender: pull tokens from wallet to swapper
     evcCalls.push({
@@ -463,6 +485,7 @@ export const createSupplyBorrowSwapBuilders = (
     targetDebt = 0n,
     currentDebt = 0n,
     includePermit2Call = true,
+    wrappedNativeInfo,
   }: {
     inputTokenAddress: Address
     inputAmount: bigint
@@ -475,6 +498,7 @@ export const createSupplyBorrowSwapBuilders = (
     targetDebt?: bigint
     currentDebt?: bigint
     includePermit2Call?: boolean
+    wrappedNativeInfo?: { wrappedTokenAddress: Address, nativeAmount: bigint }
   }): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -529,6 +553,15 @@ export const createSupplyBorrowSwapBuilders = (
     }
 
     tos.injectTosCall(evcCalls, hooks)
+
+    // Wrap native currency to ERC-20 (e.g. ETH → WETH) before transferFromSender
+    if (wrappedNativeInfo) {
+      evcCalls.push(...helpers.buildNativeWrapCalls({
+        wrappedTokenAddress: wrappedNativeInfo.wrappedTokenAddress,
+        amount: wrappedNativeInfo.nativeAmount,
+        userAddr,
+      }))
+    }
 
     // transferFromSender: pull tokens from wallet to swapper
     evcCalls.push({

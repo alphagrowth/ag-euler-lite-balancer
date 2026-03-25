@@ -290,6 +290,27 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     return formatUnits(amountOut, Number(outputAsset.decimals))
   })
 
+  const swapInputDisplay = computed(() => {
+    if (!swapEffectiveQuote.value) return ''
+    const amountIn = BigInt(swapEffectiveQuote.value.amountIn || 0)
+    if (amountIn <= 0n) return ''
+    const tokenIn = swapEffectiveQuote.value.tokenIn
+    return `${formatSmartAmount(formatUnits(amountIn, tokenIn.decimals))} ${tokenIn.symbol}`
+  })
+
+  const swapOutputDisplay = computed(() => {
+    const outputAsset = options.getSwapOutputAsset()
+    if (!swapEffectiveQuote.value || !outputAsset) return ''
+    const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
+    if (amountOut <= 0n) return ''
+    return `${formatSmartAmount(formatUnits(amountOut, Number(outputAsset.decimals)))} ${outputAsset.symbol}`
+  })
+
+  const swapRoutedVia = computed(() => {
+    if (!swapEffectiveQuote.value?.route?.length) return null
+    return swapEffectiveQuote.value.route.map((r: { providerName: string }) => r.providerName).join(', ')
+  })
+
   const { priceImpact: swapPriceImpact } = useSwapPriceImpact({
     quote: swapEffectiveQuote,
     fromVault: computed(() => options.mode === 'withdraw' ? collateralVault.value : null),
@@ -359,6 +380,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
         currentAssetAddress: currentAddress || asset.value?.address,
         onSelect: onSelect || (() => {}),
         mode: options.mode === 'withdraw' ? 'output' : 'input',
+        allowNativeCurrency: options.mode === 'supply',
       },
     })
   }
@@ -686,6 +708,9 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     swapQuoteError,
     swapQuotesStatusLabel,
     swapEstimatedOutput,
+    swapInputDisplay,
+    swapOutputDisplay,
+    swapRoutedVia,
     swapPriceImpact,
     swapRouteItems,
     selectSwapQuote,
