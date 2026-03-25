@@ -14,7 +14,7 @@ export const vaultTypeLabels: Record<string, string> = {
   escrow: 'Escrowed collateral',
   securitize: 'Securitize Digital Security',
   ungoverned: 'Ungoverned',
-  governanceLimited: 'Governed - no risk manager',
+  governanceLimited: 'Governed - limited',
   unknown: 'Unknown',
 }
 
