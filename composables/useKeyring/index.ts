@@ -1,4 +1,4 @@
-import { type Ref, ref, watch, onUnmounted, computed } from 'vue'
+import { type Ref, ref, watch, onUnmounted } from 'vue'
 import { useAccount, useChainId } from '@wagmi/vue'
 import { zeroAddress, type Address } from 'viem'
 import {
@@ -47,9 +47,7 @@ export const useKeyring = (vaultAddress: string | Ref<string>) => {
   const { address: userAddress } = useAccount()
   const chainId = useChainId()
   const { getVault } = useVaultRegistry()
-
-  // Use same-origin RPC proxy to avoid CSP issues with external RPC URLs
-  const rpcUrl = computed(() => chainId.value ? `/api/rpc/${chainId.value}` : '')
+  const { rpcUrl } = useRpcClient()
 
   // State
   const isLoading = ref(false)

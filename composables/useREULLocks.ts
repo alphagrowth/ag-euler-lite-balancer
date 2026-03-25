@@ -1,7 +1,5 @@
 import { useAccount, useWriteContract } from '@wagmi/vue'
 import type { Address, Abi } from 'viem'
-import { getPublicClient } from '~/utils/public-client'
-
 import { reulLockAbi, reulWithdrawABI } from '~/abis/reul'
 import type { REULLock } from '~/entities/reul'
 import type { TxPlan } from '~/entities/txPlan'
@@ -18,6 +16,7 @@ export const useREULLocks = () => {
   const { isConnected, address: wagmiAddress, chainId } = useAccount()
   const { writeContractAsync } = useWriteContract()
   const { eulerTokenAddresses } = useEulerAddresses()
+  const { client: rpcClient } = useRpcClient()
 
   const reulTokenContractAddress = computed(() => eulerTokenAddresses.value?.rEUL ?? '')
   const eulTokenContractAddress = computed(() => eulerTokenAddresses.value?.EUL ?? '')
@@ -39,8 +38,7 @@ export const useREULLocks = () => {
         isLocksLoading.value = true
       }
 
-      const { EVM_PROVIDER_URL } = useEulerConfig()
-      const client = getPublicClient(EVM_PROVIDER_URL)
+      const client = rpcClient.value!
 
       const [lockTimestamps, amounts] = await client.readContract({
         address: reulTokenContractAddress.value as Address,
@@ -137,9 +135,7 @@ export const useREULLocks = () => {
       args: [wagmiAddress.value, lockTimestamps[0] as bigint, true],
     })
 
-    const { EVM_PROVIDER_URL } = useEulerConfig()
-    const client = getPublicClient(EVM_PROVIDER_URL)
-    const receipt = await client.waitForTransactionReceipt({ hash })
+    const receipt = await rpcClient.value!.waitForTransactionReceipt({ hash })
     if (receipt.status === 'reverted') {
       throw new Error('Transaction reverted')
     }

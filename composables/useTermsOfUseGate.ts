@@ -5,13 +5,12 @@ import { AcknowledgeTermsModal } from '#components'
 import { tosSignerReadAbi } from '~/abis/tos'
 import { useModal } from '~/components/ui/composables/useModal'
 import { getTosData } from '~/composables/useTosData'
-import { getPublicClient } from '~/utils/public-client'
 
 export const useTermsOfUseGate = () => {
   const modal = useModal()
   const { address } = useWagmi()
   const { eulerPeripheryAddresses, isReady, loadEulerConfig } = useEulerAddresses()
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { client: rpcClient } = useRpcClient()
   const { enableTosSignature: enableTermsOfUseSignature } = useDeployConfig()
 
   const hasSigned = useState<boolean | null>('tosHasSigned', () => null)
@@ -41,7 +40,7 @@ export const useTermsOfUseGate = () => {
     try {
       isChecking.value = true
       const { tosMessageHash } = await getTosData()
-      const client = getPublicClient(EVM_PROVIDER_URL)
+      const client = rpcClient.value!
       const lastSignTimestamp = await client.readContract({
         address: eulerPeripheryAddresses.value.termsOfUseSigner as Address,
         abi: tosSignerReadAbi,

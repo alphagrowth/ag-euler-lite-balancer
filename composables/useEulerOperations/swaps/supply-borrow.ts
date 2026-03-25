@@ -261,7 +261,7 @@ export const createSupplyBorrowSwapBuilders = (
       evcAddress,
       accountLensAddress: ctx.eulerLensAddresses.value!.accountLens as Address,
       subAccount: subAccountAddr,
-      providerUrl: ctx.EVM_PROVIDER_URL,
+      providerUrl: ctx.rpcUrl,
       subgraphUrl: ctx.SUBGRAPH_URL,
     })
     if (cleanupCalls.length) {

@@ -2,7 +2,6 @@
 import { maxUint256, type Address } from 'viem'
 import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { getPublicClient } from '~/utils/public-client'
 import { vaultConvertToAssetsAbi } from '~/abis/vault'
 import type { Vault } from '~/entities/vault'
 import { getSupplyCapPercentage, getBorrowCapPercentage } from '~/composables/useVaultWarnings'
@@ -10,7 +9,7 @@ import { formatAssetValue } from '~/services/pricing/priceProvider'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
-const { EVM_PROVIDER_URL } = useEulerConfig()
+const { client: rpcClient } = useRpcClient()
 const { borrowList } = useVaults()
 
 const shareTokenExchangeRate: Ref<bigint | undefined> = ref()
@@ -54,7 +53,7 @@ watchEffect(async () => {
 })
 
 const load = async () => {
-  const client = getPublicClient(EVM_PROVIDER_URL)
+  const client = rpcClient.value!
   shareTokenExchangeRate.value = await client.readContract({
     address: vault.address as Address,
     abi: vaultConvertToAssetsAbi,

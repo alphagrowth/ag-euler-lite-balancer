@@ -19,14 +19,7 @@ export const useWallets = () => {
   const { address, isConnected } = useWagmi()
   const { eulerLensAddresses } = useEulerAddresses()
   const { chainId } = useEulerAddresses()
-  const requestUrl = useRequestURL()
-
-  // useEulerConfig().EVM_PROVIDER_URL is a plain string captured at call time,
-  // not reactive to chainId changes. Compute the RPC URL reactively instead.
-  const rpcUrl = computed(() => {
-    if (!chainId.value) return ''
-    return `${requestUrl.origin}/api/rpc/${chainId.value}`
-  })
+  const { rpcUrl } = useRpcClient()
 
   const { spyAddress, isSpyMode } = useSpyMode()
   const balanceAddress = computed(() =>

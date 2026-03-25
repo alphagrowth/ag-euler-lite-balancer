@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getAddress, zeroAddress, type Address, type Abi } from 'viem'
-import { getPublicClient } from '~/utils/public-client'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type {
@@ -38,7 +37,7 @@ const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { isReady: isVaultsReady } = useVaults()
 const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-const { EVM_PROVIDER_URL } = useEulerConfig()
+const { client: rpcClient } = useRpcClient()
 
 const positionIndex = usePositionIndex()
 
@@ -234,7 +233,7 @@ const loadSelectedCollateral = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const client = getPublicClient(EVM_PROVIDER_URL)
+    const client = rpcClient.value!
     const res = await client.readContract({
       address: lensAddress as Address,
       abi: eulerAccountLensABI as Abi,
