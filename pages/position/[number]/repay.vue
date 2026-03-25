@@ -17,6 +17,7 @@ import { useWalletRepay } from '~/composables/repay/useWalletRepay'
 import { useWalletSwapRepay } from '~/composables/repay/useWalletSwapRepay'
 import { useCollateralSwapRepay } from '~/composables/repay/useCollateralSwapRepay'
 import { useSavingsRepay } from '~/composables/repay/useSavingsRepay'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 const _route = useRoute()
 const _router = useRouter()
@@ -217,6 +218,7 @@ const reviewRepayDisabled = computed(() => {
 })
 
 const onSubmitForm = async () => {
+  if (isOperationBlocked.value) return
   if (formTab.value === 'wallet') {
     if (walletSwap.needsSwap.value) {
       if (isWalletSwapRestricted.value) return

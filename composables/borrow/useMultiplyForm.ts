@@ -28,6 +28,7 @@ import { calculateRoe, computeNextHealth, computeLiquidationPrice } from '~/util
 import { computeMaxMultiplier, computeMinMultiplier, computeWeightedSupplyApy, computeLeverageDebt } from '~/utils/multiply-math'
 import type { TxPlan } from '~/entities/txPlan'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -632,6 +633,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
 
   // --- Actions: submit & send ---
   const submitMultiply = async () => {
+    if (isOperationBlocked.value) return
     if (isMultiplyPreparing.value || isGeoBlocked.value || isMultiplyRestricted.value) return
     isMultiplyPreparing.value = true
     try {

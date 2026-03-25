@@ -14,6 +14,7 @@ import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 const router = useRouter()
 const route = useRoute()
@@ -28,6 +29,7 @@ const { fetchVaultShareBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { getSupplyRewardApy } = useRewardsApy()
 const vaultAddress = route.params.vault as string
+useOperationGuard([vaultAddress])
 const subAccountIndex = Number(route.params.subAccount)
 const subAccount = computed(() => {
   const addr = effectiveAddress.value
@@ -119,6 +121,7 @@ const updateBalance = async () => {
   delta.value = assetsBalance.value
 }
 const submit = async () => {
+  if (isOperationBlocked.value) return
   if (isPreparing.value) return
   isPreparing.value = true
   try {

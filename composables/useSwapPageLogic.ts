@@ -16,6 +16,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import { isSameUnderlyingAsset, isSameVault as isSameVaultCheck } from '~/utils/vault-utils'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 export interface UseSwapPageLogicOptions {
   /** Which quote field the swap engine optimises for ('amountIn' = min cost, 'amountOut' = max output) */
@@ -430,6 +431,7 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
 
   // ── Submit flow ────────────────────────────────────────────────────────
   const submit = async () => {
+    if (isOperationBlocked.value) return
     if (isPreparing.value || isGeoBlocked.value) return
     isPreparing.value = true
     try {

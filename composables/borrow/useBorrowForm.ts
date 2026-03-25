@@ -28,6 +28,7 @@ import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 import type { TxPlan } from '~/entities/txPlan'
 import { getUtilisationWarning, getBorrowCapWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { getVaultTags, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
@@ -542,6 +543,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   }
 
   const submit = async () => {
+    if (isOperationBlocked.value) return
     if (isPreparing.value || isGeoBlocked.value || isBorrowRestricted.value || isBorrowSwapRestricted.value) return
     isPreparing.value = true
     try {

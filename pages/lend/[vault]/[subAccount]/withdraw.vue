@@ -24,6 +24,7 @@ import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
 import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 const router = useRouter()
 const route = useRoute()
@@ -303,6 +304,7 @@ const updateBalance = async () => {
   delta.value = assetsBalance.value
 }
 const submit = async () => {
+  if (isOperationBlocked.value) return
   if (isPreparing.value) return
   isPreparing.value = true
   try {

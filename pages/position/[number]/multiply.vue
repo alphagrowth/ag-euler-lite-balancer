@@ -21,6 +21,7 @@ import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros }
 import { formatLiquidationBuffer as formatLiqBuffer, calculateRoe, computeNextHealth, computeLiquidationPrice } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { computeMaxMultiplier } from '~/utils/multiply-math'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 const route = useRoute()
 const router = useRouter()
@@ -564,6 +565,7 @@ const onMultiplierInput = () => {
 }
 
 const submitMultiply = async () => {
+  if (isOperationBlocked.value) return
   if (isPreparing.value || isGeoBlocked.value || isMultiplyRestricted.value) return
   isPreparing.value = true
   try {

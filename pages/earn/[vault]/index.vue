@@ -11,6 +11,7 @@ import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import VaultFormInfoBlock from '~/components/entities/vault/form/VaultFormInfoBlock.vue'
 import VaultFormSubmit from '~/components/entities/vault/form/VaultFormSubmit.vue'
 import { formatNumber, compactNumber } from '~/utils/string-utils'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 const router = useRouter()
 const route = useRoute()
@@ -22,6 +23,7 @@ const { isConnected, address } = useAccount()
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
+useOperationGuard([vaultAddress])
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()
@@ -95,6 +97,7 @@ const estimateSupplyAPYDisplay = computed(() => {
   return formatNumber(estimateSupplyAPY.value)
 })
 const submit = async () => {
+  if (isOperationBlocked.value) return
   if (isPreparing.value || isGeoBlocked.value) return
   isPreparing.value = true
   try {

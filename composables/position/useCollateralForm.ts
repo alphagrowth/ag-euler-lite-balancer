@@ -19,6 +19,7 @@ import {
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import type { SwapApiQuote } from '~/entities/swap'
@@ -511,6 +512,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
 
   // --- Submit ---
   const submit = async () => {
+    if (isOperationBlocked.value) return
     if (isPreparing.value || isGeoBlocked.value || isSwapRestricted.value) return
     isPreparing.value = true
     try {

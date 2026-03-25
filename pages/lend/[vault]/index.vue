@@ -24,6 +24,7 @@ import SecuritizeVaultOverview from '~/components/entities/vault/overview/Securi
 import { formatNumber, compactNumber, formatSmartAmount } from '~/utils/string-utils'
 import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 // Type definitions for vault display
 type VaultType = 'evk' | 'securitize'
@@ -372,6 +373,7 @@ const buildSwapSupplyPlanFromQuote = async (quote: SwapApiQuote, options: { incl
 }
 
 const submit = async () => {
+  if (isOperationBlocked.value) return
   if (isPreparing.value || isGeoBlocked.value || isSwapRestricted.value) return
   isPreparing.value = true
   try {

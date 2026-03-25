@@ -14,6 +14,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 const router = useRouter()
 const _route = useRoute()
@@ -209,6 +210,7 @@ const updateBalance = async () => {
   isBalanceLoading.value = false
 }
 const submit = async () => {
+  if (isOperationBlocked.value) return
   if (isPreparing.value || isGeoBlocked.value || isBorrowRestricted.value) return
   isPreparing.value = true
   try {
