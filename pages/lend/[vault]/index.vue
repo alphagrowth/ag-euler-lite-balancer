@@ -72,6 +72,7 @@ const { chainId } = useEulerAddresses()
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const vaultAddress = route.params.vault as string
+useOperationGuard([vaultAddress])
 const { name } = useEulerProductOfVault(vaultAddress)
 const { getIntrinsicApy, getIntrinsicApyInfo } = useIntrinsicApy()
 const { getSupplyRewardApy, hasSupplyRewards, getSupplyRewardCampaigns } = useRewardsApy()

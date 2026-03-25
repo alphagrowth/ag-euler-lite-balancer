@@ -47,6 +47,7 @@ const walletBalance = ref(0n)
 // --- Shared computeds ---
 const borrowVault = computed(() => position.value?.borrow)
 const collateralVault = computed(() => position.value?.collateral)
+useOperationGuard(computed(() => [borrowVault.value?.address].filter(Boolean)))
 const assets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
 const isEligibleForLiquidation = computed(() => isPositionEligibleForLiquidation(position.value))
 const getCurrentDebt = () => position.value?.borrowed || 0n
