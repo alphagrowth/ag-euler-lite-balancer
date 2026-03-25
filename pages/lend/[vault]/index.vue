@@ -459,7 +459,14 @@ const send = async () => {
       txPlan = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value)
     }
     else {
-      txPlan = await buildSupplyPlan(vaultAddress, asset.value.address, valueToNano(amount.value || '0', asset.value.decimals), undefined, { includePermit2Call: true })
+      const supplyAmount = valueToNano(amount.value || '0', asset.value.decimals)
+      const wrappedAddr = isNativeWrap.value ? resolveWrappedNativeAddress(chainId.value!) : null
+      txPlan = await buildSupplyPlan(vaultAddress, asset.value.address, supplyAmount, undefined, {
+        includePermit2Call: true,
+        wrappedNativeInfo: isNativeWrap.value && wrappedAddr
+          ? { wrappedTokenAddress: wrappedAddr, nativeAmount: supplyAmount }
+          : undefined,
+      })
     }
     await executeTxPlan(txPlan)
 
