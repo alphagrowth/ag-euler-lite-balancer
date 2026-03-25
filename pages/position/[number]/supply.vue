@@ -115,9 +115,11 @@ const form = useCollateralForm({
 
   requestSwapQuoteParams: ({ userAddr, subAccountAddr, amountNano: _amountNano, slippage }) => {
     if (!selectedAsset.value || !form.asset.value || !form.collateralVault.value) return null
-    const swapTokenIn = isNativeCurrencyAddress(selectedAsset.value.address)
-      ? resolveWrappedNativeAddress(chainId.value!) || selectedAsset.value.address
+    const isNative = isNativeCurrencyAddress(selectedAsset.value.address)
+    const swapTokenIn = isNative
+      ? resolveWrappedNativeAddress(chainId.value!)
       : selectedAsset.value.address
+    if (!swapTokenIn) return null
     return {
       tokenIn: swapTokenIn as Address,
       tokenOut: form.asset.value.address as Address,

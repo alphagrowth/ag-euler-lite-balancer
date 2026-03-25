@@ -230,9 +230,9 @@ const getAssetInfoForStep = (
       : ctx.asset
     // Derive native currency symbol by stripping the "W" prefix (e.g. WETH → ETH)
     const nativeSymbol = wrapAsset.symbol.startsWith('W') ? wrapAsset.symbol.slice(1) : wrapAsset.symbol
-    const decimals = 'decimals' in wrapAsset ? (wrapAsset as { decimals?: bigint }).decimals : ctx.asset.decimals
-    const wrapAmount = evcCall.value > 0n && decimals
-      ? formatUnits(evcCall.value, Number(decimals))
+    // Native currencies always have 18 decimals
+    const wrapAmount = evcCall.value > 0n
+      ? formatUnits(evcCall.value, 18)
       : undefined
     return { symbol: nativeSymbol, address: zeroAddress, amount: wrapAmount }
   }
@@ -252,11 +252,13 @@ const getAssetInfoForStep = (
     const transferAsset = ctx.type === 'borrow' && ctx.supplyingAssetForBorrow
       ? ctx.supplyingAssetForBorrow
       : ctx.asset
-    const transferDecimals = 'decimals' in transferAsset ? (transferAsset as { decimals?: bigint }).decimals : ctx.asset.decimals
-    if (!transferAmount && transferDecimals) {
+    if (!transferAmount) {
+      const transferDecimals = transferAsset === ctx.asset && ctx.asset.decimals
+        ? Number(ctx.asset.decimals)
+        : 18 // wrapped native tokens always have 18 decimals
       const raw = decodeSecondUint256(data)
       if (raw !== undefined && raw > 0n) {
-        transferAmount = formatUnits(raw, Number(transferDecimals))
+        transferAmount = formatUnits(raw, transferDecimals)
       }
     }
     return { symbol: transferAsset.symbol, address: transferAsset.address, amount: transferAmount }
