@@ -4,7 +4,6 @@ import { type Vault, type VaultAsset, getNetAPY } from '~/entities/vault'
 import { getAssetUsdValueOrZero, getCollateralOraclePrice, getAssetOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { type AccountBorrowPosition, isPositionEligibleForLiquidation } from '~/entities/account'
 import type { TxPlan } from '~/entities/txPlan'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useModal } from '~/components/ui/composables/useModal'
 import { SlippageSettingsModal, SwapTokenSelector } from '#components'
@@ -32,8 +31,6 @@ const { eulerLensAddresses: _eulerLensAddresses } = useEulerAddresses()
 const { fetchSingleBalance } = useWallets()
 const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 const { slippage } = useSlippage()
-const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-
 // --- Shared state ---
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -208,8 +205,8 @@ const formTabs = computed(() => {
 })
 
 // --- Submit ---
-const reviewRepayLabel = getSubmitLabel('Review Repay')
-const reviewRepayDisabled = getSubmitDisabled(computed(() => {
+const reviewRepayLabel = 'Review Repay'
+const reviewRepayDisabled = computed(() => {
   if (formTab.value === 'wallet') {
     return walletSwap.needsSwap.value
       ? (isWalletSwapRestricted.value || walletSwap.isSubmitDisabled.value)
@@ -217,26 +214,24 @@ const reviewRepayDisabled = getSubmitDisabled(computed(() => {
   }
   if (formTab.value === 'savings') return savings.isSubmitDisabled.value
   return collateral.isSubmitDisabled.value
-}))
+})
 
 const onSubmitForm = async () => {
-  await guardWithTerms(async () => {
-    if (formTab.value === 'wallet') {
-      if (walletSwap.needsSwap.value) {
-        if (isWalletSwapRestricted.value) return
-        await guardWithWalletSwapPriceImpact(() => walletSwap.submit())
-      }
-      else {
-        await wallet.submit()
-      }
-    }
-    else if (formTab.value === 'savings') {
-      await guardWithSavingsPriceImpact(() => savings.submit())
+  if (formTab.value === 'wallet') {
+    if (walletSwap.needsSwap.value) {
+      if (isWalletSwapRestricted.value) return
+      await guardWithWalletSwapPriceImpact(() => walletSwap.submit())
     }
     else {
-      await guardWithCollateralPriceImpact(() => collateral.submit())
+      await wallet.submit()
     }
-  })
+  }
+  else if (formTab.value === 'savings') {
+    await guardWithSavingsPriceImpact(() => savings.submit())
+  }
+  else {
+    await guardWithCollateralPriceImpact(() => collateral.submit())
+  }
 }
 
 const openSlippageSettings = () => {

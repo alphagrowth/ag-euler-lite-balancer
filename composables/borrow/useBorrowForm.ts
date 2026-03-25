@@ -93,7 +93,6 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   const { eulerLensAddresses, chainId } = useEulerAddresses()
   const { updateVault } = useVaults()
   const { fetchSingleBalance } = useWallets()
-  const { guardWithTerms } = useTermsOfUseGate()
 
   const {
     runSimulation: runBorrowSimulation,
@@ -546,97 +545,22 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     if (isPreparing.value || isGeoBlocked.value || isBorrowRestricted.value || isBorrowSwapRestricted.value) return
     isPreparing.value = true
     try {
-      await guardWithTerms(async () => {
-        if (!isConnected.value) {
-          isSubmitting.value = false
-          return
-        }
+      if (!isConnected.value) {
+        isSubmitting.value = false
+        return
+      }
 
-        if (!borrowVault.value || !collateralVault.value) {
-          return
-        }
+      if (!borrowVault.value || !collateralVault.value) {
+        return
+      }
 
-        // Swap & borrow path
-        if (borrowNeedsSwap.value && borrowSwapEffectiveQuote.value) {
-          try {
-            plan.value = await buildSwapBorrowPlanFromQuote(borrowSwapEffectiveQuote.value, { includePermit2Call: false })
-          }
-          catch (e) {
-            logWarn('borrow/buildSwapPlan', e)
-            plan.value = null
-          }
-
-          if (plan.value) {
-            const ok = await runBorrowSimulation(plan.value)
-            if (!ok) {
-              return
-            }
-          }
-
-          const isNativeSwap = borrowSelectedAsset.value && isNativeCurrencyAddress(borrowSelectedAsset.value.address)
-          const reviewAsset = isNativeSwap
-            ? (resolveWrappedNativeAsset(chainId.value!) || borrowSelectedAsset.value!)
-            : (borrowSelectedAsset.value || collateralVault.value.asset)
-          modal.open(OperationReviewModal, {
-            props: {
-              type: 'swap-borrow' as const,
-              asset: reviewAsset,
-              amount: collateralAmount.value,
-              plan: plan.value || undefined,
-              swapToAsset: collateralVault.value.asset,
-              swapToAmount: borrowSwapEstimatedCollateral.value,
-              onConfirm: () => {
-                setTimeout(() => {
-                  send()
-                }, 400)
-              },
-            },
-          })
-          return
-        }
-
-        // Standard borrow path
-        const collateralAmountNano = valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals)
-        const borrowAmountNano = valueToNano(borrowAmount.value || '0', borrowVault.value?.decimals)
-        let collateralAmountForPlan = collateralAmountNano
-
-        if (isSavingCollateral.value) {
-          if (savingCollateral.value?.assets === collateralAmountNano) {
-            collateralAmountForPlan = savingBalance.value
-          }
-          else {
-            collateralAmountForPlan = await convertAssetsToShares(collateralVault.value.address, collateralAmountNano)
-          }
-        }
-
+      // Swap & borrow path
+      if (borrowNeedsSwap.value && borrowSwapEffectiveQuote.value) {
         try {
-          plan.value = isSavingCollateral.value
-            ? await buildBorrowBySavingPlan(
-              collateralVault.value.address,
-              collateralAmountForPlan,
-              borrowVault.value.address,
-              borrowAmountNano,
-              undefined,
-              undefined,
-              savingCollateral.value?.subAccount,
-            )
-            : await buildBorrowPlan(
-              collateralVault.value.address,
-              collateralVault.value.asset.address,
-              collateralAmountForPlan,
-              borrowVault.value.address,
-              borrowAmountNano,
-              undefined,
-              {
-                includePermit2Call: false,
-                wrappedNativeInfo: isBorrowNativeWrap.value
-                  ? { wrappedTokenAddress: resolveWrappedNativeAddress(chainId.value!)!, nativeAmount: collateralAmountForPlan }
-                  : undefined,
-              },
-            )
+          plan.value = await buildSwapBorrowPlanFromQuote(borrowSwapEffectiveQuote.value, { includePermit2Call: false })
         }
         catch (e) {
-          logWarn('borrow/buildPlan', e)
+          logWarn('borrow/buildSwapPlan', e)
           plan.value = null
         }
 
@@ -647,14 +571,18 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
           }
         }
 
+        const isNativeSwap = borrowSelectedAsset.value && isNativeCurrencyAddress(borrowSelectedAsset.value.address)
+        const reviewAsset = isNativeSwap
+          ? (resolveWrappedNativeAsset(chainId.value!) || borrowSelectedAsset.value!)
+          : (borrowSelectedAsset.value || collateralVault.value.asset)
         modal.open(OperationReviewModal, {
           props: {
-            type: 'borrow',
-            asset: borrowVault.value?.asset,
-            amount: borrowAmount.value,
+            type: 'swap-borrow' as const,
+            asset: reviewAsset,
+            amount: collateralAmount.value,
             plan: plan.value || undefined,
-            supplyingAssetForBorrow: collateralVault.value?.asset,
-            supplyingAmount: collateralAmount.value,
+            swapToAsset: collateralVault.value.asset,
+            swapToAmount: borrowSwapEstimatedCollateral.value,
             onConfirm: () => {
               setTimeout(() => {
                 send()
@@ -662,6 +590,75 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
             },
           },
         })
+        return
+      }
+
+      // Standard borrow path
+      const collateralAmountNano = valueToNano(collateralAmount.value || '0', collateralVault.value?.decimals)
+      const borrowAmountNano = valueToNano(borrowAmount.value || '0', borrowVault.value?.decimals)
+      let collateralAmountForPlan = collateralAmountNano
+
+      if (isSavingCollateral.value) {
+        if (savingCollateral.value?.assets === collateralAmountNano) {
+          collateralAmountForPlan = savingBalance.value
+        }
+        else {
+          collateralAmountForPlan = await convertAssetsToShares(collateralVault.value.address, collateralAmountNano)
+        }
+      }
+
+      try {
+        plan.value = isSavingCollateral.value
+          ? await buildBorrowBySavingPlan(
+            collateralVault.value.address,
+            collateralAmountForPlan,
+            borrowVault.value.address,
+            borrowAmountNano,
+            undefined,
+            undefined,
+            savingCollateral.value?.subAccount,
+          )
+          : await buildBorrowPlan(
+            collateralVault.value.address,
+            collateralVault.value.asset.address,
+            collateralAmountForPlan,
+            borrowVault.value.address,
+            borrowAmountNano,
+            undefined,
+            {
+              includePermit2Call: false,
+              wrappedNativeInfo: isBorrowNativeWrap.value
+                ? { wrappedTokenAddress: resolveWrappedNativeAddress(chainId.value!)!, nativeAmount: collateralAmountForPlan }
+                : undefined,
+            },
+          )
+      }
+      catch (e) {
+        logWarn('borrow/buildPlan', e)
+        plan.value = null
+      }
+
+      if (plan.value) {
+        const ok = await runBorrowSimulation(plan.value)
+        if (!ok) {
+          return
+        }
+      }
+
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'borrow',
+          asset: borrowVault.value?.asset,
+          amount: borrowAmount.value,
+          plan: plan.value || undefined,
+          supplyingAssetForBorrow: collateralVault.value?.asset,
+          supplyingAmount: collateralAmount.value,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
+          },
+        },
       })
     }
     finally {

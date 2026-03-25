@@ -2,7 +2,6 @@
 import { useAccount } from '@wagmi/vue'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal } from '#components'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { EarnVault, VaultAsset } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
@@ -17,8 +16,6 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-const reviewSupplyLabel = getSubmitLabel('Review Supply')
 const { buildSupplyPlan, executeTxPlan } = useEulerOperations()
 const { getEarnVault, updateEarnVault } = useVaults()
 const { isConnected, address } = useAccount()
@@ -86,7 +83,7 @@ const isSubmitDisabled = computed(() => {
     || isLoading.value || !(+amount.value)
 })
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
-const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
+const reviewSupplyDisabled = computed(() => isGeoBlocked.value || isSubmitDisabled.value)
 const totalRewardsAPY = computed(() => getSupplyRewardApy(vaultAddress))
 const hasRewards = computed(() => hasSupplyRewards(vaultAddress))
 const intrinsicApy = computed(() => getIntrinsicApy(vault.value?.asset.address))
@@ -101,45 +98,43 @@ const submit = async () => {
   if (isPreparing.value || isGeoBlocked.value) return
   isPreparing.value = true
   try {
-    await guardWithTerms(async () => {
-      if (!asset.value?.address) {
+    if (!asset.value?.address) {
+      return
+    }
+
+    try {
+      plan.value = await buildSupplyPlan(
+        vaultAddress,
+        asset.value.address,
+        valueToNano(amount.value || '0', asset.value.decimals),
+        undefined,
+        { includePermit2Call: false },
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
         return
       }
+    }
 
-      try {
-        plan.value = await buildSupplyPlan(
-          vaultAddress,
-          asset.value.address,
-          valueToNano(amount.value || '0', asset.value.decimals),
-          undefined,
-          { includePermit2Call: false },
-        )
-      }
-      catch (e) {
-        console.warn('[OperationReviewModal] failed to build plan', e)
-        plan.value = null
-      }
-
-      if (plan.value) {
-        const ok = await runSimulation(plan.value)
-        if (!ok) {
-          return
-        }
-      }
-
-      modal.open(OperationReviewModal, {
-        props: {
-          type: 'supply',
-          asset: asset.value,
-          amount: amount.value,
-          plan: plan.value || undefined,
-          onConfirm: () => {
-            setTimeout(() => {
-              send()
-            }, 400)
-          },
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'supply',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
         },
-      })
+      },
     })
   }
   finally {
@@ -355,7 +350,7 @@ watch(address, () => {
               :disabled="reviewSupplyDisabled"
               :loading="isSubmitting || isPreparing"
             >
-              {{ reviewSupplyLabel }}
+              Review Supply
             </VaultFormSubmit>
           </template>
         </VaultForm>

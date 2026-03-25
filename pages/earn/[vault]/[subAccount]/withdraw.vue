@@ -3,7 +3,6 @@ import { useAccount } from '@wagmi/vue'
 import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
@@ -20,8 +19,6 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { buildWithdrawPlan, buildRedeemPlan, executeTxPlan } = useEulerOperations()
 const { getEarnVault } = useVaults()
 const { isConnected, address } = useAccount()
@@ -70,7 +67,7 @@ const isSubmitDisabled = computed(() => {
     || amountFixed.value.isZero() || amountFixed.value.isNegative()
     || !!(estimatesError.value)
 })
-const reviewWithdrawDisabled = getSubmitDisabled(isSubmitDisabled)
+const reviewWithdrawDisabled = isSubmitDisabled
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
   return formatNumber(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25) + rewardApy.value)
@@ -125,43 +122,41 @@ const submit = async () => {
   if (isPreparing.value) return
   isPreparing.value = true
   try {
-    await guardWithTerms(async () => {
-      if (!asset.value?.address) {
+    if (!asset.value?.address) {
+      return
+    }
+
+    const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+
+    try {
+      plan.value = isMax
+        ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
+        : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
         return
       }
+    }
 
-      const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
-
-      try {
-        plan.value = isMax
-          ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
-          : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
-      }
-      catch (e) {
-        console.warn('[OperationReviewModal] failed to build plan', e)
-        plan.value = null
-      }
-
-      if (plan.value) {
-        const ok = await runSimulation(plan.value)
-        if (!ok) {
-          return
-        }
-      }
-
-      modal.open(OperationReviewModal, {
-        props: {
-          type: 'withdraw',
-          asset: asset.value,
-          amount: amount.value,
-          plan: plan.value || undefined,
-          onConfirm: () => {
-            setTimeout(() => {
-              send()
-            }, 400)
-          },
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'withdraw',
+        asset: asset.value,
+        amount: amount.value,
+        plan: plan.value || undefined,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
         },
-      })
+      },
     })
   }
   finally {
@@ -327,7 +322,7 @@ watch(amount, async () => {
             :loading="isSubmitting || isPreparing"
             :disabled="reviewWithdrawDisabled"
           >
-            {{ reviewWithdrawLabel }}
+            Review Withdraw
           </VaultFormSubmit>
         </div>
       </div>

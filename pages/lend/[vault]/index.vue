@@ -4,7 +4,6 @@ import { getAddress, formatUnits, type Address, zeroAddress } from 'viem'
 import { isNativeCurrencyAddress, isNativeOfWrapped, resolveWrappedNativeAddress, resolveWrappedNativeAsset } from '~/utils/native-currency'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, VaultSupplyApyModal, VaultUnverifiedDisclaimerModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { computeAPYs, getCurrentLiquidationLTV, type SecuritizeVault, type Vault, type VaultAsset } from '~/entities/vault'
 import { isSecuritizeVault } from '~/entities/vault/factory'
@@ -61,8 +60,7 @@ const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-const reviewSupplyLabel = getSubmitLabel('Review Supply')
+const reviewSupplyLabel = 'Review Supply'
 const { buildSupplyPlan, buildSwapAndSupplyPlan, executeTxPlan } = useEulerOperations()
 const { getVault, getSecuritizeVault, getEscrowVault, updateVault, isEscrowLoadedOnce } = useVaults()
 const { get: registryGet, getVault: _registryGetVault, isKnownEscrowAddress } = useVaultRegistry()
@@ -281,7 +279,7 @@ const isSubmitDisabled = computed(() => {
 })
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vaultAddress))
 const isSwapRestricted = computed(() => needsSwap.value && isVaultRestrictedByCountry(vaultAddress))
-const reviewSupplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSwapRestricted.value || isSubmitDisabled.value))
+const reviewSupplyDisabled = computed(() => isGeoBlocked.value || isSwapRestricted.value || isSubmitDisabled.value)
 const totalRewardsAPY = computed(() => getSupplyRewardApy(vaultAddress))
 const hasRewards = computed(() => hasSupplyRewards(vaultAddress))
 const intrinsicApy = computed(() => getIntrinsicApy(asset.value?.address))
@@ -377,65 +375,63 @@ const submit = async () => {
   if (isPreparing.value || isGeoBlocked.value || isSwapRestricted.value) return
   isPreparing.value = true
   try {
-    await guardWithTerms(async () => {
-      await guardWithPriceImpact(async () => {
-        if (!asset.value?.address) {
+    await guardWithPriceImpact(async () => {
+      if (!asset.value?.address) {
+        return
+      }
+
+      try {
+        if (needsSwap.value && swapEffectiveQuote.value) {
+          plan.value = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value, { includePermit2Call: false })
+        }
+        else {
+          const supplyAmount = valueToNano(amount.value || '0', asset.value.decimals)
+          const wrappedAddr = isNativeWrap.value ? resolveWrappedNativeAddress(chainId.value!) : null
+          plan.value = await buildSupplyPlan(
+            vaultAddress,
+            asset.value.address,
+            supplyAmount,
+            undefined,
+            {
+              includePermit2Call: false,
+              wrappedNativeInfo: isNativeWrap.value && wrappedAddr
+                ? { wrappedTokenAddress: wrappedAddr, nativeAmount: supplyAmount }
+                : undefined,
+            },
+          )
+        }
+      }
+      catch (e) {
+        console.warn('[OperationReviewModal] failed to build plan', e)
+        plan.value = null
+      }
+
+      if (plan.value) {
+        const ok = await runSimulation(plan.value)
+        if (!ok) {
           return
         }
+      }
 
-        try {
-          if (needsSwap.value && swapEffectiveQuote.value) {
-            plan.value = await buildSwapSupplyPlanFromQuote(swapEffectiveQuote.value, { includePermit2Call: false })
-          }
-          else {
-            const supplyAmount = valueToNano(amount.value || '0', asset.value.decimals)
-            const wrappedAddr = isNativeWrap.value ? resolveWrappedNativeAddress(chainId.value!) : null
-            plan.value = await buildSupplyPlan(
-              vaultAddress,
-              asset.value.address,
-              supplyAmount,
-              undefined,
-              {
-                includePermit2Call: false,
-                wrappedNativeInfo: isNativeWrap.value && wrappedAddr
-                  ? { wrappedTokenAddress: wrappedAddr, nativeAmount: supplyAmount }
-                  : undefined,
-              },
-            )
-          }
-        }
-        catch (e) {
-          console.warn('[OperationReviewModal] failed to build plan', e)
-          plan.value = null
-        }
-
-        if (plan.value) {
-          const ok = await runSimulation(plan.value)
-          if (!ok) {
-            return
-          }
-        }
-
-        const isNativeSwap = needsSwap.value && selectedAsset.value && isNativeCurrencyAddress(selectedAsset.value.address)
-        const reviewAsset = isNativeSwap
-          ? (resolveWrappedNativeAsset(chainId.value!) || selectedAsset.value!)
-          : needsSwap.value && selectedAsset.value ? selectedAsset.value : asset.value
-        const reviewType = needsSwap.value ? 'swap-supply' as const : 'supply' as const
-        modal.open(OperationReviewModal, {
-          props: {
-            type: reviewType,
-            asset: reviewAsset,
-            amount: amount.value,
-            plan: plan.value || undefined,
-            swapToAsset: needsSwap.value ? asset.value : undefined,
-            swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
-            onConfirm: () => {
-              setTimeout(() => {
-                send()
-              }, 400)
-            },
+      const isNativeSwap = needsSwap.value && selectedAsset.value && isNativeCurrencyAddress(selectedAsset.value.address)
+      const reviewAsset = isNativeSwap
+        ? (resolveWrappedNativeAsset(chainId.value!) || selectedAsset.value!)
+        : needsSwap.value && selectedAsset.value ? selectedAsset.value : asset.value
+      const reviewType = needsSwap.value ? 'swap-supply' as const : 'supply' as const
+      modal.open(OperationReviewModal, {
+        props: {
+          type: reviewType,
+          asset: reviewAsset,
+          amount: amount.value,
+          plan: plan.value || undefined,
+          swapToAsset: needsSwap.value ? asset.value : undefined,
+          swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
           },
-        })
+        },
       })
     })
   }

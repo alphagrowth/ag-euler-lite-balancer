@@ -2,7 +2,6 @@ import { getAddress, formatUnits } from 'viem'
 import { useAccount } from '@wagmi/vue'
 import { logWarn } from '~/utils/errorHandling'
 import { OperationReviewModal, SlippageSettingsModal } from '#components'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
 import type { SwapApiQuote } from '~/entities/swap'
@@ -88,7 +87,6 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
   const { executeTxPlan } = useEulerOperations()
   const modal = useModal()
   const { error: showError } = useToast()
-  const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
   const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimulation()
 
   // ── State ──────────────────────────────────────────────────────────────
@@ -345,12 +343,12 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
 
   const isGeoBlocked = computed(() => isAnyVaultBlockedByCountry(...getGeoBlockedAddresses()))
 
-  const reviewSwapLabel = getSubmitLabel(computed(() => {
+  const reviewSwapLabel = computed(() => {
     if (isSameAsset.value) return 'Review Transfer'
     return selectedQuote.value ? 'Review Swap' : 'Select a Quote'
-  }))
+  })
 
-  const reviewSwapDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isSubmitDisabled.value))
+  const reviewSwapDisabled = computed(() => isGeoBlocked.value || isSubmitDisabled.value)
 
   // ── Display ────────────────────────────────────────────────────────────
   const currentPrice = computed(() => {
@@ -435,42 +433,40 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
     if (isPreparing.value || isGeoBlocked.value) return
     isPreparing.value = true
     try {
-      await guardWithTerms(async () => {
-        await guardWithPriceImpact(async () => {
-          if (isSubmitting.value || !fromVault.value) return
-          if (!isSameAsset.value && !selectedQuote.value) return
+      await guardWithPriceImpact(async () => {
+        if (isSubmitting.value || !fromVault.value) return
+        if (!isSameAsset.value && !selectedQuote.value) return
 
-          try {
-            plan.value = await buildPlan()
-          }
-          catch (e) {
-            logWarn('swap/buildPlan', e)
-            showError('Failed to build transaction')
-            plan.value = null
-            return
-          }
+        try {
+          plan.value = await buildPlan()
+        }
+        catch (e) {
+          logWarn('swap/buildPlan', e)
+          showError('Failed to build transaction')
+          plan.value = null
+          return
+        }
 
-          if (plan.value) {
-            const ok = await runSimulation(plan.value)
-            if (!ok) return
-          }
+        if (plan.value) {
+          const ok = await runSimulation(plan.value)
+          if (!ok) return
+        }
 
-          const showSwapAmounts = sameAssetModalType === 'transfer' || !isSameAsset.value
-          modal.open(OperationReviewModal, {
-            props: {
-              type: isSameAsset.value ? sameAssetModalType : 'swap',
-              asset: fromVault.value.asset,
-              amount: fromAmount.value,
-              swapToAsset: showSwapAmounts ? toVault.value?.asset : undefined,
-              swapToAmount: showSwapAmounts ? toAmount.value : undefined,
-              plan: plan.value || undefined,
-              onConfirm: () => {
-                setTimeout(() => {
-                  send()
-                }, 400)
-              },
+        const showSwapAmounts = sameAssetModalType === 'transfer' || !isSameAsset.value
+        modal.open(OperationReviewModal, {
+          props: {
+            type: isSameAsset.value ? sameAssetModalType : 'swap',
+            asset: fromVault.value.asset,
+            amount: fromAmount.value,
+            swapToAsset: showSwapAmounts ? toVault.value?.asset : undefined,
+            swapToAmount: showSwapAmounts ? toAmount.value : undefined,
+            plan: plan.value || undefined,
+            onConfirm: () => {
+              setTimeout(() => {
+                send()
+              }, 400)
             },
-          })
+          },
         })
       })
     }
