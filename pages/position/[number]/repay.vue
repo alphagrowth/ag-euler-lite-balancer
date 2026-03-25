@@ -486,16 +486,6 @@ watch(formTab, () => {
             variant="card"
             class="w-full laptop:max-w-[360px]"
           >
-            <SwapDetailsSummary
-              v-if="walletSwap.needsSwap.value && walletSwap.swapEstimatedOutput.value"
-              :input-display="walletSwap.swapInputDisplay.value"
-              :output-display="walletSwap.swapOutputDisplay.value"
-              :price-impact="walletSwap.swapPriceImpact.value"
-              :slippage="slippage"
-              :routed-via="walletSwap.swapRoutedVia.value"
-              @open-slippage-settings="openSlippageSettings"
-            />
-
             <SummaryRow label="Net APY">
               <SummaryValue
                 :before="formatNumber(netAPY)"
@@ -545,6 +535,15 @@ watch(formTab, () => {
                 :after="formatHealthScore(nanoToValue(walletSwap.needsSwap.value ? walletSwap.estimateHealth.value : wallet.estimateHealth.value, 18))"
               />
             </SummaryRow>
+            <SwapDetailsSummary
+              v-if="walletSwap.needsSwap.value && walletSwap.swapEstimatedOutput.value"
+              :input-display="walletSwap.swapInputDisplay.value"
+              :output-display="walletSwap.swapOutputDisplay.value"
+              :price-impact="walletSwap.swapPriceImpact.value"
+              :slippage="slippage"
+              :routed-via="walletSwap.swapRoutedVia.value"
+              @open-slippage-settings="openSlippageSettings"
+            />
           </VaultFormInfoBlock>
 
           <div class="flex flex-col gap-8 laptop:col-start-1 laptop:row-start-2">
