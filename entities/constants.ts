@@ -131,7 +131,6 @@ export const MAX_UINT160 = (1n << 160n) - 1n
 
 export const MERKL_DISTRIBUTOR_ADDRESS = '0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae'
 export const MERKL_API_BASE_URL = 'https://api.merkl.xyz/v4'
-export const EULER_INTERFACES_CHAINS_URL = 'https://raw.githubusercontent.com/euler-xyz/euler-interfaces/refs/heads/master/EulerChains.json'
 export const DEFILLAMA_YIELDS_URL = 'https://yields.llama.fi/pools'
 export const SECURITIZE_FEED_URL = 'https://public-feed.securitize.io/asset-stats'
 export const BREVIS_API_URL = 'https://incentra-prd.brevis.network/sdk/v1/eulerCampaigns'

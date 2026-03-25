@@ -107,6 +107,7 @@ export default defineNuxtConfig({
       configOracleChecksRepo: 'euler-xyz/oracle-checks',
       configLabelsBaseUrl: '',
       configOracleChecksBaseUrl: '',
+      configEulerChainsUrl: '',
       // Feature flags: enabled by default. Set to 'false' to disable.
       configEnableEntityBranding: '',
       configEnableVaultType: '',

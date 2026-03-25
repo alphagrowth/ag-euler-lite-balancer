@@ -1,4 +1,3 @@
-import { EULER_INTERFACES_CHAINS_URL } from '~/entities/constants'
 import { logWarn } from '~/utils/errorHandling'
 
 export type EulerLensAddresses = {
@@ -113,10 +112,7 @@ export const useEulerAddresses = () => {
     error.value = null
 
     try {
-      if (!EULER_INTERFACES_CHAINS_URL) {
-        throw new Error('Euler chains URL is not configured')
-      }
-      const response = await fetch(EULER_INTERFACES_CHAINS_URL)
+      const response = await fetch('/api/euler-chains')
       if (!response.ok) {
         throw new Error(`Failed to fetch Euler config: ${response.statusText}`)
       }

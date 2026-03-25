@@ -1,5 +1,7 @@
 import { createError, getQuery } from 'h3'
 import { createRateLimiter } from '~/server/utils/rate-limit'
+import { createTtlCache } from '~/server/utils/cache'
+import { fetchWithTimeout } from '~/server/utils/fetchWithTimeout'
 
 const TIMEOUT_MS = 10_000
 const CACHE_TTL_MS = 300_000
@@ -20,31 +22,14 @@ const rateLimiter = createRateLimiter({
   label: 'token-list',
 })
 
-// Uniswap cache (all chains in one response)
-let uniswapCache: { tokens: TokenEntry[] } | null = null
-let uniswapCacheTimestamp = 0
-
-// DefiLlama cache (per-chain)
-const defillamaCache = new Map<number, { tokens: TokenEntry[], timestamp: number }>()
-
-async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    return await fetch(url, { signal: controller.signal })
-  }
-  finally {
-    clearTimeout(timeout)
-  }
-}
+const uniswapCache = createTtlCache<TokenEntry[]>({ ttlMs: CACHE_TTL_MS })
+const defillamaCache = createTtlCache<TokenEntry[]>({ ttlMs: CACHE_TTL_MS })
 
 async function fetchUniswap(): Promise<TokenEntry[]> {
   const url = process.env.NUXT_PUBLIC_CONFIG_UNISWAP_TOKEN_LIST_URL || 'https://tokens.uniswap.org'
-  const now = Date.now()
 
-  if (uniswapCache && (now - uniswapCacheTimestamp) < CACHE_TTL_MS) {
-    return uniswapCache.tokens
-  }
+  const cached = uniswapCache.get('all')
+  if (cached) return cached
 
   const resp = await fetchWithTimeout(url, TIMEOUT_MS)
   if (!resp.ok) {
@@ -54,40 +39,36 @@ async function fetchUniswap(): Promise<TokenEntry[]> {
 
   const data = await resp.json()
   const tokens: TokenEntry[] = data.tokens || []
-  uniswapCache = { tokens }
-  uniswapCacheTimestamp = Date.now()
+  uniswapCache.set('all', tokens)
   return tokens
 }
 
 async function fetchDefillama(chainId: number): Promise<TokenEntry[]> {
-  const now = Date.now()
-  const cached = defillamaCache.get(chainId)
-
-  if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
-    return cached.tokens
-  }
+  const key = String(chainId)
+  const cached = defillamaCache.get(key)
+  if (cached) return cached
 
   const baseUrl = process.env.NUXT_PUBLIC_CONFIG_DEFILLAMA_TOKEN_LIST_URL || DEFILLAMA_DEFAULT_URL
   const url = `${baseUrl}/tokenlists-${chainId}.json`
   const resp = await fetchWithTimeout(url, TIMEOUT_MS)
   if (!resp.ok) {
     console.warn('[token-list] DefiLlama upstream returned', resp.status, 'for chain', chainId)
-    return cached?.tokens || []
+    return defillamaCache.getStale(key) || []
   }
 
   const data = await resp.json()
 
   // DefiLlama format: object keyed by address → normalize to array
-  const tokens: TokenEntry[] = Object.values(data).map((entry: any) => ({
-    chainId: entry.chainId ?? chainId,
-    address: entry.address,
-    name: entry.name,
-    symbol: entry.symbol,
-    decimals: entry.decimals,
-    logoURI: entry.logoURI,
+  const tokens: TokenEntry[] = Object.values(data).map((entry: Record<string, unknown>) => ({
+    chainId: (entry.chainId as number) ?? chainId,
+    address: entry.address as string,
+    name: entry.name as string,
+    symbol: entry.symbol as string,
+    decimals: entry.decimals as number,
+    logoURI: entry.logoURI as string | undefined,
   }))
 
-  defillamaCache.set(chainId, { tokens, timestamp: Date.now() })
+  defillamaCache.set(key, tokens)
   return tokens
 }
 
@@ -131,9 +112,10 @@ export default defineEventHandler(async (event) => {
     console.warn('[token-list] Uniswap fetch failed:', uniswapResult.reason?.message || 'Unknown error')
 
     // If we have stale Uniswap cache, use it
-    if (uniswapCache) {
+    const stale = uniswapCache.getStale('all')
+    if (stale) {
       const defillamaTokens = defillamaResult.status === 'fulfilled' ? defillamaResult.value : []
-      return { tokens: deduplicateTokens(uniswapCache.tokens, defillamaTokens) }
+      return { tokens: deduplicateTokens(stale, defillamaTokens) }
     }
 
     throw createError({ statusCode: 502, statusMessage: 'Upstream error' })

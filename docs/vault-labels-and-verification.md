@@ -8,20 +8,20 @@ Not all vaults on-chain are equal. Some are curated by the Euler UI listing proc
 
 ## Label Data Sources
 
-Labels are fetched from the [euler-labels](https://github.com/euler-xyz/euler-labels) GitHub repository by default. Alternatively, set `NUXT_PUBLIC_CONFIG_LABELS_BASE_URL` to serve labels from S3 or any CDN — the bucket must mirror the same directory structure as the GitHub repo. Each supported chain has a directory containing JSON files:
+Labels originate from the [euler-labels](https://github.com/euler-xyz/euler-labels) GitHub repository by default. The client never fetches labels directly from GitHub/CDN — all label data is served through **server-side proxy endpoints** that add in-memory caching and stale-fallback. Each supported chain has a directory containing JSON files:
 
-| File | Required | Contents |
-|------|----------|----------|
-| `products.json` | Yes | Vault-to-product mapping (names, entities, geo-blocking, deprecation, overrides) |
-| `entities.json` | Yes | Organization/entity info (logos, social links, governance addresses) |
-| `points.json` | No | Points/rewards campaigns |
-| `earn-vaults.json` | No | EulerEarn vault listing with per-vault metadata |
+| File | Required | Server endpoint |
+|------|----------|-----------------|
+| `products.json` | Yes | `GET /api/labels/products.json?chainId=X` |
+| `entities.json` | Yes | `GET /api/labels/entities.json?chainId=X` |
+| `points.json` | No | `GET /api/labels/points.json?chainId=X` |
+| `earn-vaults.json` | No | `GET /api/labels/earn-vaults.json?chainId=X` |
 
-Oracle adapter metadata is fetched from a separate repository ([oracle-checks](https://github.com/euler-xyz/oracle-checks)) by default, loaded lazily per adapter.
+Oracle adapter metadata is fetched from a separate repository ([oracle-checks](https://github.com/euler-xyz/oracle-checks)) by default, loaded lazily per adapter via `GET /api/oracle-adapter?chainId=X&address=0x...`.
 
-**Custom sources**: Both labels and oracle checks are fetched via configurable base URLs constructed from `CONFIG_LABELS_REPO` / `CONFIG_LABELS_REPO_BRANCH` and `CONFIG_ORACLE_CHECKS_REPO` environment variables. While the defaults point to GitHub raw content, these can be pointed at any HTTP endpoint serving the same file structure (e.g. an S3 bucket or CDN). The expected URL pattern is `{baseUrl}/{chainId}/{file}` for labels and `{baseUrl}/data/{chainId}/adapters/{address}.json` for oracle adapters.
+**Custom sources**: The server resolves upstream URLs from environment variables. `NUXT_PUBLIC_CONFIG_LABELS_BASE_URL` overrides the GitHub URL for labels (when set, `CONFIG_LABELS_REPO` and `CONFIG_LABELS_REPO_BRANCH` are ignored). `NUXT_PUBLIC_CONFIG_ORACLE_CHECKS_BASE_URL` overrides the GitHub URL for oracle checks. The expected URL pattern is `{baseUrl}/{chainId}/{file}` for labels and `{baseUrl}/{chainId}/adapters/{address}.json` for oracle adapters.
 
-**Caching**: Labels are cached for 5 minutes. Subsequent calls within the TTL return cached data without network requests.
+**Caching**: The server caches each response for 5 minutes. On upstream failure, stale cached data is served. The client also maintains a 5-minute TTL to avoid unnecessary requests on chain switches.
 
 **Address normalization**: All addresses from labels are checksummed via `getAddress()` before storage, ensuring consistent lookups regardless of input casing.
 
