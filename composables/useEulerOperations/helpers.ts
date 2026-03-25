@@ -1,13 +1,10 @@
-import type { Address, Hex, Abi, Hash } from 'viem'
+import type { Address, Abi, Hash } from 'viem'
 import { encodeFunctionData, getAddress, maxUint256 } from 'viem'
 import type { OperationsContext, Permit2Helpers, AllowanceHelpers, OperationHelpers } from './types'
 import { erc20ABI } from '~/entities/euler/abis'
 import { erc20TransferAbi } from '~/abis/erc20'
 import { wethDepositAbi } from '~/abis/weth'
 import { EVC_ABI } from '~/abis/evc'
-import { tosSignerReadAbi, tosSignerWriteAbi } from '~/abis/tos'
-import { getTosData } from '~/composables/useTosData'
-import type { SaHooksBuilder } from '~/entities/saHooksSDK'
 import type { EVCCall } from '~/utils/evc-converter'
 import type { TxStep } from '~/entities/txPlan'
 import { buildPythUpdateCalls, buildPythUpdateCallsFromFeeds, collectPythFeedsForHealthCheck, sumCallValues } from '~/utils/pyth'
@@ -19,31 +16,6 @@ import type { Vault } from '~/entities/vault'
 export const adjustForInterest = (amount: bigint) => (amount * INTEREST_ADJUSTMENT_BPS) / BPS_BASE
 
 export const createOperationHelpers = (ctx: OperationsContext, permit2: Permit2Helpers, allowance: AllowanceHelpers): OperationHelpers => {
-  const enableTermsOfUseSignature = ctx.enableTermsOfUseSignature
-
-  const hasSignature = async (userAddress: Address) => {
-    if (!ctx.eulerPeripheryAddresses.value) {
-      return false
-    }
-
-    const tosSignerAddress = ctx.eulerPeripheryAddresses.value.termsOfUseSigner as Address
-
-    try {
-      const { tosMessageHash } = await getTosData()
-      const lastSignTimestamp = await ctx.rpcProvider.readContract({
-        address: tosSignerAddress,
-        abi: tosSignerReadAbi,
-        functionName: 'lastTermsOfUseSignatureTimestamp',
-        args: [userAddress, tosMessageHash],
-      })
-      return (lastSignTimestamp as bigint) > 0
-    }
-    catch (e) {
-      console.error('Error checking ToS signature:', e)
-      return false
-    }
-  }
-
   const resolveEffectiveCollaterals = (
     enabledCollaterals?: string[],
     adding?: string[],
@@ -146,33 +118,6 @@ export const createOperationHelpers = (ctx: OperationsContext, permit2: Permit2H
     return { steps, permitCall, usesPermit2 }
   }
 
-  const prepareTos = async (userAddr: Address) => {
-    const hasSigned = await hasSignature(userAddr)
-    const tosData = await getTosData()
-    const tosSignerAddress = ctx.eulerPeripheryAddresses.value?.termsOfUseSigner as Address
-
-    const needsTos = !hasSigned && enableTermsOfUseSignature
-
-    const addTosInterface = (hooks: SaHooksBuilder) => {
-      if (needsTos) {
-        hooks.addContractInterface(tosSignerAddress, tosSignerWriteAbi)
-      }
-    }
-
-    const injectTosCall = (evcCalls: EVCCall[], hooks: SaHooksBuilder) => {
-      if (needsTos) {
-        evcCalls.unshift({
-          targetContract: tosSignerAddress,
-          onBehalfOfAccount: userAddr,
-          value: 0n,
-          data: hooks.getDataForCall(tosSignerAddress, 'signTermsOfUse', [tosData.tosMessage, tosData.tosMessageHash]) as Hex,
-        })
-      }
-    }
-
-    return { hasSigned, tosData, addTosInterface, injectTosCall }
-  }
-
   const injectPythHealthCheckUpdates = async (params: {
     evcCalls: EVCCall[]
     liabilityVaultAddr: string
@@ -238,13 +183,11 @@ export const createOperationHelpers = (ctx: OperationsContext, permit2: Permit2H
 
   return {
     prepareTokenApproval,
-    prepareTos,
     injectPythHealthCheckUpdates,
     buildEvcBatchStep,
     buildNativeWrapCalls,
     resolveEffectiveCollaterals,
     adjustForInterest,
-    hasSignature,
     preparePythUpdates,
     preparePythUpdatesForHealthCheck,
   }

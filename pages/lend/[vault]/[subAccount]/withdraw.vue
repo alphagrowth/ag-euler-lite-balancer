@@ -4,7 +4,6 @@ import { getAddress, formatUnits, type Address, zeroAddress } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import {
   convertSharesToAssets,
@@ -25,13 +24,12 @@ import { formatNumber, formatSmartAmount } from '~/utils/string-utils'
 import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-const reviewWithdrawLabel = getSubmitLabel('Review Withdraw')
 const { buildWithdrawPlan, buildRedeemPlan, buildWithdrawAndSwapPlan, buildRedeemAndSwapPlan, executeTxPlan } = useEulerOperations()
 const { getVault, getSecuritizeVault: _getSecuritizeVault, getEscrowVault: _getEscrowVault } = useVaults()
 const { isConnected, address } = useAccount()
@@ -114,7 +112,7 @@ const isSubmitDisabled = computed(() => {
   if (needsSwap.value && !swapEffectiveQuote.value && !isSwapQuoteLoading.value) return true
   return false
 })
-const reviewWithdrawDisabled = getSubmitDisabled(isSubmitDisabled)
+const reviewWithdrawDisabled = isSubmitDisabled
 const supplyAPYDisplay = computed(() => {
   if (!vault.value) return '0.00'
   const base = withIntrinsicSupplyApy(nanoToValue(vault.value.interestRateInfo.supplyAPY, 25), vault.value.asset.address)
@@ -306,70 +304,69 @@ const updateBalance = async () => {
   delta.value = assetsBalance.value
 }
 const submit = async () => {
+  if (isOperationBlocked.value) return
   if (isPreparing.value) return
   isPreparing.value = true
   try {
-    await guardWithTerms(async () => {
-      await guardWithPriceImpact(async () => {
-        if (!asset.value?.address) {
-          return
-        }
+    await guardWithPriceImpact(async () => {
+      if (!asset.value?.address) {
+        return
+      }
 
-        const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
+      const isMax = FixedPoint.fromValue(assetsBalance.value, asset.value?.decimals).lte(amountFixed.value)
 
-        try {
-          if (needsSwap.value && swapEffectiveQuote.value) {
-            if (isMax) {
-              plan.value = await buildRedeemAndSwapPlan({
-                vaultAddress: vaultAddress as Address,
-                sharesAmount: sharesBalance.value,
-                quote: swapEffectiveQuote.value,
-                subAccount: subAccount.value,
-              })
-            }
-            else {
-              plan.value = await buildWithdrawAndSwapPlan({
-                vaultAddress: vaultAddress as Address,
-                assetsAmount: amountFixed.value.value,
-                quote: swapEffectiveQuote.value,
-                subAccount: subAccount.value,
-              })
-            }
+      try {
+        if (needsSwap.value && swapEffectiveQuote.value) {
+          if (isMax) {
+            plan.value = await buildRedeemAndSwapPlan({
+              vaultAddress: vaultAddress as Address,
+              sharesAmount: sharesBalance.value,
+              quote: swapEffectiveQuote.value,
+              subAccount: subAccount.value,
+            })
           }
           else {
-            plan.value = isMax
-              ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
-              : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
+            plan.value = await buildWithdrawAndSwapPlan({
+              vaultAddress: vaultAddress as Address,
+              assetsAmount: amountFixed.value.value,
+              quote: swapEffectiveQuote.value,
+              subAccount: subAccount.value,
+            })
           }
         }
-        catch (e) {
-          console.warn('[lend/withdraw] failed to build plan', e)
-          plan.value = null
+        else {
+          plan.value = isMax
+            ? await buildRedeemPlan(vaultAddress, amountFixed.value.value, sharesBalance.value, isMax, subAccount.value)
+            : await buildWithdrawPlan(vaultAddress, amountFixed.value.value, subAccount.value)
         }
+      }
+      catch (e) {
+        console.warn('[lend/withdraw] failed to build plan', e)
+        plan.value = null
+      }
 
-        if (plan.value) {
-          const ok = await runSimulation(plan.value)
-          if (!ok) {
-            return
-          }
+      if (plan.value) {
+        const ok = await runSimulation(plan.value)
+        if (!ok) {
+          return
         }
+      }
 
-        const reviewType = needsSwap.value ? 'swap-withdraw' as const : 'withdraw' as const
-        modal.open(OperationReviewModal, {
-          props: {
-            type: reviewType,
-            asset: asset.value,
-            amount: amount.value,
-            plan: plan.value || undefined,
-            swapToAsset: needsSwap.value ? selectedOutputAsset.value : undefined,
-            swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
-            onConfirm: () => {
-              setTimeout(() => {
-                send()
-              }, 400)
-            },
+      const reviewType = needsSwap.value ? 'swap-withdraw' as const : 'withdraw' as const
+      modal.open(OperationReviewModal, {
+        props: {
+          type: reviewType,
+          asset: asset.value,
+          amount: amount.value,
+          plan: plan.value || undefined,
+          swapToAsset: needsSwap.value ? selectedOutputAsset.value : undefined,
+          swapToAmount: needsSwap.value ? swapEstimatedOutput.value : undefined,
+          onConfirm: () => {
+            setTimeout(() => {
+              send()
+            }, 400)
           },
-        })
+        },
       })
     })
   }
@@ -652,7 +649,7 @@ watch(swapSelectedQuote, () => {
             :loading="isSubmitting || isPreparing"
             :disabled="reviewWithdrawDisabled"
           >
-            {{ reviewWithdrawLabel }}
+            Review Withdraw
           </VaultFormSubmit>
         </div>
       </div>

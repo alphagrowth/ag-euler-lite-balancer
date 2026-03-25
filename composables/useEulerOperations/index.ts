@@ -15,7 +15,6 @@ export const useEulerOperations = () => {
   const { signTypedDataAsync } = useSignTypedData()
   const config = useConfig()
   const { eulerCoreAddresses, eulerPeripheryAddresses, eulerLensAddresses } = useEulerAddresses()
-  const { enableTosSignature: enableTermsOfUseSignature } = useDeployConfig()
   const { PYTH_HERMES_URL, SUBGRAPH_URL } = useEulerConfig()
   const { rpcUrl, client: rpcClient } = useRpcClient()
   const { get: registryGet, getVault: registryGetVault } = useVaultRegistry()
@@ -30,7 +29,6 @@ export const useEulerOperations = () => {
     eulerCoreAddresses,
     eulerPeripheryAddresses,
     eulerLensAddresses,
-    enableTermsOfUseSignature,
     rpcUrl: rpcUrl.value,
     PYTH_HERMES_URL,
     SUBGRAPH_URL,

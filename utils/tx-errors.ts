@@ -1,6 +1,6 @@
 import { BaseError, ContractFunctionRevertedError, formatUnits } from 'viem'
 import { ERROR_MESSAGE_MAP, ERROR_SIGNATURE_MAP, NON_BLOCKING_SIMULATION_ERRORS } from '~/entities/constants'
-import { hasKeyringGuard, keyringGuardMeta } from '~/utils/operationGuardRegistry'
+import { hasGuard, getGuardMeta } from '~/utils/operationGuardRegistry'
 import { getChainById } from '~/entities/chainRegistry'
 
 const parseErrorCodeFromMessage = (message: string) => {
@@ -77,8 +77,8 @@ const isInsufficientBalanceError = (error: unknown): boolean => {
 
 export const getTxErrorMessage = (error: unknown) => {
   if (isInsufficientBalanceError(error)) {
-    if (hasKeyringGuard.value) {
-      const meta = keyringGuardMeta.value
+    if (hasGuard('keyring').value) {
+      const meta = getGuardMeta('keyring').value
       const cost = meta?.credentialCost as number | undefined
       const cid = meta?.chainId as number | undefined
       const chain = cid ? getChainById(cid) : undefined

@@ -3,7 +3,6 @@ import { useAccount } from '@wagmi/vue'
 import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { type BorrowVaultPair, getNetAPY, type VaultAsset } from '~/entities/vault'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
@@ -15,13 +14,12 @@ import type { TxPlan } from '~/entities/txPlan'
 import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 
 const router = useRouter()
 const _route = useRoute()
 const modal = useModal()
 const { error } = useToast()
-const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-const reviewBorrowLabel = getSubmitLabel('Review Borrow')
 const { buildBorrowPlan, executeTxPlan } = useEulerOperations()
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { isConnected, address } = useAccount()
@@ -99,7 +97,7 @@ const isGeoBlocked = computed(() => {
 })
 const isBorrowRestricted = computed(() =>
   pair.value?.borrow ? isVaultRestrictedByCountry(pair.value.borrow.address) : false)
-const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isBorrowRestricted.value || isSubmitDisabled.value))
+const reviewBorrowDisabled = computed(() => isGeoBlocked.value || isBorrowRestricted.value || isSubmitDisabled.value)
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
 useOperationGuard(computed(() => [borrowVault.value?.address, collateralVault.value?.address].filter(Boolean)))
@@ -212,52 +210,51 @@ const updateBalance = async () => {
   isBalanceLoading.value = false
 }
 const submit = async () => {
+  if (isOperationBlocked.value) return
   if (isPreparing.value || isGeoBlocked.value || isBorrowRestricted.value) return
   isPreparing.value = true
   try {
-    await guardWithTerms(async () => {
-      if (!borrowVault.value || !collateralVault.value) {
+    if (!borrowVault.value || !collateralVault.value) {
+      return
+    }
+
+    try {
+      plan.value = await buildBorrowPlan(
+        collateralVault.value.address,
+        collateralVault.value.asset.address,
+        0n,
+        borrowVault.value.address,
+        valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
+        position.value?.subAccount,
+        { includePermit2Call: false, enabledCollaterals: position.value?.collaterals },
+      )
+    }
+    catch (e) {
+      console.warn('[OperationReviewModal] failed to build plan', e)
+      plan.value = null
+    }
+
+    if (plan.value) {
+      const ok = await runSimulation(plan.value)
+      if (!ok) {
         return
       }
+    }
 
-      try {
-        plan.value = await buildBorrowPlan(
-          collateralVault.value.address,
-          collateralVault.value.asset.address,
-          0n,
-          borrowVault.value.address,
-          valueToNano(borrowAmount.value || '0', borrowVault.value.decimals),
-          position.value?.subAccount,
-          { includePermit2Call: false, enabledCollaterals: position.value?.collaterals },
-        )
-      }
-      catch (e) {
-        console.warn('[OperationReviewModal] failed to build plan', e)
-        plan.value = null
-      }
-
-      if (plan.value) {
-        const ok = await runSimulation(plan.value)
-        if (!ok) {
-          return
-        }
-      }
-
-      modal.open(OperationReviewModal, {
-        props: {
-          type: 'borrow',
-          asset: borrowVault.value?.asset,
-          amount: borrowAmount.value,
-          plan: plan.value || undefined,
-          subAccount: position.value?.subAccount,
-          hasBorrows: (position.value?.borrowed || 0n) > 0n,
-          onConfirm: () => {
-            setTimeout(() => {
-              send()
-            }, 400)
-          },
+    modal.open(OperationReviewModal, {
+      props: {
+        type: 'borrow',
+        asset: borrowVault.value?.asset,
+        amount: borrowAmount.value,
+        plan: plan.value || undefined,
+        subAccount: position.value?.subAccount,
+        hasBorrows: (position.value?.borrowed || 0n) > 0n,
+        onConfirm: () => {
+          setTimeout(() => {
+            send()
+          }, 400)
         },
-      })
+      },
     })
   }
   finally {
@@ -508,7 +505,7 @@ watch([collateralAmount, borrowAmount], async () => {
             :disabled="reviewBorrowDisabled"
             :loading="isSubmitting || isPreparing"
           >
-            {{ reviewBorrowLabel }}
+            Review Borrow
           </VaultFormSubmit>
         </div>
       </div>

@@ -49,15 +49,31 @@ function env(...keys: string[]): string | undefined {
   return undefined
 }
 
+/** Scan process.env for dynamic RPC / subgraph URL env vars. */
+function scanDynamicEnvUrls(): string[] {
+  const urls: string[] = []
+  for (const [key, value] of Object.entries(process.env)) {
+    if (!value) continue
+    // RPC_URL_HTTP_<chainId> — wagmi uses these directly on the client
+    // NUXT_PUBLIC_SUBGRAPH_URI_<chainId> — client-side GraphQL queries
+    if (/^RPC_URL_HTTP_\d+$/.test(key) || /^NUXT_PUBLIC_SUBGRAPH_URI_\d+$/.test(key)) {
+      urls.push(value)
+    }
+  }
+  return urls
+}
+
 /** Derive CSP origins from URL env vars so deployers don't need to duplicate them. */
 function parseEnvOrigins(): { connect: string[], img: string[] } {
-  // Labels, oracle checks, and euler-chains are proxied through server endpoints,
-  // so their origins are not needed in connect-src.
+  // Labels, oracle checks, token lists, and euler-chains are proxied through
+  // server /api/* endpoints, so their origins are not needed in connect-src.
   const connectVars = [
     env('EULER_API_URL', 'NUXT_PUBLIC_EULER_API_URL'),
     env('SWAP_API_URL', 'NUXT_PUBLIC_SWAP_API_URL'),
     env('PRICE_API_URL', 'NUXT_PUBLIC_PRICE_API_URL'),
     env('PYTH_HERMES_URL', 'NUXT_PUBLIC_PYTH_HERMES_URL'),
+    // Dynamic per-chain URLs (RPC for wagmi, subgraph for GraphQL)
+    ...scanDynamicEnvUrls(),
   ]
   const imgVars = [
     process.env.NUXT_PUBLIC_CONFIG_LABELS_BASE_URL,

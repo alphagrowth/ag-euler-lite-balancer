@@ -407,7 +407,7 @@ watch(selectedAsset, async () => {
             :disabled="form.submitDisabled.value"
             :loading="form.isSubmitting.value || form.isPreparing.value"
           >
-            {{ form.submitLabel.value }}
+            {{ form.submitLabel }}
           </VaultFormSubmit>
         </div>
       </div>
