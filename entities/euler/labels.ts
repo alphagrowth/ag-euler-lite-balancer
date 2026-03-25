@@ -20,6 +20,7 @@ export type EulerLabelVaultOverride = {
   restricted?: string[]
   notExplorableLend?: boolean
   notExplorableBorrow?: boolean
+  keyring?: boolean
 }
 
 export type EulerLabelProduct = {
@@ -36,6 +37,7 @@ export type EulerLabelProduct = {
   block?: string[]
   featuredVaults?: string[]
   vaultOverrides?: Record<string, EulerLabelVaultOverride>
+  keyring?: boolean
 }
 
 export type EulerLabelEarnVaultEntry = {
