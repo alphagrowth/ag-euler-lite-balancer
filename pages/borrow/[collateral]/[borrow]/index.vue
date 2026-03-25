@@ -499,11 +499,19 @@ watch(formTab, () => {
                   :loading="borrow.isBorrowSwapQuoteLoading.value"
                 >
                   <SummaryRow
-                    label="Estimated collateral"
-                    align-top
+                    v-if="borrow.borrowSwapInputDisplay.value"
+                    label="Swap in"
                   >
-                    <p class="text-p2">
-                      ~{{ formatSmartAmount(borrow.borrowSwapEstimatedCollateral.value) }} {{ collateralVault.asset.symbol }}
+                    <p class="text-p2 text-right">
+                      {{ borrow.borrowSwapInputDisplay.value }}
+                    </p>
+                  </SummaryRow>
+                  <SummaryRow
+                    v-if="borrow.borrowSwapOutputDisplay.value"
+                    label="Swap out"
+                  >
+                    <p class="text-p2 text-right">
+                      {{ borrow.borrowSwapOutputDisplay.value }}
                     </p>
                   </SummaryRow>
                   <SummaryRow
@@ -529,6 +537,14 @@ watch(formTab, () => {
                         class="!w-16 !h-16 text-accent-600"
                       />
                     </button>
+                  </SummaryRow>
+                  <SummaryRow
+                    v-if="borrow.borrowSwapRoutedVia.value"
+                    label="Routed via"
+                  >
+                    <p class="text-p2 text-right">
+                      {{ borrow.borrowSwapRoutedVia.value }}
+                    </p>
                   </SummaryRow>
                 </VaultFormInfoBlock>
 
