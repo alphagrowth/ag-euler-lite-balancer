@@ -53,6 +53,7 @@ Structure: `Record<string, Product>` — keys are product identifiers (e.g. `"eu
     "isGovernanceLimited": true,                 // If true, shows "Limited risk management" in UI
     "notExplorable": true,                       // If true, hides ALL product vaults from lend/borrow/explore pages
     "block": ["US", "EU"],                       // Country codes/groups to hard-block (see geo-blocking.md)
+    "keyring": true,                               // All vaults require Keyring verification (see keyring-hooks.md)
     "featuredVaults": ["0x1234...abcd"],         // Vault addresses to sort to top in discovery tables
     "vaultOverrides": {                          // Per-vault customizations (see below)
       "0x5678...ef01": {
@@ -85,6 +86,7 @@ Structure: `Record<string, Product>` — keys are product identifiers (e.g. `"eu
 | `notExplorable` | `boolean` | No | If `true`, hides **all** vaults in this product from lend, borrow, and explore discovery pages. Takes precedence over per-vault `notExplorableLend`/`notExplorableBorrow`. Vaults remain accessible via direct URL. |
 | `block` | `string[]` | No | Country codes or group aliases (`EU`, `EEA`, `EFTA`) for hard geo-blocking. See [geo-blocking.md](./geo-blocking.md). |
 | `featuredVaults` | `string[]` | No | Subset of `vaults` to sort to the top in discovery tables. |
+| `keyring` | `boolean` | No | If `true`, all vaults in this product require Keyring identity verification. See [keyring-hooks.md](./keyring-hooks.md). |
 | `vaultOverrides` | `Record<string, VaultOverride>` | No | Per-vault customizations keyed by checksummed address. See next section. |
 
 #### Vault Override Fields
@@ -100,6 +102,7 @@ Per-vault overrides allow customizing behavior for individual vaults within a pr
 | `restricted` | `string[]` | Soft geo-restriction for this vault only. No product-level fallback. See [geo-blocking.md](./geo-blocking.md). |
 | `notExplorableLend` | `boolean` | If `true`, hides this vault from the **lend** discovery page. Product-level `notExplorable` takes precedence. |
 | `notExplorableBorrow` | `boolean` | If `true`, hides this vault from the **borrow** discovery page — both as a borrow vault and as collateral. Product-level `notExplorable` takes precedence. |
+| `keyring` | `boolean` | If `true`, this specific vault requires Keyring identity verification (overrides product-level). See [keyring-hooks.md](./keyring-hooks.md). |
 
 **Precedence rules**:
 - `block`: vault override replaces product-level (not additive)
