@@ -12,7 +12,6 @@ import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
-import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useBorrowForm } from '~/composables/borrow/useBorrowForm'
@@ -499,54 +498,14 @@ watch(formTab, () => {
                   v-if="borrow.borrowSwapEstimatedCollateral.value"
                   :loading="borrow.isBorrowSwapQuoteLoading.value"
                 >
-                  <SummaryRow
-                    v-if="borrow.borrowSwapInputDisplay.value"
-                    label="Swap in"
-                  >
-                    <p class="text-p2 text-right">
-                      {{ borrow.borrowSwapInputDisplay.value }}
-                    </p>
-                  </SummaryRow>
-                  <SummaryRow
-                    v-if="borrow.borrowSwapOutputDisplay.value"
-                    label="Swap out"
-                  >
-                    <p class="text-p2 text-right">
-                      {{ borrow.borrowSwapOutputDisplay.value }}
-                    </p>
-                  </SummaryRow>
-                  <SummaryRow
-                    v-if="borrow.borrowSwapPriceImpact.value !== null"
-                    label="Price impact"
-                  >
-                    <span
-                      class="text-p2"
-                      :class="{ 'text-error-500': isPriceImpactWarning(borrow.borrowSwapPriceImpact.value) }"
-                    >
-                      {{ formatNumber(borrow.borrowSwapPriceImpact.value, 2) }}%
-                    </span>
-                  </SummaryRow>
-                  <SummaryRow label="Slippage tolerance">
-                    <button
-                      type="button"
-                      class="flex items-center gap-6 text-p2"
-                      @click="openSlippageSettings"
-                    >
-                      <span :class="{ 'text-error-500': isSlippageWarning(borrow.borrowSwapSlippage.value) }">{{ formatNumber(borrow.borrowSwapSlippage.value, 2, 0) }}%</span>
-                      <SvgIcon
-                        name="edit"
-                        class="!w-16 !h-16 text-accent-600"
-                      />
-                    </button>
-                  </SummaryRow>
-                  <SummaryRow
-                    v-if="borrow.borrowSwapRoutedVia.value"
-                    label="Routed via"
-                  >
-                    <p class="text-p2 text-right">
-                      {{ borrow.borrowSwapRoutedVia.value }}
-                    </p>
-                  </SummaryRow>
+                  <SwapDetailsSummary
+                    :input-display="borrow.borrowSwapInputDisplay.value"
+                    :output-display="borrow.borrowSwapOutputDisplay.value"
+                    :price-impact="borrow.borrowSwapPriceImpact.value"
+                    :slippage="borrow.borrowSwapSlippage.value"
+                    :routed-via="borrow.borrowSwapRoutedVia.value"
+                    @open-slippage-settings="openSlippageSettings"
+                  />
                 </VaultFormInfoBlock>
 
                 <UiToast
@@ -843,53 +802,15 @@ watch(formTab, () => {
                         estimate-only
                       />
                     </SummaryRow>
-                    <SummaryRow label="Swap in">
-                      <p class="text-p2 text-right">
-                        {{ multiply.multiplySwapSummary.value ? multiply.multiplySwapSummary.value.from : '-' }}
-                      </p>
-                    </SummaryRow>
-                    <SummaryRow label="Swap out">
-                      <p class="text-p2 text-right">
-                        {{ multiply.multiplySwapSummary.value ? multiply.multiplySwapSummary.value.to : '-' }}
-                      </p>
-                    </SummaryRow>
-                    <SummaryRow label="Price impact">
-                      <p
-                        class="text-p2"
-                        :class="{ 'text-error-500': isPriceImpactWarning(multiply.multiplyPriceImpact.value) }"
-                      >
-                        {{ multiply.multiplyPriceImpact.value !== null ? `${formatNumber(multiply.multiplyPriceImpact.value, 2, 2)}%` : '-' }}
-                      </p>
-                    </SummaryRow>
-                    <SummaryRow
-                      v-if="multiply.multipliedPriceImpact.value !== null"
-                      label="Multiplied price impact"
-                    >
-                      <p
-                        class="text-p2"
-                        :class="{ 'text-error-500': isPriceImpactWarning(multiply.multipliedPriceImpact.value) }"
-                      >
-                        {{ formatNumber(multiply.multipliedPriceImpact.value, 2, 2) }}%
-                      </p>
-                    </SummaryRow>
-                    <SummaryRow label="Slippage tolerance">
-                      <button
-                        type="button"
-                        class="flex items-center gap-6 text-p2"
-                        @click="openSlippageSettings"
-                      >
-                        <span :class="{ 'text-error-500': isSlippageWarning(multiply.multiplySlippage.value) }">{{ formatNumber(multiply.multiplySlippage.value, 2, 0) }}%</span>
-                        <SvgIcon
-                          name="edit"
-                          class="!w-16 !h-16 text-accent-600"
-                        />
-                      </button>
-                    </SummaryRow>
-                    <SummaryRow label="Routed via">
-                      <p class="text-p2 text-right">
-                        {{ multiply.multiplyRoutedVia.value || '-' }}
-                      </p>
-                    </SummaryRow>
+                    <SwapDetailsSummary
+                      :input-display="multiply.multiplySwapSummary.value?.from ?? null"
+                      :output-display="multiply.multiplySwapSummary.value?.to ?? null"
+                      :price-impact="multiply.multiplyPriceImpact.value"
+                      :slippage="multiply.multiplySlippage.value"
+                      :routed-via="multiply.multiplyRoutedVia.value"
+                      :multiplied-price-impact="multiply.multipliedPriceImpact.value"
+                      @open-slippage-settings="openSlippageSettings"
+                    />
                   </VaultFormInfoBlock>
                 </div>
               </div>

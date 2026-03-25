@@ -9,7 +9,7 @@ import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { Vault, VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
-import { computeMultipliedPriceImpact, isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
+import { computeMultipliedPriceImpact } from '~/utils/priceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
@@ -932,53 +932,15 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
               :after="multiplyNextHealth !== null && multiplySwapReady ? formatHealthScore(multiplyNextHealth) : undefined"
             />
           </SummaryRow>
-          <SummaryRow label="Swap in">
-            <p class="text-p2 text-right">
-              {{ multiplySwapSummary ? multiplySwapSummary.from : '-' }}
-            </p>
-          </SummaryRow>
-          <SummaryRow label="Swap out">
-            <p class="text-p2 text-right">
-              {{ multiplySwapSummary ? multiplySwapSummary.to : '-' }}
-            </p>
-          </SummaryRow>
-          <SummaryRow label="Price impact">
-            <p
-              class="text-p2"
-              :class="{ 'text-error-500': isPriceImpactWarning(multiplyPriceImpact) }"
-            >
-              {{ multiplyPriceImpact !== null ? `${formatNumber(multiplyPriceImpact, 2, 2)}%` : '-' }}
-            </p>
-          </SummaryRow>
-          <SummaryRow
-            v-if="multipliedPriceImpact !== null"
-            label="Multiplied price impact"
-          >
-            <p
-              class="text-p2"
-              :class="{ 'text-error-500': isPriceImpactWarning(multipliedPriceImpact) }"
-            >
-              {{ formatNumber(multipliedPriceImpact, 2, 2) }}%
-            </p>
-          </SummaryRow>
-          <SummaryRow label="Slippage tolerance">
-            <button
-              type="button"
-              class="flex items-center gap-6 text-p2"
-              @click="openSlippageSettings"
-            >
-              <span :class="{ 'text-error-500': isSlippageWarning(multiplySlippage) }">{{ formatNumber(multiplySlippage, 2, 0) }}%</span>
-              <SvgIcon
-                name="edit"
-                class="!w-16 !h-16 text-accent-600"
-              />
-            </button>
-          </SummaryRow>
-          <SummaryRow label="Routed via">
-            <p class="text-p2 text-right">
-              {{ multiplyRoutedVia || '-' }}
-            </p>
-          </SummaryRow>
+          <SwapDetailsSummary
+            :input-display="multiplySwapSummary?.from ?? null"
+            :output-display="multiplySwapSummary?.to ?? null"
+            :price-impact="multiplyPriceImpact"
+            :slippage="multiplySlippage"
+            :routed-via="multiplyRoutedVia"
+            :multiplied-price-impact="multipliedPriceImpact"
+            @open-slippage-settings="openSlippageSettings"
+          />
         </VaultFormInfoBlock>
       </div>
     </template>
