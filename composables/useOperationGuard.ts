@@ -1,4 +1,4 @@
-import { computed, watch, onUnmounted, provide, reactive, type Ref } from 'vue'
+import { computed, isRef, watch, onUnmounted, provide, reactive, type Ref } from 'vue'
 import { useAccount, useChainId } from '@wagmi/vue'
 import type { Address } from 'viem'
 import { useKeyring, KeyringFlowState } from '~/composables/useKeyring'

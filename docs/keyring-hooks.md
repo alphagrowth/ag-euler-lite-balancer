@@ -59,7 +59,7 @@ The Keyring credentials contract (`entityExp(policyId, address)`) is used to che
 
 `utils/operationGuardRegistry.ts` provides a reactive system for automatic TxPlan transformation:
 
-```
+```text
 Page calls useOperationGuard([vaultAddresses])
   → useKeyring detects keyring vault
   → credential obtained from extension

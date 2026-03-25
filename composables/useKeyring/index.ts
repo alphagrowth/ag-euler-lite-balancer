@@ -121,7 +121,6 @@ export const useKeyring = (vaultAddress: string | Ref<string>) => {
         if (kca && pid !== undefined) {
           try {
             const { keyringContractAbi: kAbi } = await import('~/abis/keyring')
-            const client = getPublicClient(rpcUrl.value)
             const exp = await client.readContract({
               address: kca,
               abi: kAbi,
