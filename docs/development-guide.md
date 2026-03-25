@@ -98,4 +98,4 @@ Dev HTTPS: `HTTPS_KEY`, `HTTPS_CERT` (optional).
 
 ---
 
-_Next: Explore the [Data Flow and Integrations](./data-flow-and-integrations.md) for protocols, APIs, and SDKs used._
+_Next: Explore the [Architecture](./architecture.md) for a high-level view of the system._

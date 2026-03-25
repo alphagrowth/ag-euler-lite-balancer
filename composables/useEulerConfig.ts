@@ -10,22 +10,11 @@ import {
   MERKL_DISTRIBUTOR_ADDRESS,
 } from '~/entities/constants'
 
-const getRpcUrlByChainId = (chainId?: number, origin?: string): string => {
-  if (!chainId) {
-    return ''
-  }
-  if (!origin) {
-    return `/api/rpc/${chainId}`
-  }
-  return `${origin}/api/rpc/${chainId}`
-}
-
 export const useEulerConfig = () => {
   const envConfig = useEnvConfig()
   const { labelsRepo, labelsRepoBranch, labelsBaseUrl: configLabelsBaseUrl } = useDeployConfig()
   const { subgraphUris } = useChainConfig()
   const { chainId } = useEulerAddresses()
-  const requestUrl = useRequestURL()
 
   const resolvedLabelsBaseUrl = (
     configLabelsBaseUrl
@@ -51,7 +40,6 @@ export const useEulerConfig = () => {
     PYTH_HERMES_URL: envConfig.pythHermesUrl,
 
     // Chain-specific (computed)
-    EVM_PROVIDER_URL: computed(() => getRpcUrlByChainId(chainId.value, requestUrl.origin)).value,
     SUBGRAPH_URL: computed(() => subgraphUris[String(chainId.value)] || '').value,
     MERKL_ADDRESS: MERKL_DISTRIBUTOR_ADDRESS,
     FUUL_MANAGER_ADDRESS,

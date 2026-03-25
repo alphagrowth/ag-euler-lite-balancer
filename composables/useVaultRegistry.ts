@@ -1,7 +1,6 @@
 import type { Address } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
 import { normalizeAddress } from '~/utils/normalizeAddress'
-import { getPublicClient } from '~/utils/public-client'
 import { isVaultNotExplorable } from '~/utils/eulerLabelsUtils'
 import {
   type Vault,
@@ -201,14 +200,14 @@ const fetchVaultByType = async (address: string, type: VaultType): Promise<AnyVa
  */
 const isInEscrowPerspective = async (address: string): Promise<boolean> => {
   const { eulerPeripheryAddresses } = useEulerAddresses()
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { client: rpcClient } = useRpcClient()
 
   if (!eulerPeripheryAddresses.value?.escrowedCollateralPerspective) {
     return false
   }
 
   try {
-    const client = getPublicClient(EVM_PROVIDER_URL)
+    const client = rpcClient.value!
     return await client.readContract({
       address: eulerPeripheryAddresses.value.escrowedCollateralPerspective as Address,
       abi: [{

@@ -1,5 +1,4 @@
 import { isAddress, getAddress } from 'viem'
-import { getPublicClient } from '~/utils/public-client'
 import { truncate } from '~/utils/string-utils'
 import { logWarn } from '~/utils/errorHandling'
 import { evcGetAccountOwnerAbi } from '~/abis/evc'
@@ -44,17 +43,14 @@ export const useSpyMode = () => {
     watchersInitialized = true
 
     const { eulerCoreAddresses, chainId } = useEulerAddresses()
-    const requestUrl = useRequestURL()
+    const { client: rpcClient } = useRpcClient()
 
     const resolveOwner = async (address: string): Promise<string> => {
       try {
         const evcAddress = eulerCoreAddresses.value?.evc
-        if (!evcAddress || !chainId.value) return address
+        if (!evcAddress || !chainId.value || !rpcClient.value) return address
 
-        const rpcUrl = `${requestUrl.origin}/api/rpc/${chainId.value}`
-        const client = getPublicClient(rpcUrl)
-
-        const owner = await client.readContract({
+        const owner = await rpcClient.value.readContract({
           address: evcAddress as `0x${string}`,
           abi: evcGetAccountOwnerAbi,
           functionName: 'getAccountOwner',

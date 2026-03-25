@@ -8,7 +8,6 @@ import { createVaultBuilders } from './vault'
 import { createRepayBuilders } from './repay'
 import { createSwapBuilders } from './swaps'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
-import { getPublicClient } from '~/utils/public-client'
 
 export const useEulerOperations = () => {
   const { address, chainId } = useWagmi()
@@ -17,11 +16,10 @@ export const useEulerOperations = () => {
   const config = useConfig()
   const { eulerCoreAddresses, eulerPeripheryAddresses, eulerLensAddresses } = useEulerAddresses()
   const { enableTosSignature: enableTermsOfUseSignature } = useDeployConfig()
-  const { EVM_PROVIDER_URL, PYTH_HERMES_URL, SUBGRAPH_URL } = useEulerConfig()
+  const { PYTH_HERMES_URL, SUBGRAPH_URL } = useEulerConfig()
+  const { rpcUrl, client: rpcClient } = useRpcClient()
   const { get: registryGet, getVault: registryGetVault } = useVaultRegistry()
   const { permit2Enabled } = usePermit2Preference()
-
-  const rpcProvider = getPublicClient(EVM_PROVIDER_URL)
 
   const ctx: OperationsContext = {
     address,
@@ -33,13 +31,13 @@ export const useEulerOperations = () => {
     eulerPeripheryAddresses,
     eulerLensAddresses,
     enableTermsOfUseSignature,
-    EVM_PROVIDER_URL,
+    rpcUrl: rpcUrl.value,
     PYTH_HERMES_URL,
     SUBGRAPH_URL,
     registryGet,
     registryGetVault,
     permit2Enabled,
-    rpcProvider,
+    rpcProvider: rpcClient.value!,
   }
 
   const permit2 = createPermit2Helpers(ctx)

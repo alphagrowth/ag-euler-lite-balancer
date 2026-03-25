@@ -3,7 +3,6 @@ import { ref, shallowRef, type Ref } from 'vue'
 import { useVaultRegistry } from './useVaultRegistry'
 import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
-import { getPublicClient } from '~/utils/public-client'
 import type { SubgraphPositionEntry } from '~/utils/subgraph'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
@@ -67,7 +66,8 @@ const updateBorrowPositions = async (
     return
   }
 
-  const { EVM_PROVIDER_URL, PYTH_HERMES_URL } = useEulerConfig()
+  const { PYTH_HERMES_URL } = useEulerConfig()
+  const { client: rpcClient, rpcUrl } = useRpcClient()
   const { getOrFetch } = useVaultRegistry()
   const { eulerCoreAddresses } = useEulerAddresses()
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
@@ -77,7 +77,7 @@ const updateBorrowPositions = async (
     throw new Error('Euler addresses not loaded yet')
   }
 
-  const client = getPublicClient(EVM_PROVIDER_URL)
+  const client = rpcClient.value!
 
   let borrows: AccountBorrowPosition[] = []
   const batchSize = BATCH_SIZE_RPC_CALLS
@@ -112,7 +112,7 @@ const updateBorrowPositions = async (
               'getAccountInfo',
               [subAccount, vaultAddress],
               eulerCoreAddresses.value!.evc,
-              EVM_PROVIDER_URL,
+              rpcUrl.value,
               PYTH_HERMES_URL!,
             ) as LensAccountInfo | undefined
             if (result) {
@@ -383,7 +383,7 @@ const updateSavingsPositions = async (
   }
 
   const { getOrFetch } = useVaultRegistry()
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { client: rpcClient } = useRpcClient()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -392,7 +392,7 @@ const updateSavingsPositions = async (
     throw new Error('Euler addresses not loaded yet')
   }
 
-  const client = getPublicClient(EVM_PROVIDER_URL)
+  const client = rpcClient.value!
 
   let deposits: AccountDepositPosition[] = []
 

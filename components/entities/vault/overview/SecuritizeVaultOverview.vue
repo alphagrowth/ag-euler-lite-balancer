@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { getAddress, maxUint256, type Address } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
-import { getPublicClient } from '~/utils/public-client'
 import type { SecuritizeVault, Vault, VaultCollateralLTV } from '~/entities/vault'
 import { useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
 import { getProductKeyByVault } from '~/utils/eulerLabelsUtils'
@@ -19,7 +18,7 @@ import { VaultSupplyApyModal } from '#components'
 const { vault } = defineProps<{ vault: SecuritizeVault, desktopOverview?: boolean }>()
 const { enableEntityBranding: enableEntityBrandingDisplay, enableVaultType: enableVaultTypeDisplay } = useDeployConfig()
 
-const { EVM_PROVIDER_URL } = useEulerConfig()
+const { client: rpcClient } = useRpcClient()
 const { chainId } = useEulerAddresses()
 const { borrowList: _borrowList, isVaultGovernorVerified } = useVaults()
 const { getEvkVaults } = useVaultRegistry()
@@ -94,7 +93,7 @@ const shareTokenExchangeRate: Ref<bigint | undefined> = ref()
 
 const loadRiskParameters = async () => {
   try {
-    const client = getPublicClient(EVM_PROVIDER_URL)
+    const client = rpcClient.value!
     shareTokenExchangeRate.value = await client.readContract({
       address: vault.address as Address,
       abi: [{

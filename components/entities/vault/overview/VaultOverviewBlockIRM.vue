@@ -16,7 +16,6 @@ import {
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { formatUnits, type Address, type Abi } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
-import { getPublicClient } from '~/utils/public-client'
 import { INTEREST_RATE_MODEL_TYPE } from '~/entities/constants'
 import { BPS_BASE } from '~/entities/tuning-constants'
 import type { Vault } from '~/entities/vault'
@@ -46,7 +45,7 @@ const hasError = ref(false)
 // Theme-aware chart colors (reads from CSS variables)
 const { getChartColors, isDark } = useThemeColors()
 
-const { EVM_PROVIDER_URL } = useEulerConfig()
+const { client: rpcClient } = useRpcClient()
 const { eulerLensAddresses } = useEulerAddresses()
 
 // Check if IRM is valid (not zero address)
@@ -94,7 +93,7 @@ const fetchIRMData = async () => {
   }
 
   try {
-    const client = getPublicClient(EVM_PROVIDER_URL)
+    const client = rpcClient.value!
 
     const { cashData, borrowsData } = generateChartDataPoints()
 
