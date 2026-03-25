@@ -270,10 +270,6 @@ const onClick = () => {
               />
               Deprecated
             </span>
-            <VaultWarningIcon
-              :warning="utilisationWarning"
-              tooltip-placement="top-start"
-            />
           </div>
           <div class="text-h5 text-content-primary">
             {{ vault.asset.symbol }}
@@ -303,6 +299,7 @@ const onClick = () => {
     <div class="flex py-12 px-16 pb-16">
       <div class="flex flex-col gap-12 w-full">
         <PortfolioNotice :notice="vaultNotice" />
+        <VaultWarningBanner :warnings="[utilisationWarning]" />
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Supply value
