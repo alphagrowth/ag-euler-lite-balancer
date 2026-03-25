@@ -501,6 +501,7 @@ onMounted(() => {
           :notice="notice"
         />
         <PortfolioNotice :notice="borrowNotice" />
+        <VaultWarningBanner :warnings="[utilisationWarning]" />
         <div
           v-if="hasQueryFailure"
           class="flex items-center gap-6 text-warning-500 text-p4"
@@ -558,10 +559,6 @@ onMounted(() => {
         <div class="flex justify-between">
           <div class="text-content-tertiary text-p3">
             Health score
-            <VaultWarningIcon
-              :warning="utilisationWarning"
-              tooltip-placement="top-start"
-            />
           </div>
           <div class="text-content-primary text-p3">
             <span
