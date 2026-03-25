@@ -224,10 +224,15 @@ const getAssetInfoForStep = (
   }
 
   if (label === 'Wrap native currency') {
+    // In borrow flows, the wrap operates on the collateral asset, not the borrow asset
+    const wrapAsset = ctx.type === 'borrow' && ctx.supplyingAssetForBorrow
+      ? ctx.supplyingAssetForBorrow
+      : ctx.asset
     // Derive native currency symbol by stripping the "W" prefix (e.g. WETH → ETH)
-    const nativeSymbol = ctx.asset.symbol.startsWith('W') ? ctx.asset.symbol.slice(1) : ctx.asset.symbol
-    const wrapAmount = evcCall.value > 0n && ctx.asset.decimals
-      ? formatUnits(evcCall.value, Number(ctx.asset.decimals))
+    const nativeSymbol = wrapAsset.symbol.startsWith('W') ? wrapAsset.symbol.slice(1) : wrapAsset.symbol
+    const decimals = 'decimals' in wrapAsset ? (wrapAsset as { decimals?: bigint }).decimals : ctx.asset.decimals
+    const wrapAmount = evcCall.value > 0n && decimals
+      ? formatUnits(evcCall.value, Number(decimals))
       : undefined
     return { symbol: nativeSymbol, address: zeroAddress, amount: wrapAmount }
   }
@@ -243,13 +248,18 @@ const getAssetInfoForStep = (
     }
     catch { /* ignore */ }
     // For non-vault targets (e.g. WETH.transfer), decode amount from calldata
-    if (!transferAmount && ctx.asset.decimals) {
+    // In borrow flows, use collateral asset metadata
+    const transferAsset = ctx.type === 'borrow' && ctx.supplyingAssetForBorrow
+      ? ctx.supplyingAssetForBorrow
+      : ctx.asset
+    const transferDecimals = 'decimals' in transferAsset ? (transferAsset as { decimals?: bigint }).decimals : ctx.asset.decimals
+    if (!transferAmount && transferDecimals) {
       const raw = decodeSecondUint256(data)
       if (raw !== undefined && raw > 0n) {
-        transferAmount = formatUnits(raw, Number(ctx.asset.decimals))
+        transferAmount = formatUnits(raw, Number(transferDecimals))
       }
     }
-    return { symbol: ctx.asset.symbol, address: ctx.asset.address, amount: transferAmount }
+    return { symbol: transferAsset.symbol, address: transferAsset.address, amount: transferAmount }
   }
 
   if (label === 'Borrow' || label === 'Repay') {
@@ -364,7 +374,10 @@ export function buildDisplaySteps(
           const secondAsset = ctx.supplyingAssetForBorrow || ctx.swapToAsset
           let toAssetInfo: StepAssetInfo | undefined
           if (label === 'Wrap native currency') {
-            toAssetInfo = { symbol: ctx.asset.symbol, address: ctx.asset.address }
+            const wrapToAsset = ctx.type === 'borrow' && ctx.supplyingAssetForBorrow
+              ? ctx.supplyingAssetForBorrow
+              : ctx.asset
+            toAssetInfo = { symbol: wrapToAsset.symbol, address: wrapToAsset.address }
           }
           else if (label === 'Swap' && ctx.swapToAsset && ctx.swapToAmount) {
             toAssetInfo = { symbol: ctx.swapToAsset.symbol, address: ctx.swapToAsset.address, amount: ctx.swapToAmount }

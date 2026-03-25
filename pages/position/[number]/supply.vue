@@ -81,6 +81,9 @@ const form = useCollateralForm({
 
   buildDirectPlan: async ({ vaultAddress, assetAddress, amountNano, subAccount, includePermit2Call }) => {
     const wrappedAddr = isNativeWrap.value ? resolveWrappedNativeAddress(chainId.value!) : null
+    if (isNativeWrap.value && !wrappedAddr) {
+      throw new Error('Wrapped native token not found')
+    }
     return buildSupplyPlan(vaultAddress, assetAddress, amountNano, subAccount, {
       includePermit2Call,
       wrappedNativeInfo: isNativeWrap.value && wrappedAddr

@@ -230,9 +230,14 @@ export const useWalletSwapRepay = (options: UseWalletSwapRepayOptions) => {
     const currentDebt = getCurrentDebt()
     const userAddr = (address.value || zeroAddress) as Address
     const subAccount = (position.value.subAccount || address.value || zeroAddress) as Address
-    const swapTokenIn = isNativeCurrencyAddress(selectedAsset.value.address)
-      ? resolveWrappedNativeAddress(chainId.value!) || selectedAsset.value.address
+    const isNative = isNativeCurrencyAddress(selectedAsset.value.address)
+    const swapTokenIn = isNative
+      ? resolveWrappedNativeAddress(chainId.value!)
       : selectedAsset.value.address
+    if (!swapTokenIn) {
+      quotes.reset()
+      return
+    }
 
     if (direction.value === SwapperMode.EXACT_IN) {
       if (!amount.value) {
