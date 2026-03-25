@@ -65,7 +65,7 @@ async function fetchDefillama(chainId: number): Promise<TokenEntry[]> {
       name: entry.name as string,
       symbol: entry.symbol as string,
       decimals: entry.decimals as number,
-      logoURI: entry.logoURI as string | undefined,
+      logoURI: (entry.logoURI || entry.logoURI2) as string | undefined,
     }))
 
     defillamaCache.set(key, tokens)
@@ -77,13 +77,13 @@ async function fetchDefillama(chainId: number): Promise<TokenEntry[]> {
   }
 }
 
-/** Merge two token arrays, deduplicating by lowercase address. Primary entries take precedence. */
+/** Merge two token arrays, deduplicating by chain+address. Primary entries take precedence. */
 function deduplicateTokens(primary: TokenEntry[], secondary: TokenEntry[]): TokenEntry[] {
   const seen = new Set<string>()
   const result: TokenEntry[] = []
 
   for (const token of primary) {
-    const key = token.address.toLowerCase()
+    const key = `${token.chainId}:${token.address.toLowerCase()}`
     if (!seen.has(key)) {
       seen.add(key)
       result.push(token)
@@ -91,7 +91,7 @@ function deduplicateTokens(primary: TokenEntry[], secondary: TokenEntry[]): Toke
   }
 
   for (const token of secondary) {
-    const key = token.address.toLowerCase()
+    const key = `${token.chainId}:${token.address.toLowerCase()}`
     if (!seen.has(key)) {
       seen.add(key)
       result.push(token)

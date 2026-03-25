@@ -5,7 +5,6 @@ import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
 import { useToast } from '~/components/ui/composables/useToast'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import {
@@ -20,6 +19,7 @@ import {
 } from '~/services/pricing/priceProvider'
 import type { TxPlan } from '~/entities/txPlan'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import type { SwapApiQuote } from '~/entities/swap'
@@ -101,8 +101,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const route = useRoute()
   const modal = useModal()
   const { error } = useToast()
-  const { getSubmitLabel, getSubmitDisabled, guardWithTerms } = useTermsOfUseGate()
-  const submitLabel = getSubmitLabel(options.reviewLabel)
+  const submitLabel = options.reviewLabel
   const { executeTxPlan } = useEulerOperations()
   const { isConnected, address } = useAccount()
   const { isSpyMode } = useSpyMode()
@@ -412,9 +411,9 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     return false
   })
 
-  const submitDisabled = getSubmitDisabled(computed(() =>
+  const submitDisabled = computed(() =>
     isGeoBlocked.value || isSwapRestricted.value || isLoading.value || isSubmitDisabled.value,
-  ))
+  )
 
   // --- Estimates ---
   const updateEstimates = useDebounceFn(async () => {
@@ -513,61 +512,60 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
 
   // --- Submit ---
   const submit = async () => {
+    if (isOperationBlocked.value) return
     if (isPreparing.value || isGeoBlocked.value || isSwapRestricted.value) return
     isPreparing.value = true
     try {
-      await guardWithTerms(async () => {
-        await guardWithPriceImpact(async () => {
-          if (!collateralVault.value?.address || !asset.value?.address) return
+      await guardWithPriceImpact(async () => {
+        if (!collateralVault.value?.address || !asset.value?.address) return
 
-          try {
-            if (options.needsSwap.value && swapEffectiveQuote.value) {
-              plan.value = await options.buildSwapPlan(swapEffectiveQuote.value, {
-                vaultAddress: collateralVault.value.address,
-                amountNano: valueToNano(amount.value || '0', asset.value.decimals),
-                subAccount: position.value?.subAccount,
-                includePermit2Call: false,
-              })
-            }
-            else {
-              plan.value = await options.buildDirectPlan({
-                vaultAddress: collateralVault.value.address,
-                assetAddress: asset.value.address,
-                amountNano: valueToNano(amount.value || '0', asset.value.decimals),
-                subAccount: position.value?.subAccount,
-                includePermit2Call: false,
-              })
-            }
-          }
-          catch (e) {
-            logWarn(`collateral/${options.mode}/buildPlan`, e)
-            plan.value = null
-          }
-
-          if (plan.value) {
-            const ok = await runSimulation(plan.value)
-            if (!ok) return
-          }
-
-          const reviewAsset = options.getReviewAsset(options.needsSwap.value)
-          const reviewType = options.needsSwap.value ? options.swapReviewType : options.reviewType
-          modal.open(OperationReviewModal, {
-            props: {
-              type: reviewType,
-              asset: reviewAsset,
-              amount: amount.value,
-              plan: plan.value || undefined,
+        try {
+          if (options.needsSwap.value && swapEffectiveQuote.value) {
+            plan.value = await options.buildSwapPlan(swapEffectiveQuote.value, {
+              vaultAddress: collateralVault.value.address,
+              amountNano: valueToNano(amount.value || '0', asset.value.decimals),
               subAccount: position.value?.subAccount,
-              hasBorrows: (position.value?.borrowed || 0n) > 0n,
-              swapToAsset: options.needsSwap.value ? options.getSwapToAsset() : undefined,
-              swapToAmount: options.needsSwap.value ? swapEstimatedOutput.value : undefined,
-              onConfirm: () => {
-                setTimeout(() => {
-                  send()
-                }, 400)
-              },
+              includePermit2Call: false,
+            })
+          }
+          else {
+            plan.value = await options.buildDirectPlan({
+              vaultAddress: collateralVault.value.address,
+              assetAddress: asset.value.address,
+              amountNano: valueToNano(amount.value || '0', asset.value.decimals),
+              subAccount: position.value?.subAccount,
+              includePermit2Call: false,
+            })
+          }
+        }
+        catch (e) {
+          logWarn(`collateral/${options.mode}/buildPlan`, e)
+          plan.value = null
+        }
+
+        if (plan.value) {
+          const ok = await runSimulation(plan.value)
+          if (!ok) return
+        }
+
+        const reviewAsset = options.getReviewAsset(options.needsSwap.value)
+        const reviewType = options.needsSwap.value ? options.swapReviewType : options.reviewType
+        modal.open(OperationReviewModal, {
+          props: {
+            type: reviewType,
+            asset: reviewAsset,
+            amount: amount.value,
+            plan: plan.value || undefined,
+            subAccount: position.value?.subAccount,
+            hasBorrows: (position.value?.borrowed || 0n) > 0n,
+            swapToAsset: options.needsSwap.value ? options.getSwapToAsset() : undefined,
+            swapToAmount: options.needsSwap.value ? swapEstimatedOutput.value : undefined,
+            onConfirm: () => {
+              setTimeout(() => {
+                send()
+              }, 400)
             },
-          })
+          },
         })
       })
     }

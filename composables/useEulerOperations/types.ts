@@ -14,7 +14,6 @@ export interface OperationsContext {
   eulerPeripheryAddresses: ComputedRef<Record<string, string | undefined> | null>
   eulerLensAddresses: ComputedRef<Record<string, string | undefined> | null>
 
-  enableTermsOfUseSignature: boolean | Ref<boolean>
   rpcUrl: string
   PYTH_HERMES_URL: string
   SUBGRAPH_URL: string
@@ -54,13 +53,6 @@ export interface OperationHelpers {
     includePermit2Call?: boolean
   }) => Promise<{ steps: import('~/entities/txPlan').TxStep[], permitCall: import('~/utils/evc-converter').EVCCall | undefined, usesPermit2: boolean }>
 
-  prepareTos: (userAddr: Address) => Promise<{
-    hasSigned: boolean
-    tosData: { tosMessage: string, tosMessageHash: Hex }
-    addTosInterface: (hooks: import('~/entities/saHooksSDK').SaHooksBuilder) => void
-    injectTosCall: (evcCalls: import('~/utils/evc-converter').EVCCall[], hooks: import('~/entities/saHooksSDK').SaHooksBuilder) => void
-  }>
-
   injectPythHealthCheckUpdates: (params: {
     evcCalls: import('~/utils/evc-converter').EVCCall[]
     liabilityVaultAddr: string
@@ -84,8 +76,6 @@ export interface OperationHelpers {
   resolveEffectiveCollaterals: (enabledCollaterals?: string[], adding?: string[], removing?: string[]) => string[]
 
   adjustForInterest: (amount: bigint) => bigint
-
-  hasSignature: (userAddress: Address) => Promise<boolean>
 
   preparePythUpdates: (vaultAddresses: string[], sender: Address) => Promise<{ calls: import('~/utils/evc-converter').EVCCall[], totalFee: bigint }>
 

@@ -4,8 +4,11 @@ import { useAccount } from '@wagmi/vue'
 import { useAppKit } from '@reown/appkit/vue'
 import { flip, offset, shift, useFloating } from '@floating-ui/vue'
 
-import { isOperationBlocked } from '~/utils/operationGuardRegistry'
+import { isOperationBlocked, operationBlockReason } from '~/utils/operationGuardRegistry'
+import { useModal } from '~/components/ui/composables/useModal'
+import { AcknowledgeTermsModal } from '#components'
 import type { KeyringFlowState, CredentialData } from '~/composables/useKeyring'
+import type { TosGuardState } from '~/composables/guards/useTosGuard'
 
 interface KeyringGuardState {
   needsVerification: boolean
@@ -22,8 +25,10 @@ const { isConnected } = useAccount()
 const { open } = useAppKit()
 const { chainId: _chainId } = useEulerAddresses()
 const { chainId, switchChain } = useWagmi()
+const modal = useModal()
 
 const keyringGuard = inject<KeyringGuardState | null>('keyring-guard', null)
+const tosGuard = inject<TosGuardState | null>('tos-guard', null)
 
 const reference = ref(null)
 const floating = ref(null)
@@ -38,8 +43,12 @@ const { floatingStyles, update } = useFloating(reference, floating, {
   ],
 })
 
+const effectiveDisabledReason = computed(() =>
+  props.disabledReason || operationBlockReason.value,
+)
+
 const showTooltip = () => {
-  if (_disabled.value && props.disabledReason) {
+  if (_disabled.value && effectiveDisabledReason.value) {
     isTooltipVisible.value = true
     update()
   }
@@ -71,6 +80,24 @@ const onClick = (e: Event) => {
 const showKeyringFlow = computed(() =>
   keyringGuard?.needsVerification === true,
 )
+
+const showTosFlow = computed(() =>
+  !showKeyringFlow.value && tosGuard?.isTermsRequired === true && !tosGuard?.tosLoadFailed,
+)
+
+const openTermsModal = () => {
+  modal.open(AcknowledgeTermsModal, {
+    props: {
+      onReject: () => {
+        modal.close()
+      },
+      onAccept: () => {
+        tosGuard?.acceptTerms()
+        modal.close()
+      },
+    },
+  })
+}
 </script>
 
 <template>
@@ -94,6 +121,17 @@ const showKeyringFlow = computed(() =>
       </div>
     </template>
 
+    <!-- TOS acceptance flow -->
+    <template v-else-if="showTosFlow">
+      <UiButton
+        size="large"
+        variant="primary"
+        @click="openTermsModal"
+      >
+        Accept Terms Of Use
+      </UiButton>
+    </template>
+
     <!-- Normal submit button -->
     <template v-else>
       <UiButton
@@ -115,12 +153,12 @@ const showKeyringFlow = computed(() =>
       </UiButton>
       <Transition name="tooltip">
         <div
-          v-if="isTooltipVisible && _disabled && disabledReason"
+          v-if="isTooltipVisible && _disabled && effectiveDisabledReason"
           ref="floating"
           :style="floatingStyles"
           class="vault-form-submit__tooltip"
         >
-          {{ disabledReason }}
+          {{ effectiveDisabledReason }}
         </div>
       </Transition>
     </template>

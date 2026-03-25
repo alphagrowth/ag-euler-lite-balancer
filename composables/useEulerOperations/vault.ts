@@ -45,19 +45,14 @@ export const createVaultBuilders = (
       includePermit2Call: options.includePermit2Call ?? true,
     })
 
-    const tos = await helpers.prepareTos(userAddr)
-
     const hooks = new SaHooksBuilder()
     hooks.addContractInterface(assetAddr, erc20ApproveAbi)
     hooks.addContractInterface(vaultAddr, vaultDepositAbi)
-    tos.addTosInterface(hooks)
 
     hooks.setMainCallHookCallFromSelf(vaultAddr, 'deposit', [amount, depositToAddr])
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, depositToAddr)
-
-    tos.injectTosCall(evcCalls, hooks)
 
     // Wrap native currency to ERC-20 (e.g. ETH → WETH) before deposit
     if (options.wrappedNativeInfo) {
@@ -94,11 +89,8 @@ export const createVaultBuilders = (
     const userAddr = ctx.address.value as Address
     const withdrawFromAddr = subAccount ? (subAccount as Address) : userAddr
 
-    const tos = await helpers.prepareTos(userAddr)
-
     const hooks = new SaHooksBuilder()
     hooks.addContractInterface(vaultAddr, vaultWithdrawAbi)
-    tos.addTosInterface(hooks)
 
     if (subAccount) {
       hooks.setMainCallHookCallFromSA(vaultAddr, 'withdraw', [assetsAmount, userAddr, withdrawFromAddr])
@@ -109,8 +101,6 @@ export const createVaultBuilders = (
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, withdrawFromAddr)
-
-    tos.injectTosCall(evcCalls, hooks)
 
     if (options.includePythUpdate) {
       const liabilityAddr = options.liabilityVault || vaultAddr
@@ -143,8 +133,6 @@ export const createVaultBuilders = (
     const userAddr = ctx.address.value as Address
     const redeemFromAddr = subAccount ? (subAccount as Address) : userAddr
 
-    const tos = await helpers.prepareTos(userAddr)
-
     let sharesAmount = isMax
       ? maxSharesAmount || 0n
       : await ctx.rpcProvider.readContract({
@@ -160,7 +148,6 @@ export const createVaultBuilders = (
 
     const hooks = new SaHooksBuilder()
     hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
-    tos.addTosInterface(hooks)
 
     if (subAccount) {
       hooks.setMainCallHookCallFromSA(vaultAddr, 'redeem', [sharesAmount, userAddr, redeemFromAddr])
@@ -171,8 +158,6 @@ export const createVaultBuilders = (
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, redeemFromAddr)
-
-    tos.injectTosCall(evcCalls, hooks)
 
     return {
       kind: 'withdraw',
@@ -201,8 +186,6 @@ export const createVaultBuilders = (
 
     const subAccountAddr = (subAccount || await getNewSubAccount(ctx.address.value)) as Address
 
-    const tos = await helpers.prepareTos(userAddr)
-
     const steps: TxStep[] = []
     let permitCall: EVCCall | undefined
     let usesPermit2 = false
@@ -224,12 +207,9 @@ export const createVaultBuilders = (
     hooks.addContractInterface(vaultAddr, vaultDepositAbi)
     hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
     hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
-    tos.addTosInterface(hooks)
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
-
-    tos.injectTosCall(evcCalls, hooks)
 
     if (permitCall) {
       evcCalls.unshift(permitCall)
@@ -324,13 +304,10 @@ export const createVaultBuilders = (
     const isSavingsAtSubAccount = savingsSubAccount
       && getAddress(savingsSubAccount) !== getAddress(userAddr)
 
-    const tos = await helpers.prepareTos(userAddr)
-
     const hooks = new SaHooksBuilder()
     hooks.addContractInterface(vaultAddr, erc20TransferAbi)
     hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
     hooks.addContractInterface(evcAddress, [...evcEnableCollateralAbi, ...evcEnableControllerAbi])
-    tos.addTosInterface(hooks)
 
     if (!isSavingsAtSubAccount) {
       hooks.addPreHookCallFromSelf(vaultAddr, 'transfer', [subAccountAddr, amount])
@@ -338,8 +315,6 @@ export const createVaultBuilders = (
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
-
-    tos.injectTosCall(evcCalls, hooks)
 
     if (isSavingsAtSubAccount) {
       const transferCall: EVCCall = {
@@ -443,7 +418,6 @@ export const createVaultBuilders = (
     const evcAddress = ctx.eulerCoreAddresses.value.evc as Address
 
     const subAccountAddr = (subAccount || await getNewSubAccount(ctx.address.value)) as Address
-    const tos = await helpers.prepareTos(userAddr)
     const hasSwap = !!quote
     const borrowDepositAmount = hasSwap ? 0n : debtAmount
     const isSameVault = supplyVaultAddr.toLowerCase() === longVaultAddr.toLowerCase()
@@ -509,12 +483,9 @@ export const createVaultBuilders = (
     }
     hooks.addContractInterface(borrowVaultAddr, vaultBorrowAbi)
     hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
-    tos.addTosInterface(hooks)
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, userAddr)
-
-    tos.injectTosCall(evcCalls, hooks)
 
     if (permitCalls.length) {
       evcCalls.unshift(...permitCalls)

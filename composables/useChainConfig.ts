@@ -38,6 +38,8 @@ function scanEnv(): ChainConfig {
     }
   }
 
+  enabledChainIds.sort((a, b) => a - b)
+
   return { enabledChainIds, subgraphUris, rpcUrls }
 }
 

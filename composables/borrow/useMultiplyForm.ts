@@ -28,6 +28,7 @@ import { calculateRoe, computeNextHealth, computeLiquidationPrice } from '~/util
 import { computeMaxMultiplier, computeMinMultiplier, computeWeightedSupplyApy, computeLeverageDebt } from '~/utils/multiply-math'
 import type { TxPlan } from '~/entities/txPlan'
 import { getUtilisationWarning, getBorrowCapWarning } from '~/composables/useVaultWarnings'
+import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollateralOptions'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -84,8 +85,6 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   const { fetchSingleBalance } = useWallets()
   const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
   const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
-  const { guardWithTerms } = useTermsOfUseGate()
-
   const {
     runSimulation: runMultiplySimulation,
     simulationError: multiplySimulationError,
@@ -634,100 +633,99 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
 
   // --- Actions: submit & send ---
   const submitMultiply = async () => {
+    if (isOperationBlocked.value) return
     if (isMultiplyPreparing.value || isGeoBlocked.value || isMultiplyRestricted.value) return
     isMultiplyPreparing.value = true
     try {
-      await guardWithTerms(async () => {
-        if (isMultiplySubmitting.value || !isConnected.value) return
-        if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) return
-        if (!multiplyInputAmount.value || multiplyDebtAmountNano.value <= 0n) return
-        if (multiplyErrorText.value) return
+      if (isMultiplySubmitting.value || !isConnected.value) return
+      if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) return
+      if (!multiplyInputAmount.value || multiplyDebtAmountNano.value <= 0n) return
+      if (multiplyErrorText.value) return
 
-        const supplyAmountNano = valueToNano(multiplyInputAmount.value || '0', multiplySupplyVault.value.asset.decimals)
-        let supplySharesAmount: bigint | undefined
-        if (isMultiplySavingCollateral.value) {
-          if (!multiplySavingPosition.value) {
-            error('No savings balance for selected collateral')
-            return
-          }
-          if (multiplySavingPosition.value.assets === supplyAmountNano) {
-            supplySharesAmount = multiplySavingBalance.value
-          }
-          else {
-            supplySharesAmount = await convertAssetsToShares(multiplySupplyVault.value.address, supplyAmountNano)
-          }
-          if (!supplySharesAmount || supplySharesAmount <= 0n) {
-            error('Unable to resolve savings amount')
-            return
-          }
-        }
-        const debtAmount = multiplyDebtAmountNano.value
-        if (!supplyAmountNano || debtAmount <= 0n) return
-
-        const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
-        const quote = isSameAsset ? null : multiplySelectedQuote.value
-        if (!isSameAsset && !quote) return
-
-        let subAccount: string
-        try {
-          subAccount = await resolvePendingSubAccount()
-        }
-        catch (e) {
-          logWarn('multiply/resolveSubaccount', e)
-          error('Unable to resolve position')
+      const supplyAmountNano = valueToNano(multiplyInputAmount.value || '0', multiplySupplyVault.value.asset.decimals)
+      let supplySharesAmount: bigint | undefined
+      if (isMultiplySavingCollateral.value) {
+        if (!multiplySavingPosition.value) {
+          error('No savings balance for selected collateral')
           return
         }
-
-        const planParams: MultiplyPlanParams = {
-          supplyVaultAddress: multiplySupplyVault.value.address,
-          supplyAssetAddress: multiplySupplyVault.value.asset.address,
-          supplyAmount: supplyAmountNano,
-          supplySharesAmount,
-          supplyIsSavings: isMultiplySavingCollateral.value,
-          longVaultAddress: multiplyLongVault.value.address,
-          longAssetAddress: multiplyLongVault.value.asset.address,
-          borrowVaultAddress: multiplyShortVault.value.address,
-          debtAmount,
-          quote: quote || undefined,
-          swapperMode: SwapperMode.EXACT_IN,
-          subAccount,
+        if (multiplySavingPosition.value.assets === supplyAmountNano) {
+          supplySharesAmount = multiplySavingBalance.value
         }
-        multiplyPlanParams.value = planParams
-
-        try {
-          multiplyPlan.value = await buildMultiplyPlan({
-            ...planParams,
-            includePermit2Call: false,
-          })
+        else {
+          supplySharesAmount = await convertAssetsToShares(multiplySupplyVault.value.address, supplyAmountNano)
         }
-        catch (e) {
-          logWarn('multiply/buildPlan', e)
-          multiplyPlan.value = null
+        if (!supplySharesAmount || supplySharesAmount <= 0n) {
+          error('Unable to resolve savings amount')
+          return
         }
+      }
+      const debtAmount = multiplyDebtAmountNano.value
+      if (!supplyAmountNano || debtAmount <= 0n) return
 
-        if (multiplyPlan.value) {
-          const ok = await runMultiplySimulation(multiplyPlan.value)
-          if (!ok) return
-        }
+      const isSameAsset = normalizeAddress(multiplyLongVault.value.asset.address) === normalizeAddress(multiplyShortVault.value.asset.address)
+      const quote = isSameAsset ? null : multiplySelectedQuote.value
+      if (!isSameAsset && !quote) return
 
-        modal.open(OperationReviewModal, {
-          props: {
-            type: 'borrow',
-            asset: multiplyShortVault.value.asset,
-            amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
-            plan: multiplyPlan.value || undefined,
-            supplyingAssetForBorrow: multiplySupplyVault.value.asset,
-            supplyingAmount: multiplyInputAmount.value,
-            swapToAsset: quote ? multiplyLongVault.value.asset : undefined,
-            swapToAmount: quote ? multiplyLongAmount.value : undefined,
-            subAccount,
-            onConfirm: () => {
-              setTimeout(() => {
-                sendMultiply()
-              }, 400)
-            },
-          },
+      let subAccount: string
+      try {
+        subAccount = await resolvePendingSubAccount()
+      }
+      catch (e) {
+        logWarn('multiply/resolveSubaccount', e)
+        error('Unable to resolve position')
+        return
+      }
+
+      const planParams: MultiplyPlanParams = {
+        supplyVaultAddress: multiplySupplyVault.value.address,
+        supplyAssetAddress: multiplySupplyVault.value.asset.address,
+        supplyAmount: supplyAmountNano,
+        supplySharesAmount,
+        supplyIsSavings: isMultiplySavingCollateral.value,
+        longVaultAddress: multiplyLongVault.value.address,
+        longAssetAddress: multiplyLongVault.value.asset.address,
+        borrowVaultAddress: multiplyShortVault.value.address,
+        debtAmount,
+        quote: quote || undefined,
+        swapperMode: SwapperMode.EXACT_IN,
+        subAccount,
+      }
+      multiplyPlanParams.value = planParams
+
+      try {
+        multiplyPlan.value = await buildMultiplyPlan({
+          ...planParams,
+          includePermit2Call: false,
         })
+      }
+      catch (e) {
+        logWarn('multiply/buildPlan', e)
+        multiplyPlan.value = null
+      }
+
+      if (multiplyPlan.value) {
+        const ok = await runMultiplySimulation(multiplyPlan.value)
+        if (!ok) return
+      }
+
+      modal.open(OperationReviewModal, {
+        props: {
+          type: 'borrow',
+          asset: multiplyShortVault.value.asset,
+          amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
+          plan: multiplyPlan.value || undefined,
+          supplyingAssetForBorrow: multiplySupplyVault.value.asset,
+          supplyingAmount: multiplyInputAmount.value,
+          swapToAsset: quote ? multiplyLongVault.value.asset : undefined,
+          swapToAmount: quote ? multiplyLongAmount.value : undefined,
+          subAccount,
+          onConfirm: () => {
+            setTimeout(() => {
+              sendMultiply()
+            }, 400)
+          },
+        },
       })
     }
     finally {

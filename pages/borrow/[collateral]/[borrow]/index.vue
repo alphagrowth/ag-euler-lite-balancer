@@ -3,8 +3,6 @@ import { useAccount } from '@wagmi/vue'
 import { getAddress } from 'viem'
 import { useModal } from '~/components/ui/composables/useModal'
 import { VaultUnverifiedDisclaimerModal, SlippageSettingsModal } from '#components'
-import { useTermsOfUseGate } from '~/composables/useTermsOfUseGate'
-
 import { type AnyBorrowVaultPair, type BorrowVaultPair, type VaultAsset, type CollateralOption, type Vault, type SecuritizeVault, isSecuritizeBorrowPair } from '~/entities/vault'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { getNewSubAccount } from '~/entities/account'
@@ -20,9 +18,8 @@ import { useMultiplyForm } from '~/composables/borrow/useMultiplyForm'
 const router = useRouter()
 const route = useRoute()
 const modal = useModal()
-const { getSubmitLabel, getSubmitDisabled } = useTermsOfUseGate()
-const reviewBorrowLabel = getSubmitLabel('Review Borrow')
-const reviewMultiplyLabel = getSubmitLabel('Review Multiply')
+const reviewBorrowLabel = 'Review Borrow'
+const reviewMultiplyLabel = 'Review Multiply'
 const { getBorrowVaultPair, updateVault } = useVaults()
 const { address, isConnected } = useAccount()
 const { refreshAllPositions: _refreshAllPositions, depositPositions } = useEulerAccount()
@@ -158,8 +155,8 @@ const { guardWithPriceImpact: guardWithBorrowSwapPriceImpact } = usePriceImpactG
 })
 
 // --- Submit disabled ---
-const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isBorrowRestricted.value || borrow.isBorrowSwapRestricted.value || borrow.isSubmitDisabled.value))
-const reviewMultiplyDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isMultiplyRestricted.value || multiply.isMultiplySubmitDisabled.value))
+const reviewBorrowDisabled = computed(() => isGeoBlocked.value || isBorrowRestricted.value || borrow.isBorrowSwapRestricted.value || borrow.isSubmitDisabled.value)
+const reviewMultiplyDisabled = computed(() => isGeoBlocked.value || isMultiplyRestricted.value || multiply.isMultiplySubmitDisabled.value)
 
 // --- Tabs ---
 const formTabs = computed(() => [

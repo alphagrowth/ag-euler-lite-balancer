@@ -51,20 +51,15 @@ export const createSupplyBorrowSwapBuilders = (
       includePermit2Call,
     })
 
-    const tos = await helpers.prepareTos(userAddr)
-
     const hooks = new SaHooksBuilder()
     hooks.addContractInterface(swapVerifierAddress, [...transferFromSenderAbi, ...swapVerifierAbi])
     hooks.addContractInterface(quote.swap.swapperAddress, swapperAbi)
-    tos.addTosInterface(hooks)
 
     const evcCalls: EVCCall[] = []
 
     if (permitCall) {
       evcCalls.push(permitCall)
     }
-
-    tos.injectTosCall(evcCalls, hooks)
 
     // Wrap native currency to ERC-20 (e.g. ETH → WETH) before transferFromSender
     if (wrappedNativeInfo) {
@@ -168,22 +163,17 @@ export const createSupplyBorrowSwapBuilders = (
       includePermit2Call,
     })
 
-    const tos = await helpers.prepareTos(userAddr)
-
     const hooks = new SaHooksBuilder()
     hooks.addContractInterface(swapVerifierAddress, [...transferFromSenderAbi, ...swapVerifierAbi])
     hooks.addContractInterface(swapQuote.swap.swapperAddress, swapperAbi)
     hooks.addContractInterface(evcAddress, [...evcEnableControllerAbi, ...evcEnableCollateralAbi])
     hooks.addContractInterface(borrowVaultAddress, vaultBorrowAbi)
-    tos.addTosInterface(hooks)
 
     const evcCalls: EVCCall[] = []
 
     if (permitCall) {
       evcCalls.push(permitCall)
     }
-
-    tos.injectTosCall(evcCalls, hooks)
 
     // Wrap native currency to ERC-20 (e.g. ETH → WETH) before transferFromSender
     if (wrappedNativeInfo) {
@@ -309,12 +299,9 @@ export const createSupplyBorrowSwapBuilders = (
 
     assertSwapperVerifierAllowed(quote.verify.verifierAddress, ctx.eulerPeripheryAddresses.value.swapVerifier)
 
-    const tos = await helpers.prepareTos(userAddr)
-
     const hooks = new SaHooksBuilder()
     hooks.addContractInterface(vaultAddr, vaultWithdrawAbi)
     hooks.addContractInterface(swapperAddress, swapperAbi)
-    tos.addTosInterface(hooks)
 
     // Withdraw to swapper (not to user wallet)
     if (subAccount) {
@@ -326,8 +313,6 @@ export const createSupplyBorrowSwapBuilders = (
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, withdrawFromAddr)
-
-    tos.injectTosCall(evcCalls, hooks)
 
     // Swapper multicall
     evcCalls.push({
@@ -402,12 +387,9 @@ export const createSupplyBorrowSwapBuilders = (
 
     assertSwapperVerifierAllowed(quote.verify.verifierAddress, ctx.eulerPeripheryAddresses.value.swapVerifier)
 
-    const tos = await helpers.prepareTos(userAddr)
-
     const hooks = new SaHooksBuilder()
     hooks.addContractInterface(vaultAddr, vaultRedeemAbi)
     hooks.addContractInterface(swapperAddress, swapperAbi)
-    tos.addTosInterface(hooks)
 
     // Redeem shares to swapper (not to user wallet)
     if (subAccount) {
@@ -419,8 +401,6 @@ export const createSupplyBorrowSwapBuilders = (
 
     const saHooks = hooks.build()
     const evcCalls = convertSaHooksToEVCCalls(saHooks, userAddr, redeemFromAddr)
-
-    tos.injectTosCall(evcCalls, hooks)
 
     // Swapper multicall
     evcCalls.push({
@@ -529,8 +509,6 @@ export const createSupplyBorrowSwapBuilders = (
       includePermit2Call,
     })
 
-    const tos = await helpers.prepareTos(userAddr)
-
     const hooks = new SaHooksBuilder()
     hooks.addContractInterface(swapVerifierAddress, [...transferFromSenderAbi, ...swapVerifierAbi])
     hooks.addContractInterface(quote.swap.swapperAddress, swapperAbi)
@@ -544,15 +522,11 @@ export const createSupplyBorrowSwapBuilders = (
       }
     }
 
-    tos.addTosInterface(hooks)
-
     const evcCalls: EVCCall[] = []
 
     if (permitCall) {
       evcCalls.push(permitCall)
     }
-
-    tos.injectTosCall(evcCalls, hooks)
 
     // Wrap native currency to ERC-20 (e.g. ETH → WETH) before transferFromSender
     if (wrappedNativeInfo) {
