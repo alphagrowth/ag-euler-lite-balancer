@@ -281,7 +281,7 @@ export const useKeyring = (vaultAddress: string | Ref<string>) => {
 
   // Watch for vault/user changes and re-check credential
   watch(
-    [addressRef, userAddress, hookTarget],
+    [addressRef, userAddress, hookTarget, chainId],
     () => {
       credentialData.value = null
       hasValidCredential.value = false
