@@ -83,7 +83,7 @@ Welcome to the Euler Lite project! This guide will help you get up and running w
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
-- `npm run generate` - Generate static site
+- `npm run generate` - Generate static site (requires a running backend for data proxy endpoints)
 - `npm run lint` - Run ESLint
 
 ## Environment Configuration

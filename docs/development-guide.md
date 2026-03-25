@@ -19,7 +19,7 @@ Available scripts (from `package.json`):
 - `dev` – start Nuxt in development
 - `build` – production build
 - `preview` – preview the production build
-- `generate` – generate static site
+- `generate` – generate static site (requires a running backend; data proxy endpoints are not available in static-only deployments)
 - `lint` – run ESLint on the entire project
 - `lint:fix` – run ESLint with auto-fix
 - `typecheck` – run Nuxt type checking (`nuxt typecheck`)

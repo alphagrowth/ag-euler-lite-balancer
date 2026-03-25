@@ -32,7 +32,10 @@ export default defineEventHandler(async (event) => {
       throw new Error(`Upstream returned ${resp.status}`)
     }
 
-    const data: unknown[] = await resp.json()
+    const data: unknown = await resp.json()
+    if (!Array.isArray(data)) {
+      throw new Error('Upstream returned a non-array payload')
+    }
     cache.set('euler-chains', data)
     return data
   }

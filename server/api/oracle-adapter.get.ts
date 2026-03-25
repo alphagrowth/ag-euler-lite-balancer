@@ -48,6 +48,10 @@ export default defineEventHandler(async (event) => {
   try {
     const resp = await fetchWithTimeout(getUpstreamUrl(chainId, address), TIMEOUT_MS)
     if (!resp.ok) {
+      if (resp.status === 404) {
+        cache.set(key, null)
+        return null
+      }
       throw new Error(`Upstream returned ${resp.status}`)
     }
 

@@ -14,6 +14,11 @@ const ALLOWED_FILES = new Set([
   'points.json',
 ])
 
+const OPTIONAL_FILES = new Set([
+  'earn-vaults.json',
+  'points.json',
+])
+
 const rateLimiter = createRateLimiter({
   max: 200,
   windowMs: 60_000,
@@ -55,6 +60,13 @@ export default defineEventHandler(async (event) => {
   try {
     const resp = await fetchWithTimeout(getUpstreamUrl(chainId, file), TIMEOUT_MS)
     if (!resp.ok) {
+      if (resp.status === 404 && OPTIONAL_FILES.has(file)) {
+        const stale = cache.getStale(key)
+        if (stale) return stale
+        const empty: unknown[] = []
+        cache.set(key, empty)
+        return empty
+      }
       throw new Error(`Upstream returned ${resp.status}`)
     }
 

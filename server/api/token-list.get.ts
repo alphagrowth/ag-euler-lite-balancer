@@ -48,28 +48,33 @@ async function fetchDefillama(chainId: number): Promise<TokenEntry[]> {
   const cached = defillamaCache.get(key)
   if (cached) return cached
 
-  const baseUrl = process.env.NUXT_PUBLIC_CONFIG_DEFILLAMA_TOKEN_LIST_URL || DEFILLAMA_DEFAULT_URL
-  const url = `${baseUrl}/tokenlists-${chainId}.json`
-  const resp = await fetchWithTimeout(url, TIMEOUT_MS)
-  if (!resp.ok) {
-    console.warn('[token-list] DefiLlama upstream returned', resp.status, 'for chain', chainId)
+  try {
+    const baseUrl = process.env.NUXT_PUBLIC_CONFIG_DEFILLAMA_TOKEN_LIST_URL || DEFILLAMA_DEFAULT_URL
+    const url = `${baseUrl}/tokenlists-${chainId}.json`
+    const resp = await fetchWithTimeout(url, TIMEOUT_MS)
+    if (!resp.ok) {
+      throw new Error(`DefiLlama upstream returned ${resp.status}`)
+    }
+
+    const data = await resp.json()
+
+    // DefiLlama format: object keyed by address → normalize to array
+    const tokens: TokenEntry[] = Object.values(data).map((entry: Record<string, unknown>) => ({
+      chainId: (entry.chainId as number) ?? chainId,
+      address: entry.address as string,
+      name: entry.name as string,
+      symbol: entry.symbol as string,
+      decimals: entry.decimals as number,
+      logoURI: entry.logoURI as string | undefined,
+    }))
+
+    defillamaCache.set(key, tokens)
+    return tokens
+  }
+  catch (err) {
+    console.warn('[token-list] DefiLlama fetch failed:', err instanceof Error ? err.message : err, 'for chain', chainId)
     return defillamaCache.getStale(key) || []
   }
-
-  const data = await resp.json()
-
-  // DefiLlama format: object keyed by address → normalize to array
-  const tokens: TokenEntry[] = Object.values(data).map((entry: Record<string, unknown>) => ({
-    chainId: (entry.chainId as number) ?? chainId,
-    address: entry.address as string,
-    name: entry.name as string,
-    symbol: entry.symbol as string,
-    decimals: entry.decimals as number,
-    logoURI: entry.logoURI as string | undefined,
-  }))
-
-  defillamaCache.set(key, tokens)
-  return tokens
 }
 
 /** Merge two token arrays, deduplicating by lowercase address. Primary entries take precedence. */
