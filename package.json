@@ -25,6 +25,7 @@
   "dependencies": {
     "@floating-ui/vue": "1.1.6",
     "@gvade/nuxt3-svg-sprite": "1.0.3",
+    "@keyringnetwork/keyring-connect-sdk": "^3.2.0",
     "@nuxt/eslint": "1.0.1",
     "@nuxt/kit": "3.17.4",
     "@pythnetwork/price-service-client": "1.9.1",

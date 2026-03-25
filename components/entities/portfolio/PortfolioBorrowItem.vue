@@ -4,7 +4,6 @@ import { getAddress, type Address, type Abi } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
 import { formatNumber, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
-import { getPublicClient } from '~/utils/public-client'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { getSubAccountIndex } from '~/entities/account'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -56,7 +55,7 @@ const collateralItems = ref<PositionCollateral[]>([])
 const { isReady: isVaultsReady } = useVaults()
 const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-const { EVM_PROVIDER_URL } = useEulerConfig()
+const { client: rpcClient } = useRpcClient()
 
 const hasQueryFailure = computed(() => Boolean(position.liquidityQueryFailure))
 
@@ -339,7 +338,7 @@ const loadCollaterals = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const client = getPublicClient(EVM_PROVIDER_URL)
+    const client = rpcClient.value!
 
     const items = await Promise.all(
       orderedAddresses.map(async (address) => {

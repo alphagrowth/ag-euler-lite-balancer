@@ -155,6 +155,7 @@ const form = useCollateralForm({
 
   onAfterLoad: () => updateBalance(),
 })
+useOperationGuard(computed(() => [form.collateralVault.value?.address].filter(Boolean)))
 
 const balanceFixed = computed(() => FixedPoint.fromValue(balance.value, form.collateralVault.value?.decimals || 18))
 const assets = computed(() => [form.asset.value].filter((v): v is VaultAsset => !!v))

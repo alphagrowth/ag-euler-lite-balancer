@@ -15,7 +15,7 @@ export interface OperationsContext {
   eulerLensAddresses: ComputedRef<Record<string, string | undefined> | null>
 
   enableTermsOfUseSignature: boolean | Ref<boolean>
-  EVM_PROVIDER_URL: string
+  rpcUrl: string
   PYTH_HERMES_URL: string
   SUBGRAPH_URL: string
 

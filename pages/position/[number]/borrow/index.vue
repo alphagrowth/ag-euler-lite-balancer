@@ -102,6 +102,7 @@ const isBorrowRestricted = computed(() =>
 const reviewBorrowDisabled = getSubmitDisabled(computed(() => isGeoBlocked.value || isBorrowRestricted.value || isSubmitDisabled.value))
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
+useOperationGuard(computed(() => [borrowVault.value?.address, collateralVault.value?.address].filter(Boolean)))
 const borrowWarnings = computed(() => {
   if (!borrowVault.value) return []
   return [

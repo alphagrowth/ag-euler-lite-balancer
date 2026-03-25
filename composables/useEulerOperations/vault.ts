@@ -239,7 +239,7 @@ export const createVaultBuilders = (
       evcAddress,
       accountLensAddress: ctx.eulerLensAddresses.value!.accountLens as Address,
       subAccount: subAccountAddr as Address,
-      providerUrl: ctx.EVM_PROVIDER_URL,
+      providerUrl: ctx.rpcUrl,
       subgraphUrl: ctx.SUBGRAPH_URL,
     })
     if (cleanupCalls.length) {
@@ -355,7 +355,7 @@ export const createVaultBuilders = (
       evcAddress,
       accountLensAddress: ctx.eulerLensAddresses.value!.accountLens as Address,
       subAccount: subAccountAddr as Address,
-      providerUrl: ctx.EVM_PROVIDER_URL,
+      providerUrl: ctx.rpcUrl,
       subgraphUrl: ctx.SUBGRAPH_URL,
     })
     if (cleanupCalls.length) {
@@ -534,7 +534,7 @@ export const createVaultBuilders = (
       evcAddress,
       accountLensAddress: ctx.eulerLensAddresses.value!.accountLens as Address,
       subAccount: subAccountAddr as Address,
-      providerUrl: ctx.EVM_PROVIDER_URL,
+      providerUrl: ctx.rpcUrl,
       subgraphUrl: ctx.SUBGRAPH_URL,
     })
     if (cleanupCalls.length) {

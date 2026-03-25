@@ -5,7 +5,7 @@ import { getVaultUtilization, getCurrentLiquidationLTV, type Vault } from '~/ent
 import { getUtilisationWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { useEulerProductOfVault, useEulerEntitiesOfVault } from '~/composables/useEulerLabels'
-import { isVaultFeatured } from '~/utils/eulerLabelsUtils'
+import { isVaultFeatured, isVaultKeyring } from '~/utils/eulerLabelsUtils'
 import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { formatNumber, compactNumber, formatCompactUsdValue } from '~/utils/string-utils'
@@ -84,6 +84,7 @@ const supplyApyWithRewards = computed(
 const utilization = computed(() => getVaultUtilization(vault))
 const isGeoBlocked = computed(() => isVaultBlockedByCountry(vault.address))
 const isFeatured = computed(() => isVaultFeatured(vault.address))
+const isKeyring = computed(() => isVaultKeyring(vault.address))
 const utilisationWarning = computed(() => getUtilisationWarning(vault, 'lend'))
 const supplyCapWarning = computed(() => getSupplyCapWarning(vault))
 const statsGridCols = computed(() => {
@@ -180,6 +181,7 @@ watchEffect(async () => {
             />
             Featured
           </span>
+          <KeyringBadge v-if="isKeyring" />
           <span
             v-if="isGeoBlocked"
             class="inline-flex items-center gap-4 rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5"

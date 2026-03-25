@@ -19,7 +19,7 @@ Available scripts (from `package.json`):
 - `dev` – start Nuxt in development
 - `build` – production build
 - `preview` – preview the production build
-- `generate` – generate static site
+- `generate` – generate static site (requires a running backend; data proxy endpoints are not available in static-only deployments)
 - `lint` – run ESLint on the entire project
 - `lint:fix` – run ESLint with auto-fix
 - `typecheck` – run Nuxt type checking (`nuxt typecheck`)
@@ -66,13 +66,26 @@ Configuration is split into two mechanisms:
 
 1. **`useEnvConfig()`** (`composables/useEnvConfig.ts`) — API URLs, Pyth, Reown, wallet screening. Injected at runtime via `server/plugins/app-config.ts` into `window.__APP_CONFIG__`. Accepts both plain names (`EULER_API_URL`) and Doppler-prefixed names (`NUXT_PUBLIC_EULER_API_URL`).
 
-2. **Nuxt `runtimeConfig`** (`useDeployConfig()`) — branding, social links, feature flags. Set via `NUXT_PUBLIC_CONFIG_*` env vars. Includes `NUXT_PUBLIC_CONFIG_LABELS_BASE_URL` and `NUXT_PUBLIC_CONFIG_ORACLE_CHECKS_BASE_URL` for serving labels/oracle-checks from S3 or CDN instead of GitHub.
+2. **Nuxt `runtimeConfig`** (`useDeployConfig()`) — branding, social links, feature flags. Set via `NUXT_PUBLIC_CONFIG_*` env vars. Includes `NUXT_PUBLIC_CONFIG_LABELS_BASE_URL`, `NUXT_PUBLIC_CONFIG_ORACLE_CHECKS_BASE_URL`, and `NUXT_PUBLIC_CONFIG_EULER_CHAINS_URL` for configuring upstream data sources (GitHub or S3/CDN). All three are fetched through server-side proxy endpoints with 5-minute caching — see [Server-Side Data Proxies](#server-side-data-proxies) below.
 
 3. **Chain config** (`useChainConfig()`) — derived dynamically from `RPC_URL_HTTP_<chainId>` env vars at server startup, injected via `window.__CHAIN_CONFIG__`.
 
 See the [README](../README.md) for the full env var reference.
 
 Dev HTTPS: `HTTPS_KEY`, `HTTPS_CERT` (optional).
+
+## Server-Side Data Proxies
+
+External metadata (contract addresses, labels, oracle checks) is fetched through Nuxt server proxy endpoints rather than directly from GitHub/CDN. This deduplicates upstream requests across users, adds stale-fallback resilience, and avoids GitHub rate limits.
+
+| Endpoint | Upstream source | Cache TTL | Env var override |
+|----------|----------------|-----------|------------------|
+| `GET /api/euler-chains` | `EulerChains.json` from euler-interfaces | 5 min | `NUXT_PUBLIC_CONFIG_EULER_CHAINS_URL` |
+| `GET /api/labels/:file?chainId=X` | `{chainId}/{file}` from euler-labels | 5 min | `NUXT_PUBLIC_CONFIG_LABELS_BASE_URL` |
+| `GET /api/oracle-adapter?chainId=X&address=0x...` | Per-adapter JSON from oracle-checks | 5 min | `NUXT_PUBLIC_CONFIG_ORACLE_CHECKS_BASE_URL` |
+| `GET /api/token-list?chainId=X` | Uniswap + DefiLlama token lists | 5 min | `NUXT_PUBLIC_CONFIG_UNISWAP_TOKEN_LIST_URL`, `NUXT_PUBLIC_CONFIG_DEFILLAMA_TOKEN_LIST_URL` |
+
+All endpoints use rate limiting and return stale cached data when upstream is unavailable. The shared caching utility is in `server/utils/cache.ts`.
 
 ## Code layout (high level)
 
@@ -98,4 +111,4 @@ Dev HTTPS: `HTTPS_KEY`, `HTTPS_CERT` (optional).
 
 ---
 
-_Next: Explore the [Data Flow and Integrations](./data-flow-and-integrations.md) for protocols, APIs, and SDKs used._
+_Next: Explore the [Architecture](./architecture.md) for a high-level view of the system._

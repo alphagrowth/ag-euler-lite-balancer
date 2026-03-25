@@ -19,9 +19,8 @@ import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { formatNumber, formatSmartAmount, formatHealthScore, trimTrailingZeros } from '~/utils/string-utils'
-import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
+import { formatLiquidationBuffer as formatLiqBuffer, calculateRoe, computeNextHealth, computeLiquidationPrice } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { calculateRoe, computeNextHealth, computeLiquidationPrice } from '~/utils/repayUtils'
 import { computeMaxMultiplier } from '~/utils/multiply-math'
 
 const route = useRoute()
@@ -99,6 +98,7 @@ const {
 const multiplyLongVault = computed(() => position.value?.collateral)
 const multiplyShortVault = computed(() => position.value?.borrow)
 const multiplySubAccount = computed(() => position.value?.subAccount || null)
+useOperationGuard(computed(() => [multiplySupplyVault.value?.address, multiplyLongVault.value?.address, multiplyShortVault.value?.address].filter(Boolean)))
 
 const pairAssets = computed(() => {
   if (!multiplyLongVault.value || !multiplyShortVault.value) {

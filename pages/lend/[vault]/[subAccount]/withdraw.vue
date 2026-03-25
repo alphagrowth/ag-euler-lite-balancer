@@ -43,6 +43,7 @@ const { runSimulation, simulationError, clearSimulationError } = useTxPlanSimula
 const { getSupplyRewardApy } = useRewardsApy()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()
 const vaultAddress = route.params.vault as string
+useOperationGuard([vaultAddress])
 const subAccountIndex = Number(route.params.subAccount)
 const subAccount = computed(() => {
   const addr = effectiveAddress.value

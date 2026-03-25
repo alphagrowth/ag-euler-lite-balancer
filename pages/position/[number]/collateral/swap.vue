@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useAccount } from '@wagmi/vue'
 import { getAddress, zeroAddress, type Address, type Abi } from 'viem'
-import { getPublicClient } from '~/utils/public-client'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type {
@@ -24,9 +23,8 @@ import type { TxPlan } from '~/entities/txPlan'
 import { useIntrinsicApy } from '~/composables/useIntrinsicApy'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/string-utils'
-import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
+import { formatLiquidationBuffer as formatLiqBuffer, calculateRoe } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { calculateRoe } from '~/utils/repayUtils'
 import { useSwapPageLogic } from '~/composables/useSwapPageLogic'
 
 const route = useRoute()
@@ -39,7 +37,7 @@ const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
 const { isReady: isVaultsReady } = useVaults()
 const { getOrFetch } = useVaultRegistry()
 const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-const { EVM_PROVIDER_URL } = useEulerConfig()
+const { client: rpcClient } = useRpcClient()
 
 const positionIndex = usePositionIndex()
 
@@ -52,6 +50,7 @@ const lastCollateralAddress = ref('')
 const fromVault = computed(() => selectedCollateral.value || position.value?.collateral)
 const borrowVault = computed(() => position.value?.borrow)
 const toVault: Ref<Vault | undefined> = ref()
+useOperationGuard(computed(() => [fromVault.value?.address, toVault.value?.address, borrowVault.value?.address].filter(Boolean)))
 
 const isFromSecuritize = computed(() => fromVault.value && 'type' in fromVault.value && fromVault.value.type === 'securitize')
 const fromVaultAsRegular = computed(() => {
@@ -234,7 +233,7 @@ const loadSelectedCollateral = async () => {
       throw new Error('Account lens address is not available')
     }
 
-    const client = getPublicClient(EVM_PROVIDER_URL)
+    const client = rpcClient.value!
     const res = await client.readContract({
       address: lensAddress as Address,
       abi: eulerAccountLensABI as Abi,
