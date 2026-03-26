@@ -135,6 +135,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
           collateralVault: params.vaultIn,
           borrowVault: params.receiver,
           subAccount,
+          owner: (address.value || zeroAddress) as Address,
           tokenIn: params.tokenIn,
           tokenOut: params.tokenOut,
           withdrawAmount: params.amount,

@@ -89,6 +89,7 @@ export interface EnsoRepayQuoteContext {
   collateralVault: Address
   borrowVault: Address
   subAccount: Address
+  owner: Address
   tokenIn: Address
   tokenOut: Address
   withdrawAmount: bigint
@@ -324,6 +325,12 @@ export const useEnsoRoute = () => {
       ],
     })
 
+    const sweepCalldata = encodeFunctionData({
+      abi: sweepFunctionAbi,
+      functionName: 'sweep',
+      args: [ctx.tokenOut, 0n, ctx.owner],
+    })
+
     const minAmountOut = BigInt(ensoRoute.minAmountOut)
     let maxDebtAfter = ctx.currentDebt - minAmountOut
     if (maxDebtAfter < 0n) maxDebtAfter = 0n
@@ -371,6 +378,7 @@ export const useEnsoRoute = () => {
         multicallItems: [
           { functionName: 'swap', args: [], data: swapCalldata },
           { functionName: 'repay', args: [], data: repayCalldata },
+          { functionName: 'sweep', args: [], data: sweepCalldata },
         ],
       },
       verify,
