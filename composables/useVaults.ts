@@ -231,9 +231,12 @@ const updateSecuritizeVaults = async (securitizeAddresses: string[], generation:
 
     if (loadGeneration.value !== generation) return
 
-    results.forEach((result) => {
+    results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         registrySet(result.value.address, result.value, 'securitize')
+      }
+      else {
+        logWarn(`useVaults/updateSecuritizeVaults/${securitizeAddresses[index]}`, result.reason)
       }
     })
   }
