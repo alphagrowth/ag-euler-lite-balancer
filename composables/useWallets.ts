@@ -91,27 +91,30 @@ export const useWallets = () => {
       const client = getPublicClient(rpcUrl.value)
 
       // Fetch balances via lens in chunks to stay within gas limits
+      // All chunks fire concurrently so viem's HTTP transport batches them into fewer requests
       const LENS_BATCH_SIZE = 250
-      const result: bigint[] = []
+      const chunks: Address[][] = []
       for (let i = 0; i < tokenAddresses.length; i += LENS_BATCH_SIZE) {
-        const batch = tokenAddresses.slice(i, i + LENS_BATCH_SIZE)
-        try {
-          const batchResult = await client.readContract({
-            address: utilsLensAddress,
-            abi: eulerUtilsLensABI,
-            functionName: 'tokenBalances',
-            args: [targetAddress, batch],
-          }) as bigint[]
-          result.push(...batchResult)
-        }
-        catch {
-          // Zero fallback: if the lens batch fails it's typically an RPC-level issue,
-          // firing 200 individual balanceOf calls would make rate limiting worse.
-          // Balances will be retried on the next polling tick.
-          logWarn('wallets/batchFetch', `Lens tokenBalances failed for chunk of ${batch.length}, using zero fallback`)
-          result.push(...batch.map(() => 0n))
-        }
+        chunks.push(tokenAddresses.slice(i, i + LENS_BATCH_SIZE))
       }
+
+      const chunkResults = await Promise.all(
+        chunks.map(async (batch) => {
+          try {
+            return await client.readContract({
+              address: utilsLensAddress,
+              abi: eulerUtilsLensABI,
+              functionName: 'tokenBalances',
+              args: [targetAddress, batch],
+            }) as bigint[]
+          }
+          catch {
+            logWarn('wallets/batchFetch', `Lens tokenBalances failed for chunk of ${batch.length}, using zero fallback`)
+            return batch.map(() => 0n)
+          }
+        }),
+      )
+      const result = chunkResults.flat()
 
       // Only update if still on same chain
       if (chainId.value === currentChainId) {
