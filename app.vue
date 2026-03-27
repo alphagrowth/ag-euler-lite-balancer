@@ -106,7 +106,7 @@ watch([isConnected, isVaultsReady], ([val]) => {
   if (val && isVaultsReady.value) {
     updateBalances()
     interval = setInterval(async () => {
-      updateBalances()
+      await updateBalances()
       refreshVaults()
     }, POLL_INTERVAL_60S_MS)
   }
