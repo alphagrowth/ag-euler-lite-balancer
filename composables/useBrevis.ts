@@ -81,6 +81,7 @@ export const useBrevis = () => {
   const { BREVIS_API_URL, BREVIS_MERKLE_PROOF_URL } = useEulerConfig()
   const { chainId } = useEulerAddresses()
   const { client: rpcClient } = useRpcClient()
+  const { enableIncentra } = useDeployConfig()
 
   const ensureWalletOnCurrentChain = async () => {
     const targetChainId = chainId.value
@@ -320,7 +321,7 @@ export const useBrevis = () => {
       address.value = ''
     }
     // Force-refresh rewards when the connected wallet changes (skip initial mount)
-    if (oldVal && val && val !== oldVal) {
+    if (enableIncentra && oldVal && val && val !== oldVal) {
       loadRewards(true, true)
     }
   }, { immediate: true })
@@ -337,7 +338,7 @@ export const useBrevis = () => {
   })
 
   watch(isConnected, (connected) => {
-    if (connected) {
+    if (connected && enableIncentra) {
       if (!isLoaded.value) {
         loadCampaigns()
         loadRewards()
