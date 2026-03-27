@@ -85,12 +85,13 @@ export default defineEventHandler(async (event) => {
     cacheKey = `pendle:${chainId}:${market.toLowerCase()}`
   }
   else if (provider === 'securitize') {
-    const symbol = query.symbol as string
+    const symbol = typeof query.symbol === 'string' ? query.symbol.trim() : undefined
     if (!symbol) {
       throw createError({ statusCode: 400, statusMessage: 'Missing symbol param' })
     }
-    url = `${PROVIDER_URLS.securitize}?symbol=${encodeURIComponent(symbol)}`
-    cacheKey = `securitize:${symbol}`
+    const normalizedSymbol = symbol.toUpperCase()
+    url = `${PROVIDER_URLS.securitize}?symbol=${encodeURIComponent(normalizedSymbol)}`
+    cacheKey = `securitize:${normalizedSymbol}`
   }
   else {
     const baseUrl = PROVIDER_URLS[provider]
