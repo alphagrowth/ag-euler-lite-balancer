@@ -1,5 +1,5 @@
 import { getAddress, type Address, type Abi } from 'viem'
-import { ref, shallowRef, type Ref } from 'vue'
+import { computed, ref, shallowRef, type Ref } from 'vue'
 import { useVaultRegistry } from './useVaultRegistry'
 import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
@@ -28,8 +28,9 @@ import {
   hasPythOracles,
 } from '~/utils/accountPositionHelpers'
 
-const depositPositions: Ref<AccountDepositPosition[]> = ref([])
-const borrowPositions: Ref<AccountBorrowPosition[]> = ref([])
+// Internal storage — always contains ALL positions (verified + unverified)
+const _allDepositPositions: Ref<AccountDepositPosition[]> = ref([])
+const _allBorrowPositions: Ref<AccountBorrowPosition[]> = ref([])
 
 // Track which (subAccount, vaultAddress) pairs are used as collateral
 // Format: "subAccount:vaultAddress" (both checksummed)
@@ -40,8 +41,22 @@ const isPositionsLoaded = ref(false)
 const isDepositsLoading = ref(true)
 const isDepositsLoaded = ref(false)
 const isShowAllPositions = ref(false)
-const hiddenBorrowCount = ref(0)
-const hiddenDepositCount = ref(0)
+
+// Filtered views — instant toggle, no network calls
+const borrowPositions = computed(() => {
+  if (isShowAllPositions.value) return _allBorrowPositions.value
+  return _allBorrowPositions.value.filter(p => p.borrow.verified && p.collateral.verified)
+})
+const depositPositions = computed(() => {
+  if (isShowAllPositions.value) return _allDepositPositions.value
+  return _allDepositPositions.value.filter(p => p.vault.verified)
+})
+const hiddenBorrowCount = computed(() =>
+  _allBorrowPositions.value.length - borrowPositions.value.length,
+)
+const hiddenDepositCount = computed(() =>
+  _allDepositPositions.value.length - depositPositions.value.length,
+)
 
 // Generation counter to invalidate stale in-flight position fetches after chain switch.
 // Incremented on chain change; async operations capturing an older generation discard results.
@@ -52,19 +67,17 @@ const updateBorrowPositions = async (
   address: string,
   borrowEntries: SubgraphPositionEntry[],
   isInitialLoading = false,
-  options: { forceAllPositions?: boolean } = {},
 ) => {
   const gen = positionGuard.current()
-  hiddenBorrowCount.value = 0
 
   if (isInitialLoading) {
     isPositionsLoaded.value = false
     isPositionsLoading.value = true
-    borrowPositions.value = []
+    _allBorrowPositions.value = []
   }
 
   if (!address) {
-    borrowPositions.value = []
+    _allBorrowPositions.value = []
     isPositionsLoading.value = false
     isPositionsLoaded.value = true
     return
@@ -74,8 +87,6 @@ const updateBorrowPositions = async (
   const { rpcUrl } = useRpcClient()
   const { getOrFetch } = useVaultRegistry()
   const { eulerCoreAddresses } = useEulerAddresses()
-  const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
-  const isAllPositionsAtStart = shouldShowAllPositions
 
   if (!eulerLensAddresses?.accountLens) {
     throw new Error('Euler addresses not loaded yet')
@@ -181,7 +192,6 @@ const updateBorrowPositions = async (
     collateralAddress: string
   }
   const processed: ProcessedEntry[] = []
-  let hiddenBorrows = 0
   const pythRefreshCache = new Map<string, Promise<Vault | undefined>>()
 
   for (const { entry, vault: prefetchedVault } of entryVaults) {
@@ -231,11 +241,6 @@ const updateBorrowPositions = async (
 
     const collateral = await getOrFetch(collateralAddress) as Vault | SecuritizeVault | undefined
     if (!collateral) continue
-
-    if (!shouldShowAllPositions && (!borrow.verified || !collateral.verified)) {
-      hiddenBorrows++
-      continue
-    }
 
     processed.push({
       entry,
@@ -389,26 +394,20 @@ const updateBorrowPositions = async (
   if (positionGuard.isStale(gen)) return
 
   const borrows = borrowResults.filter((o): o is AccountBorrowPosition => !!o)
-  const shouldUpdate = options.forceAllPositions !== undefined
-    ? true
-    : isShowAllPositions.value === isAllPositionsAtStart
-  if (shouldUpdate) {
-    borrowPositions.value = borrows
+  _allBorrowPositions.value = borrows
 
-    // Build set of (subAccount, collateralVault) pairs used as collateral
-    const usageSet = new Set<string>()
-    for (const pos of borrows) {
-      const subAccount = getAddress(pos.subAccount)
-      for (const addr of pos.collaterals ?? [pos.collateral.address]) {
-        usageSet.add(`${subAccount}:${getAddress(addr)}`)
-      }
+  // Build set of (subAccount, collateralVault) pairs used as collateral
+  const usageSet = new Set<string>()
+  for (const pos of borrows) {
+    const subAccount = getAddress(pos.subAccount)
+    for (const addr of pos.collaterals ?? [pos.collateral.address]) {
+      usageSet.add(`${subAccount}:${getAddress(addr)}`)
     }
-    collateralUsageSet.value = usageSet
-    hiddenBorrowCount.value = hiddenBorrows
-
-    isPositionsLoading.value = false
-    isPositionsLoaded.value = true
   }
+  collateralUsageSet.value = usageSet
+
+  isPositionsLoading.value = false
+  isPositionsLoaded.value = true
 }
 
 const updateSavingsPositions = async (
@@ -416,31 +415,26 @@ const updateSavingsPositions = async (
   address: string,
   depositEntries: SubgraphPositionEntry[],
   isInitialLoading = false,
-  options: { forceAllPositions?: boolean } = {},
   generation?: number,
 ) => {
   const gen = generation ?? positionGuard.current()
-  hiddenDepositCount.value = 0
 
   if (isInitialLoading) {
     isDepositsLoaded.value = false
     isDepositsLoading.value = true
-    depositPositions.value = []
+    _allDepositPositions.value = []
   }
 
   if (!address) {
     isDepositsLoaded.value = false
     isDepositsLoading.value = true
-    depositPositions.value = []
+    _allDepositPositions.value = []
     return
   }
 
   const { getOrFetch } = useVaultRegistry()
   const { rpcUrl } = useRpcClient()
   const { eulerCoreAddresses } = useEulerAddresses()
-
-  const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
-  const isAllPositionsAtStart = shouldShowAllPositions
 
   if (!eulerLensAddresses?.accountLens) {
     throw new Error('Euler addresses not loaded yet')
@@ -450,8 +444,6 @@ const updateSavingsPositions = async (
   if (!evcAddress) {
     throw new Error('EVC address not loaded yet')
   }
-
-  let hiddenDeposits = 0
 
   // Pre-filter: resolve vaults and exclude collateral-used entries
   type ValidEntry = { entry: SubgraphPositionEntry, vault: NonNullable<Awaited<ReturnType<typeof getOrFetch>>> }
@@ -463,11 +455,6 @@ const updateSavingsPositions = async (
 
     const vault = await getOrFetch(entry.vault)
     if (!vault) continue
-
-    if (!shouldShowAllPositions && !vault.verified) {
-      hiddenDeposits++
-      continue
-    }
 
     validEntries.push({ entry, vault })
   }
@@ -509,15 +496,15 @@ const updateSavingsPositions = async (
 
   if (positionGuard.isStale(gen)) return
 
-  const shouldUpdate = options.forceAllPositions !== undefined
-    ? true
-    : isShowAllPositions.value === isAllPositionsAtStart
-  if (shouldUpdate) {
-    depositPositions.value = deposits
-    hiddenDepositCount.value = hiddenDeposits
-    isDepositsLoading.value = false
-    isDepositsLoaded.value = true
-  }
+  _allDepositPositions.value = deposits
+  isDepositsLoading.value = false
+  isDepositsLoaded.value = true
+}
+
+const clearPositions = () => {
+  _allBorrowPositions.value = []
+  _allDepositPositions.value = []
+  collateralUsageSet.value = new Set()
 }
 
 export const useAccountPositions = () => ({
@@ -534,4 +521,5 @@ export const useAccountPositions = () => ({
   positionGuard,
   updateBorrowPositions,
   updateSavingsPositions,
+  clearPositions,
 })

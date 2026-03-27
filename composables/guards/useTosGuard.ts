@@ -14,7 +14,7 @@ export interface TosGuardState {
 
 export const useTosGuard = () => {
   const { address } = useWagmi()
-  const { eulerPeripheryAddresses, isReady, loadEulerConfig } = useEulerAddresses()
+  const { eulerPeripheryAddresses, isReady, loadEulerConfig, chainId } = useEulerAddresses()
   const { client: rpcClient } = useRpcClient()
   const { enableTosSignature } = useDeployConfig()
 
@@ -134,6 +134,15 @@ export const useTosGuard = () => {
   })
 
   watch(address, () => {
+    hasSigned.value = null
+    sessionAccepted.value = false
+    unregisterOperationGuard('tos')
+    if (enableTosSignature) {
+      void checkHasSigned()
+    }
+  })
+
+  watch(chainId, () => {
     hasSigned.value = null
     sessionAccepted.value = false
     unregisterOperationGuard('tos')

@@ -14,7 +14,6 @@ import { logWarn } from '~/utils/errorHandling'
 const {
   depositPositions,
   borrowPositions,
-  collateralUsageSet,
   isPositionsLoading,
   isPositionsLoaded,
   isDepositsLoading,
@@ -25,6 +24,7 @@ const {
   positionGuard,
   updateBorrowPositions,
   updateSavingsPositions,
+  clearPositions,
 } = useAccountPositions()
 
 let fetchInProgress = false
@@ -40,7 +40,7 @@ export const useEulerAccount = () => {
   const { isLoaded: isBalancesLoaded } = useWallets()
   const { eulerLensAddresses, isReady: isEulerLensAddressesReady, chainId } = useEulerAddresses()
   const { address } = useAccount()
-  const { spyAddress, isSpyMode } = useSpyMode()
+  const { spyAddress } = useSpyMode()
   const portfolioAddress = computed(() => normalizeAddressOrEmpty(spyAddress.value) || normalizeAddressOrEmpty(address.value))
 
   const updatePositions = async () => {
@@ -49,7 +49,6 @@ export const useEulerAccount = () => {
     try {
       const gen = positionGuard.current()
       const targetAddress = portfolioAddress.value
-      const shouldShowAll = isShowAllPositions.value || isSpyMode.value
       const { SUBGRAPH_URL } = useEulerConfig()
 
       // Fetch both borrow and deposit entries in a single subgraph query
@@ -65,15 +64,12 @@ export const useEulerAccount = () => {
         eulerLensAddresses.value,
         targetAddress,
         borrowEntries,
-        false,
-        { forceAllPositions: shouldShowAll },
       )
       await updateSavingsPositions(
         eulerLensAddresses.value,
         targetAddress,
         depositEntries,
         false,
-        { forceAllPositions: shouldShowAll },
         gen,
       )
     }
@@ -99,10 +95,6 @@ export const useEulerAccount = () => {
     debouncedUpdatePositions()
   }, { immediate: true })
 
-  watch(isShowAllPositions, () => {
-    debouncedUpdatePositions()
-  })
-
   // Refresh positions when wallet address changes (e.g. spy mode exit)
   watch(portfolioAddress, (newAddress, oldAddress) => {
     if (newAddress !== oldAddress) {
@@ -111,17 +103,13 @@ export const useEulerAccount = () => {
       fetchInProgress = false
 
       // Clear stale data and reset loading state so UI shows loader
-      borrowPositions.value = []
-      depositPositions.value = []
-      collateralUsageSet.value = new Set()
+      clearPositions()
       isPositionsLoaded.value = false
       isPositionsLoading.value = true
       isDepositsLoaded.value = false
       isDepositsLoading.value = true
       totalSuppliedValue.value = 0
       totalBorrowedValue.value = 0
-      hiddenBorrowCount.value = 0
-      hiddenDepositCount.value = 0
 
       debouncedUpdatePositions()
     }
@@ -133,17 +121,13 @@ export const useEulerAccount = () => {
   // Clear stale positions and invalidate in-flight fetches on chain change
   watch(chainId, () => {
     positionGuard.next()
-    borrowPositions.value = []
-    depositPositions.value = []
-    collateralUsageSet.value = new Set()
+    clearPositions()
     isPositionsLoaded.value = false
     isPositionsLoading.value = true
     isDepositsLoaded.value = false
     isDepositsLoading.value = true
     totalSuppliedValue.value = 0
     totalBorrowedValue.value = 0
-    hiddenBorrowCount.value = 0
-    hiddenDepositCount.value = 0
   })
 
   /**
@@ -187,7 +171,7 @@ export const useEulerAccount = () => {
       if (positionGuard.isStale(gen)) return
 
       await updateBorrowPositions(lensAddresses, walletAddress, borrowEntries)
-      await updateSavingsPositions(lensAddresses, walletAddress, depositEntries, false, {}, gen)
+      await updateSavingsPositions(lensAddresses, walletAddress, depositEntries, false, gen)
     }
     catch (error) {
       logWarn('useEulerAccount/refreshAllPositions', error)

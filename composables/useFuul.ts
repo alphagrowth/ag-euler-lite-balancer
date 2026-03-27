@@ -37,6 +37,7 @@ export const useFuul = () => {
   const { FUUL_API_BASE_URL, FUUL_MANAGER_ADDRESS, FUUL_FACTORY_ADDRESS } = useEulerConfig()
   const { client: rpcClient } = useRpcClient()
   const { chainId } = useEulerAddresses()
+  const { enableFuul } = useDeployConfig()
 
   const unclaimedFuulRewards = computed(() =>
     fuulClaimableEntries.value.flatMap(entry => entry.claimable_rewards),
@@ -267,7 +268,7 @@ export const useFuul = () => {
       isClaimableLoading.value = false
       cacheState.claimable = { timestamp: 0, address: '', chainId: 0 }
     }
-    if (oldVal && val && val !== oldVal) {
+    if (enableFuul && oldVal && val && val !== oldVal) {
       loadClaimableRewards(true, true)
     }
   }, { immediate: true })
@@ -277,13 +278,13 @@ export const useFuul = () => {
       isLoaded.value = false
     }
 
-    if (!isLoaded.value && val) {
+    if (enableFuul && !isLoaded.value && val) {
       loadIncentives()
       loadClaimableRewards()
       isLoaded.value = true
     }
 
-    if (!interval) {
+    if (enableFuul && !interval) {
       interval = setInterval(() => {
         loadIncentives(false)
         loadClaimableRewards(false)
