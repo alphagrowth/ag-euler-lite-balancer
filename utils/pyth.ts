@@ -592,10 +592,10 @@ export const executeLensWithPythSimulation = async <T>(
 }
 
 /**
- * Execute lens calls for multiple vaults in a single batchSimulation with Pyth updates.
- * Combines all Pyth feed updates + all vault lens calls into one RPC request.
+ * Execute lens calls for multiple entries in a single batchSimulation with Pyth updates.
+ * Combines all Pyth feed updates + all lens calls into one RPC request.
  *
- * @param vaultEntries - Array of { vaultAddress, feeds } for each vault to refresh
+ * @param entries - Array of { key, feeds, args } for each lens call
  * @param lensAddress - Address of the lens contract
  * @param lensAbi - ABI of the lens contract
  * @param lensMethod - Method name to call on the lens (e.g. 'getVaultInfoFull')
@@ -603,10 +603,10 @@ export const executeLensWithPythSimulation = async <T>(
  * @param providerUrl - Provider URL for Pyth batch building and RPC calls
  * @param hermesEndpoint - Pyth Hermes endpoint
  * @param batchSize - Max lens calls per batchSimulation (default 25)
- * @returns Map of vault address → decoded result (undefined for failed entries)
+ * @returns Map of key → decoded result (undefined for failed entries)
  */
 export const executeBatchLensWithPythSimulation = async <T>(
-  vaultEntries: Array<{ vaultAddress: string, feeds: PythFeed[] }>,
+  entries: Array<{ key: string, feeds: PythFeed[], args: unknown[] }>,
   lensAddress: Address,
   lensAbi: Abi | readonly unknown[],
   lensMethod: string,
@@ -617,18 +617,18 @@ export const executeBatchLensWithPythSimulation = async <T>(
 ): Promise<Map<string, T | undefined>> => {
   const results = new Map<string, T | undefined>()
 
-  if (vaultEntries.length === 0) {
+  if (entries.length === 0) {
     return results
   }
 
   try {
-    // Merge and deduplicate all Pyth feeds across all vaults
+    // Merge and deduplicate all Pyth feeds across all entries
     const uniqueFeeds = new Map<string, PythFeed>()
-    for (const entry of vaultEntries) {
+    for (const entry of entries) {
       for (const feed of entry.feeds) {
-        const key = `${feed.pythAddress.toLowerCase()}:${feed.feedId.toLowerCase()}`
-        if (!uniqueFeeds.has(key)) {
-          uniqueFeeds.set(key, feed)
+        const feedKey = `${feed.pythAddress.toLowerCase()}:${feed.feedId.toLowerCase()}`
+        if (!uniqueFeeds.has(feedKey)) {
+          uniqueFeeds.set(feedKey, feed)
         }
       }
     }
@@ -640,9 +640,9 @@ export const executeBatchLensWithPythSimulation = async <T>(
       hermesEndpoint,
     )
 
-    // Build lens items for each vault
-    const lensEntries = vaultEntries.map(entry => ({
-      vaultAddress: entry.vaultAddress,
+    // Build lens items for each entry
+    const lensEntries = entries.map(entry => ({
+      key: entry.key,
       item: {
         targetContract: lensAddress as `0x${string}`,
         onBehalfOfAccount: zeroAddress,
@@ -650,7 +650,7 @@ export const executeBatchLensWithPythSimulation = async <T>(
         data: encodeFunctionData({
           abi: lensAbi as Abi,
           functionName: lensMethod,
-          args: [entry.vaultAddress],
+          args: entry.args,
         }) as `0x${string}`,
       } satisfies BatchItem,
     }))
@@ -670,7 +670,7 @@ export const executeBatchLensWithPythSimulation = async <T>(
         return chunk.map((entry, i) => {
           const lensResult = batchResults[pythItems.length + i]
           if (!lensResult?.success) {
-            return { vaultAddress: entry.vaultAddress, result: undefined as T | undefined }
+            return { key: entry.key, result: undefined as T | undefined }
           }
 
           try {
@@ -679,10 +679,10 @@ export const executeBatchLensWithPythSimulation = async <T>(
               functionName: lensMethod,
               data: lensResult.result as Hex,
             })
-            return { vaultAddress: entry.vaultAddress, result: decoded as T }
+            return { key: entry.key, result: decoded as T }
           }
           catch {
-            return { vaultAddress: entry.vaultAddress, result: undefined as T | undefined }
+            return { key: entry.key, result: undefined as T | undefined }
           }
         })
       }),
@@ -690,7 +690,7 @@ export const executeBatchLensWithPythSimulation = async <T>(
 
     for (const chunk of chunkResults) {
       for (const entry of chunk) {
-        results.set(entry.vaultAddress, entry.result)
+        results.set(entry.key, entry.result)
       }
     }
   }

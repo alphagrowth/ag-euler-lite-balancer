@@ -529,7 +529,7 @@ export const fetchVaults = async function* (
       const pythVaultEntries = validVaults
         .map((vault) => {
           const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
-          return feeds.length > 0 ? { vaultAddress: vault.address, feeds } : null
+          return feeds.length > 0 ? { key: vault.address, feeds, args: [vault.address] } : null
         })
         .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
 
