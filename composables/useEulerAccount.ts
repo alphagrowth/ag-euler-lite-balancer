@@ -142,7 +142,8 @@ export const useEulerAccount = () => {
     isDepositsLoading.value = true
     totalSuppliedValue.value = 0
     totalBorrowedValue.value = 0
-    hiddenPositionCount.value = 0
+    hiddenBorrowCount.value = 0
+    hiddenDepositCount.value = 0
   })
 
   /**

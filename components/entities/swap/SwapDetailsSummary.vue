@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { isPriceImpactWarning, isSlippageWarning } from '~/utils/priceImpact'
+import { formatNumber } from '~/utils/string-utils'
+
 defineProps<{
   inputDisplay: string | null
   outputDisplay: string | null
