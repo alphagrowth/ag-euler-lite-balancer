@@ -15,7 +15,6 @@ export type IntrinsicApySourceConfig =
   | { provider: 'puffer', address: string, chainId: number }
   | { provider: 'treehouse', address: string, chainId: number }
   | { provider: 'ondo', address: string, chainId: number }
-  | { provider: 'openeden', address: string, chainId: number }
   | { provider: 'benqi', address: string, chainId: number }
   | { provider: 'avant', address: string, chainId: number }
 
@@ -256,9 +255,6 @@ export const intrinsicApySources: readonly IntrinsicApySourceConfig[] = [
 
   // Ondo — USDY
   { provider: 'ondo', chainId: 1, address: '0x96F6eF951840721AdBF46Ac996b59E0235CB985C' },
-
-  // OpenEden — cUSDO
-  { provider: 'openeden', chainId: 1, address: '0xaD55aebc9b8c03FC43cd9f62260391c13c23e7c0' },
 
   // Benqi — sAVAX
   { provider: 'benqi', chainId: 43114, address: '0x2b2C81e08f1Af8835a78Bb2A90AE924ACE0eA4bE' },

@@ -16,7 +16,6 @@ const PROVIDER_URLS: Record<string, string> = {
   puffer: 'https://api-v2.puffer.fi/backend-for-frontend/tvl/all',
   treehouse: 'https://api.treehouse.finance/apy',
   spark: 'https://info-sky.blockanalitica.com/api/v1/overall/?format=json',
-  openeden: 'https://prod-gw.openeden.com/sys/apy',
   benqi: 'https://api.benqi.fi/liquidstaking/apr',
   avant: 'https://app.avantprotocol.com/api/savusdApy',
   ondo: 'https://ondo.finance/api/v1/assets',
