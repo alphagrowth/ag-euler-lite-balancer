@@ -33,7 +33,15 @@ interface CacheEntry {
   expiresAt: number
 }
 
+const MAX_CACHE_ENTRIES = 200
 const cache = new Map<string, CacheEntry>()
+
+const pruneExpired = () => {
+  const now = Date.now()
+  for (const [key, entry] of cache) {
+    if (now > entry.expiresAt) cache.delete(key)
+  }
+}
 
 const getCached = (key: string): unknown | undefined => {
   const entry = cache.get(key)
@@ -46,6 +54,11 @@ const getCached = (key: string): unknown | undefined => {
 }
 
 const setCache = (key: string, data: unknown) => {
+  if (cache.size >= MAX_CACHE_ENTRIES) pruneExpired()
+  if (cache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value
+    if (oldest) cache.delete(oldest)
+  }
   cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS })
 }
 
