@@ -1,4 +1,3 @@
-import { PriceServiceConnection } from '@pythnetwork/price-service-client'
 import { encodeFunctionData, decodeFunctionResult, zeroAddress, type Address, type Hex, type Abi } from 'viem'
 import type { EVCCall } from './evc-converter'
 import { PYTH_ABI } from '~/abis/pyth'
@@ -14,18 +13,11 @@ import { logWarn } from '~/utils/errorHandling'
 const normalizeHex = (value: string): Hex => (value.startsWith('0x') ? value as Hex : (`0x${value}` as Hex))
 const normalizeFeedId = (value: string): Hex => normalizeHex(value).toLowerCase() as Hex
 
-type PriceFeedLike = {
-  id: string
-  getPriceUnchecked: () => { price: string, expo: number }
-}
-
 type CachedPrice = {
   price: bigint
   expiresAt: number
 }
 
-let priceServiceEndpoint = ''
-let priceServiceClient: PriceServiceConnection | undefined
 const priceCache = new Map<string, CachedPrice>()
 
 // -------------------------------------------
@@ -116,14 +108,15 @@ const executePythBatch = async () => {
 
 /**
  * Direct fetch without batching - used internally by the batching system.
+ * Routes through server proxy at /api/pyth/updates to avoid CORS and credential exposure.
  */
-const fetchPythUpdateDataDirect = async (feedIds: Hex[], endpoint: string): Promise<Hex[]> => {
-  if (!feedIds.length || !endpoint) {
+const fetchPythUpdateDataDirect = async (feedIds: Hex[], _endpoint: string): Promise<Hex[]> => {
+  if (!feedIds.length) {
     return []
   }
 
   try {
-    const url = new URL('/v2/updates/price/latest', endpoint)
+    const url = new URL('/api/pyth/updates', window.location.origin)
     feedIds.forEach(id => url.searchParams.append('ids[]', id))
     url.searchParams.set('encoding', 'hex')
 
@@ -141,17 +134,9 @@ const fetchPythUpdateDataDirect = async (feedIds: Hex[], endpoint: string): Prom
     return binaryData.map((item: string) => normalizeHex(item))
   }
   catch (err) {
-    console.warn('[fetchPythUpdateDataDirect] error', err)
+    logWarn('pyth/fetchPythUpdateDataDirect', err)
     return []
   }
-}
-
-const getPriceServiceClient = (endpoint: string) => {
-  if (!priceServiceClient || priceServiceEndpoint !== endpoint) {
-    priceServiceEndpoint = endpoint
-    priceServiceClient = new PriceServiceConnection(endpoint)
-  }
-  return priceServiceClient
 }
 
 const priceToAmountOutMid = (price: { price: string, expo: number }): bigint => {
@@ -371,12 +356,22 @@ export const fetchPythPrices = async (
   }
 
   try {
-    const client = getPriceServiceClient(hermesEndpoint)
-    const priceFeeds = await client.getLatestPriceFeeds(missing) as PriceFeedLike[]
+    const url = new URL('/api/pyth/updates', window.location.origin)
+    missing.forEach(id => url.searchParams.append('ids[]', id))
+    url.searchParams.set('encoding', 'hex')
+    url.searchParams.set('parsed', 'true')
 
-    priceFeeds.forEach((feed) => {
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error(`Pyth prices proxy returned ${response.status}`)
+    }
+
+    const body = await response.json()
+    const parsed: Array<{ id: string, price: { price: string, expo: number } }> = body?.parsed || []
+
+    parsed.forEach((feed) => {
       const key = normalizeFeedId(feed.id)
-      const amountOutMid = priceToAmountOutMid(feed.getPriceUnchecked())
+      const amountOutMid = priceToAmountOutMid(feed.price)
       priceCache.set(key, {
         price: amountOutMid,
         expiresAt: now + cacheTtlMs,
@@ -385,7 +380,7 @@ export const fetchPythPrices = async (
     })
   }
   catch (err) {
-    console.warn('[fetchPythPrices] error', err)
+    logWarn('pyth/fetchPythPrices', err)
   }
 
   return prices
