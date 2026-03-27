@@ -8,11 +8,11 @@ defineProps<{ notice: string }>()
 <template>
   <div
     v-if="notice"
-    class="flex items-start gap-8 bg-accent-100 border border-accent-300 rounded-12 p-12"
+    class="flex items-center gap-8 bg-accent-100 border border-accent-300 rounded-12 p-12"
   >
     <SvgIcon
       name="info-circle"
-      class="!w-16 !h-16 text-accent-600 shrink-0 mt-2"
+      class="!w-20 !h-20 text-accent-600 shrink-0"
     />
     <!-- eslint-disable vue/no-v-html -- trusted label content -->
     <span

@@ -126,10 +126,10 @@ const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
         v-if="isDeprecated"
         class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
       >
-        <div class="flex items-start gap-8">
+        <div class="flex items-center gap-8">
           <SvgIcon
             name="warning"
-            class="!w-20 !h-20 flex-shrink-0 mt-2"
+            class="!w-20 !h-20 flex-shrink-0"
           />
           <p class="text-p3 text-warning-500">
             One or more vaults in this pair have been deprecated.
@@ -140,10 +140,10 @@ const onRampDownInfoIconClick = (event: MouseEvent, pair: LTVRampConfig) => {
         v-if="isRestricted"
         class="w-full rounded-12 p-16 bg-warning-100 text-warning-500"
       >
-        <div class="flex items-start gap-8">
+        <div class="flex items-center gap-8">
           <SvgIcon
             name="warning"
-            class="!w-20 !h-20 flex-shrink-0 mt-2"
+            class="!w-20 !h-20 flex-shrink-0"
           />
           <p class="text-p3 text-warning-500">
             This vault is not available in your region.

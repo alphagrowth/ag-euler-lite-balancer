@@ -39,6 +39,8 @@ const isPositionsLoaded = ref(false)
 const isDepositsLoading = ref(true)
 const isDepositsLoaded = ref(false)
 const isShowAllPositions = ref(false)
+const hiddenBorrowCount = ref(0)
+const hiddenDepositCount = ref(0)
 
 // Generation counter to invalidate stale in-flight position fetches after chain switch.
 // Incremented on chain change; async operations capturing an older generation discard results.
@@ -52,6 +54,7 @@ const updateBorrowPositions = async (
   options: { forceAllPositions?: boolean } = {},
 ) => {
   const gen = positionGuard.current()
+  hiddenBorrowCount.value = 0
 
   if (isInitialLoading) {
     isPositionsLoaded.value = false
@@ -80,6 +83,7 @@ const updateBorrowPositions = async (
   const client = rpcClient.value!
 
   let borrows: AccountBorrowPosition[] = []
+  let hiddenBorrows = 0
   const batchSize = BATCH_SIZE_RPC_CALLS
   const pythRefreshCache = new Map<string, Promise<Vault | undefined>>()
 
@@ -198,6 +202,7 @@ const updateBorrowPositions = async (
 
         // Skip positions where either vault is unverified (unless showing all positions)
         if (!shouldShowAllPositions && (!borrow.verified || !collateral.verified)) {
+          hiddenBorrows++
           return undefined
         }
 
@@ -353,6 +358,7 @@ const updateBorrowPositions = async (
       }
     }
     collateralUsageSet.value = usageSet
+    hiddenBorrowCount.value = hiddenBorrows
 
     isPositionsLoading.value = false
     isPositionsLoaded.value = true
@@ -368,6 +374,7 @@ const updateSavingsPositions = async (
   generation?: number,
 ) => {
   const gen = generation ?? positionGuard.current()
+  hiddenDepositCount.value = 0
 
   if (isInitialLoading) {
     isDepositsLoaded.value = false
@@ -395,6 +402,7 @@ const updateSavingsPositions = async (
   const client = rpcClient.value!
 
   let deposits: AccountDepositPosition[] = []
+  let hiddenDeposits = 0
 
   const batchSize = BATCH_SIZE_RPC_CALLS
   for (let i = 0; i < depositEntries.length; i += batchSize) {
@@ -418,6 +426,7 @@ const updateSavingsPositions = async (
 
         // Skip unverified vaults unless showing all positions
         if (!shouldShowAllPositions && !vault.verified) {
+          hiddenDeposits++
           return undefined
         }
 
@@ -458,6 +467,7 @@ const updateSavingsPositions = async (
     : isShowAllPositions.value === isAllPositionsAtStart
   if (shouldUpdate) {
     depositPositions.value = deposits
+    hiddenDepositCount.value = hiddenDeposits
     isDepositsLoading.value = false
     isDepositsLoaded.value = true
   }
@@ -472,6 +482,8 @@ export const useAccountPositions = () => ({
   isDepositsLoading,
   isDepositsLoaded,
   isShowAllPositions,
+  hiddenBorrowCount,
+  hiddenDepositCount,
   positionGuard,
   updateBorrowPositions,
   updateSavingsPositions,
