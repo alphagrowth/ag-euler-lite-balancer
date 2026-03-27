@@ -87,7 +87,7 @@ const resetVaultsState = () => {
 }
 
 const updateEVKVaults = async (vaultAddresses: string[], generation?: number, silent = false) => {
-  const { set: registrySet } = useVaultRegistry()
+  const { set: registrySet, getVault: registryGetVault } = useVaultRegistry()
   const gen = generation ?? loadGeneration.value
 
   try {
@@ -100,7 +100,9 @@ const updateEVKVaults = async (vaultAddresses: string[], generation?: number, si
       if (loadGeneration.value !== gen) return
 
       result.vaults.forEach((vault) => {
-        registrySet(vault.address, vault, 'evk')
+        const existing = registryGetVault(vault.address) as Vault | undefined
+        const vaultCategory = existing?.vaultCategory
+        registrySet(vault.address, vaultCategory ? { ...vault, vaultCategory } : vault, 'evk')
       })
 
       if (!silent) {
