@@ -828,6 +828,7 @@ watch(address, () => {
             <VaultFormInfoBlock
               v-if="swapEstimatedOutput"
               :loading="isSwapQuoteLoading"
+              variant="card"
             >
               <SwapDetailsSummary
                 :input-display="swapInputDisplay"
@@ -890,6 +891,7 @@ watch(address, () => {
           <VaultFormInfoBlock
             v-if="isVaultLoaded && asset"
             :loading="isEstimatesLoading"
+            variant="card"
           >
             <SummaryRow
               label="Projected earnings per month"

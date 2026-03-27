@@ -321,6 +321,7 @@ watch(address, () => {
           <VaultFormInfoBlock
             v-if="vault && asset"
             :loading="isEstimatesLoading"
+            variant="card"
           >
             <SummaryRow
               label="Projected earnings per month"
