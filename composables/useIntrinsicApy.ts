@@ -5,6 +5,17 @@ import { createDefiLlamaProvider } from '~/services/intrinsicApy/defillamaProvid
 import { createPendleProvider } from '~/services/intrinsicApy/pendleProvider'
 import { createSecuritizeProvider } from '~/services/intrinsicApy/securitizeProvider'
 import { createStablewatchProvider } from '~/services/intrinsicApy/stablewatchProvider'
+import { createEtherfiProvider } from '~/services/intrinsicApy/etherfiProvider'
+import { createRenzoProvider } from '~/services/intrinsicApy/renzoProvider'
+import { createMidasProvider } from '~/services/intrinsicApy/midasProvider'
+import { createYoProvider } from '~/services/intrinsicApy/yoProvider'
+import { createSparkProvider } from '~/services/intrinsicApy/sparkProvider'
+import { createPufferProvider } from '~/services/intrinsicApy/pufferProvider'
+import { createTreehouseProvider } from '~/services/intrinsicApy/treehouseProvider'
+import { createOndoProvider } from '~/services/intrinsicApy/ondoProvider'
+import { createOpenEdenProvider } from '~/services/intrinsicApy/openEdenProvider'
+import { createBenqiProvider } from '~/services/intrinsicApy/benqiProvider'
+import { createAvantProvider } from '~/services/intrinsicApy/avantProvider'
 import { logWarn } from '~/utils/errorHandling'
 import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
 
@@ -21,6 +32,17 @@ const providers: IntrinsicApyProvider[] = [
   createPendleProvider(intrinsicApySources),
   createSecuritizeProvider(intrinsicApySources),
   createStablewatchProvider(intrinsicApySources),
+  createEtherfiProvider(intrinsicApySources),
+  createRenzoProvider(intrinsicApySources),
+  createMidasProvider(intrinsicApySources),
+  createYoProvider(intrinsicApySources),
+  createSparkProvider(intrinsicApySources),
+  createPufferProvider(intrinsicApySources),
+  createTreehouseProvider(intrinsicApySources),
+  createOndoProvider(intrinsicApySources),
+  createOpenEdenProvider(intrinsicApySources),
+  createBenqiProvider(intrinsicApySources),
+  createAvantProvider(intrinsicApySources),
 ]
 
 const mergeResults = (allResults: IntrinsicApyResult[]): Record<string, IntrinsicApyInfo> => {

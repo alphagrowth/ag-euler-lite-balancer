@@ -1,5 +1,3 @@
-import axios from 'axios'
-import { DEFILLAMA_YIELDS_URL } from '~/entities/constants'
 import type { IntrinsicApySourceConfig } from '~/entities/custom'
 import type { IntrinsicApyProvider, IntrinsicApyResult } from '~/entities/intrinsic-apy'
 
@@ -32,8 +30,8 @@ export const createDefiLlamaProvider = (sources: readonly IntrinsicApySourceConf
       const chainSources = defillamaSources.filter(s => s.chainId === chainId)
       if (chainSources.length === 0) return []
 
-      const res = await axios.get(DEFILLAMA_YIELDS_URL)
-      const rawPools = (res.data?.data || []) as DefiLlamaPool[]
+      const res = await $fetch<{ data?: DefiLlamaPool[] }>('/api/intrinsic-apy/defillama')
+      const rawPools = (res?.data || []) as DefiLlamaPool[]
 
       const poolsById = new Map<string, DefiLlamaPool>()
       for (const pool of rawPools) {
