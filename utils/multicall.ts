@@ -86,28 +86,15 @@ export const buildBatchItem = (
 })
 
 /**
- * Batch multiple lens calls using EVC batchSimulation.
- * Encodes calls, executes batch, and returns raw results for decoding.
- *
- * @param evcAddress - EVC contract address
- * @param lensAddress - Lens contract address
- * @param lensAbi - ABI for the lens contract
- * @param calls - Array of { functionName, args } to call
- * @param rpcUrl - JSON-RPC URL
- * @returns Array of decoded results (or null for failed calls)
+ * Execute a single chunk of lens calls via EVC batchSimulation.
  */
-export const batchLensCalls = async <T>(
+const executeLensChunk = async <T>(
   evcAddress: string,
   lensAddress: string,
   lensAbi: Abi | readonly unknown[],
   calls: Array<{ functionName: string, args: unknown[] }>,
   rpcUrl: string,
 ): Promise<Array<{ success: boolean, result: T | null }>> => {
-  if (calls.length === 0) {
-    return []
-  }
-
-  // Build batch items
   const items: BatchItem[] = calls.map((call) => {
     const callData = encodeFunctionData({
       abi: lensAbi as Abi,
@@ -117,10 +104,8 @@ export const batchLensCalls = async <T>(
     return buildBatchItem(lensAddress, callData)
   })
 
-  // Execute batch
   const batchResults = await evcBatchCall(evcAddress, items, rpcUrl)
 
-  // Decode results
   return batchResults.map((result, index) => {
     if (!result.success) {
       return { success: false, result: null }
@@ -139,4 +124,41 @@ export const batchLensCalls = async <T>(
       return { success: false, result: null }
     }
   })
+}
+
+/**
+ * Batch multiple lens calls using EVC batchSimulation.
+ * Automatically chunks into sub-batches to stay within gas limits.
+ *
+ * @param evcAddress - EVC contract address
+ * @param lensAddress - Lens contract address
+ * @param lensAbi - ABI for the lens contract
+ * @param calls - Array of { functionName, args } to call
+ * @param rpcUrl - JSON-RPC URL
+ * @param batchSize - Max calls per batchSimulation (default 25)
+ * @returns Array of decoded results (or null for failed calls)
+ */
+export const batchLensCalls = async <T>(
+  evcAddress: string,
+  lensAddress: string,
+  lensAbi: Abi | readonly unknown[],
+  calls: Array<{ functionName: string, args: unknown[] }>,
+  rpcUrl: string,
+  batchSize = 25,
+): Promise<Array<{ success: boolean, result: T | null }>> => {
+  if (calls.length === 0) {
+    return []
+  }
+
+  if (calls.length <= batchSize) {
+    return executeLensChunk<T>(evcAddress, lensAddress, lensAbi, calls, rpcUrl)
+  }
+
+  const allResults: Array<{ success: boolean, result: T | null }> = []
+  for (let i = 0; i < calls.length; i += batchSize) {
+    const chunk = calls.slice(i, i + batchSize)
+    const chunkResults = await executeLensChunk<T>(evcAddress, lensAddress, lensAbi, chunk, rpcUrl)
+    allResults.push(...chunkResults)
+  }
+  return allResults
 }
