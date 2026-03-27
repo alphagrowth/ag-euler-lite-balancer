@@ -104,6 +104,7 @@ const pairAssets = computed(() => {
   }
   return [multiplyLongVault.value.asset, multiplyShortVault.value.asset]
 })
+const pairAssetsLabel = usePositionPairLabel(position)
 
 const multiplyLongProduct = useEulerProductOfVault(computed(() => multiplyLongVault.value?.address || ''))
 const multiplyShortProduct = useEulerProductOfVault(computed(() => multiplyShortVault.value?.address || ''))
@@ -614,6 +615,7 @@ const submitMultiply = async () => {
           ...nextPlanParams,
           includePermit2Call: false,
           enabledCollaterals: position.value?.collaterals,
+          enabledController: position.value?.borrow.address,
         })
       }
       catch (e) {
@@ -661,6 +663,7 @@ const sendMultiply = async () => {
       ...planParams.value,
       includePermit2Call: true,
       enabledCollaterals: position.value?.collaterals,
+      enabledController: position.value?.borrow.address,
     })
     plan.value = nextPlan
     await executeTxPlan(nextPlan)
@@ -787,6 +790,7 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
       <VaultLabelsAndAssets
         :vault="multiplyLongVault"
         :assets="pairAssets as VaultAsset[]"
+        :assets-label="pairAssetsLabel"
         size="large"
       />
 

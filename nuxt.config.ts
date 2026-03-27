@@ -155,6 +155,12 @@ export default defineNuxtConfig({
 
   nitro: {
     compressPublicAssets: true,
+    esbuild: { options: { target: 'esnext' } },
+  },
+
+  vite: {
+    build: { target: 'esnext' },
+    optimizeDeps: { esbuildOptions: { target: 'esnext' } },
   },
 
   telemetry: false,

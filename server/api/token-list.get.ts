@@ -59,7 +59,7 @@ async function fetchDefillama(chainId: number): Promise<TokenEntry[]> {
     const data = await resp.json()
 
     // DefiLlama format: object keyed by address → normalize to array
-    const tokens: TokenEntry[] = Object.values(data).map((entry: Record<string, unknown>) => ({
+    const tokens: TokenEntry[] = (Object.values(data) as Record<string, unknown>[]).map(entry => ({
       chainId: Number(entry.chainId) || chainId,
       address: entry.address as string,
       name: entry.name as string,

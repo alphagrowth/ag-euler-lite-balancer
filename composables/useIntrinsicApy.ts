@@ -13,7 +13,6 @@ import { createSparkProvider } from '~/services/intrinsicApy/sparkProvider'
 import { createPufferProvider } from '~/services/intrinsicApy/pufferProvider'
 import { createTreehouseProvider } from '~/services/intrinsicApy/treehouseProvider'
 import { createOndoProvider } from '~/services/intrinsicApy/ondoProvider'
-import { createOpenEdenProvider } from '~/services/intrinsicApy/openEdenProvider'
 import { createBenqiProvider } from '~/services/intrinsicApy/benqiProvider'
 import { createAvantProvider } from '~/services/intrinsicApy/avantProvider'
 import { logWarn } from '~/utils/errorHandling'
@@ -40,7 +39,6 @@ const providers: IntrinsicApyProvider[] = [
   createPufferProvider(intrinsicApySources),
   createTreehouseProvider(intrinsicApySources),
   createOndoProvider(intrinsicApySources),
-  createOpenEdenProvider(intrinsicApySources),
   createBenqiProvider(intrinsicApySources),
   createAvantProvider(intrinsicApySources),
 ]

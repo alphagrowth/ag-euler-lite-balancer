@@ -26,6 +26,7 @@ const positionIndex = usePositionIndex()
 // ── Position & vaults ────────────────────────────────────────────────────
 const position: Ref<AccountBorrowPosition | null> = ref(null)
 
+const pairAssetsLabel = usePositionPairLabel(position)
 const fromVault = computed(() => position.value?.borrow)
 const collateralVault = computed(() => position.value?.collateral)
 const toVault: Ref<Vault | undefined> = ref()
@@ -331,6 +332,7 @@ const onToVaultChange = (selectedIndex: number) => {
         <VaultLabelsAndAssets
           :vault="fromVault"
           :assets="[fromVault.asset] as VaultAsset[]"
+          :assets-label="pairAssetsLabel"
           size="large"
         />
         <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">

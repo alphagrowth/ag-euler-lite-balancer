@@ -236,7 +236,8 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
                 <SvgIcon
                   v-if="bestRoe.hasRewards"
                   name="sparks"
-                  class="!w-20 !h-20 text-accent-500 shrink-0"
+                  class="!w-20 !h-20 text-accent-500 shrink-0 cursor-pointer hover:text-accent-400 transition-colors"
+                  @click="onMaxRoeInfoIconClick($event, bestRoe)"
                 />
                 <span class="shrink-0">{{ formatNumber(bestRoe.value, 2, 2) }}%</span>
                 <span
@@ -370,7 +371,8 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
               <SvgIcon
                 v-if="bestRoe.hasRewards"
                 name="sparks"
-                class="!w-20 !h-20 text-accent-500 shrink-0"
+                class="!w-20 !h-20 text-accent-500 shrink-0 cursor-pointer hover:text-accent-400 transition-colors"
+                @click="onMaxRoeInfoIconClick($event, bestRoe)"
               />
               {{ formatNumber(bestRoe.value, 2, 2) }}%
             </span>
