@@ -302,20 +302,22 @@ const send = async () => {
 }
 const isLtvDriven = ref(true)
 
+// Reactive borrow amount: uses FixedPoint throughout to avoid precision loss on large bigints.
+// Formula: additionalBorrow = borrowed * (newLtv - currentLtv) / currentLtv
 const computedBorrowAmount = computed(() => {
   if (!pair.value || !borrowVault.value) return null
   const borrowed = position.value?.borrowed || 0n
   if (borrowed === 0n || currentUserLTV.value <= 0) return null
 
-  const newLtv = ltvFixed.value.toUnsafeFloat()
-  if (newLtv <= currentUserLTV.value) return '0'
+  const newLtvFP = ltvFixed.value
+  const currentLtvFP = FixedPoint.fromValue(valueToNano(currentUserLTV.value, 4), 4)
+  if (currentLtvFP.isZero() || newLtvFP.lte(currentLtvFP)) return '0'
 
-  const ratio = (newLtv / currentUserLTV.value) - 1
-  const additionalNano = BigInt(Math.floor(Number(borrowed) * ratio))
-  if (additionalNano <= 0n) return '0'
-
-  const result = FixedPoint.fromValue(additionalNano, Number(borrowVault.value.decimals))
-  return trimTrailingZeros(result.toString())
+  const borrowedFP = FixedPoint.fromValue(borrowed, Number(borrowVault.value.decimals))
+  const delta = newLtvFP.subUnsafe(currentLtvFP)
+  const additional = borrowedFP.mul(delta).div(currentLtvFP)
+  if (additional.isZero() || additional.isNegative()) return '0'
+  return trimTrailingZeros(additional.toString())
 })
 
 watch(computedBorrowAmount, (val) => {

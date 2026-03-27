@@ -434,10 +434,15 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
       const priceFl = priceFixed.value.toUnsafeFloat()
       const amountFl = amount18.toUnsafeFloat()
 
+      // Only apply delta if this collateral is accepted by the controller (BLTV > 0)
+      const affectsLtv = borrowVault.value?.collateralLTVs.some(
+        ltv => ltv.collateral.toLowerCase() === collateralVault.value!.address.toLowerCase() && ltv.borrowLTV > 0n,
+      ) ?? false
+
       const collateralValueFl = totalValue !== null && priceFl > 0
         ? (options.mode === 'supply'
-            ? totalValue + amountFl * priceFl
-            : totalValue - amountFl * priceFl)
+            ? totalValue + (affectsLtv ? amountFl * priceFl : 0)
+            : totalValue - (affectsLtv ? amountFl * priceFl : 0))
         : (options.mode === 'supply'
             ? supplied18.add(amount18).mul(priceFixed.value).toUnsafeFloat()
             : supplied18.sub(amount18).mul(priceFixed.value).toUnsafeFloat())
