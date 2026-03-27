@@ -254,6 +254,7 @@ export const useMerkl = () => {
   const { client: rpcClient } = useRpcClient()
   const { writeContractAsync } = useWriteContract()
   const { chainId } = useEulerAddresses()
+  const { enableMerkl } = useDeployConfig()
 
   const ensureWalletOnCurrentChain = async () => {
     const targetChainId = chainId.value
@@ -330,7 +331,7 @@ export const useMerkl = () => {
       address.value = ''
     }
     // Force-refresh rewards when the connected wallet changes (skip initial mount)
-    if (oldVal && val && val !== oldVal && chainId.value) {
+    if (enableMerkl && oldVal && val && val !== oldVal && chainId.value) {
       loadRewards(chainId.value, true, true)
     }
   }, { immediate: true })
@@ -354,14 +355,14 @@ export const useMerkl = () => {
       cacheState.rewards = { chainId: 0, address: '', timestamp: 0 }
     }
 
-    if (!isLoaded.value) {
+    if (enableMerkl && !isLoaded.value) {
       loadOpportunities(chainId.value)
       loadTokens(chainId.value)
       loadRewards(chainId.value)
       isLoaded.value = true
     }
 
-    if (connected && !interval) {
+    if (enableMerkl && connected && !interval) {
       interval = setInterval(() => {
         loadRewards(chainId.value, false)
         loadOpportunities(chainId.value, false)
