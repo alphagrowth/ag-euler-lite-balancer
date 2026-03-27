@@ -96,6 +96,8 @@ const navigateToBorrow = (collateralAddress: string, borrowVaultAddress: string)
       v-if="tabs.length"
       v-model="tab"
       class="mb-12 mx-[-16px]"
+      rounded
+      pills
       :list="tabs"
     >
       <template #default="{ tab: slotTab }">
