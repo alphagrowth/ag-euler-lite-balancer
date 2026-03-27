@@ -17,7 +17,7 @@ import {
   eulerUtilsLensABI,
   eulerVaultLensABI,
 } from '~/entities/euler/abis'
-import { executeLensWithPythSimulation } from '~/utils/pyth'
+import { executeLensWithPythSimulation, executeBatchLensWithPythSimulation } from '~/utils/pyth'
 import { valueToNano } from '~/utils/crypto-utils'
 import { batchLensCalls } from '~/utils/multicall'
 
@@ -526,33 +526,37 @@ export const fetchVaults = async function* (
     // Re-fetch Pyth-powered vaults with simulation to get fresh prices
     // Pyth prices are only valid for ~2 minutes after on-chain update
     if (eulerCoreAddresses.value?.evc && PYTH_HERMES_URL) {
-      const pythVaultsToRefresh = validVaults.filter((vault) => {
-        const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
-        return feeds.length > 0
-      })
+      const pythVaultEntries = validVaults
+        .map((vault) => {
+          const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
+          return feeds.length > 0 ? { vaultAddress: vault.address, feeds } : null
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
 
-      if (pythVaultsToRefresh.length > 0) {
-        const refreshedVaults = await Promise.all(
-          pythVaultsToRefresh.map(async (vault) => {
-            const feeds = collectPythFeedIds(vault.oracleDetailedInfo)
-            const refreshed = await fetchVaultWithPythSimulation(
-              vault.address,
-              feeds,
-              rpcUrl.value,
-              eulerLensAddresses.value!.vaultLens,
-              eulerCoreAddresses.value!.evc,
-              PYTH_HERMES_URL,
-              verifiedVaultAddresses.value,
-            )
-            return refreshed || vault // Fall back to original if simulation fails
-          }),
+      if (pythVaultEntries.length > 0) {
+        const refreshedMap = await executeBatchLensWithPythSimulation<Record<string, unknown>>(
+          pythVaultEntries,
+          eulerLensAddresses.value!.vaultLens as Address,
+          eulerVaultLensABI,
+          'getVaultInfoFull',
+          eulerCoreAddresses.value!.evc,
+          rpcUrl.value,
+          PYTH_HERMES_URL,
         )
 
         if (chainId.value !== startChainId) return
 
-        // Replace original vaults with refreshed versions
-        const refreshedMap = new Map(refreshedVaults.map(v => [v.address, v]))
-        validVaults = validVaults.map(v => refreshedMap.get(v.address) || v)
+        validVaults = validVaults.map((vault) => {
+          const raw = refreshedMap.get(vault.address)
+          if (!raw) return vault
+          try {
+            return processRawVaultData(raw, vault.address, undefined, { verified: true })
+          }
+          catch (e) {
+            logWarn('vault/pythRefresh', e, { severity: 'error' })
+            return vault
+          }
+        })
       }
     }
 
@@ -581,7 +585,7 @@ export const fetchVaults = async function* (
   }
 }
 
-export const fetchEarnVaults = async function* (): AsyncGenerator<
+export const fetchEarnVaults = async function* (vaultAddresses?: string[]): AsyncGenerator<
   VaultIteratorResult<EarnVault>,
   void,
   unknown
@@ -611,7 +615,7 @@ export const fetchEarnVaults = async function* (): AsyncGenerator<
 
   const client = rpcClient.value!
 
-  const verifiedVaults = earnVaults.value
+  const verifiedVaults = vaultAddresses || earnVaults.value
 
   // Start block prefetch in parallel - will be awaited when needed for APY calculation
   const blockCachePromise = fetchBlockDataForAPY()

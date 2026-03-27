@@ -12,6 +12,9 @@ export type MulticallResult<T = unknown> = {
  * Execute multiple contract calls in a single RPC request using EVC batchSimulation.
  * This is more reliable than Multicall3 as EVC is guaranteed to exist on all Euler chains.
  *
+ * When batch items carry value (e.g. Pyth update fees), the total is automatically
+ * summed for msg.value and a balance state override is added for the caller.
+ *
  * @param evcAddress - EVC contract address
  * @param items - Array of batch items (target, data, value)
  * @param rpcUrl - JSON-RPC URL
@@ -27,6 +30,7 @@ export const evcBatchCall = async (
   }
 
   const client = getPublicClient(rpcUrl)
+  const totalValue = items.reduce((sum, item) => sum + item.value, 0n)
 
   try {
     const callData = encodeFunctionData({
@@ -38,7 +42,8 @@ export const evcBatchCall = async (
     const result = await client.call({
       to: evcAddress as Address,
       data: callData,
-      value: 0n,
+      value: totalValue,
+      ...(totalValue > 0n ? { stateOverride: [{ address: zeroAddress as `0x${string}`, balance: totalValue }] } : {}),
     })
 
     if (!result.data) {

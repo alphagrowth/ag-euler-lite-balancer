@@ -104,11 +104,11 @@ export const useWallets = () => {
           }) as bigint[]
           result.push(...batchResult)
         }
-        catch (e) {
+        catch {
           // Zero fallback: if the lens batch fails it's typically an RPC-level issue,
           // firing 200 individual balanceOf calls would make rate limiting worse.
           // Balances will be retried on the next polling tick.
-          logWarn('wallets/batchFetch', `Lens tokenBalances failed for chunk of ${batch.length}, using zero fallback`, e)
+          logWarn('wallets/batchFetch', `Lens tokenBalances failed for chunk of ${batch.length}, using zero fallback`)
           result.push(...batch.map(() => 0n))
         }
       }
