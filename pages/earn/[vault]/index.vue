@@ -231,6 +231,15 @@ watch(address, () => {
 <template>
   <div>
     <BaseBackButton class="laptop:!hidden mb-16" />
+
+    <VaultLabelsAndAssets
+      v-if="vault && asset"
+      class="mb-24"
+      :vault="vault"
+      :assets="assets"
+      size="large"
+    />
+
     <div class="flex gap-32">
       <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
         <VaultOverviewEarn
@@ -247,42 +256,34 @@ watch(address, () => {
         >
           <div
             v-if="vault && asset"
-            class="flex justify-between"
+            class="flex items-center justify-between"
           >
-            <VaultLabelsAndAssets
-              :vault="vault"
-              :assets="assets"
-              size="large"
-            />
+            <p class="text-h3 text-content-tertiary flex items-center gap-4">
+              Supply APY
+              <span class="inline-flex items-center rounded-8 px-8 py-2 bg-accent-100 text-accent-600 text-p5">
+                1h
+              </span>
+              <SvgIcon
+                class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+                name="info-circle"
+                @click="onSupplyInfoIconClick"
+              />
+            </p>
 
-            <div class="flex flex-col items-end justify-end">
-              <p class="mb-4 text-content-tertiary flex items-center gap-4">
-                Supply APY
-                <span class="inline-flex items-center rounded-8 px-8 py-2 bg-accent-100 text-accent-600 text-p5">
-                  1h
-                </span>
-                <SvgIcon
-                  class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
-                  name="info-circle"
-                  @click="onSupplyInfoIconClick"
-                />
-              </p>
-
-              <p class="flex justify-end gap-4 text-h3">
-                <VaultPoints
-                  :vault="vault"
-                />
-                <SvgIcon
-                  v-if="hasRewards"
-                  class="!w-24 !h-24 text-accent-500 cursor-pointer"
-                  name="sparks"
-                  @click="onSupplyInfoIconClick"
-                />
-                <span>
-                  {{ supplyAPYDisplay }}%
-                </span>
-              </p>
-            </div>
+            <p class="flex items-center gap-4 text-h3">
+              <VaultPoints
+                :vault="vault"
+              />
+              <SvgIcon
+                v-if="hasRewards"
+                class="!w-24 !h-24 text-accent-500 cursor-pointer"
+                name="sparks"
+                @click="onSupplyInfoIconClick"
+              />
+              <span>
+                {{ supplyAPYDisplay }}%
+              </span>
+            </p>
           </div>
 
           <AssetInput

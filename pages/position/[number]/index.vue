@@ -703,6 +703,10 @@ watch([isConnected, isSpyMode], () => {
       </div>
     </template>
     <template v-else-if="position">
+      <div class="text-h6 text-content-secondary bg-surface-elevated py-4 px-12 rounded-8 border border-line-default self-start">
+        Position {{ positionIndex }}
+      </div>
+
       <VaultLabelsAndAssets
         :vault="position.collateral"
         :assets="pairAssets"
@@ -778,12 +782,8 @@ watch([isConnected, isSpyMode], () => {
         v-if="!hasNoBorrow"
         class="rounded-12 bg-card border border-line-default shadow-card p-16"
       >
-        <div class="text-h4 text-neutral-800 flex items-center flex-wrap gap-12 mb-16">
+        <div class="text-h4 text-neutral-800 mb-16">
           Position risk
-
-          <div class="text-h6 text-content-secondary bg-surface-elevated py-4 px-12 rounded-8 border border-line-default">
-            Position {{ positionIndex }}
-          </div>
         </div>
         <div class="flex justify-between gap-8 flex-wrap mb-16">
           <div class="text-neutral-500 text-p3">

@@ -364,6 +364,16 @@ watch(formTab, () => {
 <template>
   <div>
     <BaseBackButton class="laptop:!hidden mb-16" />
+
+    <VaultLabelsAndAssets
+      v-if="collateralVault && borrowVault"
+      class="mb-24"
+      :vault="collateralVault"
+      :pair-vault="borrowVault"
+      :assets="pairAssets as VaultAsset[]"
+      size="large"
+    />
+
     <div class="flex gap-32">
       <div
         v-if="pair"
@@ -373,6 +383,8 @@ watch(formTab, () => {
           v-if="tabs.length"
           v-model="tab"
           class="mb-12 min-w-0"
+          rounded
+          pills
           :list="tabs"
         >
           <template #default="{ tab: slotTab }">
@@ -430,14 +442,6 @@ watch(formTab, () => {
               rounded
               pills
               :list="formTabs"
-            />
-
-            <VaultLabelsAndAssets
-              v-if="collateralVault && borrowVault"
-              :vault="collateralVault"
-              :pair-vault="borrowVault"
-              :assets="pairAssets as VaultAsset[]"
-              size="large"
             />
 
             <template v-if="formTab === 'borrow'">
