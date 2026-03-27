@@ -313,11 +313,16 @@ This is a `staticCall` - no transaction is sent, no gas is spent, and the state 
 
 ### Where Pyth Simulation Is Used
 
-**Vault fetching** (`entities/vault/fetcher.ts: fetchVault`):
+**Bulk vault fetching** (`entities/vault/fetcher.ts: fetchVaults`):
+1. Batch-fetch vaults via `batchLensCalls()` (fast path).
+2. Collect all Pyth-enabled vaults via `collectPythFeedIds()`.
+3. Batch re-fetch all Pyth vaults in a single `batchSimulation` via `executeBatchLensWithPythSimulation()`.
+4. Replace vault data with simulation results (contains fresh prices in `liabilityPriceInfo` and `collateralPrices[]`).
+
+**Single vault fetching** (`entities/vault/fetcher.ts: fetchVault`):
 1. Call `vaultLens.getVaultInfoFull()` normally (fast path).
-2. Check `collectPythFeedIds(vault.oracleDetailedInfo)`.
-3. If Pyth detected: re-query with `fetchVaultWithPythSimulation()`.
-4. Replace vault data with simulation result (contains fresh prices in `liabilityPriceInfo` and `collateralPrices[]`).
+2. If Pyth detected: re-query with `fetchVaultWithPythSimulation()` → `executeLensWithPythSimulation()`.
+3. Replace vault data with simulation result.
 
 **Borrow position loading** (`composables/useEulerAccount.ts: updateBorrowPositions`):
 1. Pre-fetch the borrow vault to check for Pyth oracles.
