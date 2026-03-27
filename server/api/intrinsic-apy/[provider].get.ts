@@ -76,9 +76,9 @@ export default defineEventHandler(async (event) => {
   let cacheKey: string
 
   if (provider === 'pendle') {
-    const chainId = query.chainId as string
-    const market = query.market as string
-    if (!chainId || !market || !/^0x[a-fA-F0-9]{40}$/.test(market)) {
+    const chainId = typeof query.chainId === 'string' ? query.chainId : undefined
+    const market = typeof query.market === 'string' ? query.market : undefined
+    if (!chainId || !/^\d+$/.test(chainId) || !market || !/^0x[a-fA-F0-9]{40}$/.test(market)) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid pendle params' })
     }
     url = `${PENDLE_API_BASE}/${chainId}/markets/${market}/data`
