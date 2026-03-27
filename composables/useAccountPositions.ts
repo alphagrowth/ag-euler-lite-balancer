@@ -4,18 +4,18 @@ import { useVaultRegistry } from './useVaultRegistry'
 import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
 import type { SubgraphPositionEntry } from '~/utils/subgraph'
-import { eulerAccountLensABI } from '~/entities/euler/abis'
+import { eulerAccountLensABI, eulerVaultLensABI } from '~/entities/euler/abis'
 import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
 import { createRaceGuard } from '~/utils/race-guard'
 import { BPS_BASE } from '~/entities/tuning-constants'
 import type {
   AccountBorrowPosition, AccountDepositPosition,
 } from '~/entities/account'
-import {
-  fetchVault,
-  type Vault,
-  type SecuritizeVault,
+import type {
+  Vault,
+  SecuritizeVault,
 } from '~/entities/vault'
+import { processRawVaultData } from '~/entities/vault/fetcher'
 import { getCollateralUsdPrice } from '~/services/pricing/priceProvider'
 import { collectPythFeedIds } from '~/entities/oracle'
 import { executeBatchLensWithPythSimulation } from '~/utils/pyth'
@@ -181,8 +181,57 @@ const updateBorrowPositions = async (
 
   if (positionGuard.isStale(gen)) return
 
+  // ── Pyth vault refresh: batch-fetch fresh vault data for Pyth borrow vaults ──
+  // Collect unique Pyth borrow vaults that need fresh price data
+  const { verifiedVaultAddresses } = useEulerLabels()
+  const pythVaultRefreshMap = new Map<string, Vault>()
+
+  const pythRefreshEntries: Array<{ key: string, feeds: ReturnType<typeof collectPythFeedIds>, args: unknown[] }> = []
+  const seenPythVaults = new Set<string>()
+
+  for (const { entry, vault: prefetchedVault } of entryVaults) {
+    const key = `${entry.subAccount}:${entry.vault}`
+    const res = accountInfoMap.get(key)
+    if (!res || !res.evcAccountInfo.enabledControllers.length || res.vaultAccountInfo.borrowed === 0n) continue
+
+    const borrowAddress = getAddress(res.evcAccountInfo.enabledControllers[0])
+    const borrow = prefetchedVault && prefetchedVault.address.toLowerCase() === borrowAddress.toLowerCase()
+      ? prefetchedVault
+      : await getOrFetch(borrowAddress) as Vault | undefined
+    if (!borrow || !hasPythOracles(borrow) || seenPythVaults.has(borrow.address)) continue
+
+    const feeds = collectPythFeedIds(borrow.oracleDetailedInfo)
+    if (feeds.length > 0) {
+      seenPythVaults.add(borrow.address)
+      pythRefreshEntries.push({ key: borrow.address, feeds, args: [borrow.address] })
+    }
+  }
+
+  if (pythRefreshEntries.length > 0 && PYTH_HERMES_URL && eulerLensAddresses.vaultLens) {
+    const refreshedMap = await executeBatchLensWithPythSimulation<Record<string, unknown>>(
+      pythRefreshEntries,
+      eulerLensAddresses.vaultLens as Address,
+      eulerVaultLensABI as Abi,
+      'getVaultInfoFull',
+      evcAddress,
+      rpcUrl.value,
+      PYTH_HERMES_URL,
+    )
+
+    for (const [vaultAddr, raw] of refreshedMap) {
+      if (!raw) continue
+      try {
+        pythVaultRefreshMap.set(vaultAddr, processRawVaultData(raw, vaultAddr, verifiedVaultAddresses.value))
+      }
+      catch (e) {
+        logWarn('updateBorrowPositions/pythRefresh', e)
+      }
+    }
+  }
+
+  if (positionGuard.isStale(gen)) return
+
   // ── Phase B: Process results, batch getVaultAccountInfo calls ───────
-  // First pass: process getAccountInfo results and collect collateral lookups needed
   type ProcessedEntry = {
     entry: SubgraphPositionEntry
     res: LensAccountInfo
@@ -192,7 +241,6 @@ const updateBorrowPositions = async (
     collateralAddress: string
   }
   const processed: ProcessedEntry[] = []
-  const pythRefreshCache = new Map<string, Promise<Vault | undefined>>()
 
   for (const { entry, vault: prefetchedVault } of entryVaults) {
     const key = `${entry.subAccount}:${entry.vault}`
@@ -211,21 +259,10 @@ const updateBorrowPositions = async (
       : await getOrFetch(borrowAddress) as Vault | undefined
     if (!borrow) continue
 
-    // If borrow vault uses Pyth oracles, always fetch fresh prices
-    if (hasPythOracles(borrow)) {
-      const refreshKey = getAddress(borrowAddress)
-      let freshPromise = pythRefreshCache.get(refreshKey)
-      if (!freshPromise) {
-        freshPromise = fetchVault(refreshKey).catch(() => {
-          pythRefreshCache.delete(refreshKey)
-          return undefined
-        })
-        pythRefreshCache.set(refreshKey, freshPromise)
-      }
-      const freshBorrow = await freshPromise
-      if (freshBorrow) {
-        borrow = freshBorrow
-      }
+    // Use batch-refreshed vault data if available (Pyth vaults with fresh prices)
+    const refreshed = pythVaultRefreshMap.get(getAddress(borrow.address))
+    if (refreshed) {
+      borrow = refreshed
     }
 
     let collateralAddress: string | undefined
