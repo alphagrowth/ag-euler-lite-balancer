@@ -16,13 +16,13 @@ defineOptions({
   name: 'LendPage',
 })
 
-const { borrowList, isUpdating } = useVaults()
+const { borrowList, isEVKUpdating } = useVaults()
 const { getVerifiedEvkVaults } = useVaultRegistry()
 const { chainId } = useEulerAddresses()
 const list = computed(() => getVerifiedEvkVaults())
 
 const isPricesReady = ref(false)
-const isLoading = computed(() => isUpdating.value || !isPricesReady.value)
+const isLoading = computed(() => isEVKUpdating.value || !isPricesReady.value)
 const { isSlow } = useSlowLoading(isLoading)
 const { entities } = useEulerLabels()
 const { withIntrinsicSupplyApy } = useIntrinsicApy()

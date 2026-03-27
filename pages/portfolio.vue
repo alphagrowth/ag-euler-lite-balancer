@@ -97,7 +97,7 @@ watch(portfolioRefreshCounter, () => {
         <span class="text-h6 text-content-secondary">Show all</span>
         <UiFootnote
           title="Show all"
-          text="When enabled, shows positions and deposits in the hidden (unknown) vaults."
+          text="When enabled, shows positions and deposits in unverified vaults. Interacting with unverified vaults may pose security risks, as such vaults could potentially be used for phishing attempts. Ensure you trust the source before continuing."
           tooltip-placement="top-end"
         />
         <UiSwitch
@@ -105,6 +105,8 @@ watch(portfolioRefreshCounter, () => {
         />
       </div>
     </div>
+
+    <PortfolioShowAllHint />
 
     <div class="flex flex-col gap-16 p-16 rounded-12 mx-16 border border-line-default bg-card shadow-card">
       <div class="flex justify-between items-center">

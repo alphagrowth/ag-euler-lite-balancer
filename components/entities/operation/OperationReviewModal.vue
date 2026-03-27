@@ -212,9 +212,6 @@ const permit2DisclaimerText = 'You are granting the permit2 contract unlimited a
         v-if="displaySteps.length"
         class="flex flex-col gap-8"
       >
-        <p class="text-p3 text-content-primary">
-          Transaction steps
-        </p>
         <div class="bg-surface-secondary rounded-12 p-12 flex flex-col gap-8">
           <OperationStepsList :steps="displaySteps" />
         </div>

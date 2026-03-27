@@ -114,9 +114,6 @@ const CONNECT_SRC_BASE = [
   'https://cca-lite.coinbase.com',
   // External data APIs
   'https://api.fuul.xyz',
-  'https://yields.llama.fi',
-  'https://api-v2.pendle.finance',
-  'https://public-feed.securitize.io',
   // Reown AppKit SDK version check
   'https://registry.npmjs.org',
   // RPC providers (wildcard — operators configure per chain)

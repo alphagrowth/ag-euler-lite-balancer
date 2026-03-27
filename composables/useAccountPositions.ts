@@ -7,7 +7,7 @@ import type { SubgraphPositionEntry } from '~/utils/subgraph'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import type { EulerLensAddresses } from '~/composables/useEulerAddresses'
 import { createRaceGuard } from '~/utils/race-guard'
-import { BATCH_SIZE_RPC_CALLS, BPS_BASE } from '~/entities/tuning-constants'
+import { BPS_BASE } from '~/entities/tuning-constants'
 import type {
   AccountBorrowPosition, AccountDepositPosition,
 } from '~/entities/account'
@@ -18,7 +18,8 @@ import {
 } from '~/entities/vault'
 import { getCollateralUsdPrice } from '~/services/pricing/priceProvider'
 import { collectPythFeedIds } from '~/entities/oracle'
-import { executeLensWithPythSimulation } from '~/utils/pyth'
+import { executeBatchLensWithPythSimulation } from '~/utils/pyth'
+import { batchLensCalls } from '~/utils/multicall'
 import {
   type LensAccountInfo,
   type LensVaultAccountInfo,
@@ -39,6 +40,8 @@ const isPositionsLoaded = ref(false)
 const isDepositsLoading = ref(true)
 const isDepositsLoaded = ref(false)
 const isShowAllPositions = ref(false)
+const hiddenBorrowCount = ref(0)
+const hiddenDepositCount = ref(0)
 
 // Generation counter to invalidate stale in-flight position fetches after chain switch.
 // Incremented on chain change; async operations capturing an older generation discard results.
@@ -52,6 +55,7 @@ const updateBorrowPositions = async (
   options: { forceAllPositions?: boolean } = {},
 ) => {
   const gen = positionGuard.current()
+  hiddenBorrowCount.value = 0
 
   if (isInitialLoading) {
     isPositionsLoaded.value = false
@@ -67,7 +71,7 @@ const updateBorrowPositions = async (
   }
 
   const { PYTH_HERMES_URL } = useEulerConfig()
-  const { client: rpcClient, rpcUrl } = useRpcClient()
+  const { rpcUrl } = useRpcClient()
   const { getOrFetch } = useVaultRegistry()
   const { eulerCoreAddresses } = useEulerAddresses()
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
@@ -77,282 +81,330 @@ const updateBorrowPositions = async (
     throw new Error('Euler addresses not loaded yet')
   }
 
-  const client = rpcClient.value!
-
-  let borrows: AccountBorrowPosition[] = []
-  const batchSize = BATCH_SIZE_RPC_CALLS
-  const pythRefreshCache = new Map<string, Promise<Vault | undefined>>()
-
-  for (let i = 0; i < borrowEntries.length; i += batchSize) {
-    if (positionGuard.isStale(gen)) return
-
-    const batch = borrowEntries
-      .slice(i, i + batchSize)
-      .map(async (entry) => {
-        const vaultAddress = entry.vault
-        const subAccount = entry.subAccount
-
-        // Pre-fetch borrow vault to check for Pyth oracles
-        const borrowVault = await getOrFetch(vaultAddress) as Vault | undefined
-
-        let res: LensAccountInfo | undefined
-        try {
-          // Check if vault uses Pyth oracles and we can use simulation
-          const pythFeeds = borrowVault ? collectPythFeedIds(borrowVault.oracleDetailedInfo) : []
-          const canUsePythSimulation = pythFeeds.length > 0
-            && PYTH_HERMES_URL
-            && eulerCoreAddresses.value?.evc
-
-          if (canUsePythSimulation) {
-            // Use batchSimulation with Pyth updates for fresh oracle prices
-            const result = await executeLensWithPythSimulation(
-              pythFeeds,
-              eulerLensAddresses.accountLens as Address,
-              eulerAccountLensABI as Abi,
-              'getAccountInfo',
-              [subAccount, vaultAddress],
-              eulerCoreAddresses.value!.evc,
-              rpcUrl.value,
-              PYTH_HERMES_URL!,
-            ) as LensAccountInfo | undefined
-            if (result) {
-              res = result
-            }
-          }
-
-          // Direct call: either non-Pyth vault, or Pyth simulation failed/returned nothing
-          if (!res) {
-            res = await client.readContract({
-              address: eulerLensAddresses.accountLens as Address,
-              abi: eulerAccountLensABI as Abi,
-              functionName: 'getAccountInfo',
-              args: [subAccount, vaultAddress],
-            }) as LensAccountInfo
-          }
-        }
-        catch (err) {
-          logWarn('updateBorrowPositions', err)
-          return undefined
-        }
-
-        if (!res || !res.evcAccountInfo.enabledControllers.length || !res.evcAccountInfo.enabledCollaterals.length || res.vaultAccountInfo.borrowed === 0n) {
-          return undefined
-        }
-
-        const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map(collateral => getAddress(collateral))
-        const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
-
-        const borrowAddress = getAddress(res.evcAccountInfo.enabledControllers[0])
-        // Use pre-fetched vault if it matches, otherwise fetch
-        let borrow = borrowVault && borrowVault.address.toLowerCase() === borrowAddress.toLowerCase()
-          ? borrowVault
-          : await getOrFetch(borrowAddress) as Vault | undefined
-        if (!borrow) {
-          return undefined
-        }
-
-        // If borrow vault uses Pyth oracles, always fetch fresh prices
-        // (Pyth prices are only valid for ~2 minutes and require continuous updates)
-        if (hasPythOracles(borrow)) {
-          const key = getAddress(borrowAddress)
-          let freshPromise = pythRefreshCache.get(key)
-          if (!freshPromise) {
-            freshPromise = fetchVault(key).catch(() => {
-              pythRefreshCache.delete(key)
-              return undefined
-            })
-            pythRefreshCache.set(key, freshPromise)
-          }
-          const freshBorrow = await freshPromise
-          if (freshBorrow) {
-            borrow = freshBorrow
-          }
-        }
-
-        let collateralAddress: string | undefined
-        const collateralCandidates = collaterals.length ? collaterals : enabledCollateralsList
-        for (const addr of collateralCandidates) {
-          if (borrow.collateralLTVs.some(ltv => getAddress(ltv.collateral) === addr)) {
-            collateralAddress = addr
-            break
-          }
-        }
-
-        if (!collateralAddress) {
-          collateralAddress = collateralCandidates[0]
-        }
-
-        if (!collateralAddress) {
-          return undefined
-        }
-
-        // Use unified resolution for collateral vault (handles EVK, escrow, and securitize)
-        // Note: Collateral PRICES come from borrow.collateralPrices[], which are already
-        // refreshed when we fetch the borrow vault with Pyth simulation above.
-        // The collateral vault only provides totalAssets/totalShares for share→asset conversion.
-        const collateral = await getOrFetch(collateralAddress) as Vault | SecuritizeVault | undefined
-
-        if (!collateral) {
-          return undefined
-        }
-
-        // Skip positions where either vault is unverified (unless showing all positions)
-        if (!shouldShowAllPositions && (!borrow.verified || !collateral.verified)) {
-          return undefined
-        }
-
-        // Fetch actual collateral balance — doesn't depend on the oracle
-        let suppliedAssets = 0n
-        try {
-          const collateralRes = await client.readContract({
-            address: eulerLensAddresses.accountLens as Address,
-            abi: eulerAccountLensABI as Abi,
-            functionName: 'getVaultAccountInfo',
-            args: [subAccount, collateralAddress],
-          }) as LensVaultAccountInfo
-          suppliedAssets = toBigInt(collateralRes.assets)
-        }
-        catch {
-          // Collateral amount unavailable
-        }
-
-        const liquidityInfo = res.vaultAccountInfo.liquidityInfo
-        const hasQueryFailure = Boolean(liquidityInfo.queryFailure)
-
-        if (hasQueryFailure) {
-          // LTV config comes from vault governance, not oracle
-          const ltvConfig = borrow.collateralLTVs.find(ltv =>
-            getAddress(ltv.collateral) === getAddress(collateral.address),
-          )
-
-          return {
-            borrow,
-            collateral,
-            collaterals,
-            subAccount,
-            borrowed: res.vaultAccountInfo.borrowed,
-            supplied: suppliedAssets,
-            borrowLTV: ltvConfig?.borrowLTV ?? 0n,
-            liquidationLTV: ltvConfig?.liquidationLTV ?? 0n,
-            // Oracle-dependent fields — genuinely unavailable
-            health: 0n,
-            userLTV: 0n,
-            price: 0n,
-            liabilityValueBorrowing: 0n,
-            liabilityValueLiquidation: 0n,
-            timeToLiquidation: 0n,
-            collateralValueLiquidation: 0n,
-            liquidityQueryFailure: true,
-          } as AccountBorrowPosition
-        }
-
-        const collateralValueLiquidation = liquidityInfo.collateralValueLiquidation
-        const collateralValueRaw = liquidityInfo.collateralValueRaw
-        let liabilityValueBorrowing = liquidityInfo.liabilityValueBorrowing
-
-        // Compute effective LTVs from aggregates (handles multi-collateral correctly)
-        const liquidationLTV = collateralValueRaw > 0n
-          ? collateralValueLiquidation * BPS_BASE / collateralValueRaw
-          : 0n
-        const effectiveBorrowLTV = collateralValueRaw > 0n
-          ? liquidityInfo.collateralValueBorrowing * BPS_BASE / collateralValueRaw
-          : 0n
-
-        if (liabilityValueBorrowing === 0n && res.vaultAccountInfo.borrowed > 0n) {
-          logWarn('updateBorrowPositions', 'liabilityValueBorrowing is 0 but borrowed amount exists, calculating manually')
-          const borrowedInUnitOfAccount = FixedPoint.fromValue(res.vaultAccountInfo.borrowed, borrow.decimals)
-            .mul(FixedPoint.fromValue(borrow.liabilityPriceInfo.amountOutMid, 18))
-            .div(FixedPoint.fromValue(borrow.liabilityPriceInfo.amountIn, 0))
-          liabilityValueBorrowing = borrowedInUnitOfAccount.value
-        }
-        const healthFixed = liabilityValueBorrowing === 0n
-          ? FixedPoint.fromValue(0n, 18)
-          : FixedPoint.fromValue(collateralValueLiquidation, 18).div(FixedPoint.fromValue(liabilityValueBorrowing, 18))
-
-        const userLTVFixed = healthFixed.isZero()
-          ? FixedPoint.fromValue(0n, 18)
-          : FixedPoint.fromValue(liquidationLTV * (10n ** 16n), 18).div(healthFixed)
-        const userLTV = userLTVFixed.value
-
-        // Get collateral price in USD for liquidation price calculation
-        const collateralPriceUsd = await getCollateralUsdPrice(borrow, collateral, 'off-chain')
-
-        // Missing price — return position with degraded state (same pattern as oracle query failure)
-        if (!collateralPriceUsd) {
-          return {
-            borrow,
-            collateral,
-            collaterals,
-            subAccount,
-            borrowed: res.vaultAccountInfo.borrowed,
-            supplied: suppliedAssets,
-            borrowLTV: effectiveBorrowLTV,
-            liquidationLTV,
-            health: healthFixed.value,
-            userLTV,
-            price: 0n,
-            liabilityValueBorrowing,
-            liabilityValueLiquidation: liquidityInfo.liabilityValueLiquidation,
-            timeToLiquidation: liquidityInfo.timeToLiquidation,
-            collateralValueLiquidation,
-            liquidityQueryFailure: true,
-          } as AccountBorrowPosition
-        }
-
-        const supplyLiquidationPriceRatio = collateralValueLiquidation === 0n
-          ? FixedPoint.fromValue(0n, 18)
-          : FixedPoint.fromValue(liabilityValueBorrowing, 18)
-              .div(FixedPoint.fromValue(collateralValueLiquidation, 18))
-
-        // Use USD price for display (already converted from UoA)
-        const currentCollateralPriceUsd = FixedPoint.fromValue(collateralPriceUsd.amountOutMid, 18)
-
-        const price = currentCollateralPriceUsd.mul(supplyLiquidationPriceRatio).value
-
-        return {
-          borrow,
-          collateral,
-          collaterals,
-          subAccount,
-          borrowLTV: effectiveBorrowLTV,
-          timeToLiquidation: liquidityInfo.timeToLiquidation,
-          health: healthFixed.value,
-          borrowed: res.vaultAccountInfo.borrowed,
-          price,
-          userLTV,
-          supplied: suppliedAssets,
-          liabilityValueBorrowing,
-          liabilityValueLiquidation: liquidityInfo.liabilityValueLiquidation,
-          liquidationLTV,
-          collateralValueLiquidation,
-        } as AccountBorrowPosition
-      })
-
-    const batchResults = await Promise.all(batch)
-    const validResults = batchResults.filter(o => !!o) as AccountBorrowPosition[]
-    borrows = [...borrows, ...validResults]
+  const evcAddress = eulerCoreAddresses.value?.evc
+  if (!evcAddress) {
+    throw new Error('EVC address not loaded yet')
   }
-  // Discard results if chain switched during fetch
+
+  // ── Phase A: Batch all getAccountInfo calls ─────────────────────────
+  // Pre-resolve vaults from registry (should be cache hits) to classify Pyth vs non-Pyth
+  const entryVaults = await Promise.all(
+    borrowEntries.map(async entry => ({
+      entry,
+      vault: await getOrFetch(entry.vault) as Vault | undefined,
+    })),
+  )
+
   if (positionGuard.isStale(gen)) return
 
-  const collateralPositions: AccountBorrowPosition[] = []
+  // Split into Pyth and non-Pyth groups
+  type PythEntry = { key: string, entry: SubgraphPositionEntry, vault: Vault, feeds: ReturnType<typeof collectPythFeedIds> }
+  type NonPythEntry = { key: string, entry: SubgraphPositionEntry, vault: Vault | undefined }
+
+  const pythEntries: PythEntry[] = []
+  const nonPythEntries: NonPythEntry[] = []
+
+  for (const { entry, vault } of entryVaults) {
+    const key = `${entry.subAccount}:${entry.vault}`
+    const feeds = vault ? collectPythFeedIds(vault.oracleDetailedInfo) : []
+    const canUsePyth = feeds.length > 0 && PYTH_HERMES_URL && evcAddress
+
+    if (canUsePyth && vault) {
+      pythEntries.push({ key, entry, vault, feeds })
+    }
+    else {
+      nonPythEntries.push({ key, entry, vault })
+    }
+  }
+
+  // Batch non-Pyth getAccountInfo calls via EVC batchSimulation
+  const accountInfoMap = new Map<string, LensAccountInfo>()
+
+  if (nonPythEntries.length > 0) {
+    const calls = nonPythEntries.map(({ entry }) => ({
+      functionName: 'getAccountInfo',
+      args: [entry.subAccount, entry.vault],
+    }))
+
+    const results = await batchLensCalls<LensAccountInfo>(
+      evcAddress,
+      eulerLensAddresses.accountLens,
+      eulerAccountLensABI as Abi,
+      calls,
+      rpcUrl.value,
+    )
+
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].success && results[i].result) {
+        accountInfoMap.set(nonPythEntries[i].key, results[i].result!)
+      }
+    }
+  }
+
+  if (positionGuard.isStale(gen)) return
+
+  // Batch Pyth getAccountInfo calls with simulation
+  if (pythEntries.length > 0 && PYTH_HERMES_URL) {
+    const batchEntries = pythEntries.map(({ key, entry, feeds }) => ({
+      key,
+      feeds,
+      args: [entry.subAccount, entry.vault],
+    }))
+
+    const pythResults = await executeBatchLensWithPythSimulation<LensAccountInfo>(
+      batchEntries,
+      eulerLensAddresses.accountLens as Address,
+      eulerAccountLensABI as Abi,
+      'getAccountInfo',
+      evcAddress,
+      rpcUrl.value,
+      PYTH_HERMES_URL,
+    )
+
+    for (const [key, result] of pythResults) {
+      if (result) {
+        accountInfoMap.set(key, result)
+      }
+    }
+  }
+
+  if (positionGuard.isStale(gen)) return
+
+  // ── Phase B: Process results, batch getVaultAccountInfo calls ───────
+  // First pass: process getAccountInfo results and collect collateral lookups needed
+  type ProcessedEntry = {
+    entry: SubgraphPositionEntry
+    res: LensAccountInfo
+    borrowVault: Vault
+    collateral: Vault | SecuritizeVault
+    collaterals: string[]
+    collateralAddress: string
+  }
+  const processed: ProcessedEntry[] = []
+  let hiddenBorrows = 0
+  const pythRefreshCache = new Map<string, Promise<Vault | undefined>>()
+
+  for (const { entry, vault: prefetchedVault } of entryVaults) {
+    const key = `${entry.subAccount}:${entry.vault}`
+    const res = accountInfoMap.get(key)
+
+    if (!res || !res.evcAccountInfo.enabledControllers.length || !res.evcAccountInfo.enabledCollaterals.length || res.vaultAccountInfo.borrowed === 0n) {
+      continue
+    }
+
+    const enabledCollateralsList = res.evcAccountInfo.enabledCollaterals.map(c => getAddress(c))
+    const collaterals = resolvePositionCollaterals(res.vaultAccountInfo?.liquidityInfo, enabledCollateralsList)
+
+    const borrowAddress = getAddress(res.evcAccountInfo.enabledControllers[0])
+    let borrow = prefetchedVault && prefetchedVault.address.toLowerCase() === borrowAddress.toLowerCase()
+      ? prefetchedVault
+      : await getOrFetch(borrowAddress) as Vault | undefined
+    if (!borrow) continue
+
+    // If borrow vault uses Pyth oracles, always fetch fresh prices
+    if (hasPythOracles(borrow)) {
+      const refreshKey = getAddress(borrowAddress)
+      let freshPromise = pythRefreshCache.get(refreshKey)
+      if (!freshPromise) {
+        freshPromise = fetchVault(refreshKey).catch(() => {
+          pythRefreshCache.delete(refreshKey)
+          return undefined
+        })
+        pythRefreshCache.set(refreshKey, freshPromise)
+      }
+      const freshBorrow = await freshPromise
+      if (freshBorrow) {
+        borrow = freshBorrow
+      }
+    }
+
+    let collateralAddress: string | undefined
+    const collateralCandidates = collaterals.length ? collaterals : enabledCollateralsList
+    for (const addr of collateralCandidates) {
+      if (borrow.collateralLTVs.some(ltv => getAddress(ltv.collateral) === addr)) {
+        collateralAddress = addr
+        break
+      }
+    }
+    if (!collateralAddress) collateralAddress = collateralCandidates[0]
+    if (!collateralAddress) continue
+
+    const collateral = await getOrFetch(collateralAddress) as Vault | SecuritizeVault | undefined
+    if (!collateral) continue
+
+    if (!shouldShowAllPositions && (!borrow.verified || !collateral.verified)) {
+      hiddenBorrows++
+      continue
+    }
+
+    processed.push({
+      entry,
+      res,
+      borrowVault: borrow,
+      collateral,
+      collaterals,
+      collateralAddress,
+    })
+  }
+
+  if (positionGuard.isStale(gen)) return
+
+  // Batch all getVaultAccountInfo calls for collateral balances
+  const collateralAssets = new Map<string, bigint>()
+
+  if (processed.length > 0) {
+    const collateralCalls = processed.map(p => ({
+      functionName: 'getVaultAccountInfo',
+      args: [p.entry.subAccount, p.collateralAddress],
+    }))
+
+    const collateralResults = await batchLensCalls<LensVaultAccountInfo>(
+      evcAddress,
+      eulerLensAddresses.accountLens,
+      eulerAccountLensABI as Abi,
+      collateralCalls,
+      rpcUrl.value,
+    )
+
+    for (let i = 0; i < collateralResults.length; i++) {
+      const r = collateralResults[i]
+      if (r.success && r.result) {
+        const key = `${processed[i].entry.subAccount}:${processed[i].collateralAddress}`
+        collateralAssets.set(key, toBigInt(r.result.assets))
+      }
+    }
+  }
+
+  if (positionGuard.isStale(gen)) return
+
+  // ── Build final positions ───────────────────────────────────────────
+  const borrowResults = await Promise.all(processed.map(async (p) => {
+    const suppliedAssets = collateralAssets.get(`${p.entry.subAccount}:${p.collateralAddress}`) ?? 0n
+
+    const liquidityInfo = p.res.vaultAccountInfo.liquidityInfo
+    const hasQueryFailure = Boolean(liquidityInfo.queryFailure)
+
+    if (hasQueryFailure) {
+      const ltvConfig = p.borrowVault.collateralLTVs.find(ltv =>
+        getAddress(ltv.collateral) === getAddress(p.collateral.address),
+      )
+      return {
+        borrow: p.borrowVault,
+        collateral: p.collateral,
+        collaterals: p.collaterals,
+        subAccount: p.entry.subAccount,
+        borrowed: p.res.vaultAccountInfo.borrowed,
+        supplied: suppliedAssets,
+        borrowLTV: ltvConfig?.borrowLTV ?? 0n,
+        liquidationLTV: ltvConfig?.liquidationLTV ?? 0n,
+        health: 0n,
+        userLTV: 0n,
+        price: 0n,
+        liabilityValueBorrowing: 0n,
+        liabilityValueLiquidation: 0n,
+        timeToLiquidation: 0n,
+        collateralValueLiquidation: 0n,
+        liquidityQueryFailure: true,
+      } as AccountBorrowPosition
+    }
+
+    const collateralValueLiquidation = liquidityInfo.collateralValueLiquidation
+    const collateralValueRaw = liquidityInfo.collateralValueRaw
+    let liabilityValueBorrowing = liquidityInfo.liabilityValueBorrowing
+
+    const liquidationLTV = collateralValueRaw > 0n
+      ? collateralValueLiquidation * BPS_BASE / collateralValueRaw
+      : 0n
+    const effectiveBorrowLTV = collateralValueRaw > 0n
+      ? liquidityInfo.collateralValueBorrowing * BPS_BASE / collateralValueRaw
+      : 0n
+
+    if (liabilityValueBorrowing === 0n && p.res.vaultAccountInfo.borrowed > 0n) {
+      logWarn('updateBorrowPositions', 'liabilityValueBorrowing is 0 but borrowed amount exists, calculating manually')
+      const borrowedInUnitOfAccount = FixedPoint.fromValue(p.res.vaultAccountInfo.borrowed, p.borrowVault.decimals)
+        .mul(FixedPoint.fromValue(p.borrowVault.liabilityPriceInfo.amountOutMid, 18))
+        .div(FixedPoint.fromValue(p.borrowVault.liabilityPriceInfo.amountIn, 0))
+      liabilityValueBorrowing = borrowedInUnitOfAccount.value
+    }
+
+    const healthFixed = liabilityValueBorrowing === 0n
+      ? FixedPoint.fromValue(0n, 18)
+      : FixedPoint.fromValue(collateralValueLiquidation, 18).div(FixedPoint.fromValue(liabilityValueBorrowing, 18))
+
+    const userLTVFixed = healthFixed.isZero()
+      ? FixedPoint.fromValue(0n, 18)
+      : FixedPoint.fromValue(liquidationLTV * (10n ** 16n), 18).div(healthFixed)
+    const userLTV = userLTVFixed.value
+
+    const collateralPriceUsd = await getCollateralUsdPrice(p.borrowVault, p.collateral, 'off-chain')
+
+    if (!collateralPriceUsd) {
+      return {
+        borrow: p.borrowVault,
+        collateral: p.collateral,
+        collaterals: p.collaterals,
+        subAccount: p.entry.subAccount,
+        borrowed: p.res.vaultAccountInfo.borrowed,
+        supplied: suppliedAssets,
+        borrowLTV: effectiveBorrowLTV,
+        liquidationLTV,
+        health: healthFixed.value,
+        userLTV,
+        price: 0n,
+        liabilityValueBorrowing,
+        liabilityValueLiquidation: liquidityInfo.liabilityValueLiquidation,
+        timeToLiquidation: liquidityInfo.timeToLiquidation,
+        collateralValueLiquidation,
+        liquidityQueryFailure: true,
+      } as AccountBorrowPosition
+    }
+
+    const supplyLiquidationPriceRatio = collateralValueLiquidation === 0n
+      ? FixedPoint.fromValue(0n, 18)
+      : FixedPoint.fromValue(liabilityValueBorrowing, 18)
+          .div(FixedPoint.fromValue(collateralValueLiquidation, 18))
+
+    const currentCollateralPriceUsd = FixedPoint.fromValue(collateralPriceUsd.amountOutMid, 18)
+    const price = currentCollateralPriceUsd.mul(supplyLiquidationPriceRatio).value
+
+    return {
+      borrow: p.borrowVault,
+      collateral: p.collateral,
+      collaterals: p.collaterals,
+      subAccount: p.entry.subAccount,
+      borrowLTV: effectiveBorrowLTV,
+      timeToLiquidation: liquidityInfo.timeToLiquidation,
+      health: healthFixed.value,
+      borrowed: p.res.vaultAccountInfo.borrowed,
+      price,
+      userLTV,
+      supplied: suppliedAssets,
+      liabilityValueBorrowing,
+      liabilityValueLiquidation: liquidityInfo.liabilityValueLiquidation,
+      liquidationLTV,
+      collateralValueLiquidation,
+    } as AccountBorrowPosition
+  }))
+
+  if (positionGuard.isStale(gen)) return
+
+  const borrows = borrowResults.filter((o): o is AccountBorrowPosition => !!o)
   const shouldUpdate = options.forceAllPositions !== undefined
     ? true
     : isShowAllPositions.value === isAllPositionsAtStart
   if (shouldUpdate) {
-    const allPositions = [...borrows, ...collateralPositions]
-    borrowPositions.value = allPositions
+    borrowPositions.value = borrows
 
     // Build set of (subAccount, collateralVault) pairs used as collateral
-    // Must include ALL enabled collateral vaults, not just the primary one
     const usageSet = new Set<string>()
-    for (const pos of allPositions) {
+    for (const pos of borrows) {
       const subAccount = getAddress(pos.subAccount)
       for (const addr of pos.collaterals ?? [pos.collateral.address]) {
         usageSet.add(`${subAccount}:${getAddress(addr)}`)
       }
     }
     collateralUsageSet.value = usageSet
+    hiddenBorrowCount.value = hiddenBorrows
 
     isPositionsLoading.value = false
     isPositionsLoaded.value = true
@@ -368,6 +420,7 @@ const updateSavingsPositions = async (
   generation?: number,
 ) => {
   const gen = generation ?? positionGuard.current()
+  hiddenDepositCount.value = 0
 
   if (isInitialLoading) {
     isDepositsLoaded.value = false
@@ -383,7 +436,8 @@ const updateSavingsPositions = async (
   }
 
   const { getOrFetch } = useVaultRegistry()
-  const { client: rpcClient } = useRpcClient()
+  const { rpcUrl } = useRpcClient()
+  const { eulerCoreAddresses } = useEulerAddresses()
 
   const shouldShowAllPositions = options.forceAllPositions ?? isShowAllPositions.value
   const isAllPositionsAtStart = shouldShowAllPositions
@@ -392,65 +446,67 @@ const updateSavingsPositions = async (
     throw new Error('Euler addresses not loaded yet')
   }
 
-  const client = rpcClient.value!
-
-  let deposits: AccountDepositPosition[] = []
-
-  const batchSize = BATCH_SIZE_RPC_CALLS
-  for (let i = 0; i < depositEntries.length; i += batchSize) {
-    if (positionGuard.isStale(gen)) return
-
-    const batch = depositEntries
-      .slice(i, i + batchSize)
-      .map(async (entry) => {
-        const vaultAddress = entry.vault
-        const subAccount = entry.subAccount
-
-        // Check if this deposit is being used as collateral
-        const collateralKey = `${subAccount}:${vaultAddress}`
-        if (collateralUsageSet.value.has(collateralKey)) {
-          return undefined
-        }
-
-        // Resolve vault from registry
-        const vault = await getOrFetch(vaultAddress)
-        if (!vault) return undefined
-
-        // Skip unverified vaults unless showing all positions
-        if (!shouldShowAllPositions && !vault.verified) {
-          return undefined
-        }
-
-        try {
-          const res = await client.readContract({
-            address: eulerLensAddresses.accountLens as Address,
-            abi: eulerAccountLensABI as Abi,
-            functionName: 'getAccountInfo',
-            args: [subAccount, vaultAddress],
-          }) as LensAccountInfo
-
-          // Only include if there are shares
-          if (res.vaultAccountInfo.shares === 0n) {
-            return undefined
-          }
-
-          return {
-            vault,
-            subAccount,
-            shares: res.vaultAccountInfo.shares,
-            assets: res.vaultAccountInfo.assets,
-          } as AccountDepositPosition
-        }
-        catch (e) {
-          logWarn('updateSavingsPositions', e)
-          return undefined
-        }
-      })
-    const results = (await Promise.all(batch)).filter((o): o is AccountDepositPosition => !!o)
-    deposits = [...deposits, ...results]
+  const evcAddress = eulerCoreAddresses.value?.evc
+  if (!evcAddress) {
+    throw new Error('EVC address not loaded yet')
   }
 
-  // Discard results if chain switched during fetch
+  let hiddenDeposits = 0
+
+  // Pre-filter: resolve vaults and exclude collateral-used entries
+  type ValidEntry = { entry: SubgraphPositionEntry, vault: NonNullable<Awaited<ReturnType<typeof getOrFetch>>> }
+  const validEntries: ValidEntry[] = []
+
+  for (const entry of depositEntries) {
+    const collateralKey = `${entry.subAccount}:${entry.vault}`
+    if (collateralUsageSet.value.has(collateralKey)) continue
+
+    const vault = await getOrFetch(entry.vault)
+    if (!vault) continue
+
+    if (!shouldShowAllPositions && !vault.verified) {
+      hiddenDeposits++
+      continue
+    }
+
+    validEntries.push({ entry, vault })
+  }
+
+  if (positionGuard.isStale(gen)) return
+
+  // Batch all getAccountInfo calls in one RPC request
+  const deposits: AccountDepositPosition[] = []
+
+  if (validEntries.length > 0) {
+    const calls = validEntries.map(({ entry }) => ({
+      functionName: 'getAccountInfo',
+      args: [entry.subAccount, entry.vault],
+    }))
+
+    const results = await batchLensCalls<LensAccountInfo>(
+      evcAddress,
+      eulerLensAddresses.accountLens,
+      eulerAccountLensABI as Abi,
+      calls,
+      rpcUrl.value,
+    )
+
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i]
+      if (!r.success || !r.result) continue
+
+      const res = r.result
+      if (res.vaultAccountInfo.shares === 0n) continue
+
+      deposits.push({
+        vault: validEntries[i].vault,
+        subAccount: validEntries[i].entry.subAccount,
+        shares: res.vaultAccountInfo.shares,
+        assets: res.vaultAccountInfo.assets,
+      } as AccountDepositPosition)
+    }
+  }
+
   if (positionGuard.isStale(gen)) return
 
   const shouldUpdate = options.forceAllPositions !== undefined
@@ -458,6 +514,7 @@ const updateSavingsPositions = async (
     : isShowAllPositions.value === isAllPositionsAtStart
   if (shouldUpdate) {
     depositPositions.value = deposits
+    hiddenDepositCount.value = hiddenDeposits
     isDepositsLoading.value = false
     isDepositsLoaded.value = true
   }
@@ -472,6 +529,8 @@ export const useAccountPositions = () => ({
   isDepositsLoading,
   isDepositsLoaded,
   isShowAllPositions,
+  hiddenBorrowCount,
+  hiddenDepositCount,
   positionGuard,
   updateBorrowPositions,
   updateSavingsPositions,

@@ -28,7 +28,7 @@ defineEmits(['close'])
       />
       <p
         v-if="title"
-        class="flex text-center text-p2 items-center gap-8"
+        class="flex text-center text-h4 items-center gap-8"
       >
         <SvgIcon
           v-if="warning"

@@ -17,7 +17,7 @@ defineOptions({
 
 const { marketGroups, isResolvingTVL } = useMarketGroups()
 const { getBestMaxROE } = useBestMaxROE(marketGroups)
-const { isUpdating, isEarnUpdating, isEscrowUpdating } = useVaults()
+const { isEVKUpdating, isEarnUpdating, isSecuritizeUpdating, isEscrowUpdating } = useVaults()
 const { chainId } = useEulerAddresses()
 const { entities } = useEulerLabels()
 const { enableEntityBranding } = useDeployConfig()
@@ -263,7 +263,7 @@ const sortedMarkets = computed(() => {
 })
 
 const isLoading = computed(() =>
-  isUpdating.value || isEarnUpdating.value || isEscrowUpdating.value
+  isEVKUpdating.value || isEarnUpdating.value || isSecuritizeUpdating.value || isEscrowUpdating.value
   || (isResolvingTVL.value && marketGroups.value.length === 0)
   || marketGroups.value.length === 0,
 )

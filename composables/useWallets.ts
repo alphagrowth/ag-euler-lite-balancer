@@ -91,7 +91,7 @@ export const useWallets = () => {
       const client = getPublicClient(rpcUrl.value)
 
       // Fetch balances via lens in chunks to stay within gas limits
-      const LENS_BATCH_SIZE = 200
+      const LENS_BATCH_SIZE = 250
       const result: bigint[] = []
       for (let i = 0; i < tokenAddresses.length; i += LENS_BATCH_SIZE) {
         const batch = tokenAddresses.slice(i, i + LENS_BATCH_SIZE)
@@ -105,23 +105,11 @@ export const useWallets = () => {
           result.push(...batchResult)
         }
         catch {
-          // Fallback: individual balanceOf calls for this chunk
-          const fallbackResult = await Promise.all(
-            batch.map(async (tokenAddr) => {
-              try {
-                return await client.readContract({
-                  address: tokenAddr,
-                  abi: erc20BalanceOfAbi,
-                  functionName: 'balanceOf',
-                  args: [targetAddress],
-                }) as bigint
-              }
-              catch {
-                return 0n
-              }
-            }),
-          )
-          result.push(...fallbackResult)
+          // Zero fallback: if the lens batch fails it's typically an RPC-level issue,
+          // firing 200 individual balanceOf calls would make rate limiting worse.
+          // Balances will be retried on the next polling tick.
+          logWarn('wallets/batchFetch', `Lens tokenBalances failed for chunk of ${batch.length}, using zero fallback`)
+          result.push(...batch.map(() => 0n))
         }
       }
 

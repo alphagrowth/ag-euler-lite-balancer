@@ -300,10 +300,13 @@ fetchVaults() generator called
         └───────┬───────┘
            No   │   → Keep vault as-is
                 ↓ Yes
-    Re-fetch with fetchVaultWithPythSimulation()
-    to get fresh Pyth prices
+    Collect all Pyth vaults, then batch re-fetch
+    via executeBatchLensWithPythSimulation():
+    1. Merge + deduplicate all feeds across vaults
+    2. Build Pyth updates + all lens calls
+    3. Execute single EVC batchSimulation
                 ↓
-    Replace original vault with refreshed version
+    Replace original vaults with refreshed versions
                 ↓
     Yield batch (with fresh Pyth prices)
 ```

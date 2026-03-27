@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { POLL_INTERVAL_30S_MS } from '~/entities/tuning-constants'
+import { POLL_INTERVAL_60S_MS } from '~/entities/tuning-constants'
 
 const route = useRoute()
 const router = useRouter()
 const { loadEulerConfig, chainId } = useEulerAddresses()
-const { loadVaults, isReady: isVaultsReady, resetVaultsState } = useVaults()
+const { loadVaults, isReady: isVaultsReady, resetVaultsState, refreshVaults } = useVaults()
 const { loadTokens } = useTokens()
 const { loadTokenList, isLoaded: isTokenListLoaded } = useTokenList()
 const { loadLabels } = useEulerLabels()
@@ -107,7 +107,8 @@ watch([isConnected, isVaultsReady], ([val]) => {
     updateBalances()
     interval = setInterval(async () => {
       updateBalances()
-    }, POLL_INTERVAL_30S_MS)
+      refreshVaults()
+    }, POLL_INTERVAL_60S_MS)
   }
 }, { immediate: true })
 

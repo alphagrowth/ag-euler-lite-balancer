@@ -41,11 +41,11 @@ defineOptions({
   name: 'BorrowPage',
 })
 
-const { borrowList, isUpdating, isEscrowUpdating } = useVaults()
+const { borrowList, isEVKUpdating, isEscrowUpdating } = useVaults()
 const { chainId } = useEulerAddresses()
 
 const isPricesReady = ref(false)
-const isLoading = computed(() => isUpdating.value || isEscrowUpdating.value || !isPricesReady.value)
+const isLoading = computed(() => isEVKUpdating.value || isEscrowUpdating.value || !isPricesReady.value)
 const { isSlow } = useSlowLoading(isLoading)
 const { enableEntityBranding } = useDeployConfig()
 const { entities } = useEulerLabels()

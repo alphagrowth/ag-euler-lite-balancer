@@ -718,6 +718,16 @@ watch(address, () => {
 <template>
   <div>
     <BaseBackButton class="laptop:!hidden mb-16" />
+
+    <!-- Vault header -->
+    <VaultLabelsAndAssets
+      v-if="isVaultLoaded && asset && (vault || securitizeVault)"
+      class="mb-24"
+      :vault="(vault || securitizeVault)!"
+      :assets="assets"
+      size="large"
+    />
+
     <div class="flex gap-32">
       <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
         <!-- EVK Vault Overview -->
@@ -739,46 +749,35 @@ watch(address, () => {
           class="w-full"
           @submit.prevent="submit"
         >
-          <!-- Vault header -->
           <div
             v-if="isVaultLoaded && asset"
-            class="flex justify-between"
+            class="flex items-center justify-between"
           >
-            <!-- Use VaultLabelsAndAssets for both EVK and Securitize vaults -->
-            <VaultLabelsAndAssets
-              v-if="vault || securitizeVault"
-              :vault="(vault || securitizeVault)!"
-              :assets="assets"
-              size="large"
-            />
+            <p class="text-h3 text-content-tertiary flex items-center gap-4">
+              Supply APY
+              <SvgIcon
+                class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+                name="info-circle"
+                @click="onSupplyInfoIconClick"
+              />
+            </p>
 
-            <div class="flex flex-col items-end justify-end">
-              <p class="mb-4 text-content-tertiary flex items-center gap-4">
-                Supply APY
-                <SvgIcon
-                  class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
-                  name="info-circle"
-                  @click="onSupplyInfoIconClick"
-                />
-              </p>
-
-              <p class="flex justify-end gap-4 text-h3">
-                <VaultPoints
-                  v-if="features.hasPoints && vault"
-                  class="mr-4"
-                  :vault="vault"
-                />
-                <SvgIcon
-                  v-if="hasRewards"
-                  class="!w-24 !h-24 text-accent-600 cursor-pointer"
-                  name="sparks"
-                  @click="onSupplyInfoIconClick"
-                />
-                <span>
-                  {{ supplyAPYDisplay }}%
-                </span>
-              </p>
-            </div>
+            <p class="flex items-center gap-4 text-h3">
+              <VaultPoints
+                v-if="features.hasPoints && vault"
+                class="mr-4"
+                :vault="vault"
+              />
+              <SvgIcon
+                v-if="hasRewards"
+                class="!w-24 !h-24 text-accent-600 cursor-pointer"
+                name="sparks"
+                @click="onSupplyInfoIconClick"
+              />
+              <span>
+                {{ supplyAPYDisplay }}%
+              </span>
+            </p>
           </div>
 
           <AssetInput
@@ -828,6 +827,7 @@ watch(address, () => {
             <VaultFormInfoBlock
               v-if="swapEstimatedOutput"
               :loading="isSwapQuoteLoading"
+              variant="card"
             >
               <SwapDetailsSummary
                 :input-display="swapInputDisplay"
@@ -890,6 +890,7 @@ watch(address, () => {
           <VaultFormInfoBlock
             v-if="isVaultLoaded && asset"
             :loading="isEstimatesLoading"
+            variant="card"
           >
             <SummaryRow
               label="Projected earnings per month"

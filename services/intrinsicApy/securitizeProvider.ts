@@ -1,5 +1,3 @@
-import axios from 'axios'
-import { SECURITIZE_FEED_URL } from '~/entities/constants'
 import type { IntrinsicApySourceConfig } from '~/entities/custom'
 import type { IntrinsicApyProvider, IntrinsicApyResult } from '~/entities/intrinsic-apy'
 import { logWarn } from '~/utils/errorHandling'
@@ -19,18 +17,17 @@ type SecuritizeAssetStats = {
 const normalize = (value?: string) => value?.toLowerCase() || ''
 
 const buildSourceUrl = (symbol: string) =>
-  `${SECURITIZE_FEED_URL}?symbol=${symbol}`
+  `https://public-feed.securitize.io/asset-stats?symbol=${symbol}`
 
 const fetchBySymbol = async (
   symbol: string,
   sources: SecuritizeSource[],
 ): Promise<IntrinsicApyResult[]> => {
-  const res = await axios.get<SecuritizeResponse>(SECURITIZE_FEED_URL, {
-    params: { symbol },
-    timeout: 10_000,
+  const res = await $fetch<SecuritizeResponse>('/api/intrinsic-apy/securitize', {
+    query: { symbol },
   })
 
-  const entries = Array.isArray(res.data?.data) ? res.data.data : []
+  const entries = Array.isArray(res?.data) ? res.data : []
   const results: IntrinsicApyResult[] = []
 
   for (const source of sources) {

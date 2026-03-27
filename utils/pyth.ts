@@ -2,12 +2,14 @@ import { PriceServiceConnection } from '@pythnetwork/price-service-client'
 import { encodeFunctionData, decodeFunctionResult, zeroAddress, type Address, type Hex, type Abi } from 'viem'
 import type { EVCCall } from './evc-converter'
 import { PYTH_ABI } from '~/abis/pyth'
-import { EVC_ABI, type BatchItem, type BatchItemResult } from '~/abis/evc'
+import type { BatchItem } from '~/abis/evc'
 import { DEFAULT_PRICE_CACHE_TTL_MS } from '~/entities/constants'
 import { CACHE_TTL_15S_MS, BATCH_DELAY_COLLECT_MS } from '~/entities/tuning-constants'
 import { collectPythFeedIds, collectPythFeedIdsForPair, type PythFeed } from '~/entities/oracle'
 import type { Vault } from '~/entities/vault'
 import { getPublicClient } from '~/utils/public-client'
+import { evcBatchCall } from '~/utils/multicall'
+import { logWarn } from '~/utils/errorHandling'
 
 const normalizeHex = (value: string): Hex => (value.startsWith('0x') ? value as Hex : (`0x${value}` as Hex))
 const normalizeFeedId = (value: string): Hex => normalizeHex(value).toLowerCase() as Hex
@@ -551,77 +553,152 @@ export const executeLensWithPythSimulation = async <T>(
   hermesEndpoint: string,
 ): Promise<T | undefined> => {
   try {
-    // Build Pyth update batch items
-    const { items: pythItems, totalFee } = await buildPythBatchItemsFromFeeds(
+    const { items: pythItems } = await buildPythBatchItemsFromFeeds(
       feeds,
       providerUrl,
       hermesEndpoint,
     )
 
-    // Build lens batch item
-    const lensCallData = encodeFunctionData({
-      abi: lensAbi as Abi,
-      functionName: lensMethod,
-      args: lensArgs,
-    })
     const lensBatchItem: BatchItem = {
       targetContract: lensAddress as `0x${string}`,
       onBehalfOfAccount: zeroAddress,
       value: 0n,
-      data: lensCallData as `0x${string}`,
+      data: encodeFunctionData({
+        abi: lensAbi as Abi,
+        functionName: lensMethod,
+        args: lensArgs,
+      }) as `0x${string}`,
     }
 
-    // Combine: Pyth updates first, then lens call
     const batchItems = [...pythItems, lensBatchItem]
 
-    // Execute batch simulation via low-level call
-    const client = getPublicClient(providerUrl)
-    const batchCallData = encodeFunctionData({
-      abi: EVC_ABI,
-      functionName: 'batchSimulation',
-      args: [batchItems],
-    })
-
-    const callResult = await client.call({
-      to: evcAddress as Address,
-      data: batchCallData,
-      value: totalFee,
-    })
-
-    if (!callResult.data) {
-      return undefined
-    }
-
-    const decoded = decodeFunctionResult({
-      abi: EVC_ABI,
-      functionName: 'batchSimulation',
-      data: callResult.data,
-    })
-
-    const batchResults = decoded[0] as unknown as BatchItemResult[]
-
-    // Validate and get the last result (lens call)
-    if (!batchResults || batchResults.length === 0) {
-      return undefined
-    }
+    const batchResults = await evcBatchCall(evcAddress, batchItems, providerUrl)
 
     const lensResult = batchResults[batchResults.length - 1]
-    if (!lensResult || !lensResult.success) {
+    if (!lensResult?.success) {
       return undefined
     }
 
-    // Decode the lens result
-    const decodedResult = decodeFunctionResult({
+    return decodeFunctionResult({
       abi: lensAbi as Abi,
       functionName: lensMethod,
       data: lensResult.result as Hex,
-    })
-    return decodedResult as T
+    }) as T
   }
   catch (err) {
-    console.warn('[executeLensWithPythSimulation] Error:', err)
+    logWarn('pyth/executeLensWithPythSimulation', err)
     return undefined
   }
+}
+
+/**
+ * Execute lens calls for multiple entries in a single batchSimulation with Pyth updates.
+ * Combines all Pyth feed updates + all lens calls into one RPC request.
+ *
+ * @param entries - Array of { key, feeds, args } for each lens call
+ * @param lensAddress - Address of the lens contract
+ * @param lensAbi - ABI of the lens contract
+ * @param lensMethod - Method name to call on the lens (e.g. 'getVaultInfoFull')
+ * @param evcAddress - EVC contract address
+ * @param providerUrl - Provider URL for Pyth batch building and RPC calls
+ * @param hermesEndpoint - Pyth Hermes endpoint
+ * @param batchSize - Max lens calls per batchSimulation (default 25)
+ * @returns Map of key → decoded result (undefined for failed entries)
+ */
+export const executeBatchLensWithPythSimulation = async <T>(
+  entries: Array<{ key: string, feeds: PythFeed[], args: unknown[] }>,
+  lensAddress: Address,
+  lensAbi: Abi | readonly unknown[],
+  lensMethod: string,
+  evcAddress: string,
+  providerUrl: string,
+  hermesEndpoint: string,
+  batchSize = 25,
+): Promise<Map<string, T | undefined>> => {
+  const results = new Map<string, T | undefined>()
+
+  if (entries.length === 0) {
+    return results
+  }
+
+  try {
+    // Merge and deduplicate all Pyth feeds across all entries
+    const uniqueFeeds = new Map<string, PythFeed>()
+    for (const entry of entries) {
+      for (const feed of entry.feeds) {
+        const feedKey = `${feed.pythAddress.toLowerCase()}:${feed.feedId.toLowerCase()}`
+        if (!uniqueFeeds.has(feedKey)) {
+          uniqueFeeds.set(feedKey, feed)
+        }
+      }
+    }
+
+    // Build Pyth update items once (shared across all sub-batches)
+    const { items: pythItems } = await buildPythBatchItemsFromFeeds(
+      [...uniqueFeeds.values()],
+      providerUrl,
+      hermesEndpoint,
+    )
+
+    // Build lens items for each entry
+    const lensEntries = entries.map(entry => ({
+      key: entry.key,
+      item: {
+        targetContract: lensAddress as `0x${string}`,
+        onBehalfOfAccount: zeroAddress,
+        value: 0n,
+        data: encodeFunctionData({
+          abi: lensAbi as Abi,
+          functionName: lensMethod,
+          args: entry.args,
+        }) as `0x${string}`,
+      } satisfies BatchItem,
+    }))
+
+    // Split lens items into sub-batches, each prepended with full Pyth updates
+    const chunks: typeof lensEntries[] = []
+    for (let i = 0; i < lensEntries.length; i += batchSize) {
+      chunks.push(lensEntries.slice(i, i + batchSize))
+    }
+
+    const chunkResults = await Promise.all(
+      chunks.map(async (chunk) => {
+        const batchItems = [...pythItems, ...chunk.map(c => c.item)]
+
+        const batchResults = await evcBatchCall(evcAddress, batchItems, providerUrl)
+
+        return chunk.map((entry, i) => {
+          const lensResult = batchResults[pythItems.length + i]
+          if (!lensResult?.success) {
+            return { key: entry.key, result: undefined as T | undefined }
+          }
+
+          try {
+            const decoded = decodeFunctionResult({
+              abi: lensAbi as Abi,
+              functionName: lensMethod,
+              data: lensResult.result as Hex,
+            })
+            return { key: entry.key, result: decoded as T }
+          }
+          catch {
+            return { key: entry.key, result: undefined as T | undefined }
+          }
+        })
+      }),
+    )
+
+    for (const chunk of chunkResults) {
+      for (const entry of chunk) {
+        results.set(entry.key, entry.result)
+      }
+    }
+  }
+  catch (err) {
+    logWarn('pyth/executeBatchLensWithPythSimulation', err)
+  }
+
+  return results
 }
 
 export const pythAbi = PYTH_ABI
