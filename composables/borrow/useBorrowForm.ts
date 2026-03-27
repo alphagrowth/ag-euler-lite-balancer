@@ -777,6 +777,9 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     }
     if (borrowNeedsSwap.value && collateralAmount.value) {
       resetBorrowSwapQuoteState()
+      if (+collateralAmount.value > 0) {
+        isBorrowSwapQuoteLoading.value = true
+      }
       requestBorrowSwapQuote()
     }
     if (borrowSelectedAsset.value?.address && borrowNeedsSwap.value) {
@@ -794,6 +797,9 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   watch(collateralAmount, () => {
     if (borrowNeedsSwap.value) {
       resetBorrowSwapQuoteState()
+      if (+collateralAmount.value > 0) {
+        isBorrowSwapQuoteLoading.value = true
+      }
       requestBorrowSwapQuote()
     }
   })
@@ -802,6 +808,9 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     if (borrowNeedsSwap.value && collateralAmount.value) {
       clearBorrowSimulationError()
       resetBorrowSwapQuoteState()
+      if (+collateralAmount.value > 0) {
+        isBorrowSwapQuoteLoading.value = true
+      }
       requestBorrowSwapQuote()
     }
   })
