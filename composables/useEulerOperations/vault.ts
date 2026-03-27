@@ -15,6 +15,9 @@ import { SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { logWarn } from '~/utils/errorHandling'
 import { assertSwapperVerifierAllowed } from '~/utils/swap-validation'
 
+const isAlreadyEnabled = (list: string[] | undefined, address: string): boolean =>
+  !!list?.some(c => c.toLowerCase() === address.toLowerCase())
+
 export const createVaultBuilders = (
   ctx: OperationsContext,
   helpers: OperationHelpers,
@@ -172,7 +175,7 @@ export const createVaultBuilders = (
     borrowVaultAddress: string,
     borrowAmount: bigint,
     subAccount?: string,
-    options: { includePermit2Call?: boolean, enabledCollaterals?: string[], wrappedNativeInfo?: { wrappedTokenAddress: Address, nativeAmount: bigint } } = {},
+    options: { includePermit2Call?: boolean, enabledCollaterals?: string[], enabledController?: string, acceptedCollaterals?: string[], wrappedNativeInfo?: { wrappedTokenAddress: Address, nativeAmount: bigint } } = {},
   ): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -221,6 +224,7 @@ export const createVaultBuilders = (
       subAccount: subAccountAddr as Address,
       providerUrl: ctx.rpcUrl,
       subgraphUrl: ctx.SUBGRAPH_URL,
+      acceptedCollaterals: options.acceptedCollaterals,
     })
     if (cleanupCalls.length) {
       evcCalls.push(...cleanupCalls)
@@ -263,7 +267,16 @@ export const createVaultBuilders = (
       data: hooks.getDataForCall(borrowVaultAddr, 'borrow', [borrowAmount, userAddr]) as Hash,
     }
 
-    evcCalls.push(depositCall, enableControllerCall, enableCollateralCall, borrowCall)
+    if (amount > 0n) {
+      evcCalls.push(depositCall)
+    }
+    if (!options.enabledController || options.enabledController.toLowerCase() !== borrowVaultAddr.toLowerCase()) {
+      evcCalls.push(enableControllerCall)
+    }
+    if (!isAlreadyEnabled(options.enabledCollaterals, vaultAddr)) {
+      evcCalls.push(enableCollateralCall)
+    }
+    evcCalls.push(borrowCall)
 
     await helpers.injectPythHealthCheckUpdates({
       evcCalls,
@@ -289,6 +302,7 @@ export const createVaultBuilders = (
     subAccount?: string,
     enabledCollaterals?: string[],
     savingsSubAccount?: string,
+    enabledController?: string,
   ): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -358,7 +372,13 @@ export const createVaultBuilders = (
       data: hooks.getDataForCall(borrowVaultAddr, 'borrow', [borrowAmount, userAddr]) as Hash,
     }
 
-    evcCalls.push(enableControllerCall, enableCollateralCall, borrowCall)
+    if (!enabledController || enabledController.toLowerCase() !== borrowVaultAddr.toLowerCase()) {
+      evcCalls.push(enableControllerCall)
+    }
+    if (!isAlreadyEnabled(enabledCollaterals, vaultAddr)) {
+      evcCalls.push(enableCollateralCall)
+    }
+    evcCalls.push(borrowCall)
 
     await helpers.injectPythHealthCheckUpdates({
       evcCalls,
@@ -389,6 +409,7 @@ export const createVaultBuilders = (
     subAccount,
     includePermit2Call = true,
     enabledCollaterals,
+    enabledController,
   }: {
     supplyVaultAddress: string
     supplyAssetAddress: string
@@ -404,6 +425,7 @@ export const createVaultBuilders = (
     subAccount?: string
     includePermit2Call?: boolean
     enabledCollaterals?: string[]
+    enabledController?: string
   }): Promise<TxPlan> => {
     if (!ctx.address.value || !ctx.eulerCoreAddresses.value || !ctx.eulerPeripheryAddresses.value) {
       throw new Error('Wallet not connected or addresses not available')
@@ -550,7 +572,13 @@ export const createVaultBuilders = (
       data: hooks.getDataForCall(borrowVaultAddr, 'borrow', [borrowAmount, borrowRecipient]) as Hash,
     }
 
-    evcCalls.push(enableControllerCall, enableSupplyCollateralCall, borrowCall)
+    if (!enabledController || enabledController.toLowerCase() !== borrowVaultAddr.toLowerCase()) {
+      evcCalls.push(enableControllerCall)
+    }
+    if (!isAlreadyEnabled(enabledCollaterals, supplyVaultAddr)) {
+      evcCalls.push(enableSupplyCollateralCall)
+    }
+    evcCalls.push(borrowCall)
 
     if (hasSwap) {
       if (quote!.verify.type !== SwapVerificationType.SkimMin) {
@@ -637,7 +665,7 @@ export const createVaultBuilders = (
       evcCalls.push(depositBorrowedCall)
     }
 
-    if (!isSameVault) {
+    if (!isSameVault && !isAlreadyEnabled(enabledCollaterals, longVaultAddr)) {
       const enableLongCollateralCall: EVCCall = {
         targetContract: evcAddress,
         onBehalfOfAccount: '0x0000000000000000000000000000000000000000' as Address,

@@ -42,6 +42,7 @@ const positionIndex = usePositionIndex()
 
 // ── Vaults & position ────────────────────────────────────────────────────
 const position: Ref<AccountBorrowPosition | null> = ref(null)
+const pairAssetsLabel = usePositionPairLabel(position)
 const selectedCollateral = ref<Vault | SecuritizeVault | null>(null)
 const selectedCollateralAssets = ref(0n)
 const lastCollateralAddress = ref('')
@@ -481,6 +482,7 @@ const nextLiquidationPrice = computed(() => {
         <VaultLabelsAndAssets
           :vault="fromVault"
           :assets="[fromVault.asset] as VaultAsset[]"
+          :assets-label="pairAssetsLabel"
           size="large"
         />
         <div class="grid gap-16 laptop:grid-cols-[minmax(0,1fr)_360px] laptop:items-start">

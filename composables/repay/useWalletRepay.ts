@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { formatUnits } from 'viem'
 import { FixedPoint } from '~/utils/fixed-point'
 import { logWarn } from '~/utils/errorHandling'
+import { getTotalCollateralValue } from '~/utils/position-estimates'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -215,7 +216,15 @@ export const useWalletRepay = (options: UseWalletRepayOptions) => {
         collateralSupplyRewardApy.value || null,
         borrowRewardApy.value || null,
       )
-      const collateralValue = suppliedFixed.value.mul(priceFixed.value)
+      // Use on-chain LTV to derive total collateral value (multi-collateral aware)
+      const totalValue = getTotalCollateralValue(position.value!)
+      const collateralValueFl = totalValue !== null
+        ? totalValue
+        : suppliedFixed.value.mul(priceFixed.value).toUnsafeFloat()
+      const collateralValue = FixedPoint.fromValue(
+        BigInt(Math.round(collateralValueFl * 1e18)),
+        18,
+      )
       const userLtvFixed = collateralValue.isZero()
         ? FixedPoint.fromValue(0n, 18)
         : (borrowedFixed.value.sub(amountFixed.value))
