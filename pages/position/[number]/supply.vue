@@ -158,6 +158,7 @@ useOperationGuard(computed(() => [form.collateralVault.value?.address].filter(Bo
 
 const balanceFixed = computed(() => FixedPoint.fromValue(balance.value, form.collateralVault.value?.decimals || 18))
 const assets = computed(() => [form.asset.value].filter((v): v is VaultAsset => !!v))
+const pairAssetsLabel = usePositionPairLabel(form.position)
 const { name } = useEulerProductOfVault(computed(() => form.collateralVault.value?.address || ''))
 
 // Supply-specific: balance management
@@ -236,6 +237,7 @@ watch(selectedAsset, async () => {
       <VaultLabelsAndAssets
         :vault="form.collateralVault.value"
         :assets="assets"
+        :assets-label="pairAssetsLabel"
         size="large"
       />
 

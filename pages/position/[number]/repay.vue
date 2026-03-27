@@ -46,6 +46,7 @@ const borrowVault = computed(() => position.value?.borrow)
 const collateralVault = computed(() => position.value?.collateral)
 useOperationGuard(computed(() => [borrowVault.value?.address].filter(Boolean)))
 const assets = computed(() => [collateralVault.value?.asset, borrowVault.value?.asset])
+const assetsLabel = usePositionPairLabel(position)
 const isEligibleForLiquidation = computed(() => isPositionEligibleForLiquidation(position.value))
 const getCurrentDebt = () => position.value?.borrowed || 0n
 
@@ -325,6 +326,7 @@ watch(formTab, () => {
       <VaultLabelsAndAssets
         :vault="position.borrow"
         :assets="assets as VaultAsset[]"
+        :assets-label="assetsLabel"
         size="large"
       />
 

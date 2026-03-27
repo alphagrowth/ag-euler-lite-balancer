@@ -3,6 +3,7 @@ import { useAccount } from '@wagmi/vue'
 import { formatUnits, type Address, type Abi, zeroAddress } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
 import { FixedPoint } from '~/utils/fixed-point'
+import { getTotalCollateralValue } from '~/utils/position-estimates'
 import { useModal } from '~/components/ui/composables/useModal'
 import { OperationReviewModal, SwapTokenSelector, SlippageSettingsModal } from '#components'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -424,17 +425,32 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     try {
       const amountNano = valueToNano(amount.value, collateralVault.value.decimals)
 
-      // Normalize all FixedPoints to 18 decimals for consistent LTV/health math.
-      // borrowedFixed may have different decimals (e.g. 6 for USDC) than collateral (e.g. 18 for WETH),
-      // and FixedPoint.div inherits this.decimals — so without normalizing, the result would have
-      // wrong decimal scale vs what nanoToValue(..., 18) expects in the template.
-      const supplied18 = suppliedFixed.value.round(18)
-      const amount18 = amountFixed.value.round(18)
+      // Derive total collateral value from position's on-chain LTV (multi-collateral aware),
+      // then adjust for the collateral delta using the single collateral's price.
+      const totalValue = getTotalCollateralValue(position.value!)
       const borrowed18 = borrowedFixed.value.round(18)
+      const amount18 = amountFixed.value.round(18)
+      const supplied18 = suppliedFixed.value.round(18)
+      const priceFl = priceFixed.value.toUnsafeFloat()
+      const amountFl = amount18.toUnsafeFloat()
 
-      const collateralValue = options.mode === 'supply'
-        ? supplied18.add(amount18).mul(priceFixed.value)
-        : supplied18.sub(amount18).mul(priceFixed.value)
+      // Only apply delta if this collateral is accepted by the controller (BLTV > 0)
+      const affectsLtv = borrowVault.value?.collateralLTVs.some(
+        ltv => ltv.collateral.toLowerCase() === collateralVault.value!.address.toLowerCase() && ltv.borrowLTV > 0n,
+      ) ?? false
+
+      const collateralValueFl = totalValue !== null && priceFl > 0
+        ? (options.mode === 'supply'
+            ? totalValue + (affectsLtv ? amountFl * priceFl : 0)
+            : totalValue - (affectsLtv ? amountFl * priceFl : 0))
+        : (options.mode === 'supply'
+            ? supplied18.add(amount18).mul(priceFixed.value).toUnsafeFloat()
+            : supplied18.sub(amount18).mul(priceFixed.value).toUnsafeFloat())
+
+      const collateralValue = FixedPoint.fromValue(
+        BigInt(Math.round(collateralValueFl * 1e18)),
+        18,
+      )
 
       const userLtvFixed = collateralValue.isZero()
         ? FixedPoint.fromValue(0n, 18)

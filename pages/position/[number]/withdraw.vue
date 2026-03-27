@@ -130,6 +130,7 @@ const form = useCollateralForm({
   },
 })
 useOperationGuard(computed(() => [form.collateralVault.value?.address, form.borrowVault.value?.address].filter(Boolean)))
+const pairAssetsLabel = usePositionPairLabel(form.position)
 
 // Withdraw-specific computeds
 const withdrawWarnings = computed(() => {
@@ -179,6 +180,7 @@ watch(selectedOutputAsset, () => {
       <VaultLabelsAndAssets
         :vault="form.collateralVault.value"
         :assets="[form.asset.value]"
+        :assets-label="pairAssetsLabel"
         size="large"
       />
 
