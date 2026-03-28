@@ -23,6 +23,9 @@ const route = useRoute()
 const {
   docsUrl,
   tosUrl,
+  privacyPolicyUrl,
+  riskDisclosuresUrl,
+  micaWhitepaperUrl,
   xUrl,
   discordUrl,
   telegramUrl,
@@ -45,6 +48,9 @@ const links = computed(
     [
       docsUrl ? { title: 'Docs', url: docsUrl } : null,
       tosUrl ? { title: 'Terms of Use', url: tosUrl } : null,
+      privacyPolicyUrl ? { title: 'Privacy Policy', url: privacyPolicyUrl } : null,
+      riskDisclosuresUrl ? { title: 'Risk Disclosures', url: riskDisclosuresUrl } : null,
+      micaWhitepaperUrl ? { title: 'MiCA Whitepaper', url: micaWhitepaperUrl } : null,
     ].filter(Boolean) as Array<{ title: string, url: string }>,
 )
 
@@ -137,10 +143,10 @@ onClickOutside(reference, () => {
           <div class="flex flex-col gap-4 w-full">
             <div
               v-if="links.length"
-              class="mb-24"
+              class="mb-12"
             >
               <p class="mb-8 text-content-tertiary text-h6 text-left">
-                Explore
+                Resources
               </p>
 
               <a
@@ -151,10 +157,6 @@ onClickOutside(reference, () => {
                 target="_blank"
               >
                 <span class="text-h6">{{ link.title }}</span>
-                <SvgIcon
-                  class="!w-20 !h-20 text-accent-600"
-                  name="arrow-top-right"
-                />
               </a>
             </div>
             <div
