@@ -126,83 +126,6 @@ const evkVault: Ref<Vault | undefined> = ref(undefined)
 const securitizeVault: Ref<SecuritizeVault | undefined> = ref(undefined)
 const balance = ref(0n)
 
-// Check if securitize vault first
-const isSecuritize = await isSecuritizeVault(vaultAddress)
-
-// Load vault data based on type
-if (isSecuritize) {
-  securitizeVault.value = await getSecuritizeVault(vaultAddress)
-}
-else {
-  try {
-    const normalizedAddress = getAddress(vaultAddress)
-
-    // Fast path: vault already in registry
-    const registryEntry = registryGet(normalizedAddress)
-    if (registryEntry?.type === 'evk') {
-      evkVault.value = registryEntry.vault as Vault
-    }
-    // Escrow vaults haven't loaded yet - wait for them
-    else if (!isEscrowLoadedOnce.value) {
-      await until(isEscrowLoadedOnce).toBe(true)
-      const entryAfterLoad = registryGet(normalizedAddress)
-      if (entryAfterLoad?.type === 'evk') {
-        evkVault.value = entryAfterLoad.vault as Vault
-      }
-      else if (isKnownEscrowAddress(normalizedAddress)) {
-        evkVault.value = await getEscrowVault(vaultAddress) as Vault
-      }
-      else {
-        evkVault.value = await getVault(vaultAddress)
-      }
-    }
-    // Escrow vaults loaded - check if known escrow address
-    else if (isKnownEscrowAddress(normalizedAddress)) {
-      evkVault.value = await getEscrowVault(vaultAddress) as Vault
-    }
-    // Regular vault
-    else {
-      evkVault.value = await getVault(vaultAddress)
-    }
-
-    // Load any collateral vaults that aren't already in registry
-    if (evkVault.value) {
-      const { has: registryHas } = useVaultRegistry()
-
-      const collateralAddresses = evkVault.value.collateralLTVs
-        .filter(ltv => getCurrentLiquidationLTV(ltv) > 0n)
-        .map(ltv => ltv.collateral)
-
-      // Check and load missing collaterals in parallel
-      await Promise.all(
-        collateralAddresses.map(async (collateralAddr) => {
-          // Skip if already loaded in registry
-          if (registryHas(collateralAddr)) return
-
-          try {
-            // Try regular vault first, then securitize
-            await getVault(collateralAddr)
-          }
-          catch {
-            // If regular vault fails, try securitize
-            try {
-              await getSecuritizeVault(collateralAddr)
-            }
-            catch {
-              // Ignore - collateral vault might not be accessible
-            }
-          }
-        }),
-      )
-    }
-  }
-  catch (e) {
-    // If EVK vault load fails, try as securitize vault
-    console.warn('[lend] EVK vault load failed, trying securitize:', e)
-    securitizeVault.value = await getSecuritizeVault(vaultAddress)
-  }
-}
-
 // Check if vault uses Pyth oracles (requires fresh prices)
 const hasPythOracles = (v: Vault | undefined): boolean => {
   if (!v) return false
@@ -225,14 +148,92 @@ const needsRefresh = (v: Vault | undefined): boolean => {
   return hasPythOracles(v) || hasPriceFailure(v)
 }
 
-// Refresh EVK vault if it uses Pyth oracles or has price failure
-// Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
-if (evkVault.value && needsRefresh(evkVault.value)) {
-  const refreshedVault = await updateVault(vaultAddress)
-  if (!('type' in refreshedVault && refreshedVault.type === 'securitize')) {
-    evkVault.value = refreshedVault as Vault
+// Non-blocking IIFE to avoid Suspense + pageTransition crash on direct navigation
+;(async () => {
+  const isSecuritize = await isSecuritizeVault(vaultAddress)
+
+  if (isSecuritize) {
+    securitizeVault.value = await getSecuritizeVault(vaultAddress)
   }
-}
+  else {
+    try {
+      const normalizedAddress = getAddress(vaultAddress)
+
+      // Fast path: vault already in registry
+      const registryEntry = registryGet(normalizedAddress)
+      if (registryEntry?.type === 'evk') {
+        evkVault.value = registryEntry.vault as Vault
+      }
+      // Escrow vaults haven't loaded yet - wait for them
+      else if (!isEscrowLoadedOnce.value) {
+        await until(isEscrowLoadedOnce).toBe(true)
+        const entryAfterLoad = registryGet(normalizedAddress)
+        if (entryAfterLoad?.type === 'evk') {
+          evkVault.value = entryAfterLoad.vault as Vault
+        }
+        else if (isKnownEscrowAddress(normalizedAddress)) {
+          evkVault.value = await getEscrowVault(vaultAddress) as Vault
+        }
+        else {
+          evkVault.value = await getVault(vaultAddress)
+        }
+      }
+      // Escrow vaults loaded - check if known escrow address
+      else if (isKnownEscrowAddress(normalizedAddress)) {
+        evkVault.value = await getEscrowVault(vaultAddress) as Vault
+      }
+      // Regular vault
+      else {
+        evkVault.value = await getVault(vaultAddress)
+      }
+
+      // Load any collateral vaults that aren't already in registry
+      if (evkVault.value) {
+        const { has: registryHas } = useVaultRegistry()
+
+        const collateralAddresses = evkVault.value.collateralLTVs
+          .filter(ltv => getCurrentLiquidationLTV(ltv) > 0n)
+          .map(ltv => ltv.collateral)
+
+        // Check and load missing collaterals in parallel
+        await Promise.all(
+          collateralAddresses.map(async (collateralAddr) => {
+            // Skip if already loaded in registry
+            if (registryHas(collateralAddr)) return
+
+            try {
+              // Try regular vault first, then securitize
+              await getVault(collateralAddr)
+            }
+            catch {
+              // If regular vault fails, try securitize
+              try {
+                await getSecuritizeVault(collateralAddr)
+              }
+              catch {
+                // Ignore - collateral vault might not be accessible
+              }
+            }
+          }),
+        )
+      }
+    }
+    catch (e) {
+      // If EVK vault load fails, try as securitize vault
+      console.warn('[lend] EVK vault load failed, trying securitize:', e)
+      securitizeVault.value = await getSecuritizeVault(vaultAddress)
+    }
+  }
+
+  // Refresh EVK vault if it uses Pyth oracles or has price failure
+  // Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
+  if (evkVault.value && needsRefresh(evkVault.value)) {
+    const refreshedVault = await updateVault(vaultAddress)
+    if (!('type' in refreshedVault && refreshedVault.type === 'securitize')) {
+      evkVault.value = refreshedVault as Vault
+    }
+  }
+})()
 
 const features = computed(() => VAULT_FEATURES[vaultType.value])
 

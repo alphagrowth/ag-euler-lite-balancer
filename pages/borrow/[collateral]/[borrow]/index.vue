@@ -45,9 +45,11 @@ const pendingSubAccount = ref<string | null>(null)
 const isPendingSubAccountLoading = ref(false)
 let pendingSubAccountPromise: Promise<string> | null = null
 
-// Load vault pair
-const initialPair = await getBorrowVaultPair(collateralAddress, borrowAddress)
-const pair: Ref<AnyBorrowVaultPair | undefined> = ref(initialPair)
+// Load vault pair (non-blocking to avoid Suspense + pageTransition crash on direct navigation)
+const pair: Ref<AnyBorrowVaultPair | undefined> = ref()
+getBorrowVaultPair(collateralAddress, borrowAddress).then((p) => {
+  pair.value = p
+})
 
 const borrowVault = computed(() => pair.value?.borrow)
 const collateralVault = computed(() => pair.value?.collateral)
