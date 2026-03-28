@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const url = new URL('/v2/updates/price/latest', hermesUrl)
+  const url = new URL(`${hermesUrl}/v2/updates/price/latest`)
   ids.forEach(id => url.searchParams.append('ids[]', id))
 
   const encoding = String(query.encoding || 'hex')
