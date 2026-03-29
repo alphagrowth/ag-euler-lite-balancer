@@ -347,7 +347,7 @@ watch(pair, async (val) => {
       modal.open(VaultUnverifiedDisclaimerModal, {
         isNotClosable: true,
         props: {
-          onCancel: () => {
+          cancelAction: () => {
             router.replace('/')
           },
         },

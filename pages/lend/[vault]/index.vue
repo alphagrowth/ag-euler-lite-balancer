@@ -338,7 +338,7 @@ const load = async () => {
       modal.open(VaultUnverifiedDisclaimerModal, {
         isNotClosable: true,
         props: {
-          onCancel: () => {
+          cancelAction: () => {
             router.replace('/')
           },
         },
