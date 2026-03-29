@@ -178,7 +178,8 @@ const loadVaults = async () => {
   }
 }
 
-await loadVaults()
+// Non-blocking to avoid Suspense + pageTransition crash on direct navigation
+loadVaults()
 
 watch([() => route.params.vault, () => route.query.to], () => {
   loadVaults()
