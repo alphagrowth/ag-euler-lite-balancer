@@ -49,6 +49,8 @@ let pendingSubAccountPromise: Promise<string> | null = null
 const pair: Ref<AnyBorrowVaultPair | undefined> = ref()
 getBorrowVaultPair(collateralAddress, borrowAddress).then((p) => {
   pair.value = p
+}).catch((e) => {
+  logWarn('[borrow] failed to load vault pair', e)
 })
 
 const borrowVault = computed(() => pair.value?.borrow)

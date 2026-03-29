@@ -233,6 +233,8 @@ const needsRefresh = (v: Vault | undefined): boolean => {
       evkVault.value = refreshedVault as Vault
     }
   }
+
+  load()
 })()
 
 const features = computed(() => VAULT_FEATURES[vaultType.value])
@@ -531,8 +533,6 @@ const onSupplyInfoIconClick = () => {
     },
   })
 }
-
-load()
 
 // Swap quote helpers
 const swapEstimatedOutput = computed(() => {
