@@ -237,6 +237,7 @@ const needsRefresh = (v: Vault | undefined): boolean => {
     }
   }
 
+  // @ts-expect-error load is declared below but always initialized by the time this async IIFE reaches here
   load()
 })()
 
