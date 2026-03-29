@@ -414,9 +414,12 @@ export const fetchVaults = async function* (
   const parallelRounds = Math.ceil(batchCount / parallelBatches)
 
   // Helper to process raw vault data into Vault object (delegates to shared function)
+  // Uses verifiedVaultAddresses to correctly set the `verified` flag — avoids
+  // marking dynamically-resolved vaults (e.g. from user positions) as verified
+  // when they get swept into refreshVaults().
   const processVaultResult = (raw: Record<string, unknown>, vaultAddress: string): Vault | undefined => {
     try {
-      return processRawVaultData(raw, vaultAddress, undefined, { verified: true })
+      return processRawVaultData(raw, vaultAddress, verifiedVaultAddresses.value)
     }
     catch (e) {
       logWarn('vault/processResult', e, { severity: 'error' })
@@ -550,7 +553,7 @@ export const fetchVaults = async function* (
           const raw = refreshedMap.get(vault.address)
           if (!raw) return vault
           try {
-            return processRawVaultData(raw, vault.address, undefined, { verified: true })
+            return processRawVaultData(raw, vault.address, verifiedVaultAddresses.value)
           }
           catch (e) {
             logWarn('vault/pythRefresh', e, { severity: 'error' })
@@ -652,7 +655,7 @@ export const fetchEarnVaults = async function* (vaultAddresses?: string[]): Asyn
       )
 
       return {
-        verified: true,
+        verified: earnVaults.value.includes(vaultAddress),
         type: 'earn',
         address: data.vault,
         name: data.vaultName,
