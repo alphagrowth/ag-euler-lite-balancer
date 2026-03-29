@@ -49,29 +49,31 @@ const fetchBalance = async () => {
   balance.value = await fetchSingleBalance(asset.value.address)
 }
 
-// Load vault data with top-level await
-try {
-  vault.value = await getEarnVault(vaultAddress)
-  asset.value = vault.value?.asset
+// Non-blocking to avoid Suspense + pageTransition crash on direct navigation
+;(async () => {
+  try {
+    vault.value = await getEarnVault(vaultAddress)
+    asset.value = vault.value?.asset
 
-  // Fetch fresh underlying asset balance for this specific vault
-  await fetchBalance()
+    // Fetch fresh underlying asset balance for this specific vault
+    await fetchBalance()
 
-  if (!vault.value?.verified) {
-    modal.open(VaultUnverifiedDisclaimerModal, {
-      isNotClosable: true,
-      props: {
-        onCancel: () => {
-          router.replace('/')
+    if (!vault.value?.verified) {
+      modal.open(VaultUnverifiedDisclaimerModal, {
+        isNotClosable: true,
+        props: {
+          onCancel: () => {
+            router.replace('/')
+          },
         },
-      },
-    })
+      })
+    }
   }
-}
-catch (e) {
-  showError('Unable to load Vault')
-  console.warn(e)
-}
+  catch (e) {
+    showError('Unable to load Vault')
+    logWarn('[earn] failed to load vault', e)
+  }
+})()
 const errorText = computed(() => {
   if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
     return 'Not enough balance'
@@ -252,6 +254,7 @@ watch(address, () => {
       <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">
         <VaultForm
           class="w-full"
+          :loading="!vault"
           @submit.prevent="submit"
         >
           <div
