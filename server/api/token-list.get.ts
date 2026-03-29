@@ -27,7 +27,7 @@ interface TokenEntry {
 }
 
 const rateLimiter = createRateLimiter({
-  max: 100,
+  max: 1000,
   windowMs: 60_000,
   label: 'token-list',
 })

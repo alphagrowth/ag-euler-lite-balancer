@@ -289,11 +289,10 @@ The Nuxt server layer (`server/api/`) proxies requests to external services (RPC
 
 The app includes a built-in per-IP rate limiter as a defense-in-depth measure. Default budgets per 60-second window:
 
-- **RPC proxy**: 1000 units (batch of N costs N)
+- **RPC proxy**: 10,000 units (batch of N costs N)
+- **All other proxies**: 1,000 requests (token list, Pyth updates, labels, oracle adapter, euler chains, intrinsic APY, TOS)
 - **Tenderly simulate**: 10 requests
 - **Address screening**: 10 requests
-- **Pyth updates proxy**: 600 requests
-- **Token list**: 100 requests
 
 **Important**: This is a best-effort safeguard, not a security boundary. It catches accidental abuse (e.g. a client stuck in a retry loop) but will not stop a determined attacker. Known limitations:
 

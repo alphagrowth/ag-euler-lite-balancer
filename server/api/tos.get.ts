@@ -8,7 +8,7 @@ const TIMEOUT_MS = 10_000
 const CACHE_TTL_MS = 300_000
 
 const rateLimiter = createRateLimiter({
-  max: 100,
+  max: 1000,
   windowMs: 60_000,
   label: 'tos',
 })

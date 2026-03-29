@@ -7,7 +7,7 @@ const TIMEOUT_MS = 10_000
 const FEED_ID_RE = /^0x[0-9a-fA-F]{64}$/
 
 const rateLimiter = createRateLimiter({
-  max: 600,
+  max: 1000,
   windowMs: 60_000,
   label: 'pyth-updates',
 })
