@@ -2,7 +2,7 @@
 import type { MarketGroup } from '~/entities/lend-discovery'
 import { formatCompactUsdValue, formatNumber, stringToColor } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { getAssetLogoUrl } from '~/composables/useTokens'
+import { getAssetLogoUrl } from '~/composables/useTokenList'
 import {
   getMarketEntities,
   getDeprecatedVaultCount,

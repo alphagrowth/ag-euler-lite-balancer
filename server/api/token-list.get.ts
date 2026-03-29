@@ -7,6 +7,16 @@ const TIMEOUT_MS = 10_000
 const CACHE_TTL_MS = 300_000
 const DEFILLAMA_DEFAULT_URL = 'https://d3g10bzo9rdluh.cloudfront.net'
 
+interface EulerApiToken {
+  chainId: number
+  address: string
+  name: string
+  symbol: string
+  decimals: number
+  logoURI: string
+  metadata?: { provider: string }
+}
+
 interface TokenEntry {
   chainId: number
   address: string
@@ -22,8 +32,42 @@ const rateLimiter = createRateLimiter({
   label: 'token-list',
 })
 
+const eulerApiCache = createTtlCache<TokenEntry[]>({ ttlMs: CACHE_TTL_MS })
 const uniswapCache = createTtlCache<TokenEntry[]>({ ttlMs: CACHE_TTL_MS })
 const defillamaCache = createTtlCache<TokenEntry[]>({ ttlMs: CACHE_TTL_MS })
+
+async function fetchEulerApi(chainId: number): Promise<TokenEntry[]> {
+  const key = String(chainId)
+  const cached = eulerApiCache.get(key)
+  if (cached) return cached
+
+  try {
+    const url = process.env.EULER_API_URL || process.env.NUXT_PUBLIC_EULER_API_URL
+    if (!url) return []
+
+    const resp = await fetchWithTimeout(`${url}/v1/tokens?chainId=${chainId}`, TIMEOUT_MS)
+    if (!resp.ok) {
+      throw new Error(`Euler API returned ${resp.status}`)
+    }
+
+    const data = (await resp.json()) as EulerApiToken[]
+    const tokens: TokenEntry[] = data.map(t => ({
+      chainId: t.chainId,
+      address: t.address,
+      name: t.name,
+      symbol: t.symbol,
+      decimals: t.decimals,
+      logoURI: t.logoURI || undefined,
+    }))
+
+    eulerApiCache.set(key, tokens)
+    return tokens
+  }
+  catch (err) {
+    console.warn('[token-list] Euler API fetch failed:', err instanceof Error ? err.message : err, 'for chain', chainId)
+    return eulerApiCache.getStale(key) || []
+  }
+}
 
 async function fetchUniswap(): Promise<TokenEntry[]> {
   const url = process.env.NUXT_PUBLIC_CONFIG_UNISWAP_TOKEN_LIST_URL || 'https://tokens.uniswap.org'
@@ -107,11 +151,14 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const chainId = query.chainId ? Number(query.chainId) : null
 
-  // Fetch both sources in parallel; DefiLlama is best-effort
-  const [uniswapResult, defillamaResult] = await Promise.allSettled([
+  // Fetch all sources in parallel; Euler API and DefiLlama are best-effort
+  const [eulerResult, uniswapResult, defillamaResult] = await Promise.allSettled([
+    chainId ? fetchEulerApi(chainId) : Promise.resolve([]),
     fetchUniswap(),
     chainId ? fetchDefillama(chainId) : Promise.resolve([]),
   ])
+
+  const eulerTokens = eulerResult.status === 'fulfilled' ? eulerResult.value : []
 
   if (uniswapResult.status === 'rejected') {
     console.warn('[token-list] Uniswap fetch failed:', uniswapResult.reason?.message || 'Unknown error')
@@ -120,7 +167,13 @@ export default defineEventHandler(async (event) => {
     const stale = uniswapCache.getStale('all')
     if (stale) {
       const defillamaTokens = defillamaResult.status === 'fulfilled' ? defillamaResult.value : []
-      return { tokens: deduplicateTokens(stale, defillamaTokens) }
+      return { tokens: deduplicateTokens(eulerTokens, deduplicateTokens(defillamaTokens, stale)) }
+    }
+
+    // No Uniswap data at all — still return Euler + DefiLlama if available
+    const defillamaTokens = defillamaResult.status === 'fulfilled' ? defillamaResult.value : []
+    if (eulerTokens.length > 0 || defillamaTokens.length > 0) {
+      return { tokens: deduplicateTokens(eulerTokens, defillamaTokens) }
     }
 
     throw createError({ statusCode: 502, statusMessage: 'Upstream error' })
@@ -129,5 +182,6 @@ export default defineEventHandler(async (event) => {
   const uniswapTokens = uniswapResult.value
   const defillamaTokens = defillamaResult.status === 'fulfilled' ? defillamaResult.value : []
 
-  return { tokens: deduplicateTokens(uniswapTokens, defillamaTokens) }
+  // Priority: Euler API > DefiLlama > Uniswap
+  return { tokens: deduplicateTokens(eulerTokens, deduplicateTokens(defillamaTokens, uniswapTokens)) }
 })

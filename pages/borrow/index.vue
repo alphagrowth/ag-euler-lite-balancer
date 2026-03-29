@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useVaults } from '~/composables/useVaults'
 import { useEulerAddresses } from '~/composables/useEulerAddresses'
-import { getAssetLogoUrl } from '~/composables/useTokens'
+import { getAssetLogoUrl } from '~/composables/useTokenList'
 import { getVaultUtilization } from '~/entities/vault'
 import type { AnyBorrowVaultPair, BorrowVaultPair } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'

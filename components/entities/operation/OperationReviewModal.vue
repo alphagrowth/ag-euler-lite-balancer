@@ -10,7 +10,7 @@ import { buildDisplaySteps, type DisplayStep, type StepDecodingContext } from '~
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { logWarn } from '~/utils/errorHandling'
 import { formatNumber } from '~/utils/string-utils'
-import { getAssetLogoUrl } from '~/composables/useTokens'
+import { getAssetLogoUrl } from '~/composables/useTokenList'
 
 const emits = defineEmits(['close', 'confirm'])
 

@@ -2,7 +2,7 @@
 import { useVaults } from '~/composables/useVaults'
 import { useVaultRegistry } from '~/composables/useVaultRegistry'
 import { useEulerAddresses } from '~/composables/useEulerAddresses'
-import { getAssetLogoUrl } from '~/composables/useTokens'
+import { getAssetLogoUrl } from '~/composables/useTokenList'
 import { getVaultUtilization } from '~/entities/vault'
 import type { Vault } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'

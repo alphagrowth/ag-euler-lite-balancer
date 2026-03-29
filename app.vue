@@ -5,7 +5,6 @@ const route = useRoute()
 const router = useRouter()
 const { loadEulerConfig, chainId } = useEulerAddresses()
 const { loadVaults, isReady: isVaultsReady, resetVaultsState, refreshVaults } = useVaults()
-const { loadTokens } = useTokens()
 const { loadTokenList, isLoaded: isTokenListLoaded } = useTokenList()
 const { loadLabels } = useEulerLabels()
 const { loadCountry } = useGeoBlock()
@@ -80,7 +79,6 @@ watch(chainId, () => {
   resetBalances()
   const targetChainId = chainId.value
   const labelsPromise = loadLabels()
-  void loadTokens()
   void loadTokenList()
   void loadCountry()
   void labelsPromise.then(() => {
