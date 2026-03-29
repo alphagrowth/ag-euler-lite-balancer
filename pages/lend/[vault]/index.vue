@@ -105,7 +105,10 @@ const isNativeWrap = computed(() => {
   if (!selectedAsset.value || !asset.value) return false
   return isNativeOfWrapped(selectedAsset.value.address, asset.value.address, chainId.value!)
 })
-const { slippage: swapSlippage } = useSlippage()
+const { slippage: swapSlippage } = useSlippage({
+  fromSymbol: () => selectedAsset.value?.symbol,
+  toSymbol: () => evkVault.value?.asset.symbol || securitizeVault.value?.asset.symbol,
+})
 const {
   sortedQuoteCards: swapQuoteCardsSorted,
   selectedProvider: swapSelectedProvider,

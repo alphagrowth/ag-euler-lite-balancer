@@ -77,7 +77,10 @@ const multiplyLongAmount = ref('')
 const multiplyShortAmount = ref('')
 const multiplySupplyVault: Ref<Vault | undefined> = ref()
 
-const { slippage: multiplySlippage } = useSlippage()
+const { slippage: multiplySlippage } = useSlippage({
+  fromSymbol: () => position.value?.borrow.asset.symbol,
+  toSymbol: () => position.value?.collateral.asset.symbol,
+})
 const {
   sortedQuoteCards: multiplyQuoteCardsSorted,
   selectedProvider: multiplySelectedProvider,
