@@ -82,7 +82,7 @@ Structure: `Record<string, Product>` — keys are product identifiers (e.g. `"eu
 | `vaults` | `string[]` | Yes | Active vault addresses (checksummed). These become "verified" vaults in the app. |
 | `deprecatedVaults` | `string[]` | No | Phased-out vault addresses. Still verified and viewable in portfolio, but hidden from discovery tables and shown with a deprecation warning. |
 | `deprecationReason` | `string` | No | Explanation for deprecation. Shown in a warning banner on vault overview. URLs are auto-linked. Also accepts legacy key `deprecateReason`. |
-| `isGovernanceLimited` | `boolean` | No | If `true`, shows "Limited risk management" text under the Risk Manager section on vault overview. |
+| `isGovernanceLimited` | `boolean` | No | If `true`, shows "Limited risk management" text under the Risk Manager section on vault overview. The risk manager entity display is also faded to 20% opacity across all UI components (browse lists, vault overview, explore market cards) to visually convey limited active risk management. |
 | `notExplorable` | `boolean` | No | If `true`, hides **all** vaults in this product from lend, borrow, and explore discovery pages. Takes precedence over per-vault `notExplorableLend`/`notExplorableBorrow`. Vaults remain accessible via direct URL. |
 | `block` | `string[]` | No | Country codes or group aliases (`EU`, `EEA`, `EFTA`) for hard geo-blocking. See [geo-blocking.md](./geo-blocking.md). |
 | `featuredVaults` | `string[]` | No | Subset of `vaults` to sort to the top in discovery tables. |
@@ -333,7 +333,20 @@ Entities are matched to vaults through two mechanisms:
 1. **Labels**: `product.entity` names the owning entity key(s), which are looked up in `entities.json`
 2. **Governor admin**: `vault.governorAdmin` is compared against entity `addresses` keys to identify the governing entity
 
-The governor admin must match an address in one of the product's declared entities for the vault to be considered "governor verified". If `isGovernanceLimited` is set, the vault shows "Limited risk management" instead.
+The governor admin must match an address in one of the product's declared entities for the vault to be considered "governor verified". If `isGovernanceLimited` is set, the vault shows "Limited risk management" text and the entity display is faded to 20% opacity across all UI surfaces (list items, overview pages, explore cards).
+
+## Sentinel Address Labels
+
+Vault overview pages display human-readable labels for well-known sentinel addresses instead of raw hex. The `getSpecialAddressLabel()` utility in `utils/special-addresses.ts` maps:
+
+| Address | Label |
+|---------|-------|
+| `0x0000...0000` | None |
+| `0x0000...0348` | USD |
+| `0xEeee...eEeE` | ETH |
+| `0xbBbB...bBbB` | BTC |
+
+These labels appear in address fields across all vault overview types (EVK, Earn, Securitize) and remain clickable with copy functionality.
 
 ## Key Files
 

@@ -50,7 +50,7 @@ cp .env.example .env
 | `EULER_API_URL`   | —                             | Euler indexer API (token data, logos) |
 | `SWAP_API_URL`    | —                             | Euler swap API                        |
 | `PRICE_API_URL`   | —                             | Euler price API                       |
-| `PYTH_HERMES_URL` | `https://hermes.pyth.network` | Pyth oracle endpoint                  |
+| `PYTH_HERMES_URL` | `https://hermes.pyth.network` | Pyth oracle endpoint (server-only, proxied via `/api/pyth/updates`) |
 
 > **Doppler compatibility:** If your secret manager injects `NUXT_PUBLIC_*` prefixed names (e.g. `NUXT_PUBLIC_EULER_API_URL`), the app accepts both forms automatically.
 
@@ -307,7 +307,7 @@ Before deploying:
 ### Token logos not loading
 
 - Verify `EULER_API_URL` is set correctly. If using Doppler, ensure the env var name matches (`EULER_API_URL` or `NUXT_PUBLIC_EULER_API_URL`).
-- Check the browser console for failed `/v1/tokens` requests.
+- Token data is fetched server-side via `/api/token-list` which aggregates Euler API, DefiLlama, and Uniswap sources with fallback. Check server logs for upstream failures.
 
 ### Build Errors
 

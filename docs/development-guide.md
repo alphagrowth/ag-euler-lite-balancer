@@ -84,8 +84,27 @@ External metadata (contract addresses, labels, oracle checks) is fetched through
 | `GET /api/labels/:file?chainId=X` | `{chainId}/{file}` from euler-labels | 5 min | `NUXT_PUBLIC_CONFIG_LABELS_BASE_URL` |
 | `GET /api/oracle-adapter?chainId=X&address=0x...` | Per-adapter JSON from oracle-checks | 5 min | `NUXT_PUBLIC_CONFIG_ORACLE_CHECKS_BASE_URL` |
 | `GET /api/token-list?chainId=X` | Euler API + Uniswap + DefiLlama token lists | 5 min | `EULER_API_URL`, `NUXT_PUBLIC_CONFIG_UNISWAP_TOKEN_LIST_URL`, `NUXT_PUBLIC_CONFIG_DEFILLAMA_TOKEN_LIST_URL` |
+| `GET /api/pyth/updates?ids[]=...` | Pyth Hermes (`/v2/updates/price/latest`) | No cache | `PYTH_HERMES_URL` (server-only) |
 
-All endpoints use rate limiting and return stale cached data when upstream is unavailable. The shared caching utility is in `server/utils/cache.ts`.
+All endpoints use rate limiting and return stale cached data when upstream is unavailable (except `/api/pyth/updates` which requires real-time data and returns no-store cache headers). The shared caching utility is in `server/utils/cache.ts`.
+
+### Token List Endpoint Details
+
+The `/api/token-list` endpoint aggregates three token sources, all fetched in parallel with stale-fallback resilience:
+
+1. **Euler API** (`EULER_API_URL/v1/tokens`) — vault-relevant tokens with logos
+2. **DefiLlama** (`NUXT_PUBLIC_CONFIG_DEFILLAMA_TOKEN_LIST_URL`) — broad token coverage
+3. **Uniswap** (`NUXT_PUBLIC_CONFIG_UNISWAP_TOKEN_LIST_URL`) — baseline token list
+
+Priority for deduplication: Euler API > DefiLlama > Uniswap. If any source fails, the endpoint still returns data from the remaining sources. The client consumes this via the `useTokenList` composable.
+
+### Pyth Proxy Endpoint Details
+
+The `/api/pyth/updates` endpoint proxies Pyth Hermes price update requests through the server. This avoids CORS restrictions and prevents the Hermes URL (which may contain credentials) from reaching the browser.
+
+- **Rate limit**: 600 requests per 60-second window
+- **Validation**: Feed IDs must match `0x[64 hex chars]` format, max 100 per request
+- **Env var**: `PYTH_HERMES_URL` (server-only; not exposed to client)
 
 ## Code layout (high level)
 
