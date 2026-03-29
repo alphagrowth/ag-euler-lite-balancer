@@ -107,7 +107,10 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   )
 
   // --- Swap & borrow composable instances ---
-  const { slippage: borrowSwapSlippage } = useSlippage()
+  const { slippage: borrowSwapSlippage } = useSlippage({
+    fromSymbol: () => collateralVault.value?.asset.symbol,
+    toSymbol: () => borrowVault.value?.asset.symbol,
+  })
   const {
     sortedQuoteCards: borrowSwapQuoteCards,
     selectedProvider: borrowSwapSelectedProvider,
@@ -489,7 +492,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       liquidationPrice.value = computeLiquidationPrice(
         priceFixed.value.toUnsafeFloat(),
         health.value,
-      ) ?? Infinity
+      ) ?? undefined
       const collateralUsdValue = borrowNeedsSwap.value && borrowSwapAssetUsdPrice.value
         ? (+collateralAmount.value || 0) * borrowSwapAssetUsdPrice.value
         : await getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')

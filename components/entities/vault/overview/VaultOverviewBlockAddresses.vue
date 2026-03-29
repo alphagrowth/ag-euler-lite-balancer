@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Vault } from '~/entities/vault'
 import { getExplorerLink } from '~/utils/block-explorer'
+import { getSpecialAddressLabel } from '~/utils/special-addresses'
 
 const { vault } = defineProps<{ vault: Vault }>()
 
@@ -114,7 +115,7 @@ const getExplorerAddressLink = (address: string) => getExplorerLink(address, cha
             class="text-accent-600 underline cursor-pointer hover:text-accent-500"
             target="_blank"
           >
-            {{ shortenAddress(infoItem.address) }}
+            {{ getSpecialAddressLabel(infoItem.address) || shortenAddress(infoItem.address) }}
           </NuxtLink>
           <button
             class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"

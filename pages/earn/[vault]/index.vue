@@ -49,29 +49,31 @@ const fetchBalance = async () => {
   balance.value = await fetchSingleBalance(asset.value.address)
 }
 
-// Load vault data with top-level await
-try {
-  vault.value = await getEarnVault(vaultAddress)
-  asset.value = vault.value?.asset
+// Non-blocking to avoid Suspense + pageTransition crash on direct navigation
+;(async () => {
+  try {
+    vault.value = await getEarnVault(vaultAddress)
+    asset.value = vault.value?.asset
 
-  // Fetch fresh underlying asset balance for this specific vault
-  await fetchBalance()
+    // Fetch fresh underlying asset balance for this specific vault
+    await fetchBalance()
 
-  if (!vault.value?.verified) {
-    modal.open(VaultUnverifiedDisclaimerModal, {
-      isNotClosable: true,
-      props: {
-        onCancel: () => {
-          router.replace('/')
+    if (!vault.value?.verified) {
+      modal.open(VaultUnverifiedDisclaimerModal, {
+        isNotClosable: true,
+        props: {
+          cancelAction: () => {
+            router.replace('/')
+          },
         },
-      },
-    })
+      })
+    }
   }
-}
-catch (e) {
-  showError('Unable to load Vault')
-  console.warn(e)
-}
+  catch (e) {
+    showError('Unable to load Vault')
+    logWarn('[earn] failed to load vault', e)
+  }
+})()
 const errorText = computed(() => {
   if (balance.value < valueToNano(amount.value, asset.value?.decimals)) {
     return 'Not enough balance'
@@ -230,136 +232,144 @@ watch(address, () => {
 
 <template>
   <div>
-    <BaseBackButton class="laptop:!hidden mb-16" />
-
-    <VaultLabelsAndAssets
-      v-if="vault && asset"
-      class="mb-24"
-      :vault="vault"
-      :assets="assets"
-      size="large"
-    />
-
-    <div class="flex gap-32">
-      <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
-        <VaultOverviewEarn
-          v-if="vault"
-          :vault="vault as EarnVault"
-          desktop-overview
-          @vault-click="(address: string) => router.push({ path: `/lend/${address}`, query: { network: route.query.network } })"
-        />
-      </div>
-      <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">
-        <VaultForm
-          class="w-full"
-          @submit.prevent="submit"
-        >
-          <div
-            v-if="vault && asset"
-            class="flex items-center justify-between"
-          >
-            <p class="text-h3 text-content-tertiary flex items-center gap-4">
-              Supply APY
-              <span class="inline-flex items-center rounded-8 px-8 py-2 bg-accent-100 text-accent-600 text-p5">
-                1h
-              </span>
-              <SvgIcon
-                class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
-                name="info-circle"
-                @click="onSupplyInfoIconClick"
-              />
-            </p>
-
-            <p class="flex items-center gap-4 text-h3">
-              <VaultPoints
-                :vault="vault"
-              />
-              <SvgIcon
-                v-if="hasRewards"
-                class="!w-24 !h-24 text-accent-500 cursor-pointer"
-                name="sparks"
-                @click="onSupplyInfoIconClick"
-              />
-              <span>
-                {{ supplyAPYDisplay }}%
-              </span>
-            </p>
-          </div>
-
-          <AssetInput
-            v-if="asset"
-            v-model="amount"
-            label="Supply amount"
-            :desc="name"
-            :asset="asset"
-            :vault="vault"
-            :balance="balance"
-            maxable
-          />
-
-          <UiToast
-            v-if="isGeoBlocked"
-            title="Region restricted"
-            description="This operation is not available in your region. You can still withdraw existing deposits."
-            variant="warning"
-            size="compact"
-          />
-          <UiToast
-            v-show="errorText"
-            title="Error"
-            variant="error"
-            :description="errorText || ''"
-            size="compact"
-          />
-          <UiToast
-            v-if="simulationError"
-            title="Error"
-            variant="error"
-            :description="simulationError"
-            size="compact"
-          />
-
-          <VaultFormInfoBlock
-            v-if="vault && asset"
-            :loading="isEstimatesLoading"
-            variant="card"
-          >
-            <SummaryRow
-              label="Projected earnings per month"
-              align-top
-            >
-              <p class="text-content-tertiary">
-                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
-                  asset.symbol
-                }}
-                ≈ ${{ compactNumber(monthlyEarningsUsd) }}
-              </p>
-            </SummaryRow>
-
-            <SummaryRow label="Supply APY">
-              <SummaryValue
-                :after="estimateSupplyAPYDisplay"
-                suffix="%"
-                estimate-only
-              />
-            </SummaryRow>
-          </VaultFormInfoBlock>
-
-          <template #buttons>
-            <VaultFormInfoButton
-              :earn-vault="vault"
-              class="laptop:!hidden"
-              :disabled="isLoading || isSubmitting"
-            />
-            <VaultFormSubmit
-              :disabled="reviewSupplyDisabled"
-              :loading="isSubmitting || isPreparing"
-            >
-              Review Supply
-            </VaultFormSubmit>
-          </template>
-        </VaultForm>
-      </div>
+    <div
+      v-if="!vault"
+      class="flex justify-center items-center min-h-[50dvh]"
+    >
+      <UiLoader />
     </div>
+    <template v-else>
+      <BaseBackButton class="laptop:!hidden mb-16" />
+
+      <VaultLabelsAndAssets
+        v-if="asset"
+        class="mb-24"
+        :vault="vault"
+        :assets="assets"
+        size="large"
+      />
+
+      <div class="flex gap-32">
+        <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
+          <VaultOverviewEarn
+            v-if="vault"
+            :vault="vault as EarnVault"
+            desktop-overview
+            @vault-click="(address: string) => router.push({ path: `/lend/${address}`, query: { network: route.query.network } })"
+          />
+        </div>
+        <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">
+          <VaultForm
+            class="w-full"
+            @submit.prevent="submit"
+          >
+            <div
+              v-if="vault && asset"
+              class="flex items-center justify-between"
+            >
+              <p class="text-h3 text-content-tertiary flex items-center gap-4">
+                Supply APY
+                <span class="inline-flex items-center rounded-8 px-8 py-2 bg-accent-100 text-accent-600 text-p5">
+                  1h
+                </span>
+                <SvgIcon
+                  class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+                  name="info-circle"
+                  @click="onSupplyInfoIconClick"
+                />
+              </p>
+
+              <p class="flex items-center gap-4 text-h3">
+                <VaultPoints
+                  :vault="vault"
+                />
+                <SvgIcon
+                  v-if="hasRewards"
+                  class="!w-24 !h-24 text-accent-500 cursor-pointer"
+                  name="sparks"
+                  @click="onSupplyInfoIconClick"
+                />
+                <span>
+                  {{ supplyAPYDisplay }}%
+                </span>
+              </p>
+            </div>
+
+            <AssetInput
+              v-if="asset"
+              v-model="amount"
+              label="Supply amount"
+              :desc="name"
+              :asset="asset"
+              :vault="vault"
+              :balance="balance"
+              maxable
+            />
+
+            <UiToast
+              v-if="isGeoBlocked"
+              title="Region restricted"
+              description="This operation is not available in your region. You can still withdraw existing deposits."
+              variant="warning"
+              size="compact"
+            />
+            <UiToast
+              v-show="errorText"
+              title="Error"
+              variant="error"
+              :description="errorText || ''"
+              size="compact"
+            />
+            <UiToast
+              v-if="simulationError"
+              title="Error"
+              variant="error"
+              :description="simulationError"
+              size="compact"
+            />
+
+            <VaultFormInfoBlock
+              v-if="vault && asset"
+              :loading="isEstimatesLoading"
+              variant="card"
+            >
+              <SummaryRow
+                label="Projected earnings per month"
+                align-top
+              >
+                <p class="text-content-tertiary">
+                  <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
+                    asset.symbol
+                  }}
+                  ≈ ${{ compactNumber(monthlyEarningsUsd) }}
+                </p>
+              </SummaryRow>
+
+              <SummaryRow label="Supply APY">
+                <SummaryValue
+                  :after="estimateSupplyAPYDisplay"
+                  suffix="%"
+                  estimate-only
+                />
+              </SummaryRow>
+            </VaultFormInfoBlock>
+
+            <template #buttons>
+              <VaultFormInfoButton
+                :earn-vault="vault"
+                class="laptop:!hidden"
+                :disabled="isLoading || isSubmitting"
+              />
+              <VaultFormSubmit
+                :disabled="reviewSupplyDisabled"
+                :loading="isSubmitting || isPreparing"
+              >
+                Review Supply
+              </VaultFormSubmit>
+            </template>
+          </VaultForm>
+        </div>
+      </div>
+    </template>
   </div>
 </template>

@@ -2,7 +2,7 @@
 import type { MarketGroup } from '~/entities/lend-discovery'
 import { formatCompactUsdValue, formatNumber, stringToColor } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { getAssetLogoUrl } from '~/composables/useTokens'
+import { getAssetLogoUrl } from '~/composables/useTokenList'
 import {
   getMarketEntities,
   getDeprecatedVaultCount,
@@ -29,6 +29,10 @@ const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
 const { getBorrowRewardApy, getSupplyRewardApy, getLoopingRewardApy } = useRewardsApy()
 const { products } = useEulerLabels()
 const modal = useModal()
+
+const isGovernanceLimited = computed(() =>
+  props.market.source === 'product' && !!products[props.market.id]?.isGovernanceLimited,
+)
 
 const isKeyring = computed(() => {
   if (props.market.source === 'product' && products[props.market.id]?.keyring) return true
@@ -126,7 +130,7 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
     class="w-full text-left cursor-pointer p-16"
     @click="$emit('toggle')"
   >
-    <div class="flex items-start pb-12 border-b border-line-subtle">
+    <div class="flex items-center pb-12 border-b border-line-subtle">
       <template
         v-for="(marketEntities, entitiesIdx) in [getMarketEntities(market)]"
         :key="'entities-' + entitiesIdx"
@@ -134,6 +138,7 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
         <BaseAvatar
           v-if="marketEntities.logos.length > 0"
           class="icon--40 shrink-0"
+          :class="{ 'opacity-20': isGovernanceLimited }"
           :src="marketEntities.logos"
           :label="marketEntities.name"
         />
@@ -142,9 +147,10 @@ const onMaxRoeInfoIconClick = (event: MouseEvent, result: BestMaxRoeResult) => {
           :class="marketEntities.logos.length > 0 ? 'ml-12' : ''"
         >
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
-            <template v-if="marketEntities.name">
-              {{ marketEntities.name }}
-            </template>
+            <span
+              v-if="marketEntities.name"
+              :class="{ 'opacity-20': isGovernanceLimited }"
+            >{{ marketEntities.name }}</span>
             <template v-else-if="market.curator">
               {{ market.curator.name }}
             </template>

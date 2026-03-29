@@ -167,6 +167,15 @@ describe('computeLiquidationPrice', () => {
     expect(computeLiquidationPrice(2000, 2)).toBe(1000)
   })
 
+  it('returns null when health is below 1 (position already liquidatable)', () => {
+    expect(computeLiquidationPrice(2000, 0.5)).toBeNull()
+    expect(computeLiquidationPrice(2000, 0.99)).toBeNull()
+  })
+
+  it('returns price at exact health boundary of 1', () => {
+    expect(computeLiquidationPrice(2000, 1)).toBe(2000)
+  })
+
   it('returns null when health is NaN', () => {
     expect(computeLiquidationPrice(1.5, NaN)).toBeNull()
   })

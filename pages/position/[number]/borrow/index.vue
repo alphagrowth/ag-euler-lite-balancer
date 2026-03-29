@@ -349,7 +349,7 @@ const updateEstimates = useDebounceFn(async () => {
     health.value = newLtvFloat <= 0
       ? Infinity
       : (Number(pair.value?.liquidationLTV || 0n) / 100) / newLtvFloat
-    liquidationPrice.value = health.value < 0.1 ? Infinity : priceFixed.value.toUnsafeFloat() / health.value
+    liquidationPrice.value = health.value < 1 ? undefined : priceFixed.value.toUnsafeFloat() / health.value
     // borrowAmount is the ADDITIONAL borrow; estimate Net APY using total borrow
     const existingBorrow = nanoToValue(position.value?.borrowed || 0n, borrowVault.value!.decimals)
     const totalBorrow = existingBorrow + (+borrowAmount.value || 0)

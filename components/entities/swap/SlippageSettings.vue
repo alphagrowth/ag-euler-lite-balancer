@@ -8,7 +8,7 @@ const _props = withDefaults(defineProps<{
   deferSave: false,
 })
 
-const { slippage, setSlippage, minSlippage, maxSlippage } = useSlippage()
+const { slippage, setSlippage, minSlippage, maxSlippage, defaultSlippage, isOverrideActive } = useSlippage()
 
 const slippagePresets = [
   { label: '0.1%', value: 0.1 },
@@ -21,6 +21,11 @@ const isCustomInputVisible = ref(false)
 const customInput = ref('')
 const customInputError = ref('')
 const slippageSelection = useLocalStorage<'preset' | 'custom'>('swap-slippage-selection', 'preset')
+
+// Reset selection state when override expires back to a preset default
+if (!isOverrideActive.value && presetValues.includes(slippage.value)) {
+  slippageSelection.value = 'preset'
+}
 
 const isCustomSelected = computed(() => slippageSelection.value === 'custom')
 const isCustomValue = computed(() => !presetValues.includes(slippage.value))
@@ -125,7 +130,15 @@ defineExpose({ savePending })
         Slippage settings
       </div>
       <div class="text-p3 text-content-muted">
-        Default slippage for swaps
+        <template v-if="isOverrideActive && slippage > 0.5">
+          Custom slippage (resets to {{ defaultSlippage }}% default after 24h)
+        </template>
+        <template v-else-if="defaultSlippage !== 0.5">
+          Default: {{ defaultSlippage }}% for stablecoin swaps
+        </template>
+        <template v-else>
+          Default slippage for swaps is {{ defaultSlippage }}%
+        </template>
       </div>
       <div class="flex flex-wrap gap-8 rounded-[32px] bg-surface-secondary p-6">
         <button

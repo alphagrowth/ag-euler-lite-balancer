@@ -66,11 +66,11 @@ const oraclePriceRatio = computed(() => {
 walletPriceInvert.autoInvert(oraclePriceRatio)
 const liquidationPrice = computed(() => {
   const health = nanoToValue(position.value?.health || 0n, 18)
-  if (!oraclePriceRatio.value || health < 0.1) return null
+  if (!oraclePriceRatio.value || health < 1) return null
   return oraclePriceRatio.value / health
 })
 const liqPriceFromHealth = (health: number | null | undefined): number | null => {
-  if (!oraclePriceRatio.value || !health || health < 0.1 || health > 1e15) return null
+  if (!oraclePriceRatio.value || !health || health < 1 || health > 1e15) return null
   return oraclePriceRatio.value / health
 }
 

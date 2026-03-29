@@ -79,7 +79,7 @@ export function estimatePositionAfterChange(params: EstimateParams): PositionEst
   // Liquidation price: derived from the oracle price and health
   // liqPrice = oraclePrice / health
   const oraclePrice = collateralPriceRatio
-  const newLiquidationPrice = oraclePrice && newHealth > 0 && newHealth < Infinity
+  const newLiquidationPrice = oraclePrice && newHealth >= 1 && newHealth < Infinity
     ? oraclePrice / newHealth
     : null
 

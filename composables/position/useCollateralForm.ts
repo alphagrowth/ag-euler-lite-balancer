@@ -221,7 +221,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   })
   const estimateLiquidationPrice = computed(() => {
     const health = nanoToValue(estimateHealth.value, 18)
-    if (!health || health < 0.1 || health > 1e15) return undefined
+    if (!health || health < 1 || health > 1e15) return undefined
     const price = priceFixed.value.toUnsafeFloat()
     if (!price) return undefined
     return price / health

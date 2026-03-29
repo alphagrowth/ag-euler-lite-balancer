@@ -96,7 +96,10 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     () => multiplyLongVault.value?.asset.symbol,
   )
 
-  const { slippage: multiplySlippage } = useSlippage()
+  const { slippage: multiplySlippage } = useSlippage({
+    fromSymbol: () => borrowVault.value?.asset.symbol,
+    toSymbol: () => collateralVault.value?.asset.symbol,
+  })
   const {
     sortedQuoteCards: multiplyQuoteCardsSorted,
     selectedProvider: multiplySelectedProvider,

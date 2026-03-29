@@ -97,7 +97,10 @@ export const useSwapPageLogic = (options: UseSwapPageLogicOptions) => {
   const plan = ref<TxPlan | null>(null)
   const fromAmount = ref('')
   const toAmount = ref('')
-  const { slippage } = useSlippage()
+  const { slippage } = useSlippage({
+    fromSymbol: () => fromVault.value?.asset.symbol,
+    toSymbol: () => toVault.value?.asset.symbol,
+  })
 
   // ── Quote engine ───────────────────────────────────────────────────────
   const {

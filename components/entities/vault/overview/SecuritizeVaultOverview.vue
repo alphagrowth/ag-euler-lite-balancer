@@ -9,6 +9,7 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { autoLink } from '~/utils/autoLink'
 import { getExplorerLink } from '~/utils/block-explorer'
+import { getSpecialAddressLabel } from '~/utils/special-addresses'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { formatNumber, compactNumber, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -32,6 +33,7 @@ const description = computed(() => {
 })
 const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault as unknown as Vault))
+const isGovernanceLimited = computed(() => product.isGovernanceLimited && isGovernorVerified.value)
 const marketProductKey = computed(() => getProductKeyByVault(vault.address))
 
 const isDeprecated = computed(() => {
@@ -234,6 +236,7 @@ const supplyCapPercentageDisplay = computed(() => {
               v-for="(entity, idx) in entities"
               :key="idx"
               class="flex items-center gap-8"
+              :class="{ 'opacity-20': isGovernanceLimited }"
             >
               <BaseAvatar
                 :label="entity.name"
@@ -245,6 +248,10 @@ const supplyCapPercentageDisplay = computed(() => {
                 class="text-p2 text-content-primary underline"
               >{{ entity.name }}</a>
             </div>
+            <span
+              v-if="isGovernanceLimited"
+              class="text-p3 text-content-tertiary"
+            >Limited risk management</span>
           </div>
           <VaultTypeChip
             v-else-if="!isGovernorVerified"
@@ -374,7 +381,7 @@ const supplyCapPercentageDisplay = computed(() => {
               class="text-accent-600 underline cursor-pointer hover:text-accent-500"
               target="_blank"
             >
-              {{ shortenAddress(vault.asset.address) }}
+              {{ getSpecialAddressLabel(vault.asset.address) || shortenAddress(vault.asset.address) }}
             </NuxtLink>
             <button
               class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"
@@ -397,7 +404,7 @@ const supplyCapPercentageDisplay = computed(() => {
               class="text-accent-600 underline cursor-pointer hover:text-accent-500"
               target="_blank"
             >
-              {{ shortenAddress(vault.address) }}
+              {{ getSpecialAddressLabel(vault.address) || shortenAddress(vault.address) }}
             </NuxtLink>
             <button
               class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"
@@ -421,7 +428,7 @@ const supplyCapPercentageDisplay = computed(() => {
               class="text-accent-600 underline cursor-pointer hover:text-accent-500"
               target="_blank"
             >
-              {{ shortenAddress(vault.governorAdmin) }}
+              {{ getSpecialAddressLabel(vault.governorAdmin) || shortenAddress(vault.governorAdmin) }}
             </NuxtLink>
             <button
               class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"

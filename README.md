@@ -163,7 +163,7 @@ Replace the favicon files in `public/favicons/`:
 
 #### Token Icons
 
-Token icons are loaded from the Euler Indexer API (`EULER_API_URL/v1/tokens`). Each token's `logoURI` field provides the icon URL.
+Token icons are resolved from a unified server-side token list that aggregates three sources: Euler API, Uniswap, and DefiLlama. All sources are fetched in parallel with 5-minute caching and stale-fallback resilience. Euler API entries take priority for vault assets.
 
 To override an icon for a specific token, add a file to `assets/tokens/`:
 
@@ -176,7 +176,7 @@ assets/tokens/
 The resolution order in `getAssetLogoUrl(address, symbol)`:
 
 1. Local override in `assets/tokens/<symbol>.png`
-2. `logoURI` from the indexer API
+2. `logoURI` from the unified token list (Euler API > DefiLlama > Uniswap)
 3. Empty string (component shows initials fallback)
 
 #### EulerEarn Vaults
@@ -262,7 +262,7 @@ composables/
   useThemeColors.ts        # Bridges CSS color variables into Chart.js
   useChainConfig.ts        # Dynamic chain derivation from env vars
   useEulerConfig.ts        # Aggregated config for Euler services
-  useTokens.ts             # Token data fetching and icon resolution
+  useTokenList.ts          # Unified token list and icon resolution
   useEulerOperations.ts    # Operation builders (deposit, borrow, etc.)
 entities/
   custom.ts                # Theme hue and intrinsic APY sources

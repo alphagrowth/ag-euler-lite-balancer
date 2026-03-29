@@ -1,11 +1,11 @@
 <script setup lang="ts">
 const emits = defineEmits(['close'])
-const { onCancel } = defineProps<{
-  onCancel: () => void
+const { cancelAction } = defineProps<{
+  cancelAction: () => void
 }>()
 
 const handleCancel = () => {
-  onCancel()
+  cancelAction()
   emits('close')
 }
 </script>

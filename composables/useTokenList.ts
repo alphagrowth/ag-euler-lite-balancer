@@ -136,6 +136,21 @@ const toVaultAsset = (entry: TokenListEntry): VaultAsset => ({
   decimals: BigInt(entry.decimals),
 })
 
+const tokenIconOverrides = new Map(
+  Object.entries(
+    import.meta.glob('~/assets/tokens/*', { eager: true, query: '?url', import: 'default' }),
+  ).map(([path, url]) => {
+    const symbol = path.split('/').pop()?.split('.')[0]?.toLowerCase() ?? ''
+    return [symbol, url as string]
+  }),
+)
+
+export const getAssetLogoUrl = (address: string, symbol: string): string => {
+  return tokenIconOverrides.get(symbol.toLowerCase())
+    ?? getTokenListLogoUrl(address)
+    ?? ''
+}
+
 export const useTokenList = () => {
   return {
     loadTokenList,

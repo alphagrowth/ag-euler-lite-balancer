@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getAssetLogoUrl } from '~/composables/useTokens'
+import { getAssetLogoUrl } from '~/composables/useTokenList'
 
 const { asset, size, iconUrl } = defineProps<{
   asset: { address: string, symbol: string } | { address: string, symbol: string }[]

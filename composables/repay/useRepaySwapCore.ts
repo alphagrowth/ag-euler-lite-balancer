@@ -23,7 +23,7 @@ export interface UseRepaySwapCoreOptions {
   sourceBalance: ComputedRef<bigint>
   formTab: Ref<string>
   formTabName: string
-  slippage: Ref<number>
+  slippage: Readonly<Ref<number>>
   clearSimulationError: () => void
   getCurrentDebt: () => bigint
   getQuoteAccounts: () => QuoteAccounts

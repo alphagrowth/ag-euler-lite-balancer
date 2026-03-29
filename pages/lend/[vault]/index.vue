@@ -105,7 +105,10 @@ const isNativeWrap = computed(() => {
   if (!selectedAsset.value || !asset.value) return false
   return isNativeOfWrapped(selectedAsset.value.address, asset.value.address, chainId.value!)
 })
-const { slippage: swapSlippage } = useSlippage()
+const { slippage: swapSlippage } = useSlippage({
+  fromSymbol: () => selectedAsset.value?.symbol,
+  toSymbol: () => evkVault.value?.asset.symbol || securitizeVault.value?.asset.symbol,
+})
 const {
   sortedQuoteCards: swapQuoteCardsSorted,
   selectedProvider: swapSelectedProvider,
@@ -125,83 +128,6 @@ const {
 const evkVault: Ref<Vault | undefined> = ref(undefined)
 const securitizeVault: Ref<SecuritizeVault | undefined> = ref(undefined)
 const balance = ref(0n)
-
-// Check if securitize vault first
-const isSecuritize = await isSecuritizeVault(vaultAddress)
-
-// Load vault data based on type
-if (isSecuritize) {
-  securitizeVault.value = await getSecuritizeVault(vaultAddress)
-}
-else {
-  try {
-    const normalizedAddress = getAddress(vaultAddress)
-
-    // Fast path: vault already in registry
-    const registryEntry = registryGet(normalizedAddress)
-    if (registryEntry?.type === 'evk') {
-      evkVault.value = registryEntry.vault as Vault
-    }
-    // Escrow vaults haven't loaded yet - wait for them
-    else if (!isEscrowLoadedOnce.value) {
-      await until(isEscrowLoadedOnce).toBe(true)
-      const entryAfterLoad = registryGet(normalizedAddress)
-      if (entryAfterLoad?.type === 'evk') {
-        evkVault.value = entryAfterLoad.vault as Vault
-      }
-      else if (isKnownEscrowAddress(normalizedAddress)) {
-        evkVault.value = await getEscrowVault(vaultAddress) as Vault
-      }
-      else {
-        evkVault.value = await getVault(vaultAddress)
-      }
-    }
-    // Escrow vaults loaded - check if known escrow address
-    else if (isKnownEscrowAddress(normalizedAddress)) {
-      evkVault.value = await getEscrowVault(vaultAddress) as Vault
-    }
-    // Regular vault
-    else {
-      evkVault.value = await getVault(vaultAddress)
-    }
-
-    // Load any collateral vaults that aren't already in registry
-    if (evkVault.value) {
-      const { has: registryHas } = useVaultRegistry()
-
-      const collateralAddresses = evkVault.value.collateralLTVs
-        .filter(ltv => getCurrentLiquidationLTV(ltv) > 0n)
-        .map(ltv => ltv.collateral)
-
-      // Check and load missing collaterals in parallel
-      await Promise.all(
-        collateralAddresses.map(async (collateralAddr) => {
-          // Skip if already loaded in registry
-          if (registryHas(collateralAddr)) return
-
-          try {
-            // Try regular vault first, then securitize
-            await getVault(collateralAddr)
-          }
-          catch {
-            // If regular vault fails, try securitize
-            try {
-              await getSecuritizeVault(collateralAddr)
-            }
-            catch {
-              // Ignore - collateral vault might not be accessible
-            }
-          }
-        }),
-      )
-    }
-  }
-  catch (e) {
-    // If EVK vault load fails, try as securitize vault
-    console.warn('[lend] EVK vault load failed, trying securitize:', e)
-    securitizeVault.value = await getSecuritizeVault(vaultAddress)
-  }
-}
 
 // Check if vault uses Pyth oracles (requires fresh prices)
 const hasPythOracles = (v: Vault | undefined): boolean => {
@@ -225,14 +151,95 @@ const needsRefresh = (v: Vault | undefined): boolean => {
   return hasPythOracles(v) || hasPriceFailure(v)
 }
 
-// Refresh EVK vault if it uses Pyth oracles or has price failure
-// Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
-if (evkVault.value && needsRefresh(evkVault.value)) {
-  const refreshedVault = await updateVault(vaultAddress)
-  if (!('type' in refreshedVault && refreshedVault.type === 'securitize')) {
-    evkVault.value = refreshedVault as Vault
+// Non-blocking IIFE to avoid Suspense + pageTransition crash on direct navigation
+;(async () => {
+  const isSecuritize = await isSecuritizeVault(vaultAddress)
+
+  if (isSecuritize) {
+    securitizeVault.value = await getSecuritizeVault(vaultAddress)
   }
-}
+  else {
+    try {
+      const normalizedAddress = getAddress(vaultAddress)
+
+      // Fast path: vault already in registry
+      const registryEntry = registryGet(normalizedAddress)
+      if (registryEntry?.type === 'evk') {
+        evkVault.value = registryEntry.vault as Vault
+      }
+      // Escrow vaults haven't loaded yet - wait for them
+      else if (!isEscrowLoadedOnce.value) {
+        await until(isEscrowLoadedOnce).toBe(true)
+        const entryAfterLoad = registryGet(normalizedAddress)
+        if (entryAfterLoad?.type === 'evk') {
+          evkVault.value = entryAfterLoad.vault as Vault
+        }
+        else if (isKnownEscrowAddress(normalizedAddress)) {
+          evkVault.value = await getEscrowVault(vaultAddress) as Vault
+        }
+        else {
+          evkVault.value = await getVault(vaultAddress)
+        }
+      }
+      // Escrow vaults loaded - check if known escrow address
+      else if (isKnownEscrowAddress(normalizedAddress)) {
+        evkVault.value = await getEscrowVault(vaultAddress) as Vault
+      }
+      // Regular vault
+      else {
+        evkVault.value = await getVault(vaultAddress)
+      }
+
+      // Load any collateral vaults that aren't already in registry
+      if (evkVault.value) {
+        const { has: registryHas } = useVaultRegistry()
+
+        const collateralAddresses = evkVault.value.collateralLTVs
+          .filter(ltv => getCurrentLiquidationLTV(ltv) > 0n)
+          .map(ltv => ltv.collateral)
+
+        // Check and load missing collaterals in parallel
+        await Promise.all(
+          collateralAddresses.map(async (collateralAddr) => {
+            // Skip if already loaded in registry
+            if (registryHas(collateralAddr)) return
+
+            try {
+              // Try regular vault first, then securitize
+              await getVault(collateralAddr)
+            }
+            catch {
+              // If regular vault fails, try securitize
+              try {
+                await getSecuritizeVault(collateralAddr)
+              }
+              catch {
+                // Ignore - collateral vault might not be accessible
+              }
+            }
+          }),
+        )
+      }
+    }
+    catch (e) {
+      // If EVK vault load fails, try as securitize vault
+      console.warn('[lend] EVK vault load failed, trying securitize:', e)
+      securitizeVault.value = await getSecuritizeVault(vaultAddress)
+    }
+  }
+
+  // Refresh EVK vault if it uses Pyth oracles or has price failure
+  // Pyth prices are only valid for ~2 minutes, so always refresh when Pyth is detected
+  if (evkVault.value && needsRefresh(evkVault.value)) {
+    const refreshedVault = await updateVault(vaultAddress)
+    if (!('type' in refreshedVault && refreshedVault.type === 'securitize')) {
+      evkVault.value = refreshedVault as Vault
+    }
+  }
+
+  // @ts-expect-error load is declared below but always initialized by the time this async IIFE reaches here
+  load()
+})()
 
 const features = computed(() => VAULT_FEATURES[vaultType.value])
 
@@ -335,7 +342,7 @@ const load = async () => {
       modal.open(VaultUnverifiedDisclaimerModal, {
         isNotClosable: true,
         props: {
-          onCancel: () => {
+          cancelAction: () => {
             router.replace('/')
           },
         },
@@ -531,8 +538,6 @@ const onSupplyInfoIconClick = () => {
   })
 }
 
-load()
-
 // Swap quote helpers
 const swapEstimatedOutput = computed(() => {
   if (!swapEffectiveQuote.value || !asset.value) return ''
@@ -717,220 +722,228 @@ watch(address, () => {
 
 <template>
   <div>
-    <BaseBackButton class="laptop:!hidden mb-16" />
+    <div
+      v-if="!isVaultLoaded"
+      class="flex justify-center items-center min-h-[50dvh]"
+    >
+      <UiLoader />
+    </div>
+    <template v-else>
+      <BaseBackButton class="laptop:!hidden mb-16" />
 
-    <!-- Vault header -->
-    <VaultLabelsAndAssets
-      v-if="isVaultLoaded && asset && (vault || securitizeVault)"
-      class="mb-24"
-      :vault="(vault || securitizeVault)!"
-      :assets="assets"
-      size="large"
-    />
+      <!-- Vault header -->
+      <VaultLabelsAndAssets
+        v-if="asset && (vault || securitizeVault)"
+        class="mb-24"
+        :vault="(vault || securitizeVault)!"
+        :assets="assets"
+        size="large"
+      />
 
-    <div class="flex gap-32">
-      <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
-        <!-- EVK Vault Overview -->
-        <VaultOverview
-          v-if="features.hasOverview && vault && vaultType === 'evk'"
-          :vault="vault"
-          desktop-overview
-          @vault-click="(address: string) => router.push({ path: `/borrow/${address}/${vault!.address}`, query: { network: route.query.network } })"
-        />
-        <!-- Securitize Vault Overview -->
-        <SecuritizeVaultOverview
-          v-if="features.hasOverview && securitizeVault && vaultType === 'securitize'"
-          :vault="securitizeVault"
-          desktop-overview
-        />
-      </div>
-      <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">
-        <VaultForm
-          class="w-full"
-          @submit.prevent="submit"
-        >
-          <div
-            v-if="isVaultLoaded && asset"
-            class="flex items-center justify-between"
-          >
-            <p class="text-h3 text-content-tertiary flex items-center gap-4">
-              Supply APY
-              <SvgIcon
-                class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
-                name="info-circle"
-                @click="onSupplyInfoIconClick"
-              />
-            </p>
-
-            <p class="flex items-center gap-4 text-h3">
-              <VaultPoints
-                v-if="features.hasPoints && vault"
-                class="mr-4"
-                :vault="vault"
-              />
-              <SvgIcon
-                v-if="hasRewards"
-                class="!w-24 !h-24 text-accent-600 cursor-pointer"
-                name="sparks"
-                @click="onSupplyInfoIconClick"
-              />
-              <span>
-                {{ supplyAPYDisplay }}%
-              </span>
-            </p>
-          </div>
-
-          <AssetInput
-            v-if="asset"
-            v-model="amount"
-            label="Supply amount"
-            :desc="name"
-            :asset="(needsSwap || isNativeWrap) && selectedAsset ? selectedAsset : asset"
-            :vault="(needsSwap || isNativeWrap) ? undefined : (vault || securitizeVault)"
-            :price-override="(needsSwap || isNativeWrap) ? swapAssetUsdPrice : undefined"
-            :balance="activeBalance"
-            maxable
+      <div class="flex gap-32">
+        <div class="hidden laptop:!block laptop:flex-[55] min-w-0">
+          <!-- EVK Vault Overview -->
+          <VaultOverview
+            v-if="features.hasOverview && vault && vaultType === 'evk'"
+            :vault="vault"
+            desktop-overview
+            @vault-click="(address: string) => router.push({ path: `/borrow/${address}/${vault!.address}`, query: { network: route.query.network } })"
           />
-
-          <!-- Pay with token selector -->
-          <div class="flex items-center gap-8">
-            <span class="text-p3 text-content-tertiary">Pay with</span>
-            <button
-              type="button"
-              class="flex items-center gap-6 bg-card text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
-              @click="openSwapTokenSelector"
+          <!-- Securitize Vault Overview -->
+          <SecuritizeVaultOverview
+            v-if="features.hasOverview && securitizeVault && vaultType === 'securitize'"
+            :vault="securitizeVault"
+            desktop-overview
+          />
+        </div>
+        <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">
+          <VaultForm
+            class="w-full"
+            @submit.prevent="submit"
+          >
+            <div
+              v-if="isVaultLoaded && asset"
+              class="flex items-center justify-between"
             >
-              <AssetAvatar
-                :asset="{ address: selectedAsset?.address || asset?.address || '', symbol: selectedAsset?.symbol || asset?.symbol || '' }"
-                size="20"
-              />
-              {{ selectedAsset?.symbol || asset?.symbol }}
-              <SvgIcon
-                class="text-content-tertiary !w-16 !h-16"
-                name="arrow-down"
-              />
-            </button>
-          </div>
+              <p class="text-h3 text-content-tertiary flex items-center gap-4">
+                Supply APY
+                <SvgIcon
+                  class="!w-20 !h-20 text-content-muted cursor-pointer hover:text-content-secondary"
+                  name="info-circle"
+                  @click="onSupplyInfoIconClick"
+                />
+              </p>
 
-          <!-- Swap info block -->
-          <template v-if="needsSwap && asset">
-            <SwapRouteSelector
-              :items="swapRouteItems"
-              :selected-provider="swapSelectedProvider"
-              :status-label="swapQuotesStatusLabel"
-              :is-loading="isSwapQuoteLoading"
-              empty-message="Enter amount to fetch quotes"
-              @select="selectSwapQuote"
-              @refresh="onRefreshSwapQuotes"
+              <p class="flex items-center gap-4 text-h3">
+                <VaultPoints
+                  v-if="features.hasPoints && vault"
+                  class="mr-4"
+                  :vault="vault"
+                />
+                <SvgIcon
+                  v-if="hasRewards"
+                  class="!w-24 !h-24 text-accent-600 cursor-pointer"
+                  name="sparks"
+                  @click="onSupplyInfoIconClick"
+                />
+                <span>
+                  {{ supplyAPYDisplay }}%
+                </span>
+              </p>
+            </div>
+
+            <AssetInput
+              v-if="asset"
+              v-model="amount"
+              label="Supply amount"
+              :desc="name"
+              :asset="(needsSwap || isNativeWrap) && selectedAsset ? selectedAsset : asset"
+              :vault="(needsSwap || isNativeWrap) ? undefined : (vault || securitizeVault)"
+              :price-override="(needsSwap || isNativeWrap) ? swapAssetUsdPrice : undefined"
+              :balance="activeBalance"
+              maxable
             />
 
-            <VaultFormInfoBlock
-              v-if="swapEstimatedOutput"
-              :loading="isSwapQuoteLoading"
-              variant="card"
-            >
-              <SwapDetailsSummary
-                :input-display="swapInputDisplay"
-                :output-display="swapOutputDisplay"
-                :price-impact="swapPriceImpact"
-                :slippage="swapSlippage"
-                :routed-via="swapRoutedVia"
-                @open-slippage-settings="openSlippageSettings"
+            <!-- Pay with token selector -->
+            <div class="flex items-center gap-8">
+              <span class="text-p3 text-content-tertiary">Pay with</span>
+              <button
+                type="button"
+                class="flex items-center gap-6 bg-card text-p3 font-semibold px-12 h-36 rounded-[40px] whitespace-nowrap"
+                @click="openSwapTokenSelector"
+              >
+                <AssetAvatar
+                  :asset="{ address: selectedAsset?.address || asset?.address || '', symbol: selectedAsset?.symbol || asset?.symbol || '' }"
+                  size="20"
+                />
+                {{ selectedAsset?.symbol || asset?.symbol }}
+                <SvgIcon
+                  class="text-content-tertiary !w-16 !h-16"
+                  name="arrow-down"
+                />
+              </button>
+            </div>
+
+            <!-- Swap info block -->
+            <template v-if="needsSwap && asset">
+              <SwapRouteSelector
+                :items="swapRouteItems"
+                :selected-provider="swapSelectedProvider"
+                :status-label="swapQuotesStatusLabel"
+                :is-loading="isSwapQuoteLoading"
+                empty-message="Enter amount to fetch quotes"
+                @select="selectSwapQuote"
+                @refresh="onRefreshSwapQuotes"
               />
-            </VaultFormInfoBlock>
+
+              <VaultFormInfoBlock
+                v-if="swapEstimatedOutput"
+                :loading="isSwapQuoteLoading"
+                variant="card"
+              >
+                <SwapDetailsSummary
+                  :input-display="swapInputDisplay"
+                  :output-display="swapOutputDisplay"
+                  :price-impact="swapPriceImpact"
+                  :slippage="swapSlippage"
+                  :routed-via="swapRoutedVia"
+                  @open-slippage-settings="openSlippageSettings"
+                />
+              </VaultFormInfoBlock>
+
+              <UiToast
+                v-if="swapQuoteError"
+                title="Swap quote"
+                variant="warning"
+                :description="swapQuoteError"
+                size="compact"
+              />
+            </template>
 
             <UiToast
-              v-if="swapQuoteError"
-              title="Swap quote"
+              v-if="isGeoBlocked"
+              title="Region restricted"
+              description="This operation is not available in your region. You can still withdraw existing deposits."
               variant="warning"
-              :description="swapQuoteError"
               size="compact"
             />
-          </template>
-
-          <UiToast
-            v-if="isGeoBlocked"
-            title="Region restricted"
-            description="This operation is not available in your region. You can still withdraw existing deposits."
-            variant="warning"
-            size="compact"
-          />
-          <UiToast
-            v-if="!isGeoBlocked && isSwapRestricted"
-            title="Swap restricted"
-            description="Swapping into this vault is not available in your region. You can deposit the vault's underlying asset directly."
-            variant="warning"
-            size="compact"
-          />
-          <UiToast
-            v-show="errorText"
-            title="Error"
-            variant="error"
-            :description="errorText || ''"
-            size="compact"
-          />
-          <UiToast
-            v-if="simulationError"
-            title="Error"
-            variant="error"
-            :description="simulationError"
-            size="compact"
-          />
-
-          <UiToast
-            v-if="isUnknownSwapToken && needsSwap"
-            title="Unknown token"
-            description="This token is not on any recognized token list. It could be fraudulent or malicious. Verify the contract address before proceeding."
-            variant="warning"
-            size="compact"
-          />
-
-          <VaultWarningBanner :warnings="lendWarnings" />
-
-          <VaultFormInfoBlock
-            v-if="isVaultLoaded && asset"
-            :loading="isEstimatesLoading"
-            variant="card"
-          >
-            <SummaryRow
-              label="Projected earnings per month"
-              align-top
-            >
-              <p class="text-content-tertiary">
-                <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
-                  asset.symbol
-                }}
-                <template v-if="features.hasPriceInfo && vault">
-                  ≈ ${{ compactNumber(monthlyEarningsUsd) }}
-                </template>
-              </p>
-            </SummaryRow>
-
-            <SummaryRow label="Supply APY">
-              <SummaryValue
-                :after="estimateSupplyAPYDisplay"
-                suffix="%"
-                estimate-only
-              />
-            </SummaryRow>
-          </VaultFormInfoBlock>
-
-          <template #buttons>
-            <VaultFormInfoButton
-              v-if="features.hasOverview && (vault || securitizeVault)"
-              class="laptop:!hidden"
-              :vault="vault || securitizeVault"
-              :disabled="isLoading || isSubmitting"
+            <UiToast
+              v-if="!isGeoBlocked && isSwapRestricted"
+              title="Swap restricted"
+              description="Swapping into this vault is not available in your region. You can deposit the vault's underlying asset directly."
+              variant="warning"
+              size="compact"
             />
-            <VaultFormSubmit
-              :disabled="reviewSupplyDisabled"
-              :loading="isSubmitting || isPreparing"
+            <UiToast
+              v-show="errorText"
+              title="Error"
+              variant="error"
+              :description="errorText || ''"
+              size="compact"
+            />
+            <UiToast
+              v-if="simulationError"
+              title="Error"
+              variant="error"
+              :description="simulationError"
+              size="compact"
+            />
+
+            <UiToast
+              v-if="isUnknownSwapToken && needsSwap"
+              title="Unknown token"
+              description="This token is not on any recognized token list. It could be fraudulent or malicious. Verify the contract address before proceeding."
+              variant="warning"
+              size="compact"
+            />
+
+            <VaultWarningBanner :warnings="lendWarnings" />
+
+            <VaultFormInfoBlock
+              v-if="isVaultLoaded && asset"
+              :loading="isEstimatesLoading"
+              variant="card"
             >
-              {{ reviewSupplyLabel }}
-            </VaultFormSubmit>
-          </template>
-        </VaultForm>
+              <SummaryRow
+                label="Projected earnings per month"
+                align-top
+              >
+                <p class="text-content-tertiary">
+                  <span class="text-content-primary text-p2">{{ compactNumber(monthlyEarnings, 4) }}</span> {{
+                    asset.symbol
+                  }}
+                  <template v-if="features.hasPriceInfo && vault">
+                    ≈ ${{ compactNumber(monthlyEarningsUsd) }}
+                  </template>
+                </p>
+              </SummaryRow>
+
+              <SummaryRow label="Supply APY">
+                <SummaryValue
+                  :after="estimateSupplyAPYDisplay"
+                  suffix="%"
+                  estimate-only
+                />
+              </SummaryRow>
+            </VaultFormInfoBlock>
+
+            <template #buttons>
+              <VaultFormInfoButton
+                v-if="features.hasOverview && (vault || securitizeVault)"
+                class="laptop:!hidden"
+                :vault="vault || securitizeVault"
+                :disabled="isLoading || isSubmitting"
+              />
+              <VaultFormSubmit
+                :disabled="reviewSupplyDisabled"
+                :loading="isSubmitting || isPreparing"
+              >
+                {{ reviewSupplyLabel }}
+              </VaultFormSubmit>
+            </template>
+          </VaultForm>
+        </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
