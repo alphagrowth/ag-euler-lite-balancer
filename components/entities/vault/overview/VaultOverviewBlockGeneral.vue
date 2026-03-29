@@ -128,6 +128,7 @@ watchEffect(async () => {
             v-for="(entity, idx) in entities"
             :key="idx"
             class="flex items-center gap-8"
+            :class="{ 'opacity-20': isGovernanceLimited }"
           >
             <BaseAvatar
               :label="entity.name"

@@ -23,6 +23,7 @@ const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
 
 const isUnverified = computed(() => !vault.verified)
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault as unknown as Vault))
+const isGovernanceLimited = computed(() => product.isGovernanceLimited && isGovernorVerified.value)
 const entityName = computed(() => {
   if (!isGovernorVerified.value || entities.length === 0) return ''
   if (entities.length === 1) return entities[0].name
@@ -171,6 +172,7 @@ watchEffect(async () => {
         <div
           v-else-if="entityName"
           class="flex items-center gap-6"
+          :class="{ 'opacity-20': isGovernanceLimited }"
         >
           <BaseAvatar
             class="icon--20"
@@ -226,14 +228,18 @@ watchEffect(async () => {
             />
             Unknown
           </div>
-          <template v-else-if="entityName">
+          <div
+            v-else-if="entityName"
+            class="flex items-center gap-8"
+            :class="{ 'opacity-20': isGovernanceLimited }"
+          >
             <BaseAvatar
               class="icon--20"
               :label="entityName"
               :src="entityLogos"
             />
             <span class="text-p2 text-content-primary truncate">{{ entityName }}</span>
-          </template>
+          </div>
           <div
             v-else
             class="text-p2 text-content-primary"

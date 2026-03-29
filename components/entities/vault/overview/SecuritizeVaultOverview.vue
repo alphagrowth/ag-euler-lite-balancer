@@ -32,6 +32,7 @@ const description = computed(() => {
 })
 const entities = useEulerEntitiesOfVault(vault as unknown as Vault)
 const isGovernorVerified = computed(() => isVaultGovernorVerified(vault as unknown as Vault))
+const isGovernanceLimited = computed(() => product.isGovernanceLimited && isGovernorVerified.value)
 const marketProductKey = computed(() => getProductKeyByVault(vault.address))
 
 const isDeprecated = computed(() => {
@@ -234,6 +235,7 @@ const supplyCapPercentageDisplay = computed(() => {
               v-for="(entity, idx) in entities"
               :key="idx"
               class="flex items-center gap-8"
+              :class="{ 'opacity-20': isGovernanceLimited }"
             >
               <BaseAvatar
                 :label="entity.name"
@@ -245,6 +247,10 @@ const supplyCapPercentageDisplay = computed(() => {
                 class="text-p2 text-content-primary underline"
               >{{ entity.name }}</a>
             </div>
+            <span
+              v-if="isGovernanceLimited"
+              class="text-p3 text-content-tertiary"
+            >Limited risk management</span>
           </div>
           <VaultTypeChip
             v-else-if="!isGovernorVerified"

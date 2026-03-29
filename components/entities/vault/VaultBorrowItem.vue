@@ -62,6 +62,10 @@ const borrowProduct = useEulerProductOfVault(
   computed(() => pair.borrow.address),
 )
 
+const isAnyGovernanceLimited = computed(() =>
+  (collateralProduct.isGovernanceLimited || borrowProduct.isGovernanceLimited) && !isAnyGovernorUnverified.value,
+)
+
 const isEscrowCollateral = computed(
   () =>
     'vaultCategory' in pair.collateral
@@ -388,6 +392,7 @@ const linkPath = computed(() => ({
         <div
           v-else-if="entityDisplay.name"
           class="flex items-center gap-6"
+          :class="{ 'opacity-20': isAnyGovernanceLimited }"
         >
           <BaseAvatar
             class="icon--20"
@@ -484,14 +489,18 @@ const linkPath = computed(() => ({
             />
             Unknown
           </div>
-          <template v-else-if="entityDisplay.name">
+          <div
+            v-else-if="entityDisplay.name"
+            class="flex items-center gap-8"
+            :class="{ 'opacity-20': isAnyGovernanceLimited }"
+          >
             <BaseAvatar
               class="icon--20"
               :label="entityDisplay.name"
               :src="entityDisplay.logos"
             />
             <span class="text-p2 text-content-primary truncate">{{ entityDisplay.name }}</span>
-          </template>
+          </div>
           <div
             v-else
             class="text-p2 text-content-primary"
