@@ -9,6 +9,7 @@ import { getEulerLabelEntityLogo } from '~/entities/euler/labels'
 import { isVaultBlockedByCountry } from '~/composables/useGeoBlock'
 import { autoLink } from '~/utils/autoLink'
 import { getExplorerLink } from '~/utils/block-explorer'
+import { getSpecialAddressLabel } from '~/utils/special-addresses'
 import { formatAssetValue } from '~/services/pricing/priceProvider'
 import { formatNumber, compactNumber, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
@@ -380,7 +381,7 @@ const supplyCapPercentageDisplay = computed(() => {
               class="text-accent-600 underline cursor-pointer hover:text-accent-500"
               target="_blank"
             >
-              {{ shortenAddress(vault.asset.address) }}
+              {{ getSpecialAddressLabel(vault.asset.address) || shortenAddress(vault.asset.address) }}
             </NuxtLink>
             <button
               class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"
@@ -403,7 +404,7 @@ const supplyCapPercentageDisplay = computed(() => {
               class="text-accent-600 underline cursor-pointer hover:text-accent-500"
               target="_blank"
             >
-              {{ shortenAddress(vault.address) }}
+              {{ getSpecialAddressLabel(vault.address) || shortenAddress(vault.address) }}
             </NuxtLink>
             <button
               class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"
@@ -427,7 +428,7 @@ const supplyCapPercentageDisplay = computed(() => {
               class="text-accent-600 underline cursor-pointer hover:text-accent-500"
               target="_blank"
             >
-              {{ shortenAddress(vault.governorAdmin) }}
+              {{ getSpecialAddressLabel(vault.governorAdmin) || shortenAddress(vault.governorAdmin) }}
             </NuxtLink>
             <button
               class="text-content-muted cursor-pointer outline-none hover:text-content-secondary active:text-content-primary"
