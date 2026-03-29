@@ -24,7 +24,7 @@ defineProps<{ title?: string, description?: string, loading?: boolean }>()
 
     <div
       v-if="loading"
-      class="justify-center items-center"
+      class="flex justify-center items-center"
       style="flex: 1"
     >
       <UiLoader />
