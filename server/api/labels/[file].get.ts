@@ -20,7 +20,7 @@ const OPTIONAL_FILES = new Set([
 ])
 
 const rateLimiter = createRateLimiter({
-  max: 200,
+  max: 1000,
   windowMs: 60_000,
   label: 'labels',
 })

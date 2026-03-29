@@ -9,7 +9,7 @@ const CACHE_TTL_MS = 300_000
 const DEFAULT_URL = 'https://raw.githubusercontent.com/euler-xyz/euler-interfaces/refs/heads/master/EulerChains.json'
 
 const rateLimiter = createRateLimiter({
-  max: 100,
+  max: 1000,
   windowMs: 60_000,
   label: 'euler-chains',
 })

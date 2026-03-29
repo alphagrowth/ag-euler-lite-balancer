@@ -61,7 +61,7 @@ export const createStablewatchProvider = (sources: readonly IntrinsicApySourceCo
       if (!chainName) return []
 
       try {
-        const resp = await $fetch<StablewatchResponse>('/api/stablewatch-pools')
+        const resp = await $fetch<StablewatchResponse>('/api/intrinsic-apy/stablewatch')
         const pools = Array.isArray(resp?.data) ? resp.data : []
 
         const lookup = new Map<string, number>()

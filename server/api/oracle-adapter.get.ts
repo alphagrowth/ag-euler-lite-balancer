@@ -9,7 +9,7 @@ const CACHE_TTL_MS = 300_000
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/
 
 const rateLimiter = createRateLimiter({
-  max: 300,
+  max: 1000,
   windowMs: 60_000,
   label: 'oracle-adapter',
 })

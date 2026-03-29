@@ -378,6 +378,20 @@ When submitting transactions that interact with Pyth-priced vaults, Pyth update 
           (totalSupplied, totalBorrowed)
 ```
 
+## Performance Optimizations
+
+### Batch Pyth Vault Refresh
+
+When loading borrow positions with Pyth-priced vaults, the system batch-fetches all Pyth vaults in a single `executeBatchLensWithPythSimulation()` call using `getVaultInfoFull` instead of calling `fetchVault()` individually for each. This eliminates ~15 sequential HTTP requests during portfolio load. The implementation collects all Pyth-enabled borrow vaults, deduplicates their feeds, and executes one batch simulation.
+
+### Concurrent Wallet Balance Fetching
+
+Token balance fetching in `useWallets.ts` uses `Promise.all()` for concurrent requests instead of a sequential `for...await` loop. This allows viem's HTTP transport to batch multiple `readContract` calls into fewer RPC requests, eliminating ~25 sequential HTTP requests and significantly reducing load time.
+
+### Polling Order
+
+The poll interval awaits `updateBalances()` before `refreshVaults()` to ensure wallet balances are fresh when vault data triggers position recalculation.
+
 ## Related Documentation
 
 - [Pricing System](./pricing-system.md) — Full pricing architecture details

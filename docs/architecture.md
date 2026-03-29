@@ -176,18 +176,26 @@ The application follows Vue 3's Composition API pattern, organizing code into lo
 ├─────────────────────────────────────────────────────────────────┤
 │                    Integration Layer                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Euler API   │ │ Wagmi/Viem  │ │ Rewards API │                │
-│  │ Client      │ │ Client      │ │ Client      │                │
+│  │ Wagmi/Viem  │ │ Rewards API │ │ Composables │                │
+│  │ Client      │ │ Client      │ │             │                │
+│  └─────────────┘ └─────────────┘ └─────────────┘                │
+├─────────────────────────────────────────────────────────────────┤
+│              Server-Side Proxy Layer (Nuxt server/)             │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
+│  │ /api/token  │ │ /api/pyth   │ │ /api/labels │                │
+│  │ -list       │ │ /updates    │ │ /rpc/[chain]│                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 ├─────────────────────────────────────────────────────────────────┤
 │                    External Services                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                │
-│  │ Euler       │ │ EVM RPC     │ │ Merkl /     │                │
-│  │ Finance     │ │ (multi-     │ │ Brevis /    │                │
-│  │             │ │  chain)     │ │ Fuul        │                │
+│  │ Euler API / │ │ EVM RPC     │ │ Merkl /     │                │
+│  │ Pyth Hermes │ │ (multi-     │ │ Brevis /    │                │
+│  │ / DefiLlama │ │  chain)     │ │ Fuul        │                │
 │  └─────────────┘ └─────────────┘ └─────────────┘                │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**Server-Side Proxy Layer**: External data sources (token lists, Pyth Hermes, labels, oracle checks, RPC) are proxied through Nuxt server endpoints rather than called directly from the browser. This provides caching, rate limiting, CORS avoidance, and keeps credentials server-side. See [Development Guide - Server-Side Data Proxies](./development-guide.md#server-side-data-proxies) for the full endpoint reference.
 
 ## 🔍 Explore Page & Market Discovery
 
@@ -243,6 +251,17 @@ This prevents re-fetching and re-rendering when users navigate between listing p
 9. **Interval Cleanup**: All `setInterval` timers are properly cleaned up to prevent memory leaks
 10. **shallowRef**: Collection data (arrays, maps) uses `shallowRef` instead of `ref` to avoid deep reactivity overhead
 
+## 🔄 Swap & Slippage Behavior
+
+### Slippage Settings
+
+The `useSlippage` composable (`composables/useSlippage.ts`) manages swap slippage tolerance with two safety features:
+
+- **24-hour expiry**: Custom slippage values above 0.5% automatically expire after 24 hours, reverting to the default. This prevents users from forgetting high slippage settings across sessions. Values at or below 0.5% never expire.
+- **Stablecoin defaults**: Swaps between two stablecoins (detected by "USD" in the token symbol) default to 0.1% slippage instead of the general 0.5% default, reducing unnecessary losses on stable-to-stable pairs.
+
+The composable accepts optional `fromSymbol`/`toSymbol` getters to detect stablecoin pairs reactively. Slippage state is persisted to `localStorage` with a timestamp for expiry tracking.
+
 ## 🔒 Security Architecture
 
 ### Security Measures
@@ -270,7 +289,8 @@ The Nuxt server layer (`server/api/`) proxies requests to external services (RPC
 
 The app includes a built-in per-IP rate limiter as a defense-in-depth measure. Default budgets per 60-second window:
 
-- **RPC proxy**: 1000 units (batch of N costs N)
+- **RPC proxy**: 10,000 units (batch of N costs N)
+- **All other proxies**: 1,000 requests (token list, Pyth updates, labels, oracle adapter, euler chains, intrinsic APY, TOS)
 - **Tenderly simulate**: 10 requests
 - **Address screening**: 10 requests
 

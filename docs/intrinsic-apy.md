@@ -24,8 +24,8 @@ The system uses a **provider abstraction** to support multiple APY data sources.
 └────┬────┘ └────┬────┘ └────┬─────┘ └─────┬─────┘
      │           │           │              │
      ▼           ▼           ▼              ▼
-  yields API  Pendle V2   Securitize   /api/stablewatch-pools
-              API         public feed  (server proxy)
+  yields API  Pendle V2   Securitize   Stablewatch
+              API         public feed  API
 ```
 
 ### Types (`entities/intrinsic-apy.ts`)
@@ -99,7 +99,7 @@ Covers tokenized real-world assets (RWAs) with native yield from Securitize's pu
 
 Covers stablecoins and yield-bearing tokens tracked by Stablewatch. Unlike the other providers, Stablewatch requires an API key, so requests go through a server-side proxy.
 
-- **API**: Server proxy at `/api/stablewatch-pools` (proxies `https://api.stablewatch.io/api/pools`)
+- **API**: Server proxy at `/api/intrinsic-apy/stablewatch` (proxies `https://api.stablewatch.io/api/pools`)
 - **API key**: `STABLEWATCH_API_KEY` env var (server-side only). If not set, the proxy returns empty data and the provider produces zero results.
 - **Matching**: Converts `chainId` to a chain name (e.g. 1 → "ethereum", 42161 → "arbitrumone"), then matches by `chainName:address` against the pool's token list
 - **APY value**: `metrics.apy.avg7d` (7-day average)
@@ -225,7 +225,7 @@ modal.open(VaultSupplyApyModal, {
 | `services/intrinsicApy/pendleProvider.ts` | Pendle provider (per-market API, batch concurrency, maturity detection) |
 | `services/intrinsicApy/securitizeProvider.ts` | Securitize provider (public feed, symbol-based batching) |
 | `services/intrinsicApy/stablewatchProvider.ts` | Stablewatch provider (server-proxied, chain+address matching) |
-| `server/api/stablewatch-pools.get.ts` | Nitro server proxy for Stablewatch API (keeps API key server-side) |
+| `server/api/intrinsic-apy/[provider].get.ts` | Nitro server proxy for all intrinsic APY providers (incl. Stablewatch API key injection) |
 | `composables/useIntrinsicApy.ts` | Orchestrator composable (TTL cache, multi-provider, address lookup) |
 | `components/entities/vault/VaultSupplyApyModal.vue` | Supply APY modal with source attribution |
 | `components/entities/vault/VaultBorrowApyModal.vue` | Borrow APY modal with source attribution |
