@@ -748,6 +748,7 @@ watch(address, () => {
       <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">
         <VaultForm
           class="w-full"
+          :loading="!isVaultLoaded"
           @submit.prevent="submit"
         >
           <div

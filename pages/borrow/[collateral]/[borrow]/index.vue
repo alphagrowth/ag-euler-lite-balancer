@@ -441,6 +441,7 @@ watch(formTab, () => {
       <div class="flex flex-col gap-16 w-full laptop:flex-[45] laptop:sticky laptop:top-[88px] laptop:self-start">
         <VaultForm
           class="flex flex-col gap-16 w-full min-w-0"
+          :loading="!pair"
           @submit.prevent="onSubmit"
         >
           <template v-if="pair">

@@ -38,6 +38,7 @@ defineProps<{ title?: string, description?: string, loading?: boolean }>()
     </div>
 
     <div
+      v-if="!loading"
       class="flex flex-col gap-8 pt-16 laptop:-mx-16 laptop:px-16"
     >
       <slot name="buttons" />
