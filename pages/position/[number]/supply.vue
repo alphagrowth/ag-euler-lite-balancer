@@ -61,7 +61,7 @@ const form = useCollateralForm({
 
   computeLiquidationPrice: (pos, borrowVault, collateralVault) => {
     const health = nanoToValue(pos.health || 0n, 18)
-    if (health < 0.1) return Infinity
+    if (health < 1) return undefined
     const cp = borrowVault && collateralVault ? getCollateralOraclePrice(borrowVault, collateralVault) : undefined
     const bp = borrowVault ? getAssetOraclePrice(borrowVault) : undefined
     const ratio = nanoToValue(conservativePriceRatio(cp, bp), 18)

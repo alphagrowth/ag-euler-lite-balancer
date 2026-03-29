@@ -489,7 +489,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       liquidationPrice.value = computeLiquidationPrice(
         priceFixed.value.toUnsafeFloat(),
         health.value,
-      ) ?? Infinity
+      ) ?? undefined
       const collateralUsdValue = borrowNeedsSwap.value && borrowSwapAssetUsdPrice.value
         ? (+collateralAmount.value || 0) * borrowSwapAssetUsdPrice.value
         : await getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')

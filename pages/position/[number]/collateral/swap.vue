@@ -459,12 +459,12 @@ const currentPriceRatio = computed(() => {
 })
 const currentLiquidationPrice = computed(() => {
   if (!currentPriceRatio.value || !currentHealth.value) return null
-  if (currentHealth.value <= 0) return null
+  if (currentHealth.value < 1) return null
   return currentPriceRatio.value / currentHealth.value
 })
 const nextLiquidationPrice = computed(() => {
   if (!priceRatio.value || !nextHealth.value) return null
-  if (nextHealth.value <= 0) return null
+  if (nextHealth.value < 1) return null
   return priceRatio.value / nextHealth.value
 })
 </script>

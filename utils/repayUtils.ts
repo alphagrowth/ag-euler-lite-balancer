@@ -57,7 +57,7 @@ export const computeLiquidationPrice = (
   health: number | null,
 ): number | null => {
   if (!priceRatio || !health) return null
-  if (health <= 0) return null
+  if (health < 1) return null
   return priceRatio / health
 }
 
