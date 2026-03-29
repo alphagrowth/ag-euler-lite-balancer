@@ -44,6 +44,7 @@ const formTab = ref<'borrow' | 'multiply'>('borrow')
 const pendingSubAccount = ref<string | null>(null)
 const isPendingSubAccountLoading = ref(false)
 let pendingSubAccountPromise: Promise<string> | null = null
+let unverifiedDisclaimerShown = false
 
 // Load vault pair (non-blocking to avoid Suspense + pageTransition crash on direct navigation)
 const pair: Ref<AnyBorrowVaultPair | undefined> = ref()
@@ -340,15 +341,18 @@ watch(pair, async (val) => {
   if (!multiply.multiplySupplyVault.value || !isSupplyAllowed) {
     multiply.initMultiplySupplyVault(current.collateral as Vault)
   }
-  if (!current.collateral.verified) {
-    modal.open(VaultUnverifiedDisclaimerModal, {
-      isNotClosable: true,
-      props: {
-        onCancel: () => {
-          router.replace('/')
+  if (!current.collateral.verified || !current.borrow.verified) {
+    if (!unverifiedDisclaimerShown) {
+      unverifiedDisclaimerShown = true
+      modal.open(VaultUnverifiedDisclaimerModal, {
+        isNotClosable: true,
+        props: {
+          onCancel: () => {
+            router.replace('/')
+          },
         },
-      },
-    })
+      })
+    }
   }
   await updateBalance()
 }, { immediate: true })
