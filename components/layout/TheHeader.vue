@@ -78,9 +78,14 @@ onClickOutside(reference, () => {
       @click="onLogoClick"
     >
       <img
-        class="!w-32 !h-32"
-        src="/logo.png"
-        alt="Euler"
+        class="!h-24 !w-auto object-contain show-light"
+        src="/ag-logo-light.svg"
+        alt="AlphaGrowth"
+      >
+      <img
+        class="!h-24 !w-auto object-contain show-dark"
+        src="/ag-logo.svg"
+        alt="AlphaGrowth"
       >
       <div class="flex flex-col items-start mr-4 mobile:hidden">
         <span class="text-[14px] font-semibold text-content-primary leading-tight">{{ appTitle }}</span>

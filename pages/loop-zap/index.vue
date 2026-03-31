@@ -143,13 +143,19 @@ const handleZap = () => {
           </div>
         </div>
 
-        <div v-if="isInsufficient" class="mt-8 text-body-xs text-red-400">
+        <div
+          v-if="isInsufficient"
+          class="mt-8 text-body-xs text-red-400"
+        >
           Insufficient balance
         </div>
       </div>
 
       <!-- Summary -->
-      <div v-if="inputAmountNano > 0n" class="bg-surface-secondary rounded-xl p-24 shadow-card">
+      <div
+        v-if="inputAmountNano > 0n"
+        class="bg-surface-secondary rounded-xl p-24 shadow-card"
+      >
         <h3 class="text-body-sm font-medium text-content-tertiary mb-12">
           Summary
         </h3>
@@ -158,7 +164,10 @@ const handleZap = () => {
             <span class="text-content-tertiary">You Send</span>
             <span class="text-content-primary font-medium">{{ inputAmount }} {{ selectedInputToken?.symbol }}</span>
           </div>
-          <div v-if="expectedBptFromZap > 0n" class="flex justify-between text-body-sm">
+          <div
+            v-if="expectedBptFromZap > 0n"
+            class="flex justify-between text-body-sm"
+          >
             <span class="text-content-tertiary">You Receive (est.)</span>
             <span class="text-content-primary font-medium">~{{ expectedBptFormatted }} BPT</span>
           </div>
@@ -168,11 +177,17 @@ const handleZap = () => {
           </div>
         </div>
 
-        <div v-if="quoteError" class="mt-12 p-10 rounded-8 bg-red-500/10 text-red-400 text-body-xs">
+        <div
+          v-if="quoteError"
+          class="mt-12 p-10 rounded-8 bg-red-500/10 text-red-400 text-body-xs"
+        >
           {{ quoteError }}
         </div>
 
-        <div v-if="isQuoting" class="mt-12 flex items-center gap-8 text-body-xs text-content-tertiary">
+        <div
+          v-if="isQuoting"
+          class="mt-12 flex items-center gap-8 text-body-xs text-content-tertiary"
+        >
           <UiLoader class="!w-14 !h-14" />
           Fetching quote...
         </div>
@@ -184,11 +199,14 @@ const handleZap = () => {
         class="w-full py-16 rounded-12 text-body-md font-semibold transition-all"
         :class="isZapButtonDisabled
           ? 'bg-euler-dark-600 text-content-quaternary cursor-not-allowed'
-          : 'bg-accent-400 text-euler-dark-900 hover:bg-accent-300 shadow-lg hover:shadow-xl'"
+          : 'bg-accent-400 ui-button--primary hover:bg-accent-300 shadow-lg hover:shadow-xl'"
         :disabled="isZapButtonDisabled"
         @click="handleZap"
       >
-        <span v-if="isZapping" class="flex items-center justify-center gap-8">
+        <span
+          v-if="isZapping"
+          class="flex items-center justify-center gap-8"
+        >
           <UiLoader class="!w-16 !h-16" />
           Zapping...
         </span>

@@ -49,9 +49,14 @@ watch(isConnected, (value) => {
       </div>
       <div class="flex flex-col items-center gap-24 w-full px-16">
         <img
-          src="/logo.png"
-          alt="Euler Logo"
-          class="w-[75px] h-[75px]"
+          src="/ag-logo-light.svg"
+          alt="AlphaGrowth Logo"
+          class="w-[75px] h-[75px] show-light"
+        >
+        <img
+          src="/ag-logo.svg"
+          alt="AlphaGrowth Logo"
+          class="w-[75px] h-[75px] show-dark"
         >
         <div class="text-h1 text-center w-[240px]">
           {{ appTitle }}
