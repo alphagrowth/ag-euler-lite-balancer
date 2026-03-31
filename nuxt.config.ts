@@ -107,10 +107,10 @@ export default defineNuxtConfig({
       // Feature flags: enabled by default. Set to 'false' to disable.
       configEnableEntityBranding: '',
       configEnableVaultType: '',
-      configEnableEarnPage: '',
       configEnableLendPage: '',
-      configEnableExplorePage: '',
       // Feature flags: disabled by default. Set to 'true' to enable.
+      configEnableEarnPage: '',
+      configEnableExplorePage: '',
       configEnableSwapDeposit: '',
       configEnableEnsoMultiply: '',
       configEnableLoopZapPage: '',
