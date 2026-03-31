@@ -38,3 +38,9 @@ body {
     opacity: 0.8;
   }
 }
+
+/* Theme-specific visibility utilities */
+[data-theme="dark"] .show-light { display: none !important; }
+[data-theme="dark"] .show-dark { display: block !important; }
+html:not([data-theme="dark"]) .show-dark { display: none !important; }
+html:not([data-theme="dark"]) .show-light { display: block !important; }

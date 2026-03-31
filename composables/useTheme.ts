@@ -2,18 +2,13 @@ const THEME_KEY = 'theme'
 
 type Theme = 'light' | 'dark'
 
-const getSystemTheme = (): Theme => {
-  if (typeof window === 'undefined') return 'dark'
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-}
-
 const theme = ref<Theme>('dark')
 let initialized = false
 
 export const useTheme = () => {
   if (!initialized && import.meta.client) {
     const stored = localStorage.getItem(THEME_KEY) as Theme | null
-    theme.value = stored ?? getSystemTheme()
+    theme.value = stored ?? 'dark'
     initialized = true
   }
 

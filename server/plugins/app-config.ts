@@ -10,8 +10,8 @@
  */
 
 const DEFAULTS = {
-  appTitle: 'Euler Lite',
-  appDescription: 'Lightweight interface for Euler Finance lending and borrowing.',
+  appTitle: 'AlphaGrowth Vaults',
+  appDescription: 'All AlphaGrowth curated Euler vaults in one place',
 }
 
 function escapeHtml(str: string): string {

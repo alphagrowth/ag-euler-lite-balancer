@@ -26,14 +26,14 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Euler Lite',
+      title: 'AlphaGrowth Vaults',
       htmlAttrs: {
         lang: 'en',
       },
       meta: [
         {
           name: 'description',
-          content: 'Lightweight interface for Euler Finance lending and borrowing.',
+          content: 'All AlphaGrowth curated Euler vaults in one place',
         },
         { charset: 'utf-8' },
         {
@@ -42,11 +42,11 @@ export default defineNuxtConfig({
         },
         {
           property: 'og:title',
-          content: 'Euler Lite',
+          content: 'AlphaGrowth Vaults',
         },
         {
           property: 'og:description',
-          content: 'Lightweight interface for Euler Finance lending and borrowing.',
+          content: 'All AlphaGrowth curated Euler vaults in one place',
         },
         {
           property: 'og:type',
@@ -58,11 +58,11 @@ export default defineNuxtConfig({
         },
         {
           name: 'twitter:title',
-          content: 'Euler Lite',
+          content: 'AlphaGrowth Vaults',
         },
         {
           name: 'twitter:description',
-          content: 'Lightweight interface for Euler Finance lending and borrowing.',
+          content: 'All AlphaGrowth curated Euler vaults in one place',
         },
         {
           name: 'theme-color',
@@ -99,8 +99,8 @@ export default defineNuxtConfig({
       configDiscordUrl: '',
       configTelegramUrl: '',
       configGithubUrl: '',
-      configAppTitle: 'Euler Lite',
-      configAppDescription: 'Lightweight interface for Euler Finance lending and borrowing.',
+      configAppTitle: 'AlphaGrowth Vaults',
+      configAppDescription: 'All AlphaGrowth curated Euler vaults in one place',
       configLabelsRepo: 'euler-xyz/euler-labels',
       configLabelsRepoBranch: 'master',
       configOracleChecksRepo: 'euler-xyz/oracle-checks',
