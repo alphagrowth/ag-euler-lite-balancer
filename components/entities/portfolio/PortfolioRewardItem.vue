@@ -137,6 +137,7 @@ const onClaimClick = async () => {
           :asset="avatarAsset"
           :icon-url="resolvedIconUrl"
           size="40"
+          :increased-spacing="true"
         />
         <div
           v-else

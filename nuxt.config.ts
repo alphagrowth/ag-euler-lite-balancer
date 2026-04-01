@@ -101,7 +101,7 @@ export default defineNuxtConfig({
       configGithubUrl: '',
       configAppTitle: 'AlphaGrowth Vaults',
       configAppDescription: 'All AlphaGrowth curated Euler vaults in one place',
-      configLabelsRepo: 'euler-xyz/euler-labels',
+      configLabelsRepo: 'alphagrowth/ag-euler-balancer-labels',
       configLabelsRepoBranch: 'master',
       configOracleChecksRepo: 'euler-xyz/oracle-checks',
       // Feature flags: enabled by default. Set to 'false' to disable.
