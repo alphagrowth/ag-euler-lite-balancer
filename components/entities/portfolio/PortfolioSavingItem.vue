@@ -141,6 +141,7 @@ const onClick = () => {
         <AssetAvatar
           :asset="vault.asset"
           size="40"
+          :increased-spacing="true"
         />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">

@@ -77,6 +77,7 @@ const displayAssetsLabel = computed(() => assetsLabel || assets.map(asset => ass
     <AssetAvatar
       :asset="assets"
       :size="size === 'large' ? '46' : '38'"
+      :increased-spacing="true"
     />
 
     <div>
