@@ -19,9 +19,9 @@ let cached: ChainConfig | null = null
 function scanEnv(): ChainConfig {
   const enabledChainIds: number[] = []
 
-  for (const [key] of Object.entries(process.env)) {
+  for (const [key, value] of Object.entries(process.env)) {
     const rpcMatch = key.match(/^RPC_URL_HTTP_(\d+)$/)
-    if (rpcMatch) {
+    if (rpcMatch && value) {
       enabledChainIds.push(Number(rpcMatch[1]))
     }
   }
