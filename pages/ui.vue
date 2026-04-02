@@ -288,12 +288,18 @@ const openLegalModal = () => {
       </div>
       <div class="text-red-800">
         Red-800
+      <div class="text-error-500">
+        Error
       </div>
       <div class="text-red-1000">
         Red-1000
+      <div class="text-success-500">
+        Success
       </div>
       <div class="text-green-600">
         Green-600
+      <div class="text-warning-500">
+        Warning
       </div>
       <div class="text-green-1000">
         Green-1000
@@ -309,6 +315,8 @@ const openLegalModal = () => {
       </div>
       <div class="text-slice-of-heaven-300">
         Slice-of-heaven-300
+      <div class="text-accent-500">
+        Accent
       </div>
       <SvgIcon
         class="!w-24 !h-24"

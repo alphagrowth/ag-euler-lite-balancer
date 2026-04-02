@@ -12,6 +12,7 @@ import { getAssetLogoUrl } from '~/composables/useTokens'
 const { reward } = defineProps<{ reward: Reward }>()
 
 const { isTokensLoading, rewardTokens, claimReward, loadRewards, buildClaimRewardPlan } = useMerkl()
+const { isSpyMode } = useSpyMode()
 const modal = useModal()
 const { error } = useToast()
 const { chainId: siteChainId } = useEulerAddresses()
@@ -32,6 +33,7 @@ const externalIconUrl = computed(() => {
   return rewardTokens.value.find(token => token.address === reward.token.address)?.icon
     || undefined
 })
+
 const localIconUrl = computed(() => {
   const url = getAssetLogoUrl(reward.token.address, reward.token.symbol)
   if (url) return url
@@ -41,7 +43,7 @@ const localIconUrl = computed(() => {
   }
   return ''
 })
-const resolvedIconUrl = computed(() => externalIconUrl.value || localIconUrl.value || undefined)
+const resolvedIconUrl = computed(() => isEulFamily.value ||externalIconUrl.value || localIconUrl.value || undefined)
 const hasIcon = computed(() => isEulFamily.value || !!resolvedIconUrl.value)
 const avatarAsset = computed(() => isEulFamily.value
   ? { address: reward.token.address, symbol: 'EUL' }
@@ -68,7 +70,7 @@ const claim = async () => {
 
     await claimReward(reward)
     modal.close()
-    loadRewards(siteChainId.value)
+    loadRewards(siteChainId.value, false, true)
   }
   catch (e) {
     error('Transaction failed')
@@ -159,6 +161,7 @@ const onClaimClick = async () => {
       <UiButton
         rounded
         :loading="isClaiming || isPreparing"
+        :disabled="isSpyMode"
         @click="onClaimClick"
       >
         Claim

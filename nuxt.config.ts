@@ -25,6 +25,7 @@ export default defineNuxtConfig({
   },
 
   app: {
+    pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: 'AlphaGrowth Vaults',
       htmlAttrs: {
@@ -95,6 +96,9 @@ export default defineNuxtConfig({
       configDocsUrl: '',
       configTosUrl: '',
       configTosMdUrl: '',
+      configPrivacyPolicyUrl: '',
+      configRiskDisclosuresUrl: '',
+      configMicaWhitepaperUrl: '',
       configXUrl: '',
       configDiscordUrl: '',
       configTelegramUrl: '',
@@ -104,17 +108,24 @@ export default defineNuxtConfig({
       configLabelsRepo: 'euler-xyz/euler-labels',
       configLabelsRepoBranch: 'master',
       configOracleChecksRepo: 'euler-xyz/oracle-checks',
+      configLabelsBaseUrl: '',
+      configOracleChecksBaseUrl: '',
+      configEulerChainsUrl: '',
       // Feature flags: enabled by default. Set to 'false' to disable.
       configEnableEntityBranding: '',
       configEnableVaultType: '',
-      configEnableLendPage: '',
-      // Feature flags: disabled by default. Set to 'true' to enable.
       configEnableEarnPage: '',
+      configEnableLendPage: '',
       configEnableExplorePage: '',
-      configEnableSwapDeposit: '',
-      configEnableEnsoMultiply: '',
-      configEnableLoopZapPage: '',
-      configBptAdapterConfig: '',
+      configEnablePoweredByEuler: '',
+      configEnableAppTitle: '',
+      // Incentives provider flags: enabled by default. Set to 'false' to disable.
+      configEnableMerkl: '',
+      configEnableIncentra: '',
+      configEnableFuul: '',
+      // External token list URLs for swap token selector
+      configUniswapTokenListUrl: '',
+      configDefillamaTokenListUrl: '',
       // Env config fallbacks (Doppler: NUXT_PUBLIC_*)
       // Prefer window.__APP_CONFIG__ at runtime; these are build-time fallbacks.
       appKitProjectId: '',
@@ -148,6 +159,12 @@ export default defineNuxtConfig({
 
   nitro: {
     compressPublicAssets: true,
+    esbuild: { options: { target: 'esnext' } },
+  },
+
+  vite: {
+    build: { target: 'esnext' },
+    optimizeDeps: { esbuildOptions: { target: 'esnext' } },
   },
 
   telemetry: false,

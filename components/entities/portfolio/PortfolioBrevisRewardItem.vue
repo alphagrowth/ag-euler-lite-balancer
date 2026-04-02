@@ -11,6 +11,7 @@ const { campaign } = defineProps<{ campaign: Campaign }>()
 
 const { getVault } = useVaults()
 const { claimReward, loadRewards, buildClaimRewardPlan } = useBrevis()
+const { isSpyMode } = useSpyMode()
 const modal = useModal()
 const { error } = useToast()
 const { chainId: siteChainId } = useEulerAddresses()
@@ -45,7 +46,7 @@ const claim = async () => {
 
     await claimReward(campaign)
     modal.close()
-    loadRewards()
+    loadRewards(false, true)
   }
   catch (e) {
     error('Transaction failed')
@@ -140,6 +141,7 @@ const onClaimClick = async () => {
       <UiButton
         rounded
         :loading="isClaiming || isPreparing"
+        :disabled="isSpyMode"
         @click="onClaimClick"
       >
         Claim
