@@ -406,6 +406,7 @@ onMounted(() => {
           <AssetAvatar
             :asset="[position.collateral.asset, position.borrow.asset]"
             size="40"
+            :increased-spacing="true"
           />
           <div class="flex-grow min-w-0">
             <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-4">

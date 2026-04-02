@@ -251,6 +251,7 @@ const linkPath = computed(() => ({
         <AssetAvatar
           :asset="[pair.collateral.asset, pair.borrow.asset]"
           size="40"
+          :increased-spacing="true"
         />
         <div class="flex-grow ml-12">
           <div class="text-content-tertiary text-p3 mb-4 flex items-center gap-8">
@@ -398,6 +399,7 @@ const linkPath = computed(() => ({
             class="icon--20"
             :label="entityDisplay.name"
             :src="entityDisplay.logos"
+            :increased-spacing="true"
           />
           <span class="text-p2 text-content-primary truncate">{{ entityDisplay.name }}</span>
         </div>
@@ -499,6 +501,7 @@ const linkPath = computed(() => ({
               class="icon--20"
               :label="entityDisplay.name"
               :src="entityDisplay.logos"
+              :increased-spacing="true"
             />
             <span class="text-p2 text-content-primary truncate">{{ entityDisplay.name }}</span>
           </template>

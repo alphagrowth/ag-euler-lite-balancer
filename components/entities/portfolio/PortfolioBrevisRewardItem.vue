@@ -119,6 +119,7 @@ const onClaimClick = async () => {
             v-if="vault"
             :asset="vault.asset"
             size="40"
+            :increased-spacing="true"
           />
           <div class="ml-12">
             <h4 class="text-h5 mb-4 text-content-primary">
