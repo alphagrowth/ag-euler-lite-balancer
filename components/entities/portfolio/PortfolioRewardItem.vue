@@ -43,7 +43,7 @@ const localIconUrl = computed(() => {
   }
   return ''
 })
-const resolvedIconUrl = computed(() => isEulFamily.value ||externalIconUrl.value || localIconUrl.value || undefined)
+const resolvedIconUrl = computed(() => isEulFamily.value || externalIconUrl.value || localIconUrl.value || undefined)
 const hasIcon = computed(() => isEulFamily.value || !!resolvedIconUrl.value)
 const avatarAsset = computed(() => isEulFamily.value
   ? { address: reward.token.address, symbol: 'EUL' }

@@ -481,7 +481,6 @@ const linkPath = computed(() => ({
           <div class="text-content-tertiary text-p3">Risk manager</div>
         </div>
         <div class="flex gap-8 justify-end items-center text-right flex-1">
-          <template v-if="entityDisplay.name">
           <div
             v-if="isAnyGovernorUnverified"
             class="flex gap-8 items-center py-4 px-8 rounded-8 bg-error-100 text-error-500 text-p2 w-fit"
@@ -504,7 +503,6 @@ const linkPath = computed(() => ({
               :increased-spacing="true"
             />
             <span class="text-p2 text-content-primary truncate">{{ entityDisplay.name }}</span>
-          </template>
           </div>
           <div
             v-else

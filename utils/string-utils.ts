@@ -61,6 +61,7 @@ export const formatSignificantFloor = (value: string | number = 0, maximumSignif
 }
 
 export const compactNumber = (value: string | number = 0, maximumFractionDigits = 2, minimumFractionDigits = 0) => {
+  const formattedValue = Intl.NumberFormat('en-US', {
     notation: 'compact',
     maximumFractionDigits,
     minimumFractionDigits,

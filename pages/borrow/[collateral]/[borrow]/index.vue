@@ -405,9 +405,9 @@ watch(formTab, () => {
             <template #default="{ tab: slotTab }">
               <div class="flex items-center gap-8">
                 <AssetAvatar
-                :asset="slotTab.assets"
-                :increased-spacing="true"
-              />
+                  :asset="slotTab.assets"
+                  :increased-spacing="true"
+                />
 
                 {{ slotTab.label }}
               </div>
@@ -492,7 +492,8 @@ watch(formTab, () => {
                     <AssetAvatar
                       :asset="{ address: borrow.borrowSelectedAsset.value?.address || collateralVault.asset.address, symbol: borrow.borrowSelectedAsset.value?.symbol || collateralVault.asset.symbol }"
                       size="20"
-                    :increased-spacing="true"/>
+                      :increased-spacing="true"
+                    />
                     {{ borrow.borrowSelectedAsset.value?.symbol || collateralVault.asset.symbol }}
                     <SvgIcon
                       class="text-content-tertiary !w-16 !h-16"

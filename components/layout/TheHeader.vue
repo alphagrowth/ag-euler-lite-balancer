@@ -34,8 +34,6 @@ const {
   enableEarnPage,
   enableLendPage,
   enableExplorePage,
-  enablePoweredByEuler,
-  enableAppTitle,
 } = useDeployConfig()
 const menuItems = getMenuItems(
   enableEarnPage,

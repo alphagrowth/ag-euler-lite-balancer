@@ -64,10 +64,10 @@ const repayFunctionAbi = [{
 }]
 
 export interface EnsoRouteResponse {
-  tx: { to: Address; from: Address; data: Hex; value: string }
+  tx: { to: Address, from: Address, data: Hex, value: string }
   amountOut: string
   minAmountOut: string
-  route: Array<{ action: string; protocol: string }>
+  route: Array<{ action: string, protocol: string }>
   gas?: string
 }
 

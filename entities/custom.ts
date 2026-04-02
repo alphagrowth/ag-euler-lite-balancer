@@ -17,6 +17,7 @@ export type IntrinsicApySourceConfig =
   | { provider: 'ondo', address: string, chainId: number }
   | { provider: 'benqi', address: string, chainId: number }
   | { provider: 'avant', address: string, chainId: number }
+  | { provider: 'merkl', address: string, chainId: number, merklIdentifier: string }
 
 export const intrinsicApySources: readonly IntrinsicApySourceConfig[] = [
   // DefiLlama pools — Ethereum (1)
