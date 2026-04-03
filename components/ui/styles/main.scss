@@ -131,7 +131,7 @@
   // Select
   --ui-select-field-color: var(--neutral-800);
   --ui-select-field-background-color: #ffffff;
-  --ui-select-plus-color: var(--accent-600);
+  --ui-select-plus-color: #ffffff;
   --ui-select-plus-background-color: var(--accent-300);
   --ui-select-chip-background-color: var(--neutral-100);
   --ui-select-chip-active-background-color: var(--accent-500);
@@ -243,6 +243,7 @@
   --ui-checkbox-box-shadow-color: #404040;
   --ui-checkbox-hover-background-color: #1a1a1a;
   --ui-checkbox-label-color: #fafafa;
+  --ui-checkbox-color: #0a0a0a;
 
   // Switch
   --ui-switch-background-color: #262626;
@@ -273,6 +274,8 @@
   --ui-select-field-color: #fafafa;
   --ui-select-field-background-color: #141414;
   --ui-select-chip-background-color: #1a1a1a;
+  --ui-select-chip-active-color: #0a0a0a;
+  --ui-select-plus-color: #0a0a0a;
 
   // Tabs
   --ui-tabs-pills-background-color: #1a1a1a;
