@@ -1,7 +1,6 @@
 import type { Ref, ComputedRef } from 'vue'
 import { formatUnits, type Address } from 'viem'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
-import type { SwapApiQuote } from '~/entities/swap'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { SwapperMode } from '~/entities/swap'
@@ -17,19 +16,6 @@ interface QuoteAccounts {
   accountOut: Address
 }
 
-export interface CustomRepayQuoteFetcher {
-  fetchExactIn: (params: {
-    tokenIn: Address
-    tokenOut: Address
-    amount: bigint
-    currentDebt: bigint
-    slippage: number
-    accountIn: Address
-    vaultIn: Address
-    receiver: Address
-  }) => Promise<SwapApiQuote>
-}
-
 export interface UseRepaySwapCoreOptions {
   position: Ref<AccountBorrowPosition | undefined>
   borrowVault: ComputedRef<AccountBorrowPosition['borrow'] | undefined>
@@ -37,12 +23,11 @@ export interface UseRepaySwapCoreOptions {
   sourceBalance: ComputedRef<bigint>
   formTab: Ref<string>
   formTabName: string
-  slippage: Ref<number>
+  slippage: Readonly<Ref<number>>
   clearSimulationError: () => void
   getCurrentDebt: () => bigint
   getQuoteAccounts: () => QuoteAccounts
   onQuoteReceived?: (amountOut: bigint, direction: SwapperMode) => boolean
-  customQuoteFetcher?: Ref<CustomRepayQuoteFetcher | undefined> | ComputedRef<CustomRepayQuoteFetcher | undefined>
 }
 
 export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
@@ -58,7 +43,6 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
     getCurrentDebt,
     getQuoteAccounts,
     onQuoteReceived,
-    customQuoteFetcher,
   } = options
 
   // --- State ---
@@ -120,6 +104,23 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
       return BigInt(quotes.quote.value.amountOut || 0)
     }
     catch { return null }
+  })
+
+  const isRepayExceedsDebt = computed(() => {
+    if (isSameAsset.value) return false
+    if (!position.value || position.value.borrowed <= 0n) return false
+    if (direction.value === SwapperMode.EXACT_IN) {
+      if (debtRepaid.value === null) return false
+      return debtRepaid.value > position.value.borrowed
+    }
+    if (direction.value === SwapperMode.TARGET_DEBT && debtAmount.value && borrowVault.value) {
+      try {
+        const inputNano = valueToNano(debtAmount.value, borrowVault.value.asset.decimals)
+        return inputNano > position.value.borrowed
+      }
+      catch { return false }
+    }
+    return false
   })
 
   // --- Async USD values ---
@@ -273,42 +274,20 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
         quotes.reset()
         return
       }
-
-      const fetcher = customQuoteFetcher?.value
-      if (fetcher) {
-        const tokenIn = sourceVault.value.asset.address as Address
-        const tokenOut = borrowVault.value.asset.address as Address
-        const vaultIn = sourceVault.value.address as Address
-        const receiver = borrowVault.value.address as Address
-        await quotes.exactInQuotes.requestCustomQuote('enso', async () => {
-          return fetcher.fetchExactIn({
-            tokenIn,
-            tokenOut,
-            amount: parsedAmount,
-            currentDebt,
-            slippage: slippage.value,
-            accountIn,
-            vaultIn,
-            receiver,
-          })
-        })
-      }
-      else {
-        await quotes.exactInQuotes.requestQuotes({
-          tokenIn: sourceVault.value.asset.address as Address,
-          tokenOut: borrowVault.value.asset.address as Address,
-          accountIn,
-          accountOut,
-          amount: parsedAmount,
-          vaultIn: sourceVault.value.address as Address,
-          receiver: borrowVault.value.address as Address,
-          slippage: slippage.value,
-          swapperMode: SwapperMode.EXACT_IN,
-          isRepay: true,
-          targetDebt: 0n,
-          currentDebt,
-        })
-      }
+      await quotes.exactInQuotes.requestQuotes({
+        tokenIn: sourceVault.value.asset.address as Address,
+        tokenOut: borrowVault.value.asset.address as Address,
+        accountIn,
+        accountOut,
+        amount: parsedAmount,
+        vaultIn: sourceVault.value.address as Address,
+        receiver: borrowVault.value.address as Address,
+        slippage: slippage.value,
+        swapperMode: SwapperMode.EXACT_IN,
+        isRepay: true,
+        targetDebt: 0n,
+        currentDebt,
+      })
       return
     }
 
@@ -409,6 +388,7 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
     isSameAsset,
     spent,
     debtRepaid,
+    isRepayExceedsDebt,
     sourceValueUsd,
     borrowValueUsd,
     nextBorrowValueUsd,

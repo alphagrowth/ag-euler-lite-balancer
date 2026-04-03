@@ -69,6 +69,9 @@ export interface SecuritizeVault extends Erc4626Vault {
   supply: bigint // Same as totalAssets (no borrowing)
   borrow: bigint // Always 0 (securitize vaults can't be borrowed from)
   interestRateInfo: VaultInterestRateInfo // Zero-valued
+  assetPriceInfo?: {
+    amountOutMid: bigint
+  }
 }
 export interface Vault {
   verified: boolean

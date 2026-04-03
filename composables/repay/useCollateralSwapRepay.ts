@@ -13,11 +13,10 @@ import { SwapperMode } from '~/entities/swap'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
+import { useRepaySwapCore } from '~/composables/repay/useRepaySwapCore'
 import { useRepaySwapCore, type CustomRepayQuoteFetcher } from '~/composables/repay/useRepaySwapCore'
 import { useRepaySwapDetails } from '~/composables/repay/useRepaySwapDetails'
 import { useRepayHealthMetrics } from '~/composables/repay/useRepayHealthMetrics'
-import { useEnsoRoute } from '~/composables/useEnsoRoute'
-import { getPublicClient } from '~/utils/public-client'
 import { nanoToValue, valueToNano } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { createRaceGuard } from '~/utils/race-guard'
@@ -30,7 +29,7 @@ interface UseCollateralSwapRepayOptions {
   plan: Ref<TxPlan | null>
   isSubmitting: Ref<boolean>
   isPreparing: Ref<boolean>
-  slippage: Ref<number>
+  slippage: Readonly<Ref<number>>
   clearSimulationError: () => void
   runSimulation: (plan: TxPlan) => Promise<boolean>
   getCurrentDebt: () => bigint
@@ -59,12 +58,10 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
   const { isConnected, address } = useAccount()
   const { buildSwapPlan, buildSameAssetRepayPlan, buildSameAssetFullRepayPlan, buildSwapFullRepayPlan, executeTxPlan } = useEulerOperations()
   const { refreshAllPositions } = useEulerAccount()
-  const { eulerLensAddresses, eulerPeripheryAddresses, chainId: currentChainId, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-  const { EVM_PROVIDER_URL } = useEulerConfig()
+  const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
+  const { client: rpcClient } = useRpcClient()
   const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
   const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
-  const { enableEnsoMultiply } = useDeployConfig()
-  const { getEnsoRoute, buildEnsoRepaySwapQuote } = useEnsoRoute()
 
   // --- Source vault state ---
   const sourceVault: Ref<Vault | undefined> = ref()
@@ -192,6 +189,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
     const borrowPrice = getAssetOraclePrice(borrowVault.value)
     return conservativePriceRatioNumber(collateralPrice, borrowPrice)
   })
+  priceInvert.autoInvert(priceRatio)
 
   // --- Collateral-specific computeds ---
   const collateralAmountAfter = computed(() => {
@@ -258,6 +256,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
       if (isHealthInsufficient.value) return true
       return false
     }
+    if (core.isRepayExceedsDebt.value) return true
     if (core.quotes.quoteError.value) return true
     if (!core.quotes.selectedQuote.value) return true
     if (isHealthInsufficient.value) return true
@@ -265,6 +264,9 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
   })
 
   const disabledReason = computed(() => {
+    if (core.isRepayExceedsDebt.value) {
+      return 'You repaying more than required'
+    }
     if (isHealthInsufficient.value) {
       return 'This swap will not restore account health. Repay the full debt from your wallet instead.'
     }
@@ -289,13 +291,12 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
       if (!lensAddress) {
         throw new Error('Account lens address is not available')
       }
-      const client = getPublicClient(EVM_PROVIDER_URL)
-      const res = await client.readContract({
+      const res = await rpcClient.value!.readContract({
         address: lensAddress as Address,
         abi: eulerAccountLensABI as Abi,
         functionName: 'getVaultAccountInfo',
         args: [position.value.subAccount, sourceVault.value.address],
-      }) as Record<string, any>
+      }) as { assets: bigint }
       sourceAssets.value = res.assets
     }
     catch (e) {
@@ -399,6 +400,8 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
           asset: sourceVault.value.asset,
           amount: core.amount.value,
           plan: plan.value || undefined,
+          swapToAsset: !core.isSameAsset.value ? borrowVault.value.asset : undefined,
+          swapToAmount: !core.isSameAsset.value ? core.debtAmount.value : undefined,
           subAccount: position.value?.subAccount,
           hasBorrows: (position.value?.borrowed || 0n) > 0n,
           onConfirm: () => {
@@ -491,6 +494,7 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
     // Submit
     isSubmitDisabled,
     disabledReason,
+    isRepayExceedsDebt: core.isRepayExceedsDebt,
     // Handlers
     onAmountInput: core.onAmountInput,
     onDebtInput: core.onDebtInput,

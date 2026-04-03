@@ -1,23 +1,3 @@
-export interface BptAdapterEntry {
-  adapter: string
-  tokenIndex: number
-  pool?: string
-  wrapper?: string
-  numTokens?: number
-}
-
-function parseBptAdapterConfig(raw: unknown): Record<string, BptAdapterEntry> {
-  if (!raw) return {}
-  if (typeof raw === 'object') return raw as Record<string, BptAdapterEntry>
-  if (typeof raw !== 'string') return {}
-  try {
-    return JSON.parse(raw.trim())
-  }
-  catch {
-    return {}
-  }
-}
-
 export const useDeployConfig = () => {
   const rc = useRuntimeConfig().public
   const envConfig = useEnvConfig()
@@ -26,16 +6,16 @@ export const useDeployConfig = () => {
     const s = String(val)
     return s !== 'false' && s !== '0'
   }
-  const isExplicitlyEnabled = (val: unknown) => {
-    const s = String(val)
-    return s === 'true' || s === '1'
-  }
+  const labelsBaseUrl = (rc.configLabelsBaseUrl || '').trim().replace(/\/+$/, '')
 
   return {
     // URLs (empty string = not configured, hide UI element)
     docsUrl: rc.configDocsUrl,
     tosUrl: rc.configTosUrl || 'https://www.euler.finance/terms',
     tosMdUrl: rc.configTosMdUrl,
+    privacyPolicyUrl: rc.configPrivacyPolicyUrl || 'https://www.euler.finance/privacy-policy',
+    riskDisclosuresUrl: rc.configRiskDisclosuresUrl || 'https://www.euler.finance/risk-disclosures',
+    micaWhitepaperUrl: rc.configMicaWhitepaperUrl || 'https://www.euler.finance/MICA-Whitepaper.pdf',
     xUrl: rc.configXUrl,
     discordUrl: rc.configDiscordUrl,
     telegramUrl: rc.configTelegramUrl,
@@ -44,12 +24,16 @@ export const useDeployConfig = () => {
     // Branding (from useEnvConfig, not runtimeConfig)
     appTitle: envConfig.appTitle,
     appDescription: envConfig.appDescription,
+    logoUrl: envConfig.logoUrl,
 
-    // Repos
+    // Repos (labelsRepo/branch/baseUrl still needed for logo URL construction)
     labelsRepo: rc.configLabelsRepo || 'euler-xyz/euler-labels',
     labelsRepoBranch: rc.configLabelsRepoBranch || 'master',
-    oracleChecksRepo: rc.configOracleChecksRepo || 'euler-xyz/oracle-checks',
+    labelsBaseUrl,
     isCustomLabelsRepo: computed(() => {
+      if (labelsBaseUrl) {
+        return !labelsBaseUrl.includes('master')
+      }
       const repo = rc.configLabelsRepo || 'euler-xyz/euler-labels'
       const branch = rc.configLabelsRepoBranch || 'master'
       return repo !== 'euler-xyz/euler-labels' || branch !== 'master'
@@ -59,16 +43,18 @@ export const useDeployConfig = () => {
     enableTosSignature: !!rc.configTosMdUrl,
     enableEntityBranding: isEnabled(rc.configEnableEntityBranding),
     enableVaultType: isEnabled(rc.configEnableVaultType),
-    enableEarnPage: isExplicitlyEnabled(rc.configEnableEarnPage),
+    enableEarnPage: isEnabled(rc.configEnableEarnPage),
     enableLendPage: isEnabled(rc.configEnableLendPage),
-    enableExplorePage: isExplicitlyEnabled(rc.configEnableExplorePage),
-    enableSwapDeposit: isExplicitlyEnabled(rc.configEnableSwapDeposit),
-    enableEnsoMultiply: isExplicitlyEnabled(rc.configEnableEnsoMultiply),
-    enableLoopZapPage: isExplicitlyEnabled(rc.configEnableLoopZapPage),
+    enableExplorePage: isEnabled(rc.configEnableExplorePage),
+    enablePoweredByEuler: isEnabled(rc.configEnablePoweredByEuler),
+    enableAppTitle: isEnabled(rc.configEnableAppTitle),
+    enableMerkl: isEnabled(rc.configEnableMerkl),
+    enableIncentra: isEnabled(rc.configEnableIncentra),
+    enableFuul: isEnabled(rc.configEnableFuul),
 
-    // BPT adapter config: JSON map of collateral vault address → { adapter, tokenIndex, pool, wrapper, numTokens }
-    // Example: {"0x175831aF...":{"adapter":"0xABC...","tokenIndex":1}}
-    bptAdapterConfig: parseBptAdapterConfig(rc.configBptAdapterConfig),
+    // External token lists (defaults in server/api/token-list.get.ts)
+    uniswapTokenListUrl: rc.configUniswapTokenListUrl || '',
+    defillamaTokenListUrl: rc.configDefillamaTokenListUrl || '',
 
     // Chains (derived from env vars at runtime via useChainConfig)
     ...useChainConfig(),

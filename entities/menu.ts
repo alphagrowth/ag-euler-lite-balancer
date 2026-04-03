@@ -56,8 +56,8 @@ export const getMenuItems = (enableEarnPage: boolean, enableLendPage: boolean, e
 
 const preferredDefaultOrder = ['explore', 'earn', 'lend', 'borrow', 'loop-zap', 'portfolio'] as const
 
-export const getDefaultPageRoute = (enableEarnPage: boolean, enableLendPage: boolean, enableExplorePage: boolean, enableLoopZapPage: boolean = false) => {
-  const items = getMenuItems(enableEarnPage, enableLendPage, enableExplorePage, enableLoopZapPage)
+export const getDefaultPageRoute = (enableEarnPage: boolean, enableLendPage: boolean, enableExplorePage: boolean) => {
+  const items = getMenuItems(enableEarnPage, enableLendPage, enableExplorePage)
   return preferredDefaultOrder.find(name =>
     items.some(item => item.name === name),
   ) ?? 'portfolio'
