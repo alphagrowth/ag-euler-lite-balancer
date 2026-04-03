@@ -411,4 +411,28 @@
   --euler-dark-800: 0 0% 50%;
   --euler-dark-900: 0 0% 70%;
   --euler-dark-1000: 0 0% 98%;
+
+    // Chart colors (dark theme)
+  --chart-line-a: #62ad4f;
+  --chart-fill-a: rgba(98, 173, 79, 0.15);
+  --chart-line-b: #2ae5b9;
+  --chart-fill-b: rgba(42, 229, 185, 0.15);
+  --chart-text: #a1acb8;
+  --chart-text-muted: #728395;
+  --chart-grid: rgba(255, 255, 255, 0.04);
+  --chart-axis: rgba(255, 255, 255, 0.08);
+  --chart-tooltip-bg: rgba(12, 29, 47, 0.95);
+  --chart-tooltip-border: #14304e;
+  --chart-tooltip-text: #f7f7f8;
+  --chart-tooltip-text-muted: #a1acb8;
+  --chart-annotation-line: #a1acb8;
+  --chart-annotation-bg: rgba(20, 48, 78, 0.85);
+  --chart-annotation-text: #ffffff;
+
+  // Graph colors (dark theme)
+  --graph-edge: #435971;
+  --graph-edge-mutual: #728395;
+  --graph-node-bg: #0c1d2f;
+  --graph-node-border: #435971;
+  --graph-node-text: #f7f7f8;
 }

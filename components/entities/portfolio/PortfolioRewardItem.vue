@@ -7,7 +7,6 @@ import type { TxPlan } from '~/entities/txPlan'
 import { logWarn } from '~/utils/errorHandling'
 import { formatNumber, formatUsdValue } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
-import { getAssetLogoUrl } from '~/composables/useTokens'
 
 const { reward } = defineProps<{ reward: Reward }>()
 
@@ -33,18 +32,7 @@ const externalIconUrl = computed(() => {
   return rewardTokens.value.find(token => token.address === reward.token.address)?.icon
     || undefined
 })
-
-const localIconUrl = computed(() => {
-  const url = getAssetLogoUrl(reward.token.address, reward.token.symbol)
-  if (url) return url
-  const firstWord = reward.token.symbol.split(' ')[0]
-  if (firstWord !== reward.token.symbol) {
-    return getAssetLogoUrl(reward.token.address, firstWord)
-  }
-  return ''
-})
-const resolvedIconUrl = computed(() => isEulFamily.value || externalIconUrl.value || localIconUrl.value || undefined)
-const hasIcon = computed(() => isEulFamily.value || !!resolvedIconUrl.value)
+const hasIcon = computed(() => isEulFamily.value || !!externalIconUrl.value)
 const avatarAsset = computed(() => isEulFamily.value
   ? { address: reward.token.address, symbol: 'EUL' }
   : { address: reward.token.address, symbol: reward.token.symbol },
@@ -106,7 +94,7 @@ const onClaimClick = async () => {
       props: {
         type: 'reward',
         asset: reward.token,
-        assetIconUrl: resolvedIconUrl.value,
+        assetIconUrl: externalIconUrl.value,
         amount: amountToClaim.value,
         plan: plan.value || undefined,
         onConfirm: () => {
@@ -137,7 +125,7 @@ const onClaimClick = async () => {
         <AssetAvatar
           v-if="hasIcon"
           :asset="avatarAsset"
-          :icon-url="resolvedIconUrl"
+          :icon-url="externalIconUrl"
           size="40"
           :increased-spacing="true"
         />

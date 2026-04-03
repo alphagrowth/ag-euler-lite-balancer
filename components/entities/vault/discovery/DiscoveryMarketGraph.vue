@@ -286,7 +286,7 @@ const isGraphEdgeHighlighted = (fromAddr: string, toAddr: string): boolean => {
 
     <p
       v-if="!selectedNodeAddress"
-      class="text-h6 text-content-muted text-center leading-relaxed px-16 pb-12"
+      class="text-h6 text-content-primary text-center leading-relaxed px-16 pb-12"
     >
       Tap a node to highlight connections and see lending/borrowing options
       below.

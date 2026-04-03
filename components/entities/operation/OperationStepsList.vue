@@ -52,7 +52,6 @@ defineProps<{
         <AssetAvatar
           :asset="{ address: step.toAssetInfo.address || '', symbol: step.toAssetInfo.symbol }"
           size="16"
-          :increased-spacing="true"
         />
         <p
           v-if="!step.iconOnly"
