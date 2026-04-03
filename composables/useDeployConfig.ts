@@ -51,6 +51,7 @@ export const useDeployConfig = () => {
     enableMerkl: isEnabled(rc.configEnableMerkl),
     enableIncentra: isEnabled(rc.configEnableIncentra),
     enableFuul: isEnabled(rc.configEnableFuul),
+    enableLoopZapPage: isEnabled(rc.configEnableLoopZapPage),
 
     // External token lists (defaults in server/api/token-list.get.ts)
     uniswapTokenListUrl: rc.configUniswapTokenListUrl || '',

@@ -34,11 +34,13 @@ const {
   enableEarnPage,
   enableLendPage,
   enableExplorePage,
+  enableLoopZapPage,
 } = useDeployConfig()
 const menuItems = getMenuItems(
   enableEarnPage,
   enableLendPage,
   enableExplorePage,
+  enableLoopZapPage,
 )
 
 const links = computed(

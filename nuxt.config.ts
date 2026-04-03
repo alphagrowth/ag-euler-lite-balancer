@@ -123,6 +123,8 @@ export default defineNuxtConfig({
       configEnableMerkl: '',
       configEnableIncentra: '',
       configEnableFuul: '',
+      // Loop/Zap page: disabled by default. Set to 'true' to enable.
+      configEnableLoopZapPage: '',
       // External token list URLs for swap token selector
       configUniswapTokenListUrl: '',
       configDefillamaTokenListUrl: '',
