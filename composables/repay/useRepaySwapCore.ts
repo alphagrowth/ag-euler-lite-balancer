@@ -1,11 +1,13 @@
 import type { Ref, ComputedRef } from 'vue'
 import { formatUnits, type Address } from 'viem'
 import type { Vault, SecuritizeVault } from '~/entities/vault'
+import type { SwapApiQuote } from '~/entities/swap'
 import { getAssetUsdValue } from '~/services/pricing/priceProvider'
 import type { AccountBorrowPosition } from '~/entities/account'
 import { SwapperMode } from '~/entities/swap'
 import { useSwapRepayQuotes } from '~/composables/repay/useSwapRepayQuotes'
 import { valueToNano } from '~/utils/crypto-utils'
+import { logWarn } from '~/utils/errorHandling'
 import { trimTrailingZeros } from '~/utils/string-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { amountToPercent, percentToAmountNano } from '~/utils/repayUtils'
@@ -14,6 +16,19 @@ import { createRaceGuard } from '~/utils/race-guard'
 interface QuoteAccounts {
   accountIn: Address
   accountOut: Address
+}
+
+export interface CustomRepayQuoteFetcher {
+  fetchExactIn: (params: {
+    tokenIn: Address
+    tokenOut: Address
+    amount: bigint
+    currentDebt: bigint
+    slippage: number
+    accountIn: Address
+    vaultIn: Address
+    receiver: Address
+  }) => Promise<SwapApiQuote>
 }
 
 export interface UseRepaySwapCoreOptions {
@@ -28,6 +43,7 @@ export interface UseRepaySwapCoreOptions {
   getCurrentDebt: () => bigint
   getQuoteAccounts: () => QuoteAccounts
   onQuoteReceived?: (amountOut: bigint, direction: SwapperMode) => boolean
+  customQuoteFetcher?: Ref<CustomRepayQuoteFetcher | undefined> | ComputedRef<CustomRepayQuoteFetcher | undefined>
 }
 
 export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
@@ -43,6 +59,7 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
     getCurrentDebt,
     getQuoteAccounts,
     onQuoteReceived,
+    customQuoteFetcher,
   } = options
 
   // --- State ---
@@ -274,7 +291,7 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
         quotes.reset()
         return
       }
-      await quotes.exactInQuotes.requestQuotes({
+      const quoteParams = {
         tokenIn: sourceVault.value.asset.address as Address,
         tokenOut: borrowVault.value.asset.address as Address,
         accountIn,
@@ -287,7 +304,25 @@ export const useRepaySwapCore = (options: UseRepaySwapCoreOptions) => {
         isRepay: true,
         targetDebt: 0n,
         currentDebt,
-      })
+      }
+      await quotes.exactInQuotes.requestQuotes(quoteParams)
+
+      if (customQuoteFetcher?.value) {
+        void customQuoteFetcher.value.fetchExactIn({
+          tokenIn: quoteParams.tokenIn,
+          tokenOut: quoteParams.tokenOut,
+          amount: parsedAmount,
+          currentDebt,
+          slippage: slippage.value,
+          accountIn,
+          vaultIn: quoteParams.vaultIn,
+          receiver: quoteParams.receiver,
+        }).then((ensoQuote) => {
+          quotes.exactInQuotes.upsertQuote('enso', ensoQuote)
+        }).catch((e) => {
+          logWarn('repaySwapCore/ensoQuote', e)
+        })
+      }
       return
     }
 

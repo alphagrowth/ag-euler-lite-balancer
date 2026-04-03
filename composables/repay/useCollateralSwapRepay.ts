@@ -13,10 +13,11 @@ import { SwapperMode } from '~/entities/swap'
 import { eulerAccountLensABI } from '~/entities/euler/abis'
 import { useSwapCollateralOptions } from '~/composables/useSwapCollateralOptions'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
-import { useRepaySwapCore } from '~/composables/repay/useRepaySwapCore'
 import { useRepaySwapCore, type CustomRepayQuoteFetcher } from '~/composables/repay/useRepaySwapCore'
 import { useRepaySwapDetails } from '~/composables/repay/useRepaySwapDetails'
 import { useRepayHealthMetrics } from '~/composables/repay/useRepayHealthMetrics'
+import { useEnsoRoute } from '~/composables/useEnsoRoute'
+import { getPublicClient } from '~/utils/public-client'
 import { nanoToValue, valueToNano } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import { createRaceGuard } from '~/utils/race-guard'
@@ -29,7 +30,7 @@ interface UseCollateralSwapRepayOptions {
   plan: Ref<TxPlan | null>
   isSubmitting: Ref<boolean>
   isPreparing: Ref<boolean>
-  slippage: Readonly<Ref<number>>
+  slippage: Ref<number>
   clearSimulationError: () => void
   runSimulation: (plan: TxPlan) => Promise<boolean>
   getCurrentDebt: () => bigint
@@ -58,10 +59,12 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
   const { isConnected, address } = useAccount()
   const { buildSwapPlan, buildSameAssetRepayPlan, buildSameAssetFullRepayPlan, buildSwapFullRepayPlan, executeTxPlan } = useEulerOperations()
   const { refreshAllPositions } = useEulerAccount()
-  const { eulerLensAddresses, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
-  const { client: rpcClient } = useRpcClient()
+  const { eulerLensAddresses, eulerPeripheryAddresses, chainId: currentChainId, isReady: isEulerAddressesReady, loadEulerConfig } = useEulerAddresses()
+  const { EVM_PROVIDER_URL } = useEulerConfig()
   const { withIntrinsicSupplyApy, withIntrinsicBorrowApy } = useIntrinsicApy()
   const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
+  const { enableEnsoMultiply } = useDeployConfig()
+  const { getEnsoRoute, buildEnsoRepaySwapQuote } = useEnsoRoute()
 
   // --- Source vault state ---
   const sourceVault: Ref<Vault | undefined> = ref()
@@ -291,12 +294,13 @@ export const useCollateralSwapRepay = (options: UseCollateralSwapRepayOptions) =
       if (!lensAddress) {
         throw new Error('Account lens address is not available')
       }
-      const res = await rpcClient.value!.readContract({
+      const client = getPublicClient(EVM_PROVIDER_URL)
+      const res = await client.readContract({
         address: lensAddress as Address,
         abi: eulerAccountLensABI as Abi,
         functionName: 'getVaultAccountInfo',
         args: [position.value.subAccount, sourceVault.value.address],
-      }) as { assets: bigint }
+      }) as Record<string, any>
       sourceAssets.value = res.assets
     }
     catch (e) {

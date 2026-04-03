@@ -1,3 +1,23 @@
+export interface BptAdapterEntry {
+  adapter: string
+  tokenIndex: number
+  pool?: string
+  wrapper?: string
+  numTokens?: number
+}
+
+function parseBptAdapterConfig(raw: unknown): Record<string, BptAdapterEntry> {
+  if (!raw) return {}
+  if (typeof raw === 'object') return raw as Record<string, BptAdapterEntry>
+  if (typeof raw !== 'string') return {}
+  try {
+    return JSON.parse(raw.trim())
+  }
+  catch {
+    return {}
+  }
+}
+
 export const useDeployConfig = () => {
   const rc = useRuntimeConfig().public
   const envConfig = useEnvConfig()
@@ -5,6 +25,10 @@ export const useDeployConfig = () => {
   const isEnabled = (val: unknown) => {
     const s = String(val)
     return s !== 'false' && s !== '0'
+  }
+  const isExplicitlyEnabled = (val: unknown) => {
+    const s = String(val)
+    return s === 'true' || s === '1'
   }
   const labelsBaseUrl = (rc.configLabelsBaseUrl || '').trim().replace(/\/+$/, '')
 
@@ -52,6 +76,10 @@ export const useDeployConfig = () => {
     enableIncentra: isEnabled(rc.configEnableIncentra),
     enableFuul: isEnabled(rc.configEnableFuul),
     enableLoopZapPage: isEnabled(rc.configEnableLoopZapPage),
+    enableEnsoMultiply: isExplicitlyEnabled(rc.configEnableEnsoMultiply),
+    // BPT adapter config: JSON map of collateral vault address → { adapter, tokenIndex, pool, wrapper, numTokens }
+    // Example: {"0x175831aF...":{"adapter":"0xABC...","tokenIndex":1}}
+    bptAdapterConfig: parseBptAdapterConfig(rc.configBptAdapterConfig),
 
     // External token lists (defaults in server/api/token-list.get.ts)
     uniswapTokenListUrl: rc.configUniswapTokenListUrl || '',

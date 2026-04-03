@@ -225,6 +225,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
     statusLabel,
     getQuoteDiffPct: getQuoteDiffPctFor,
     reset,
+    upsertQuote,
     requestQuotes,
     selectProvider,
   }
