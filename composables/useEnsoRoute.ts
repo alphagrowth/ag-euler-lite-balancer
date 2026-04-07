@@ -6,14 +6,14 @@ import { INTEREST_ADJUSTMENT_BPS, BPS_BASE } from '~/entities/tuning-constants'
 import { vaultPreviewDepositAbi } from '~/abis/vault'
 
 export class EnsoMinSizeError extends Error {
-  constructor(message = 'Your size is not size - Please deposit minimum of $5 and try again.') {
+  constructor(message = 'Please deposit minimum of $5 and try again.') {
     super(message)
     this.name = 'EnsoMinSizeError'
   }
 }
 
 export class EnsoMaxSizeError extends Error {
-  constructor(message = 'Your size is size - Please deposit a more reasonable amount, and try again.') {
+  constructor(message = 'Please deposit a more reasonable amount, and try again.') {
     super(message)
     this.name = 'EnsoMaxSizeError'
   }
