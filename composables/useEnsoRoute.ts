@@ -181,6 +181,9 @@ export const useEnsoRoute = () => {
     receiver: Address
     slippage: number
   }): Promise<EnsoRouteResponse> => {
+    if (!params.fromAddress || !params.receiver) {
+      throw new Error('getEnsoRoute: fromAddress and receiver are required')
+    }
     const query = new URLSearchParams({
       chainId: String(params.chainId),
       fromAddress: params.fromAddress,

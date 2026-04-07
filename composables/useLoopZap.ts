@@ -169,6 +169,7 @@ export const useZapBpt = () => {
     const input = inputAmountNano.value
     if (!pool || input <= 0n) return
     if (!currentChainId.value) return
+    if (!address.value) return
 
     isQuoting.value = true
 
