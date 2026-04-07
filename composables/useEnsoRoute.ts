@@ -198,9 +198,16 @@ export const useEnsoRoute = () => {
     const response = await $fetch<string>(`/api/enso/route?${query.toString()}`, {
       method: 'GET',
       responseType: 'text',
+      ignoreResponseError: true,
     })
 
-    const data = JSON.parse(response)
+    let data: any
+    try {
+      data = JSON.parse(response)
+    }
+    catch {
+      throw new Error('Enso route failed')
+    }
     if (!data.tx) {
       throw new Error(data.message || 'Enso route failed')
     }
