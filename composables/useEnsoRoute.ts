@@ -5,6 +5,22 @@ import { swapVerifierAbi } from '~/entities/euler/abis'
 import { INTEREST_ADJUSTMENT_BPS, BPS_BASE } from '~/entities/tuning-constants'
 import { vaultPreviewDepositAbi } from '~/abis/vault'
 
+export class EnsoMinSizeError extends Error {
+  constructor(message = 'Your size is not size - Please deposit minimum of $5 and try again.') {
+    super(message)
+    this.name = 'EnsoMinSizeError'
+  }
+}
+
+export class EnsoMaxSizeError extends Error {
+  constructor(message = 'Your size is size - Please deposit a more reasonable amount, and try again.') {
+    super(message)
+    this.name = 'EnsoMaxSizeError'
+  }
+}
+
+const ENSO_MIN_SIZE_PATTERN = /Swap not found for a required underlying of defi route/i
+
 const erc20DecimalsAbi = [{
   type: 'function' as const,
   name: 'decimals',
@@ -195,11 +211,17 @@ export const useEnsoRoute = () => {
       routingStrategy: 'router',
     })
 
-    const response = await $fetch<string>(`/api/enso/route?${query.toString()}`, {
+    const raw = await $fetch.raw<string>(`/api/enso/route?${query.toString()}`, {
       method: 'GET',
       responseType: 'text',
       ignoreResponseError: true,
     })
+    const response = raw._data ?? ''
+    const status = raw.status
+
+    if (status === 422) {
+      throw new EnsoMaxSizeError()
+    }
 
     let data: any
     try {
@@ -209,7 +231,11 @@ export const useEnsoRoute = () => {
       throw new Error('Enso route failed')
     }
     if (!data.tx) {
-      throw new Error(data.message || 'Enso route failed')
+      const upstreamMessage = typeof data.message === 'string' ? data.message : ''
+      if (ENSO_MIN_SIZE_PATTERN.test(upstreamMessage)) {
+        throw new EnsoMinSizeError()
+      }
+      throw new Error(upstreamMessage || 'Enso route failed')
     }
     return data as EnsoRouteResponse
   }
