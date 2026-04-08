@@ -6,8 +6,7 @@ import {
   useEnsoRoute,
   previewAdapterZapIn,
   zapInFunctionAbi,
-  EnsoMinSizeError,
-  EnsoMaxSizeError,
+  EnsoRouteNotFoundError,
   type BptAdapterConfigEntry,
 } from '~/composables/useEnsoRoute'
 import { logWarn } from '~/utils/errorHandling'
@@ -204,7 +203,7 @@ export const useZapBpt = () => {
       }
     }
     catch (e: any) {
-      if (e instanceof EnsoMinSizeError || e instanceof EnsoMaxSizeError) {
+      if (e instanceof EnsoRouteNotFoundError) {
         quoteError.value = e.message
         expectedBptFromZap.value = 0n
       }
@@ -330,7 +329,7 @@ export const useZapBpt = () => {
       await updateBalance()
     }
     catch (e: any) {
-      if (e instanceof EnsoMinSizeError || e instanceof EnsoMaxSizeError) {
+      if (e instanceof EnsoRouteNotFoundError) {
         quoteError.value = e.message
       }
       else {

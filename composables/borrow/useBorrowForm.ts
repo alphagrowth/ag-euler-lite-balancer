@@ -334,7 +334,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     else if ((borrowVault.value?.supply || 0n) < valueToNano(borrowAmount.value, borrowVault.value?.decimals)) {
       return 'Not enough liquidity in the vault'
     }
-    if (borrowNeedsSwap.value && !borrowSwapSelectedQuote.value && +collateralAmount.value > 0) {
+    if (borrowNeedsSwap.value && !borrowSwapEffectiveQuote.value && +collateralAmount.value > 0) {
       return isBorrowSwapQuoteLoading.value ? null : 'No swap quote available'
     }
     return null
@@ -370,6 +370,16 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
 
     if (!borrowSelectedAsset.value || !collateralVault.value || !borrowNeedsSwap.value || !collateralAmount.value) {
       resetBorrowSwapQuoteState()
+      return
+    }
+
+    // Adapter-routed BPT vaults don't support swap-to-supply via DEX routes
+    const ADAPTER_ONLY_VAULTS = new Set([
+      '0x175831aF06c30F2EA5EA1e3F5EBA207735Eb9F92'.toLowerCase(),
+    ])
+    if (ADAPTER_ONLY_VAULTS.has(collateralVault.value.address.toLowerCase())) {
+      resetBorrowSwapQuoteState()
+      borrowSwapQuoteError.value = 'Swapping into this collateral is not supported. Please use the Zap BPT page to convert your tokens into BPT first, then deposit directly.'
       return
     }
 

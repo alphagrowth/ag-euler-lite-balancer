@@ -163,7 +163,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
               if (!quoteCards.value.length) {
                 quoteError.value = rateLimitedCount >= providersCount.value
                   ? 'Rate limited. Please wait a moment and try again.'
-                  : (requestOptions.errorMessage || 'Unable to fetch swap quote. Swapping is not available for this asset.')
+                  : (requestOptions.errorMessage || 'Unable to fetch a swap quote. Please adjust the amount or select a different asset to try again.')
               }
             }
           }
@@ -181,7 +181,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
       const axiosErr = err as { response?: { status?: number } }
       quoteError.value = axiosErr.response?.status === 429
         ? 'Rate limited. Please wait a moment and try again.'
-        : (requestOptions.errorMessage || 'Unable to fetch swap quote. Swapping is not available for this asset.')
+        : (requestOptions.errorMessage || 'Unable to fetch a swap quote. Please adjust the amount or select a different asset to try again.')
       quoteCards.value = []
     }
     finally {

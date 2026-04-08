@@ -125,6 +125,10 @@ export default defineNuxtConfig({
       configEnableFuul: '',
       // Loop/Zap page: disabled by default. Set to 'true' to enable.
       configEnableLoopZapPage: '',
+      // Enso multiply: disabled by default. Set to 'true' to enable.
+      configEnableEnsoMultiply: '',
+      // BPT adapter config: JSON map of collateral vault → adapter details
+      configBptAdapterConfig: '',
       // External token list URLs for swap token selector
       configUniswapTokenListUrl: '',
       configDefillamaTokenListUrl: '',

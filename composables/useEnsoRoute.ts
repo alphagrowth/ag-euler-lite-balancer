@@ -5,21 +5,12 @@ import { swapVerifierAbi } from '~/entities/euler/abis'
 import { INTEREST_ADJUSTMENT_BPS, BPS_BASE } from '~/entities/tuning-constants'
 import { vaultPreviewDepositAbi } from '~/abis/vault'
 
-export class EnsoMinSizeError extends Error {
-  constructor(message = 'Please deposit minimum of $5 and try again.') {
+export class EnsoRouteNotFoundError extends Error {
+  constructor(message = 'Could not find a route for this amount. Please adjust the amount to try again.') {
     super(message)
-    this.name = 'EnsoMinSizeError'
+    this.name = 'EnsoRouteNotFoundError'
   }
 }
-
-export class EnsoMaxSizeError extends Error {
-  constructor(message = 'Please deposit a more reasonable amount, and try again.') {
-    super(message)
-    this.name = 'EnsoMaxSizeError'
-  }
-}
-
-const ENSO_MIN_SIZE_PATTERN = /Swap not found for a required underlying of defi route/i
 
 const erc20DecimalsAbi = [{
   type: 'function' as const,
@@ -188,6 +179,9 @@ export function encodeAdapterZapIn(tokenIndex: number, amount: bigint, minBptOut
 }
 
 export const useEnsoRoute = () => {
+  const MAX_RETRIES = 3
+  const RETRY_DELAY_MS = 1000
+
   const getEnsoRoute = async (params: {
     chainId: number
     fromAddress: Address
@@ -211,33 +205,48 @@ export const useEnsoRoute = () => {
       routingStrategy: 'router',
     })
 
-    const raw = await $fetch.raw<string>(`/api/enso/route?${query.toString()}`, {
-      method: 'GET',
-      responseType: 'text',
-      ignoreResponseError: true,
-    })
-    const response = raw._data ?? ''
-    const status = raw.status
+    let lastError: Error | undefined
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const raw = await $fetch.raw<string>(`/api/enso/route?${query.toString()}`, {
+        method: 'GET',
+        responseType: 'text',
+        ignoreResponseError: true,
+      })
+      const response = raw._data ?? ''
+      const status = raw.status
 
-    if (status === 422) {
-      throw new EnsoMaxSizeError()
-    }
-
-    let data: any
-    try {
-      data = JSON.parse(response)
-    }
-    catch {
-      throw new Error('Enso route failed')
-    }
-    if (!data.tx) {
-      const upstreamMessage = typeof data.message === 'string' ? data.message : ''
-      if (ENSO_MIN_SIZE_PATTERN.test(upstreamMessage)) {
-        throw new EnsoMinSizeError()
+      if (status === 422) {
+        lastError = new EnsoRouteNotFoundError()
+        if (attempt < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS))
+          continue
+        }
+        throw lastError
       }
-      throw new Error(upstreamMessage || 'Enso route failed')
+
+      let data: any
+      try {
+        data = JSON.parse(response)
+      }
+      catch {
+        lastError = new Error('Enso route failed')
+        if (attempt < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS))
+          continue
+        }
+        throw lastError
+      }
+      if (!data.tx) {
+        lastError = new EnsoRouteNotFoundError()
+        if (attempt < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS))
+          continue
+        }
+        throw lastError
+      }
+      return data as EnsoRouteResponse
     }
-    return data as EnsoRouteResponse
+    throw lastError!
   }
 
   const buildEnsoSwapQuote = (
