@@ -15,6 +15,7 @@ import { createTreehouseProvider } from '~/services/intrinsicApy/treehouseProvid
 import { createOndoProvider } from '~/services/intrinsicApy/ondoProvider'
 import { createBenqiProvider } from '~/services/intrinsicApy/benqiProvider'
 import { createAvantProvider } from '~/services/intrinsicApy/avantProvider'
+import { createMerklProvider } from '~/services/intrinsicApy/merklProvider'
 import { logWarn } from '~/utils/errorHandling'
 import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
 
@@ -41,6 +42,7 @@ const providers: IntrinsicApyProvider[] = [
   createOndoProvider(intrinsicApySources),
   createBenqiProvider(intrinsicApySources),
   createAvantProvider(intrinsicApySources),
+  createMerklProvider(intrinsicApySources),
 ]
 
 const mergeResults = (allResults: IntrinsicApyResult[]): Record<string, IntrinsicApyInfo> => {
@@ -48,9 +50,15 @@ const mergeResults = (allResults: IntrinsicApyResult[]): Record<string, Intrinsi
   for (const result of allResults) {
     const existing = byAddress[result.address]
     if (existing) {
-      logWarn('intrinsicApy/merge', `Duplicate APY for ${result.address}: "${existing.provider}" (${existing.apy}%) overwritten by "${result.info.provider}" (${result.info.apy}%)`)
+      byAddress[result.address] = {
+        apy: existing.apy + result.info.apy,
+        provider: `${existing.provider} + ${result.info.provider}`,
+        source: existing.source,
+      }
     }
-    byAddress[result.address] = result.info
+    else {
+      byAddress[result.address] = result.info
+    }
   }
   return byAddress
 }

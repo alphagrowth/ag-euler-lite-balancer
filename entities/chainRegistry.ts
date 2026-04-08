@@ -1,10 +1,23 @@
 import * as allChains from '@reown/appkit/networks'
 import type { AppKitNetwork } from '@reown/appkit/networks'
 
+const tenderlyMainnetFork: AppKitNetwork = {
+  id: 9991,
+  name: 'Tenderly Mainnet Fork',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [],
+    },
+  },
+} as AppKitNetwork
+
 const chainMap = new Map<number, AppKitNetwork>(
-  (Object.values(allChains) as unknown[])
-    .filter((v): v is AppKitNetwork => v != null && typeof v === 'object' && 'id' in v)
-    .map((chain): [number, AppKitNetwork] => [chain.id as number, chain]),
+  [
+    ...(Object.values(allChains) as unknown[])
+      .filter((v): v is AppKitNetwork => v != null && typeof v === 'object' && 'id' in v),
+    tenderlyMainnetFork,
+  ].map((chain): [number, AppKitNetwork] => [chain.id as number, chain]),
 )
 
 export const getNetworksByChainIds = (ids: readonly number[]): AppKitNetwork[] =>
