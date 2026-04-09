@@ -90,6 +90,52 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
     }
   }
 
+  const requestCustomQuote = async (
+    provider: string,
+    fetchQuote: (signal: AbortSignal) => Promise<SwapApiQuote>,
+    requestOptions: SwapQuotesRequestOptions = {},
+  ) => {
+    quoteError.value = null
+    if (quoteAbort) {
+      quoteAbort.abort()
+    }
+    const controller = new AbortController()
+    quoteAbort = controller
+    const gen = guard.next()
+
+    isLoading.value = true
+    quoteCards.value = []
+    selectedProvider.value = null
+    providersCount.value = 1
+    providersFetchedCount.value = 0
+
+    try {
+      const quote = await fetchQuote(controller.signal)
+      if (guard.isStale(gen)) return
+      upsertQuote(provider, quote)
+    }
+    catch (err) {
+      if (isAbortError(err)) return
+      if (requestOptions.logContext) {
+        logSwapFailure({
+          reason: (err as { message?: string })?.message || 'Unknown error',
+          provider,
+          ...requestOptions.logContext,
+        })
+      }
+      quoteError.value = requestOptions.errorMessage || 'Unable to fetch a swap quote. Please adjust the amount or select a different asset to try again.'
+    }
+    finally {
+      if (!guard.isStale(gen)) {
+        providersFetchedCount.value = 1
+        isLoading.value = false
+        if (!quoteCards.value.length && !quoteError.value) {
+          quoteError.value = requestOptions.errorMessage || 'Unable to fetch a swap quote. Please adjust the amount or select a different asset to try again.'
+        }
+      }
+    }
+  }
+
   const requestQuotes = async (
     params: SwapApiRequestInput,
     requestOptions: SwapQuotesRequestOptions = {},
@@ -226,6 +272,7 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
     getQuoteDiffPct: getQuoteDiffPctFor,
     reset,
     upsertQuote,
+    requestCustomQuote,
     requestQuotes,
     selectProvider,
   }
