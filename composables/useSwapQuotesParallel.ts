@@ -169,36 +169,62 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
 
       let rateLimitedCount = 0
 
+      const ENSO_MAX_RETRIES = 3
+      const ENSO_RETRY_DELAY_MS = 1000
+
       const fetchProviderQuote = async (provider: string) => {
+        const maxAttempts = provider === 'enso' ? ENSO_MAX_RETRIES : 1
+
         try {
-          const data = await getSwapQuotes({
-            ...params,
-            provider,
-          }, { signal: controller.signal })
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+              const data = await getSwapQuotes({
+                ...params,
+                provider,
+              }, { signal: controller.signal })
 
-          if (guard.isStale(gen)) {
-            return
-          }
+              if (guard.isStale(gen)) {
+                return
+              }
 
-          const best = pickBestQuote(data, options.amountField, options.compare)
-          if (best) {
-            upsertQuote(provider, best)
-          }
-        }
-        catch (err) {
-          if (isAbortError(err)) {
-            return
-          }
-          const axiosErr = err as { response?: { status?: number }, message?: string }
-          if (axiosErr.response?.status === 429) {
-            rateLimitedCount += 1
-          }
-          if (requestOptions.logContext) {
-            logSwapFailure({
-              reason: axiosErr.message || 'Unknown error',
-              provider,
-              ...requestOptions.logContext,
-            })
+              const best = pickBestQuote(data, options.amountField, options.compare)
+              if (best) {
+                upsertQuote(provider, best)
+                return
+              }
+              // Retry for enso when no quote returned (transient pathfinding failure)
+              if (provider === 'enso' && attempt < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, ENSO_RETRY_DELAY_MS))
+                continue
+              }
+              return
+            }
+            catch (err) {
+              if (isAbortError(err)) {
+                return
+              }
+              if (guard.isStale(gen)) {
+                return
+              }
+              const axiosErr = err as { response?: { status?: number }, message?: string }
+              if (axiosErr.response?.status === 429) {
+                rateLimitedCount += 1
+              }
+              // Retry only for enso on 5xx or network errors
+              const status = axiosErr.response?.status
+              const isRetryable = provider === 'enso' && (status === undefined || status >= 500 || status === 422)
+              if (isRetryable && attempt < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, ENSO_RETRY_DELAY_MS))
+                continue
+              }
+              if (requestOptions.logContext) {
+                logSwapFailure({
+                  reason: axiosErr.message || 'Unknown error',
+                  provider,
+                  ...requestOptions.logContext,
+                })
+              }
+            }
           }
         }
         finally {
