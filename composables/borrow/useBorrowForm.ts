@@ -18,6 +18,7 @@ import {
 } from '~/entities/vault'
 import {
   getAssetUsdValueOrZero,
+  getCollateralUsdValueOrZero,
   getAssetOraclePrice,
   getCollateralOraclePrice,
   getCollateralUsdPrice,
@@ -175,6 +176,18 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     collateralUnitPrice.value = nanoToValue(priceInfo.amountOutMid, 18)
   })
 
+  // Try asset pricing first, fall back to collateral pricing via borrow vault's oracle
+  // (collateral-only vaults have no oracle for their own asset)
+  const getCollateralUsdWithFallback = async (amount: number | bigint, vault: Vault): Promise<number> => {
+    const assetUsd = await getAssetUsdValueOrZero(amount, vault, 'off-chain')
+    if (assetUsd > 0) return assetUsd
+    if (borrowVault.value) {
+      const nanoAmount = typeof amount === 'bigint' ? amount : valueToNano(String(amount), vault.asset.decimals)
+      return getCollateralUsdValueOrZero(nanoAmount, borrowVault.value, vault, 'off-chain')
+    }
+    return 0
+  }
+
   // Reactive collateral option prices
   const walletCollateralPriceUsd = ref(0)
   const savingCollateralPriceUsd = ref(0)
@@ -185,9 +198,9 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       savingCollateralPriceUsd.value = 0
       return
     }
-    walletCollateralPriceUsd.value = await getAssetUsdValueOrZero(balance.value, collateralVault.value, 'off-chain')
+    walletCollateralPriceUsd.value = await getCollateralUsdWithFallback(balance.value, collateralVault.value)
     if (savingCollateral.value) {
-      savingCollateralPriceUsd.value = await getAssetUsdValueOrZero(savingCollateral.value.assets, collateralVault.value, 'off-chain')
+      savingCollateralPriceUsd.value = await getCollateralUsdWithFallback(savingCollateral.value.assets, collateralVault.value)
     }
     else {
       savingCollateralPriceUsd.value = 0
@@ -566,7 +579,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       ) ?? undefined
       const collateralUsdValue = borrowNeedsSwap.value && borrowSwapAssetUsdPrice.value
         ? (+collateralAmount.value || 0) * borrowSwapAssetUsdPrice.value
-        : await getAssetUsdValueOrZero(+collateralAmount.value || 0, collateralVault.value!, 'off-chain')
+        : await getCollateralUsdWithFallback(+collateralAmount.value || 0, collateralVault.value!)
       const borrowUsdValue = await getAssetUsdValueOrZero(+borrowAmount.value || 0, borrowVault.value!, 'off-chain')
       netAPY.value = getNetAPY(
         collateralUsdValue,

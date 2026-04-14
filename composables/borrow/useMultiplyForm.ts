@@ -14,6 +14,8 @@ import {
 import {
   getAssetUsdValue,
   getAssetUsdValueOrZero,
+  getCollateralUsdValue,
+  getCollateralUsdValueOrZero,
   getAssetOraclePrice,
   getCollateralOraclePrice,
   getCollateralShareOraclePrice,
@@ -252,7 +254,19 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
       multiplySupplyValueUsd.value = null
       return
     }
-    multiplySupplyValueUsd.value = await getAssetUsdValueOrZero(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')
+    // Try asset pricing first, fall back to collateral pricing via borrow vault's oracle
+    // (collateral-only vaults have no oracle for their own asset)
+    const assetUsd = await getAssetUsdValue(multiplySupplyAmountNano.value, multiplySupplyVault.value, 'off-chain')
+    if (assetUsd !== undefined && assetUsd > 0) {
+      multiplySupplyValueUsd.value = assetUsd
+      return
+    }
+    if (multiplyShortVault.value) {
+      multiplySupplyValueUsd.value = await getCollateralUsdValueOrZero(multiplySupplyAmountNano.value, multiplyShortVault.value, multiplySupplyVault.value, 'off-chain')
+    }
+    else {
+      multiplySupplyValueUsd.value = 0
+    }
   })
 
   watchEffect(async () => {
@@ -260,7 +274,18 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
       multiplyLongValueUsd.value = null
       return
     }
-    multiplyLongValueUsd.value = await getAssetUsdValueOrZero(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+    // Try asset pricing first, fall back to collateral pricing via borrow vault's oracle
+    const assetUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+    if (assetUsd !== undefined && assetUsd > 0) {
+      multiplyLongValueUsd.value = assetUsd
+      return
+    }
+    if (multiplyShortVault.value) {
+      multiplyLongValueUsd.value = await getCollateralUsdValueOrZero(multiplySwapAmountOut.value, multiplyShortVault.value, multiplyLongVault.value, 'off-chain')
+    }
+    else {
+      multiplyLongValueUsd.value = 0
+    }
   })
 
   watchEffect(async () => {
@@ -428,7 +453,10 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     const shortVault = multiplyShortVault.value
     const longVault = multiplyLongVault.value
     const amountInUsd = await getAssetUsdValue(swapIn, shortVault, 'off-chain')
-    const amountOutUsd = await getAssetUsdValue(swapOut, longVault, 'off-chain')
+    let amountOutUsd = await getAssetUsdValue(swapOut, longVault, 'off-chain')
+    if (!amountOutUsd) {
+      amountOutUsd = await getCollateralUsdValue(swapOut, shortVault, longVault, 'off-chain')
+    }
     if (!amountInUsd || !amountOutUsd) {
       multiplyPriceImpact.value = null
       return
