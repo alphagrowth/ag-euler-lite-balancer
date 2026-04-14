@@ -8,7 +8,7 @@ import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { Vault, VaultAsset } from '~/entities/vault'
-import { getAssetUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
+import { getAssetUsdValue, getCollateralUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
 import { computeMultipliedPriceImpact } from '~/utils/priceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
@@ -258,7 +258,11 @@ watchEffect(async () => {
     multiplyLongValueUsd.value = null
     return
   }
-  multiplyLongValueUsd.value = (await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')) ?? null
+  let usd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+  if (!usd && multiplyShortVault.value) {
+    usd = await getCollateralUsdValue(multiplySwapAmountOut.value, multiplyShortVault.value, multiplyLongVault.value, 'off-chain')
+  }
+  multiplyLongValueUsd.value = usd ?? null
 })
 const multiplyBorrowValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -278,7 +282,11 @@ watchEffect(async () => {
     currentSupplyValueUsd.value = null
     return
   }
-  currentSupplyValueUsd.value = (await getAssetUsdValue(position.value.supplied, multiplyLongVault.value, 'off-chain')) ?? null
+  let usd = await getAssetUsdValue(position.value.supplied, multiplyLongVault.value, 'off-chain')
+  if (!usd && multiplyShortVault.value) {
+    usd = await getCollateralUsdValue(position.value.supplied, multiplyShortVault.value, multiplyLongVault.value, 'off-chain')
+  }
+  currentSupplyValueUsd.value = usd ?? null
 })
 const currentBorrowValueUsd = ref<number | null>(null)
 watchEffect(async () => {
@@ -437,7 +445,10 @@ watchEffect(async () => {
     return
   }
   const amountInUsd = await getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value, 'off-chain')
-  const amountOutUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+  let amountOutUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
+  if (!amountOutUsd) {
+    amountOutUsd = await getCollateralUsdValue(multiplySwapAmountOut.value, multiplyShortVault.value, multiplyLongVault.value, 'off-chain')
+  }
   if (!amountInUsd || !amountOutUsd) {
     multiplyPriceImpact.value = null
     return
