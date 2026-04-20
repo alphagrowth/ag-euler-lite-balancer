@@ -137,6 +137,7 @@ const form = useCollateralForm({
   },
 
   getSwapOutputAsset: () => form.asset.value,
+  getSwapInputAsset: () => selectedAsset.value,
 
   reviewLabel: 'Review Supply',
   reviewType: 'supply',

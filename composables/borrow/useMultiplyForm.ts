@@ -583,7 +583,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
       const chainId = currentChainId.value
       // Only use adapter for vaults where DEX routing doesn't work
       const ADAPTER_ONLY_VAULTS = new Set([
-        '0x175831af06c30f2ea5ea1e3f5eba207735eb9f92', // AZND/AUSD/LOAZND
+        '0x2067936155c7db57b1cdcf776b04b9678c245626', // AZND/AUSD/LOAZND
       ])
       const adapterEntry = ADAPTER_ONLY_VAULTS.has(collateralVaultAddr.toLowerCase())
         ? (bptAdapterConfig[collateralVaultAddr.toLowerCase()] || bptAdapterConfig[collateralVaultAddr])
