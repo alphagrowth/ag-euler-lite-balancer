@@ -13,6 +13,17 @@ export const merklBundledIntrinsicVaults: readonly string[] = [
   '0x2067936155c7DB57b1cdCF776B04B9678c245626', // Pool 4: AZND/AUSD/LOAZND BPT    (asset 0xbddb004A...)
 ]
 
+const merklBundledIntrinsicVaultsLc = new Set(
+  merklBundledIntrinsicVaults.map(a => a.toLowerCase()),
+)
+
+// Collateral vaults whose underlying is a Balancer BPT. The multiply flow for
+// these markets supplies the borrow asset directly to the Balancer pool to
+// mint BPT — there is no DEX swap, so the oracle-derived "price impact" is
+// not meaningful and must be suppressed in the UI.
+export const isBptCollateralVault = (address?: string | null): boolean =>
+  !!address && merklBundledIntrinsicVaultsLc.has(address.toLowerCase())
+
 // Intrinsic APY sources (data mapping, not deployment config)
 export type IntrinsicApySourceConfig =
   | { provider: 'defillama', address: string, chainId: number, poolId: string, useSpotApy?: boolean }
