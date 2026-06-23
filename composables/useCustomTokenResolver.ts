@@ -2,6 +2,7 @@ import { isAddress, type Address } from 'viem'
 import { erc20SymbolAbi, erc20DecimalsAbi, erc20NameAbi } from '~/abis/erc20'
 import type { VaultAsset } from '~/entities/vault'
 import { createRaceGuard } from '~/utils/race-guard'
+import { toDisplayAsset } from '~/utils/asset-display'
 
 export const useCustomTokenResolver = () => {
   const { client: rpcClient } = useRpcClient()
@@ -55,7 +56,7 @@ export const useCustomTokenResolver = () => {
       const decimals = BigInt(decimalsResult as number)
       const name = (nameResult as string) || symbol
 
-      customToken.value = { address: input, symbol, decimals, name }
+      customToken.value = toDisplayAsset({ address: input, symbol, decimals, name })
       customTokenBalance.value = balance
     }
     catch {

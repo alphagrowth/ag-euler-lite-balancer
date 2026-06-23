@@ -21,6 +21,7 @@ type SwapQuotesRequestOptions = {
   logContext?: Record<string, unknown>
   providers?: string[]
   errorMessage?: string
+  autoSelect?: boolean
 }
 
 export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
@@ -113,6 +114,9 @@ export const useSwapQuotesParallel = (options: SwapQuotesParallelOptions) => {
       const quote = await fetchQuote(controller.signal)
       if (guard.isStale(gen)) return
       upsertQuote(provider, quote)
+      if (requestOptions.autoSelect) {
+        selectedProvider.value = provider
+      }
     }
     catch (err) {
       if (isAbortError(err)) return

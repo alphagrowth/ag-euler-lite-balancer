@@ -32,6 +32,7 @@ import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
+import type { WrapperRouteConfig } from '~/entities/wrapperRoutes'
 
 export interface UseCollateralFormOptions {
   mode: 'supply' | 'withdraw'
@@ -89,6 +90,7 @@ export interface UseCollateralFormOptions {
   /** Optional: input asset for swap flows. Used by the BPT adapter branch
    *  to populate correct decimals/symbol on the synthetic quote's tokenIn. */
   getSwapInputAsset?: () => VaultAsset | undefined
+  getExtraSwapTokens?: () => VaultAsset[]
 
   reviewLabel: string
   reviewType: string
@@ -121,6 +123,15 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const wagmiConfig = useConfig()
   const { enableEnsoMultiply, bptAdapterConfig } = useDeployConfig()
   const { buildAdapterSwapQuote } = useEnsoRoute()
+  const {
+    getConfiguredRoute: getConfiguredWrapperRoute,
+    getValidatedRoute: getValidatedWrapperRoute,
+    isWrapperDepositPair,
+    isWrapperWithdrawalPair,
+    buildDepositQuote: buildWrapperDepositQuote,
+    buildWithdrawalQuote: buildWrapperWithdrawalQuote,
+  } = useWrapperRoute()
+  const validatedWrapperRoute = ref<WrapperRouteConfig | null>(null)
 
   // --- Shared reactive state ---
   const isLoading = ref(false)
@@ -164,7 +175,14 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const getAdapterEntryForVault = (vaultAddr: string): BptAdapterConfigEntry | null => {
     if (!ADAPTER_ONLY_VAULTS.has(vaultAddr.toLowerCase())) return null
     const entry = bptAdapterConfig[vaultAddr.toLowerCase()] || bptAdapterConfig[vaultAddr]
-    if (entry?.pool && entry?.wrapper && entry?.numTokens && enableEnsoMultiply) return entry
+    if (entry?.pool && entry?.wrapper && entry?.numTokens && enableEnsoMultiply) {
+      return {
+        ...entry,
+        pool: entry.pool,
+        wrapper: entry.wrapper,
+        numTokens: entry.numTokens,
+      }
+    }
     return null
   }
 
@@ -384,6 +402,50 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
       return
     }
 
+    const configuredWrapperRoute = getConfiguredWrapperRoute(collateralVault.value?.address)
+    const wrapperRoute = validatedWrapperRoute.value
+      || (configuredWrapperRoute
+        ? await getValidatedWrapperRoute(collateralVault.value?.address, asset.value)
+        : null)
+    const isWrapperRoute = options.mode === 'supply'
+      ? isWrapperDepositPair(wrapperRoute, params.tokenIn, params.tokenOut)
+      : isWrapperWithdrawalPair(wrapperRoute, params.tokenIn, params.tokenOut)
+
+    if (wrapperRoute && isWrapperRoute) {
+      validatedWrapperRoute.value = wrapperRoute
+      await requestSwapCustomQuote(wrapperRoute.provider, async () => {
+        const deadline = Math.floor(Date.now() / 1000) + 1800
+        if (options.mode === 'supply') {
+          return buildWrapperDepositQuote({
+            route: wrapperRoute,
+            wrappedAsset: asset.value!,
+            accountOut: subAccountAddr,
+            amount: params.amount,
+            deadline,
+          })
+        }
+        return buildWrapperWithdrawalQuote({
+          route: wrapperRoute,
+          wrappedAsset: asset.value!,
+          accountIn: subAccountAddr,
+          receiver: userAddr,
+          expectedAmount: params.amount,
+          slippage: swapSlippage.value,
+          deadline,
+        })
+      }, {
+        logContext: {
+          amount: amount.value,
+          slippage: swapSlippage.value,
+        },
+        errorMessage: options.mode === 'supply'
+          ? 'Beefy wrapping is currently unavailable. You can still supply the wrapped mooToken directly.'
+          : 'Beefy unwrapping is currently unavailable. You can still withdraw the wrapped mooToken directly.',
+        autoSelect: true,
+      })
+      return
+    }
+
     // Balancer BPT adapter: supply mode, AUSD → BPT zapIn direction.
     // Adapter-only collateral vaults can't be routed via standard DEX aggregators,
     // so we build a synthetic quote targeting the BalancerBptAdapter directly.
@@ -467,6 +529,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
         mode: options.mode === 'withdraw' ? 'output' : 'input',
         allowNativeCurrency: options.mode === 'supply' && !adapterAllowedTokens.value,
         allowedTokens: adapterAllowedTokens.value || undefined,
+        extraTokens: options.getExtraSwapTokens?.(),
       },
     })
   }

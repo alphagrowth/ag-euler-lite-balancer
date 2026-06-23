@@ -14,6 +14,7 @@ import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useBorrowForm } from '~/composables/borrow/useBorrowForm'
 import { useMultiplyForm } from '~/composables/borrow/useMultiplyForm'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 
 const router = useRouter()
 const route = useRoute()
@@ -190,12 +191,12 @@ const tabs = computed(() => {
       assets: [pair.value.collateral.asset, pair.value.borrow.asset],
     },
     {
-      label: pair.value.collateral.asset.symbol,
+      label: getDisplayAssetSymbol(pair.value.collateral.asset),
       value: 'collateral',
       assets: [pair.value.collateral.asset],
     },
     {
-      label: pair.value.borrow.asset.symbol,
+      label: getDisplayAssetSymbol(pair.value.borrow.asset),
       value: 'borrow',
       assets: [pair.value.borrow.asset],
     },
@@ -206,7 +207,7 @@ const tabs = computed(() => {
     const borrowAddr = normalizeAddress(pair.value.borrow.address)
     if (supplyAddress && supplyAddress !== collAddr && supplyAddress !== borrowAddr) {
       list.splice(1, 0, {
-        label: multiply.multiplySupplyVault.value.asset.symbol,
+        label: getDisplayAssetSymbol(multiply.multiplySupplyVault.value.asset),
         value: 'multiply-collateral',
         assets: [multiply.multiplySupplyVault.value.asset],
       })
@@ -479,7 +480,7 @@ watch(formTab, () => {
                   v-if="collateralVault"
                   v-model="borrow.collateralAmount.value"
                   :desc="collateralProduct.name"
-                  :label="`Supply ${collateralVault.asset.symbol}`"
+                  :label="`Supply ${getDisplayAssetSymbol(collateralVault.asset)}`"
                   :asset="borrow.borrowNeedsSwap.value && borrow.borrowSelectedAsset.value ? borrow.borrowSelectedAsset.value : collateralVault.asset"
                   :price-override="borrow.borrowNeedsSwap.value ? borrow.borrowSwapAssetUsdPrice.value : borrow.collateralUnitPrice.value"
                   :balance="borrow.borrowActiveBalance.value"
@@ -506,7 +507,7 @@ watch(formTab, () => {
                       size="20"
                       :increased-spacing="true"
                     />
-                    {{ borrow.borrowSelectedAsset.value?.symbol || collateralVault.asset.symbol }}
+                    {{ getDisplayAssetSymbol(borrow.borrowSelectedAsset.value || collateralVault.asset) }}
                     <SvgIcon
                       class="text-content-tertiary !w-16 !h-16"
                       name="arrow-down"
@@ -571,7 +572,7 @@ watch(formTab, () => {
                   v-if="borrowVault"
                   v-model="borrow.borrowAmount.value"
                   :desc="borrowProduct.name"
-                  :label="`Borrow ${borrowVault.asset.symbol}`"
+                  :label="`Borrow ${getDisplayAssetSymbol(borrowVault.asset)}`"
                   :asset="borrowVault.asset"
                   :vault="borrowVault"
                   @input="borrow.onBorrowInput"
@@ -682,11 +683,12 @@ watch(formTab, () => {
                     <AssetInput
                       v-model="multiply.multiplyInputAmount.value"
                       :desc="multiply.multiplySupplyProduct.name"
-                      :label="`Supply ${multiply.multiplySupplyVault.value.asset.symbol}`"
-                      :asset="multiply.multiplySupplyVault.value.asset"
+                      :label="`Supply ${getDisplayAssetSymbol(multiply.multiplySupplyAsset.value || multiply.multiplySupplyVault.value.asset)}`"
+                      :asset="multiply.multiplySupplyAsset.value || multiply.multiplySupplyVault.value.asset"
                       :vault="multiply.multiplySupplyVault.value"
                       :balance="multiply.multiplyBalance.value"
                       :collateral-options="multiply.multiplyCollateralOptions.value"
+                      :selected-collateral-asset-address="multiply.multiplySelectedCollateralAssetAddress.value"
                       :selected-source="multiply.isMultiplySavingCollateral.value ? 'saving' : 'wallet'"
                       maxable
                       @input="multiply.onMultiplyInput"

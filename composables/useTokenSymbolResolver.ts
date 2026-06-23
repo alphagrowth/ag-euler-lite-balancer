@@ -2,6 +2,7 @@ import type { Address } from 'viem'
 import { logWarn } from '~/utils/errorHandling'
 import { USD_ADDRESS, EUR_ADDRESS, BTC_ADDRESS, ETH_ADDRESS } from '~/entities/constants'
 import { erc20SymbolAbi } from '~/abis/erc20'
+import { getDisplayAssetSymbolByAddress } from '~/utils/asset-display'
 
 const resolvedSymbols: Ref<Map<string, string>> = shallowRef(new Map())
 const pendingAddresses = new Set<string>()
@@ -57,7 +58,7 @@ export const useTokenSymbolResolver = () => {
     })
       .then((symbol: string) => {
         const updated = new Map(resolvedSymbols.value)
-        updated.set(key, symbol)
+        updated.set(key, getDisplayAssetSymbolByAddress(address, symbol))
         resolvedSymbols.value = updated
       })
       .catch((error: unknown) => {

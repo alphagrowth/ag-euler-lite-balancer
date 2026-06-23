@@ -20,6 +20,7 @@ import {
 import { executeLensWithPythSimulation, executeBatchLensWithPythSimulation } from '~/utils/pyth'
 import { valueToNano } from '~/utils/crypto-utils'
 import { batchLensCalls } from '~/utils/multicall'
+import { getDisplayAssetNameByAddress, getDisplayAssetSymbolByAddress } from '~/utils/asset-display'
 
 interface ProcessVaultOptions {
   verified?: boolean
@@ -69,8 +70,8 @@ export const processRawVaultData = (
     },
     asset: {
       address: raw.asset,
-      name: raw.assetName,
-      symbol: raw.assetSymbol,
+      name: getDisplayAssetNameByAddress(raw.asset, raw.assetName),
+      symbol: getDisplayAssetSymbolByAddress(raw.asset, raw.assetSymbol),
       decimals: raw.assetDecimals,
     },
     oracleDetailedInfo: raw.oracleInfo,
@@ -270,8 +271,8 @@ export const fetchSecuritizeVault = async (vaultAddress: string): Promise<Securi
     isEVault: data.isEVault,
     asset: {
       address: data.asset,
-      name: data.assetName,
-      symbol: data.assetSymbol,
+      name: getDisplayAssetNameByAddress(data.asset as string, data.assetName as string),
+      symbol: getDisplayAssetSymbolByAddress(data.asset as string, data.assetSymbol as string),
       decimals: data.assetDecimals,
     },
     governorAdmin,
@@ -364,8 +365,8 @@ export const fetchEarnVault = async (vaultAddress: string): Promise<EarnVault> =
     supplyQueue: data.supplyQueue,
     asset: {
       address: data.asset,
-      name: data.assetName,
-      symbol: data.assetSymbol,
+      name: getDisplayAssetNameByAddress(data.asset as string, data.assetName as string),
+      symbol: getDisplayAssetSymbolByAddress(data.asset as string, data.assetSymbol as string),
       decimals: data.assetDecimals,
     },
     strategies,

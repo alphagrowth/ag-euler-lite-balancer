@@ -2,6 +2,7 @@
 import { getProductByVault } from '~/utils/eulerLabelsUtils'
 import type { CollateralOption } from '~/entities/vault'
 import { formatNumber } from '~/utils/string-utils'
+import { getDisplayAssetSymbolByAddress } from '~/utils/asset-display'
 
 const emits = defineEmits(['close'])
 const { productName, symbol, collateralOptions, selected = 0, title = 'Select collateral', apyLabel = 'Supply APY', onSave } = defineProps<{
@@ -27,7 +28,8 @@ const getOptionLabel = (option: CollateralOption) => {
   }
   return productName
 }
-const getOptionSymbol = (option: CollateralOption) => option.symbol || symbol
+const getOptionSymbol = (option: CollateralOption) =>
+  getDisplayAssetSymbolByAddress(option.assetAddress, option.symbol || symbol)
 const getOptionType = (option: CollateralOption) => {
   if (option.type === 'escrow') return 'escrow'
   if (option.vaultAddress && isEscrowVault(option.vaultAddress)) return 'escrow'

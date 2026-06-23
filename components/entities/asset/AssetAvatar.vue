@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getAssetLogoUrl } from '~/composables/useTokenList'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 
 const { asset, size, iconUrl, increasedSpacing = false } = defineProps<{
   asset: { address: string, symbol: string } | { address: string, symbol: string }[]
@@ -19,8 +20,8 @@ const src = computed(() => {
 })
 
 const label = computed(() => {
-  if (Array.isArray(asset)) return asset.map(a => a.symbol)
-  return asset.symbol
+  if (Array.isArray(asset)) return asset.map(a => getDisplayAssetSymbol(a))
+  return getDisplayAssetSymbol(asset)
 })
 </script>
 

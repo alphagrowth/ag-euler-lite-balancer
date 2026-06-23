@@ -25,6 +25,7 @@ import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { isOperationBlocked } from '~/utils/operationGuardRegistry'
+import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
 
 const router = useRouter()
 const route = useRoute()
@@ -94,8 +95,16 @@ const {
   getQuoteDiffPct: getSwapQuoteDiffPct,
   reset: resetSwapQuoteState,
   requestQuotes: requestSwapQuotes,
+  requestCustomQuote: requestSwapCustomQuote,
   selectProvider: selectSwapQuote,
 } = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
+const {
+  getConfiguredRoute: getConfiguredWrapperRoute,
+  getValidatedRoute: getValidatedWrapperRoute,
+  isWrapperWithdrawalPair,
+  buildWithdrawalQuote: buildWrapperWithdrawalQuote,
+} = useWrapperRoute()
+const wrapperRoute = ref<WrapperRouteConfig | null>(null)
 
 const reviewWithdrawLabel = computed(() => {
   if (needsSwap.value && swapQuoteCardsSorted.value.length > 0 && !swapSelectedProvider.value) {
@@ -210,6 +219,36 @@ const requestSwapQuote = useDebounceFn(async () => {
   const subAccountAddr = subAccount.value
     ? (subAccount.value as Address)
     : userAddr
+  const configuredRoute = getConfiguredWrapperRoute(vaultAddress)
+  const validatedRoute = wrapperRoute.value
+    || (configuredRoute ? await getValidatedWrapperRoute(vaultAddress, asset.value) : null)
+  if (
+    validatedRoute
+    && isWrapperWithdrawalPair(validatedRoute, asset.value.address, selectedOutputAsset.value.address)
+  ) {
+    wrapperRoute.value = validatedRoute
+    const isMax = assetsBalance.value > 0n && withdrawAmountNano >= assetsBalance.value
+    await requestSwapCustomQuote(validatedRoute.provider, async () =>
+      buildWrapperWithdrawalQuote({
+        route: validatedRoute,
+        wrappedAsset: asset.value!,
+        accountIn: subAccountAddr,
+        receiver: userAddr,
+        expectedAmount: withdrawAmountNano,
+        slippage: swapSlippage.value,
+        deadline: Math.floor(Date.now() / 1000) + 1800,
+        unwrapAll: isMax,
+      }), {
+      logContext: {
+        tokenIn: asset.value.address,
+        tokenOut: selectedOutputAsset.value.address,
+        amount: amount.value,
+      },
+      errorMessage: 'Beefy unwrapping is currently unavailable. You can still withdraw the wrapped mooToken directly.',
+      autoSelect: true,
+    })
+    return
+  }
   await requestSwapQuotes({
     tokenIn: asset.value.address as Address,
     tokenOut: selectedOutputAsset.value.address as Address,
@@ -248,6 +287,7 @@ const openSwapTokenSelector = () => {
       currentAssetAddress: selectedOutputAsset.value?.address || asset.value?.address,
       onSelect: onSelectOutputAsset,
       mode: 'output' as const,
+      extraTokens: wrapperRoute.value ? [wrapperRoute.value.rawToken] : undefined,
     },
   })
 }
@@ -276,6 +316,10 @@ const load = async () => {
     }
 
     asset.value = vault.value?.asset
+    wrapperRoute.value = await getValidatedWrapperRoute(vaultAddress, asset.value)
+    if (wrapperRoute.value) {
+      selectedOutputAsset.value = getWrapperDefaultAsset(selectedOutputAsset.value, wrapperRoute.value)
+    }
 
     // Always fetch fresh share balance directly from contract
     await fetchShareBalance()

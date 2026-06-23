@@ -14,12 +14,15 @@ import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/stri
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
+import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
 
 const { isConnected, address } = useAccount()
 const { isSpyMode } = useSpyMode()
 const { fetchSingleBalance } = useWallets()
 const { buildSupplyPlan, buildSwapAndSupplyPlan } = useEulerOperations()
 const { chainId } = useEulerAddresses()
+const { getValidatedRoute: getValidatedWrapperRoute } = useWrapperRoute()
+const wrapperRoute = ref<WrapperRouteConfig | null>(null)
 
 // Supply-specific state
 const balance = ref(0n)
@@ -138,6 +141,7 @@ const form = useCollateralForm({
 
   getSwapOutputAsset: () => form.asset.value,
   getSwapInputAsset: () => selectedAsset.value,
+  getExtraSwapTokens: () => wrapperRoute.value ? [wrapperRoute.value.rawToken] : [],
 
   reviewLabel: 'Review Supply',
   reviewType: 'supply',
@@ -153,7 +157,17 @@ const form = useCollateralForm({
   },
   getSwapToAsset: () => form.asset.value,
 
-  onAfterLoad: () => updateBalance(),
+  onAfterLoad: async () => {
+    await updateBalance()
+    wrapperRoute.value = await getValidatedWrapperRoute(
+      form.collateralVault.value?.address,
+      form.asset.value,
+    )
+    if (wrapperRoute.value) {
+      selectedAsset.value = getWrapperDefaultAsset(selectedAsset.value, wrapperRoute.value)
+      await fetchSelectedAssetBalance()
+    }
+  },
 })
 useOperationGuard(computed(() => [form.collateralVault.value?.address].filter(Boolean)))
 

@@ -9,6 +9,8 @@ import { useToast } from '~/components/ui/composables/useToast'
 import {
   type AnyBorrowVaultPair,
   type Vault,
+  type VaultAsset,
+  type CollateralOption,
   convertAssetsToShares,
 } from '~/entities/vault'
 import {
@@ -25,6 +27,7 @@ import { type SwapApiQuote, SwapperMode } from '~/entities/swap'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 import { computeMultipliedPriceImpact } from '~/utils/priceImpact'
 import { isBptCollateralVault } from '~/entities/custom'
 import { calculateRoe, computeNextHealth, computeLiquidationPrice } from '~/utils/repayUtils'
@@ -36,6 +39,7 @@ import { useMultiplyCollateralOptions } from '~/composables/useMultiplyCollatera
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { useEnsoRoute, encodeAdapterZapIn, previewAdapterZapIn, type BptAdapterConfigEntry } from '~/composables/useEnsoRoute'
+import type { WrapperRouteConfig } from '~/entities/wrapperRoutes'
 
 type MultiplyPlanParams = {
   supplyVaultAddress: string
@@ -43,6 +47,7 @@ type MultiplyPlanParams = {
   supplyAmount: bigint
   supplySharesAmount?: bigint
   supplyIsSavings?: boolean
+  supplyQuote?: SwapApiQuote
   longVaultAddress: string
   longAssetAddress: string
   borrowVaultAddress: string
@@ -87,7 +92,8 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   const { address, isConnected } = useAccount()
   const { refreshAllPositions, depositPositions } = useEulerAccount()
   const { eulerLensAddresses, eulerPeripheryAddresses, chainId: currentChainId } = useEulerAddresses()
-  const { fetchSingleBalance } = useWallets()
+  const { fetchSingleBalance, getBalance } = useWallets()
+  const wrapperRoute = useWrapperRoute()
   const { getSupplyRewardApy, getBorrowRewardApy } = useRewardsApy()
   const { withIntrinsicBorrowApy, withIntrinsicSupplyApy } = useIntrinsicApy()
   const { enableEnsoMultiply, bptAdapterConfig } = useDeployConfig()
@@ -99,8 +105,8 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   } = useTxPlanSimulation()
 
   const multiplyPriceInvert = usePriceInvert(
-    () => multiplyShortVault.value?.asset.symbol,
-    () => multiplyLongVault.value?.asset.symbol,
+    () => getDisplayAssetSymbol(multiplyShortVault.value?.asset),
+    () => getDisplayAssetSymbol(multiplyLongVault.value?.asset),
   )
 
   const { slippage: multiplySlippage } = useSlippage({
@@ -129,6 +135,9 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   const multiplyLongAmount = ref('')
   const multiplyShortAmount = ref('')
   const multiplySupplyVault: Ref<Vault | undefined> = ref()
+  const multiplySupplyAssetOverride: Ref<VaultAsset | null> = ref(null)
+  const multiplySupplyAssetManuallySelected = ref(false)
+  const multiplyWrapperRoute: Ref<WrapperRouteConfig | null> = ref(null)
   const multiplyAssetBalance: Ref<bigint> = ref(0n)
   const isMultiplySavingCollateral = ref(false)
   const isMultiplySubmitting = ref(false)
@@ -139,12 +148,82 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   // --- Vault aliases ---
   const multiplyLongVault = computed(() => collateralVault.value)
   const multiplyShortVault = computed(() => borrowVault.value)
+  const multiplySupplyAsset = computed(() => multiplySupplyAssetOverride.value || multiplySupplyVault.value?.asset)
+  const isMultiplyRawWrapperSupply = computed(() =>
+    !isMultiplySavingCollateral.value
+    && !!multiplyWrapperRoute.value
+    && !!multiplySupplyAsset.value
+    && normalizeAddress(multiplySupplyAsset.value.address) === normalizeAddress(multiplyWrapperRoute.value.rawToken.address),
+  )
 
   // --- Collateral options ---
-  const { collateralOptions: multiplyCollateralOptions, collateralVaults: multiplyCollateralVaults } = useMultiplyCollateralOptions({
+  const { collateralOptions: baseMultiplyCollateralOptions, collateralVaults: baseMultiplyCollateralVaults } = useMultiplyCollateralOptions({
     currentVault: multiplySupplyVault,
     liabilityVault: multiplyShortVault,
   })
+
+  type MultiplyCollateralEntry = {
+    vault: Vault
+    asset: VaultAsset
+    option: CollateralOption
+  }
+
+  const multiplyCollateralEntries = computed<MultiplyCollateralEntry[]>(() => {
+    const entries: MultiplyCollateralEntry[] = []
+    const route = multiplyWrapperRoute.value
+    const rawAddress = route ? normalizeAddress(route.rawToken.address) : ''
+    let insertedRaw = false
+
+    baseMultiplyCollateralOptions.value.forEach((option, index) => {
+      const vault = baseMultiplyCollateralVaults.value[index]
+      if (!vault) return
+
+      if (route && normalizeAddress(vault.address) === normalizeAddress(route.collateralVault) && !insertedRaw) {
+        const rawBalance = getBalance(route.rawToken.address as Address)
+        const rawAmount = nanoToValue(rawBalance, route.rawToken.decimals)
+        entries.push({
+          vault,
+          asset: route.rawToken,
+          option: {
+            ...option,
+            type: 'wallet',
+            amount: rawAmount,
+            price: option.amount > 0 ? option.price * rawAmount / option.amount : 0,
+            symbol: getDisplayAssetSymbol(route.rawToken),
+            assetAddress: route.rawToken.address,
+          },
+        })
+        insertedRaw = true
+      }
+
+      if (!rawAddress || normalizeAddress(option.assetAddress || vault.asset.address) !== rawAddress) {
+        entries.push({ vault, asset: vault.asset, option })
+      }
+    })
+
+    if (route && !insertedRaw && multiplySupplyVault.value && normalizeAddress(multiplySupplyVault.value.address) === normalizeAddress(route.collateralVault)) {
+      const rawBalance = getBalance(route.rawToken.address as Address)
+      entries.unshift({
+        vault: multiplySupplyVault.value,
+        asset: route.rawToken,
+        option: {
+          type: 'wallet',
+          amount: nanoToValue(rawBalance, route.rawToken.decimals),
+          price: 0,
+          symbol: getDisplayAssetSymbol(route.rawToken),
+          assetAddress: route.rawToken.address,
+          vaultAddress: multiplySupplyVault.value.address,
+        },
+      })
+    }
+
+    return entries
+  })
+
+  const multiplyCollateralOptions = computed(() => multiplyCollateralEntries.value.map(entry => entry.option))
+  const multiplyCollateralVaults = computed(() => multiplyCollateralEntries.value.map(entry => entry.vault))
+  const multiplyCollateralAssets = computed(() => multiplyCollateralEntries.value.map(entry => entry.asset))
+  const multiplySelectedCollateralAssetAddress = computed(() => multiplySupplyAsset.value?.address)
 
   // --- Product labels ---
   const multiplySupplyProduct = useEulerProductOfVault(computed(() => multiplySupplyVault.value?.address || ''))
@@ -173,7 +252,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
 
     let suppliedCollateral: bigint
     try {
-      suppliedCollateral = valueToNano(multiplyInputAmount.value, multiplySupplyVault.value.asset.decimals)
+      suppliedCollateral = valueToNano(multiplyInputAmount.value, multiplySupplyAsset.value?.decimals || multiplySupplyVault.value.asset.decimals)
     }
     catch {
       return 0n
@@ -214,7 +293,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   const multiplySupplyAmountNano = computed(() => {
     if (!multiplySupplyVault.value || !multiplyInputAmount.value) return 0n
     try {
-      return valueToNano(multiplyInputAmount.value, multiplySupplyVault.value.asset.decimals)
+      return valueToNano(multiplyInputAmount.value, multiplySupplyAsset.value?.decimals || multiplySupplyVault.value.asset.decimals)
     }
     catch {
       return 0n
@@ -423,7 +502,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     if (!amountIn || !amountOut) return null
     return {
       value: amountIn / amountOut,
-      symbol: `${multiplyShortVault.value.asset.symbol}/${multiplyLongVault.value.asset.symbol}`,
+      symbol: `${getDisplayAssetSymbol(multiplyShortVault.value.asset)}/${getDisplayAssetSymbol(multiplyLongVault.value.asset)}`,
     }
   })
 
@@ -433,8 +512,8 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     const amountIn = formatUnits(multiplySwapAmountIn.value, Number(multiplyShortVault.value.asset.decimals))
     const amountOut = formatUnits(multiplySwapAmountOut.value, Number(multiplyLongVault.value.asset.decimals))
     return {
-      from: `${formatSmartAmount(amountIn)} ${multiplyShortVault.value.asset.symbol}`,
-      to: `${formatSmartAmount(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
+      from: `${formatSmartAmount(amountIn)} ${getDisplayAssetSymbol(multiplyShortVault.value.asset)}`,
+      to: `${formatSmartAmount(amountOut)} ${getDisplayAssetSymbol(multiplyLongVault.value.asset)}`,
     }
   })
 
@@ -492,7 +571,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
       quoteCards: multiplyQuoteCardsSorted.value,
       getQuoteDiffPct,
       decimals: Number(multiplyLongVault.value.asset.decimals),
-      symbol: multiplyLongVault.value.asset.symbol,
+      symbol: getDisplayAssetSymbol(multiplyLongVault.value.asset),
       formatAmount: formatSmartAmount,
     })
   })
@@ -505,7 +584,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   // --- Validation ---
   const multiplyErrorText = computed(() => {
     if (!multiplySupplyVault.value || !multiplyShortVault.value) return null
-    if (multiplyBalance.value < valueToNano(multiplyInputAmount.value, multiplySupplyVault.value.asset.decimals)) {
+    if (multiplyBalance.value < valueToNano(multiplyInputAmount.value, multiplySupplyAsset.value?.decimals || multiplySupplyVault.value.asset.decimals)) {
       return 'Not enough balance'
     }
     if (multiplyDebtAmountNano.value > 0n && (multiplyShortVault.value.supply || 0n) < multiplyDebtAmountNano.value) {
@@ -740,15 +819,22 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   const onMultiplyCollateralChange = (selectedIndex: number) => {
     clearMultiplySimulationError()
     const nextVault = multiplyCollateralVaults.value[selectedIndex]
+    const nextAsset = multiplyCollateralAssets.value[selectedIndex]
     const nextOption = multiplyCollateralOptions.value[selectedIndex]
-    if (!nextVault || !nextOption) return
+    if (!nextVault || !nextAsset || !nextOption) return
 
     const nextIsSaving = nextOption.type === 'saving'
+    const nextIsRawWrapper = multiplyWrapperRoute.value
+      && normalizeAddress(nextVault.address) === normalizeAddress(multiplyWrapperRoute.value.collateralVault)
+      && normalizeAddress(nextAsset.address) === normalizeAddress(multiplyWrapperRoute.value.rawToken.address)
     const vaultChanged = !multiplySupplyVault.value
       || normalizeAddress(multiplySupplyVault.value.address) !== normalizeAddress(nextVault.address)
     const savingChanged = nextIsSaving !== isMultiplySavingCollateral.value
-    if (vaultChanged || savingChanged) {
+    const assetChanged = normalizeAddress(multiplySupplyAsset.value?.address || '') !== normalizeAddress(nextAsset.address)
+    if (vaultChanged || savingChanged || assetChanged) {
+      multiplySupplyAssetManuallySelected.value = true
       multiplySupplyVault.value = nextVault
+      multiplySupplyAssetOverride.value = nextIsRawWrapper ? nextAsset : null
       isMultiplySavingCollateral.value = nextIsSaving
       multiplyInputAmount.value = ''
       resetMultiplyQuoteState()
@@ -766,7 +852,8 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
       if (!multiplyInputAmount.value || multiplyDebtAmountNano.value <= 0n) return
       if (multiplyErrorText.value) return
 
-      const supplyAmountNano = valueToNano(multiplyInputAmount.value || '0', multiplySupplyVault.value.asset.decimals)
+      const supplyAsset = multiplySupplyAsset.value || multiplySupplyVault.value.asset
+      const supplyAmountNano = valueToNano(multiplyInputAmount.value || '0', supplyAsset.decimals)
       let supplySharesAmount: bigint | undefined
       if (isMultiplySavingCollateral.value) {
         if (!multiplySavingPosition.value) {
@@ -801,12 +888,28 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
         return
       }
 
+      let supplyQuote: SwapApiQuote | undefined
+      if (isMultiplyRawWrapperSupply.value) {
+        if (!multiplyWrapperRoute.value) {
+          error('Wrapper route is unavailable')
+          return
+        }
+        supplyQuote = wrapperRoute.buildDepositQuote({
+          route: multiplyWrapperRoute.value,
+          wrappedAsset: multiplySupplyVault.value.asset,
+          accountOut: subAccount as Address,
+          amount: supplyAmountNano,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+        })
+      }
+
       const planParams: MultiplyPlanParams = {
         supplyVaultAddress: multiplySupplyVault.value.address,
-        supplyAssetAddress: multiplySupplyVault.value.asset.address,
+        supplyAssetAddress: supplyAsset.address,
         supplyAmount: supplyAmountNano,
         supplySharesAmount,
         supplyIsSavings: isMultiplySavingCollateral.value,
+        supplyQuote,
         longVaultAddress: multiplyLongVault.value.address,
         longAssetAddress: multiplyLongVault.value.asset.address,
         borrowVaultAddress: multiplyShortVault.value.address,
@@ -839,7 +942,7 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
           asset: multiplyShortVault.value.asset,
           amount: multiplyShortAmount.value || formatUnits(debtAmount, Number(multiplyShortVault.value.asset.decimals)),
           plan: multiplyPlan.value || undefined,
-          supplyingAssetForBorrow: multiplySupplyVault.value.asset,
+          supplyingAssetForBorrow: supplyAsset,
           supplyingAmount: multiplyInputAmount.value,
           swapToAsset: quote ? multiplyLongVault.value.asset : undefined,
           swapToAmount: quote ? multiplyLongAmount.value : undefined,
@@ -884,8 +987,8 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
 
   // --- Balance ---
   const updateMultiplyAssetBalance = async () => {
-    if (multiplySupplyVault.value?.asset.address && isConnected.value) {
-      multiplyAssetBalance.value = await fetchSingleBalance(multiplySupplyVault.value.asset.address)
+    if (multiplySupplyAsset.value?.address && isConnected.value) {
+      multiplyAssetBalance.value = await fetchSingleBalance(multiplySupplyAsset.value.address)
     }
     else {
       multiplyAssetBalance.value = 0n
@@ -895,7 +998,37 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   // --- Init ---
   const initMultiplySupplyVault = (vault: Vault) => {
     multiplySupplyVault.value = vault
+    multiplySupplyAssetOverride.value = null
+    multiplySupplyAssetManuallySelected.value = false
     isMultiplySavingCollateral.value = false
+    void refreshMultiplyWrapperRoute(vault)
+  }
+
+  const refreshMultiplyWrapperRoute = async (vault = multiplySupplyVault.value) => {
+    if (!vault) {
+      multiplyWrapperRoute.value = null
+      multiplySupplyAssetOverride.value = null
+      return
+    }
+
+    const requestedVault = vault.address
+    const validatedRoute = await wrapperRoute.getValidatedRoute(vault.address, vault.asset)
+    if (normalizeAddress(multiplySupplyVault.value?.address || '') !== normalizeAddress(requestedVault)) {
+      return
+    }
+
+    multiplyWrapperRoute.value = validatedRoute
+    if (!validatedRoute) {
+      if (multiplySupplyAssetOverride.value) {
+        multiplySupplyAssetOverride.value = null
+      }
+      return
+    }
+
+    if (!multiplySupplyAssetManuallySelected.value && !isMultiplySavingCollateral.value) {
+      multiplySupplyAssetOverride.value = validatedRoute.rawToken
+      await updateMultiplyAssetBalance()
+    }
   }
 
   // --- Watchers ---
@@ -931,8 +1064,12 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
   })
 
   watch(multiplySupplyVault, async (newVault) => {
-    if (newVault?.asset.address && isConnected.value) {
-      multiplyAssetBalance.value = await fetchSingleBalance(newVault.asset.address)
+    await refreshMultiplyWrapperRoute(newVault)
+  })
+
+  watch([multiplySupplyAsset, isConnected], async () => {
+    if (multiplySupplyAsset.value?.address && isConnected.value) {
+      multiplyAssetBalance.value = await fetchSingleBalance(multiplySupplyAsset.value.address)
     }
     else {
       multiplyAssetBalance.value = 0n
@@ -975,6 +1112,8 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     multiplyLongAmount,
     multiplyShortAmount,
     multiplySupplyVault,
+    multiplySupplyAsset,
+    multiplySelectedCollateralAssetAddress,
     multiplyAssetBalance,
     isMultiplySavingCollateral,
     isMultiplySubmitting,

@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import type { DisplayStep } from '~/utils/stepDecoding'
 import { formatNumber } from '~/utils/string-utils'
+import { getDisplayAssetSymbolByAddress } from '~/utils/asset-display'
 
 defineProps<{
   steps: DisplayStep[]
 }>()
+
+const displaySymbol = (asset: { address?: string, symbol: string }) =>
+  getDisplayAssetSymbolByAddress(asset.address, asset.symbol)
 </script>
 
 <template>
@@ -33,7 +37,7 @@ defineProps<{
           </template>
           <template v-else-if="step.assetInfo.amount !== undefined">
             {{ formatNumber(step.assetInfo.amount, 8, 0) }}&nbsp;
-          </template>{{ step.assetInfo.symbol }}
+          </template>{{ displaySymbol(step.assetInfo) }}
         </p>
       </template>
       <p
@@ -59,7 +63,7 @@ defineProps<{
         >
           <template v-if="step.toAssetInfo.amount !== undefined">
             {{ formatNumber(step.toAssetInfo.amount, 8, 0) }}&nbsp;
-          </template>{{ step.toAssetInfo.symbol }}
+          </template>{{ displaySymbol(step.toAssetInfo) }}
         </p>
       </template>
     </div>

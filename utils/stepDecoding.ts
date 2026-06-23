@@ -1,6 +1,8 @@
-import { formatUnits, getAddress, toFunctionSelector, zeroAddress } from 'viem'
+import { decodeAbiParameters, decodeFunctionData, formatUnits, getAddress, toFunctionSelector, zeroAddress, type Hex } from 'viem'
 import type { TxPlan } from '~/entities/txPlan'
 import type { EVCCall } from '~/utils/evc-converter'
+import { swapperAbi } from '~/entities/euler/abis'
+import { wrapperRouteSwapAbi } from '~/entities/wrapperRoutes'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,6 +41,7 @@ export interface StepDecodingContext {
   swapToAsset?: { symbol: string, address: string, decimals: bigint }
   swapToAmount?: number | string
   transferAmounts?: Record<string, string>
+  swapAction?: 'wrap' | 'unwrap'
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +73,9 @@ const SELECTOR_LABELS: Record<string, string> = {
 }
 
 const MAX_UINT256 = 2n ** 256n - 1n
+const WRAP_SELECTOR = toFunctionSelector('function wrap(uint256)')
+const UNWRAP_SELECTOR = toFunctionSelector('function unwrap(uint256)')
+const UNWRAP_ALL_SELECTOR = toFunctionSelector('function unwrapAll()')
 
 // Selectors where the first uint256 param is shares, not assets.
 // Decoding these as assets would show a wrong amount in the UI.
@@ -85,6 +91,37 @@ const SHARES_AMOUNT_SELECTORS = new Set([
 export const decodeBatchItemLabel = (data: string): string => {
   const selector = data.slice(0, 10).toLowerCase()
   return SELECTOR_LABELS[selector] || 'Unknown operation'
+}
+
+export const decodeSwapperMulticallAction = (data: string): 'wrap' | 'unwrap' | undefined => {
+  try {
+    const multicall = decodeFunctionData({
+      abi: swapperAbi,
+      data: data as Hex,
+    })
+    if (multicall.functionName !== 'multicall') return undefined
+
+    const items = multicall.args?.[0] as Hex[] | undefined
+    if (!items?.length) return undefined
+    const firstSwap = items.find((item: Hex) => item.slice(0, 10).toLowerCase() === toFunctionSelector('function swap((bytes32,uint256,address,address,address,address,address,address,uint256,bytes))'))
+    if (!firstSwap) return undefined
+
+    const decodedSwap = decodeFunctionData({
+      abi: wrapperRouteSwapAbi,
+      data: firstSwap,
+    })
+    const params = decodedSwap.args[0]
+    const [, payload] = decodeAbiParameters(
+      [{ type: 'address' }, { type: 'bytes' }],
+      params.data,
+    )
+    const selector = (payload as Hex).slice(0, 10).toLowerCase()
+    if (selector === WRAP_SELECTOR) return 'wrap'
+    if (selector === UNWRAP_SELECTOR || selector === UNWRAP_ALL_SELECTOR) return 'unwrap'
+  }
+  catch { /* not a wrapper GenericHandler multicall */ }
+
+  return undefined
 }
 
 export const cleanStepLabel = (label: string): string => {
@@ -108,6 +145,22 @@ export const decodeSecondUint256 = (data: string): bigint | undefined => {
   if (data.length < 138) return undefined
   try {
     return BigInt(`0x${data.slice(74, 138)}`)
+  }
+  catch {
+    return undefined
+  }
+}
+
+export const decodeTransferFromSender = (data: string): { token: string, amount: bigint } | undefined => {
+  if (data.slice(0, 10).toLowerCase() !== toFunctionSelector('function transferFromSender(address,uint256,address)')) {
+    return undefined
+  }
+  if (data.length < 138) return undefined
+  try {
+    return {
+      token: getAddress(`0x${data.slice(34, 74)}`),
+      amount: BigInt(`0x${data.slice(74, 138)}`),
+    }
   }
   catch {
     return undefined
@@ -187,6 +240,7 @@ const getAssetInfoForStep = (
   usedBorrow: { value: boolean },
   usedSwapTo: { value: boolean },
   lastWithdrawAmount: { value: string | undefined },
+  decodedSwapAction?: 'wrap' | 'unwrap',
 ): StepAssetInfo | undefined => {
   if (label === 'Enable collateral' || label === 'Enable controller' || label === 'Disable collateral' || label === 'Disable controller') {
     return getVaultAssetInfo(data, targetContract, getVault)
@@ -278,6 +332,10 @@ const getAssetInfoForStep = (
     }
   }
 
+  if (label === 'Swap' && decodedSwapAction === 'wrap' && ctx.supplyingAssetForBorrow) {
+    return { symbol: ctx.supplyingAssetForBorrow.symbol, address: ctx.supplyingAssetForBorrow.address, amount: ctx.supplyingAmount }
+  }
+
   if (label === 'Swap') {
     return { symbol: ctx.asset.symbol, address: ctx.asset.address, amount: lastWithdrawAmount.value || ctx.amount }
   }
@@ -317,6 +375,22 @@ const getAssetInfoForStep = (
   }
 
   if (label === 'Transfer from wallet') {
+    const decoded = decodeTransferFromSender(data)
+    if (decoded) {
+      const candidates = [
+        ctx.supplyingAssetForBorrow,
+        ctx.swapToAsset,
+        ctx.asset,
+      ].filter(Boolean) as Array<{ symbol: string, address: string, decimals?: bigint }>
+      const asset = candidates.find(candidate => candidate.address.toLowerCase() === decoded.token.toLowerCase())
+      if (asset) {
+        return {
+          symbol: asset.symbol,
+          address: asset.address,
+          amount: formatUnits(decoded.amount, Number(asset.decimals ?? 18n)),
+        }
+      }
+    }
     return { symbol: ctx.asset.symbol, address: ctx.asset.address, amount: ctx.amount }
   }
 
@@ -372,7 +446,8 @@ export function buildDisplaySteps(
         for (const item of batchItems) {
           index++
           const label = decodeBatchItemLabel(item.data)
-          const stepAssetInfo = getAssetInfoForStep(label, item.data, item.targetContract, item, ctx, getVault, usedSupply, usedBorrow, usedSwapTo, lastWithdrawAmount)
+          const decodedSwapAction = label === 'Swap' ? decodeSwapperMulticallAction(item.data) : undefined
+          const stepAssetInfo = getAssetInfoForStep(label, item.data, item.targetContract, item, ctx, getVault, usedSupply, usedBorrow, usedSwapTo, lastWithdrawAmount, decodedSwapAction)
           const secondAsset = ctx.supplyingAssetForBorrow || ctx.swapToAsset
           let toAssetInfo: StepAssetInfo | undefined
           if (label === 'Wrap native currency') {
@@ -380,6 +455,9 @@ export function buildDisplaySteps(
               ? ctx.supplyingAssetForBorrow
               : ctx.asset
             toAssetInfo = { symbol: wrapToAsset.symbol, address: wrapToAsset.address }
+          }
+          else if (label === 'Swap' && decodedSwapAction === 'wrap' && ctx.swapToAsset && ctx.supplyingAmount) {
+            toAssetInfo = { symbol: ctx.swapToAsset.symbol, address: ctx.swapToAsset.address, amount: ctx.supplyingAmount }
           }
           else if (label === 'Swap' && ctx.swapToAsset && ctx.swapToAmount) {
             toAssetInfo = { symbol: ctx.swapToAsset.symbol, address: ctx.swapToAsset.address, amount: ctx.swapToAmount }
@@ -391,7 +469,9 @@ export function buildDisplaySteps(
             ? 'Transfer'
             : label === 'Wrap native currency'
               ? 'Wrap'
-              : label
+              : label === 'Swap' && (decodedSwapAction || ctx.swapAction)
+                ? (decodedSwapAction || ctx.swapAction) === 'wrap' ? 'Wrap' : 'Unwrap'
+                : label
           const isWrapTransfer = label === 'Transfer' && prevLabel === 'Wrap native currency'
           const batchLabelSuffix = label === 'Transfer to account'
             ? 'to savings'

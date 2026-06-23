@@ -30,12 +30,14 @@ import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 import type { TxPlan } from '~/entities/txPlan'
 import { getUtilisationWarning, getBorrowCapWarning, getSupplyCapWarning } from '~/composables/useVaultWarnings'
 import { getVaultTags, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
 import { useSwapQuotesParallel } from '~/composables/useSwapQuotesParallel'
 import { getNetAPY } from '~/entities/vault'
+import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
 
 export interface UseBorrowFormOptions {
   pair: Ref<AnyBorrowVaultPair | undefined>
@@ -99,6 +101,13 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   const wagmiConfig = useConfig()
   const { enableEnsoMultiply, bptAdapterConfig } = useDeployConfig()
   const { buildAdapterSwapQuote } = useEnsoRoute()
+  const {
+    getConfiguredRoute: getConfiguredWrapperRoute,
+    getValidatedRoute: getValidatedWrapperRoute,
+    isWrapperDepositPair,
+    buildDepositQuote: buildWrapperDepositQuote,
+  } = useWrapperRoute()
+  const wrapperRoute = ref<WrapperRouteConfig | null>(null)
 
   const {
     runSimulation: runBorrowSimulation,
@@ -107,8 +116,8 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   } = useTxPlanSimulation()
 
   const borrowPriceInvert = usePriceInvert(
-    () => collateralVault.value?.asset.symbol,
-    () => borrowVault.value?.asset.symbol,
+    () => getDisplayAssetSymbol(collateralVault.value?.asset),
+    () => getDisplayAssetSymbol(borrowVault.value?.asset),
   )
 
   // --- Swap & borrow composable instances ---
@@ -231,6 +240,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   })
 
   const borrowNeedsSwap = computed(() => {
+    if (isSavingCollateral.value) return false
     if (!borrowSelectedAsset.value || !collateralVault.value) return false
     try {
       if (isNativeOfWrapped(borrowSelectedAsset.value.address, collateralVault.value.asset.address, chainId.value!)) return false
@@ -278,14 +288,14 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
     if (!borrowSwapEffectiveQuote.value || !borrowSelectedAsset.value) return ''
     const amountIn = BigInt(borrowSwapEffectiveQuote.value.amountIn || 0)
     if (amountIn <= 0n) return ''
-    return `${formatSmartAmount(formatUnits(amountIn, Number(borrowSelectedAsset.value.decimals)))} ${borrowSelectedAsset.value.symbol}`
+    return `${formatSmartAmount(formatUnits(amountIn, Number(borrowSelectedAsset.value.decimals)))} ${getDisplayAssetSymbol(borrowSelectedAsset.value)}`
   })
 
   const borrowSwapOutputDisplay = computed(() => {
     if (!borrowSwapEffectiveQuote.value || !collateralVault.value) return ''
     const amountOut = BigInt(borrowSwapEffectiveQuote.value.amountOut || 0)
     if (amountOut <= 0n) return ''
-    return `${formatSmartAmount(formatUnits(amountOut, Number(collateralVault.value.asset.decimals)))} ${collateralVault.value.asset.symbol}`
+    return `${formatSmartAmount(formatUnits(amountOut, Number(collateralVault.value.asset.decimals)))} ${getDisplayAssetSymbol(collateralVault.value.asset)}`
   })
 
   const borrowSwapRoutedVia = computed(() => {
@@ -304,7 +314,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       quoteCards: borrowSwapQuoteCards.value,
       getQuoteDiffPct: getBorrowSwapQuoteDiffPct,
       decimals: Number(collateralVault.value.asset.decimals),
-      symbol: collateralVault.value.asset.symbol,
+      symbol: getDisplayAssetSymbol(collateralVault.value.asset),
       formatAmount: formatSmartAmount,
     })
   })
@@ -431,6 +441,35 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       slippage: borrowSwapSlippage.value,
     }
 
+    const configuredWrapperRoute = getConfiguredWrapperRoute(collateralVault.value.address)
+    const validatedWrapperRoute = wrapperRoute.value
+      || (configuredWrapperRoute
+        ? await getValidatedWrapperRoute(collateralVault.value.address, collateralVault.value.asset)
+        : null)
+    if (
+      validatedWrapperRoute
+      && isWrapperDepositPair(
+        validatedWrapperRoute,
+        swapTokenIn,
+        collateralVault.value.asset.address,
+      )
+    ) {
+      wrapperRoute.value = validatedWrapperRoute
+      await requestBorrowSwapCustomQuote(validatedWrapperRoute.provider, async () =>
+        buildWrapperDepositQuote({
+          route: validatedWrapperRoute,
+          wrappedAsset: collateralVault.value!.asset,
+          accountOut: subAccountAddr,
+          amount: inputAmountNano,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+        }), {
+        logContext,
+        errorMessage: 'Beefy wrapping is currently unavailable. You can still supply the wrapped mooToken directly.',
+        autoSelect: true,
+      })
+      return
+    }
+
     // Use adapter for BPT vaults when input token is the adapter's expected asset
     const adapterEntry = getAdapterEntryForVault(collateralVault.value.address)
     if (adapterEntry && eulerPeripheryAddresses.value?.swapper) {
@@ -511,6 +550,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
         onSelect: onSelectBorrowSwapAsset,
         allowNativeCurrency: !isAdapterVault.value,
         allowedTokens: adapterAllowedTokens.value || undefined,
+        extraTokens: wrapperRoute.value ? [wrapperRoute.value.rawToken] : undefined,
       },
     })
   }
@@ -854,6 +894,21 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
       savingAssets.value = val.assets
     }
   })
+
+  watch(
+    () => [chainId.value, collateralVault.value?.address, collateralVault.value?.asset.address] as const,
+    async () => {
+      wrapperRoute.value = await getValidatedWrapperRoute(
+        collateralVault.value?.address,
+        collateralVault.value?.asset,
+      )
+      if (wrapperRoute.value) {
+        borrowSelectedAsset.value = getWrapperDefaultAsset(borrowSelectedAsset.value, wrapperRoute.value)
+        await updateBorrowSwapAssetBalance()
+      }
+    },
+    { immediate: true },
+  )
 
   watch(borrowSelectedAsset, async () => {
     if (borrowSelectedAsset.value?.address && isConnected.value) {

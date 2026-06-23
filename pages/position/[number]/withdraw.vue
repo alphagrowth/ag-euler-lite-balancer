@@ -16,11 +16,14 @@ import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/stri
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
+import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
 
 const { address } = useAccount()
 const { buildWithdrawPlan, buildWithdrawAndSwapPlan } = useEulerOperations()
 const { refreshAllPositions } = useEulerAccount()
 const { eulerLensAddresses } = useEulerAddresses()
+const { getValidatedRoute: getValidatedWrapperRoute } = useWrapperRoute()
+const wrapperRoute = ref<WrapperRouteConfig | null>(null)
 
 // Withdraw-specific state
 const selectedOutputAsset = ref<VaultAsset | undefined>()
@@ -118,12 +121,23 @@ const form = useCollateralForm({
   },
 
   getSwapOutputAsset: () => selectedOutputAsset.value,
+  getExtraSwapTokens: () => wrapperRoute.value ? [wrapperRoute.value.rawToken] : [],
 
   reviewLabel: 'Review Withdraw',
   reviewType: 'withdraw',
   swapReviewType: 'swap-withdraw',
   getReviewAsset: () => form.asset.value,
   getSwapToAsset: () => selectedOutputAsset.value,
+
+  onAfterLoad: async () => {
+    wrapperRoute.value = await getValidatedWrapperRoute(
+      form.collateralVault.value?.address,
+      form.asset.value,
+    )
+    if (wrapperRoute.value) {
+      selectedOutputAsset.value = getWrapperDefaultAsset(selectedOutputAsset.value, wrapperRoute.value)
+    }
+  },
 
   onAfterSend: () => {
     refreshAllPositions(eulerLensAddresses.value, address.value as string)
