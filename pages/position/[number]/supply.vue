@@ -15,6 +15,7 @@ import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
 import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 
 const { isConnected, address } = useAccount()
 const { isSpyMode } = useSpyMode()
@@ -289,7 +290,7 @@ watch(selectedAsset, async () => {
                 :asset="{ address: selectedAsset?.address || form.asset.value?.address || '', symbol: selectedAsset?.symbol || form.asset.value?.symbol || '' }"
                 size="20"
               />
-              {{ selectedAsset?.symbol || form.asset.value?.symbol }}
+              {{ getDisplayAssetSymbol(selectedAsset || form.asset.value) }}
               <SvgIcon
                 class="text-content-tertiary !w-16 !h-16"
                 name="arrow-down"

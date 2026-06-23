@@ -17,6 +17,7 @@ import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
 import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 
 const { address } = useAccount()
 const { buildWithdrawPlan, buildWithdrawAndSwapPlan } = useEulerOperations()
@@ -230,7 +231,7 @@ watch(selectedOutputAsset, () => {
                 :asset="{ address: selectedOutputAsset?.address || form.asset.value.address, symbol: selectedOutputAsset?.symbol || form.asset.value.symbol }"
                 size="20"
               />
-              {{ selectedOutputAsset?.symbol || form.asset.value.symbol }}
+              {{ getDisplayAssetSymbol(selectedOutputAsset || form.asset.value) }}
               <SvgIcon
                 class="text-euler-dark-800 !w-16 !h-16"
                 name="arrow-down"

@@ -26,6 +26,7 @@ import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { isOperationBlocked } from '~/utils/operationGuardRegistry'
 import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 
 const router = useRouter()
 const route = useRoute()
@@ -166,14 +167,14 @@ const swapInputDisplay = computed(() => {
   if (!swapEffectiveQuote.value || !asset.value) return ''
   const amountIn = BigInt(swapEffectiveQuote.value.amountIn || 0)
   if (amountIn <= 0n) return ''
-  return `${formatSmartAmount(formatUnits(amountIn, Number(asset.value.decimals)))} ${asset.value.symbol}`
+  return `${formatSmartAmount(formatUnits(amountIn, Number(asset.value.decimals)))} ${getDisplayAssetSymbol(asset.value)}`
 })
 
 const swapOutputDisplay = computed(() => {
   if (!swapEffectiveQuote.value || !selectedOutputAsset.value) return ''
   const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
   if (amountOut <= 0n) return ''
-  return `${formatSmartAmount(formatUnits(amountOut, Number(selectedOutputAsset.value.decimals)))} ${selectedOutputAsset.value.symbol}`
+  return `${formatSmartAmount(formatUnits(amountOut, Number(selectedOutputAsset.value.decimals)))} ${getDisplayAssetSymbol(selectedOutputAsset.value)}`
 })
 
 const swapRoutedVia = computed(() => {
@@ -196,7 +197,7 @@ const swapRouteItems = computed(() => {
     quoteCards: swapQuoteCardsSorted.value,
     getQuoteDiffPct: getSwapQuoteDiffPct,
     decimals: Number(selectedOutputAsset.value.decimals),
-    symbol: selectedOutputAsset.value.symbol,
+    symbol: getDisplayAssetSymbol(selectedOutputAsset.value),
     formatAmount: formatSmartAmount,
   })
 })
@@ -591,7 +592,7 @@ watch(swapSelectedQuote, () => {
                 :asset="{ address: selectedOutputAsset?.address || asset.address, symbol: selectedOutputAsset?.symbol || asset.symbol }"
                 size="20"
               />
-              {{ selectedOutputAsset?.symbol || asset.symbol }}
+              {{ getDisplayAssetSymbol(selectedOutputAsset || asset) }}
               <SvgIcon
                 class="text-content-tertiary !w-16 !h-16"
                 name="arrow-down"
@@ -687,7 +688,7 @@ watch(swapSelectedQuote, () => {
               v-if="asset"
               class="text-p2 flex items-center gap-4"
             >
-              {{ formatSmartAmount(nanoToValue(assetsBalance, asset.decimals)) }} <span class="text-p3 text-content-tertiary">{{ asset.symbol }}</span>
+              {{ formatSmartAmount(nanoToValue(assetsBalance, asset.decimals)) }} <span class="text-p3 text-content-tertiary">{{ getDisplayAssetSymbol(asset) }}</span>
               <span
                 v-if="!isSecuritizeVaultType"
                 class="text-p3 text-content-tertiary"

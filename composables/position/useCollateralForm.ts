@@ -33,6 +33,7 @@ import { formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import type { WrapperRouteConfig } from '~/entities/wrapperRoutes'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 
 export interface UseCollateralFormOptions {
   mode: 'supply' | 'withdraw'
@@ -195,8 +196,8 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const asset = computed(() => collateralVault.value?.asset)
 
   const priceInvert = usePriceInvert(
-    () => collateralVault.value?.asset.symbol,
-    () => borrowVault.value?.asset.symbol,
+    () => getDisplayAssetSymbol(collateralVault.value?.asset),
+    () => getDisplayAssetSymbol(borrowVault.value?.asset),
   )
 
   // --- APY block ---
@@ -331,7 +332,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     const amountIn = BigInt(swapEffectiveQuote.value.amountIn || 0)
     if (amountIn <= 0n) return ''
     const tokenIn = swapEffectiveQuote.value.tokenIn
-    return `${formatSmartAmount(formatUnits(amountIn, tokenIn.decimals))} ${tokenIn.symbol}`
+    return `${formatSmartAmount(formatUnits(amountIn, tokenIn.decimals))} ${getDisplayAssetSymbol({ address: tokenIn.address || tokenIn.addressInfo, symbol: tokenIn.symbol })}`
   })
 
   const swapOutputDisplay = computed(() => {
@@ -339,7 +340,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     if (!swapEffectiveQuote.value || !outputAsset) return ''
     const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
     if (amountOut <= 0n) return ''
-    return `${formatSmartAmount(formatUnits(amountOut, Number(outputAsset.decimals)))} ${outputAsset.symbol}`
+    return `${formatSmartAmount(formatUnits(amountOut, Number(outputAsset.decimals)))} ${getDisplayAssetSymbol(outputAsset)}`
   })
 
   const swapRoutedVia = computed(() => {
@@ -364,7 +365,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
       quoteCards: swapQuoteCardsSorted.value,
       getQuoteDiffPct: getSwapQuoteDiffPct,
       decimals: Number(outputAsset.decimals),
-      symbol: outputAsset.symbol,
+      symbol: getDisplayAssetSymbol(outputAsset),
       formatAmount: formatSmartAmount,
     })
   })

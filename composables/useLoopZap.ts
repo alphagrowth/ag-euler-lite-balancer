@@ -26,7 +26,7 @@ export interface ZapPool {
 const POOLS: ZapPool[] = [
   {
     id: 'pool1',
-    name: 'Stableswap (USDT0/AUSD/USDC)',
+    name: 'Balancer USDT0-AUSD-USDC',
     collateralVault: '0x5795130BFb9232C7500C6E57A96Fdd18bFA60436',
     borrowAsset: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a',
     borrowAssetSymbol: 'AUSD',
@@ -39,7 +39,7 @@ const POOLS: ZapPool[] = [
   },
   {
     id: 'pool2',
-    name: 'sMON/WMON (Kintsu)',
+    name: 'Balancer sMON-WMON',
     collateralVault: '0x7ad9f09B431A4C5F4CbA809d449Fde842192f9ec',
     borrowAsset: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A',
     borrowAssetSymbol: 'WMON',
@@ -52,7 +52,7 @@ const POOLS: ZapPool[] = [
   },
   {
     id: 'pool3',
-    name: 'shMON/WMON (Fastlane)',
+    name: 'Balancer shMON-WMON',
     collateralVault: '0x7A81A1613D50ffF334027Aad76F2416368f6050f',
     borrowAsset: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A',
     borrowAssetSymbol: 'WMON',
@@ -65,7 +65,7 @@ const POOLS: ZapPool[] = [
   },
   {
     id: 'pool4',
-    name: 'AZND/AUSD/LOAZND',
+    name: 'Balancer AZND-AUSD-loAZND',
     collateralVault: '0x2067936155c7DB57b1cdCF776B04B9678c245626',
     borrowAsset: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a',
     borrowAssetSymbol: 'AUSD',

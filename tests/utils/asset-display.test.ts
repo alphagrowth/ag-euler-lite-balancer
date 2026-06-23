@@ -19,6 +19,37 @@ const wrappedBeefy = {
   decimals: 18n,
 }
 
+const balancerAssets = [
+  {
+    address: '0x2DAA146dfB7EAef0038F9F15B2EC1e4DE003f72b',
+    name: 'Balancer wnAUSD-wnUSDC-wnUSDT0',
+    symbol: 'wnAUSD-wnUSDC-wnUSDT0',
+    displayName: 'Balancer wnAUSD-wnUSDC-wnUSDT0',
+    displaySymbol: 'Balancer USDT0-AUSD-USDC',
+  },
+  {
+    address: '0xbddb004A6c393C3F83BCCCF7F07eE9d409b214dE',
+    name: 'Balancer wnLOAZND-AZND-wnAUSD',
+    symbol: 'wnLOAZND-AZND-wnAUSD',
+    displayName: 'Balancer wnLOAZND-AZND-wnAUSD',
+    displaySymbol: 'Balancer AZND-AUSD-loAZND',
+  },
+  {
+    address: '0x02b34a02db24179Ac2D77Ae20AA6215C7153E7f8',
+    name: 'Balancer wnSMON-wnWMON',
+    symbol: 'wnSMON-wnWMON',
+    displayName: 'Balancer wnSMON-wnWMON',
+    displaySymbol: 'Balancer sMON-WMON',
+  },
+  {
+    address: '0x340Fa62AE58e90473da64b0af622cdd6113106Cb',
+    name: 'Balancer wnSHMON-wnWMON',
+    symbol: 'wnSHMON-wnWMON',
+    displayName: 'Balancer wnSHMON-wnWMON',
+    displaySymbol: 'Balancer shMON-WMON',
+  },
+]
+
 describe('asset display metadata', () => {
   it('aliases the raw Beefy token display metadata', () => {
     expect(getDisplayAssetSymbol(rawBeefy)).toBe('Beefy USDT0-AUSD-USDC')
@@ -28,6 +59,11 @@ describe('asset display metadata', () => {
   it('aliases the wrapped Beefy token display metadata', () => {
     expect(getDisplayAssetSymbol(wrappedBeefy)).toBe('Beefy USDT0-AUSD-USDC')
     expect(getDisplayAssetName(wrappedBeefy)).toBe('Wrapped Beefy Balancer Monad wnUSDT0-wnAUSD-wnUSDC')
+  })
+
+  it.each(balancerAssets)('aliases $symbol display metadata', (asset) => {
+    expect(getDisplayAssetSymbol(asset)).toBe(asset.displaySymbol)
+    expect(getDisplayAssetName(asset)).toBe(asset.displayName)
   })
 
   it('leaves unrelated tokens unchanged', () => {
