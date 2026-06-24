@@ -200,6 +200,9 @@ export const getWrapperRoute = (chainId: number | undefined, collateralVault: st
   }
 }
 
+export const isWrapperCollateralVault = (chainId: number | undefined, collateralVault: string | undefined): boolean =>
+  !!getWrapperRoute(chainId, collateralVault)
+
 export const getWrapperDefaultAsset = (
   currentAsset: VaultAsset | undefined,
   route: WrapperRouteConfig | null,

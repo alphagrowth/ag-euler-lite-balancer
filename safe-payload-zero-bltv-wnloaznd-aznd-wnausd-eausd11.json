@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "chainId": "143",
+  "createdAt": 1782260508000,
+  "meta": {
+    "name": "Zero BLTV for wnLOAZND-AZND-wnAUSD collateral on eAUSD-11",
+    "description": "Set Borrow LTV to 0 while preserving Liquidation LTV at 96%. This prevents new or increased AUSD borrowing against the collateral without forcing existing positions into liquidation from this change.",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0x4f894Bfc9481110278C356adE1473eBe2127Fd3C",
+    "createdFromOwnerAddress": ""
+  },
+  "transactions": [
+    {
+      "to": "0x438cedcE647491B1d93a73d491eC19A50194c222",
+      "value": "0",
+      "data": "0x4bca3d5b0000000000000000000000002067936155c7db57b1cdcf776b04b9678c245626000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025800000000000000000000000000000000000000000000000000000000000000000",
+      "contractMethod": {
+        "name": "setLTV",
+        "payable": false,
+        "inputs": [
+          {
+            "name": "collateral",
+            "type": "address"
+          },
+          {
+            "name": "borrowLTV",
+            "type": "uint16"
+          },
+          {
+            "name": "liquidationLTV",
+            "type": "uint16"
+          },
+          {
+            "name": "rampDuration",
+            "type": "uint32"
+          }
+        ]
+      },
+      "contractInputsValues": {
+        "collateral": "0x2067936155c7DB57b1cdCF776B04B9678c245626",
+        "borrowLTV": "0",
+        "liquidationLTV": "9600",
+        "rampDuration": "0"
+      }
+    }
+  ]
+}

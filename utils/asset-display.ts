@@ -3,6 +3,7 @@ import { getAddress } from 'viem'
 type AssetDisplayOverride = {
   symbol: string
   name: string
+  logoKey: string
 }
 
 type AssetLike = {
@@ -22,26 +23,32 @@ const displayOverrides = new Map<string, AssetDisplayOverride>([
   [BEEFY_RAW_TOKEN, {
     symbol: 'Beefy USDT0-AUSD-USDC',
     name: 'Beefy Balancer Monad wnUSDT0-wnAUSD-wnUSDC',
+    logoKey: 'beefy-usdt0-ausd-usdc',
   }],
   [BEEFY_WRAPPED_TOKEN, {
     symbol: 'Beefy USDT0-AUSD-USDC',
     name: 'Wrapped Beefy Balancer Monad wnUSDT0-wnAUSD-wnUSDC',
+    logoKey: 'beefy-usdt0-ausd-usdc',
   }],
   [BALANCER_USDT0_AUSD_USDC, {
     symbol: 'Balancer USDT0-AUSD-USDC',
     name: 'Balancer wnAUSD-wnUSDC-wnUSDT0',
+    logoKey: 'wnAUSD-wnUSDC-wnUSDT0',
   }],
   [BALANCER_AZND_AUSD_LOAZND, {
     symbol: 'Balancer AZND-AUSD-loAZND',
     name: 'Balancer wnLOAZND-AZND-wnAUSD',
+    logoKey: 'wnLOAZND-AZND-wnAUSD',
   }],
   [BALANCER_SMON_WMON, {
     symbol: 'Balancer sMON-WMON',
     name: 'Balancer wnSMON-wnWMON',
+    logoKey: 'smon-wnwmon',
   }],
   [BALANCER_SHMON_WMON, {
     symbol: 'Balancer shMON-WMON',
     name: 'Balancer wnSHMON-wnWMON',
+    logoKey: 'shmon-wnwmon',
   }],
 ])
 
@@ -71,6 +78,9 @@ export const getDisplayAssetSymbolByAddress = (address?: string | null, fallback
 
 export const getDisplayAssetNameByAddress = (address?: string | null, fallback = ''): string =>
   getAssetDisplayOverride(address)?.name ?? fallback
+
+export const getAssetLogoKeyByAddress = (address?: string | null): string | undefined =>
+  getAssetDisplayOverride(address)?.logoKey
 
 export const toDisplayAsset = <T extends AssetLike>(asset: T): T => {
   const override = getAssetDisplayOverride(asset.address)

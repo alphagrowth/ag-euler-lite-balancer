@@ -5,7 +5,7 @@ import { logWarn } from '~/utils/errorHandling'
 import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
 import { getChainById } from '~/entities/chainRegistry'
 import { createRaceGuard } from '~/utils/race-guard'
-import { toDisplayAsset } from '~/utils/asset-display'
+import { getAssetLogoKeyByAddress, toDisplayAsset } from '~/utils/asset-display'
 
 interface TokenListEntry {
   chainId: number
@@ -147,8 +147,10 @@ const tokenIconOverrides = new Map(
 )
 
 export const getAssetLogoUrl = (address: string, symbol: string): string => {
+  const logoKey = getAssetLogoKeyByAddress(address)?.toLowerCase()
   const key = symbol.toLowerCase()
-  return tokenIconOverrides.get(key)
+  return (logoKey ? tokenIconOverrides.get(logoKey) : undefined)
+    ?? tokenIconOverrides.get(key)
     ?? tokenIconOverrides.get(key.replace(/\s+/g, '_'))
     ?? getTokenListLogoUrl(address)
     ?? ''

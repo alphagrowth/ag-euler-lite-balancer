@@ -19,6 +19,7 @@ import {
   getWrapperDefaultAsset,
   getWrapperRoute,
   getWrapperRouteTokens,
+  isWrapperCollateralVault,
   isWrapperDepositPair,
   isWrapperWithdrawalPair,
   validateWrapperRoute,
@@ -70,6 +71,12 @@ describe('wrapper route registry', () => {
     expect(getWrapperRoute(143, zeroAddress)).toBeNull()
     expect(getWrapperRouteTokens(143)).toEqual([route.rawToken])
     expect(getWrapperRouteTokens(1)).toEqual([])
+  })
+
+  it('recognizes configured wrapper collateral vaults', () => {
+    expect(isWrapperCollateralVault(143, VAULT)).toBe(true)
+    expect(isWrapperCollateralVault(1, VAULT)).toBe(false)
+    expect(isWrapperCollateralVault(143, zeroAddress)).toBe(false)
   })
 
   it('recognizes only the configured wrap and unwrap pairs', () => {

@@ -9,8 +9,7 @@ import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { Vault, VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getCollateralUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
-import { computeMultipliedPriceImpact } from '~/utils/priceImpact'
-import { isBptCollateralVault } from '~/entities/custom'
+import { useMultiplyPriceImpact } from '~/composables/borrow/useMultiplyPriceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
@@ -102,7 +101,7 @@ const {
 const wagmiConfig = useConfig()
 const { enableEnsoMultiply, bptAdapterConfig } = useDeployConfig()
 const { buildAdapterSwapQuote } = useEnsoRoute()
-const { eulerPeripheryAddresses } = useEulerAddresses()
+const { eulerPeripheryAddresses, chainId: currentChainId } = useEulerAddresses()
 
 const reviewMultiplyLabel = computed(() => {
   if (multiplyQuoteCardsSorted.value.length > 0 && !multiplySelectedProvider.value) {
@@ -435,41 +434,16 @@ const multiplySwapSummary = computed(() => {
     to: `${formatSmartAmount(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
   }
 })
-const multiplyPriceImpact = ref<number | null>(null)
-watchEffect(async () => {
-  if (isMultiplyQuoteLoading.value) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  // Balancer BPT collateral: no DEX swap happens — borrowed asset is supplied
-  // to the pool to mint BPT — so oracle-derived price impact is spurious.
-  if (isBptCollateralVault(multiplyLongVault.value.address)) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  const amountInUsd = await getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value, 'off-chain')
-  let amountOutUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
-  if (!amountOutUsd) {
-    amountOutUsd = await getCollateralUsdValue(multiplySwapAmountOut.value, multiplyShortVault.value, multiplyLongVault.value, 'off-chain')
-  }
-  if (!amountInUsd || !amountOutUsd) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  const impact = (amountOutUsd / amountInUsd - 1) * 100
-  if (!Number.isFinite(impact)) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  multiplyPriceImpact.value = impact
+const { multiplyPriceImpact, multipliedPriceImpact } = useMultiplyPriceImpact({
+  isLoading: isMultiplyQuoteLoading,
+  isSwapReady: multiplySwapReady,
+  swapAmountIn: multiplySwapAmountIn,
+  swapAmountOut: multiplySwapAmountOut,
+  shortVault: multiplyShortVault,
+  longVault: multiplyLongVault,
+  multiplier,
+  chainId: currentChainId,
 })
-const multipliedPriceImpact = computed(() =>
-  computeMultipliedPriceImpact(multiplyPriceImpact.value, multiplier.value),
-)
 const { guardWithPriceImpact } = usePriceImpactGate({
   directPriceImpact: multiplyPriceImpact,
   multipliedPriceImpact,

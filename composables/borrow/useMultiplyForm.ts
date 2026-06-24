@@ -16,7 +16,6 @@ import {
 import {
   getAssetUsdValue,
   getAssetUsdValueOrZero,
-  getCollateralUsdValue,
   getCollateralUsdValueOrZero,
   getAssetOraclePrice,
   getCollateralOraclePrice,
@@ -28,8 +27,7 @@ import { buildSwapRouteItems } from '~/utils/swapRouteItems'
 import { formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { getDisplayAssetSymbol } from '~/utils/asset-display'
-import { computeMultipliedPriceImpact } from '~/utils/priceImpact'
-import { isBptCollateralVault } from '~/entities/custom'
+import { useMultiplyPriceImpact } from '~/composables/borrow/useMultiplyPriceImpact'
 import { calculateRoe, computeNextHealth, computeLiquidationPrice } from '~/utils/repayUtils'
 import { computeMaxMultiplier, computeMinMultiplier, computeWeightedSupplyApy, computeLeverageDebt } from '~/utils/multiply-math'
 import type { TxPlan } from '~/entities/txPlan'
@@ -517,47 +515,16 @@ export const useMultiplyForm = (options: UseMultiplyFormOptions) => {
     }
   })
 
-  const multiplyPriceImpact = ref<number | null>(null)
-
-  watchEffect(async () => {
-    if (isMultiplyQuoteLoading.value) {
-      multiplyPriceImpact.value = null
-      return
-    }
-    if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
-      multiplyPriceImpact.value = null
-      return
-    }
-    // Balancer BPT collateral: no DEX swap happens — borrowed asset is supplied
-    // to the pool to mint BPT — so oracle-derived price impact is spurious.
-    if (isBptCollateralVault(multiplyLongVault.value.address)) {
-      multiplyPriceImpact.value = null
-      return
-    }
-    const swapIn = multiplySwapAmountIn.value
-    const swapOut = multiplySwapAmountOut.value
-    const shortVault = multiplyShortVault.value
-    const longVault = multiplyLongVault.value
-    const amountInUsd = await getAssetUsdValue(swapIn, shortVault, 'off-chain')
-    let amountOutUsd = await getAssetUsdValue(swapOut, longVault, 'off-chain')
-    if (!amountOutUsd) {
-      amountOutUsd = await getCollateralUsdValue(swapOut, shortVault, longVault, 'off-chain')
-    }
-    if (!amountInUsd || !amountOutUsd) {
-      multiplyPriceImpact.value = null
-      return
-    }
-    const impact = (amountOutUsd / amountInUsd - 1) * 100
-    if (!Number.isFinite(impact)) {
-      multiplyPriceImpact.value = null
-      return
-    }
-    multiplyPriceImpact.value = impact
+  const { multiplyPriceImpact, multipliedPriceImpact } = useMultiplyPriceImpact({
+    isLoading: isMultiplyQuoteLoading,
+    isSwapReady: multiplySwapReady,
+    swapAmountIn: multiplySwapAmountIn,
+    swapAmountOut: multiplySwapAmountOut,
+    shortVault: multiplyShortVault,
+    longVault: multiplyLongVault,
+    multiplier,
+    chainId: currentChainId,
   })
-
-  const multipliedPriceImpact = computed(() =>
-    computeMultipliedPriceImpact(multiplyPriceImpact.value, multiplier.value),
-  )
 
   const multiplyRoutedVia = computed(() => {
     if (isMultiplyQuoteLoading.value) return null
