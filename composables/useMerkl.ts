@@ -10,15 +10,10 @@ import type { TxPlan } from '~/entities/txPlan'
 import { CACHE_TTL_1MIN_MS, POLL_INTERVAL_30S_MS } from '~/entities/tuning-constants'
 import { logWarn } from '~/utils/errorHandling'
 
-const {
-  MERKL_API_BASE_URL,
-} = useEulerConfig()
-
 const endpoints = {
-  tokens: `${MERKL_API_BASE_URL}/tokens/reward`,
-  opportunities: `${MERKL_API_BASE_URL}/opportunities/campaigns`,
-  rewards: (addr: string) => `${MERKL_API_BASE_URL}/users/${addr}/rewards`,
-  campaignById: (id: string) => `${MERKL_API_BASE_URL}/campaigns/${id}`,
+  tokens: '/api/merkl/tokens/reward',
+  rewards: (addr: string) => `/api/merkl/users/${addr}/rewards`,
+  campaignById: (id: string) => `/api/merkl/campaigns/${id}`,
 }
 
 const address = ref('')
@@ -149,8 +144,8 @@ const loadOpportunities = async (chainId: number, isInitialLoading = true, force
 
     // Fetch from both endpoints: EULER type for standard vaults and ERC20LOGPROCESSOR for Earn vaults
     const urls = [
-      { url: `${MERKL_API_BASE_URL}/opportunities/?chainId=${chainId}&type=EULER&campaigns=true`, type: 'EULER' as const },
-      { url: `${MERKL_API_BASE_URL}/opportunities/?chainId=${chainId}&mainProtocolId=euler&campaigns=true&type=ERC20LOGPROCESSOR`, type: 'ERC20LOGPROCESSOR' as const },
+      { url: `/api/merkl/opportunities?chainId=${chainId}&type=EULER&campaigns=true`, type: 'EULER' as const },
+      { url: `/api/merkl/opportunities?chainId=${chainId}&mainProtocolId=euler&campaigns=true&type=ERC20LOGPROCESSOR`, type: 'ERC20LOGPROCESSOR' as const },
     ]
 
     const results = await Promise.all(

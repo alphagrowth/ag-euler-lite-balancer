@@ -41,6 +41,7 @@ export type IntrinsicApySourceConfig =
   | { provider: 'benqi', address: string, chainId: number }
   | { provider: 'avant', address: string, chainId: number }
   | { provider: 'merkl', address: string, chainId: number, merklIdentifier: string }
+  | { provider: 'beefy', address: string, chainId: number, beefyVaultId: string }
 
 export const intrinsicApySources: readonly IntrinsicApySourceConfig[] = [
   // DefiLlama pools — Ethereum (1)
@@ -119,6 +120,8 @@ export const intrinsicApySources: readonly IntrinsicApySourceConfig[] = [
   { provider: 'merkl', chainId: 143, address: '0x02b34a02db24179Ac2D77Ae20AA6215C7153E7f8', merklIdentifier: '0x02b34a02db24179Ac2D77Ae20AA6215C7153E7f8' },
   { provider: 'merkl', chainId: 143, address: '0x340Fa62AE58e90473da64b0af622cdd6113106Cb', merklIdentifier: '0x340Fa62AE58e90473da64b0af622cdd6113106Cb' },
   { provider: 'merkl', chainId: 143, address: '0xbddb004A6c393C3F83BCCCF7F07eE9d409b214dE', merklIdentifier: '0xbddb004A6c393C3F83BCCCF7F07eE9d409b214dE' },
+  // Beefy vaults — Monad (143): Beefy total APY
+  { provider: 'beefy', chainId: 143, address: '0x6e58131ea11ed990d4b62476529cf2502fe0ec5f', beefyVaultId: 'balancerv3-monad-usdt0-ausd-usdc' },
   // NOTE: The `merkl` entries above are keyed by BPT asset address (what
   // `pair.collateral.asset.address` resolves to). The EVK collateral vault
   // addresses that wrap those BPT assets are listed below and used by

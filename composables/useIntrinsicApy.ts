@@ -16,6 +16,7 @@ import { createOndoProvider } from '~/services/intrinsicApy/ondoProvider'
 import { createBenqiProvider } from '~/services/intrinsicApy/benqiProvider'
 import { createAvantProvider } from '~/services/intrinsicApy/avantProvider'
 import { createMerklProvider } from '~/services/intrinsicApy/merklProvider'
+import { createBeefyProvider } from '~/services/intrinsicApy/beefyProvider'
 import { logWarn } from '~/utils/errorHandling'
 import { CACHE_TTL_5MIN_MS } from '~/entities/tuning-constants'
 
@@ -43,6 +44,7 @@ const providers: IntrinsicApyProvider[] = [
   createBenqiProvider(intrinsicApySources),
   createAvantProvider(intrinsicApySources),
   createMerklProvider(intrinsicApySources),
+  createBeefyProvider(intrinsicApySources),
 ]
 
 const mergeResults = (allResults: IntrinsicApyResult[]): Record<string, IntrinsicApyInfo> => {
