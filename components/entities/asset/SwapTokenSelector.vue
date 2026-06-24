@@ -3,6 +3,7 @@ import { getAddress, isAddress, zeroAddress, type Address } from 'viem'
 import type { VaultAsset } from '~/entities/vault'
 import { formatNumber } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
+import { getDisplayAssetName, getDisplayAssetSymbol } from '~/utils/asset-display'
 
 export interface SwapTokenSelectMeta {
   isUnknownToken?: boolean
@@ -12,7 +13,7 @@ const emits = defineEmits<{
   close: []
 }>()
 
-const { onSelect, currentAssetAddress, mode = 'input', allowNativeCurrency = false, allowedTokens } = defineProps<{
+const { onSelect, currentAssetAddress, mode = 'input', allowNativeCurrency = false, allowedTokens, extraTokens } = defineProps<{
   onSelect: (asset: VaultAsset, meta?: SwapTokenSelectMeta) => void
   currentAssetAddress?: string
   mode?: 'input' | 'output'
@@ -20,6 +21,8 @@ const { onSelect, currentAssetAddress, mode = 'input', allowNativeCurrency = fal
   allowNativeCurrency?: boolean
   /** If provided, restrict the token list to only these assets */
   allowedTokens?: VaultAsset[]
+  /** Additional trusted assets that should be available even when upstream token lists omit them */
+  extraTokens?: VaultAsset[]
 }>()
 
 const { getByType } = useVaultRegistry()
@@ -93,6 +96,25 @@ const tokenOptions = computed((): TokenOption[] => {
     })
   }
 
+  for (const asset of extraTokens || []) {
+    let normalized: string
+    try {
+      normalized = getAddress(asset.address)
+    }
+    catch {
+      continue
+    }
+    if (seen.has(normalized)) continue
+    seen.add(normalized)
+    const balance = getBalance(normalized as Address)
+    options.push({
+      asset,
+      balance,
+      balanceFormatted: nanoToValue(balance, asset.decimals),
+      source: 'tokenList',
+    })
+  }
+
   // Filter to allowed tokens if specified
   if (allowedTokens?.length) {
     const allowedSet = new Set(allowedTokens.map(t => getAddress(t.address)))
@@ -104,7 +126,7 @@ const tokenOptions = computed((): TokenOption[] => {
         return false
       }
     })
-    return filtered.sort((a, b) => a.asset.symbol.localeCompare(b.asset.symbol))
+    return filtered.sort((a, b) => getDisplayAssetSymbol(a.asset).localeCompare(getDisplayAssetSymbol(b.asset)))
   }
 
   // Sort: tokens with balance first (desc by balance), then vault tokens alphabetically
@@ -115,7 +137,7 @@ const tokenOptions = computed((): TokenOption[] => {
       if (a.balanceFormatted > b.balanceFormatted) return -1
       if (a.balanceFormatted < b.balanceFormatted) return 1
     }
-    return a.asset.symbol.localeCompare(b.asset.symbol)
+    return getDisplayAssetSymbol(a.asset).localeCompare(getDisplayAssetSymbol(b.asset))
   })
 })
 
@@ -137,7 +159,9 @@ const filteredOptions = computed(() => {
   const base = searchQuery.value
     ? tokenOptions.value.filter((opt) => {
         const q = searchQuery.value.toLowerCase()
-        return opt.asset.symbol.toLowerCase().includes(q)
+        return getDisplayAssetSymbol(opt.asset).toLowerCase().includes(q)
+          || getDisplayAssetName(opt.asset).toLowerCase().includes(q)
+          || opt.asset.symbol.toLowerCase().includes(q)
           || opt.asset.name.toLowerCase().includes(q)
           || opt.asset.address.toLowerCase().includes(q)
       })
@@ -213,10 +237,10 @@ const handleSelectCustomToken = () => {
           />
           <div class="flex-grow">
             <div class="text-content-primary mb-2">
-              {{ opt.asset.name }}
+              {{ getDisplayAssetName(opt.asset) }}
             </div>
             <div class="text-h5">
-              {{ opt.asset.symbol }}
+              {{ getDisplayAssetSymbol(opt.asset) }}
             </div>
           </div>
           <div class="text-right">
@@ -250,13 +274,13 @@ const handleSelectCustomToken = () => {
           />
           <div class="flex-grow">
             <div class="flex items-center gap-6 mb-2">
-              <span class="text-content-primary">{{ customToken.name }}</span>
+              <span class="text-content-primary">{{ getDisplayAssetName(customToken) }}</span>
               <span class="inline-flex items-center rounded-8 px-8 py-2 bg-warning-100 text-warning-500 text-p5">
                 Import
               </span>
             </div>
             <div class="text-h5">
-              {{ customToken.symbol }}
+              {{ getDisplayAssetSymbol(customToken) }}
             </div>
           </div>
           <div class="text-right">

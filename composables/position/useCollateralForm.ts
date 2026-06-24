@@ -32,6 +32,10 @@ import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { formatSmartAmount } from '~/utils/string-utils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
+import type { WrapperRouteConfig } from '~/entities/wrapperRoutes'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { HIDDEN_COLLATERAL_VAULTS } from '~/entities/hiddenCollateralVaults'
 
 export interface UseCollateralFormOptions {
   mode: 'supply' | 'withdraw'
@@ -89,6 +93,7 @@ export interface UseCollateralFormOptions {
   /** Optional: input asset for swap flows. Used by the BPT adapter branch
    *  to populate correct decimals/symbol on the synthetic quote's tokenIn. */
   getSwapInputAsset?: () => VaultAsset | undefined
+  getExtraSwapTokens?: () => VaultAsset[]
 
   reviewLabel: string
   reviewType: string
@@ -121,6 +126,15 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const wagmiConfig = useConfig()
   const { enableEnsoMultiply, bptAdapterConfig } = useDeployConfig()
   const { buildAdapterSwapQuote } = useEnsoRoute()
+  const {
+    getConfiguredRoute: getConfiguredWrapperRoute,
+    getValidatedRoute: getValidatedWrapperRoute,
+    isWrapperDepositPair,
+    isWrapperWithdrawalPair,
+    buildDepositQuote: buildWrapperDepositQuote,
+    buildWithdrawalQuote: buildWrapperWithdrawalQuote,
+  } = useWrapperRoute()
+  const validatedWrapperRoute = ref<WrapperRouteConfig | null>(null)
 
   // --- Shared reactive state ---
   const isLoading = ref(false)
@@ -157,14 +171,19 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
 
   // --- Adapter vault detection (zapIn direction only, supply mode) ---
   // Vaults where DEX routing doesn't work and only the adapter zap can produce BPT.
-  const ADAPTER_ONLY_VAULTS = new Set([
-    '0x2067936155c7db57b1cdcf776b04b9678c245626', // AZND/AUSD/LOAZND
-  ])
+  const ADAPTER_ONLY_VAULTS = new Set<string>()
 
   const getAdapterEntryForVault = (vaultAddr: string): BptAdapterConfigEntry | null => {
     if (!ADAPTER_ONLY_VAULTS.has(vaultAddr.toLowerCase())) return null
     const entry = bptAdapterConfig[vaultAddr.toLowerCase()] || bptAdapterConfig[vaultAddr]
-    if (entry?.pool && entry?.wrapper && entry?.numTokens && enableEnsoMultiply) return entry
+    if (entry?.pool && entry?.wrapper && entry?.numTokens && enableEnsoMultiply) {
+      return {
+        ...entry,
+        pool: entry.pool,
+        wrapper: entry.wrapper,
+        numTokens: entry.numTokens,
+      }
+    }
     return null
   }
 
@@ -175,10 +194,18 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const borrowVault = computed(() => position.value?.borrow)
   const collateralAssets = computed(() => selectedCollateralAssets.value)
   const asset = computed(() => collateralVault.value?.asset)
+  const isDeprecatedSupply = computed(() =>
+    options.mode === 'supply'
+    && !!collateralVault.value
+    && (
+      HIDDEN_COLLATERAL_VAULTS.has(collateralVault.value.address.toLowerCase())
+      || isVaultDeprecated(collateralVault.value.address)
+    ),
+  )
 
   const priceInvert = usePriceInvert(
-    () => collateralVault.value?.asset.symbol,
-    () => borrowVault.value?.asset.symbol,
+    () => getDisplayAssetSymbol(collateralVault.value?.asset),
+    () => getDisplayAssetSymbol(borrowVault.value?.asset),
   )
 
   // --- APY block ---
@@ -313,7 +340,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     const amountIn = BigInt(swapEffectiveQuote.value.amountIn || 0)
     if (amountIn <= 0n) return ''
     const tokenIn = swapEffectiveQuote.value.tokenIn
-    return `${formatSmartAmount(formatUnits(amountIn, tokenIn.decimals))} ${tokenIn.symbol}`
+    return `${formatSmartAmount(formatUnits(amountIn, tokenIn.decimals))} ${getDisplayAssetSymbol({ address: tokenIn.address || tokenIn.addressInfo, symbol: tokenIn.symbol })}`
   })
 
   const swapOutputDisplay = computed(() => {
@@ -321,7 +348,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     if (!swapEffectiveQuote.value || !outputAsset) return ''
     const amountOut = BigInt(swapEffectiveQuote.value.amountOut || 0)
     if (amountOut <= 0n) return ''
-    return `${formatSmartAmount(formatUnits(amountOut, Number(outputAsset.decimals)))} ${outputAsset.symbol}`
+    return `${formatSmartAmount(formatUnits(amountOut, Number(outputAsset.decimals)))} ${getDisplayAssetSymbol(outputAsset)}`
   })
 
   const swapRoutedVia = computed(() => {
@@ -346,7 +373,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
       quoteCards: swapQuoteCardsSorted.value,
       getQuoteDiffPct: getSwapQuoteDiffPct,
       decimals: Number(outputAsset.decimals),
-      symbol: outputAsset.symbol,
+      symbol: getDisplayAssetSymbol(outputAsset),
       formatAmount: formatSmartAmount,
     })
   })
@@ -355,6 +382,10 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     swapQuoteError.value = null
 
     if (!options.needsSwap.value || !amount.value || !asset.value) {
+      resetSwapQuoteState()
+      return
+    }
+    if (isDeprecatedSupply.value) {
       resetSwapQuoteState()
       return
     }
@@ -381,6 +412,50 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
 
     if (!params) {
       resetSwapQuoteState()
+      return
+    }
+
+    const configuredWrapperRoute = getConfiguredWrapperRoute(collateralVault.value?.address)
+    const wrapperRoute = validatedWrapperRoute.value
+      || (configuredWrapperRoute
+        ? await getValidatedWrapperRoute(collateralVault.value?.address, asset.value)
+        : null)
+    const isWrapperRoute = options.mode === 'supply'
+      ? isWrapperDepositPair(wrapperRoute, params.tokenIn, params.tokenOut)
+      : isWrapperWithdrawalPair(wrapperRoute, params.tokenIn, params.tokenOut)
+
+    if (wrapperRoute && isWrapperRoute) {
+      validatedWrapperRoute.value = wrapperRoute
+      await requestSwapCustomQuote(wrapperRoute.provider, async () => {
+        const deadline = Math.floor(Date.now() / 1000) + 1800
+        if (options.mode === 'supply') {
+          return buildWrapperDepositQuote({
+            route: wrapperRoute,
+            wrappedAsset: asset.value!,
+            accountOut: subAccountAddr,
+            amount: params.amount,
+            deadline,
+          })
+        }
+        return buildWrapperWithdrawalQuote({
+          route: wrapperRoute,
+          wrappedAsset: asset.value!,
+          accountIn: subAccountAddr,
+          receiver: userAddr,
+          expectedAmount: params.amount,
+          slippage: swapSlippage.value,
+          deadline,
+        })
+      }, {
+        logContext: {
+          amount: amount.value,
+          slippage: swapSlippage.value,
+        },
+        errorMessage: options.mode === 'supply'
+          ? 'Beefy wrapping is currently unavailable. You can still supply the wrapped mooToken directly.'
+          : 'Beefy unwrapping is currently unavailable. You can still withdraw the wrapped mooToken directly.',
+        autoSelect: true,
+      })
       return
     }
 
@@ -467,6 +542,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
         mode: options.mode === 'withdraw' ? 'output' : 'input',
         allowNativeCurrency: options.mode === 'supply' && !adapterAllowedTokens.value,
         allowedTokens: adapterAllowedTokens.value || undefined,
+        extraTokens: options.getExtraSwapTokens?.(),
       },
     })
   }
@@ -504,6 +580,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   })
 
   const isSubmitDisabled = computed(() => {
+    if (isDeprecatedSupply.value) return true
     if (!isConnected.value) return false
     if (options.effectiveBalance.value < valueToNano(amount.value, activeAssetDecimals.value)) return true
     if (isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value) return true
@@ -628,7 +705,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   // --- Submit ---
   const submit = async () => {
     if (isOperationBlocked.value) return
-    if (isPreparing.value || isGeoBlocked.value || isSwapRestricted.value) return
+    if (isPreparing.value || isDeprecatedSupply.value || isGeoBlocked.value || isSwapRestricted.value) return
     isPreparing.value = true
     try {
       await guardWithPriceImpact(async () => {
@@ -836,6 +913,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     isSwapRestricted,
     isSubmitDisabled,
     submitDisabled,
+    isDeprecatedSupply,
     submitLabel,
     simulationError,
     clearSimulationError,

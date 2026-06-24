@@ -25,6 +25,7 @@ import { formatNumber, compactNumber, formatSmartAmount } from '~/utils/string-u
 import { useSwapPriceImpact } from '~/composables/useSwapPriceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { isOperationBlocked } from '~/utils/operationGuardRegistry'
+import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
 
 // Type definitions for vault display
 type VaultType = 'evk' | 'securitize'
@@ -120,8 +121,16 @@ const {
   getQuoteDiffPct: getSwapQuoteDiffPct,
   reset: resetSwapQuoteState,
   requestQuotes: requestSwapQuotes,
+  requestCustomQuote: requestSwapCustomQuote,
   selectProvider: selectSwapQuote,
 } = useSwapQuotesParallel({ amountField: 'amountOut', compare: 'max' })
+const {
+  getConfiguredRoute: getConfiguredWrapperRoute,
+  getValidatedRoute: getValidatedWrapperRoute,
+  isWrapperDepositPair,
+  buildDepositQuote: buildWrapperDepositQuote,
+} = useWrapperRoute()
+const wrapperRoute = ref<WrapperRouteConfig | null>(null)
 
 const reviewSupplyLabel = computed(() => {
   if (needsSwap.value && swapQuoteCardsSorted.value.length > 0 && !swapSelectedProvider.value) {
@@ -334,6 +343,11 @@ const load = async () => {
   try {
     // Fetch fresh underlying asset balance for this specific vault
     await fetchBalance()
+    wrapperRoute.value = await getValidatedWrapperRoute(vaultAddress, asset.value)
+    if (wrapperRoute.value) {
+      selectedAsset.value = getWrapperDefaultAsset(selectedAsset.value, wrapperRoute.value)
+      await fetchSelectedAssetBalance()
+    }
 
     if (features.value.hasInterestRate && evkVault.value) {
       estimateSupplyAPY.value = evkVault.value.interestRateInfo.supplyAPY + valueToNano(totalRewardsAPY.value + intrinsicApy.value, 25)
@@ -609,6 +623,32 @@ const requestSwapQuote = useDebounceFn(async () => {
   const swapTokenIn = isNativeCurrencyAddress(selectedAsset.value.address)
     ? resolveWrappedNativeAddress(chainId.value!) || selectedAsset.value.address
     : selectedAsset.value.address
+  const configuredRoute = getConfiguredWrapperRoute(vaultAddress)
+  const validatedRoute = wrapperRoute.value
+    || (configuredRoute ? await getValidatedWrapperRoute(vaultAddress, asset.value) : null)
+  if (
+    validatedRoute
+    && isWrapperDepositPair(validatedRoute, swapTokenIn, asset.value.address)
+  ) {
+    wrapperRoute.value = validatedRoute
+    await requestSwapCustomQuote(validatedRoute.provider, async () =>
+      buildWrapperDepositQuote({
+        route: validatedRoute,
+        wrappedAsset: asset.value!,
+        accountOut: userAddr,
+        amount: inputAmountNano,
+        deadline: Math.floor(Date.now() / 1000) + 1800,
+      }), {
+      logContext: {
+        tokenIn: selectedAsset.value.address,
+        tokenOut: asset.value.address,
+        amount: amount.value,
+      },
+      errorMessage: 'Beefy wrapping is currently unavailable. You can still supply the wrapped mooToken directly.',
+      autoSelect: true,
+    })
+    return
+  }
   await requestSwapQuotes({
     tokenIn: swapTokenIn as Address,
     tokenOut: asset.value.address as Address,
@@ -647,6 +687,7 @@ const openSwapTokenSelector = () => {
       currentAssetAddress: selectedAsset.value?.address || asset.value?.address,
       onSelect: onSelectSwapAsset,
       allowNativeCurrency: true,
+      extraTokens: wrapperRoute.value ? [wrapperRoute.value.rawToken] : undefined,
     },
   })
 }

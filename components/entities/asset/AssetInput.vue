@@ -4,6 +4,7 @@ import type { Vault, SecuritizeVault, VaultAsset, CollateralOption, EarnVault } 
 import { getAssetUsdPrice } from '~/services/pricing/priceProvider'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { compactNumber, formatSmartAmount, trimTrailingZeros } from '~/utils/string-utils'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 import { ChooseCollateralModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 
@@ -22,6 +23,7 @@ const props = defineProps<{
   priceOverride?: number // USD unit price for assets without a vault (e.g., swap-to-deposit)
   swappable?: boolean // When true, asset pill shows dropdown arrow and emits click-asset
   selectedSource?: 'wallet' | 'saving' // Source indicator chip when multiple collateral options exist
+  selectedCollateralAssetAddress?: string
 }>()
 const emits = defineEmits(['input', 'change-collateral', 'click-asset'])
 const model = defineModel<string>({ default: '' })
@@ -49,6 +51,16 @@ const emitInputNow = () => {
 }
 
 const getSelectedIdx = () => {
+  if (props.selectedSource === 'saving' && props.collateralOptions?.length) {
+    const idx = props.collateralOptions.findIndex(o => o.type === props.selectedSource)
+    if (idx >= 0) return idx
+  }
+  if (props.selectedCollateralAssetAddress && props.collateralOptions?.length) {
+    const idx = props.collateralOptions.findIndex(o =>
+      o.assetAddress?.toLowerCase() === props.selectedCollateralAssetAddress?.toLowerCase(),
+    )
+    if (idx >= 0) return idx
+  }
   if (props.selectedSource && props.collateralOptions?.length) {
     const idx = props.collateralOptions.findIndex(o => o.type === props.selectedSource)
     if (idx >= 0) return idx
@@ -57,10 +69,11 @@ const getSelectedIdx = () => {
 }
 const selectedIdx = ref(getSelectedIdx())
 watch(
-  [() => props.selectedSource, () => props.collateralOptions],
+  [() => props.selectedSource, () => props.selectedCollateralAssetAddress, () => props.collateralOptions],
   () => { selectedIdx.value = getSelectedIdx() },
 )
 const friendlyBalance = computed(() => nanoToValue(props.balance ?? 0n, props.asset?.decimals || 18))
+const displaySymbol = computed(() => getDisplayAssetSymbol(props.asset))
 
 // Auto-advance past disabled options (blocked/restricted vaults)
 watch(() => props.collateralOptions, (options) => {
@@ -141,7 +154,7 @@ const openChooseCollateralModal = () => {
   modal.open(ChooseCollateralModal, {
     props: {
       productName: props.desc,
-      symbol: props.asset.symbol,
+      symbol: displaySymbol.value,
       collateralOptions: props.collateralOptions,
       selected: selectedIdx.value,
       title: props.collateralModalTitle,
@@ -207,7 +220,7 @@ const openChooseCollateralModal = () => {
         />
         <div class="flex flex-col items-start">
           <span class="flex items-center gap-8">
-            {{ asset.symbol }}
+            {{ displaySymbol }}
             <SvgIcon
               v-if="swappable || (collateralOptions?.length ?? 0) > 1"
               class="text-content-tertiary !w-16 !h-16"
@@ -250,7 +263,7 @@ const openChooseCollateralModal = () => {
         :loading="balanceLoading ?? false"
       >
         <p @click="setMax">
-          <span class="text-euler-dark-800">{{ formatSmartAmount(friendlyBalance) }} {{ asset.symbol }}</span> <span
+          <span class="text-euler-dark-800">{{ formatSmartAmount(friendlyBalance) }} {{ displaySymbol }}</span> <span
             class="text-aquamarine-700 font-semibold px-4 cursor-pointer select-none text-[12px] leading-[16px]"
           >Max</span> <!-- TODO: button -->
         </p>

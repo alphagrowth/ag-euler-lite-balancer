@@ -1,4 +1,3 @@
-import axios from 'axios'
 import type { IntrinsicApySourceConfig } from '~/entities/custom'
 import type { IntrinsicApyProvider, IntrinsicApyResult } from '~/entities/intrinsic-apy'
 
@@ -12,8 +11,6 @@ type MerklOpportunity = {
 type MerklSource = Extract<IntrinsicApySourceConfig, { provider: 'merkl' }>
 
 const normalize = (value?: string) => value?.toLowerCase() || ''
-
-const MERKL_API_BASE = 'https://api.merkl.xyz/v4'
 
 const buildSourceUrl = (chainId: number, identifier: string) =>
   `https://app.merkl.xyz/opportunities/${chainId}/${identifier}`
@@ -30,14 +27,12 @@ export const createMerklProvider = (sources: readonly IntrinsicApySourceConfig[]
       const relevantSources = merklSources.filter(s => s.chainId === chainId)
       if (relevantSources.length === 0) return []
 
-      const res = await axios.get(`${MERKL_API_BASE}/opportunities`, {
+      const opportunities = await $fetch<MerklOpportunity[]>('/api/merkl/opportunities', {
         params: { chainId, name: 'balancer', items: 100 },
       })
 
-      const opportunities = (Array.isArray(res.data) ? res.data : []) as MerklOpportunity[]
-
       const byIdentifier = new Map<string, MerklOpportunity>()
-      for (const opp of opportunities) {
+      for (const opp of Array.isArray(opportunities) ? opportunities : []) {
         if (opp.identifier) {
           byIdentifier.set(normalize(opp.identifier), opp)
         }

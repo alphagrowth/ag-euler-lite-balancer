@@ -13,6 +13,7 @@ import type { TxPlan } from '~/entities/txPlan'
 import { type SwapApiQuote, SwapperMode, SwapVerificationType } from '~/entities/swap'
 import { logWarn } from '~/utils/errorHandling'
 import { assertSwapperVerifierAllowed } from '~/utils/swap-validation'
+import { isWrapperQuote } from '~/entities/wrapperRoutes'
 
 export const createSupplyBorrowSwapBuilders = (
   ctx: OperationsContext,
@@ -113,7 +114,11 @@ export const createSupplyBorrowSwapBuilders = (
       label: usesPermit2 ? 'Permit2 swap & supply via EVC' : 'Swap & supply via EVC',
     }))
 
-    return { kind: 'swap-supply', steps }
+    return {
+      kind: 'swap-supply',
+      steps,
+      display: isWrapperQuote(quote) ? { swapAction: 'wrap' } : undefined,
+    }
   }
 
   /**
@@ -273,7 +278,11 @@ export const createSupplyBorrowSwapBuilders = (
       label: usesPermit2 ? 'Permit2 swap & borrow via EVC' : 'Swap & borrow via EVC',
     }))
 
-    return { kind: 'swap-borrow', steps }
+    return {
+      kind: 'swap-borrow',
+      steps,
+      display: isWrapperQuote(swapQuote) ? { swapAction: 'wrap' } : undefined,
+    }
   }
 
   const buildWithdrawAndSwapPlan = async ({
@@ -358,6 +367,7 @@ export const createSupplyBorrowSwapBuilders = (
     return {
       kind: 'swap-withdraw',
       steps: [helpers.buildEvcBatchStep({ evcCalls, label: 'Withdraw & swap via EVC' })],
+      display: isWrapperQuote(quote) ? { swapAction: 'unwrap' } : undefined,
     }
   }
 
@@ -446,6 +456,7 @@ export const createSupplyBorrowSwapBuilders = (
     return {
       kind: 'swap-withdraw',
       steps: [helpers.buildEvcBatchStep({ evcCalls, label: 'Withdraw & swap via EVC' })],
+      display: isWrapperQuote(quote) ? { swapAction: 'unwrap' } : undefined,
     }
   }
 

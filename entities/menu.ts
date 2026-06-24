@@ -38,7 +38,7 @@ const allMenuItems: MenuItem[] = [
   },
   {
     name: 'loop-zap',
-    label: 'Zap BPT',
+    label: 'Zap Collateral',
     icon: 'borrow-outline',
     activeIcon: 'borrow-filled',
   },

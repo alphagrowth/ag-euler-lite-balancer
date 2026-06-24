@@ -14,12 +14,16 @@ import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/stri
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
+import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 
 const { isConnected, address } = useAccount()
 const { isSpyMode } = useSpyMode()
 const { fetchSingleBalance } = useWallets()
 const { buildSupplyPlan, buildSwapAndSupplyPlan } = useEulerOperations()
 const { chainId } = useEulerAddresses()
+const { getValidatedRoute: getValidatedWrapperRoute } = useWrapperRoute()
+const wrapperRoute = ref<WrapperRouteConfig | null>(null)
 
 // Supply-specific state
 const balance = ref(0n)
@@ -138,6 +142,7 @@ const form = useCollateralForm({
 
   getSwapOutputAsset: () => form.asset.value,
   getSwapInputAsset: () => selectedAsset.value,
+  getExtraSwapTokens: () => wrapperRoute.value ? [wrapperRoute.value.rawToken] : [],
 
   reviewLabel: 'Review Supply',
   reviewType: 'supply',
@@ -153,7 +158,17 @@ const form = useCollateralForm({
   },
   getSwapToAsset: () => form.asset.value,
 
-  onAfterLoad: () => updateBalance(),
+  onAfterLoad: async () => {
+    await updateBalance()
+    wrapperRoute.value = await getValidatedWrapperRoute(
+      form.collateralVault.value?.address,
+      form.asset.value,
+    )
+    if (wrapperRoute.value) {
+      selectedAsset.value = getWrapperDefaultAsset(selectedAsset.value, wrapperRoute.value)
+      await fetchSelectedAssetBalance()
+    }
+  },
 })
 useOperationGuard(computed(() => [form.collateralVault.value?.address].filter(Boolean)))
 
@@ -275,7 +290,7 @@ watch(selectedAsset, async () => {
                 :asset="{ address: selectedAsset?.address || form.asset.value?.address || '', symbol: selectedAsset?.symbol || form.asset.value?.symbol || '' }"
                 size="20"
               />
-              {{ selectedAsset?.symbol || form.asset.value?.symbol }}
+              {{ getDisplayAssetSymbol(selectedAsset || form.asset.value) }}
               <SvgIcon
                 class="text-content-tertiary !w-16 !h-16"
                 name="arrow-down"
@@ -327,6 +342,13 @@ watch(selectedAsset, async () => {
             size="compact"
           />
 
+          <UiToast
+            v-if="form.isDeprecatedSupply.value"
+            title="Deprecated collateral"
+            description="This collateral market is deprecated. New collateral supply is disabled; existing borrowers can repay, unwind, and withdraw."
+            variant="warning"
+            size="compact"
+          />
           <UiToast
             v-if="form.isGeoBlocked.value"
             title="Region restricted"

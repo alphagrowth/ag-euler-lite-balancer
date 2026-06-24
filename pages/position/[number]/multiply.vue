@@ -9,8 +9,7 @@ import { useToast } from '~/components/ui/composables/useToast'
 import type { AccountBorrowPosition } from '~/entities/account'
 import type { Vault, VaultAsset } from '~/entities/vault'
 import { getAssetUsdValue, getCollateralUsdValue, getAssetOraclePrice, getCollateralOraclePrice, conservativePriceRatioNumber } from '~/services/pricing/priceProvider'
-import { computeMultipliedPriceImpact } from '~/utils/priceImpact'
-import { isBptCollateralVault } from '~/entities/custom'
+import { useMultiplyPriceImpact } from '~/composables/borrow/useMultiplyPriceImpact'
 import { usePriceImpactGate } from '~/composables/usePriceImpactGate'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
@@ -24,6 +23,8 @@ import { formatLiquidationBuffer as formatLiqBuffer, calculateRoe, computeNextHe
 import { nanoToValue } from '~/utils/crypto-utils'
 import { computeMaxMultiplier } from '~/utils/multiply-math'
 import { isOperationBlocked } from '~/utils/operationGuardRegistry'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { HIDDEN_COLLATERAL_VAULTS } from '~/entities/hiddenCollateralVaults'
 
 const route = useRoute()
 const router = useRouter()
@@ -102,7 +103,7 @@ const {
 const wagmiConfig = useConfig()
 const { enableEnsoMultiply, bptAdapterConfig } = useDeployConfig()
 const { buildAdapterSwapQuote } = useEnsoRoute()
-const { eulerPeripheryAddresses } = useEulerAddresses()
+const { eulerPeripheryAddresses, chainId: currentChainId } = useEulerAddresses()
 
 const reviewMultiplyLabel = computed(() => {
   if (multiplyQuoteCardsSorted.value.length > 0 && !multiplySelectedProvider.value) {
@@ -114,6 +115,13 @@ const reviewMultiplyLabel = computed(() => {
 const multiplyLongVault = computed(() => position.value?.collateral)
 const multiplyShortVault = computed(() => position.value?.borrow)
 const multiplySubAccount = computed(() => position.value?.subAccount || null)
+const isDeprecatedMultiply = computed(() =>
+  !!multiplyLongVault.value
+  && (
+    HIDDEN_COLLATERAL_VAULTS.has(multiplyLongVault.value.address.toLowerCase())
+    || isVaultDeprecated(multiplyLongVault.value.address)
+  ),
+)
 useOperationGuard(computed(() => [multiplySupplyVault.value?.address, multiplyLongVault.value?.address, multiplyShortVault.value?.address].filter(Boolean)))
 
 const pairAssets = computed(() => {
@@ -435,41 +443,16 @@ const multiplySwapSummary = computed(() => {
     to: `${formatSmartAmount(amountOut)} ${multiplyLongVault.value.asset.symbol}`,
   }
 })
-const multiplyPriceImpact = ref<number | null>(null)
-watchEffect(async () => {
-  if (isMultiplyQuoteLoading.value) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  if (!multiplySwapReady.value || !multiplyShortVault.value || !multiplyLongVault.value) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  // Balancer BPT collateral: no DEX swap happens — borrowed asset is supplied
-  // to the pool to mint BPT — so oracle-derived price impact is spurious.
-  if (isBptCollateralVault(multiplyLongVault.value.address)) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  const amountInUsd = await getAssetUsdValue(multiplySwapAmountIn.value, multiplyShortVault.value, 'off-chain')
-  let amountOutUsd = await getAssetUsdValue(multiplySwapAmountOut.value, multiplyLongVault.value, 'off-chain')
-  if (!amountOutUsd) {
-    amountOutUsd = await getCollateralUsdValue(multiplySwapAmountOut.value, multiplyShortVault.value, multiplyLongVault.value, 'off-chain')
-  }
-  if (!amountInUsd || !amountOutUsd) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  const impact = (amountOutUsd / amountInUsd - 1) * 100
-  if (!Number.isFinite(impact)) {
-    multiplyPriceImpact.value = null
-    return
-  }
-  multiplyPriceImpact.value = impact
+const { multiplyPriceImpact, multipliedPriceImpact } = useMultiplyPriceImpact({
+  isLoading: isMultiplyQuoteLoading,
+  isSwapReady: multiplySwapReady,
+  swapAmountIn: multiplySwapAmountIn,
+  swapAmountOut: multiplySwapAmountOut,
+  shortVault: multiplyShortVault,
+  longVault: multiplyLongVault,
+  multiplier,
+  chainId: currentChainId,
 })
-const multipliedPriceImpact = computed(() =>
-  computeMultipliedPriceImpact(multiplyPriceImpact.value, multiplier.value),
-)
 const { guardWithPriceImpact } = usePriceImpactGate({
   directPriceImpact: multiplyPriceImpact,
   multipliedPriceImpact,
@@ -547,6 +530,10 @@ const requestMultiplyQuote = useDebounceFn(async () => {
     resetMultiplyQuoteState()
     return
   }
+  if (isDeprecatedMultiply.value) {
+    resetMultiplyQuoteState()
+    return
+  }
 
   const debtAmount = multiplyDebtAmountNano.value
   if (!debtAmount || debtAmount <= 0n) {
@@ -578,10 +565,8 @@ const requestMultiplyQuote = useDebounceFn(async () => {
     isRepay: false,
   }
 
-  // Check if this is an adapter-only vault (AZND/AUSD/LOAZND)
-  const ADAPTER_ONLY_VAULTS = new Set([
-    '0x2067936155c7db57b1cdcf776b04b9678c245626',
-  ])
+  // Check if this is an adapter-only vault.
+  const ADAPTER_ONLY_VAULTS = new Set<string>()
   const collateralVaultAddr = multiplyLongVault.value.address
   const adapterEntry = ADAPTER_ONLY_VAULTS.has(collateralVaultAddr.toLowerCase())
     ? (bptAdapterConfig[collateralVaultAddr.toLowerCase()] || bptAdapterConfig[collateralVaultAddr])
@@ -656,7 +641,7 @@ const onMultiplierInput = () => {
 
 const submitMultiply = async () => {
   if (isOperationBlocked.value) return
-  if (isPreparing.value || isGeoBlocked.value || isMultiplyRestricted.value) return
+  if (isPreparing.value || isDeprecatedMultiply.value || isGeoBlocked.value || isMultiplyRestricted.value) return
   isPreparing.value = true
   try {
     await guardWithPriceImpact(async () => {
@@ -772,6 +757,7 @@ const sendMultiply = async () => {
 }
 
 const isMultiplySubmitDisabled = computed(() => {
+  if (isDeprecatedMultiply.value) return true
   if (!isConnected.value) return false
   if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
     return true
@@ -800,7 +786,7 @@ const isMultiplyRestricted = computed(() => {
   return (long && isVaultRestrictedByCountry(long.address))
     || (short && isVaultRestrictedByCountry(short.address))
 })
-const reviewMultiplyDisabled = computed(() => isGeoBlocked.value || isMultiplyRestricted.value || isMultiplySubmitDisabled.value)
+const reviewMultiplyDisabled = computed(() => isDeprecatedMultiply.value || isGeoBlocked.value || isMultiplyRestricted.value || isMultiplySubmitDisabled.value)
 
 const loadPosition = async () => {
   if (!isConnected.value && !isSpyMode.value) {
@@ -923,6 +909,13 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             :readonly="true"
           />
 
+          <UiToast
+            v-if="isDeprecatedMultiply"
+            title="Deprecated market"
+            description="This collateral market is deprecated. New multiply actions are disabled; existing borrowers can repay, unwind, and withdraw."
+            variant="warning"
+            size="compact"
+          />
           <UiToast
             v-if="isGeoBlocked"
             title="Region restricted"

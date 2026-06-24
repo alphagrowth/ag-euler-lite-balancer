@@ -3,6 +3,7 @@ import { getAddress } from 'viem'
 import type { EarnVault, SecuritizeVault, Vault, VaultAsset } from '~/entities/vault'
 import { useEulerProductOfVault } from '~/composables/useEulerLabels'
 import { isAnyVaultBlockedByCountry } from '~/composables/useGeoBlock'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 
 const { vault, assets, size, assetsLabel, pairVault } = defineProps<{
   vault?: Vault | EarnVault | SecuritizeVault
@@ -81,7 +82,7 @@ const displayLabel = computed(() => {
   return `${collateralLabel} / ${borrowLabel}`
 })
 
-const displayAssetsLabel = computed(() => assetsLabel || assets.map(asset => asset.symbol).join('/'))
+const displayAssetsLabel = computed(() => assetsLabel || assets.map(asset => getDisplayAssetSymbol(asset)).join('/'))
 </script>
 
 <template>

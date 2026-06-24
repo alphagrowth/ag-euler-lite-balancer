@@ -23,7 +23,8 @@ import type { TxPlan } from '~/entities/txPlan'
 import { formatTtl, nanoToValue, roundAndCompactTokens } from '~/utils/crypto-utils'
 import { formatNumber, formatHealthScore, formatUsdValue, formatCompactUsdValue } from '~/utils/string-utils'
 import { isAnyVaultBlockedByCountry, isVaultRestrictedByCountry } from '~/composables/useGeoBlock'
-import { getVaultNotice } from '~/utils/eulerLabelsUtils'
+import { getVaultNotice, isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { HIDDEN_COLLATERAL_VAULTS } from '~/entities/hiddenCollateralVaults'
 import { VaultOverviewModal, OperationReviewModal, VaultSupplyApyModal, VaultBorrowApyModal, VaultNetApyModal, PortfolioRoeModal } from '#components'
 import { useModal } from '~/components/ui/composables/useModal'
 import { useToast } from '~/components/ui/composables/useToast'
@@ -127,6 +128,8 @@ const borrowVaultNotice = computed(() => {
 })
 
 const getCollateralNotice = (vaultAddress: string): string => getVaultNotice(vaultAddress)
+const isCollateralSupplyDisabled = (vaultAddress: string): boolean =>
+  HIDDEN_COLLATERAL_VAULTS.has(vaultAddress.toLowerCase()) || isVaultDeprecated(vaultAddress)
 
 const supplyRewardAPY = computed(() => getSupplyRewardApy(collateralVault.value?.address || ''))
 const borrowRewardAPY = computed(() => getBorrowRewardApy(borrowVault.value?.address || '', collateralVault.value?.address || ''))
@@ -1117,8 +1120,8 @@ watch([isConnected, isSpyMode], () => {
                   size="medium"
                   variant="primary"
                   rounded
-                  :disabled="isPositionGeoBlocked || isPairFullyRestricted"
-                  :to="isPositionGeoBlocked || isPairFullyRestricted ? undefined : `/position/${positionIndex}/supply?collateral=${collateral.vault.address}`"
+                  :disabled="isCollateralSupplyDisabled(collateral.vault.address) || isPositionGeoBlocked || isPairFullyRestricted"
+                  :to="isCollateralSupplyDisabled(collateral.vault.address) || isPositionGeoBlocked || isPairFullyRestricted ? undefined : `/position/${positionIndex}/supply?collateral=${collateral.vault.address}`"
                 >
                   Supply
                 </UiButton>

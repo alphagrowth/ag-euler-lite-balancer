@@ -120,6 +120,7 @@ const displaySteps = computed((): DisplayStep[] => {
     type, asset, assetIconUrl, amount,
     supplyingAssetForBorrow, supplyingAmount,
     swapToAsset, swapToAmount, transferAmounts,
+    swapAction: plan.display?.swapAction,
   }
 
   return buildDisplaySteps(plan, ctx, getVault, getAssetLogoUrl, hasPermit2Approval.value)

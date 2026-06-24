@@ -4,6 +4,7 @@ import { eulerUtilsLensABI } from '~/entities/euler/abis'
 import { erc20BalanceOfAbi } from '~/abis/erc20'
 import { logWarn } from '~/utils/errorHandling'
 import { getPublicClient } from '~/utils/public-client'
+import { getWrapperRouteTokens } from '~/entities/wrapperRoutes'
 
 // Singleton state
 const balances = shallowRef(new Map<string, bigint>())
@@ -70,6 +71,10 @@ export const useWallets = () => {
       catch {
         // Skip invalid addresses
       }
+    }
+
+    for (const token of getWrapperRouteTokens(chainId.value)) {
+      addresses.add(getAddress(token.address))
     }
 
     const tokenAddresses = [...addresses] as Address[]
@@ -207,6 +212,9 @@ export const useWallets = () => {
         functionName: 'balanceOf',
         args: [balanceAddress.value as Address],
       }) as bigint
+      const nextBalances = new Map(balances.value)
+      nextBalances.set(normalized, result)
+      balances.value = nextBalances
       return result
     }
     catch {

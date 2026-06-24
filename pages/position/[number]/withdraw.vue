@@ -16,11 +16,15 @@ import { formatNumber, formatSmartAmount, formatHealthScore } from '~/utils/stri
 import { formatLiquidationBuffer as formatLiqBuffer } from '~/utils/repayUtils'
 import { nanoToValue } from '~/utils/crypto-utils'
 import { useCollateralForm } from '~/composables/position/useCollateralForm'
+import { getWrapperDefaultAsset, type WrapperRouteConfig } from '~/entities/wrapperRoutes'
+import { getDisplayAssetSymbol } from '~/utils/asset-display'
 
 const { address } = useAccount()
 const { buildWithdrawPlan, buildWithdrawAndSwapPlan } = useEulerOperations()
 const { refreshAllPositions } = useEulerAccount()
 const { eulerLensAddresses } = useEulerAddresses()
+const { getValidatedRoute: getValidatedWrapperRoute } = useWrapperRoute()
+const wrapperRoute = ref<WrapperRouteConfig | null>(null)
 
 // Withdraw-specific state
 const selectedOutputAsset = ref<VaultAsset | undefined>()
@@ -118,12 +122,23 @@ const form = useCollateralForm({
   },
 
   getSwapOutputAsset: () => selectedOutputAsset.value,
+  getExtraSwapTokens: () => wrapperRoute.value ? [wrapperRoute.value.rawToken] : [],
 
   reviewLabel: 'Review Withdraw',
   reviewType: 'withdraw',
   swapReviewType: 'swap-withdraw',
   getReviewAsset: () => form.asset.value,
   getSwapToAsset: () => selectedOutputAsset.value,
+
+  onAfterLoad: async () => {
+    wrapperRoute.value = await getValidatedWrapperRoute(
+      form.collateralVault.value?.address,
+      form.asset.value,
+    )
+    if (wrapperRoute.value) {
+      selectedOutputAsset.value = getWrapperDefaultAsset(selectedOutputAsset.value, wrapperRoute.value)
+    }
+  },
 
   onAfterSend: () => {
     refreshAllPositions(eulerLensAddresses.value, address.value as string)
@@ -216,7 +231,7 @@ watch(selectedOutputAsset, () => {
                 :asset="{ address: selectedOutputAsset?.address || form.asset.value.address, symbol: selectedOutputAsset?.symbol || form.asset.value.symbol }"
                 size="20"
               />
-              {{ selectedOutputAsset?.symbol || form.asset.value.symbol }}
+              {{ getDisplayAssetSymbol(selectedOutputAsset || form.asset.value) }}
               <SvgIcon
                 class="text-euler-dark-800 !w-16 !h-16"
                 name="arrow-down"
