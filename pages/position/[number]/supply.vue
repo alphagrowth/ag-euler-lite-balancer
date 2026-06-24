@@ -343,6 +343,13 @@ watch(selectedAsset, async () => {
           />
 
           <UiToast
+            v-if="form.isDeprecatedSupply.value"
+            title="Deprecated collateral"
+            description="This collateral market is deprecated. New collateral supply is disabled; existing borrowers can repay, unwind, and withdraw."
+            variant="warning"
+            size="compact"
+          />
+          <UiToast
             v-if="form.isGeoBlocked.value"
             title="Region restricted"
             description="This operation is not available in your region. You can still repay existing debt."

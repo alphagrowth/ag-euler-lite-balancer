@@ -11,70 +11,70 @@ import {
 } from '~/composables/useEnsoRoute'
 import { logWarn } from '~/utils/errorHandling'
 
+type ZapError = {
+  message?: string
+  shortMessage?: string
+}
+
 export interface ZapPool {
   id: string
   name: string
   collateralVault: string
-  borrowAsset: string
-  borrowAssetSymbol: string
-  borrowAssetDecimals: number
-  inputTokens: { address: string, symbol: string, decimals: number }[]
+  inputTokens: ZapToken[]
   routeType: 'adapter' | 'enso'
-  bptAddress: string
+  outputToken: ZapToken
 }
 
-const POOLS: ZapPool[] = [
+export interface ZapToken {
+  address: string
+  symbol: string
+  decimals: number
+}
+
+export const ZAP_POOLS: ZapPool[] = [
   {
     id: 'pool1',
     name: 'Balancer USDT0-AUSD-USDC',
     collateralVault: '0x5795130BFb9232C7500C6E57A96Fdd18bFA60436',
-    borrowAsset: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a',
-    borrowAssetSymbol: 'AUSD',
-    borrowAssetDecimals: 6,
     inputTokens: [
       { address: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a', symbol: 'AUSD', decimals: 6 },
     ],
     routeType: 'enso',
-    bptAddress: '0x2DAA146dfB7EAef0038F9F15B2EC1e4DE003f72b',
+    outputToken: { address: '0x2DAA146dfB7EAef0038F9F15B2EC1e4DE003f72b', symbol: 'BPT', decimals: 18 },
   },
   {
     id: 'pool2',
     name: 'Balancer sMON-WMON',
     collateralVault: '0x7ad9f09B431A4C5F4CbA809d449Fde842192f9ec',
-    borrowAsset: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A',
-    borrowAssetSymbol: 'WMON',
-    borrowAssetDecimals: 18,
     inputTokens: [
       { address: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A', symbol: 'WMON', decimals: 18 },
     ],
     routeType: 'enso',
-    bptAddress: '0x02b34a02db24179Ac2D77Ae20AA6215C7153E7f8',
+    outputToken: { address: '0x02b34a02db24179Ac2D77Ae20AA6215C7153E7f8', symbol: 'BPT', decimals: 18 },
   },
   {
     id: 'pool3',
     name: 'Balancer shMON-WMON',
     collateralVault: '0x7A81A1613D50ffF334027Aad76F2416368f6050f',
-    borrowAsset: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A',
-    borrowAssetSymbol: 'WMON',
-    borrowAssetDecimals: 18,
     inputTokens: [
       { address: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A', symbol: 'WMON', decimals: 18 },
     ],
     routeType: 'enso',
-    bptAddress: '0x340Fa62AE58e90473da64b0af622cdd6113106Cb',
+    outputToken: { address: '0x340Fa62AE58e90473da64b0af622cdd6113106Cb', symbol: 'BPT', decimals: 18 },
   },
   {
-    id: 'pool4',
-    name: 'Balancer AZND-AUSD-loAZND',
-    collateralVault: '0x2067936155c7DB57b1cdCF776B04B9678c245626',
-    borrowAsset: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a',
-    borrowAssetSymbol: 'AUSD',
-    borrowAssetDecimals: 6,
+    id: 'beefy-usdt0-ausd-usdc',
+    name: 'Beefy USDT0-AUSD-USDC',
+    collateralVault: '0xf18f3bc9440ad7940e6e2a86fd0c724add2dd0aa',
     inputTokens: [
       { address: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a', symbol: 'AUSD', decimals: 6 },
     ],
-    routeType: 'adapter',
-    bptAddress: '0xbddb004A6c393C3F83BCCCF7F07eE9d409b214dE',
+    routeType: 'enso',
+    outputToken: {
+      address: '0xd0331a023c35514c2ef99eb34ed868737e9dcea3',
+      symbol: 'mooToken',
+      decimals: 18,
+    },
   },
 ]
 
@@ -88,7 +88,7 @@ export const useZapBpt = () => {
   const { getEnsoRoute } = useEnsoRoute()
   const { error: showError, success: showSuccess } = useToast()
 
-  const selectedPoolId = ref<string>(POOLS[0].id)
+  const selectedPoolId = ref<string>(ZAP_POOLS[0].id)
   const inputAmount = ref<string>('')
   const inputTokenAddress = ref<string>('')
 
@@ -97,12 +97,12 @@ export const useZapBpt = () => {
   const quoteError = ref<string | null>(null)
 
   const walletBalance = ref<bigint>(0n)
-  const expectedBptFromZap = ref<bigint>(0n)
-  const bptReceivedFromZap = ref<bigint>(0n)
+  const expectedOutputFromZap = ref<bigint>(0n)
+  const outputReceivedFromZap = ref<bigint>(0n)
 
   const phase = ref<'input' | 'done'>('input')
 
-  const selectedPool = computed(() => POOLS.find(p => p.id === selectedPoolId.value)!)
+  const selectedPool = computed(() => ZAP_POOLS.find(p => p.id === selectedPoolId.value)!)
 
   const selectedInputToken = computed(() => {
     const pool = selectedPool.value
@@ -112,7 +112,7 @@ export const useZapBpt = () => {
   })
 
   watch(selectedPoolId, () => {
-    const pool = POOLS.find(p => p.id === selectedPoolId.value)
+    const pool = ZAP_POOLS.find(p => p.id === selectedPoolId.value)
     if (pool) {
       inputTokenAddress.value = pool.inputTokens[0].address
       inputAmount.value = ''
@@ -139,15 +139,15 @@ export const useZapBpt = () => {
     return isConnected.value
       && inputAmountNano.value > 0n
       && !isInsufficient.value
-      && expectedBptFromZap.value > 0n
+      && expectedOutputFromZap.value > 0n
       && !quoteError.value
       && phase.value === 'input'
   })
 
   function resetState() {
     phase.value = 'input'
-    expectedBptFromZap.value = 0n
-    bptReceivedFromZap.value = 0n
+    expectedOutputFromZap.value = 0n
+    outputReceivedFromZap.value = 0n
     quoteError.value = null
   }
 
@@ -163,12 +163,13 @@ export const useZapBpt = () => {
   watch([selectedInputToken, isConnected], () => updateBalance(), { immediate: true })
 
   const fetchZapPreview = useDebounceFn(async () => {
-    expectedBptFromZap.value = 0n
+    expectedOutputFromZap.value = 0n
     quoteError.value = null
 
     const pool = selectedPool.value
+    const token = selectedInputToken.value
     const input = inputAmountNano.value
-    if (!pool || input <= 0n) return
+    if (!pool || !token || input <= 0n) return
     if (!currentChainId.value) return
     if (!address.value) return
 
@@ -187,28 +188,29 @@ export const useZapBpt = () => {
           input,
           slippage.value,
         )
-        expectedBptFromZap.value = expectedBptOut
+        expectedOutputFromZap.value = expectedBptOut
       }
       else {
         const ensoRoute = await getEnsoRoute({
           chainId: currentChainId.value,
           fromAddress: address.value! as Address,
-          tokenIn: pool.borrowAsset as Address,
-          tokenOut: pool.bptAddress as Address,
+          tokenIn: token.address as Address,
+          tokenOut: pool.outputToken.address as Address,
           amountIn: input,
           receiver: address.value! as Address,
           slippage: slippage.value,
         })
-        expectedBptFromZap.value = BigInt(ensoRoute.amountOut)
+        expectedOutputFromZap.value = BigInt(ensoRoute.amountOut)
       }
     }
-    catch (e: any) {
+    catch (e: unknown) {
       if (e instanceof EnsoRouteNotFoundError) {
         quoteError.value = e.message
-        expectedBptFromZap.value = 0n
+        expectedOutputFromZap.value = 0n
       }
       else {
-        quoteError.value = e?.message || 'Failed to get zap preview'
+        const err = e as ZapError
+        quoteError.value = err.message || 'Failed to get zap preview'
         logWarn('zap-bpt/preview', e)
       }
     }
@@ -223,14 +225,15 @@ export const useZapBpt = () => {
       fetchZapPreview()
     }
     else {
-      expectedBptFromZap.value = 0n
+      expectedOutputFromZap.value = 0n
       quoteError.value = null
     }
   })
 
   async function executeZapIn() {
     const pool = selectedPool.value
-    if (!pool || !address.value) return
+    const token = selectedInputToken.value
+    if (!pool || !token || !address.value) return
 
     isZapping.value = true
 
@@ -238,8 +241,8 @@ export const useZapBpt = () => {
       const input = inputAmountNano.value
       const userAddr = address.value as Address
 
-      const bptBalanceBefore = await readContract(wagmiConfig, {
-        address: pool.bptAddress as Address,
+      const outputBalanceBefore = await readContract(wagmiConfig, {
+        address: pool.outputToken.address as Address,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: [userAddr],
@@ -251,7 +254,7 @@ export const useZapBpt = () => {
         const fullEntry = adapterEntry as BptAdapterConfigEntry
         const { minBptOut } = await previewAdapterZapIn(wagmiConfig, fullEntry, input, slippage.value)
         const adapterAddr = fullEntry.adapter as Address
-        const inputAddr = pool.borrowAsset as Address
+        const inputAddr = token.address as Address
 
         const currentAllowance = await readContract(wagmiConfig, {
           address: inputAddr,
@@ -281,15 +284,15 @@ export const useZapBpt = () => {
         const ensoRoute = await getEnsoRoute({
           chainId: currentChainId.value,
           fromAddress: userAddr,
-          tokenIn: pool.borrowAsset as Address,
-          tokenOut: pool.bptAddress as Address,
+          tokenIn: token.address as Address,
+          tokenOut: pool.outputToken.address as Address,
           amountIn: input,
           receiver: userAddr,
           slippage: slippage.value,
         })
 
         const ensoRouter = ensoRoute.tx.to as Address
-        const inputAddr = pool.borrowAsset as Address
+        const inputAddr = token.address as Address
 
         const currentAllowance = await readContract(wagmiConfig, {
           address: inputAddr,
@@ -315,26 +318,27 @@ export const useZapBpt = () => {
         await waitForTransactionReceipt(wagmiConfig, { hash })
       }
 
-      const bptBalanceAfter = await readContract(wagmiConfig, {
-        address: pool.bptAddress as Address,
+      const outputBalanceAfter = await readContract(wagmiConfig, {
+        address: pool.outputToken.address as Address,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: [userAddr],
       })
 
-      bptReceivedFromZap.value = bptBalanceAfter - bptBalanceBefore
+      outputReceivedFromZap.value = outputBalanceAfter - outputBalanceBefore
       phase.value = 'done'
-      showSuccess(`Zap complete — ${formatUnits(bptReceivedFromZap.value, 18)} BPT received`)
+      showSuccess(`Zap complete — ${formatUnits(outputReceivedFromZap.value, pool.outputToken.decimals)} ${pool.outputToken.symbol} received`)
 
       await updateBalance()
     }
-    catch (e: any) {
+    catch (e: unknown) {
       if (e instanceof EnsoRouteNotFoundError) {
         quoteError.value = e.message
       }
       else {
+        const err = e as ZapError
         logWarn('zap-bpt/zap-in', e)
-        showError(e?.shortMessage || e?.message || 'Zap failed')
+        showError(err.shortMessage || err.message || 'Zap failed')
       }
     }
     finally {
@@ -343,7 +347,7 @@ export const useZapBpt = () => {
   }
 
   return {
-    pools: POOLS,
+    pools: ZAP_POOLS,
 
     selectedPoolId,
     selectedPool,
@@ -353,8 +357,8 @@ export const useZapBpt = () => {
 
     inputAmountNano,
     walletBalance,
-    expectedBptFromZap,
-    bptReceivedFromZap,
+    expectedOutputFromZap,
+    outputReceivedFromZap,
     isInsufficient,
 
     phase,

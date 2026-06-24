@@ -23,6 +23,8 @@ import { formatLiquidationBuffer as formatLiqBuffer, calculateRoe, computeNextHe
 import { nanoToValue } from '~/utils/crypto-utils'
 import { computeMaxMultiplier } from '~/utils/multiply-math'
 import { isOperationBlocked } from '~/utils/operationGuardRegistry'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { HIDDEN_COLLATERAL_VAULTS } from '~/entities/hiddenCollateralVaults'
 
 const route = useRoute()
 const router = useRouter()
@@ -113,6 +115,13 @@ const reviewMultiplyLabel = computed(() => {
 const multiplyLongVault = computed(() => position.value?.collateral)
 const multiplyShortVault = computed(() => position.value?.borrow)
 const multiplySubAccount = computed(() => position.value?.subAccount || null)
+const isDeprecatedMultiply = computed(() =>
+  !!multiplyLongVault.value
+  && (
+    HIDDEN_COLLATERAL_VAULTS.has(multiplyLongVault.value.address.toLowerCase())
+    || isVaultDeprecated(multiplyLongVault.value.address)
+  ),
+)
 useOperationGuard(computed(() => [multiplySupplyVault.value?.address, multiplyLongVault.value?.address, multiplyShortVault.value?.address].filter(Boolean)))
 
 const pairAssets = computed(() => {
@@ -521,6 +530,10 @@ const requestMultiplyQuote = useDebounceFn(async () => {
     resetMultiplyQuoteState()
     return
   }
+  if (isDeprecatedMultiply.value) {
+    resetMultiplyQuoteState()
+    return
+  }
 
   const debtAmount = multiplyDebtAmountNano.value
   if (!debtAmount || debtAmount <= 0n) {
@@ -552,10 +565,8 @@ const requestMultiplyQuote = useDebounceFn(async () => {
     isRepay: false,
   }
 
-  // Check if this is an adapter-only vault (AZND/AUSD/LOAZND)
-  const ADAPTER_ONLY_VAULTS = new Set([
-    '0x2067936155c7db57b1cdcf776b04b9678c245626',
-  ])
+  // Check if this is an adapter-only vault.
+  const ADAPTER_ONLY_VAULTS = new Set<string>()
   const collateralVaultAddr = multiplyLongVault.value.address
   const adapterEntry = ADAPTER_ONLY_VAULTS.has(collateralVaultAddr.toLowerCase())
     ? (bptAdapterConfig[collateralVaultAddr.toLowerCase()] || bptAdapterConfig[collateralVaultAddr])
@@ -630,7 +641,7 @@ const onMultiplierInput = () => {
 
 const submitMultiply = async () => {
   if (isOperationBlocked.value) return
-  if (isPreparing.value || isGeoBlocked.value || isMultiplyRestricted.value) return
+  if (isPreparing.value || isDeprecatedMultiply.value || isGeoBlocked.value || isMultiplyRestricted.value) return
   isPreparing.value = true
   try {
     await guardWithPriceImpact(async () => {
@@ -746,6 +757,7 @@ const sendMultiply = async () => {
 }
 
 const isMultiplySubmitDisabled = computed(() => {
+  if (isDeprecatedMultiply.value) return true
   if (!isConnected.value) return false
   if (!multiplySupplyVault.value || !multiplyLongVault.value || !multiplyShortVault.value) {
     return true
@@ -774,7 +786,7 @@ const isMultiplyRestricted = computed(() => {
   return (long && isVaultRestrictedByCountry(long.address))
     || (short && isVaultRestrictedByCountry(short.address))
 })
-const reviewMultiplyDisabled = computed(() => isGeoBlocked.value || isMultiplyRestricted.value || isMultiplySubmitDisabled.value)
+const reviewMultiplyDisabled = computed(() => isDeprecatedMultiply.value || isGeoBlocked.value || isMultiplyRestricted.value || isMultiplySubmitDisabled.value)
 
 const loadPosition = async () => {
   if (!isConnected.value && !isSpyMode.value) {
@@ -897,6 +909,13 @@ watch([multiplyMinMultiplier, multiplyMaxMultiplier], ([min, max]) => {
             :readonly="true"
           />
 
+          <UiToast
+            v-if="isDeprecatedMultiply"
+            title="Deprecated market"
+            description="This collateral market is deprecated. New multiply actions are disabled; existing borrowers can repay, unwind, and withdraw."
+            variant="warning"
+            size="compact"
+          />
           <UiToast
             v-if="isGeoBlocked"
             title="Region restricted"

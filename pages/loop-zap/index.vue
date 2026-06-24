@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { useAppKit } from '@reown/appkit/vue'
 import { formatUnits } from 'viem'
 import { useZapBpt } from '~/composables/useLoopZap'
+import { getDisplayAssetSymbolByAddress } from '~/utils/asset-display'
 
-defineOptions({ name: 'ZapBptPage' })
+defineOptions({ name: 'ZapCollateralPage' })
 
 const {
   pools,
@@ -12,8 +14,8 @@ const {
   selectedInputToken,
   inputAmountNano,
   walletBalance,
-  expectedBptFromZap,
-  bptReceivedFromZap,
+  expectedOutputFromZap,
+  outputReceivedFromZap,
   isInsufficient,
   phase,
   isQuoting,
@@ -39,14 +41,21 @@ const walletBalanceFormatted = computed(() => {
   return trimDecimals(formatUnits(walletBalance.value, token.decimals), 6)
 })
 
-const expectedBptFormatted = computed(() => {
-  if (expectedBptFromZap.value <= 0n) return '0'
-  return trimDecimals(formatUnits(expectedBptFromZap.value, 18), 6)
+const outputTokenSymbol = computed(() => {
+  const token = selectedPool.value?.outputToken
+  return token ? getDisplayAssetSymbolByAddress(token.address, token.symbol) : ''
 })
 
-const bptReceivedFormatted = computed(() => {
-  if (bptReceivedFromZap.value <= 0n) return '0'
-  return trimDecimals(formatUnits(bptReceivedFromZap.value, 18), 6)
+const expectedOutputFormatted = computed(() => {
+  const token = selectedPool.value?.outputToken
+  if (!token || expectedOutputFromZap.value <= 0n) return '0'
+  return trimDecimals(formatUnits(expectedOutputFromZap.value, token.decimals), 6)
+})
+
+const outputReceivedFormatted = computed(() => {
+  const token = selectedPool.value?.outputToken
+  if (!token || outputReceivedFromZap.value <= 0n) return '0'
+  return trimDecimals(formatUnits(outputReceivedFromZap.value, token.decimals), 6)
 })
 
 const setMax = () => {
@@ -62,7 +71,7 @@ const zapButtonLabel = computed(() => {
   if (isZapping.value) return 'Zapping...'
   if (quoteError.value) return 'Quote Error'
   if (!inputAmountNano.value || inputAmountNano.value <= 0n) return 'Enter Amount'
-  return `Zap ${selectedInputToken.value?.symbol} → BPT`
+  return 'Zap Collateral'
 })
 
 const isZapButtonDisabled = computed(() => {
@@ -83,8 +92,8 @@ const handleZap = () => {
 <template>
   <section class="flex flex-col min-h-[calc(100dvh-178px)]">
     <BasePageHeader
-      title="Zap BPT"
-      description="Convert AUSD or WMON into Balancer Pool Tokens"
+      title="Zap Collateral"
+      description="Convert AUSD or WMON into supported collateral tokens"
       class="mb-24"
       arrow-right
     />
@@ -93,7 +102,7 @@ const handleZap = () => {
       <!-- Pool Selector -->
       <div class="bg-surface-secondary rounded-xl p-24 shadow-card">
         <h3 class="text-body-sm font-medium text-content-tertiary mb-12">
-          Select Pool
+          Select Collateral
         </h3>
         <div class="grid grid-cols-2 gap-8">
           <button
@@ -109,7 +118,7 @@ const handleZap = () => {
               {{ pool.name }}
             </div>
             <div class="text-body-xs mt-4 opacity-70">
-              {{ pool.borrowAssetSymbol }}
+              {{ pool.inputTokens.map(token => token.symbol).join(' / ') }}
             </div>
           </button>
         </div>
@@ -165,14 +174,14 @@ const handleZap = () => {
             <span class="text-content-primary font-medium">{{ inputAmount }} {{ selectedInputToken?.symbol }}</span>
           </div>
           <div
-            v-if="expectedBptFromZap > 0n"
-            class="flex justify-between text-body-sm"
+            v-if="expectedOutputFromZap > 0n"
+            class="flex justify-between gap-12 text-body-sm"
           >
             <span class="text-content-tertiary">You Receive (est.)</span>
-            <span class="text-content-primary font-medium">~{{ expectedBptFormatted }} BPT</span>
+            <span class="text-content-primary font-medium text-right min-w-0">~{{ expectedOutputFormatted }} {{ outputTokenSymbol }}</span>
           </div>
-          <div class="flex justify-between text-body-sm">
-            <span class="text-content-tertiary">Pool</span>
+          <div class="flex justify-between gap-12 text-body-sm">
+            <span class="text-content-tertiary">Collateral</span>
             <span class="text-content-primary font-medium">{{ selectedPool.name }}</span>
           </div>
         </div>
@@ -225,7 +234,7 @@ const handleZap = () => {
                 Zap Complete
               </div>
               <div class="text-body-xs text-content-tertiary">
-                {{ bptReceivedFormatted }} BPT received in your wallet
+                {{ outputReceivedFormatted }} {{ outputTokenSymbol }} received in your wallet
               </div>
             </div>
           </div>

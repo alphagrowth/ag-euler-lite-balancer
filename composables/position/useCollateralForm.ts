@@ -34,6 +34,8 @@ import { nanoToValue } from '~/utils/crypto-utils'
 import { normalizeAddressOrEmpty } from '~/utils/accountPositionHelpers'
 import type { WrapperRouteConfig } from '~/entities/wrapperRoutes'
 import { getDisplayAssetSymbol } from '~/utils/asset-display'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { HIDDEN_COLLATERAL_VAULTS } from '~/entities/hiddenCollateralVaults'
 
 export interface UseCollateralFormOptions {
   mode: 'supply' | 'withdraw'
@@ -169,9 +171,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
 
   // --- Adapter vault detection (zapIn direction only, supply mode) ---
   // Vaults where DEX routing doesn't work and only the adapter zap can produce BPT.
-  const ADAPTER_ONLY_VAULTS = new Set([
-    '0x2067936155c7db57b1cdcf776b04b9678c245626', // AZND/AUSD/LOAZND
-  ])
+  const ADAPTER_ONLY_VAULTS = new Set<string>()
 
   const getAdapterEntryForVault = (vaultAddr: string): BptAdapterConfigEntry | null => {
     if (!ADAPTER_ONLY_VAULTS.has(vaultAddr.toLowerCase())) return null
@@ -194,6 +194,14 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   const borrowVault = computed(() => position.value?.borrow)
   const collateralAssets = computed(() => selectedCollateralAssets.value)
   const asset = computed(() => collateralVault.value?.asset)
+  const isDeprecatedSupply = computed(() =>
+    options.mode === 'supply'
+    && !!collateralVault.value
+    && (
+      HIDDEN_COLLATERAL_VAULTS.has(collateralVault.value.address.toLowerCase())
+      || isVaultDeprecated(collateralVault.value.address)
+    ),
+  )
 
   const priceInvert = usePriceInvert(
     () => getDisplayAssetSymbol(collateralVault.value?.asset),
@@ -374,6 +382,10 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     swapQuoteError.value = null
 
     if (!options.needsSwap.value || !amount.value || !asset.value) {
+      resetSwapQuoteState()
+      return
+    }
+    if (isDeprecatedSupply.value) {
       resetSwapQuoteState()
       return
     }
@@ -568,6 +580,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   })
 
   const isSubmitDisabled = computed(() => {
+    if (isDeprecatedSupply.value) return true
     if (!isConnected.value) return false
     if (options.effectiveBalance.value < valueToNano(amount.value, activeAssetDecimals.value)) return true
     if (isLoading.value || !(+amount.value) || !!estimatesError.value || isEstimatesLoading.value) return true
@@ -692,7 +705,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
   // --- Submit ---
   const submit = async () => {
     if (isOperationBlocked.value) return
-    if (isPreparing.value || isGeoBlocked.value || isSwapRestricted.value) return
+    if (isPreparing.value || isDeprecatedSupply.value || isGeoBlocked.value || isSwapRestricted.value) return
     isPreparing.value = true
     try {
       await guardWithPriceImpact(async () => {
@@ -900,6 +913,7 @@ export const useCollateralForm = (options: UseCollateralFormOptions) => {
     isSwapRestricted,
     isSubmitDisabled,
     submitDisabled,
+    isDeprecatedSupply,
     submitLabel,
     simulationError,
     clearSimulationError,

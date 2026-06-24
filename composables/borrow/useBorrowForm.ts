@@ -395,9 +395,7 @@ export const useBorrowForm = (options: UseBorrowFormOptions) => {
   // --- Adapter vault detection ---
   // Vaults where DEX routing doesn't work and only the adapter zap can produce BPT.
   // The Stableswap vault (0x5795...) works via Enso DEX routing so it's not adapter-only.
-  const ADAPTER_ONLY_VAULTS = new Set([
-    '0x2067936155c7db57b1cdcf776b04b9678c245626', // AZND/AUSD/LOAZND
-  ])
+  const ADAPTER_ONLY_VAULTS = new Set<string>()
 
   const getAdapterEntryForVault = (vaultAddr: string) => {
     if (!ADAPTER_ONLY_VAULTS.has(vaultAddr.toLowerCase())) return null

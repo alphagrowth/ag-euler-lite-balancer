@@ -15,6 +15,8 @@ import { nanoToValue } from '~/utils/crypto-utils'
 import { useBorrowForm } from '~/composables/borrow/useBorrowForm'
 import { useMultiplyForm } from '~/composables/borrow/useMultiplyForm'
 import { getDisplayAssetSymbol } from '~/utils/asset-display'
+import { isVaultDeprecated } from '~/utils/eulerLabelsUtils'
+import { HIDDEN_COLLATERAL_VAULTS } from '~/entities/hiddenCollateralVaults'
 
 const router = useRouter()
 const route = useRoute()
@@ -114,6 +116,9 @@ const savingCollateral = computed(() => {
 // --- Product labels ---
 const borrowProduct = useEulerProductOfVault(computed(() => borrowVault.value?.address || ''))
 const collateralProduct = useEulerProductOfVault(computed(() => collateralVault.value?.address || ''))
+const isDeprecatedAddress = (address: string) =>
+  HIDDEN_COLLATERAL_VAULTS.has(address.toLowerCase()) || isVaultDeprecated(address)
+const isDeprecatedPair = computed(() => isDeprecatedAddress(collateralAddress) || isDeprecatedAddress(borrowAddress))
 
 // --- Composable instantiation ---
 const borrow = useBorrowForm({
@@ -173,8 +178,8 @@ const reviewMultiplyLabel = computed(() => {
 })
 
 // --- Submit disabled ---
-const reviewBorrowDisabled = computed(() => isGeoBlocked.value || isBorrowRestricted.value || borrow.isBorrowSwapRestricted.value || borrow.isSubmitDisabled.value)
-const reviewMultiplyDisabled = computed(() => isGeoBlocked.value || isMultiplyRestricted.value || multiply.isMultiplySubmitDisabled.value)
+const reviewBorrowDisabled = computed(() => isDeprecatedPair.value || isGeoBlocked.value || isBorrowRestricted.value || borrow.isBorrowSwapRestricted.value || borrow.isSubmitDisabled.value)
+const reviewMultiplyDisabled = computed(() => isDeprecatedPair.value || isGeoBlocked.value || isMultiplyRestricted.value || multiply.isMultiplySubmitDisabled.value)
 
 // --- Tabs ---
 const formTabs = computed(() => [
@@ -473,6 +478,14 @@ watch(formTab, () => {
                 rounded
                 pills
                 :list="formTabs"
+              />
+
+              <UiToast
+                v-if="isDeprecatedPair"
+                title="Deprecated market"
+                description="This collateral market is deprecated. New borrow and multiply actions are disabled; existing borrowers can repay, unwind, and withdraw."
+                variant="warning"
+                size="compact"
               />
 
               <template v-if="formTab === 'borrow'">

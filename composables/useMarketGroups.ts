@@ -5,7 +5,13 @@ import type { MarketGroup, MarketGroupMetrics, CuratorGroup } from '~/entities/l
 import type { AnyVault } from '~/composables/useVaultRegistry'
 import { getVaultUtilization } from '~/entities/vault'
 import { getAssetUsdValueOrZero } from '~/services/pricing/priceProvider'
-import { isVaultNotExplorable, isVaultFeatured } from '~/utils/eulerLabelsUtils'
+import { HIDDEN_COLLATERAL_VAULTS } from '~/entities/hiddenCollateralVaults'
+import {
+  isVaultNotExplorable,
+  isVaultFeatured,
+  isVaultNotExplorableBorrow,
+  isVaultNotExplorableLend,
+} from '~/utils/eulerLabelsUtils'
 
 // -- Helpers --
 
@@ -45,6 +51,12 @@ const getBorrowAPY = (vault: AnyVault): bigint => {
   if (!isVaultType(vault)) return 0n
   return vault.interestRateInfo.borrowAPY
 }
+
+const isHiddenFromExplore = (address: string): boolean =>
+  HIDDEN_COLLATERAL_VAULTS.has(address.toLowerCase())
+  || isVaultNotExplorable(address)
+  || isVaultNotExplorableBorrow(address)
+  || isVaultNotExplorableLend(address)
 
 // -- Step 1: Product-Label Groups --
 
@@ -328,7 +340,7 @@ export const useMarketGroups = () => {
       .map(entry => entry.vault)
       .filter((vault) => {
         const address = getVaultAddress(vault)
-        return address ? !isVaultNotExplorable(address) : true
+        return address ? !isHiddenFromExplore(address) : true
       })
   })
 
