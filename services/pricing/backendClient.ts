@@ -7,7 +7,7 @@ import { logWarn } from '~/utils/errorHandling'
 // -------------------------------------------
 
 /**
- * Response shape from the price backend (indexer /v1/prices endpoint).
+ * Response shape from the price proxy.
  */
 export type BackendPriceData = {
   /** Asset address */
@@ -23,7 +23,7 @@ export type BackendPriceData = {
 }
 
 /**
- * Response from /v1/prices endpoint.
+ * Response from /api/prices endpoint.
  * Flat object keyed by lowercase address.
  */
 export type BackendPriceResponse = Record<string, BackendPriceData>
@@ -32,7 +32,9 @@ export type BackendPriceResponse = Record<string, BackendPriceData>
 // Configuration
 // -------------------------------------------
 
-let backendEndpoint: string | undefined
+const DEFAULT_BACKEND_ENDPOINT = '/api/prices'
+
+let backendEndpoint: string | undefined = DEFAULT_BACKEND_ENDPOINT
 let currentChainId: number | undefined
 
 /**
@@ -40,7 +42,7 @@ let currentChainId: number | undefined
  * Call this when the app initializes or chain changes.
  */
 export const configureBackend = (endpoint: string | undefined, chainId?: number) => {
-  backendEndpoint = endpoint || undefined
+  backendEndpoint = endpoint || DEFAULT_BACKEND_ENDPOINT
   currentChainId = chainId
 }
 
@@ -61,6 +63,11 @@ type CachedPrice = {
 }
 
 const priceCache = new Map<string, CachedPrice>()
+
+const getEndpointUrl = (endpoint: string): URL => {
+  const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+  return new URL(endpoint, base)
+}
 
 const getCacheKey = (assetAddress: string, chainId?: number): string => {
   return `${chainId || currentChainId || 1}:${assetAddress.toLowerCase()}`
@@ -191,7 +198,7 @@ const fetchBackendPricesBatch = async (
 
   try {
     // Build request URL
-    const url = new URL('/v1/prices', backendEndpoint)
+    const url = getEndpointUrl(backendEndpoint)
     url.searchParams.set('chainId', String(effectiveChainId))
     url.searchParams.set('assets', missingAddresses.join(','))
 

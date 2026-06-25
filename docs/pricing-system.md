@@ -19,14 +19,13 @@ The pricing functions support two price sources:
 
 ### Backend Configuration
 
-Configure the backend URL in `entities/config.ts`:
+Configure the Euler V3 API URL in `.env` or Doppler:
 
 ```bash
-# In .env or Doppler
-PRICE_API_URL=https://api.example.com/prices  # Empty = disabled
+V3_API_URL=https://v3.euler.finance
 ```
 
-Use `usePriceBackend()` composable to access the configuration:
+Use `usePriceBackend()` composable to initialize the same-origin price proxy:
 
 ```typescript
 const { backendConfig, isBackendEnabled } = usePriceBackend()
@@ -44,7 +43,8 @@ The backend client (`services/pricing/backendClient.ts`) provides price fetching
 - `BackendPriceResponse` - `Record<string, BackendPriceData>` keyed by lowercase address
 
 **API Endpoint:**
-- URL: `GET /v1/prices?chainId={chainId}&assets={addr1},{addr2},...`
+- Client URL: `GET /api/prices?chainId={chainId}&assets={addr1},{addr2},...`
+- Upstream URL: `GET {V3_API_URL}/v3/prices?chainId={chainId}&addresses={addr1},{addr2},...`
 - Response: Flat object keyed by lowercase address
 
 **Caching:**
