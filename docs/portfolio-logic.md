@@ -240,9 +240,10 @@ getCollateralUsdValue(amount, liabilityVault, collateralVault, source)
 
 ### Backend Price Client
 
-The backend (`services/pricing/backendClient.ts`) provides off-chain prices from the Euler indexer:
+The backend (`services/pricing/backendClient.ts`) provides off-chain prices through the local Euler V3 price proxy:
 
-- **Endpoint**: `GET /v1/prices?chainId={id}&assets={addr1,addr2,...}`
+- **Client endpoint**: `GET /api/prices?chainId={id}&assets={addr1,addr2,...}`
+- **Upstream endpoint**: `GET {V3_API_URL}/v3/prices?chainId={id}&addresses={addr1,addr2,...}`
 - **Response**: `Record<string, { address, price, source, symbol, timestamp }>`
 - **Batching**: Requests within a 50ms window are combined into a single HTTP call
 - **Cache**: 60-second TTL per asset per chain

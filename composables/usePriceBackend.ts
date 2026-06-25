@@ -4,8 +4,8 @@ import type { BackendConfig } from '~/services/pricing'
 /**
  * Composable for accessing price backend configuration.
  *
- * The backend URL is configured via PRICE_API_URL environment variable.
- * When empty, the system uses on-chain prices only.
+ * Prices are fetched through the same-origin /api/prices proxy, which calls
+ * Euler V3 server-side.
  *
  * Usage:
  * ```typescript
@@ -17,26 +17,25 @@ import type { BackendConfig } from '~/services/pricing'
  * ```
  */
 export const usePriceBackend = () => {
-  const config = useEulerConfig()
   const { chainId } = useEulerAddresses()
 
-  const backendUrl = (config as { PRICE_API_URL?: string }).PRICE_API_URL || ''
+  const backendUrl = '/api/prices'
 
   // Initial configuration
-  configureBackend(backendUrl || undefined, chainId.value)
+  configureBackend(backendUrl, chainId.value)
 
   // On chain switch: clear stale cache first, then reconfigure with new chainId
   watch(chainId, () => {
     clearBackendCache()
-    configureBackend(backendUrl || undefined, chainId.value)
+    configureBackend(backendUrl, chainId.value)
   })
 
   const backendConfig = computed<BackendConfig>(() => ({
-    url: backendUrl || undefined,
+    url: backendUrl,
     chainId: chainId.value,
   }))
 
-  const isBackendEnabled = computed(() => !!backendUrl)
+  const isBackendEnabled = computed(() => true)
 
   return {
     /**
